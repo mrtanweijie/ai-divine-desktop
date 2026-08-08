@@ -4,6 +4,8 @@
   "description": "Main window default capability",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "core:window:allow-start-dragging",
+    "dialog:default"
   ]
 }

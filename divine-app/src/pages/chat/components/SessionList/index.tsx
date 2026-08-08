@@ -15,7 +15,6 @@ interface SessionListProps {
   onNew: () => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
-  onExport: (id: string, format: "markdown" | "text") => void;
   onOpenSettings: () => void;
 }
 
@@ -27,7 +26,6 @@ export function SessionList({
   onNew,
   onRename,
   onDelete,
-  onExport,
   onOpenSettings,
 }: SessionListProps) {
   const groups = useMemo(() => {
@@ -77,7 +75,6 @@ export function SessionList({
                   active={session.id === selectedId}
                   onSelect={onSelect}
                   onRename={onRename}
-                  onExport={onExport}
                   onDelete={onDelete}
                 />
               ))}

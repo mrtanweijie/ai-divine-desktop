@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import "./index.less";
 
 export interface DropdownItem {
@@ -47,16 +55,14 @@ export function Dropdown({
 
   return (
     <div className="ui-dropdown" ref={ref}>
-      <button
-        type="button"
-        className="ui-dropdown-trigger"
-        onClick={() => setOpen((value) => !value)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={label}
-      >
-        {trigger}
-      </button>
+      {isValidElement(trigger)
+        ? cloneElement(trigger as ReactElement, {
+            onClick: () => setOpen((value) => !value),
+            "aria-haspopup": "menu",
+            "aria-expanded": open,
+            ...(label ? { "aria-label": label } : {}),
+          })
+        : trigger}
       {open && (
         <div className={`ui-menu ui-menu--${align}`} role="menu">
           {items.map((item) => (

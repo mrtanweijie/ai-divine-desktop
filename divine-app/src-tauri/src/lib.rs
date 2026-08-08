@@ -7,6 +7,7 @@ use tauri::RunEvent;
 pub fn run() {
     let app = tauri::Builder::default()
         .manage(SidecarState::default())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             if let Err(err) = services::sidecar::spawn_and_monitor(app.handle().clone()) {
                 eprintln!("[sidecar] 启动失败: {err}");
@@ -18,6 +19,8 @@ pub fn run() {
             commands::sidecar::stop_sidecar,
             commands::sidecar::sidecar_health,
             commands::sidecar::get_sidecar_env,
+            commands::system::open_local_file,
+            commands::system::open_file_location,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

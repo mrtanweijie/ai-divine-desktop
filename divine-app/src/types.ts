@@ -8,7 +8,7 @@ export interface Session {
 export interface MessagePart {
   id: string;
   message_id: string;
-  type: "think" | "tool";
+  type: "think" | "tool" | "file";
   content: string;
   order: number;
 }
@@ -28,6 +28,7 @@ export interface ToolEvent {
   message: string;
   result?: {
     file_name?: string;
+    filepath?: string;
     download_url?: string;
     file_size?: number;
     message?: string;
@@ -53,8 +54,16 @@ export interface ChatMessage {
   created_at: string;
   think?: string;
   tools: ToolEvent[];
+  files?: ChatFile[];
   streaming?: boolean;
   error?: string;
+}
+
+export interface ChatFile {
+  name: string;
+  size?: number;
+  content?: string;
+  path?: string;
 }
 
 export interface Settings {
@@ -62,7 +71,9 @@ export interface Settings {
   base_url: string;
   model: string;
   has_api_key: boolean;
+  has_glm_key: boolean;
   workspace_dir: string;
+  username: string;
   think_default: boolean;
   context_limit: number;
   tools: ToolDefinition[];

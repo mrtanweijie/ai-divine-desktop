@@ -19,7 +19,7 @@ class DeepSeekLLM:
         think: bool = False,
     ) -> AsyncIterator[dict[str, Any]]:
         payload: dict[str, Any] = {
-            "model": self.settings.get("model") or "deepseek-chat",
+            "model": self.settings.get("model") or "deepseek-v4-flash",
             "messages": messages,
             "stream": True,
             "temperature": 0.7,
@@ -130,6 +130,20 @@ class MockLLM:
         wants_note = any(
             word in lowered for word in ("笔记", "note", "markdown", "md 文件", "md文件")
         )
+        wants_read = any(
+            word in lowered for word in ("读取", "读一下", "read", "文件内容")
+        )
+        wants_image = any(
+            word in lowered for word in ("图片", "image", "png", "jpg", "jpeg", "webp")
+        )
+        if wants_read:
+            for tool in tools:
+                if tool.get("function", {}).get("name") == "read_file":
+                    return tool
+        if wants_image:
+            for tool in tools:
+                if tool.get("function", {}).get("name") == "read_image":
+                    return tool
         for tool in tools:
             name = tool.get("function", {}).get("name", "")
             if wants_word and name == "word_document":
@@ -144,7 +158,7 @@ class MockLLM:
     def _mock_args(tool_name: str, question: str) -> dict[str, Any]:
         if tool_name == "word_document":
             return {
-                "title": "AI Workspace 项目周报",
+                "title": "AI Divine 项目周报",
                 "sections": [
                     {
                         "heading": "本周进展",
@@ -167,10 +181,21 @@ class MockLLM:
                     ["桌面打包", "桌面端", "未开始", "0%"],
                 ],
             }
+        if tool_name == "read_file":
+            return {
+                "file_path": "notes/AI_Divine_使用笔记.md",
+            }
+        if tool_name == "read_image":
+            for marker in ("图片本地路径：", "图片本地路径:"):
+                start = question.find(marker)
+                if start != -1:
+                    rest = question[start + len(marker) :].strip().splitlines()[0]
+                    return {"file_path": rest.strip()}
+            return {"file_path": ""}
         return {
-            "title": "AI Workspace 使用笔记",
+            "title": "AI Divine 使用笔记",
             "content": (
-                "AI Workspace 是本地优先的桌面 AI 助手。\n\n"
+                "AI Divine 是本地优先的桌面 AI 助手。\n\n"
                 "- 所有会话和工具产物默认保存在本地\n"
                 "- 支持深度思考和工具调用状态可视化\n"
                 "- 工具脚本通过 JSON stdin/stdout 与后端通信"
@@ -181,7 +206,7 @@ class MockLLM:
     def _answer(question: str) -> str:
         if "你好" in question or "hello" in question.lower():
             return (
-                "你好，我是 AI Workspace 本地助手。我可以回答问题，也可以帮你生成 "
+                "你好，我是 AI Divine 本地助手。我可以回答问题，也可以帮你生成 "
                 "Word 文档、Excel 表格和 Markdown 笔记。"
             )
         if "工具" in question or "tool" in question.lower():
@@ -193,3 +218,100 @@ class MockLLM:
             "我已经收到你的问题。当前处于本地演示模式：在 `.env` 或设置中填入 "
             "DeepSeek API Key 后，会切换到真实模型流式回答。"
         )
+
+
+class ChatDeepSeekProvider:
+    def __init__(self) -> None:
+        from langchain_deepseek import ChatDeepSeek
+
+        self.settings = settings_store.load()
+        model = self.settings.get("model") or "deepseek-v4-flash"
+        if model in ("", "local", "mock"):
+            model = "deepseek-v4-flash"
+        self.llm = ChatDeepSeek(
+            model=model,
+            api_key=self.settings.get("api_key"),
+            temperature=0.7,
+            streaming=True,
+        )
+
+    async def stream(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        think: bool = False,
+    ) -> AsyncIterator[dict[str, Any]]:
+        from langchain_core.messages import (
+            AIMessage,
+            HumanMessage,
+            SystemMessage,
+            ToolMessage,
+        )
+
+        converted: list[Any] = []
+        for item in messages:
+            role = item.get("role")
+            content = item.get("content") or ""
+            if role == "system":
+                converted.append(SystemMessage(content=content))
+            elif role == "assistant":
+                tool_calls = item.get("tool_calls")
+                if tool_calls:
+                    converted_tool_calls = []
+                    for call in tool_calls:
+                        function = call.get("function") or {}
+                        try:
+                            args = json.loads(function.get("arguments") or "{}")
+                        except json.JSONDecodeError:
+                            args = {}
+                        converted_tool_calls.append(
+                            {
+                                "id": call.get("id") or "",
+                                "name": function.get("name") or "",
+                                "args": args,
+                                "type": "function",
+                            }
+                        )
+                    converted.append(
+                        AIMessage(content=content, tool_calls=converted_tool_calls)
+                    )
+                else:
+                    converted.append(AIMessage(content=content))
+            elif role == "tool":
+                converted.append(
+                    ToolMessage(
+                        content=content,
+                        tool_call_id=item.get("tool_call_id") or "",
+                    )
+                )
+            else:
+                converted.append(HumanMessage(content=content))
+
+        bound = self.llm.bind_tools(tools) if tools else self.llm
+        calls: dict[int, dict[str, str]] = {}
+        async for chunk in bound.astream(converted):
+            reasoning = chunk.additional_kwargs.get("reasoning_content")
+            if reasoning:
+                yield {"type": "think", "content": reasoning}
+            content = chunk.content
+            if content:
+                yield {"type": "message", "content": content}
+            for call_chunk in getattr(chunk, "tool_call_chunks", []) or []:
+                index = int(call_chunk.get("index") or 0)
+                entry = calls.setdefault(
+                    index, {"id": "", "name": "", "arguments": ""}
+                )
+                if call_chunk.get("id"):
+                    entry["id"] = call_chunk["id"]
+                if call_chunk.get("name"):
+                    entry["name"] = call_chunk["name"]
+                entry["arguments"] += call_chunk.get("args") or ""
+
+        for index, call in calls.items():
+            yield {
+                "type": "tool_call",
+                "index": index,
+                "id": call["id"],
+                "name": call["name"],
+                "arguments": call["arguments"],
+            }

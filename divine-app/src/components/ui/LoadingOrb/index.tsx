@@ -14,8 +14,13 @@ export type OrbState =
 interface LoadingOrbProps {
   state?: OrbState;
   size?: 20 | 64;
+  speed?: number;
 }
 
-export function LoadingOrb({ state = "shaping", size = 20 }: LoadingOrbProps) {
-  return <ThinkingOrb state={state} size={size} />;
+export function LoadingOrb({
+  state = "shaping",
+  size = 20,
+  speed,
+}: LoadingOrbProps) {
+  return <ThinkingOrb state={state} size={size} speed={speed} />;
 }

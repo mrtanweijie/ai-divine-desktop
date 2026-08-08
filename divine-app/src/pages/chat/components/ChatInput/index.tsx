@@ -2,8 +2,6 @@ import {
   ArrowUp,
   FileText,
   Paperclip,
-  Sparkles,
-  Wrench,
   X,
 } from "lucide-react";
 import {
@@ -14,25 +12,25 @@ import {
   type ChangeEvent,
   type MutableRefObject,
 } from "react";
-import type { ToolDefinition } from "@/types";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/Button";
-import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
 import { TextArea } from "@/components/ui/TextArea";
+import type { ChatFile } from "@/types";
+import { isTauri } from "@/services/tauri";
 
 interface ComposerProps {
   disabled: boolean;
-  tools: ToolDefinition[];
-  onSend: (question: string) => void;
+  onSend: (question: string, files: ChatFile[]) => void;
 }
 
 export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
   function ChatInput(
-    { disabled, tools, onSend },
+    { disabled, onSend },
     ref
   ) {
     const [value, setValue] = useState("");
-    const [attached, setAttached] = useState<string | null>(null);
+    const [attached, setAttached] = useState<ChatFile | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const localRef = useRef<HTMLTextAreaElement>(
       null
@@ -58,7 +56,8 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
     const send = () => {
       const question = value.trim();
       if (!question || disabled) return;
-      onSend(question);
+      const files: ChatFile[] = attached ? [attached] : [];
+      onSend(question, files);
       setValue("");
       setAttached(null);
     };
@@ -66,16 +65,26 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
     const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
-      setAttached(file.name);
+      let content = "";
       try {
-        const text = await file.text();
-        const capped = text.slice(0, 8000);
-        const prefix = `请阅读并处理以下附件「${file.name}」：\n\n`;
-        setValue((prev) => `${prefix}\`\`\`\n${capped}\n\`\`\`\n\n${prev}`);
+        content = (await file.text()).slice(0, 10000);
       } catch {
-        setValue((prev) => `${prev}（附件 ${file.name} 无法读取）`);
+        content = "";
       }
+      setAttached({ name: file.name, size: file.size, content });
       if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const pickAttachment = async () => {
+      if (isTauri()) {
+        const selected = await open({ multiple: false });
+        if (typeof selected === "string") {
+          const name = selected.split(/[\\/]/).pop() || selected;
+          setAttached({ name, path: selected });
+        }
+        return;
+      }
+      fileInputRef.current?.click();
     };
 
     return (
@@ -98,7 +107,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
           {attached && (
             <Flex align="center" gap={6} className="attachment-chip">
               <FileText size={13} />
-              <span>{attached}</span>
+              <span>{attached.name}</span>
               <Button
                 variant="icon"
                 size="small"
@@ -119,37 +128,18 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".txt,.md,.json,.csv,.py"
+                accept=".txt,.md,.json,.csv,.py,.png,.jpg,.jpeg,.webp,.gif,.bmp"
                 onChange={(event) => void handleFile(event)}
                 hidden
               />
               <Button
                 variant="icon"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => void pickAttachment()}
                 title="附加文件"
                 aria-label="附加文件"
               >
                 <Paperclip size={16} />
               </Button>
-              <Dropdown
-                label="工具"
-                align="start"
-                items={tools.map((tool) => ({
-                  key: tool.name,
-                  label: tool.name,
-                  description: tool.description,
-                  icon: <Sparkles size={13} />,
-                  onClick: () => {
-                    setValue(toolPrompt(tool));
-                    textareaRef.current?.focus();
-                  },
-                }))}
-                trigger={
-                  <Button variant="icon" title="工具" aria-label="工具">
-                    <Wrench size={16} />
-                  </Button>
-                }
-              />
             </Flex>
             <Button
               variant="primary"
@@ -167,16 +157,3 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
     );
   }
 );
-
-function toolPrompt(tool: ToolDefinition): string {
-  if (tool.name === "word_document") {
-    return "帮我生成一份 Word 文档，主题是项目周报";
-  }
-  if (tool.name === "spreadsheet") {
-    return "帮我生成一份 Excel 表格，内容是项目进度";
-  }
-  if (tool.name === "notes") {
-    return "帮我生成一份 Markdown 笔记，主题是 AI Workspace";
-  }
-  return `请使用 ${tool.name} 工具帮我完成一个任务`;
-}

@@ -8,14 +8,17 @@ import os
 import runpy
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
 
 
 class ToolExecutionError(RuntimeError):
     pass
+
+
+_IN_PROCESS_TOOL_LOCK = threading.Lock()
 
 
 def _run_script_in_process(
@@ -23,31 +26,28 @@ def _run_script_in_process(
 ) -> dict[str, Any]:
     stdin_text = json.dumps(payload, ensure_ascii=False)
 
-    def execute() -> str:
-        old_stdin, old_stdout, old_stderr = sys.stdin, sys.stdout, sys.stderr
-        out = io.StringIO()
-        err = io.StringIO()
-        try:
-            sys.stdin = io.StringIO(stdin_text)
-            sys.stdout = out
-            sys.stderr = err
-            runpy.run_path(str(script), run_name="__main__")
-        except SystemExit:
-            pass
-        except Exception as exc:
-            raise ToolExecutionError(f"工具脚本执行异常: {exc}") from exc
-        finally:
-            sys.stdin, sys.stdout, sys.stderr = old_stdin, old_stdout, old_stderr
-        if err.getvalue().strip():
-            raise ToolExecutionError(
-                "工具脚本错误: " + err.getvalue().strip()[-500:]
-            )
-        return out.getvalue()
+    def execute() -> tuple[str, str]:
+        with _IN_PROCESS_TOOL_LOCK:
+            old_stdin, old_stdout, old_stderr = sys.stdin, sys.stdout, sys.stderr
+            out = io.StringIO()
+            err = io.StringIO()
+            try:
+                sys.stdin = io.StringIO(stdin_text)
+                sys.stdout = out
+                sys.stderr = err
+                runpy.run_path(str(script), run_name="__main__")
+            except SystemExit:
+                pass
+            except Exception as exc:
+                raise ToolExecutionError(f"工具脚本执行异常: {exc}") from exc
+            finally:
+                sys.stdin, sys.stdout, sys.stderr = old_stdin, old_stdout, old_stderr
+            return out.getvalue(), err.getvalue()
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     future = executor.submit(execute)
     try:
-        raw = future.result(timeout=timeout)
+        raw, stderr_text = future.result(timeout=timeout)
     except concurrent.futures.TimeoutError as exc:
         executor.shutdown(wait=False)
         raise ToolExecutionError(f"工具执行超时（{timeout}s）") from exc
@@ -56,8 +56,13 @@ def _run_script_in_process(
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
+        stderr_tail = (
+            stderr_text.strip()[-200:] if stderr_text.strip() else ""
+        )
         raise ToolExecutionError(
-            "工具脚本未返回合法 JSON: " + raw[-200:]
+            "工具脚本未返回合法 JSON: "
+            + raw[-200:]
+            + (f"；stderr: {stderr_tail}" if stderr_tail else "")
         ) from exc
 
 
@@ -69,6 +74,7 @@ class ToolResult:
     filepath: str | None = None
     download_url: str | None = None
     file_size: int | None = None
+    content: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -78,6 +84,7 @@ class ToolResult:
             "filepath": self.filepath,
             "download_url": self.download_url,
             "file_size": self.file_size,
+            "content": self.content,
         }
 
 
@@ -93,6 +100,7 @@ class ToolAdapter:
     category: str = ""
     timeout: int = 30
     supports_progress: bool = False
+    allow_external_paths: bool = False
 
     def __init__(
         self,
@@ -162,13 +170,16 @@ class ToolAdapter:
                 filepath=None,
                 download_url=None,
                 file_size=None,
+                content=output.get("content"),
             )
         filepath = Path(filepath_value)
         if not filepath.is_absolute():
             filepath = workspace / filepath
         filepath = filepath.resolve()
-        category_dir = (workspace / self.category).resolve()
-        if not str(filepath).startswith(str(category_dir)):
+        workspace_root = workspace.resolve()
+        if not self.allow_external_paths and not str(filepath).startswith(
+            str(workspace_root)
+        ):
             raise ToolExecutionError("工具输出路径越界，已拒绝")
         if not filepath.exists():
             raise ToolExecutionError(f"工具产物不存在: {filepath.name}")
@@ -177,6 +188,7 @@ class ToolAdapter:
             message=output.get("message", "执行完成"),
             file_name=filepath.name,
             filepath=str(filepath),
-            download_url=f"/api/files/{self.category}/{quote(filepath.name)}",
+            download_url=None,
             file_size=os.path.getsize(filepath),
+            content=output.get("content"),
         )

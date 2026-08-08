@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, MessageSquare, Pencil, Trash2 } from "lucide-react";
+import { MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
@@ -11,7 +11,6 @@ interface SessionListItemProps {
   active: boolean;
   onSelect: (id: string) => void;
   onRename: (id: string, title: string) => void;
-  onExport: (id: string, format: "markdown" | "text") => void;
   onDelete: (id: string) => void;
 }
 
@@ -20,7 +19,6 @@ export function SessionListItem({
   active,
   onSelect,
   onRename,
-  onExport,
   onDelete,
 }: SessionListItemProps) {
   const [editing, setEditing] = useState(false);
@@ -43,12 +41,16 @@ export function SessionListItem({
       align="center"
       gap={8}
       className={`session-item ${active ? "active" : ""}`}
-      onClick={() => onSelect(session.id)}
+      onClick={(event) => {
+        onSelect(session.id);
+        event.currentTarget.blur();
+      }}
       role="button"
       tabIndex={0}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           onSelect(session.id);
+          event.currentTarget.blur();
         }
       }}
     >
@@ -89,18 +91,6 @@ export function SessionListItem({
               }}
             >
               <Pencil size={13} />
-            </Button>
-            <Button
-              variant="icon"
-              size="small"
-              title="导出"
-              aria-label="导出为 Markdown"
-              onClick={(event) => {
-                event.stopPropagation();
-                onExport(session.id, "markdown");
-              }}
-            >
-              <Download size={13} />
             </Button>
             <Button
               variant="icon"

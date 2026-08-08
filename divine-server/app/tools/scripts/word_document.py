@@ -1,6 +1,7 @@
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 from docx import Document
@@ -25,18 +26,27 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / safe_name(title, "文档")
 
-    document = Document()
-    document.add_heading(title, level=0)
-    for section in sections:
-        heading = section.get("heading") or ""
-        body = section.get("body") or ""
-        if heading:
-            document.add_heading(heading, level=1)
-        for paragraph in body.splitlines():
-            document.add_paragraph(paragraph)
-    if not sections:
-        document.add_paragraph("此文档由 AI Workspace 自动生成。")
-    document.save(output_path)
+    for attempt in range(2):
+        try:
+            document = Document()
+            document.add_heading(title, level=0)
+            for section in sections:
+                heading = section.get("heading") or ""
+                body = section.get("body") or ""
+                if heading:
+                    document.add_heading(heading, level=1)
+                for paragraph in body.splitlines():
+                    document.add_paragraph(paragraph)
+            if not sections:
+                document.add_paragraph("此文档由 AI Divine 自动生成。")
+            document.save(output_path)
+            break
+        except Exception:
+            if output_path.exists():
+                output_path.unlink()
+            if attempt == 1:
+                raise
+            time.sleep(1)
 
     print(
         json.dumps(

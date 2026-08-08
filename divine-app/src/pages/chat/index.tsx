@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createSession,
   deleteSession,
-  exportSession,
   getSession,
   getSettings,
   getWorkspace,
@@ -19,6 +18,7 @@ import { MessageList } from "@/pages/chat/components/MessageList";
 import { SessionList } from "@/pages/chat/components/SessionList";
 import { SettingsModal } from "@/components/SettingsModal";
 import type {
+  ChatFile,
   ChatMessage,
   Settings,
   ToolEvent,
@@ -91,9 +91,11 @@ export default function ChatPage() {
         setSettings({
           provider: "mock",
           base_url: "",
-          model: "local",
+          model: "deepseek-v4-flash",
           has_api_key: false,
+          has_glm_key: false,
           workspace_dir: "",
+          username: "用户",
           think_default: false,
           context_limit: 20,
           tools: [],
@@ -195,7 +197,9 @@ export default function ChatPage() {
   );
 
   const handleSettingsSave = useCallback(
-    async (body: Partial<Settings> & { api_key?: string }) => {
+    async (
+      body: Partial<Settings> & { api_key?: string; glm_api_key?: string }
+    ) => {
       const updated = await updateSettings(body);
       setSettings(updated);
       setSettingsOpen(false);
@@ -205,7 +209,7 @@ export default function ChatPage() {
   );
 
   const sendMessage = useCallback(
-    async (question: string, think: boolean) => {
+    async (question: string, files: ChatFile[], think: boolean) => {
       const trimmed = question.trim();
       if (!trimmed || streaming) return;
       let sessionId = selectedId;
@@ -222,6 +226,7 @@ export default function ChatPage() {
         content: trimmed,
         created_at: new Date().toISOString(),
         tools: [],
+        files,
       };
       const assistantMessage: ChatMessage = {
         id: `local-assistant-${Date.now()}`,
@@ -242,6 +247,12 @@ export default function ChatPage() {
             question: trimmed,
             session_id: sessionId,
             think,
+            attachments: files.map((file) => ({
+              name: file.name,
+              ...(file.path
+                ? { file_path: file.path }
+                : { content: file.content ?? "" }),
+            })),
           }),
         });
         await consumeSSE(response, {
@@ -359,7 +370,6 @@ export default function ChatPage() {
           onNew={handleNewSession}
           onRename={handleRename}
           onDelete={handleDelete}
-          onExport={(id, format) => exportSession(id, format)}
           onOpenSettings={() => setSettingsOpen(true)}
         />
       </Flex>
@@ -378,13 +388,21 @@ export default function ChatPage() {
           onOpenSidebar={() => setSidebarOpen(true)}
           onRename={handleRename}
         />
-        <MessageList messages={messages} streaming={streaming} />
+        <MessageList
+          messages={messages}
+          streaming={streaming}
+          sessionId={selectedId}
+          username={settings?.username || "用户"}
+        />
         <ChatInput
           ref={composerRef}
           disabled={streaming}
-          tools={settings?.tools ?? []}
-          onSend={(question) =>
-            void sendMessage(question, settings?.think_default ?? false)
+          onSend={(question, files) =>
+            void sendMessage(
+              question,
+              files,
+              settings?.think_default ?? false
+            )
           }
         />
       </Flex>
@@ -427,5 +445,6 @@ function mergeLocalTools(local: ChatMessage[], restored: ChatMessage[]) {
   return restored.map((message, index) => ({
     ...message,
     tools: local[index]?.tools?.length ? local[index].tools : message.tools,
+    files: local[index]?.files?.length ? local[index].files : message.files,
   }));
 }

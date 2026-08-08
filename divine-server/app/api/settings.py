@@ -15,7 +15,9 @@ def _public(settings: dict) -> dict:
         "base_url": settings.get("base_url", ""),
         "model": settings.get("model", ""),
         "has_api_key": bool(settings.get("api_key")),
+        "has_glm_key": bool(settings.get("glm_api_key")),
         "workspace_dir": str(workspace_dir()),
+        "username": settings.get("username", "用户"),
         "think_default": bool(settings.get("think_default", False)),
         "context_limit": int(settings.get("context_limit", 20)),
         "tools": registry.list(),
@@ -33,6 +35,10 @@ def update_settings(body: SettingsUpdate):
     updates = body.model_dump(exclude_unset=True)
     if updates.get("api_key") == "":
         updates["api_key"] = ""
+    if updates.get("glm_api_key") == "":
+        updates["glm_api_key"] = ""
+    if updates.get("username") == "":
+        updates["username"] = "用户"
     current.update(updates)
     settings_store.save(current)
     return _public(current)

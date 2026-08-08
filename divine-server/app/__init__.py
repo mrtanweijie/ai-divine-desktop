@@ -1,1 +1,1 @@
-"""AI Workspace local backend."""
+"""AI Divine local backend."""

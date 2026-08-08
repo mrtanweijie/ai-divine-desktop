@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import uuid
 from contextlib import closing
@@ -7,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, Iterable
 
 from .config import db_path
+from .file_types import is_image_path
 
 
 SCHEMA = """
@@ -248,13 +250,55 @@ def get_tool_run(run_id: str) -> dict[str, Any]:
 
 
 def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
-    """Only role + content; thinking parts never enter model history."""
+    """Model-facing history; file attachments are rehydrated into user turns."""
     messages = list_messages(session_id)[-limit:]
-    return [
-        {"role": message["role"], "content": message["content"]}
-        for message in messages
-        if message["content"]
-    ]
+    result: list[dict[str, Any]] = []
+    for message in messages:
+        content = message["content"]
+        if message["role"] == "user":
+            blocks: list[str] = []
+            for part in list_message_parts(message["id"]):
+                if part["type"] != "file":
+                    continue
+                try:
+                    meta = json.loads(part["content"])
+                except json.JSONDecodeError:
+                    meta = {"name": part["content"]}
+                name = meta.get("name") or "附件"
+                path = meta.get("path") or ""
+                body = meta.get("content") or ""
+                error = meta.get("error") or ""
+                path_line = f"文件本地路径：{path}\n" if path else ""
+                if path and is_image_path(path):
+                    blocks.append(
+                        f"[附件图片：{name}]\n图片本地路径：{path}\n"
+                        "请调用 read_image 工具读取这张图片并分析内容，再结合分析结果回答用户的问题。"
+                    )
+                elif error:
+                    if body:
+                        blocks.append(
+                            f"[附件：{name}]\n{path_line}读取失败: {error}\n"
+                            "这不是图片文件，请直接分析以下内容，不要调用 read_image。\n"
+                            f"```\n{body}\n```"
+                        )
+                    else:
+                        blocks.append(
+                            f"[附件：{name}]\n{path_line}读取失败: {error}"
+                        )
+                elif body:
+                    blocks.append(
+                        f"[附件：{name}]\n{path_line}"
+                        "这不是图片文件，请直接分析以下内容，不要调用 read_image。\n"
+                        f"```\n{body}\n```"
+                    )
+                else:
+                    blocks.append(f"[附件：{name}]\n{path_line}".rstrip())
+            if blocks:
+                suffix = "\n\n".join(blocks)
+                content = f"{content}\n\n{suffix}" if content else suffix
+        if content:
+            result.append({"role": message["role"], "content": content})
+    return result
 
 
 def _json(value: Any) -> str:

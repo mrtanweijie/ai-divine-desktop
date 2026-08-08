@@ -70,11 +70,16 @@ pub fn spawn(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
     let path = sidecar_path(app)?;
-    let child = Command::new(&path)
-        .env("HOST", SIDECAR_HOST)
+    let mut cmd = Command::new(&path);
+    cmd.env("HOST", SIDECAR_HOST)
         .env("PORT", SIDECAR_PORT.to_string())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::null());
+    if let Ok(data_dir) = app.path().app_data_dir() {
+        cmd.env("DIVINE_DATA_DIR", &data_dir);
+        cmd.env("DIVINE_WORKSPACE_DIR", data_dir.join("workspace"));
+    }
+    let child = cmd
         .spawn()
         .map_err(|err| format!("启动 sidecar 失败: {err}"))?;
 

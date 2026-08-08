@@ -127,6 +127,16 @@ export function messagesToChatMessages(
       content: message.content,
       created_at: message.created_at,
       think: message.parts.find((part) => part.type === "think")?.content,
+      files: message.parts
+        .filter((part) => part.type === "file")
+        .map((part) => {
+          try {
+            const parsed = JSON.parse(part.content) as { name?: string };
+            return { name: parsed.name ?? part.content };
+          } catch {
+            return { name: part.content };
+          }
+        }),
       tools,
     });
   });

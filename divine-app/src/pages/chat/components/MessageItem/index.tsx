@@ -3,15 +3,17 @@ import {
   Check,
   ChevronDown,
   Copy,
-  Download,
   FileSpreadsheet,
   FileText,
+  FolderOpen,
+  Image,
   Loader2,
   StickyNote,
   Wrench,
 } from "lucide-react";
 import { useState } from "react";
 import { downloadUrl } from "@/services/api";
+import { isTauri, openFileLocation } from "@/services/tauri";
 import type { ChatMessage, ToolEvent } from "@/types";
 import { formatSize, formatTime } from "@/utils";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
@@ -22,9 +24,14 @@ import { LoadingOrb } from "@/components/ui/LoadingOrb";
 interface MessageItemProps {
   message: ChatMessage;
   streaming: boolean;
+  username: string;
 }
 
-export function MessageItem({ message, streaming }: MessageItemProps) {
+export function MessageItem({
+  message,
+  streaming,
+  username,
+}: MessageItemProps) {
   const isUser = message.role === "user";
   return (
     <article className={`message-row ${isUser ? "user-message" : "assistant-message"}`}>
@@ -34,11 +41,30 @@ export function MessageItem({ message, streaming }: MessageItemProps) {
         gap={8}
         className="message-meta"
       >
-        <span className="role-label">{isUser ? "用户" : "Divine"}</span>
+        <span className="role-label">
+          {isUser ? username || "用户" : "Divine"}
+        </span>
         <time className="message-time">{formatTime(message.created_at)}</time>
       </Flex>
       {isUser ? (
-        <div className="user-content">{message.content}</div>
+        <div className="user-content">
+          <div className="user-text">{message.content}</div>
+          {message.files && message.files.length > 0 && (
+            <div className="user-files">
+              {message.files.map((file) => (
+                <div className="user-file-card" key={file.name}>
+                  <FileText size={13} />
+                  <span>{file.name}</span>
+                  {file.size != null && (
+                    <span className="user-file-size">
+                      {formatSize(file.size)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
         <div className="assistant-content">
           {message.think && <ThinkBlock content={message.think} />}
@@ -50,11 +76,16 @@ export function MessageItem({ message, streaming }: MessageItemProps) {
           ) : (
             !message.error && (
               <Flex className="loading-cursor" aria-label="正在生成">
-                <LoadingOrb state="shaping" size={20} />
+                <LoadingOrb state="shaping" size={20} speed={2} />
               </Flex>
             )
           )}
-          {streaming && message.content && <span className="stream-cursor" />}
+          {streaming && message.content && (
+            <span className="stream-orb">
+              <LoadingOrb state="connecting" size={20} speed={2} />
+              <span className="stream-text">Working...</span>
+            </span>
+          )}
           {message.error && (
             <div className="message-error">
               <AlertCircle size={15} />
@@ -89,11 +120,14 @@ function ThinkBlock({ content }: { content: string }) {
 function ToolStatusCard({ tool }: { tool: ToolEvent }) {
   const [copied, setCopied] = useState(false);
   const running = tool.status === "running" || tool.status === "preparing";
+  const statusMessage = tool.status === "done" ? "执行完成" : tool.message;
   const icon =
     tool.tool.includes("spreadsheet") || tool.tool.includes("excel") ? (
       <FileSpreadsheet size={16} />
     ) : tool.tool.includes("notes") ? (
       <StickyNote size={16} />
+    ) : tool.tool.includes("read_image") || tool.tool.includes("image") ? (
+      <Image size={16} />
     ) : (
       <FileText size={16} />
     );
@@ -113,21 +147,32 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
         </span>
         <div className="tool-copy">
           <span className="tool-name">{tool.tool}</span>
-          <span className="tool-message">{tool.message}</span>
+          <span className="tool-message">{statusMessage}</span>
         </div>
-        {tool.status === "done" && tool.result?.download_url && (
-          <a
-            className="file-download"
-            href={downloadUrl(tool.result.download_url)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Download size={14} />
-            <span>{tool.result.file_name}</span>
-            <span className="file-size">{formatSize(tool.result.file_size)}</span>
-          </a>
-        )}
       </Flex>
+      {tool.status === "done" && tool.result?.filepath && (
+        <a
+          className="file-download"
+          href={
+            tool.result.download_url
+              ? downloadUrl(tool.result.download_url)
+              : "#"
+          }
+          target="_blank"
+          rel="noreferrer"
+          title="打开所在目录"
+          onClick={(event) => {
+            if (tool.result?.filepath && isTauri()) {
+              event.preventDefault();
+              void openFileLocation(tool.result.filepath);
+            }
+          }}
+        >
+          <FolderOpen size={14} />
+          <span>{tool.result.file_name}</span>
+          <span className="file-size">{formatSize(tool.result.file_size)}</span>
+        </a>
+      )}
       {running && (
         <div className="tool-progress" aria-hidden="true">
           <span className="tool-progress-bar" />

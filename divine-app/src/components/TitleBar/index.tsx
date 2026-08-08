@@ -1,7 +1,7 @@
 import { PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
-import { isMacosDesktop } from "@/services/tauri";
+import { isTauri } from "@/services/tauri";
 import "./index.less";
 
 interface TitleBarProps {
@@ -26,7 +26,7 @@ export function TitleBar({
       {!fullscreen && (
         <div
           className="titlebar-drag"
-          {...(isMacosDesktop() ? { "data-tauri-drag-region": true } : {})}
+          {...(isTauri() ? { "data-tauri-drag-region": true } : {})}
         />
       )}
       <Flex align="center" gap={2} className="titlebar-actions">

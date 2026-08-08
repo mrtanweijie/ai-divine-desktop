@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
+import { isTauri } from "@/services/tauri";
 
 interface ChatHeaderProps {
   session: Session | null;
@@ -80,11 +81,21 @@ export function ChatHeader({
             }}
             title="点击重命名"
           >
-            <span className="session-title-text">{title}</span>
+            <span
+              className="session-title-text"
+              {...(isTauri() ? { "data-tauri-drag-region": true } : {})}
+            >
+              {title}
+            </span>
             <Pencil size={13} className="title-pencil" aria-hidden="true" />
           </Button>
         )}
       </Flex>
+
+      <div
+        className="chat-header-drag"
+        {...(isTauri() ? { "data-tauri-drag-region": true } : {})}
+      />
 
       <Flex align="center" gap={6} className="chat-header-right">
         <span className="model-badge">{model || "本地演示"}</span>
