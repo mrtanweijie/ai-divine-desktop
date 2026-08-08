@@ -1,0 +1,52 @@
+.ui-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ui-switch-label {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.ui-switch-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ui-switch-track {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background 150ms ease;
+}
+
+.ui-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.ui-switch-input:checked + .ui-switch-track {
+  background: var(--color-accent);
+}
+
+.ui-switch-input:checked + .ui-switch-track .ui-switch-thumb {
+  background: #0b0d0f;
+  transform: translateX(14px);
+}
+
+.ui-switch-input:focus-visible + .ui-switch-track {
+  box-shadow: var(--focus-ring);
+}

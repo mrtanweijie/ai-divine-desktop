@@ -1,0 +1,40 @@
+from __future__ import annotations
+
+from typing import Any
+
+from ..base import ToolAdapter
+from ..registry import register_tool
+
+
+@register_tool(
+    "word_document",
+    "生成一份 Word 文档，用于周报、合同、会议纪要等场景",
+    {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string", "description": "文档标题"},
+            "sections": {
+                "type": "array",
+                "description": "文档章节",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "heading": {"type": "string"},
+                        "body": {"type": "string"},
+                    },
+                },
+            },
+        },
+        "required": ["title", "sections"],
+    },
+)
+class WordDocumentAdapter(ToolAdapter):
+    script_name = "word_document.py"
+    category = "documents"
+    timeout = 30
+
+    def build_params(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "title": str(arguments.get("title") or "未命名文档"),
+            "sections": arguments.get("sections") or [],
+        }

@@ -1,0 +1,125 @@
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.ui-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.ui-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-button--medium {
+  height: 32px;
+  padding: 0 14px;
+}
+
+.ui-button--small {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.ui-button--primary {
+  border: 0;
+  background: var(--color-accent);
+  color: #0b0d0f;
+}
+
+.ui-button--primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.ui-button--secondary {
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.ui-button--secondary:hover:not(:disabled) {
+  background: var(--color-surface-2);
+}
+
+.ui-button--ghost {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.ui-button--ghost:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.ui-button--danger {
+  border: 0;
+  background: var(--color-danger);
+  color: #ffffff;
+}
+
+.ui-button--danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.ui-button--icon {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.ui-button--icon:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.ui-button--icon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ui-button--icon.ui-button--medium {
+  width: 30px;
+  height: 30px;
+}
+
+.ui-button--icon.ui-button--small {
+  width: 24px;
+  height: 24px;
+}
+
+.ui-button--icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ui-button--icon.danger {
+  color: var(--color-danger);
+}
+
+.ui-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: ui-spin 0.7s linear infinite;
+}
+
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

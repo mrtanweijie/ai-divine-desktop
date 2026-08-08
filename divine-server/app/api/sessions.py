@@ -1,0 +1,84 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
+
+from .. import db
+from ..schemas import SessionCreate, SessionUpdate
+
+router = APIRouter(prefix="/sessions", tags=["sessions"])
+
+
+@router.get("")
+def list_sessions():
+    return {"sessions": db.list_sessions()}
+
+
+@router.post("", status_code=201)
+def create_session(body: SessionCreate):
+    return db.create_session(body.title)
+
+
+@router.get("/{session_id}")
+def get_session(session_id: str):
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return db.load_session(session_id)
+
+
+@router.patch("/{session_id}")
+def rename_session(session_id: str, body: SessionUpdate):
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return db.update_session(session_id, title=body.title.strip() or "新对话")
+
+
+@router.delete("/{session_id}", status_code=204)
+def delete_session(session_id: str):
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    db.delete_session(session_id)
+
+
+@router.post("/{session_id}/clear")
+def clear_session(session_id: str):
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    db.clear_messages(session_id)
+    return db.load_session(session_id)
+
+
+@router.get("/{session_id}/export")
+def export_session(session_id: str, format: str = "markdown"):
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    messages = db.list_messages(session_id)
+    lines = [
+        f"# {session['title']}",
+        "",
+        f"导出时间：{datetime.now().isoformat(timespec='seconds')}",
+        "",
+    ]
+    for message in messages:
+        role = "用户" if message["role"] == "user" else "AI"
+        lines.extend([f"## {role}", "", message["content"], ""])
+    if format == "text":
+        text = "\n".join(lines)
+        return Response(
+            text,
+            media_type="text/plain",
+            headers={"Content-Disposition": 'attachment; filename="chat.txt"'},
+        )
+    text = "\n".join(lines)
+    return Response(
+        text,
+        media_type="text/markdown",
+        headers={"Content-Disposition": 'attachment; filename="chat.md"'},
+    )

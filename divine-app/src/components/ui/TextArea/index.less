@@ -1,0 +1,45 @@
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ui-field-label {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.ui-field--error .ui-input,
+.ui-field--error .ui-textarea {
+  border-color: var(--color-danger);
+}
+
+.ui-field-error {
+  color: var(--color-danger);
+  font-size: 12px;
+}
+
+.ui-textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.ui-textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.ui-textarea:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.45);
+  background: var(--color-surface-2);
+}

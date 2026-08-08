@@ -1,0 +1,30 @@
+# Python
+divine-server/.venv/
+divine-server/__pycache__/
+*.pyc
+
+# Frontend
+divine-app/node_modules/
+divine-app/dist/
+divine-app/bin/
+*.tsbuildinfo
+
+# Tauri
+divine-app/src-tauri/target/
+divine-app/src-tauri/gen/
+
+# Runtime data
+divine-server/workspace/
+divine-server/data/
+divine-server/build/
+divine-server/dist/
+__pycache__/
+
+bin/
+
+# Env
+.env
+*.local
+
+# OS
+.DS_Store

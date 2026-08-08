@@ -1,0 +1,28 @@
+.titlebar {
+  flex: none;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.titlebar.collapsed {
+  background: var(--color-bg);
+}
+
+.titlebar.fullscreen .titlebar-actions {
+  margin-left: 0;
+  padding: 0 8px;
+}
+
+.titlebar-drag {
+  flex: 1;
+  height: 100%;
+  min-width: 78px;
+}
+
+.titlebar-actions {
+  margin-left: auto;
+  padding-right: 8px;
+}
