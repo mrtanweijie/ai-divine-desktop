@@ -169,6 +169,16 @@ async def run_agent(
                 call_id,
                 _summarize_arguments(arguments),
             )
+            assistant_tool_calls.append(
+                {
+                    "id": call_id,
+                    "type": "function",
+                    "function": {
+                        "name": call["name"],
+                        "arguments": call["arguments"] or "{}",
+                    },
+                }
+            )
             adapter = get_tool(name)
             if adapter is None:
                 adapter = (
@@ -387,14 +397,6 @@ async def run_agent(
                         payload["command"] = command
                     yield sse_event("tool", payload)
                     tool_results.append((call_id, tool_message))
-            assistant_tool_calls.append(
-                {
-                    "id": call_id,
-                    "type": "function",
-                    "function": {"name": name, "arguments": call["arguments"] or "{}"},
-                }
-            )
-
         db.save_tool_turn(
             session_id,
             assistant_tool_calls,

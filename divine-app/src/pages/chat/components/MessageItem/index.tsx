@@ -11,7 +11,6 @@ import {
   FolderTree,
   Globe,
   Image,
-  Loader2,
   Presentation,
   StickyNote,
   TerminalSquare,
@@ -195,7 +194,11 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
     <div className={`tool-status-card ${tool.status}`}>
       <Flex align="center" gap={8} className="tool-status-main">
         <span className="tool-icon">
-          {running ? <Loader2 size={16} className="spin" /> : <Wrench size={16} />}
+          {running ? (
+            <LoadingOrb state="solving" size={20} speed={3} />
+          ) : (
+            <Wrench size={16} />
+          )}
         </span>
         <div className="tool-copy">
           <span className="tool-name">{tool.tool}</span>

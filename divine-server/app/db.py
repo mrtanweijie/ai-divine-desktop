@@ -191,6 +191,8 @@ def save_tool_turn(
     think: str,
     results: list[tuple[str, str]],
 ) -> None:
+    if not tool_calls:
+        return
     message = add_message(session_id, "assistant", "")
     order = 0
     add_message_part(
@@ -364,6 +366,15 @@ def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
                     tool_calls = json.loads(tool_calls_part["content"] or "[]")
                 except json.JSONDecodeError:
                     tool_calls = []
+                if not tool_calls:
+                    result.append(
+                        {
+                            "role": "assistant",
+                            "content": content,
+                            "reasoning_content": "\n".join(think_parts),
+                        }
+                    )
+                    continue
                 result.append(
                     {
                         "role": "assistant",

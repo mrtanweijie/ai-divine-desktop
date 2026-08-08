@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { isTauri, openUrl } from "@/services/tauri";
 
 interface MarkdownViewProps {
   content: string;
@@ -65,7 +66,18 @@ const components: Components = {
   },
   a(props: any) {
     return (
-      <a href={props.href} target="_blank" rel="noreferrer">
+      <a
+        href={props.href}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(event) => {
+          const href = props.href as string | undefined;
+          if (href && /^https?:\/\//.test(href) && isTauri()) {
+            event.preventDefault();
+            void openUrl(href);
+          }
+        }}
+      >
         {props.children}
       </a>
     );
