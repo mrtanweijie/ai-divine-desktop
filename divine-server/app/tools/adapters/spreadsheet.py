@@ -8,7 +8,7 @@ from ..registry import register_tool
 
 @register_tool(
     "spreadsheet",
-    "生成 Excel 表格，用于项目进度、数据统计、清单等场景",
+    "生成 Excel 表格，用于项目进度、数据统计、清单等场景；本工具不能读取已有 Excel，读取请使用 read_file",
     {
         "type": "object",
         "properties": {

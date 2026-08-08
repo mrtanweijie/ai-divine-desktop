@@ -417,7 +417,9 @@ export default function ChatPage() {
 
 function upsertTool(tools: ToolEvent[], next: ToolEvent): ToolEvent[] {
   const index = tools.findIndex((tool) => tool.tool === next.tool);
-  if (index === -1) return [...tools, { ...next, status: "preparing" }];
+  if (index === -1) {
+    return [...tools, { ...next, status: next.status || "preparing" }];
+  }
   const updated = [...tools];
   updated[index] = { ...updated[index], ...next };
   return updated;

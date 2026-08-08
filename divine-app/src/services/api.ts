@@ -117,10 +117,18 @@ export function messagesToChatMessages(
             } catch {
               result = undefined;
             }
+            let command: string | undefined;
+            try {
+              const input = run.input ? JSON.parse(run.input) : undefined;
+              command = input?.command;
+            } catch {
+              command = undefined;
+            }
             return {
               tool: run.tool_name,
               status: run.status === "done" ? "done" : "error",
               message: result?.message ?? run.status,
+              command,
               result,
             } satisfies ToolEvent;
           })

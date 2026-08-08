@@ -296,6 +296,20 @@ def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
             if blocks:
                 suffix = "\n\n".join(blocks)
                 content = f"{content}\n\n{suffix}" if content else suffix
+        if message["role"] == "assistant":
+            think_parts = [
+                part["content"]
+                for part in list_message_parts(message["id"])
+                if part["type"] == "think"
+            ]
+            entry: dict[str, Any] = {
+                "role": "assistant",
+                "content": content,
+            }
+            if think_parts:
+                entry["reasoning_content"] = "\n".join(think_parts)
+            result.append(entry)
+            continue
         if content:
             result.append({"role": message["role"], "content": content})
     return result

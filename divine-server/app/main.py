@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import db
-from .api import chat, files, sessions, settings
+from .api import chat, files, sessions, settings, terminal
 from .config import cors_origins, ensure_directories, settings_store
 from .tools.registry import registry
 
@@ -16,6 +16,7 @@ async def lifespan(_: FastAPI):
     ensure_directories()
     db.init_db()
     yield
+    terminal.shutdown_terminal()
 
 
 app = FastAPI(
@@ -36,6 +37,7 @@ app.include_router(chat.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
 app.include_router(files.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
+app.include_router(terminal.router)
 
 
 @app.get("/api/health")

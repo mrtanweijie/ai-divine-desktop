@@ -739,6 +739,24 @@ a:focus-visible {
   justify-content: flex-end;
 }
 
+.divine-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(111, 120, 131, 0.3);
+  flex-shrink: 0;
+}
+
+.divine-avatar svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: var(--color-text-secondary);
+}
+
 .role-label {
   font-size: 12px;
   font-weight: 600;
@@ -1184,6 +1202,50 @@ a:focus-visible {
 
 .loading-cursor span:nth-child(3) {
   animation-delay: 0.3s;
+}
+
+.terminal-command {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--color-code-bg);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.terminal-command-prompt {
+  color: var(--color-success);
+  flex-shrink: 0;
+}
+
+.terminal-command code {
+  color: var(--color-code-text);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.terminal-confirm {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-2);
+}
+
+.terminal-confirm pre {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  overflow-x: auto;
+  background: var(--color-code-bg);
+  border-radius: 4px;
+  color: var(--color-code-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 @keyframes dots {

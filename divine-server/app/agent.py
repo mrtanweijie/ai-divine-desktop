@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, AsyncIterator
 
+from .api.terminal import terminal_command_policy, wait_for_terminal_decision
 from .config import settings_store, workspace_dir
 from .llm import ChatDeepSeekProvider, MockLLM
 from .sse import sse_event
@@ -21,7 +22,11 @@ SYSTEM_PROMPT = """你是 AI Divine，一个本地优先的桌面 AI 助手。
 read_image 返回的 content 就是图片识别结果，请基于它回答用户。
 回答使用简洁的 Markdown，不输出与任务无关的内容。
 重要规则：不要在正文中输出 download_url、/api/files/ 或 http://localhost 等文件链接；
-生成文件后只需说明文件名和内容概要，文件下载/打开由前端工具卡片展示。"""
+生成文件后只需说明文件名和内容概要，文件下载/打开由前端工具卡片展示。
+读取文件内容必须使用 read_file、word_document 等专用工具；
+读取 Excel 必须使用 read_file（不要使用 spreadsheet，spreadsheet 只能生成 Excel）；
+禁止用 terminal 执行 cat、python、openpyxl、find 等命令来读取或分析文件。
+terminal 只能用于系统操作，例如安装依赖、运行命令、管理进程或用户明确要求的终端命令。"""
 
 TOOL_ALIASES = {
     "generate_note": "notes",
@@ -55,7 +60,7 @@ async def run_agent(
     llm = _build_llm()
     tool_schemas = registry.openai_schema()
 
-    for turn in range(4):
+    for turn in range(8):
         tool_calls: dict[int, dict[str, str]] = {}
         assistant_content = ""
         think_content = ""
@@ -128,31 +133,113 @@ async def run_agent(
                 )
                 tool_results.append((call_id, tool_message))
             else:
-                yield sse_event(
-                    "tool",
-                    {
-                        "tool": name,
-                        "status": "running",
-                        "message": f"正在调用 {name}",
-                    },
+                is_terminal = name == "terminal"
+                command = str(arguments.get("command") or "")
+                policy = (
+                    terminal_command_policy(command) if is_terminal else "safe"
                 )
-                output = await _execute_tool(
-                    session_id, adapter, name, arguments
-                )
-                if output.get("content"):
-                    tool_message = output["content"]
+                if is_terminal and policy == "block":
+                    tool_message = json.dumps(
+                        {"error": "已阻止危险命令", "command": command},
+                        ensure_ascii=False,
+                    )
+                    yield sse_event(
+                        "tool",
+                        {
+                            "tool": name,
+                            "status": "error",
+                            "message": "已阻止危险命令",
+                            "command": command,
+                            "result": {"command": command},
+                            "session_id": session_id,
+                        },
+                    )
+                    tool_results.append((call_id, tool_message))
+                elif is_terminal and policy == "confirm":
+                    yield sse_event(
+                        "tool",
+                        {
+                            "tool": name,
+                            "status": "confirm",
+                            "message": "等待用户确认",
+                            "command": command,
+                            "session_id": session_id,
+                        },
+                    )
+                    allowed = await wait_for_terminal_decision(
+                        session_id, command
+                    )
+                    if not allowed:
+                        tool_message = json.dumps(
+                            {"error": "用户拒绝执行", "command": command},
+                            ensure_ascii=False,
+                        )
+                        yield sse_event(
+                            "tool",
+                            {
+                                "tool": name,
+                                "status": "error",
+                                "message": "用户拒绝执行",
+                                "command": command,
+                                "result": {"command": command},
+                                "session_id": session_id,
+                            },
+                        )
+                        tool_results.append((call_id, tool_message))
+                    else:
+                        yield sse_event(
+                            "tool",
+                            {
+                                "tool": name,
+                                "status": "running",
+                                "message": f"正在调用 {name}",
+                                "command": command,
+                                "session_id": session_id,
+                            },
+                        )
+                        output = await _execute_tool(
+                            session_id, adapter, name, arguments
+                        )
+                        tool_message = output.get("content") or json.dumps(
+                            output, ensure_ascii=False
+                        )
+                        yield sse_event(
+                            "tool",
+                            {
+                                "tool": name,
+                                "status": "done" if output.get("success") else "error",
+                                "message": output.get("message", "执行完成"),
+                                "command": command,
+                                "result": output,
+                                "session_id": session_id,
+                            },
+                        )
+                        tool_results.append((call_id, tool_message))
                 else:
-                    tool_message = json.dumps(output, ensure_ascii=False)
-                yield sse_event(
-                    "tool",
-                    {
+                    yield sse_event(
+                        "tool",
+                        {
+                            "tool": name,
+                            "status": "running",
+                            "message": f"正在调用 {name}",
+                        },
+                    )
+                    output = await _execute_tool(
+                        session_id, adapter, name, arguments
+                    )
+                    tool_message = output.get("content") or json.dumps(
+                        output, ensure_ascii=False
+                    )
+                    payload: dict[str, Any] = {
                         "tool": name,
                         "status": "done" if output.get("success") else "error",
                         "message": output.get("message", "执行完成"),
                         "result": output,
-                    },
-                )
-                tool_results.append((call_id, tool_message))
+                    }
+                    if is_terminal:
+                        payload["command"] = command
+                    yield sse_event("tool", payload)
+                    tool_results.append((call_id, tool_message))
             assistant_tool_calls.append(
                 {
                     "id": call_id,
@@ -161,13 +248,14 @@ async def run_agent(
                 }
             )
 
-        messages.append(
-            {
-                "role": "assistant",
-                "content": assistant_content,
-                "tool_calls": assistant_tool_calls,
-            }
-        )
+        assistant_message: dict[str, Any] = {
+            "role": "assistant",
+            "content": assistant_content,
+            "tool_calls": assistant_tool_calls,
+        }
+        if think_content:
+            assistant_message["reasoning_content"] = think_content
+        messages.append(assistant_message)
         for call_id, tool_message in tool_results:
             messages.append(
                 {

@@ -43,6 +43,7 @@ a = Analysis(
         "app.tools.adapters.presentation",
         "app.tools.adapters.web_fetch",
         "app.tools.adapters.spreadsheet",
+        "app.tools.adapters.terminal",
         "app.tools.adapters.word_document",
     ],
     hookspath=[],

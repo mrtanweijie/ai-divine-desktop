@@ -24,8 +24,10 @@ export interface Message {
 
 export interface ToolEvent {
   tool: string;
-  status: "preparing" | "running" | "done" | "error";
+  status: "preparing" | "running" | "confirm" | "done" | "error";
   message: string;
+  command?: string;
+  session_id?: string;
   result?: {
     file_name?: string;
     filepath?: string;
@@ -33,6 +35,9 @@ export interface ToolEvent {
     file_size?: number;
     message?: string;
     success?: boolean;
+    stdout?: string;
+    stderr?: string;
+    exit_code?: number;
   };
 }
 

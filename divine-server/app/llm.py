@@ -9,11 +9,11 @@ import httpx
 
 from .config import settings_store
 
-_DSML_TOKEN_RE = re.compile(r"[｜|]\s*DSML\s*[｜|]", re.IGNORECASE)
+_DSML_TOKEN_RE = re.compile(r"[｜|]{1,}\s*DSML\s*[｜|]{1,}", re.IGNORECASE)
 
 _DSML_START_RE = re.compile(
-    r"<(?:\s*[｜|]\s*DSML\s*[｜|]\s*)?(?:tool_calls|function_calls)\b.*?>"
-    r"|<(?:\s*[｜|]\s*DSML\s*[｜|]\s*)?invoke\b",
+    r"<(?:\s*[｜|]{1,}\s*DSML\s*[｜|]{1,}\s*)?(?:tool_calls|function_calls)\b.*?>"
+    r"|<(?:\s*[｜|]{1,}\s*DSML\s*[｜|]{1,}\s*)?invoke\b",
     re.IGNORECASE,
 )
 
@@ -72,14 +72,14 @@ def _find_dsml_start(text: str, start: int) -> int | None:
 def _find_dsml_end(text: str, block_start: int) -> int | None:
     segment = text[block_start:]
     wrapper = re.match(
-        r"<(?:\s*[｜|]\s*DSML\s*[｜|]\s*)?(?:tool_calls|function_calls)\b",
+        r"<(?:\s*[｜|]{1,}\s*DSML\s*[｜|]{1,}\s*)?(?:tool_calls|function_calls)\b",
         segment,
         re.IGNORECASE,
     )
     pattern = (
-        r"</(?:\s*[｜|]\s*DSML\s*[｜|]\s*)?(?:tool_calls|function_calls)\s*>"
+        r"</(?:\s*[｜|]{1,}\s*DSML\s*[｜|]{1,}\s*)?(?:tool_calls|function_calls)\s*>"
         if wrapper
-        else r"</(?:\s*[｜|]\s*DSML\s*[｜|]\s*)?invoke\s*>"
+        else r"</(?:\s*[｜|]{1,}\s*DSML\s*[｜|]{1,}\s*)?invoke\s*>"
     )
     match = re.search(pattern, segment, re.IGNORECASE)
     return block_start + match.end() if match else None
@@ -118,8 +118,12 @@ class DsmlStreamProcessor:
                 if start is None:
                     break
                 if start > self.cursor:
+                    prefix = self.text[self.cursor:start].rstrip()
+                    if not prefix:
+                        self.cursor = start
+                        continue
                     events.append(
-                        {"type": "message", "content": self.text[self.cursor:start]}
+                        {"type": "message", "content": prefix}
                     )
                     self.cursor = start
                 self.in_block = True
@@ -412,13 +416,40 @@ class MockLLM:
 
 class ChatDeepSeekProvider:
     def __init__(self) -> None:
+        from langchain_core.messages import AIMessage, convert_to_messages
         from langchain_deepseek import ChatDeepSeek
+
+        class ReasoningChatDeepSeek(ChatDeepSeek):
+            def _get_request_payload(
+                self,
+                input_: Any,
+                *,
+                stop: list[str] | None = None,
+                **kwargs: Any,
+            ) -> dict[str, Any]:
+                payload = super()._get_request_payload(
+                    input_, stop=stop, **kwargs
+                )
+                try:
+                    originals = convert_to_messages(input_)
+                    for item, original in zip(
+                        payload.get("messages", []), originals
+                    ):
+                        if isinstance(original, AIMessage):
+                            reasoning = original.additional_kwargs.get(
+                                "reasoning_content"
+                            )
+                            if reasoning:
+                                item["reasoning_content"] = reasoning
+                except Exception:
+                    pass
+                return payload
 
         self.settings = settings_store.load()
         model = self.settings.get("model") or "deepseek-v4-flash"
         if model in ("", "local", "mock"):
             model = "deepseek-v4-flash"
-        self.llm = ChatDeepSeek(
+        self.llm = ReasoningChatDeepSeek(
             model=model,
             api_key=self.settings.get("api_key"),
             temperature=0.7,
@@ -446,6 +477,10 @@ class ChatDeepSeekProvider:
                 converted.append(SystemMessage(content=content))
             elif role == "assistant":
                 tool_calls = item.get("tool_calls")
+                reasoning = item.get("reasoning_content") or ""
+                additional_kwargs = (
+                    {"reasoning_content": reasoning} if reasoning else {}
+                )
                 if tool_calls:
                     converted_tool_calls = []
                     for call in tool_calls:
@@ -463,10 +498,19 @@ class ChatDeepSeekProvider:
                             }
                         )
                     converted.append(
-                        AIMessage(content=content, tool_calls=converted_tool_calls)
+                        AIMessage(
+                            content=content,
+                            tool_calls=converted_tool_calls,
+                            additional_kwargs=additional_kwargs,
+                        )
                     )
                 else:
-                    converted.append(AIMessage(content=content))
+                    converted.append(
+                        AIMessage(
+                            content=content,
+                            additional_kwargs=additional_kwargs,
+                        )
+                    )
             elif role == "tool":
                 converted.append(
                     ToolMessage(

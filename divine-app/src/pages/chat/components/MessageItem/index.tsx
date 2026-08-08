@@ -11,10 +11,11 @@ import {
   Loader2,
   Presentation,
   StickyNote,
+  TerminalSquare,
   Wrench,
 } from "lucide-react";
 import { useState } from "react";
-import { downloadUrl } from "@/services/api";
+import { apiBase, downloadUrl } from "@/services/api";
 import { isTauri, openFileLocation } from "@/services/tauri";
 import type { ChatMessage, ToolEvent } from "@/types";
 import { formatSize, formatTime } from "@/utils";
@@ -43,6 +44,18 @@ export function MessageItem({
         gap={8}
         className="message-meta"
       >
+        {!isUser && (
+          <span className="divine-avatar" aria-hidden="true">
+            <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M8 2.5 L14 13.5 H2 Z"
+                fill="none"
+                stroke-width="1.6"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+        )}
         <span className="role-label">
           {isUser ? username || "用户" : "Divine"}
         </span>
@@ -121,6 +134,7 @@ function ThinkBlock({ content }: { content: string }) {
 
 function ToolStatusCard({ tool }: { tool: ToolEvent }) {
   const [copied, setCopied] = useState(false);
+  const [deciding, setDeciding] = useState(false);
   const running = tool.status === "running" || tool.status === "preparing";
   const statusMessage = tool.status === "done" ? "执行完成" : tool.message;
   const icon =
@@ -139,6 +153,8 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
       tool.tool.includes("browse") ||
       tool.tool.includes("url") ? (
       <Globe size={16} />
+    ) : tool.tool === "terminal" ? (
+      <TerminalSquare size={16} />
     ) : (
       <FileText size={16} />
     );
@@ -148,6 +164,20 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
     await navigator.clipboard.writeText(JSON.stringify(tool.result, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
+  };
+
+  const decide = async (allow: boolean) => {
+    if (!tool.session_id || deciding) return;
+    setDeciding(true);
+    try {
+      await fetch(`${apiBase()}/terminal/decide`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: tool.session_id, allow }),
+      });
+    } finally {
+      setDeciding(false);
+    }
   };
 
   return (
@@ -183,6 +213,30 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
           <span>{tool.result.file_name}</span>
           <span className="file-size">{formatSize(tool.result.file_size)}</span>
         </a>
+      )}
+      {tool.command && tool.status !== "confirm" && (
+        <div className="terminal-command">
+          <span className="terminal-command-prompt">$</span>
+          <code>{tool.command}</code>
+        </div>
+      )}
+      {tool.status === "confirm" && tool.command && (
+        <div className="terminal-confirm">
+          <pre>{tool.command}</pre>
+          <Flex align="center" gap={8}>
+            <Button size="small" loading={deciding} onClick={() => void decide(true)}>
+              允许执行
+            </Button>
+            <Button
+              size="small"
+              variant="ghost"
+              disabled={deciding}
+              onClick={() => void decide(false)}
+            >
+              拒绝
+            </Button>
+          </Flex>
+        </div>
       )}
       {running && (
         <div className="tool-progress" aria-hidden="true">
