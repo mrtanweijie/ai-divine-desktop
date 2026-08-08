@@ -6,7 +6,7 @@ from typing import Any, AsyncIterator
 from .api.terminal import terminal_command_policy, wait_for_terminal_decision
 from .config import settings_store, workspace_dir
 from .llm import ChatDeepSeekProvider, DeepSeekLLM, MockLLM
-from .sse import sse_event
+from .sse import error_event, sse_event
 from .tools.base import ToolExecutionError
 from .tools.registry import get_tool, registry
 
@@ -24,6 +24,8 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 回答使用简洁的 Markdown，不输出与任务无关的内容。
 重要规则：不要在正文中输出 download_url、/api/files/ 或 http://localhost 等文件链接；
 生成文件后只需说明文件名和内容概要，文件下载/打开由前端工具卡片展示。
+只能调用本次请求提供的工具，不要杜撰未提供的工具名。
+查找或列出工作区文件使用 search_files；搜索完文件后，读取具体内容再使用 read_file。
 读取文件内容必须使用 read_file、word_document 等专用工具；
 读取 Excel 必须使用 read_file（不要使用 spreadsheet，spreadsheet 只能生成 Excel）；
 禁止用 terminal 执行 cat、python、openpyxl、find 等命令来读取或分析文件。
@@ -33,6 +35,8 @@ TOOL_ALIASES = {
     "generate_note": "notes",
     "generate_notes": "notes",
 }
+
+MAX_TOOL_TURNS = 32
 
 
 def _build_llm() -> ChatDeepSeekProvider | MockLLM:
@@ -60,13 +64,15 @@ async def run_agent(
     messages.extend(history[-context_limit:])
     llm = _build_llm()
     tool_schemas = registry.openai_schema()
+    unknown_tool_counts: dict[str, int] = {}
+    repeated_calls: dict[str, int] = {}
 
-    for turn in range(8):
+    for turn in range(MAX_TOOL_TURNS):
         tool_calls: dict[int, dict[str, str]] = {}
         assistant_content = ""
         think_content = ""
         async for event in llm.stream(
-            messages, tool_schemas if turn == 0 else None, think
+            messages, tool_schemas, think
         ):
             event_type = event.get("type")
             if event_type == "think":
@@ -123,17 +129,41 @@ async def run_agent(
                     else None
                 )
             if adapter is None:
-                tool_message = json.dumps({"error": f"未知工具: {name}"})
+                unknown_tool_counts[name] = unknown_tool_counts.get(name, 0) + 1
+                available = ", ".join(
+                    sorted(tool["name"] for tool in registry.list())
+                )
+                detail = f"未知工具: {name}，可用工具：{available}"
+                tool_message = json.dumps({"error": detail}, ensure_ascii=False)
                 yield sse_event(
                     "tool",
                     {
                         "tool": name,
                         "status": "error",
-                        "message": f"未知工具: {name}",
+                        "message": detail,
                     },
                 )
                 tool_results.append((call_id, tool_message))
+                if unknown_tool_counts[name] >= 2:
+                    yield error_event(
+                        "tool_loop",
+                        f"模型连续调用不存在的工具 {name}，已停止",
+                    )
+                    return
             else:
+                call_key = (
+                    f"{name}|"
+                    + json.dumps(arguments, sort_keys=True, ensure_ascii=False)
+                )
+                repeated_calls[call_key] = (
+                    repeated_calls.get(call_key, 0) + 1
+                )
+                if repeated_calls[call_key] >= 3:
+                    yield error_event(
+                        "tool_loop",
+                        f"模型重复调用同一工具 {name}，已停止",
+                    )
+                    return
                 is_terminal = name == "terminal"
                 command = str(arguments.get("command") or "")
                 policy = (
@@ -265,7 +295,9 @@ async def run_agent(
                 }
             )
 
-    raise RuntimeError("工具调用次数超过限制")
+    raise RuntimeError(
+        f"工具调用轮次超过限制（{MAX_TOOL_TURNS} 轮），任务太复杂，请分步进行"
+    )
 
 
 async def _execute_tool(
