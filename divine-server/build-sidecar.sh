@@ -38,7 +38,8 @@ case "$TARGET" in
 esac
 
 cd "$ROOT"
-python3 -m PyInstaller --clean --noconfirm divine-server.spec
+PYTHON_BIN="${PYTHON:-python3}"
+"$PYTHON_BIN" -m PyInstaller --clean --noconfirm divine-server.spec
 
 BIN_DIR="bin/$TARGET"
 mkdir -p "$BIN_DIR"

@@ -1,0 +1,105 @@
+name: Build Desktop Apps
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: ${{ matrix.artifact }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: darwin-arm64
+            tauri-target: aarch64-apple-darwin
+            artifact: macos-arm64
+          - os: macos-15-intel
+            target: darwin-x64
+            tauri-target: x86_64-apple-darwin
+            artifact: macos-x64
+          - os: windows-2022
+            target: win32-x64
+            tauri-target: x86_64-pc-windows-msvc
+            artifact: windows-x64
+          - os: ubuntu-22.04
+            target: linux-x64
+            tauri-target: x86_64-unknown-linux-gnu
+            artifact: linux-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: divine-app/pnpm-lock.yaml
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.tauri-target }}
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: divine-app/src-tauri
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            patchelf
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: divine-server/requirements.txt
+
+      - name: Install Python dependencies
+        working-directory: divine-server
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Build sidecar
+        working-directory: divine-server
+        shell: bash
+        run: bash build-sidecar.sh ${{ matrix.target }}
+        env:
+          PYTHON: python
+
+      - name: Install frontend dependencies
+        working-directory: divine-app
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri app
+        working-directory: divine-app
+        run: pnpm tauri build --target ${{ matrix.tauri-target }} --config src-tauri/tauri.prod.conf.json
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: divine-${{ matrix.artifact }}
+          path: divine-app/src-tauri/target/${{ matrix.tauri-target }}/release/bundle/**
+          if-no-files-found: error
