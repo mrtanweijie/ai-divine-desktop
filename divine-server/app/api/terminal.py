@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import signal
 import subprocess
 import time
@@ -56,6 +57,8 @@ _BLOCKED_TERMINAL_TOKENS = (
     "python3 <<",
 )
 
+_SHELL_CONTROL_RE = re.compile(r"(?:\|\||&&|;|\||&|`|\$\(|\n)")
+
 
 class TerminalDecision(BaseModel):
     session_id: str
@@ -66,6 +69,8 @@ def terminal_command_policy(command: str) -> str:
     normalized = command.strip().lstrip("$ ").lower()
     if any(token in normalized for token in _BLOCKED_TERMINAL_TOKENS):
         return "block"
+    if _SHELL_CONTROL_RE.search(normalized):
+        return "confirm"
     first = normalized.split(maxsplit=1)[0] if normalized else ""
     base = first.rsplit("/", 1)[-1] if first else ""
     return "safe" if base in _SAFE_TERMINAL_COMMANDS else "confirm"

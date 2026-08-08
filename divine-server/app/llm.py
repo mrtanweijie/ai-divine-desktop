@@ -210,7 +210,7 @@ class DeepSeekLLM:
                     if not choices:
                         continue
                     delta = choices[0].get("delta") or {}
-                    if think and delta.get("reasoning_content"):
+                    if delta.get("reasoning_content"):
                         yield {
                             "type": "think",
                             "content": delta["reasoning_content"],

@@ -13,6 +13,21 @@ def safe_name(name: str, fallback: str) -> str:
     return cleaned
 
 
+def derive_title(title: str, content: str) -> str:
+    candidate = (title or "").strip()
+    if candidate:
+        return candidate
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            stripped = stripped.lstrip("#").strip()
+        if stripped:
+            return stripped[:60]
+    return "未命名笔记"
+
+
 def _clean_content(content: str) -> str:
     lines = content.splitlines()
     while lines:
@@ -29,8 +44,8 @@ def main() -> None:
     data = json.load(sys.stdin)
     workspace = Path(data["workspace"])
     params = data.get("params") or {}
-    title = params.get("title") or "未命名笔记"
     content = params.get("content") or ""
+    title = derive_title(params.get("title") or "", content)
     output_dir = workspace / "notes"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / safe_name(title, "笔记")

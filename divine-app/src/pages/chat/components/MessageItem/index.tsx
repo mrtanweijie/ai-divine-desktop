@@ -50,8 +50,8 @@ export function MessageItem({
               <path
                 d="M8 2.5 L14 13.5 H2 Z"
                 fill="none"
-                stroke-width="1.6"
-                stroke-linejoin="round"
+                strokeWidth="1.6"
+                strokeLinejoin="round"
               />
             </svg>
           </span>
@@ -222,6 +222,10 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
       )}
       {tool.status === "confirm" && tool.command && (
         <div className="terminal-confirm">
+          <div className="terminal-confirm-head">
+            <TerminalSquare size={14} />
+            <span>终端命令确认</span>
+          </div>
           <pre>{tool.command}</pre>
           <Flex align="center" gap={8}>
             <Button size="small" loading={deciding} onClick={() => void decide(true)}>

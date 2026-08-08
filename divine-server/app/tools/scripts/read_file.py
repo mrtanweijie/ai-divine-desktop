@@ -17,6 +17,18 @@ def main() -> None:
         path = workspace / path
     path = path.resolve()
 
+    if path.is_dir():
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "message": f"路径是目录，不是文件: {path}",
+                },
+                ensure_ascii=False,
+            )
+        )
+        return
+
     if not path.is_file():
         print(json.dumps({"success": False, "message": f"文件不存在: {path}"}))
         return

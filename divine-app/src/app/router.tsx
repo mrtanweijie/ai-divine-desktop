@@ -4,20 +4,33 @@ import ChatPage from "@/pages/chat";
 import { Providers } from "@/app/providers";
 import { StartupGate } from "@/components/StartupGate";
 
-export const router = createHashRouter([
-  {
-    path: "/",
-    element: (
-      <Providers>
-        <StartupGate>
-          <AppLayout />
-        </StartupGate>
-      </Providers>
-    ),
-    children: [
-      { index: true, element: <Navigate to="/chat" replace /> },
-      { path: "chat", element: <ChatPage /> },
-      { path: "*", element: <Navigate to="/chat" replace /> },
-    ],
+type HashRouterOptions = NonNullable<
+  Parameters<typeof createHashRouter>[1]
+>;
+
+const routerOptions = {
+  future: {
+    v7_startTransition: true,
   },
-]);
+} as unknown as HashRouterOptions;
+
+export const router = createHashRouter(
+  [
+    {
+      path: "/",
+      element: (
+        <Providers>
+          <StartupGate>
+            <AppLayout />
+          </StartupGate>
+        </Providers>
+      ),
+      children: [
+        { index: true, element: <Navigate to="/chat" replace /> },
+        { path: "chat", element: <ChatPage /> },
+        { path: "*", element: <Navigate to="/chat" replace /> },
+      ],
+    },
+  ],
+  routerOptions
+);
