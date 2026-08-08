@@ -253,9 +253,8 @@ async def run_agent(
             "role": "assistant",
             "content": assistant_content,
             "tool_calls": assistant_tool_calls,
+            "reasoning_content": think_content,
         }
-        if think_content:
-            assistant_message["reasoning_content"] = think_content
         messages.append(assistant_message)
         for call_id, tool_message in tool_results:
             messages.append(

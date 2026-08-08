@@ -305,9 +305,8 @@ def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
             entry: dict[str, Any] = {
                 "role": "assistant",
                 "content": content,
+                "reasoning_content": "\n".join(think_parts),
             }
-            if think_parts:
-                entry["reasoning_content"] = "\n".join(think_parts)
             result.append(entry)
             continue
         if content:
