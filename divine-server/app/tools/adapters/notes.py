@@ -8,12 +8,16 @@ from ..registry import register_tool
 
 @register_tool(
     "notes",
-    "生成 Markdown 笔记文件，用于会议记录、知识整理、待办清单等场景；title 未提供时会从正文首行或首个标题自动命名",
+    "生成 Markdown 笔记文件，用于会议记录、知识整理、待办清单等场景；title 未提供时会从正文首行或首个标题自动命名；path 可指定 workspace 内相对保存目录",
     {
         "type": "object",
         "properties": {
             "title": {"type": "string", "description": "笔记标题"},
             "content": {"type": "string", "description": "Markdown 正文"},
+            "path": {
+                "type": "string",
+                "description": "保存目录，workspace 内相对路径，例如 notes/小说名；默认 notes",
+            },
         },
         "required": ["title", "content"],
     },
@@ -39,4 +43,5 @@ class NotesAdapter(ToolAdapter):
         return {
             "title": title or "未命名笔记",
             "content": content,
+            "path": str(arguments.get("path") or "").strip(),
         }

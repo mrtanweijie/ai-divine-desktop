@@ -42,11 +42,38 @@ def _clean_content(content: str) -> str:
 
 def main() -> None:
     data = json.load(sys.stdin)
-    workspace = Path(data["workspace"])
+    workspace = Path(data["workspace"]).resolve()
     params = data.get("params") or {}
     content = params.get("content") or ""
     title = derive_title(params.get("title") or "", content)
     output_dir = workspace / "notes"
+    raw_path = str(params.get("path") or "").strip()
+    if raw_path:
+        candidate = Path(raw_path)
+        if not candidate.is_absolute():
+            candidate = workspace / candidate
+        output_dir = candidate.resolve()
+        try:
+            output_dir.relative_to(workspace)
+        except ValueError:
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "message": f"保存路径越界: {output_dir}",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return
+    if output_dir.exists() and not output_dir.is_dir():
+        print(
+            json.dumps(
+                {"success": False, "message": f"保存路径不是目录: {output_dir}"},
+                ensure_ascii=False,
+            )
+        )
+        return
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / safe_name(title, "笔记")
 
