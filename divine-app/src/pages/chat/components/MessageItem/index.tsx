@@ -6,8 +6,10 @@ import {
   FileSpreadsheet,
   FileText,
   FolderOpen,
+  Globe,
   Image,
   Loader2,
+  Presentation,
   StickyNote,
   Wrench,
 } from "lucide-react";
@@ -128,6 +130,15 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
       <StickyNote size={16} />
     ) : tool.tool.includes("read_image") || tool.tool.includes("image") ? (
       <Image size={16} />
+    ) : tool.tool.includes("presentation") ||
+      tool.tool.includes("ppt") ||
+      tool.tool.includes("slides") ? (
+      <Presentation size={16} />
+    ) : tool.tool.includes("web") ||
+      tool.tool.includes("fetch") ||
+      tool.tool.includes("browse") ||
+      tool.tool.includes("url") ? (
+      <Globe size={16} />
     ) : (
       <FileText size={16} />
     );

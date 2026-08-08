@@ -113,6 +113,6 @@ def cors_origins() -> list[str]:
 
 def ensure_directories() -> None:
     workspace_dir().mkdir(parents=True, exist_ok=True)
-    for category in ("documents", "spreadsheets", "notes"):
+    for category in ("documents", "spreadsheets", "notes", "presentations"):
         (workspace_dir() / category).mkdir(parents=True, exist_ok=True)
     db_path().parent.mkdir(parents=True, exist_ok=True)

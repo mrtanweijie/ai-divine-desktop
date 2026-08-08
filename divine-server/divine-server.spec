@@ -12,6 +12,8 @@ a = Analysis(
     hiddenimports=[
         "eval_type_backport",
         "docx",
+        "pptx",
+        "bs4",
         "openpyxl",
         "langchain_community.document_loaders",
         "langchain_community.document_loaders.text",
@@ -38,6 +40,8 @@ a = Analysis(
         "app.api.sessions",
         "app.api.settings",
         "app.tools.adapters.notes",
+        "app.tools.adapters.presentation",
+        "app.tools.adapters.web_fetch",
         "app.tools.adapters.spreadsheet",
         "app.tools.adapters.word_document",
     ],

@@ -9,7 +9,7 @@ from ..config import workspace_dir
 
 router = APIRouter(prefix="/files", tags=["files"])
 
-ALLOWED_CATEGORIES = {"documents", "spreadsheets", "notes"}
+ALLOWED_CATEGORIES = {"documents", "spreadsheets", "notes", "presentations"}
 
 
 def _category_dir(category: str) -> Path:

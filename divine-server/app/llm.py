@@ -136,13 +136,29 @@ class MockLLM:
         wants_image = any(
             word in lowered for word in ("图片", "image", "png", "jpg", "jpeg", "webp")
         )
-        if wants_read:
-            for tool in tools:
-                if tool.get("function", {}).get("name") == "read_file":
-                    return tool
+        wants_presentation = any(
+            word in lowered
+            for word in ("ppt", "幻灯片", "演示文稿", "presentation")
+        )
+        wants_web = any(
+            word in lowered
+            for word in ("网页", "网站", "抓取", "浏览", "url", "http")
+        )
         if wants_image:
             for tool in tools:
                 if tool.get("function", {}).get("name") == "read_image":
+                    return tool
+        if wants_presentation:
+            for tool in tools:
+                if tool.get("function", {}).get("name") == "presentation":
+                    return tool
+        if wants_web:
+            for tool in tools:
+                if tool.get("function", {}).get("name") == "web_fetch":
+                    return tool
+        if wants_read:
+            for tool in tools:
+                if tool.get("function", {}).get("name") == "read_file":
                     return tool
         for tool in tools:
             name = tool.get("function", {}).get("name", "")
@@ -170,6 +186,24 @@ class MockLLM:
                     },
                 ],
             }
+        if tool_name == "presentation":
+            return {
+                "title": "AI Divine 产品介绍",
+                "slides": [
+                    {
+                        "heading": "项目背景",
+                        "body": "本地优先的桌面 AI 助手\n支持文件分析、文档生成和工具调用",
+                    },
+                    {
+                        "heading": "核心能力",
+                        "body": "流式对话\n文件问答\nWord / Excel / Markdown / PPT 生成",
+                    },
+                    {
+                        "heading": "下一步计划",
+                        "body": "接入更多本地工具与 MCP 能力",
+                    },
+                ],
+            }
         if tool_name == "spreadsheet":
             return {
                 "file_name": "项目进度表.xlsx",
@@ -192,6 +226,11 @@ class MockLLM:
                     rest = question[start + len(marker) :].strip().splitlines()[0]
                     return {"file_path": rest.strip()}
             return {"file_path": ""}
+        if tool_name == "web_fetch":
+            for token in question.split():
+                if token.startswith("http"):
+                    return {"url": token.strip("，。、,;；")}
+            return {"url": "https://example.com"}
         return {
             "title": "AI Divine 使用笔记",
             "content": (

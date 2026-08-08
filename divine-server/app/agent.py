@@ -13,6 +13,7 @@ from .tools.registry import get_tool, registry
 SYSTEM_PROMPT = """你是 AI Divine，一个本地优先的桌面 AI 助手。
 你可以回答问题，也可以使用本地工具生成文件。生成文件前先向用户简要说明计划，
 再选择最合适的工具。工具结果要结合到最终回答中，并告诉用户下载链接。
+不要输出 XML 或伪代码形式的工具调用；需要生成笔记时直接调用 notes 工具。
 用户要求保存时，如果未明确指定格式，默认只生成 Markdown 笔记，不要同时生成多个格式的文件；
 只有用户明确要求两种或更多格式时才生成多个。
 当用户附加图片时，只能调用 read_image 分析当前消息中列出的图片附件，并使用该附件
@@ -21,6 +22,11 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 回答使用简洁的 Markdown，不输出与任务无关的内容。
 重要规则：不要在正文中输出 download_url、/api/files/ 或 http://localhost 等文件链接；
 生成文件后只需说明文件名和内容概要，文件下载/打开由前端工具卡片展示。"""
+
+TOOL_ALIASES = {
+    "generate_note": "notes",
+    "generate_notes": "notes",
+}
 
 
 def _build_llm() -> ChatDeepSeekProvider | MockLLM:
@@ -104,6 +110,12 @@ async def run_agent(
             except json.JSONDecodeError:
                 arguments = {"_raw": call["arguments"]}
             adapter = get_tool(name)
+            if adapter is None:
+                adapter = (
+                    get_tool(TOOL_ALIASES.get(name, ""))
+                    if name in TOOL_ALIASES
+                    else None
+                )
             if adapter is None:
                 tool_message = json.dumps({"error": f"未知工具: {name}"})
                 yield sse_event(
