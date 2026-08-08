@@ -9,6 +9,7 @@ import {
   messagesToChatMessages,
   renameSession,
   updateSettings,
+  apiBase,
 } from "@/services/api";
 import { consumeSSE } from "@/services/sse";
 import { ChatHeader } from "@/pages/chat/components/ChatHeader";
@@ -28,7 +29,6 @@ import { useFullscreen } from "@/pages/chat/state/fullscreenStore";
 import { useInputState } from "@/pages/chat/state/inputStore";
 import { useMessageState } from "@/pages/chat/state/messageStore";
 import { useSessionState } from "@/pages/chat/state/sessionStore";
-import { LoadingOrb } from "@/components/ui";
 import { Flex } from "@/components/ui/Flex";
 import { TitleBar } from "@/components/TitleBar";
 import { SessionSearchModal } from "@/pages/chat/components/SessionList/SessionSearchModal";
@@ -38,13 +38,7 @@ export default function ChatPage() {
     useSessionState();
   const { messages, setMessages, streaming, setStreaming } =
     useMessageState();
-  const {
-    settings,
-    setSettings,
-    setWorkspace,
-    initializing,
-    setInitializing,
-  } = useConfigState();
+  const { settings, setSettings, setWorkspace } = useConfigState();
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -85,7 +79,6 @@ export default function ChatPage() {
         if (sessionList.length > 0) {
           await loadSession(sessionList[0].id);
         }
-        setInitializing(false);
       })
       .catch(() => {
         setSettings({
@@ -100,9 +93,8 @@ export default function ChatPage() {
           context_limit: 20,
           tools: [],
         });
-        setInitializing(false);
       });
-  }, [loadSession, refreshSessions, refreshWorkspace, setInitializing]);
+  }, [loadSession, refreshSessions, refreshWorkspace]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -240,7 +232,7 @@ export default function ChatPage() {
       setStreaming(true);
 
       try {
-        const response = await fetch("/api/stream_chat", {
+        const response = await fetch(`${apiBase()}/stream_chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -340,15 +332,6 @@ export default function ChatPage() {
     () => sessions.find((session) => session.id === selectedId) ?? null,
     [selectedId, sessions]
   );
-
-  if (initializing) {
-    return (
-      <div className="app-loading">
-        <LoadingOrb state="connecting" size={64} />
-        <p>正在初始化</p>
-      </div>
-    );
-  }
 
   return (
     <Flex className={`app-shell ${sidebarOpen ? "sidebar-visible" : ""}`}>

@@ -107,7 +107,7 @@ def db_path() -> Path:
 
 
 def cors_origins() -> list[str]:
-    raw = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    raw = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,tauri://localhost,http://tauri.localhost,https://tauri.localhost")
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 

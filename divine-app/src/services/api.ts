@@ -8,7 +8,12 @@ import type {
   WorkspaceCategory,
 } from "@/types";
 
-const API_BASE = "/api";
+const API_BASE =
+  import.meta.env.VITE_SERVICE_API_URL?.replace(/\/+$/, "") || "/api";
+
+export function apiBase(): string {
+  return API_BASE;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {

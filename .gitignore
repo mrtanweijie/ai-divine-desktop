@@ -18,6 +18,7 @@ divine-server/workspace/
 divine-server/data/
 divine-server/build/
 divine-server/dist/
+divine-server/.vscode/
 __pycache__/
 
 bin/
