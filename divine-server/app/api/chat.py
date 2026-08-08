@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter
@@ -15,6 +16,7 @@ from ..schemas import Attachment, StreamChatRequest
 from ..sse import error_event, sse_event
 
 router = APIRouter(tags=["chat"])
+logger = logging.getLogger("divine.chat")
 
 
 def _read_text_fallback(path: Path) -> str:
@@ -85,12 +87,23 @@ async def stream_chat(request: StreamChatRequest):
     settings = settings_store.load()
     context_limit = int(settings.get("context_limit") or 20)
     history = db.history_for_model(session_id, limit=context_limit)
+    logger.info(
+        "chat request session=%s question_len=%d attachments=%d think=%s history=%d",
+        session_id,
+        len(question),
+        len(request.attachments),
+        request.think,
+        len(history),
+    )
 
     async def generate():
         try:
             async for event in run_agent(session_id, history, request.think):
                 yield event
         except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "stream_chat error session=%s: %s", session_id, exc
+            )
             yield error_event("server_error", str(exc))
         finally:
             db.touch_session(session_id)

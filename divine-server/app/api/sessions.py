@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
@@ -9,6 +10,7 @@ from .. import db
 from ..schemas import SessionCreate, SessionUpdate
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
+logger = logging.getLogger("divine.sessions")
 
 
 @router.get("")
@@ -18,7 +20,9 @@ def list_sessions():
 
 @router.post("", status_code=201)
 def create_session(body: SessionCreate):
-    return db.create_session(body.title)
+    session = db.create_session(body.title)
+    logger.info("session created id=%s title=%s", session["id"], body.title)
+    return session
 
 
 @router.get("/{session_id}")
@@ -43,6 +47,7 @@ def delete_session(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
     db.delete_session(session_id)
+    logger.info("session deleted id=%s", session_id)
 
 
 @router.post("/{session_id}/clear")
@@ -51,6 +56,7 @@ def clear_session(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
     db.clear_messages(session_id)
+    logger.info("session cleared id=%s", session_id)
     return db.load_session(session_id)
 
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from typing import Any, AsyncIterator
 
 from . import db
@@ -10,6 +12,18 @@ from .llm import ChatDeepSeekProvider, DeepSeekLLM, MockLLM
 from .sse import error_event, sse_event
 from .tools.base import ToolExecutionError
 from .tools.registry import get_tool, registry
+
+logger = logging.getLogger("divine.agent")
+
+
+def _summarize_arguments(arguments: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for key, value in arguments.items():
+        if isinstance(value, str) and len(value) > 80:
+            parts.append(f"{key}={len(value)}chars")
+        else:
+            parts.append(f"{key}={value!r}")
+    return ", ".join(parts)[:500]
 
 
 SYSTEM_PROMPT = """你是 AI Divine，一个本地优先的桌面 AI 助手。
@@ -70,8 +84,19 @@ async def run_agent(
     tool_schemas = registry.openai_schema()
     unknown_tool_counts: dict[str, int] = {}
     repeated_calls: dict[str, int] = {}
+    logger.info(
+        "agent start session=%s history=%d",
+        session_id,
+        len(history),
+    )
 
     for turn in range(MAX_TOOL_TURNS):
+        logger.info(
+            "agent turn session=%s turn=%d messages=%d",
+            session_id,
+            turn,
+            len(messages),
+        )
         tool_calls: dict[int, dict[str, str]] = {}
         assistant_content = ""
         think_content = ""
@@ -96,6 +121,13 @@ async def run_agent(
                 if event.get("name"):
                     call["name"] = event["name"]
                 call["arguments"] += event.get("arguments") or ""
+                if event.get("name"):
+                    logger.info(
+                        "tool call delta session=%s name=%s call_id=%s",
+                        session_id,
+                        event.get("name"),
+                        event.get("id") or "",
+                    )
 
         if not tool_calls:
             message = db.add_message(session_id, "assistant", assistant_content)
@@ -112,6 +144,11 @@ async def run_agent(
                     "content": assistant_content,
                 },
             )
+            logger.info(
+                "agent done session=%s content_len=%d",
+                session_id,
+                len(assistant_content),
+            )
             return
 
         assistant_tool_calls = []
@@ -123,6 +160,13 @@ async def run_agent(
                 arguments = json.loads(call["arguments"] or "{}")
             except json.JSONDecodeError:
                 arguments = {"_raw": call["arguments"]}
+            logger.info(
+                "tool call session=%s name=%s call_id=%s args=[%s]",
+                session_id,
+                call["name"],
+                call_id,
+                _summarize_arguments(arguments),
+            )
             adapter = get_tool(name)
             if adapter is None:
                 adapter = (
@@ -147,6 +191,12 @@ async def run_agent(
                 )
                 tool_results.append((call_id, tool_message))
                 if unknown_tool_counts[name] >= 2:
+                    logger.warning(
+                        "unknown tool loop session=%s tool=%s count=%d",
+                        session_id,
+                        name,
+                        unknown_tool_counts[name],
+                    )
                     yield error_event(
                         "tool_loop",
                         f"模型连续调用不存在的工具 {name}，已停止",
@@ -161,6 +211,11 @@ async def run_agent(
                     repeated_calls.get(call_key, 0) + 1
                 )
                 if repeated_calls[call_key] >= 3:
+                    logger.warning(
+                        "repeated tool call session=%s tool=%s",
+                        session_id,
+                        name,
+                    )
                     yield error_event(
                         "tool_loop",
                         f"模型重复调用同一工具 {name}，已停止",
@@ -170,6 +225,12 @@ async def run_agent(
                     workspace_dir(), arguments
                 )
                 if external_paths:
+                    logger.info(
+                        "external confirm session=%s tool=%s paths=%s",
+                        session_id,
+                        name,
+                        external_paths,
+                    )
                     yield sse_event(
                         "tool",
                         {
@@ -185,6 +246,12 @@ async def run_agent(
                         session_id, external_paths[0]
                     )
                     if not allowed:
+                        logger.warning(
+                            "external path denied session=%s tool=%s path=%s",
+                            session_id,
+                            name,
+                            external_paths[0],
+                        )
                         tool_message = json.dumps(
                             {
                                 "error": "用户拒绝访问外部路径",
@@ -208,6 +275,13 @@ async def run_agent(
                 command = str(arguments.get("command") or "")
                 policy = (
                     terminal_command_policy(command) if is_terminal else "safe"
+                )
+                logger.info(
+                    "tool policy session=%s tool=%s policy=%s command=%s",
+                    session_id,
+                    name,
+                    policy,
+                    command[:300],
                 )
                 if is_terminal and policy == "block":
                     tool_message = json.dumps(
@@ -325,6 +399,12 @@ async def run_agent(
             think_content,
             tool_results,
         )
+        logger.info(
+            "tool turn saved session=%s calls=%d results=%d",
+            session_id,
+            len(assistant_tool_calls),
+            len(tool_results),
+        )
         assistant_message: dict[str, Any] = {
             "role": "assistant",
             "content": assistant_content,
@@ -341,6 +421,7 @@ async def run_agent(
                 }
             )
 
+    logger.warning("tool turn limit session=%s", session_id)
     raise RuntimeError(
         f"工具调用轮次超过限制（{MAX_TOOL_TURNS} 轮），任务太复杂，请分步进行"
     )
@@ -352,12 +433,34 @@ async def _execute_tool(
     from . import db
 
     run = db.add_tool_run(session_id, name, "start", arguments)
+    started = time.monotonic()
+    logger.info("tool start session=%s name=%s", session_id, name)
+    logger.info(
+        "tool args session=%s name=%s args=[%s]",
+        session_id,
+        name,
+        _summarize_arguments(arguments),
+    )
     try:
         result = await adapter.run(workspace_dir(), arguments)
         output = result.as_dict()
         db.update_tool_run(run["id"], "done", output)
+        logger.info(
+            "tool done session=%s name=%s duration=%.2fs success=%s",
+            session_id,
+            name,
+            time.monotonic() - started,
+            output.get("success"),
+        )
         return output
     except ToolExecutionError as exc:
         output = {"success": False, "message": str(exc)}
         db.update_tool_run(run["id"], "error", output)
+        logger.warning(
+            "tool error session=%s name=%s duration=%.2fs error=%s",
+            session_id,
+            name,
+            time.monotonic() - started,
+            exc,
+        )
         return output

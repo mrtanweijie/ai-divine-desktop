@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import html
 import json
+import logging
 import re
 from typing import Any, AsyncIterator
 
 import httpx
 
 from .config import settings_store
+
+logger = logging.getLogger("divine.llm")
 
 _DSML_TOKEN_RE = re.compile(r"[｜|]{1,}\s*DSML\s*[｜|]{1,}", re.IGNORECASE)
 
@@ -181,18 +184,31 @@ class DeepSeekLLM:
         url = (self.settings.get("base_url") or "https://api.deepseek.com").rstrip(
             "/"
         ) + "/chat/completions"
+        logger.info(
+            "DeepSeek request model=%s messages=%d tools=%d think=%s",
+            payload.get("model"),
+            len(messages),
+            len(tools or []),
+            think,
+        )
         headers = {
             "Authorization": f"Bearer {self.settings.get('api_key', '')}",
             "Content-Type": "application/json",
         }
         timeout = httpx.Timeout(120.0, connect=20.0)
         dsml = DsmlStreamProcessor()
+        event_count = 0
         async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream(
                 "POST", url, headers=headers, json=payload
             ) as response:
                 if response.status_code != 200:
                     body = (await response.aread()).decode("utf-8", "replace")[:500]
+                    logger.warning(
+                        "DeepSeek API error status=%s body=%s",
+                        response.status_code,
+                        body,
+                    )
                     raise RuntimeError(
                         f"模型接口返回 {response.status_code}: {body}"
                     )
@@ -211,15 +227,18 @@ class DeepSeekLLM:
                         continue
                     delta = choices[0].get("delta") or {}
                     if delta.get("reasoning_content"):
+                        event_count += 1
                         yield {
                             "type": "think",
                             "content": delta["reasoning_content"],
                         }
                     if delta.get("content"):
                         for event in dsml.push(delta["content"]):
+                            event_count += 1
                             yield event
                     for tool_call in delta.get("tool_calls") or []:
                         function = tool_call.get("function") or {}
+                        event_count += 1
                         yield {
                             "type": "tool_call",
                             "index": tool_call.get("index", 0),
@@ -228,7 +247,13 @@ class DeepSeekLLM:
                             "arguments": function.get("arguments") or "",
                         }
                 for event in dsml.flush():
+                    event_count += 1
                     yield event
+        logger.info(
+            "DeepSeek stream end model=%s events=%d",
+            payload.get("model"),
+            event_count,
+        )
 
 
 class MockLLM:

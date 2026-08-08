@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter
 
 from ..config import settings_store, workspace_dir
@@ -7,6 +9,7 @@ from ..schemas import SettingsUpdate
 from ..tools.registry import registry
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+logger = logging.getLogger("divine.settings")
 
 
 def _public(settings: dict) -> dict:
@@ -41,4 +44,10 @@ def update_settings(body: SettingsUpdate):
         updates["username"] = "用户"
     current.update(updates)
     settings_store.save(current)
+    logger.info(
+        "settings updated provider=%s model=%s has_api_key=%s",
+        current.get("provider"),
+        current.get("model"),
+        bool(current.get("api_key")),
+    )
     return _public(current)
