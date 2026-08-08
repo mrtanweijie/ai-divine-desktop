@@ -47,9 +47,21 @@ CREATE TABLE IF NOT EXISTS tool_runs (
     finished_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS agent_todos (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    "index" INTEGER NOT NULL DEFAULT 0,
+    title TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    result TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_parts_message ON message_parts(message_id);
 CREATE INDEX IF NOT EXISTS idx_tool_runs_session ON tool_runs(session_id);
+CREATE INDEX IF NOT EXISTS idx_todos_session ON agent_todos(session_id);
 """
 
 
@@ -133,6 +145,7 @@ def clear_messages(session_id: str) -> None:
     with closing(_connect()) as conn:
         conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
         conn.execute("DELETE FROM tool_runs WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM agent_todos WHERE session_id = ?", (session_id,))
         conn.execute(
             "UPDATE sessions SET title = '新对话', updated_at = ? WHERE id = ?",
             (_now(), session_id),
@@ -278,6 +291,47 @@ def get_tool_run(run_id: str) -> dict[str, Any]:
             "SELECT * FROM tool_runs WHERE id = ?", (run_id,)
         ).fetchone()
     return dict(row)
+
+
+def replace_todos(
+    session_id: str, titles: list[str]
+) -> list[dict[str, Any]]:
+    now = _now()
+    with closing(_connect()) as conn:
+        conn.execute(
+            "DELETE FROM agent_todos WHERE session_id = ?", (session_id,)
+        )
+        for index, title in enumerate(titles):
+            conn.execute(
+                "INSERT INTO agent_todos "
+                "(id, session_id, \"index\", title, status, result, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, 'pending', NULL, ?, ?)",
+                (_new_id(), session_id, index, title, now, now),
+            )
+        conn.commit()
+    return list_todos(session_id)
+
+
+def list_todos(session_id: str) -> list[dict[str, Any]]:
+    with closing(_connect()) as conn:
+        rows = conn.execute(
+            "SELECT * FROM agent_todos WHERE session_id = ? "
+            "ORDER BY \"index\" ASC, rowid ASC",
+            (session_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def update_todo_status(
+    todo_id: str, status: str, result: str | None = None
+) -> None:
+    with closing(_connect()) as conn:
+        conn.execute(
+            "UPDATE agent_todos SET status = ?, result = ?, updated_at = ? "
+            "WHERE id = ?",
+            (status, result, _now(), todo_id),
+        )
+        conn.commit()
 
 
 def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
@@ -440,4 +494,5 @@ def load_session(session_id: str) -> dict[str, Any]:
         "session": get_session(session_id),
         "messages": messages,
         "tool_runs": list_tool_runs(session_id),
+        "todos": list_todos(session_id),
     }

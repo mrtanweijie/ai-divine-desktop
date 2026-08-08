@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import {
   ChevronLeft,
+  Download,
+  File,
+  FileText,
+  FileType,
   Pencil,
   PanelLeftOpen,
 } from "lucide-react";
 import type { Session } from "@/types";
+import { exportSession } from "@/services/api";
 import { Button } from "@/components/ui/Button";
+import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
@@ -98,6 +104,37 @@ export function ChatHeader({
       />
 
       <Flex align="center" gap={6} className="chat-header-right">
+        {session && (
+          <Dropdown
+            label="导出会话"
+            align="center"
+            trigger={
+              <Button variant="icon" title="导出会话">
+                <Download size={15} />
+              </Button>
+            }
+            items={[
+              {
+                key: "markdown",
+                label: "Markdown",
+                icon: <FileType size={13} />,
+                onClick: () => exportSession(session.id, "markdown"),
+              },
+              {
+                key: "pdf",
+                label: "PDF",
+                icon: <FileText size={13} />,
+                onClick: () => exportSession(session.id, "pdf"),
+              },
+              {
+                key: "text",
+                label: "文本",
+                icon: <File size={13} />,
+                onClick: () => exportSession(session.id, "text"),
+              },
+            ]}
+          />
+        )}
         <span className="model-badge">{model || "本地演示"}</span>
         <Switch
           label="深度思考"

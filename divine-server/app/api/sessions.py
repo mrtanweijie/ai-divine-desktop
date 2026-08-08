@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
 from .. import db
+from ..pdf_export import render_markdown_pdf
 from ..schemas import SessionCreate, SessionUpdate
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -87,6 +88,15 @@ def export_session(session_id: str, format: str = "markdown"):
             text,
             media_type="text/plain",
             headers={"Content-Disposition": 'attachment; filename="chat.txt"'},
+        )
+    if format == "pdf":
+        payload = render_markdown_pdf("\n".join(lines), session["title"])
+        return Response(
+            payload,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": 'attachment; filename="chat.pdf"'
+            },
         )
     text = "\n".join(lines)
     return Response(

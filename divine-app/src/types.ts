@@ -20,6 +20,7 @@ export interface Message {
   content: string;
   created_at: string;
   parts: MessagePart[];
+  todos?: TodoItem[];
 }
 
 export interface ToolEvent {
@@ -27,7 +28,7 @@ export interface ToolEvent {
   status: "preparing" | "running" | "confirm" | "done" | "error";
   message: string;
   command?: string;
-  confirm_type?: "terminal" | "external_file";
+  confirm_type?: "terminal" | "external_file" | "plan";
   paths?: string[];
   session_id?: string;
   result?: {
@@ -54,12 +55,21 @@ export interface ToolRun {
   finished_at: string | null;
 }
 
+export interface TodoItem {
+  id: string;
+  index: number;
+  title: string;
+  status: "pending" | "running" | "done" | "error" | "skipped";
+  result?: string | null;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   created_at: string;
   think?: string;
+  todos?: TodoItem[];
   tools: ToolEvent[];
   files?: ChatFile[];
   streaming?: boolean;

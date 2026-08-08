@@ -22,7 +22,7 @@ export interface DropdownItem {
 interface DropdownProps {
   trigger: ReactNode;
   items: DropdownItem[];
-  align?: "start" | "end";
+  align?: "start" | "center" | "end";
   label?: string;
 }
 
@@ -34,6 +34,26 @@ export function Dropdown({
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<number | null>(null);
+
+  const cancelClose = () => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  const openMenu = () => {
+    cancelClose();
+    setOpen(true);
+  };
+
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => {
+      setOpen(false);
+    }, 180);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -53,8 +73,21 @@ export function Dropdown({
     };
   }, [open]);
 
+  useEffect(() => {
+    return () => {
+      if (closeTimer.current !== null) {
+        window.clearTimeout(closeTimer.current);
+      }
+    };
+  }, []);
+
   return (
-    <div className="ui-dropdown" ref={ref}>
+    <div
+      className="ui-dropdown"
+      ref={ref}
+      onMouseEnter={openMenu}
+      onMouseLeave={scheduleClose}
+    >
       {isValidElement(trigger)
         ? cloneElement(trigger as ReactElement, {
             onClick: () => setOpen((value) => !value),
@@ -64,7 +97,12 @@ export function Dropdown({
           })
         : trigger}
       {open && (
-        <div className={`ui-menu ui-menu--${align}`} role="menu">
+        <div
+          className={`ui-menu ui-menu--${align}`}
+          role="menu"
+          onMouseEnter={cancelClose}
+          onMouseLeave={scheduleClose}
+        >
           {items.map((item) => (
             <button
               key={item.key}

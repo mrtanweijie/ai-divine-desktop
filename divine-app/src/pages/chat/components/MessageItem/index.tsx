@@ -11,6 +11,7 @@ import {
   FolderTree,
   Globe,
   Image,
+  ListChecks,
   Presentation,
   StickyNote,
   TerminalSquare,
@@ -19,7 +20,7 @@ import {
 import { useState } from "react";
 import { apiBase, downloadUrl } from "@/services/api";
 import { isTauri, openFileLocation } from "@/services/tauri";
-import type { ChatMessage, ToolEvent } from "@/types";
+import type { ChatMessage, TodoItem, ToolEvent } from "@/types";
 import { formatSize, formatTime } from "@/utils";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
 import { Button } from "@/components/ui/Button";
@@ -85,6 +86,9 @@ export function MessageItem({
       ) : (
         <div className="assistant-content">
           {message.think && <ThinkBlock content={message.think} />}
+          {message.todos && message.todos.length > 0 && (
+            <PlanCard todos={message.todos} />
+          )}
           {message.tools.map((tool, index) => (
             <ToolStatusCard key={`${tool.tool}-${index}`} tool={tool} />
           ))}
@@ -130,6 +134,46 @@ function ThinkBlock({ content }: { content: string }) {
         <span>思考过程</span>
       </summary>
       <div className="think-content">{content}</div>
+    </details>
+  );
+}
+
+function PlanCard({ todos }: { todos: TodoItem[] }) {
+  const [open, setOpen] = useState(true);
+  const done = todos.filter((todo) => todo.status === "done").length;
+  return (
+    <details className="plan-block" open={open}>
+      <summary
+        className="plan-summary"
+        onClick={(event) => {
+          event.preventDefault();
+          setOpen((value) => !value);
+        }}
+      >
+        <ChevronDown size={13} className={open ? "expanded" : ""} />
+        <span>执行计划</span>
+        <span className="plan-progress">
+          {done}/{todos.length}
+        </span>
+      </summary>
+      <div className="plan-items">
+        {todos.map((todo) => (
+          <div key={todo.id} className={`plan-item ${todo.status}`}>
+            <span className="plan-item-icon">
+              {todo.status === "done" ? (
+                <Check size={13} />
+              ) : todo.status === "error" ? (
+                <AlertCircle size={13} />
+              ) : todo.status === "running" ? (
+                <span className="plan-spinner" />
+              ) : (
+                <span className="plan-dot" />
+              )}
+            </span>
+            <span className="plan-item-title">{todo.title}</span>
+          </div>
+        ))}
+      </div>
     </details>
   );
 }
@@ -276,6 +320,28 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
               onClick={() => void decide(false)}
             >
               拒绝
+            </Button>
+          </Flex>
+        </div>
+      )}
+      {tool.status === "confirm" && tool.confirm_type === "plan" && (
+        <div className="terminal-confirm plan-confirm">
+          <div className="terminal-confirm-head">
+            <ListChecks size={14} />
+            <span>执行计划确认</span>
+          </div>
+          <p className="plan-confirm-text">计划已创建，是否开始执行？</p>
+          <Flex align="center" gap={8}>
+            <Button size="small" loading={deciding} onClick={() => void decide(true)}>
+              开始执行
+            </Button>
+            <Button
+              size="small"
+              variant="ghost"
+              disabled={deciding}
+              onClick={() => void decide(false)}
+            >
+              取消
             </Button>
           </Flex>
         </div>

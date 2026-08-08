@@ -3,10 +3,12 @@ import type {
   Message,
   Session,
   Settings,
+  TodoItem,
   ToolEvent,
   ToolRun,
   WorkspaceCategory,
 } from "@/types";
+import { isTauri, openUrl } from "@/services/tauri";
 
 const API_BASE =
   import.meta.env.VITE_SERVICE_API_URL?.replace(/\/+$/, "") || "/api";
@@ -56,12 +58,29 @@ export function clearSession(id: string): Promise<unknown> {
 
 export function getSession(
   id: string
-): Promise<{ session: Session; messages: Message[]; tool_runs?: ToolRun[] }> {
+): Promise<{
+  session: Session;
+  messages: Message[];
+  tool_runs?: ToolRun[];
+  todos?: TodoItem[];
+}> {
   return request(`/sessions/${id}`);
 }
 
-export function exportSession(id: string, format: "markdown" | "text") {
-  window.open(`${API_BASE}/sessions/${id}/export?format=${format}`, "_blank");
+export function exportSession(
+  id: string,
+  format: "markdown" | "text" | "pdf"
+) {
+  const path = `/sessions/${id}/export?format=${format}`;
+  const base = API_BASE.startsWith("http")
+    ? API_BASE
+    : `${window.location.origin}${API_BASE}`;
+  const url = `${base}${path}`;
+  if (isTauri()) {
+    void openUrl(url);
+  } else {
+    window.open(url, "_blank");
+  }
 }
 
 export function getSettings(): Promise<Settings> {
@@ -90,10 +109,16 @@ export function downloadUrl(url: string): string {
 
 export function messagesToChatMessages(
   messages: Message[],
-  toolRuns: ToolRun[] = []
+  toolRuns: ToolRun[] = [],
+  todos?: TodoItem[]
 ): ChatMessage[] {
   const chatMessages: ChatMessage[] = [];
   let currentUserIndex = -1;
+  const planTodos = todos && todos.length > 0 ? todos : undefined;
+  const lastAssistantIndex = messages.reduce(
+    (last, message, index) => (message.role === "assistant" ? index : last),
+    -1
+  );
   messages.forEach((message, index) => {
     if (
       message.role === "tool" ||
@@ -148,6 +173,10 @@ export function messagesToChatMessages(
       content: message.content,
       created_at: message.created_at,
       think: message.parts.find((part) => part.type === "think")?.content,
+      todos:
+        planTodos && message.role === "assistant" && index === lastAssistantIndex
+          ? planTodos
+          : undefined,
       files: message.parts
         .filter((part) => part.type === "file")
         .map((part) => {

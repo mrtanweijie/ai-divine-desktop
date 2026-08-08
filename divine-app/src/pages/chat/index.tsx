@@ -22,6 +22,7 @@ import type {
   ChatFile,
   ChatMessage,
   Settings,
+  TodoItem,
   ToolEvent,
 } from "@/types";
 import { useConfigState } from "@/pages/chat/state/configStore";
@@ -69,7 +70,9 @@ export default function ChatPage() {
   const loadSession = useCallback(async (id: string) => {
     const data = await getSession(id);
     setSelectedId(id);
-    setMessages(messagesToChatMessages(data.messages, data.tool_runs ?? []));
+    setMessages(
+      messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos)
+    );
   }, []);
 
   useEffect(() => {
@@ -266,6 +269,37 @@ export default function ChatPage() {
               )
             );
           },
+          plan: (data) => {
+            const items = (data.items ?? []) as unknown as TodoItem[];
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantMessage.id
+                  ? { ...message, todos: items }
+                  : message
+              )
+            );
+          },
+          todo_update: (data) => {
+            const next = data as {
+              id: string;
+              status: TodoItem["status"];
+              result?: string;
+            };
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantMessage.id
+                  ? {
+                      ...message,
+                      todos: (message.todos ?? []).map((todo) =>
+                        todo.id === next.id
+                          ? { ...todo, status: next.status, result: next.result }
+                          : todo
+                      ),
+                    }
+                  : message
+              )
+            );
+          },
           tool: (data) => {
             const event = data as unknown as ToolEvent;
             setMessages((prev) =>
@@ -289,7 +323,11 @@ export default function ChatPage() {
             );
             if (sessionId) {
               const data = await getSession(sessionId);
-              const restored = messagesToChatMessages(data.messages, data.tool_runs ?? []);
+              const restored = messagesToChatMessages(
+                data.messages,
+                data.tool_runs ?? [],
+                data.todos
+              );
               setMessages((prev) => mergeLocalTools(prev, restored));
             }
             await Promise.all([refreshSessions(), refreshWorkspace()]);

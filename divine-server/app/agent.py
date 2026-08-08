@@ -26,9 +26,60 @@ def _summarize_arguments(arguments: dict[str, Any]) -> str:
     return ", ".join(parts)[:500]
 
 
+_PLAN_STATUS_LABELS = {
+    "pending": "待办",
+    "running": "执行中",
+    "done": "完成",
+    "error": "失败",
+    "skipped": "跳过",
+}
+
+
+def _plan_progress(todos: list[dict[str, Any]]) -> str:
+    if not todos:
+        return ""
+    total = len(todos)
+    done = sum(1 for todo in todos if todo["status"] == "done")
+    lines = [f"当前计划进度：{done}/{total}"]
+    for index, todo in enumerate(todos, start=1):
+        label = _PLAN_STATUS_LABELS.get(todo["status"], todo["status"])
+        lines.append(f"{index}. [{label}] {todo['title']}")
+    return "\n".join(lines)
+
+
+def _claim_next_todo(
+    session_id: str, todos: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    for todo in todos:
+        if todo["status"] == "pending":
+            todo["status"] = "running"
+            db.update_todo_status(todo["id"], "running")
+            return todo
+    return None
+
+
+def _finish_todo(
+    todo: dict[str, Any] | None, success: bool, message: str = ""
+) -> None:
+    if todo is None:
+        return
+    status = "done" if success else "error"
+    todo["status"] = status
+    db.update_todo_status(todo["id"], status, (message or "")[:500])
+
+
+def _todo_update_event(todo: dict[str, Any]) -> str:
+    return sse_event(
+        "todo_update",
+        {"id": todo["id"], "status": todo["status"]},
+    )
+
+
 SYSTEM_PROMPT = """你是 AI Divine，一个本地优先的桌面 AI 助手。
 你可以回答问题，也可以使用本地工具生成文件。生成文件前先向用户简要说明计划，
 再选择最合适的工具。工具结果要结合到最终回答中，并告诉用户下载链接。
+面对需要多步执行的复杂任务，先调用 create_plan 列出待办事项，再按待办顺序逐项执行；
+不要跳过未完成事项，也不要重复执行已完成事项。
 不要输出 XML 或伪代码形式的工具调用；需要生成笔记时直接调用 notes 工具。
 调用 notes 时必须提供明确、具体的标题，不要使用“未命名笔记”作为标题。
 生成笔记时若用户指定目录，使用 notes 的 path 参数传入 workspace 内相对目录，默认保存在 notes。
@@ -44,6 +95,7 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 查找或列出工作区文件使用 search_files；搜索完文件后，读取具体内容再使用 read_file。
 查看目录结构使用 directory_tree；缩放图片使用 image_resize；拆分合并 PDF 使用 pdf_split_merge；
 只读查询数据库使用 sqlite_query；数学计算使用 calculator；剪贴板操作使用 clipboard。
+本地资料检索使用 rag_index 建立索引、rag_search 检索相关内容。
 读取文件内容必须使用 read_file、word_document 等专用工具；
 读取 Excel 必须使用 read_file（不要使用 spreadsheet，spreadsheet 只能生成 Excel）；
 默认禁止用 terminal 执行 cat、python、openpyxl、find 等命令来读取或分析文件；
@@ -82,6 +134,11 @@ async def run_agent(
         {"role": "system", "content": SYSTEM_PROMPT}
     ]
     messages.extend(history[-context_limit:])
+    todos = db.list_todos(session_id)
+    plan_message: dict[str, Any] | None = None
+    if todos:
+        plan_message = {"role": "system", "content": _plan_progress(todos)}
+        messages.insert(1, plan_message)
     llm = _build_llm()
     tool_schemas = registry.openai_schema()
     unknown_tool_counts: dict[str, int] = {}
@@ -93,6 +150,8 @@ async def run_agent(
     )
 
     for turn in range(MAX_TOOL_TURNS):
+        if plan_message is not None:
+            plan_message["content"] = _plan_progress(todos)
         logger.info(
             "agent turn session=%s turn=%d messages=%d",
             session_id,
@@ -155,6 +214,7 @@ async def run_agent(
 
         assistant_tool_calls = []
         tool_results: list[tuple[str, str]] = []
+        call_todos: dict[str, dict[str, Any]] = {}
         for index, call in sorted(tool_calls.items()):
             name = call["name"]
             call_id = call["id"] or f"call_{index}"
@@ -215,6 +275,95 @@ async def run_agent(
                     )
                     return
             else:
+                if name == "create_plan":
+                    raw_items = (
+                        arguments.get("items") or arguments.get("todos") or []
+                    )
+                    titles = [
+                        str(item).strip()
+                        for item in raw_items
+                        if str(item).strip()
+                    ]
+                    if not titles:
+                        tool_message = json.dumps(
+                            {"error": "计划项不能为空"},
+                            ensure_ascii=False,
+                        )
+                        yield sse_event(
+                            "tool",
+                            {
+                                "tool": name,
+                                "status": "error",
+                                "message": "计划项不能为空",
+                            },
+                        )
+                        tool_results.append((call_id, tool_message))
+                    else:
+                        todos = db.replace_todos(session_id, titles)
+                        if plan_message is not None:
+                            plan_message["content"] = _plan_progress(todos)
+                        else:
+                            plan_message = {
+                                "role": "system",
+                                "content": _plan_progress(todos),
+                            }
+                            messages.insert(1, plan_message)
+                        yield sse_event("plan", {"items": todos})
+                        yield sse_event(
+                            "tool",
+                            {
+                                "tool": name,
+                                "status": "confirm",
+                                "message": "计划已创建，是否开始执行？",
+                                "confirm_type": "plan",
+                                "session_id": session_id,
+                            },
+                        )
+                        allowed = await wait_for_terminal_decision(
+                            session_id, "执行计划"
+                        )
+                        if not allowed:
+                            db.replace_todos(session_id, [])
+                            todos = []
+                            if plan_message is not None:
+                                messages.remove(plan_message)
+                                plan_message = None
+                            yield sse_event("plan", {"items": []})
+                            tool_message = json.dumps(
+                                {"error": "用户拒绝执行计划"},
+                                ensure_ascii=False,
+                            )
+                            yield sse_event(
+                                "tool",
+                                {
+                                    "tool": name,
+                                    "status": "error",
+                                    "message": "用户拒绝执行计划",
+                                    "session_id": session_id,
+                                },
+                            )
+                            tool_results.append((call_id, tool_message))
+                            yield error_event(
+                                "plan_denied", "用户拒绝执行计划"
+                            )
+                            return
+                        tool_message = json.dumps(
+                            {
+                                "success": True,
+                                "message": f"计划已确认，共 {len(todos)} 项",
+                            },
+                            ensure_ascii=False,
+                        )
+                        yield sse_event(
+                            "tool",
+                            {
+                                "tool": name,
+                                "status": "done",
+                                "message": f"计划已确认，共 {len(todos)} 项",
+                            },
+                        )
+                        tool_results.append((call_id, tool_message))
+                    continue
                 call_key = (
                     f"{name}|"
                     + json.dumps(arguments, sort_keys=True, ensure_ascii=False)
@@ -233,6 +382,12 @@ async def run_agent(
                         f"模型重复调用同一工具 {name}，已停止",
                     )
                     return
+                todo = None
+                if todos:
+                    todo = _claim_next_todo(session_id, todos)
+                    if todo is not None:
+                        call_todos[call_id] = todo
+                        yield _todo_update_event(todo)
                 external_paths = adapter.external_paths(
                     workspace_dir(), arguments
                 )
@@ -282,6 +437,10 @@ async def run_agent(
                             },
                         )
                         tool_results.append((call_id, tool_message))
+                        todo = call_todos.get(call_id)
+                        if todo is not None:
+                            _finish_todo(todo, False, "用户拒绝访问外部路径")
+                            yield _todo_update_event(todo)
                         continue
                 is_terminal = name == "terminal"
                 command = str(arguments.get("command") or "")
@@ -312,6 +471,10 @@ async def run_agent(
                         },
                     )
                     tool_results.append((call_id, tool_message))
+                    todo = call_todos.get(call_id)
+                    if todo is not None:
+                        _finish_todo(todo, False, "已阻止危险命令")
+                        yield _todo_update_event(todo)
                 elif is_terminal and policy == "confirm":
                     yield sse_event(
                         "tool",
@@ -343,6 +506,10 @@ async def run_agent(
                             },
                         )
                         tool_results.append((call_id, tool_message))
+                        todo = call_todos.get(call_id)
+                        if todo is not None:
+                            _finish_todo(todo, False, "用户拒绝执行")
+                            yield _todo_update_event(todo)
                     else:
                         yield sse_event(
                             "tool",
@@ -372,6 +539,14 @@ async def run_agent(
                             },
                         )
                         tool_results.append((call_id, tool_message))
+                        todo = call_todos.get(call_id)
+                        if todo is not None:
+                            _finish_todo(
+                                todo,
+                                bool(output.get("success")),
+                                str(output.get("message") or ""),
+                            )
+                            yield _todo_update_event(todo)
                 else:
                     yield sse_event(
                         "tool",
@@ -397,6 +572,14 @@ async def run_agent(
                         payload["command"] = command
                     yield sse_event("tool", payload)
                     tool_results.append((call_id, tool_message))
+                    todo = call_todos.get(call_id)
+                    if todo is not None:
+                        _finish_todo(
+                            todo,
+                            bool(output.get("success")),
+                            str(output.get("message") or ""),
+                        )
+                        yield _todo_update_event(todo)
         db.save_tool_turn(
             session_id,
             assistant_tool_calls,
