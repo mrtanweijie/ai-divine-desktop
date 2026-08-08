@@ -9,32 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-
-def _blocked(command: str) -> str | None:
-    lowered = command.lower()
-    blocked_tokens = (
-        "rm -rf",
-        "rm -fr",
-        "sudo",
-        "kill -9",
-        "shutdown",
-        "reboot",
-        "diskutil",
-        "mkfs",
-        "dd if=",
-        "> /dev/sd",
-        "curl ",
-        "wget ",
-        "chmod 777",
-        "chown -r",
-        "find / -name",
-        "openpyxl",
-        "python3 <<",
-    )
-    for token in blocked_tokens:
-        if token in lowered:
-            return f"命令包含高危操作：{token}"
-    return None
+from app.tools.terminal_policy import terminal_command_policy  # noqa: E402
 
 
 def main() -> None:
@@ -46,9 +21,13 @@ def main() -> None:
         print(json.dumps({"success": False, "message": "命令不能为空"}))
         return
 
-    blocked = _blocked(command)
-    if blocked:
-        print(json.dumps({"success": False, "message": blocked}))
+    if terminal_command_policy(command) == "block":
+        print(
+            json.dumps(
+                {"success": False, "message": "命令包含高危操作，已阻止"},
+                ensure_ascii=False,
+            )
+        )
         return
 
     cwd_raw = params.get("cwd") or ""

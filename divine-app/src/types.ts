@@ -8,7 +8,7 @@ export interface Session {
 export interface MessagePart {
   id: string;
   message_id: string;
-  type: "think" | "tool" | "file";
+  type: "think" | "tool" | "file" | "tool_calls" | "tool_result";
   content: string;
   order: number;
 }
@@ -16,7 +16,7 @@ export interface MessagePart {
 export interface Message {
   id: string;
   session_id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "tool";
   content: string;
   created_at: string;
   parts: MessagePart[];
@@ -27,6 +27,8 @@ export interface ToolEvent {
   status: "preparing" | "running" | "confirm" | "done" | "error";
   message: string;
   command?: string;
+  confirm_type?: "terminal" | "external_file";
+  paths?: string[];
   session_id?: string;
   result?: {
     file_name?: string;

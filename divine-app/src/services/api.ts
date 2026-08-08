@@ -95,6 +95,14 @@ export function messagesToChatMessages(
   const chatMessages: ChatMessage[] = [];
   let currentUserIndex = -1;
   messages.forEach((message, index) => {
+    if (
+      message.role === "tool" ||
+      (message.role === "assistant" &&
+        !message.content &&
+        message.parts.some((part) => part.type === "tool_calls"))
+    ) {
+      return;
+    }
     if (message.role === "user") {
       currentUserIndex = index;
     }

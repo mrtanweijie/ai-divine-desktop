@@ -88,6 +88,14 @@ class ToolResult:
         }
 
 
+def _is_within(root: Path, path: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
 class ToolAdapter:
     """Base class for local tool scripts.
 
@@ -114,6 +122,11 @@ class ToolAdapter:
 
     def build_params(self, arguments: dict[str, Any]) -> dict[str, Any]:
         return arguments
+
+    def external_paths(
+        self, workspace: Path, arguments: dict[str, Any]
+    ) -> list[str]:
+        return []
 
     async def run(self, workspace: Path, arguments: dict[str, Any]) -> ToolResult:
         params = self.build_params(arguments or {})
@@ -177,8 +190,8 @@ class ToolAdapter:
             filepath = workspace / filepath
         filepath = filepath.resolve()
         workspace_root = workspace.resolve()
-        if not self.allow_external_paths and not str(filepath).startswith(
-            str(workspace_root)
+        if not self.allow_external_paths and not _is_within(
+            workspace_root, filepath
         ):
             raise ToolExecutionError("工具输出路径越界，已拒绝")
         if not filepath.exists():

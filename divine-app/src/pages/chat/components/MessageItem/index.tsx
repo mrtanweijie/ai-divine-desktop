@@ -220,7 +220,9 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
           <code>{tool.command}</code>
         </div>
       )}
-      {tool.status === "confirm" && tool.command && (
+      {tool.status === "confirm" &&
+        tool.confirm_type !== "external_file" &&
+        tool.command && (
         <div className="terminal-confirm">
           <div className="terminal-confirm-head">
             <TerminalSquare size={14} />
@@ -230,6 +232,28 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
           <Flex align="center" gap={8}>
             <Button size="small" loading={deciding} onClick={() => void decide(true)}>
               允许执行
+            </Button>
+            <Button
+              size="small"
+              variant="ghost"
+              disabled={deciding}
+              onClick={() => void decide(false)}
+            >
+              拒绝
+            </Button>
+          </Flex>
+        </div>
+      )}
+      {tool.status === "confirm" && tool.confirm_type === "external_file" && (
+        <div className="terminal-confirm external-file-confirm">
+          <div className="terminal-confirm-head">
+            <FolderOpen size={14} />
+            <span>外部文件访问确认</span>
+          </div>
+          <pre>{(tool.paths ?? [tool.command]).join("\n")}</pre>
+          <Flex align="center" gap={8}>
+            <Button size="small" loading={deciding} onClick={() => void decide(true)}>
+              允许访问
             </Button>
             <Button
               size="small"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from collections import defaultdict
 from contextlib import closing
 from datetime import datetime, timezone
 from typing import Any, Iterable
@@ -184,6 +185,34 @@ def add_message_part(
         conn.commit()
 
 
+def save_tool_turn(
+    session_id: str,
+    tool_calls: list[dict[str, Any]],
+    think: str,
+    results: list[tuple[str, str]],
+) -> None:
+    message = add_message(session_id, "assistant", "")
+    order = 0
+    add_message_part(
+        message["id"],
+        "tool_calls",
+        json.dumps(tool_calls, ensure_ascii=False),
+        order=order,
+    )
+    order += 1
+    if think:
+        add_message_part(message["id"], "think", think, order=order)
+        order += 1
+    for call_id, content in results:
+        tool_message = add_message(session_id, "tool", content)
+        add_message_part(
+            tool_message["id"],
+            "tool_result",
+            json.dumps({"tool_call_id": call_id}, ensure_ascii=False),
+            order=0,
+        )
+
+
 def list_message_parts(message_id: str) -> list[dict[str, Any]]:
     with closing(_connect()) as conn:
         rows = conn.execute(
@@ -251,13 +280,36 @@ def get_tool_run(run_id: str) -> dict[str, Any]:
 
 def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
     """Model-facing history; file attachments are rehydrated into user turns."""
-    messages = list_messages(session_id)[-limit:]
+    with closing(_connect()) as conn:
+        rows = conn.execute(
+            "SELECT * FROM messages WHERE session_id = ? "
+            "ORDER BY created_at ASC, rowid ASC",
+            (session_id,),
+        ).fetchall()
+        messages = [dict(row) for row in rows][-limit:]
+        parts_by_message: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        if messages:
+            ids = [message["id"] for message in messages]
+            placeholders = ",".join("?" * len(ids))
+            part_rows = conn.execute(
+                f"SELECT * FROM message_parts WHERE message_id IN ({placeholders}) "
+                "ORDER BY \"order\" ASC, rowid ASC",
+                ids,
+            ).fetchall()
+            for row in part_rows:
+                parts_by_message[row["message_id"]].append(dict(row))
+
+    while messages and messages[0]["role"] == "tool":
+        messages.pop(0)
+
     result: list[dict[str, Any]] = []
+    pending_tool_call_ids: set[str] = set()
     for message in messages:
+        parts = parts_by_message.get(message["id"], [])
         content = message["content"]
         if message["role"] == "user":
             blocks: list[str] = []
-            for part in list_message_parts(message["id"]):
+            for part in parts:
                 if part["type"] != "file":
                     continue
                 try:
@@ -296,18 +348,61 @@ def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
             if blocks:
                 suffix = "\n\n".join(blocks)
                 content = f"{content}\n\n{suffix}" if content else suffix
+            pending_tool_call_ids = set()
+            result.append({"role": "user", "content": content})
+            continue
         if message["role"] == "assistant":
             think_parts = [
-                part["content"]
-                for part in list_message_parts(message["id"])
-                if part["type"] == "think"
+                part["content"] for part in parts if part["type"] == "think"
             ]
+            tool_calls_part = next(
+                (part for part in parts if part["type"] == "tool_calls"),
+                None,
+            )
+            if tool_calls_part is not None:
+                try:
+                    tool_calls = json.loads(tool_calls_part["content"] or "[]")
+                except json.JSONDecodeError:
+                    tool_calls = []
+                result.append(
+                    {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": tool_calls,
+                        "reasoning_content": "\n".join(think_parts),
+                    }
+                )
+                pending_tool_call_ids = {
+                    call.get("id", "") for call in tool_calls if call.get("id")
+                }
+                continue
             entry: dict[str, Any] = {
                 "role": "assistant",
                 "content": content,
                 "reasoning_content": "\n".join(think_parts),
             }
             result.append(entry)
+            continue
+        if message["role"] == "tool":
+            call_id = ""
+            for part in parts:
+                if part["type"] != "tool_result":
+                    continue
+                try:
+                    call_id = str(
+                        json.loads(part["content"]).get("tool_call_id", "")
+                    )
+                except (json.JSONDecodeError, AttributeError):
+                    call_id = ""
+            if call_id not in pending_tool_call_ids:
+                continue
+            result.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": call_id,
+                    "content": content,
+                }
+            )
             continue
         if content:
             result.append({"role": message["role"], "content": content})

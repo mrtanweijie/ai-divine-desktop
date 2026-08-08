@@ -67,6 +67,12 @@ def export_session(session_id: str, format: str = "markdown"):
         "",
     ]
     for message in messages:
+        if message["role"] == "tool":
+            continue
+        if message["role"] == "assistant" and not message["content"]:
+            parts = db.list_message_parts(message["id"])
+            if any(part["type"] == "tool_calls" for part in parts):
+                continue
         role = "用户" if message["role"] == "user" else "AI"
         lines.extend([f"## {role}", "", message["content"], ""])
     if format == "text":

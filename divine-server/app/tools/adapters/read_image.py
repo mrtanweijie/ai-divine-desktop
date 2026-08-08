@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from ..base import ToolAdapter
@@ -28,3 +29,19 @@ class ReadImageAdapter(ToolAdapter):
 
     def build_params(self, arguments: dict[str, Any]) -> dict[str, Any]:
         return {"file_path": arguments.get("file_path") or ""}
+
+    def external_paths(
+        self, workspace: Path, arguments: dict[str, Any]
+    ) -> list[str]:
+        raw = str(arguments.get("file_path") or "").strip()
+        if not raw:
+            return []
+        path = Path(raw)
+        if not path.is_absolute():
+            path = workspace / path
+        resolved = path.resolve()
+        try:
+            resolved.relative_to(workspace.resolve())
+        except ValueError:
+            return [str(resolved)]
+        return []

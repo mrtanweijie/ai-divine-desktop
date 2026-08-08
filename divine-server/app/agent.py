@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, AsyncIterator
 
+from . import db
 from .api.terminal import terminal_command_policy, wait_for_terminal_decision
 from .config import settings_store, workspace_dir
 from .llm import ChatDeepSeekProvider, DeepSeekLLM, MockLLM
@@ -29,7 +30,9 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 查找或列出工作区文件使用 search_files；搜索完文件后，读取具体内容再使用 read_file。
 读取文件内容必须使用 read_file、word_document 等专用工具；
 读取 Excel 必须使用 read_file（不要使用 spreadsheet，spreadsheet 只能生成 Excel）；
-禁止用 terminal 执行 cat、python、openpyxl、find 等命令来读取或分析文件。
+默认禁止用 terminal 执行 cat、python、openpyxl、find 等命令来读取或分析文件；
+如果用户明确要求，可提交终端确认后执行。
+读取工作区外的本地文件或图片需要用户确认。
 terminal 只能用于系统操作，例如安装依赖、运行命令、管理进程或用户明确要求的终端命令。"""
 
 TOOL_ALIASES = {
@@ -95,8 +98,6 @@ async def run_agent(
                 call["arguments"] += event.get("arguments") or ""
 
         if not tool_calls:
-            from . import db
-
             message = db.add_message(session_id, "assistant", assistant_content)
             order = 0
             if think_content:
@@ -165,6 +166,44 @@ async def run_agent(
                         f"模型重复调用同一工具 {name}，已停止",
                     )
                     return
+                external_paths = adapter.external_paths(
+                    workspace_dir(), arguments
+                )
+                if external_paths:
+                    yield sse_event(
+                        "tool",
+                        {
+                            "tool": name,
+                            "status": "confirm",
+                            "message": "外部路径需要确认",
+                            "confirm_type": "external_file",
+                            "paths": external_paths,
+                            "session_id": session_id,
+                        },
+                    )
+                    allowed = await wait_for_terminal_decision(
+                        session_id, external_paths[0]
+                    )
+                    if not allowed:
+                        tool_message = json.dumps(
+                            {
+                                "error": "用户拒绝访问外部路径",
+                                "paths": external_paths,
+                            },
+                            ensure_ascii=False,
+                        )
+                        yield sse_event(
+                            "tool",
+                            {
+                                "tool": name,
+                                "status": "error",
+                                "message": "用户拒绝访问外部路径",
+                                "paths": external_paths,
+                                "session_id": session_id,
+                            },
+                        )
+                        tool_results.append((call_id, tool_message))
+                        continue
                 is_terminal = name == "terminal"
                 command = str(arguments.get("command") or "")
                 policy = (
@@ -280,6 +319,12 @@ async def run_agent(
                 }
             )
 
+        db.save_tool_turn(
+            session_id,
+            assistant_tool_calls,
+            think_content,
+            tool_results,
+        )
         assistant_message: dict[str, Any] = {
             "role": "assistant",
             "content": assistant_content,
