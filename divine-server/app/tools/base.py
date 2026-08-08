@@ -96,6 +96,21 @@ def _is_within(root: Path, path: Path) -> bool:
         return False
 
 
+def resolve_external_path(workspace: Path, raw: str | None) -> str | None:
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    path = Path(raw)
+    if not path.is_absolute():
+        path = workspace / path
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(workspace.resolve())
+    except ValueError:
+        return str(resolved)
+    return None
+
+
 class ToolAdapter:
     """Base class for local tool scripts.
 

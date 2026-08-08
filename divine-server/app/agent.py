@@ -42,6 +42,8 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 生成文件后只需说明文件名和内容概要，文件下载/打开由前端工具卡片展示。
 只能调用本次请求提供的工具，不要杜撰未提供的工具名。
 查找或列出工作区文件使用 search_files；搜索完文件后，读取具体内容再使用 read_file。
+查看目录结构使用 directory_tree；缩放图片使用 image_resize；拆分合并 PDF 使用 pdf_split_merge；
+只读查询数据库使用 sqlite_query；数学计算使用 calculator；剪贴板操作使用 clipboard。
 读取文件内容必须使用 read_file、word_document 等专用工具；
 读取 Excel 必须使用 read_file（不要使用 spreadsheet，spreadsheet 只能生成 Excel）；
 默认禁止用 terminal 执行 cat、python、openpyxl、find 等命令来读取或分析文件；

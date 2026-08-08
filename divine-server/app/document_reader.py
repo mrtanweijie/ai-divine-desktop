@@ -15,6 +15,8 @@ def read_file_text(path: Path) -> str:
         return _read_excel(path)
     elif ext == ".docx":
         return _read_docx(path)
+    elif ext in (".pptx", ".pptm"):
+        return _read_pptx(path)
     elif ext == ".pdf":
         loader = PyPDFLoader(str(path))
     else:
@@ -48,4 +50,40 @@ def _read_excel(path: Path) -> str:
             parts.append(f"Sheet: {sheet.title}\n" + "\n".join(rows))
     finally:
         workbook.close()
+    return "\n\n".join(parts)
+
+
+def _collect_shape_text(shape, texts: list[str]) -> None:
+    if getattr(shape, "has_text_frame", False):
+        text = "\n".join(
+            paragraph.text.strip()
+            for paragraph in shape.text_frame.paragraphs
+            if paragraph.text.strip()
+        )
+        if text:
+            texts.append(text)
+    if getattr(shape, "has_table", False):
+        for row in shape.table.rows:
+            texts.append(
+                "\t".join(cell.text.strip() for cell in row.cells)
+            )
+    if getattr(shape, "shape_type", None) is not None:
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+
+        if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
+            for child in shape.shapes:
+                _collect_shape_text(child, texts)
+
+
+def _read_pptx(path: Path) -> str:
+    from pptx import Presentation
+
+    presentation = Presentation(str(path))
+    parts: list[str] = []
+    for index, slide in enumerate(presentation.slides, start=1):
+        texts: list[str] = []
+        for shape in slide.shapes:
+            _collect_shape_text(shape, texts)
+        if texts:
+            parts.append(f"Slide {index}\n" + "\n".join(texts))
     return "\n\n".join(parts)

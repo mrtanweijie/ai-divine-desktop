@@ -1,11 +1,14 @@
 import {
   AlertCircle,
+  Calculator,
   Check,
   ChevronDown,
   Copy,
+  Database,
   FileSpreadsheet,
   FileText,
   FolderOpen,
+  FolderTree,
   Globe,
   Image,
   Loader2,
@@ -144,6 +147,14 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
       <StickyNote size={16} />
     ) : tool.tool.includes("read_image") || tool.tool.includes("image") ? (
       <Image size={16} />
+    ) : tool.tool.includes("calculator") ? (
+      <Calculator size={16} />
+    ) : tool.tool.includes("clipboard") ? (
+      <Copy size={16} />
+    ) : tool.tool.includes("sqlite") || tool.tool.includes("database") ? (
+      <Database size={16} />
+    ) : tool.tool.includes("directory") || tool.tool.includes("tree") ? (
+      <FolderTree size={16} />
     ) : tool.tool.includes("presentation") ||
       tool.tool.includes("ppt") ||
       tool.tool.includes("slides") ? (
