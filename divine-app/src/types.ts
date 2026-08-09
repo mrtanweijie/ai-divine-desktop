@@ -43,7 +43,7 @@ export interface ToolEvent {
   status: "preparing" | "running" | "confirm" | "done" | "error";
   message: string;
   command?: string;
-  confirm_type?: "terminal" | "external_file" | "plan";
+  confirm_type?: "terminal" | "external_file" | "plan" | "plan_choice";
   paths?: string[];
   session_id?: string;
   result?: {

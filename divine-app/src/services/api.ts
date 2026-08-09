@@ -11,26 +11,9 @@ import type {
   WorkspaceCategory,
 } from "@/types";
 import { isTauri, openUrl } from "@/services/tauri";
+import { API_BASE, apiBase, request } from "@/services/request";
 
-const API_BASE =
-  import.meta.env.VITE_SERVICE_API_URL?.replace(/\/+$/, "") || "/api";
-
-export function apiBase(): string {
-  return API_BASE;
-}
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(detail || `HTTP ${response.status}`);
-  }
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
-}
+export { apiBase };
 
 export function listSessions(
   projectId?: string

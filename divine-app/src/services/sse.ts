@@ -12,6 +12,18 @@ export interface SSEHandlers {
   error?: (data: { code: string; message: string }) => void;
 }
 
+const SSE_DEBUG =
+  import.meta.env.DEV || import.meta.env.VITE_API_DEBUG === "true";
+
+function logSSE(event: string, data: unknown) {
+  if (!SSE_DEBUG) return;
+  let text = JSON.stringify(data) ?? "undefined";
+  if (text.length > 4000) {
+    text = `${text.slice(0, 4000)}... (truncated)`;
+  }
+  console.log(`[sse] event ${event}`, text);
+}
+
 export async function consumeSSE(
   response: Response,
   handlers: SSEHandlers
@@ -19,6 +31,9 @@ export async function consumeSSE(
   if (!response.ok || !response.body) {
     const text = await response.text();
     throw new Error(text || `HTTP ${response.status}`);
+  }
+  if (SSE_DEBUG) {
+    console.log("[sse] connected");
   }
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
@@ -36,6 +51,9 @@ export async function consumeSSE(
   }
   if (buffer.trim()) {
     handleEvent(buffer, handlers);
+  }
+  if (SSE_DEBUG) {
+    console.log("[sse] done");
   }
 }
 
@@ -58,5 +76,6 @@ function handleEvent(part: string, handlers: SSEHandlers) {
   } catch {
     return;
   }
+  logSSE(event, data);
   handlers[event as keyof SSEHandlers]?.(data as never);
 }

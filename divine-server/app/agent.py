@@ -137,6 +137,8 @@ SYSTEM_PROMPT = """你是 AI Divine，一个本地优先的桌面 AI 助手。
 再选择最合适的工具。工具结果要结合到最终回答中，并告诉用户下载链接。
 面对需要多步执行的复杂任务，先调用 create_plan 列出待办事项，再按待办顺序逐项执行；
 不要跳过未完成事项，也不要重复执行已完成事项。
+执行需要修改文件、生成文件或运行命令的任务前，先询问用户是否要出一份方案；
+用户选择先出方案后，先调用 create_plan，不要直接执行其他工具。
 不要输出 XML 或伪代码形式的工具调用；需要生成笔记时直接调用 notes 工具。
 调用 notes 时必须提供明确、具体的标题，不要使用“未命名笔记”作为标题。
 生成笔记时若用户指定目录，使用 notes 的 path 参数传入 workspace 内相对目录，默认保存在 notes。
@@ -163,6 +165,17 @@ terminal 只能用于系统操作，例如安装依赖、运行命令、管理�
 TOOL_ALIASES = {
     "generate_note": "notes",
     "generate_notes": "notes",
+}
+
+_READ_ONLY_TOOLS = {
+    "read_file",
+    "read_image",
+    "search_files",
+    "directory_tree",
+    "rag_search",
+    "sqlite_query",
+    "calculator",
+    "web_fetch",
 }
 
 MAX_TOOL_TURNS = 32
@@ -217,6 +230,7 @@ async def run_agent(
     tool_schemas = registry.openai_schema()
     unknown_tool_counts: dict[str, int] = {}
     repeated_calls: dict[str, int] = {}
+    plan_choice_resolved = False
     logger.info(
         "agent start session=%s history=%d",
         session_id,
@@ -289,6 +303,71 @@ async def run_agent(
         assistant_tool_calls = []
         tool_results: list[tuple[str, str]] = []
         call_todos: dict[str, dict[str, Any]] = {}
+        call_names = [
+            TOOL_ALIASES.get(call["name"], call["name"])
+            for call in tool_calls.values()
+        ]
+        if "create_plan" in call_names:
+            plan_choice_resolved = True
+        elif (
+            not plan_choice_resolved
+            and any(name not in _READ_ONLY_TOOLS for name in call_names)
+        ):
+            yield sse_event(
+                "tool",
+                {
+                    "tool": "plan_choice",
+                    "status": "confirm",
+                    "message": "执行任务前是否先出一份方案？",
+                    "confirm_type": "plan_choice",
+                    "session_id": session_id,
+                },
+            )
+            plan_first = await wait_for_terminal_decision(
+                session_id, "是否先出一份方案"
+            )
+            plan_choice_resolved = True
+            if plan_first:
+                if assistant_content:
+                    messages.append(
+                        {"role": "assistant", "content": assistant_content}
+                    )
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "用户选择先出一份方案。"
+                        "请先调用 create_plan 制定计划，不要直接执行其他工具。",
+                    }
+                )
+                yield sse_event(
+                    "tool",
+                    {
+                        "tool": "plan_choice",
+                        "status": "done",
+                        "message": "已选择先出方案",
+                        "confirm_type": "plan_choice",
+                        "session_id": session_id,
+                    },
+                )
+                logger.info(
+                    "plan choice session=%s decision=plan_first",
+                    session_id,
+                )
+                continue
+            yield sse_event(
+                "tool",
+                {
+                    "tool": "plan_choice",
+                    "status": "done",
+                    "message": "已选择直接执行",
+                    "confirm_type": "plan_choice",
+                    "session_id": session_id,
+                },
+            )
+            logger.info(
+                "plan choice session=%s decision=direct",
+                session_id,
+            )
         for index, call in sorted(tool_calls.items()):
             name = call["name"]
             call_id = call["id"] or f"call_{index}"
@@ -520,6 +599,12 @@ async def run_agent(
                     terminal_command_policy(command) if is_terminal else "safe"
                 )
                 if is_terminal and approval_mode == "full":
+                    policy = "safe"
+                elif (
+                    is_terminal
+                    and approval_mode == "assist"
+                    and policy != "block"
+                ):
                     policy = "safe"
                 logger.info(
                     "tool policy session=%s tool=%s policy=%s command=%s",

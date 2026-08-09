@@ -14,9 +14,9 @@ import {
   updateProject,
   updateSessionApprovalMode,
   updateSettings,
-  apiBase,
 } from "@/services/api";
 import { consumeSSE } from "@/services/sse";
+import { requestRaw } from "@/services/request";
 import { ChatHeader } from "@/pages/chat/components/ChatHeader";
 import { ChatInput } from "@/pages/chat/components/ChatInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -416,7 +416,7 @@ export default function ChatPage() {
       setStreaming(true);
 
       try {
-        const response = await fetch(`${apiBase()}/stream_chat`, {
+        const response = await requestRaw("/stream_chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

@@ -18,8 +18,9 @@ import {
   Wrench,
 } from "lucide-react";
 import { useState } from "react";
-import { apiBase, downloadUrl } from "@/services/api";
+import { downloadUrl } from "@/services/api";
 import { isTauri, openFileLocation } from "@/services/tauri";
+import { request } from "@/services/request";
 import type { ChatMessage, TodoItem, ToolEvent } from "@/types";
 import { formatSize, formatTime } from "@/utils";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
@@ -216,7 +217,7 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
     if (!tool.session_id || deciding) return;
     setDeciding(true);
     try {
-      await fetch(`${apiBase()}/terminal/decide`, {
+      await request("/terminal/decide", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: tool.session_id, allow }),
@@ -334,6 +335,34 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
               onClick={() => void decide(false)}
             >
               取消
+            </Button>
+          </Flex>
+        </div>
+      )}
+      {tool.status === "confirm" && tool.confirm_type === "plan_choice" && (
+        <div className="terminal-confirm plan-choice-confirm">
+          <div className="terminal-confirm-head">
+            <ListChecks size={14} />
+            <span>方案确认</span>
+          </div>
+          <p className="plan-confirm-text">
+            执行任务前是否先出一份方案？
+          </p>
+          <Flex align="center" gap={8}>
+            <Button
+              size="small"
+              loading={deciding}
+              onClick={() => void decide(true)}
+            >
+              先出方案
+            </Button>
+            <Button
+              size="small"
+              variant="ghost"
+              disabled={deciding}
+              onClick={() => void decide(false)}
+            >
+              直接执行
             </Button>
           </Flex>
         </div>

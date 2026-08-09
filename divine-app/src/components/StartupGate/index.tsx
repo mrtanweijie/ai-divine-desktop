@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { apiBase } from "@/services/api";
+import { request } from "@/services/request";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import "./index.less";
 
@@ -18,18 +18,14 @@ function useBackendReady(): boolean {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 2000);
       try {
-        const response = await fetch(`${apiBase()}/health`, {
+        const data = await request<{ status?: string } | null>("/health", {
           cache: "no-store",
           signal: controller.signal,
+          throwOnError: false,
         });
-        if (response.ok) {
-          const data = (await response.json().catch(() => null)) as {
-            status?: string;
-          } | null;
-          if (data?.status === "ok" && !cancelled) {
-            setReady(true);
-            return;
-          }
+        if (data?.status === "ok" && !cancelled) {
+          setReady(true);
+          return;
         }
       } catch {
         // sidecar is still starting
