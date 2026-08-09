@@ -10,6 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "AI Divine Desktop",
@@ -19,6 +20,7 @@
         "minHeight": 600,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
+        "transparent": true,
         "trafficLightPosition": { "x": 12, "y": 27 }
       }
     ],

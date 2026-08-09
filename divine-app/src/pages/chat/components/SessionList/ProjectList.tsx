@@ -151,13 +151,20 @@ function ProjectBranch({
               />
             ))}
             {!expanded && projectSessions.length > 5 && (
-              <button
-                type="button"
+              <div
                 className="project-sessions-expand"
+                role="button"
+                tabIndex={0}
                 onClick={() => setExpanded(true)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    setExpanded(true);
+                    event.currentTarget.blur();
+                  }
+                }}
               >
                 <span>展开显示</span>
-              </button>
+              </div>
             )}
           </>
         )}

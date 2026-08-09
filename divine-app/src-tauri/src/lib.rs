@@ -73,6 +73,18 @@ pub fn run() {
                 eprintln!("[ai-divine-sidecar] 启动失败: {err}");
             }
             #[cfg(target_os = "macos")]
+            {
+                use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = apply_vibrancy(
+                        &window,
+                        NSVisualEffectMaterial::Sidebar,
+                        None,
+                        Some(18.0),
+                    );
+                }
+            }
+            #[cfg(target_os = "macos")]
             if let Err(err) = setup_tray(app) {
                 eprintln!("[tray] 初始化失败: {err}");
             }

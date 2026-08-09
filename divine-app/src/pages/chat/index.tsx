@@ -577,7 +577,11 @@ export default function ChatPage() {
   );
 
   return (
-    <Flex className={`app-shell ${sidebarOpen ? "sidebar-visible" : ""}`}>
+    <Flex
+      className={`app-shell ${sidebarOpen ? "sidebar-visible" : "sidebar-collapsed"}${
+        fullscreen ? " fullscreen" : ""
+      }`}
+    >
       <Flex
         direction="column"
         className={`left-panel${!sidebarOpen ? " collapsed" : ""}`}
