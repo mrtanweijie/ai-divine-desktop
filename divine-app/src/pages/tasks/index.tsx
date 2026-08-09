@@ -353,7 +353,7 @@ export function ScheduledTasksPage() {
             <div className="task-list">
               {filteredTasks.map((task) => (
                 <div key={task.id} className={`task-row ${task.status}`}>
-                  <div className="task-row-icon">
+                  <div className={`task-row-icon ${task.frequency}`}>
                     <TaskFrequencyIcon task={task} />
                   </div>
                   <div className="task-row-main">
