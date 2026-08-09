@@ -4,9 +4,11 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type ReactElement,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import "./index.less";
 
 export interface DropdownItem {
@@ -33,6 +35,7 @@ export function Dropdown({
   label,
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const ref = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
 
@@ -57,9 +60,34 @@ export function Dropdown({
 
   useEffect(() => {
     if (!open) return;
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const base: CSSProperties = {
+        position: "fixed",
+        top: rect.bottom + 6,
+      };
+      if (align === "start") {
+        setMenuStyle({ ...base, left: rect.left });
+      } else if (align === "end") {
+        setMenuStyle({
+          ...base,
+          left: rect.right,
+          transform: "translateX(-100%)",
+        });
+      } else {
+        setMenuStyle({
+          ...base,
+          left: rect.left + rect.width / 2,
+          transform: "translateX(-50%)",
+        });
+      }
+    }
     const closeOnOutside = (event: MouseEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) {
-        setOpen(false);
+        const target = event.target as HTMLElement | null;
+        if (!target?.closest(".ui-menu")) {
+          setOpen(false);
+        }
       }
     };
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -71,7 +99,7 @@ export function Dropdown({
       document.removeEventListener("mousedown", closeOnOutside);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [open]);
+  }, [align, open]);
 
   useEffect(() => {
     return () => {
@@ -96,38 +124,41 @@ export function Dropdown({
             ...(label ? { "aria-label": label } : {}),
           })
         : trigger}
-      {open && (
-        <div
-          className={`ui-menu ui-menu--${align}`}
-          role="menu"
-          onMouseEnter={cancelClose}
-          onMouseLeave={scheduleClose}
-        >
-          {items.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              role="menuitem"
-              className={`ui-menu-item${item.danger ? " ui-menu-item--danger" : ""}`}
-              disabled={item.disabled}
-              onClick={() => {
-                setOpen(false);
-                item.onClick?.();
-              }}
-            >
-              {item.icon && <span className="ui-menu-icon">{item.icon}</span>}
-              <span className="ui-menu-text">
-                <span>{item.label}</span>
-                {item.description && (
-                  <small className="ui-menu-description">
-                    {item.description}
-                  </small>
-                )}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div
+            className={`ui-menu ui-menu--${align}`}
+            style={menuStyle}
+            role="menu"
+            onMouseEnter={cancelClose}
+            onMouseLeave={scheduleClose}
+          >
+            {items.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                role="menuitem"
+                className={`ui-menu-item${item.danger ? " ui-menu-item--danger" : ""}`}
+                disabled={item.disabled}
+                onClick={() => {
+                  setOpen(false);
+                  item.onClick?.();
+                }}
+              >
+                {item.icon && <span className="ui-menu-icon">{item.icon}</span>}
+                <span className="ui-menu-text">
+                  <span>{item.label}</span>
+                  {item.description && (
+                    <small className="ui-menu-description">
+                      {item.description}
+                    </small>
+                  )}
+                </span>
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

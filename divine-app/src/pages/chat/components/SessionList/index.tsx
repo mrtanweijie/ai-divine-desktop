@@ -1,45 +1,45 @@
-import { useMemo } from "react";
-import { Plus, Settings } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { Settings, SquarePen } from "lucide-react";
 import { Flex } from "@/components/ui/Flex";
-import type { Session } from "@/types";
-import { groupLabel } from "@/utils";
-import { SessionListItem } from "./SessionListItem";
+import type { Project, Session } from "@/types";
+import { ProjectList } from "./ProjectList";
 
 interface SessionListProps {
   sessions: Session[];
+  projects: Project[];
   selectedId: string | null;
+  selectedProjectId: string | null;
   collapsed: boolean;
   onSelect: (id: string) => void;
   onNew: () => void;
+  onSelectProject: (id: string) => void;
+  onNewProject: () => void;
+  onNewConversationInProject: (id: string) => void;
+  onRenameProject: (id: string, name: string) => void;
+  onDeleteProject: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
   onOpenSettings: () => void;
+  model: string;
 }
 
 export function SessionList({
   sessions,
+  projects,
   selectedId,
+  selectedProjectId,
   collapsed,
   onSelect,
   onNew,
+  onSelectProject,
+  onNewProject,
+  onNewConversationInProject,
+  onRenameProject,
+  onDeleteProject,
   onRename,
   onDelete,
   onOpenSettings,
+  model,
 }: SessionListProps) {
-  const groups = useMemo(() => {
-    const labels = ["今天", "昨天", "更早"];
-    return labels
-      .map((label) => ({
-        label,
-        items: sessions.filter(
-          (session) => groupLabel(session.updated_at) === label
-        ),
-      }))
-      .filter((group) => group.items.length > 0);
-  }, [sessions]);
-
   return (
     <aside
       className={`session-sidebar${collapsed ? " collapsed" : ""}`}
@@ -50,46 +50,56 @@ export function SessionList({
         style={collapsed ? { display: "none" } : undefined}
       >
         <Flex align="center" gap={8} className="sidebar-header">
-        <Button
-          variant="secondary"
-          size="small"
-          className="new-chat-button"
-          onClick={onNew}
-        >
-          <Plus size={16} aria-hidden="true" />
-          <span>新建对话</span>
-        </Button>
+          <div
+            className="new-chat-link"
+            role="button"
+            tabIndex={0}
+            onClick={onNew}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                onNew();
+                event.currentTarget.blur();
+              }
+            }}
+          >
+            <SquarePen size={16} aria-hidden="true" />
+            <span>新对话</span>
+          </div>
         </Flex>
 
-        <nav className="session-list" aria-label="会话">
-          {groups.length === 0 && (
-            <EmptyState title="还没有会话" />
-          )}
-          {groups.map((group) => (
-            <section className="session-group" key={group.label}>
-              <h2 className="session-group-title">{group.label}</h2>
-              {group.items.map((session) => (
-                <SessionListItem
-                  key={session.id}
-                  session={session}
-                  active={session.id === selectedId}
-                  onSelect={onSelect}
-                  onRename={onRename}
-                  onDelete={onDelete}
-                />
-              ))}
-            </section>
-          ))}
-        </nav>
+        <ProjectList
+          projects={projects}
+          sessions={sessions}
+          selectedProjectId={selectedProjectId}
+          selectedId={selectedId}
+          onSelectProject={onSelectProject}
+          onNewProject={onNewProject}
+          onNewConversation={onNewConversationInProject}
+          onRenameProject={onRenameProject}
+          onDeleteProject={onDeleteProject}
+          onSelectSession={onSelect}
+          onRenameSession={onRename}
+          onDeleteSession={onDelete}
+        />
 
-        <Button
-          variant="ghost"
-          className="settings-link"
-          onClick={onOpenSettings}
-        >
-          <Settings size={15} />
-          <span>设置</span>
-        </Button>
+        <div className="settings-footer">
+          <div
+            className="settings-link"
+            role="button"
+            tabIndex={0}
+            onClick={onOpenSettings}
+            title="设置"
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                onOpenSettings();
+                event.currentTarget.blur();
+              }
+            }}
+          >
+            <Settings size={15} />
+            <span>{model || "本地演示"}</span>
+          </div>
+        </div>
       </div>
     </aside>
   );

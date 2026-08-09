@@ -23,6 +23,17 @@ pub fn open_file_location(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn open_folder(path: String) -> Result<(), String> {
+    let target = Path::new(&path)
+        .canonicalize()
+        .map_err(|err| format!("路径无效: {err}"))?;
+    if !target.is_dir() {
+        return Err("目标不是目录".to_string());
+    }
+    open::that(&target).map_err(|err| format!("打开文件夹失败: {err}"))
+}
+
+#[tauri::command]
 pub fn open_url(url: String) -> Result<(), String> {
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err("只支持 http/https 链接".to_string());

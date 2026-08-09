@@ -5,10 +5,11 @@ import {
   File,
   FileText,
   FileType,
+  Folder,
   Pencil,
   PanelLeftOpen,
 } from "lucide-react";
-import type { Session } from "@/types";
+import type { Project, Session } from "@/types";
 import { exportSession } from "@/services/api";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
@@ -19,7 +20,7 @@ import { isTauri } from "@/services/tauri";
 
 interface ChatHeaderProps {
   session: Session | null;
-  model: string;
+  project: Project | null;
   think: boolean;
   onThinkChange: (value: boolean) => void;
   onOpenSidebar: () => void;
@@ -28,7 +29,7 @@ interface ChatHeaderProps {
 
 export function ChatHeader({
   session,
-  model,
+  project,
   think,
   onThinkChange,
   onOpenSidebar,
@@ -135,7 +136,12 @@ export function ChatHeader({
             ]}
           />
         )}
-        <span className="model-badge">{model || "本地演示"}</span>
+        {project && (
+          <span className="project-badge" title={project.path}>
+            <Folder size={12} />
+            <span className="project-badge-name">{project.name}</span>
+          </span>
+        )}
         <Switch
           label="深度思考"
           checked={think}

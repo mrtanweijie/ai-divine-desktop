@@ -15,13 +15,15 @@ logger = logging.getLogger("divine.sessions")
 
 
 @router.get("")
-def list_sessions():
-    return {"sessions": db.list_sessions()}
+def list_sessions(project_id: str | None = None):
+    return {"sessions": db.list_sessions(project_id)}
 
 
 @router.post("", status_code=201)
 def create_session(body: SessionCreate):
-    session = db.create_session(body.title)
+    if body.project_id and db.get_project(body.project_id) is None:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    session = db.create_session(body.title, body.project_id)
     logger.info("session created id=%s title=%s", session["id"], body.title)
     return session
 

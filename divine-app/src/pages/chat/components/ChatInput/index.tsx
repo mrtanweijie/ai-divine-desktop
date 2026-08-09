@@ -11,6 +11,7 @@ import {
   useState,
   type ChangeEvent,
   type MutableRefObject,
+  type ReactNode,
 } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/Button";
@@ -22,11 +23,12 @@ import { isTauri } from "@/services/tauri";
 interface ComposerProps {
   disabled: boolean;
   onSend: (question: string, files: ChatFile[]) => void;
+  projectPicker?: ReactNode;
 }
 
 export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
   function ChatInput(
-    { disabled, onSend },
+    { disabled, onSend, projectPicker },
     ref
   ) {
     const [value, setValue] = useState("");
@@ -89,6 +91,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
 
     return (
       <div className="composer-wrap">
+        {projectPicker}
         <Flex direction="column" className="composer">
           <TextArea
             ref={setRefs}

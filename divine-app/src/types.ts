@@ -1,6 +1,17 @@
+export interface Project {
+  id: string;
+  name: string;
+  path: string;
+  created_at: string;
+  updated_at: string;
+  session_count?: number;
+  last_activity?: string | null;
+}
+
 export interface Session {
   id: string;
   title: string;
+  project_id: string | null;
   created_at: string;
   updated_at: string;
 }

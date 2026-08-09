@@ -12,16 +12,28 @@ class Attachment(BaseModel):
 class StreamChatRequest(BaseModel):
     question: str = Field(min_length=1)
     session_id: str | None = None
+    project_id: str | None = None
     think: bool = False
     attachments: list[Attachment] = []
 
 
 class SessionCreate(BaseModel):
     title: str | None = None
+    project_id: str | None = None
 
 
 class SessionUpdate(BaseModel):
     title: str
+
+
+class ProjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    path: str | None = None
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    path: str | None = None
 
 
 class SettingsUpdate(BaseModel):

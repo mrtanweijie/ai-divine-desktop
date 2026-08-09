@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  createProject,
   createSession,
+  deleteProject,
   deleteSession,
   getSession,
   getSettings,
   getWorkspace,
+  listProjects,
   listSessions,
   messagesToChatMessages,
+  renameProject,
   renameSession,
   updateSettings,
   apiBase,
@@ -33,10 +37,20 @@ import { useSessionState } from "@/pages/chat/state/sessionStore";
 import { Flex } from "@/components/ui/Flex";
 import { TitleBar } from "@/components/TitleBar";
 import { SessionSearchModal } from "@/pages/chat/components/SessionList/SessionSearchModal";
+import { ProjectModal } from "@/pages/chat/components/ProjectModal";
+import { ProjectPicker } from "@/pages/chat/components/ProjectPicker";
 
 export default function ChatPage() {
-  const { sessions, setSessions, selectedId, setSelectedId } =
-    useSessionState();
+  const {
+    sessions,
+    setSessions,
+    selectedId,
+    setSelectedId,
+    projects,
+    setProjects,
+    selectedProjectId,
+    setSelectedProjectId,
+  } = useSessionState();
   const { messages, setMessages, streaming, setStreaming } =
     useMessageState();
   const { settings, setSettings, setWorkspace } = useConfigState();
@@ -50,12 +64,22 @@ export default function ChatPage() {
   } = useInputState();
   const fullscreen = useFullscreen();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [projectOpen, setProjectOpen] = useState(false);
+  const [composerKey, setComposerKey] = useState(0);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
-  const refreshSessions = useCallback(async () => {
+  const refreshProjects = useCallback(async () => {
+    const data = await listProjects();
+    setProjects(data.projects);
+    return data.projects;
+  }, []);
+
+  const refreshSessions = useCallback(async (projectId?: string | null) => {
     const data = await listSessions();
     setSessions(data.sessions);
-    return data.sessions;
+    return projectId
+      ? data.sessions.filter((session) => session.project_id === projectId)
+      : data.sessions;
   }, []);
 
   const refreshWorkspace = useCallback(async () => {
@@ -76,9 +100,13 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    Promise.all([refreshSessions(), getSettings(), refreshWorkspace()])
-      .then(async ([sessionList, currentSettings]) => {
+    Promise.all([refreshProjects(), getSettings()])
+      .then(async ([projectList, currentSettings]) => {
         setSettings(currentSettings);
+        const initialProjectId = projectList[0]?.id ?? null;
+        setSelectedProjectId(initialProjectId);
+        if (!initialProjectId) return;
+        const sessionList = await refreshSessions(initialProjectId);
         if (sessionList.length > 0) {
           await loadSession(sessionList[0].id);
         }
@@ -97,7 +125,7 @@ export default function ChatPage() {
           tools: [],
         });
       });
-  }, [loadSession, refreshSessions, refreshWorkspace]);
+  }, [loadSession, refreshProjects, refreshSessions]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -141,14 +169,107 @@ export default function ChatPage() {
     }
   }, [setSidebarOpen]);
 
-  const handleNewSession = useCallback(async () => {
-    const session = await createSession();
-    setSessions((prev) => [session, ...prev]);
-    setSelectedId(session.id);
-    setMessages([]);
-    closeSidebarForNarrow();
-    setTimeout(() => composerRef.current?.focus(), 0);
-  }, [closeSidebarForNarrow]);
+  const handleNewSession = useCallback(
+    (projectId?: string) => {
+      const targetProjectId =
+        projectId ??
+        sessions.find((session) => session.id === selectedId)?.project_id ??
+        selectedProjectId ??
+        projects[0]?.id ??
+        null;
+      if (targetProjectId) {
+        setSelectedProjectId(targetProjectId);
+      }
+      setComposerKey((value) => value + 1);
+      setSelectedId(null);
+      setMessages([]);
+      closeSidebarForNarrow();
+      setTimeout(() => composerRef.current?.focus(), 0);
+    },
+    [
+      closeSidebarForNarrow,
+      projects,
+      selectedId,
+      selectedProjectId,
+      setSelectedProjectId,
+      sessions,
+    ]
+  );
+
+  const handleSelectProject = useCallback(
+    async (id: string) => {
+      if (streaming) return;
+      setSelectedProjectId(id);
+      const remaining = await refreshSessions(id);
+      if (remaining.length > 0) {
+        await loadSession(remaining[0].id);
+      } else {
+        setSelectedId(null);
+        setMessages([]);
+      }
+      closeSidebarForNarrow();
+    },
+    [closeSidebarForNarrow, loadSession, refreshSessions, streaming]
+  );
+
+  const handleCreateProject = useCallback(
+    async (body: {
+      name: string;
+      path?: string;
+    }) => {
+      const project = await createProject(body);
+      setProjects((prev) => [project, ...prev]);
+      setSelectedProjectId(project.id);
+      void refreshSessions(project.id).catch(() => undefined);
+      setSelectedId(null);
+      setMessages([]);
+      setProjectOpen(false);
+      closeSidebarForNarrow();
+      setTimeout(() => composerRef.current?.focus(), 0);
+    },
+    [closeSidebarForNarrow, refreshSessions]
+  );
+
+  const handleRenameProject = useCallback(
+    async (id: string, name: string) => {
+      await renameProject(id, name.trim());
+      await refreshProjects();
+    },
+    [refreshProjects]
+  );
+
+  const handleDeleteProject = useCallback(
+    (id: string) => {
+      const project = projects.find((item) => item.id === id);
+      const sessionCount = project?.session_count ?? 0;
+      setConfirmState({
+        title: "删除项目",
+        description: `将删除项目“${project?.name ?? ""}”及其 ${sessionCount} 个会话；文件夹和文件保留在磁盘上，不会删除。`,
+        action: async () => {
+          await deleteProject(id);
+          const remaining = await refreshProjects();
+          if (id === selectedProjectId) {
+            const next = remaining[0]?.id ?? null;
+            setSelectedProjectId(next);
+            if (next) {
+              const sessionList = await refreshSessions(next);
+              if (sessionList.length > 0) {
+                await loadSession(sessionList[0].id);
+              } else {
+                setSelectedId(null);
+                setMessages([]);
+              }
+            } else {
+              setSelectedId(null);
+              setMessages([]);
+            }
+          }
+          setConfirmState(null);
+        },
+      });
+    },
+    [loadSession, projects, refreshProjects, refreshSessions, selectedProjectId]
+  );
 
   const handleSelectSession = useCallback(
     async (id: string) => {
@@ -163,9 +284,9 @@ export default function ChatPage() {
     async (id: string, title: string) => {
       if (!title.trim()) return;
       await renameSession(id, title.trim());
-      await refreshSessions();
+      await refreshSessions(selectedProjectId);
     },
-    [refreshSessions]
+    [refreshSessions, selectedProjectId]
   );
 
   const handleDelete = useCallback(
@@ -175,7 +296,7 @@ export default function ChatPage() {
         description: "删除后该会话的消息和工具记录将无法恢复。",
         action: async () => {
           await deleteSession(id);
-          const remaining = await refreshSessions();
+          const remaining = await refreshSessions(selectedProjectId);
           if (id === selectedId) {
             if (remaining.length > 0) {
               await loadSession(remaining[0].id);
@@ -188,7 +309,7 @@ export default function ChatPage() {
         },
       });
     },
-    [loadSession, refreshSessions, selectedId]
+    [loadSession, refreshSessions, selectedId, selectedProjectId]
   );
 
   const handleSettingsSave = useCallback(
@@ -209,7 +330,9 @@ export default function ChatPage() {
       if (!trimmed || streaming) return;
       let sessionId = selectedId;
       if (!sessionId) {
-        const session = await createSession();
+        const projectId = selectedProjectId ?? projects[0]?.id ?? null;
+        if (!projectId) return;
+        const session = await createSession(undefined, projectId);
         sessionId = session.id;
         setSessions((prev) => [session, ...prev]);
         setSelectedId(session.id);
@@ -330,7 +453,11 @@ export default function ChatPage() {
               );
               setMessages((prev) => mergeLocalTools(prev, restored));
             }
-            await Promise.all([refreshSessions(), refreshWorkspace()]);
+            await Promise.all([
+              refreshSessions(selectedProjectId),
+              refreshProjects(),
+              refreshWorkspace(),
+            ]);
           },
           error: ({ message }) => {
             setMessages((prev) =>
@@ -363,12 +490,26 @@ export default function ChatPage() {
         setStreaming(false);
       }
     },
-    [refreshSessions, refreshWorkspace, selectedId, streaming]
+    [
+      projects,
+      refreshProjects,
+      refreshSessions,
+      refreshWorkspace,
+      selectedId,
+      selectedProjectId,
+      streaming,
+    ]
   );
 
   const currentSession = useMemo(
     () => sessions.find((session) => session.id === selectedId) ?? null,
     [selectedId, sessions]
+  );
+
+  const currentProject = useMemo(
+    () =>
+      projects.find((project) => project.id === selectedProjectId) ?? null,
+    [projects, selectedProjectId]
   );
 
   return (
@@ -385,13 +526,21 @@ export default function ChatPage() {
       />
         <SessionList
           sessions={sessions}
+          projects={projects}
           selectedId={selectedId}
+          selectedProjectId={selectedProjectId}
           collapsed={!sidebarOpen}
           onSelect={handleSelectSession}
           onNew={handleNewSession}
+          onSelectProject={handleSelectProject}
+          onNewProject={() => setProjectOpen(true)}
+          onNewConversationInProject={handleNewSession}
+          onRenameProject={handleRenameProject}
+          onDeleteProject={handleDeleteProject}
           onRename={handleRename}
           onDelete={handleDelete}
           onOpenSettings={() => setSettingsOpen(true)}
+          model={settings?.model ?? ""}
         />
       </Flex>
       <Flex
@@ -401,7 +550,7 @@ export default function ChatPage() {
       >
         <ChatHeader
           session={currentSession}
-          model={settings?.model ?? ""}
+          project={currentProject}
           think={settings?.think_default ?? false}
           onThinkChange={(value) =>
             setSettings((prev) => (prev ? { ...prev, think_default: value } : prev))
@@ -416,8 +565,21 @@ export default function ChatPage() {
           username={settings?.username || "用户"}
         />
         <ChatInput
+          key={composerKey}
           ref={composerRef}
-          disabled={streaming}
+          disabled={streaming || !selectedProjectId}
+          projectPicker={
+            !selectedId ? (
+              <div className="new-chat-project-bar">
+                <ProjectPicker
+                  projects={projects}
+                  currentProject={currentProject}
+                  onSelect={(id) => handleNewSession(id)}
+                  onNewProject={() => setProjectOpen(true)}
+                />
+              </div>
+            ) : undefined
+          }
           onSend={(question, files) =>
             void sendMessage(
               question,
@@ -433,6 +595,11 @@ export default function ChatPage() {
         selectedId={selectedId}
         onClose={() => setSearchOpen(false)}
         onSelect={handleSelectSession}
+      />
+      <ProjectModal
+        open={projectOpen}
+        onClose={() => setProjectOpen(false)}
+        onSave={handleCreateProject}
       />
       {settingsOpen && settings && (
         <SettingsModal

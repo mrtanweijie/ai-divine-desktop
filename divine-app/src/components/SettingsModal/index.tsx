@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, Save } from "lucide-react";
-import { open } from "@tauri-apps/plugin-dialog";
 import type { Settings } from "@/types";
 import { Button } from "@/components/ui/Button";
-import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
-import { isTauri } from "@/services/tauri";
 import "./index.less";
 
 interface SettingsModalProps {
@@ -28,7 +25,6 @@ export function SettingsModal({
   const [baseUrl, setBaseUrl] = useState(settings.base_url);
   const [apiKey, setApiKey] = useState("");
   const [glmApiKey, setGlmApiKey] = useState("");
-  const [workspaceDir, setWorkspaceDir] = useState(settings.workspace_dir);
   const [username, setUsername] = useState(settings.username);
   const [thinkDefault, setThinkDefault] = useState(settings.think_default);
   const [contextLimit, setContextLimit] = useState(settings.context_limit);
@@ -36,18 +32,9 @@ export function SettingsModal({
   const [showKey, setShowKey] = useState(false);
   const [showGlmKey, setShowGlmKey] = useState(false);
 
-  const pickWorkspaceDir = async () => {
-    if (!isTauri()) return;
-    const selected = await open({ directory: true, multiple: false });
-    if (typeof selected === "string") {
-      setWorkspaceDir(selected);
-    }
-  };
-
   useEffect(() => {
     setModel(settings.model);
     setBaseUrl(settings.base_url);
-    setWorkspaceDir(settings.workspace_dir);
     setUsername(settings.username);
     setThinkDefault(settings.think_default);
     setContextLimit(settings.context_limit);
@@ -74,7 +61,6 @@ export function SettingsModal({
                 base_url: baseUrl,
                 api_key: apiKey,
                 glm_api_key: glmApiKey,
-                workspace_dir: workspaceDir,
                 username,
                 think_default: thinkDefault,
                 context_limit: contextLimit,
@@ -163,20 +149,6 @@ export function SettingsModal({
             </Button>
           </div>
         </div>
-        <Flex align="end" gap={8} className="workspace-path-row">
-          <Input
-            label="工作空间路径"
-            value={workspaceDir}
-            onChange={(event) => setWorkspaceDir(event.target.value)}
-            placeholder="./workspace"
-          />
-          <Button
-            variant="secondary"
-            onClick={() => void pickWorkspaceDir()}
-          >
-            选择目录
-          </Button>
-        </Flex>
         <div className="field-row">
           <Input
             label="上下文保留条数"

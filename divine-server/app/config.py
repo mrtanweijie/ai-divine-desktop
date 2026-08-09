@@ -27,6 +27,16 @@ def workspace_root() -> Path:
     return BACKEND_DIR / "workspace"
 
 
+def projects_root() -> Path:
+    env_dir = os.getenv("DIVINE_PROJECTS_DIR")
+    if env_dir:
+        path = Path(env_dir).expanduser()
+        if not path.is_absolute():
+            path = Path.home() / path
+        return path.resolve()
+    return Path.home() / "Documents" / "Divine"
+
+
 class SettingsStore:
     """Small local settings file layered over environment defaults."""
 

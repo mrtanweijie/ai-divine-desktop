@@ -53,9 +53,16 @@ async def stream_chat(request: StreamChatRequest):
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
     else:
-        session_id = db.create_session()["id"]
+        if request.project_id and db.get_project(request.project_id) is None:
+            return StreamingResponse(
+                iter([error_event("not_found", "项目不存在")]),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
+        session_id = db.create_session(project_id=request.project_id)["id"]
 
     session = db.get_session(session_id)
+    workspace = Path(db.session_workspace(session_id) or workspace_dir())
     messages = db.list_messages(session_id)
     if not messages:
         title = question[:24] if len(question) > 24 else question
@@ -98,7 +105,9 @@ async def stream_chat(request: StreamChatRequest):
 
     async def generate():
         try:
-            async for event in run_agent(session_id, history, request.think):
+            async for event in run_agent(
+                session_id, history, request.think, workspace=workspace
+            ):
                 yield event
         except Exception as exc:  # noqa: BLE001
             logger.exception(

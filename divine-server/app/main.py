@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import db
-from .api import chat, files, sessions, settings, terminal
+from .api import chat, files, projects, sessions, settings, terminal
 from .config import cors_origins, ensure_directories, settings_store
 from .tools.registry import registry
 
@@ -35,6 +35,7 @@ app.add_middleware(
 
 app.include_router(chat.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
+app.include_router(projects.router, prefix="/api")
 app.include_router(files.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(terminal.router)

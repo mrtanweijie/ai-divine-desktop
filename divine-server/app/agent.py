@@ -7,8 +7,12 @@ from typing import Any, AsyncIterator
 
 from . import db
 from .api.terminal import terminal_command_policy, wait_for_terminal_decision
-from .config import settings_store, workspace_dir
+from .config import settings_store
 from .llm import ChatDeepSeekProvider, DeepSeekLLM, MockLLM
+from .rag_store import (
+    index_workspace as rag_index_workspace,
+    search_workspace as rag_search_workspace,
+)
 from .sse import error_event, sse_event
 from .tools.base import ToolExecutionError
 from .tools.registry import get_tool, registry
@@ -33,6 +37,59 @@ _PLAN_STATUS_LABELS = {
     "error": "失败",
     "skipped": "跳过",
 }
+
+_RAG_KEYWORDS = (
+    "笔记",
+    "文件",
+    "文档",
+    "目录",
+    "资料",
+    "章节",
+    "大纲",
+    "小说",
+    "续写",
+    "内容",
+    "方案",
+    "工作区",
+    "里面",
+    "之前",
+)
+
+
+def _auto_rag_context(
+    history: list[dict[str, Any]], workspace: Any
+) -> str | None:
+    question = next(
+        (
+            message.get("content", "")
+            for message in reversed(history)
+            if message.get("role") == "user"
+        ),
+        "",
+    )
+    question = (question or "").strip()
+    if not question:
+        return None
+    try:
+        results = rag_search_workspace(workspace, question, 3)
+        if not results and any(
+            keyword in question for keyword in _RAG_KEYWORDS
+        ):
+            rag_index_workspace(workspace)
+            results = rag_search_workspace(workspace, question, 3)
+    except Exception:
+        return None
+    if not results:
+        return None
+    blocks = [
+        f"[{result['file_path']}]\n{result['snippet']}"
+        for result in results
+    ]
+    return (
+        "以下是工作区本地资料检索结果：\n\n"
+        + "\n\n".join(blocks)
+        + "\n\n请优先结合这些资料回答用户问题。"
+    )
 
 
 def _plan_progress(todos: list[dict[str, Any]]) -> str:
@@ -127,18 +184,34 @@ async def run_agent(
     session_id: str,
     history: list[dict[str, Any]],
     think: bool,
+    workspace: Any,
 ) -> AsyncIterator[str]:
     settings = settings_store.load()
     context_limit = int(settings.get("context_limit") or 20)
     messages: list[dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT}
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {
+            "role": "system",
+            "content": f"当前会话所属项目工作目录：{workspace}\n"
+            "请以该目录作为方案设计和文件操作的工作区。",
+        },
     ]
     messages.extend(history[-context_limit:])
     todos = db.list_todos(session_id)
     plan_message: dict[str, Any] | None = None
+    system_count = 2
     if todos:
         plan_message = {"role": "system", "content": _plan_progress(todos)}
-        messages.insert(1, plan_message)
+        messages.insert(system_count, plan_message)
+    rag_context = _auto_rag_context(history, workspace)
+    if rag_context:
+        insert_at = system_count + (1 if plan_message is not None else 0)
+        messages.insert(insert_at, {"role": "system", "content": rag_context})
+        logger.info(
+            "auto rag context session=%s chars=%d",
+            session_id,
+            len(rag_context),
+        )
     llm = _build_llm()
     tool_schemas = registry.openai_schema()
     unknown_tool_counts: dict[str, int] = {}
@@ -388,9 +461,7 @@ async def run_agent(
                     if todo is not None:
                         call_todos[call_id] = todo
                         yield _todo_update_event(todo)
-                external_paths = adapter.external_paths(
-                    workspace_dir(), arguments
-                )
+                external_paths = adapter.external_paths(workspace, arguments)
                 if external_paths:
                     logger.info(
                         "external confirm session=%s tool=%s paths=%s",
@@ -522,7 +593,7 @@ async def run_agent(
                             },
                         )
                         output = await _execute_tool(
-                            session_id, adapter, name, arguments
+                            session_id, adapter, name, arguments, workspace
                         )
                         tool_message = output.get("content") or json.dumps(
                             output, ensure_ascii=False
@@ -557,7 +628,7 @@ async def run_agent(
                         },
                     )
                     output = await _execute_tool(
-                        session_id, adapter, name, arguments
+                        session_id, adapter, name, arguments, workspace
                     )
                     tool_message = output.get("content") or json.dumps(
                         output, ensure_ascii=False
@@ -615,7 +686,11 @@ async def run_agent(
 
 
 async def _execute_tool(
-    session_id: str, adapter: Any, name: str, arguments: dict[str, Any]
+    session_id: str,
+    adapter: Any,
+    name: str,
+    arguments: dict[str, Any],
+    workspace: Any,
 ) -> dict[str, Any]:
     from . import db
 
@@ -629,7 +704,7 @@ async def _execute_tool(
         _summarize_arguments(arguments),
     )
     try:
-        result = await adapter.run(workspace_dir(), arguments)
+        result = await adapter.run(workspace, arguments)
         output = result.as_dict()
         db.update_tool_run(run["id"], "done", output)
         logger.info(

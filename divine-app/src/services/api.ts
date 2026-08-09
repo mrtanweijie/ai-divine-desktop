@@ -1,6 +1,7 @@
 import type {
   ChatMessage,
   Message,
+  Project,
   Session,
   Settings,
   TodoItem,
@@ -30,14 +31,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function listSessions(): Promise<{ sessions: Session[] }> {
-  return request("/sessions");
+export function listSessions(
+  projectId?: string
+): Promise<{ sessions: Session[] }> {
+  const query = projectId
+    ? `?project_id=${encodeURIComponent(projectId)}`
+    : "";
+  return request(`/sessions${query}`);
 }
 
-export function createSession(title?: string): Promise<Session> {
+export function createSession(
+  title?: string,
+  projectId?: string
+): Promise<Session> {
   return request("/sessions", {
     method: "POST",
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, project_id: projectId }),
   });
 }
 
@@ -65,6 +74,31 @@ export function getSession(
   todos?: TodoItem[];
 }> {
   return request(`/sessions/${id}`);
+}
+
+export function listProjects(): Promise<{ projects: Project[] }> {
+  return request("/projects");
+}
+
+export function createProject(body: {
+  name: string;
+  path?: string;
+}): Promise<Project> {
+  return request("/projects", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function renameProject(id: string, name: string): Promise<Project> {
+  return request(`/projects/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function deleteProject(id: string): Promise<void> {
+  return request(`/projects/${id}`, { method: "DELETE" });
 }
 
 export function exportSession(

@@ -8,14 +8,23 @@ from contextlib import closing
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
-from .config import db_path
+from .config import db_path, workspace_dir
 from .file_types import is_image_path
 
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    path TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '新对话',
+    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -79,6 +88,22 @@ def _connect() -> sqlite3.Connection:
 def init_db() -> None:
     with closing(_connect()) as conn:
         conn.executescript(SCHEMA)
+        columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(sessions)")
+        }
+        if "project_id" not in columns:
+            conn.execute("ALTER TABLE sessions ADD COLUMN project_id TEXT")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_project "
+            "ON sessions(project_id)"
+        )
+        conn.commit()
+    default = default_project()
+    with closing(_connect()) as conn:
+        conn.execute(
+            "UPDATE sessions SET project_id = ? WHERE project_id IS NULL",
+            (default["id"],),
+        )
         conn.commit()
 
 
@@ -86,13 +111,100 @@ def _new_id() -> str:
     return uuid.uuid4().hex
 
 
-def create_session(title: str | None = None) -> dict[str, Any]:
-    session_id = _new_id()
+def create_project(name: str, path: str) -> dict[str, Any]:
+    project_id = _new_id()
     now = _now()
     with closing(_connect()) as conn:
         conn.execute(
-            "INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (session_id, title or "新对话", now, now),
+            "INSERT INTO projects (id, name, path, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (project_id, name, path, now, now),
+        )
+        conn.commit()
+    return get_project(project_id)
+
+
+def default_project() -> dict[str, Any]:
+    with closing(_connect()) as conn:
+        row = conn.execute(
+            "SELECT * FROM projects ORDER BY created_at ASC LIMIT 1"
+        ).fetchone()
+    if row:
+        return dict(row)
+    workspace = workspace_dir()
+    workspace.mkdir(parents=True, exist_ok=True)
+    return create_project("默认项目", str(workspace))
+
+
+def get_project(project_id: str) -> dict[str, Any] | None:
+    with closing(_connect()) as conn:
+        row = conn.execute(
+            "SELECT * FROM projects WHERE id = ?", (project_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def list_projects() -> list[dict[str, Any]]:
+    with closing(_connect()) as conn:
+        rows = conn.execute(
+            "SELECT p.*, COUNT(s.id) AS session_count, "
+            "MAX(s.updated_at) AS last_activity "
+            "FROM projects p LEFT JOIN sessions s ON s.project_id = p.id "
+            "GROUP BY p.id ORDER BY p.updated_at DESC"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def update_project(
+    project_id: str, name: str | None = None, path: str | None = None
+) -> dict[str, Any]:
+    project = get_project(project_id)
+    if not project:
+        raise KeyError(project_id)
+    with closing(_connect()) as conn:
+        conn.execute(
+            "UPDATE projects SET name = ?, path = ?, updated_at = ? WHERE id = ?",
+            (
+                name if name is not None else project["name"],
+                path if path is not None else project["path"],
+                _now(),
+                project_id,
+            ),
+        )
+        conn.commit()
+    return get_project(project_id)
+
+
+def delete_project(project_id: str) -> None:
+    with closing(_connect()) as conn:
+        conn.execute("DELETE FROM sessions WHERE project_id = ?", (project_id,))
+        conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        conn.commit()
+
+
+def session_workspace(session_id: str) -> str | None:
+    with closing(_connect()) as conn:
+        row = conn.execute(
+            "SELECT p.path FROM sessions s "
+            "JOIN projects p ON p.id = s.project_id "
+            "WHERE s.id = ?",
+            (session_id,),
+        ).fetchone()
+    return str(row["path"]) if row else None
+
+
+def create_session(
+    title: str | None = None, project_id: str | None = None
+) -> dict[str, Any]:
+    session_id = _new_id()
+    now = _now()
+    if not project_id:
+        project_id = default_project()["id"]
+    with closing(_connect()) as conn:
+        conn.execute(
+            "INSERT INTO sessions (id, title, project_id, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (session_id, title or "新对话", project_id, now, now),
         )
         conn.commit()
     return get_session(session_id)
@@ -106,11 +218,18 @@ def get_session(session_id: str) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
-def list_sessions() -> list[dict[str, Any]]:
+def list_sessions(project_id: str | None = None) -> list[dict[str, Any]]:
     with closing(_connect()) as conn:
-        rows = conn.execute(
-            "SELECT * FROM sessions ORDER BY updated_at DESC"
-        ).fetchall()
+        if project_id:
+            rows = conn.execute(
+                "SELECT * FROM sessions WHERE project_id = ? "
+                "ORDER BY updated_at DESC",
+                (project_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM sessions ORDER BY updated_at DESC"
+            ).fetchall()
     return [dict(row) for row in rows]
 
 

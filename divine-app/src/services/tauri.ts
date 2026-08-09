@@ -17,6 +17,10 @@ export async function openFileLocation(path: string): Promise<void> {
   await invoke("open_file_location", { path });
 }
 
+export async function openFolder(path: string): Promise<void> {
+  await invoke("open_folder", { path });
+}
+
 export async function openUrl(url: string): Promise<void> {
   await invoke("open_url", { url });
 }
