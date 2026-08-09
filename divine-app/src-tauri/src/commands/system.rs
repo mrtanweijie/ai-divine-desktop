@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::process::Command;
 
 #[tauri::command]
 pub fn open_local_file(path: String) -> Result<(), String> {
@@ -39,4 +40,81 @@ pub fn open_url(url: String) -> Result<(), String> {
         return Err("只支持 http/https 链接".to_string());
     }
     open::that(url).map_err(|err| format!("打开链接失败: {err}"))
+}
+
+fn js_escape(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('\'', "\\'")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+}
+
+fn run_osascript(script: &str) -> Result<String, String> {
+    let output = Command::new("osascript")
+        .args(["-l", "JavaScript", "-e", script])
+        .output()
+        .map_err(|err| format!("无法执行 AppleScript: {err}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("写入系统日历失败: {}", stderr.trim()));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+#[tauri::command]
+pub fn add_calendar_event(
+    title: String,
+    start_at: String,
+    end_at: Option<String>,
+    notes: Option<String>,
+) -> Result<String, String> {
+    let title = js_escape(&title);
+    let notes = js_escape(notes.as_deref().unwrap_or(""));
+    let start = js_escape(&start_at);
+    let end = js_escape(end_at.as_deref().unwrap_or(""));
+    let end_expr = if end.is_empty() {
+        "new Date(start.getTime() + 60 * 60 * 1000)".to_string()
+    } else {
+        format!("new Date('{end}')")
+    };
+    let script = format!(
+        r#"const app = Application('Calendar');
+const cal = app.calendars[0];
+const start = new Date('{start}');
+const end = {end_expr};
+const event = app.Event({{summary: '{title}', description: '{notes}', startDate: start, endDate: end}});
+cal.events.push(event);
+event.uid();"#
+    );
+    let uid = run_osascript(&script)?;
+    if uid.is_empty() {
+        Ok(title)
+    } else {
+        Ok(uid)
+    }
+}
+
+#[tauri::command]
+pub fn remove_calendar_event(title: String, start_at: String) -> Result<String, String> {
+    let title = js_escape(&title);
+    let start = js_escape(&start_at);
+    let script = format!(
+        r#"const app = Application('Calendar');
+let removed = 0;
+for (const cal of app.calendars()) {{
+  for (const ev of cal.events()) {{
+    try {{
+      const start = new Date('{start}');
+      if (ev.summary() === '{title}' && Math.abs(ev.startDate().getTime() - start.getTime()) < 60000) {{
+        ev.delete();
+        removed++;
+      }}
+    }} catch (err) {{}}
+  }}
+}}
+removed;"#
+    );
+    let removed = run_osascript(&script)?;
+    Ok(removed)
 }

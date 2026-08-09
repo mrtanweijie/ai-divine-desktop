@@ -17,6 +17,11 @@ import {
 } from "@/services/api";
 import { consumeSSE } from "@/services/sse";
 import { requestRaw } from "@/services/request";
+import {
+  emitEventsChanged,
+  emitTasksChanged,
+} from "@/services/scheduledTasks";
+import { ScheduledTasksPage } from "@/pages/tasks";
 import { ChatHeader } from "@/pages/chat/components/ChatHeader";
 import { ChatInput } from "@/pages/chat/components/ChatInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -68,6 +73,7 @@ export default function ChatPage() {
   } = useInputState();
   const fullscreen = useFullscreen();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [composerKey, setComposerKey] = useState(0);
@@ -152,6 +158,12 @@ export default function ChatPage() {
   }, [setSidebarOpen]);
 
   useEffect(() => {
+    const handleOpenTasks = () => setTasksOpen(true);
+    window.addEventListener("divine:open-tasks", handleOpenTasks);
+    return () => window.removeEventListener("divine:open-tasks", handleOpenTasks);
+  }, []);
+
+  useEffect(() => {
     if (!selectedId) {
       setGuideCardsVisible(true);
     }
@@ -190,6 +202,7 @@ export default function ChatPage() {
 
   const handleNewSession = useCallback(
     (projectId?: string) => {
+      setTasksOpen(false);
       const safeProjectId =
         typeof projectId === "string" ? projectId : undefined;
       const targetProjectId =
@@ -222,6 +235,7 @@ export default function ChatPage() {
   const handleSelectProject = useCallback(
     async (id: string) => {
       if (streaming) return;
+      setTasksOpen(false);
       setSelectedProjectId(id);
       const remaining = await refreshSessions(id);
       if (remaining.length > 0) {
@@ -309,6 +323,7 @@ export default function ChatPage() {
   const handleSelectSession = useCallback(
     async (id: string) => {
       if (streaming) return;
+      setTasksOpen(false);
       await loadSession(id);
       closeSidebarForNarrow();
     },
@@ -496,6 +511,12 @@ export default function ChatPage() {
               )
             );
           },
+          scheduled_tasks_changed: () => {
+            emitTasksChanged();
+          },
+          calendar_events_changed: () => {
+            emitEventsChanged();
+          },
           done: async () => {
             setMessages((prev) =>
               prev.map((message) =>
@@ -611,6 +632,7 @@ export default function ChatPage() {
           onRename={handleRename}
           onDelete={handleDelete}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenTasks={() => setTasksOpen(true)}
           model={settings?.model ?? ""}
         />
       </Flex>
@@ -619,64 +641,72 @@ export default function ChatPage() {
         className="main-area"
         style={{ flex: 1, minWidth: 0 }}
       >
-        <ChatHeader
-          session={currentSession}
-          project={currentProject}
-          think={settings?.think_default ?? false}
-          onThinkChange={(value) =>
-            setSettings((prev) => (prev ? { ...prev, think_default: value } : prev))
-          }
-          onOpenSidebar={() => setSidebarOpen(true)}
-          onRename={handleRename}
-        />
-        {!selectedId ? (
-          <NewChatGuide
-            projectName={currentProject?.name ?? null}
-            projectPath={currentProject?.path ?? null}
-            cardsVisible={guideCardsVisible}
-            disabled={!selectedProjectId}
-            onAction={handleGuideAction}
-          />
+        {tasksOpen ? (
+          <ScheduledTasksPage />
         ) : (
-          <MessageList
-            messages={messages}
-            streaming={streaming}
-            sessionId={selectedId}
-            username={settings?.username || "用户"}
-          />
+          <>
+            <ChatHeader
+              session={currentSession}
+              project={currentProject}
+              think={settings?.think_default ?? false}
+              onThinkChange={(value) =>
+                setSettings((prev) =>
+                  prev ? { ...prev, think_default: value } : prev
+                )
+              }
+              onOpenSidebar={() => setSidebarOpen(true)}
+              onRename={handleRename}
+            />
+            {!selectedId ? (
+              <NewChatGuide
+                projectName={currentProject?.name ?? null}
+                projectPath={currentProject?.path ?? null}
+                cardsVisible={guideCardsVisible}
+                disabled={!selectedProjectId}
+                onAction={handleGuideAction}
+              />
+            ) : (
+              <MessageList
+                messages={messages}
+                streaming={streaming}
+                sessionId={selectedId}
+                username={settings?.username || "用户"}
+              />
+            )}
+            <ChatInput
+              key={composerKey}
+              ref={composerRef}
+              disabled={streaming || !selectedProjectId}
+              approvalMode={approvalMode}
+              onApprovalModeChange={handleApprovalModeChange}
+              onValueChange={handleGuideValueChange}
+              prefill={prefill}
+              onPrefillConsumed={() => setPrefill(null)}
+              projectPicker={
+                !selectedId ? (
+                  <div className="new-chat-project-bar">
+                    <ProjectPicker
+                      projects={projects}
+                      currentProject={currentProject}
+                      onSelect={(id) => handleNewSession(id)}
+                      onNewProject={() => {
+                        setEditingProject(null);
+                        setProjectOpen(true);
+                      }}
+                    />
+                  </div>
+                ) : undefined
+              }
+              onSend={(question, files) =>
+                void sendMessage(
+                  question,
+                  files,
+                  settings?.think_default ?? false
+                )
+              }
+            />
+          </>
         )}
-        <ChatInput
-          key={composerKey}
-          ref={composerRef}
-          disabled={streaming || !selectedProjectId}
-          approvalMode={approvalMode}
-          onApprovalModeChange={handleApprovalModeChange}
-          onValueChange={handleGuideValueChange}
-          prefill={prefill}
-          onPrefillConsumed={() => setPrefill(null)}
-          projectPicker={
-            !selectedId ? (
-              <div className="new-chat-project-bar">
-                <ProjectPicker
-                  projects={projects}
-                  currentProject={currentProject}
-                  onSelect={(id) => handleNewSession(id)}
-                  onNewProject={() => {
-                    setEditingProject(null);
-                    setProjectOpen(true);
-                  }}
-                />
-              </div>
-            ) : undefined
-          }
-          onSend={(question, files) =>
-            void sendMessage(
-              question,
-              files,
-              settings?.think_default ?? false
-            )
-          }
-        />
       </Flex>
       <SessionSearchModal
         open={searchOpen}

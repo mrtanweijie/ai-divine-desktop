@@ -61,6 +61,7 @@ pub fn run() {
     let app = tauri::Builder::default()
         .manage(SidecarState::default())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .on_window_event(|_window, _event| {
             #[cfg(target_os = "macos")]
             if let WindowEvent::CloseRequested { api, .. } = _event {
@@ -99,6 +100,8 @@ pub fn run() {
             commands::system::open_file_location,
             commands::system::open_folder,
             commands::system::open_url,
+            commands::system::add_calendar_event,
+            commands::system::remove_calendar_event,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

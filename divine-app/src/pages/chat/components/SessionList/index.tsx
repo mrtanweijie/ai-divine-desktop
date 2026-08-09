@@ -1,4 +1,4 @@
-import { Settings, SquarePen } from "lucide-react";
+import { Clock, Settings, SquarePen } from "lucide-react";
 import { Flex } from "@/components/ui/Flex";
 import type { Project, Session } from "@/types";
 import { ProjectList } from "./ProjectList";
@@ -19,6 +19,7 @@ interface SessionListProps {
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
   onOpenSettings: () => void;
+  onOpenTasks: () => void;
   model: string;
 }
 
@@ -38,6 +39,7 @@ export function SessionList({
   onRename,
   onDelete,
   onOpenSettings,
+  onOpenTasks,
   model,
 }: SessionListProps) {
   return (
@@ -66,6 +68,23 @@ export function SessionList({
             <span>新对话</span>
           </div>
         </Flex>
+
+        <div
+          className="tasks-link tasks-nav-link"
+          role="button"
+          tabIndex={0}
+          onClick={onOpenTasks}
+          title="已安排"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              onOpenTasks();
+              event.currentTarget.blur();
+            }
+          }}
+        >
+          <Clock size={15} />
+          <span>已安排</span>
+        </div>
 
         <ProjectList
           projects={projects}

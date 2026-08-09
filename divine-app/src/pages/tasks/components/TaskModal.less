@@ -1,0 +1,36 @@
+.scheduled-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.scheduled-form-error {
+  padding: 8px 10px;
+  border: 1px solid rgba(244, 123, 110, 0.35);
+  border-radius: 8px;
+  background: rgba(244, 123, 110, 0.08);
+  color: var(--color-danger);
+  font-size: 12px;
+}
+
+.weekday-picker {
+  margin-top: 8px;
+}
+
+.weekday-picker button {
+  height: 28px;
+  min-width: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.weekday-picker button.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}

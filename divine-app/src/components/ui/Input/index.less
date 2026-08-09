@@ -22,7 +22,7 @@
 
 .ui-input {
   width: 100%;
-  min-height: 32px;
+  min-height: 40px;
   padding: 0 10px;
   border: 1px solid var(--color-border);
   border-radius: 7px;
@@ -30,6 +30,24 @@
   color: var(--color-text);
   font-size: 13px;
   transition: border-color 120ms ease, background 120ms ease;
+}
+
+.ui-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ui-input-wrap.has-action .ui-input {
+  padding-right: 36px;
+}
+
+.ui-input-action {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: inline-flex;
+  transform: translateY(-50%);
 }
 
 .ui-input::placeholder {

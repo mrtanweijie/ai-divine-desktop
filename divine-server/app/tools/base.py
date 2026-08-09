@@ -75,6 +75,7 @@ class ToolResult:
     download_url: str | None = None
     file_size: int | None = None
     content: str | None = None
+    data: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -85,6 +86,7 @@ class ToolResult:
             "download_url": self.download_url,
             "file_size": self.file_size,
             "content": self.content,
+            "data": self.data,
         }
 
 
@@ -199,6 +201,7 @@ class ToolAdapter:
                 download_url=None,
                 file_size=None,
                 content=output.get("content"),
+                data=output.get("data"),
             )
         filepath = Path(filepath_value)
         if not filepath.is_absolute():
@@ -219,4 +222,5 @@ class ToolAdapter:
             download_url=None,
             file_size=os.path.getsize(filepath),
             content=output.get("content"),
+            data=output.get("data"),
         )

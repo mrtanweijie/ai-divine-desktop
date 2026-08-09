@@ -102,19 +102,14 @@ export function SettingsModal({
           onChange={(event) => setBaseUrl(event.target.value)}
           placeholder="https://api.deepseek.com"
         />
-        <div className="ui-field">
-          <span className="ui-field-label">
-            API Key{settings.has_api_key ? "（已保存）" : ""}
-          </span>
-          <div className="password-field">
-            <input
-              className="ui-input"
-              type={showKey ? "text" : "password"}
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              placeholder="sk-..."
-              autoComplete="off"
-            />
+        <Input
+          label={`API Key${settings.has_api_key ? "（已保存）" : ""}`}
+          type={showKey ? "text" : "password"}
+          value={apiKey}
+          onChange={(event) => setApiKey(event.target.value)}
+          placeholder="sk-..."
+          autoComplete="off"
+          action={
             <Button
               variant="icon"
               size="small"
@@ -123,22 +118,18 @@ export function SettingsModal({
             >
               {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
             </Button>
-          </div>
-        </div>
-        <div className="ui-field">
-          <span className="ui-field-label">
-            GLM API Key（识图能力支持）
-            {settings.has_glm_key ? "（已保存）" : ""}
-          </span>
-          <div className="password-field">
-            <input
-              className="ui-input"
-              type={showGlmKey ? "text" : "password"}
-              value={glmApiKey}
-              onChange={(event) => setGlmApiKey(event.target.value)}
-              placeholder="glm key..."
-              autoComplete="off"
-            />
+          }
+        />
+        <Input
+          label={`GLM API Key（识图能力支持）${
+            settings.has_glm_key ? "（已保存）" : ""
+          }`}
+          type={showGlmKey ? "text" : "password"}
+          value={glmApiKey}
+          onChange={(event) => setGlmApiKey(event.target.value)}
+          placeholder="glm key..."
+          autoComplete="off"
+          action={
             <Button
               variant="icon"
               size="small"
@@ -147,16 +138,20 @@ export function SettingsModal({
             >
               {showGlmKey ? <EyeOff size={14} /> : <Eye size={14} />}
             </Button>
-          </div>
-        </div>
+          }
+        />
         <div className="field-row">
           <Input
             label="上下文保留条数"
-            type="number"
-            min={1}
-            max={200}
+            type="text"
+            inputMode="numeric"
             value={contextLimit}
-            onChange={(event) => setContextLimit(Number(event.target.value))}
+            onChange={(event) => {
+              const digits = event.target.value.replace(/\D/g, "");
+              setContextLimit(
+                digits === "" ? 1 : Math.min(200, Number(digits))
+              );
+            }}
           />
         </div>
         <div className="ui-field">

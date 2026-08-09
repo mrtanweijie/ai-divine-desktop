@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus, Search } from "lucide-react";
+import { Input } from "@/components/ui/Input";
 import type { Project } from "@/types";
 import { ProjectIcon } from "@/pages/chat/components/ProjectIcon";
 import "./index.less";
@@ -76,7 +77,7 @@ export function ProjectPicker({
         <div className="project-picker-panel">
           <div className="project-picker-search">
             <Search size={13} />
-            <input
+            <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索项目"

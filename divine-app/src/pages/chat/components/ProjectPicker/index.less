@@ -59,9 +59,31 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
+  height: 40px;
   padding: 0 10px;
   border-bottom: 1px solid var(--color-border);
+}
+
+.project-picker-search .ui-field {
+  flex: 1;
+  min-width: 0;
+  gap: 0;
+}
+
+.project-picker-search .ui-input-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-picker-search .ui-input {
+  min-height: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  box-shadow: none;
 }
 
 .project-picker-search input {
@@ -77,6 +99,13 @@
 .project-picker-search input:focus,
 .project-picker-search input:focus-visible {
   outline: 0;
+  box-shadow: none;
+}
+
+.project-picker-search .ui-input:focus,
+.project-picker-search .ui-input:focus-visible {
+  border-color: transparent;
+  background: transparent;
   box-shadow: none;
 }
 

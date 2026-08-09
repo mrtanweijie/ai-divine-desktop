@@ -137,7 +137,7 @@ a:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 6px 8px;
+  padding: 12px 6px 0;
 }
 
 .new-chat-link {
@@ -158,6 +158,27 @@ a:focus-visible {
 }
 
 .new-chat-link:hover {
+  border-radius: 12px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.tasks-nav-link {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  gap: 7px;
+  margin: 0 6px 4px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tasks-nav-link:hover {
   border-radius: 12px;
   background: var(--color-accent-soft);
   color: var(--color-accent);
@@ -719,6 +740,18 @@ a:focus-visible {
   padding: 10px 12px;
   max-height: 190px;
   overflow-y: auto;
+}
+
+.project-section,
+.session-list,
+.workspace-panel {
+  scrollbar-width: none;
+}
+
+.project-section::-webkit-scrollbar,
+.session-list::-webkit-scrollbar,
+.workspace-panel::-webkit-scrollbar {
+  display: none;
 }
 
 .workspace-title {

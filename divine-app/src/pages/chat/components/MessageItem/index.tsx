@@ -1,6 +1,8 @@
 import {
   AlertCircle,
   Calculator,
+  CalendarClock,
+  CalendarDays,
   Check,
   ChevronDown,
   Copy,
@@ -177,7 +179,11 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
   const running = tool.status === "running" || tool.status === "preparing";
   const statusMessage = tool.status === "done" ? "执行完成" : tool.message;
   const icon =
-    tool.tool.includes("spreadsheet") || tool.tool.includes("excel") ? (
+    tool.tool === "schedule_task" ? (
+      <CalendarClock size={16} />
+    ) : tool.tool === "write_calendar" ? (
+      <CalendarDays size={16} />
+    ) : tool.tool.includes("spreadsheet") || tool.tool.includes("excel") ? (
       <FileSpreadsheet size={16} />
     ) : tool.tool.includes("notes") ? (
       <StickyNote size={16} />
@@ -367,6 +373,28 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
           </Flex>
         </div>
       )}
+      {tool.status === "confirm" && tool.confirm_type === "write_calendar" && (
+        <div className="terminal-confirm calendar-confirm">
+          <div className="terminal-confirm-head">
+            <CalendarDays size={14} />
+            <span>写入日程确认</span>
+          </div>
+          <p className="plan-confirm-text">是否同时写入日程？</p>
+          <Flex align="center" gap={8}>
+            <Button size="small" loading={deciding} onClick={() => void decide(true)}>
+              写入日程
+            </Button>
+            <Button
+              size="small"
+              variant="ghost"
+              disabled={deciding}
+              onClick={() => void decide(false)}
+            >
+              取消
+            </Button>
+          </Flex>
+        </div>
+      )}
       {running && (
         <div className="tool-progress" aria-hidden="true">
           <span className="tool-progress-bar" />
@@ -376,6 +404,18 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
         <Flex align="center" gap={8} className="tool-result-actions">
           {icon}
           <span>{tool.result.message}</span>
+          {tool.tool === "schedule_task" && (
+            <Button
+              size="small"
+              onClick={() =>
+                window.dispatchEvent(new CustomEvent("divine:open-tasks"))
+              }
+              title="管理定时任务"
+            >
+              <CalendarClock size={13} />
+              管理任务
+            </Button>
+          )}
           <Button
             variant="icon"
             size="small"

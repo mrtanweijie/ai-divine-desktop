@@ -154,6 +154,9 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 查找或列出工作区文件使用 search_files；搜索完文件后，读取具体内容再使用 read_file。
 查看目录结构使用 directory_tree；缩放图片使用 image_resize；拆分合并 PDF 使用 pdf_split_merge；
 只读查询数据库使用 sqlite_query；数学计算使用 calculator；剪贴板操作使用 clipboard。
+安排提醒或定时任务时调用 schedule_task；创建提醒后不要直接写日程，系统会询问用户是否写入日程，
+用户确认后再调用 write_calendar，并把 task_id 传给 write_calendar。
+用户要求记录日程/日历事件时调用 write_calendar，可单独使用，从用户输入中识别标题和起止时间。
 本地资料检索使用 rag_index 建立索引、rag_search 检索相关内容。
 读取文件内容必须使用 read_file、word_document 等专用工具；
 读取 Excel 必须使用 read_file（不要使用 spreadsheet，spreadsheet 只能生成 Excel）；
@@ -176,6 +179,11 @@ _READ_ONLY_TOOLS = {
     "sqlite_query",
     "calculator",
     "web_fetch",
+}
+
+_NO_PLAN_TOOLS = {
+    "schedule_task",
+    "write_calendar",
 }
 
 MAX_TOOL_TURNS = 32
@@ -238,6 +246,7 @@ async def run_agent(
     )
 
     for turn in range(MAX_TOOL_TURNS):
+        calendar_pending: dict[str, Any] | None = None
         if plan_message is not None:
             plan_message["content"] = _plan_progress(todos)
         logger.info(
@@ -311,7 +320,10 @@ async def run_agent(
             plan_choice_resolved = True
         elif (
             not plan_choice_resolved
-            and any(name not in _READ_ONLY_TOOLS for name in call_names)
+            and any(
+                name not in _READ_ONLY_TOOLS and name not in _NO_PLAN_TOOLS
+                for name in call_names
+            )
         ):
             yield sse_event(
                 "tool",
@@ -730,6 +742,26 @@ async def run_agent(
                     if is_terminal:
                         payload["command"] = command
                     yield sse_event("tool", payload)
+                    if (
+                        name == "schedule_task"
+                        and str(arguments.get("action") or "") == "create"
+                        and output.get("success")
+                    ):
+                        calendar_pending = (
+                            (output.get("data") or {}).get("task") or output
+                        )
+                        yield sse_event(
+                            "scheduled_tasks_changed",
+                            {"tasks": db.list_scheduled_tasks()},
+                        )
+                    if (
+                        name == "write_calendar"
+                        and output.get("success")
+                    ):
+                        yield sse_event(
+                            "calendar_events_changed",
+                            {"events": db.list_calendar_events()},
+                        )
                     tool_results.append((call_id, tool_message))
                     todo = call_todos.get(call_id)
                     if todo is not None:
@@ -765,6 +797,60 @@ async def run_agent(
                     "tool_call_id": call_id,
                     "content": tool_message,
                 }
+            )
+        if calendar_pending and "write_calendar" not in call_names:
+            task_id = str(calendar_pending.get("id") or "")
+            title = str(
+                calendar_pending.get("title")
+                or calendar_pending.get("message")
+                or "定时任务"
+            )
+            yield sse_event(
+                "tool",
+                {
+                    "tool": "schedule_task",
+                    "status": "confirm",
+                    "confirm_type": "write_calendar",
+                    "message": "是否同时写入日程？",
+                    "session_id": session_id,
+                    "result": calendar_pending,
+                },
+            )
+            allowed = await wait_for_terminal_decision(
+                session_id, "是否写入日程"
+            )
+            if allowed and task_id:
+                yield sse_event(
+                    "tool",
+                    {
+                        "tool": "schedule_task",
+                        "status": "done",
+                        "message": "已确认写入日程",
+                        "session_id": session_id,
+                        "result": calendar_pending,
+                    },
+                )
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            f"用户同意把提醒“{title}”写入日程。"
+                            f"请调用 write_calendar 工具创建日程事件，"
+                            f"task_id 传 {task_id}，"
+                            "标题和起止时间按该提醒的信息填写。"
+                        ),
+                    }
+                )
+                continue
+            yield sse_event(
+                "tool",
+                {
+                    "tool": "schedule_task",
+                    "status": "done",
+                    "message": "不写入日程",
+                    "session_id": session_id,
+                    "result": calendar_pending,
+                },
             )
 
     logger.warning("tool turn limit session=%s", session_id)

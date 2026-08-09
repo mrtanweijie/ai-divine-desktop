@@ -8,6 +8,12 @@ export interface SSEHandlers {
     result?: string;
   }) => void;
   tool?: (data: Record<string, unknown>) => void;
+  scheduled_tasks_changed?: (data: {
+    tasks: Record<string, unknown>[];
+  }) => void;
+  calendar_events_changed?: (data: {
+    events: Record<string, unknown>[];
+  }) => void;
   done?: (data: { message: string }) => void;
   error?: (data: { code: string; message: string }) => void;
 }

@@ -69,10 +69,49 @@ CREATE TABLE IF NOT EXISTS agent_todos (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS scheduled_tasks (
+    id TEXT PRIMARY KEY,
+    session_id TEXT REFERENCES sessions(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    task_type TEXT NOT NULL DEFAULT 'reminder',
+    frequency TEXT NOT NULL DEFAULT 'interval',
+    interval_minutes INTEGER,
+    run_at TEXT,
+    run_hour INTEGER,
+    run_minute INTEGER,
+    days_of_week TEXT NOT NULL DEFAULT '[]',
+    day_of_month INTEGER,
+    next_run_at TEXT,
+    last_run_at TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    calendar_synced INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS calendar_events (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    start_at TEXT NOT NULL,
+    end_at TEXT,
+    notes TEXT NOT NULL DEFAULT '',
+    location TEXT NOT NULL DEFAULT '',
+    task_id TEXT REFERENCES scheduled_tasks(id) ON DELETE SET NULL,
+    system_event_id TEXT,
+    synced INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_parts_message ON message_parts(message_id);
 CREATE INDEX IF NOT EXISTS idx_tool_runs_session ON tool_runs(session_id);
 CREATE INDEX IF NOT EXISTS idx_todos_session ON agent_todos(session_id);
+CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_session ON scheduled_tasks(session_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_task ON calendar_events(task_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_start ON calendar_events(start_at);
 """
 
 
@@ -299,6 +338,226 @@ def touch_session(session_id: str) -> None:
 def delete_session(session_id: str) -> None:
     with closing(_connect()) as conn:
         conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn.commit()
+
+
+def pause_tasks_for_session(session_id: str) -> None:
+    with closing(_connect()) as conn:
+        conn.execute(
+            "UPDATE scheduled_tasks SET status = 'paused', updated_at = ? "
+            "WHERE session_id = ? AND status = 'active'",
+            (_now(), session_id),
+        )
+        conn.commit()
+
+
+def list_scheduled_tasks() -> list[dict[str, Any]]:
+    with closing(_connect()) as conn:
+        rows = conn.execute(
+            "SELECT * FROM scheduled_tasks ORDER BY created_at ASC, rowid ASC"
+        ).fetchall()
+    return [_normalize_task(dict(row)) for row in rows]
+
+
+def get_scheduled_task(task_id: str) -> dict[str, Any] | None:
+    with closing(_connect()) as conn:
+        row = conn.execute(
+            "SELECT * FROM scheduled_tasks WHERE id = ?", (task_id,)
+        ).fetchone()
+    return _normalize_task(dict(row)) if row else None
+
+
+def _normalize_task(task: dict[str, Any]) -> dict[str, Any]:
+    try:
+        task["days_of_week"] = json.loads(task.get("days_of_week") or "[]")
+    except (json.JSONDecodeError, TypeError):
+        task["days_of_week"] = []
+    return task
+
+
+def create_scheduled_task(
+    *,
+    title: str,
+    description: str = "",
+    session_id: str | None = None,
+    task_type: str = "reminder",
+    frequency: str = "interval",
+    interval_minutes: int | None = None,
+    run_at: str | None = None,
+    run_hour: int | None = None,
+    run_minute: int | None = None,
+    days_of_week: list[int] | None = None,
+    day_of_month: int | None = None,
+    next_run_at: str | None = None,
+    status: str = "active",
+) -> dict[str, Any]:
+    task_id = _new_id()
+    now = _now()
+    days = json.dumps(list(days_of_week or []), ensure_ascii=False)
+    with closing(_connect()) as conn:
+        conn.execute(
+            "INSERT INTO scheduled_tasks "
+            "(id, session_id, title, description, task_type, frequency, "
+            "interval_minutes, run_at, run_hour, run_minute, days_of_week, "
+            "day_of_month, next_run_at, last_run_at, status, calendar_synced, "
+            "created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 0, ?, ?)",
+            (
+                task_id,
+                session_id,
+                title,
+                description,
+                task_type,
+                frequency,
+                interval_minutes,
+                run_at,
+                run_hour,
+                run_minute,
+                days,
+                day_of_month,
+                next_run_at,
+                status,
+                now,
+                now,
+            ),
+        )
+        conn.commit()
+    return get_scheduled_task(task_id)
+
+
+def update_scheduled_task(
+    task_id: str,
+    **fields: Any,
+) -> dict[str, Any]:
+    task = get_scheduled_task(task_id)
+    if not task:
+        raise KeyError(task_id)
+    merged = {**task, **{k: v for k, v in fields.items() if v is not None}}
+    columns = [
+        "title",
+        "description",
+        "session_id",
+        "task_type",
+        "frequency",
+        "interval_minutes",
+        "run_at",
+        "run_hour",
+        "run_minute",
+        "days_of_week",
+        "day_of_month",
+        "next_run_at",
+        "last_run_at",
+        "status",
+        "calendar_synced",
+    ]
+    values: list[Any] = []
+    assignments: list[str] = []
+    for column in columns:
+        if column in fields and fields[column] is not None:
+            value = fields[column]
+            if column == "days_of_week":
+                value = json.dumps(list(value or []), ensure_ascii=False)
+            assignments.append(f"{column} = ?")
+            values.append(value)
+    if not assignments:
+        return task
+    values.append(_now())
+    values.append(task_id)
+    with closing(_connect()) as conn:
+        conn.execute(
+            f"UPDATE scheduled_tasks SET {', '.join(assignments)}, updated_at = ? "
+            "WHERE id = ?",
+            values,
+        )
+        conn.commit()
+    return get_scheduled_task(task_id)
+
+
+def delete_scheduled_task(task_id: str) -> None:
+    with closing(_connect()) as conn:
+        conn.execute("DELETE FROM scheduled_tasks WHERE id = ?", (task_id,))
+        conn.commit()
+
+
+def list_calendar_events() -> list[dict[str, Any]]:
+    with closing(_connect()) as conn:
+        rows = conn.execute(
+            "SELECT * FROM calendar_events ORDER BY start_at ASC, rowid ASC"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_calendar_event(event_id: str) -> dict[str, Any] | None:
+    with closing(_connect()) as conn:
+        row = conn.execute(
+            "SELECT * FROM calendar_events WHERE id = ?", (event_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def create_calendar_event(
+    *,
+    title: str,
+    start_at: str,
+    end_at: str | None = None,
+    notes: str = "",
+    location: str = "",
+    task_id: str | None = None,
+) -> dict[str, Any]:
+    event_id = _new_id()
+    now = _now()
+    with closing(_connect()) as conn:
+        conn.execute(
+            "INSERT INTO calendar_events "
+            "(id, title, start_at, end_at, notes, location, task_id, "
+            "system_event_id, synced, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?)",
+            (event_id, title, start_at, end_at, notes, location, task_id, now, now),
+        )
+        conn.commit()
+    return get_calendar_event(event_id)
+
+
+def update_calendar_event(
+    event_id: str,
+    **fields: Any,
+) -> dict[str, Any]:
+    event = get_calendar_event(event_id)
+    if not event:
+        raise KeyError(event_id)
+    columns = [
+        "title",
+        "start_at",
+        "end_at",
+        "notes",
+        "location",
+        "task_id",
+        "system_event_id",
+        "synced",
+    ]
+    values: list[Any] = []
+    assignments: list[str] = []
+    for column in columns:
+        if column in fields and fields[column] is not None:
+            assignments.append(f"{column} = ?")
+            values.append(fields[column])
+    if not assignments:
+        return event
+    values.append(_now())
+    values.append(event_id)
+    with closing(_connect()) as conn:
+        conn.execute(
+            f"UPDATE calendar_events SET {', '.join(assignments)}, updated_at = ? "
+            "WHERE id = ?",
+            values,
+        )
+        conn.commit()
+    return get_calendar_event(event_id)
+
+
+def delete_calendar_event(event_id: str) -> None:
+    with closing(_connect()) as conn:
+        conn.execute("DELETE FROM calendar_events WHERE id = ?", (event_id,))
         conn.commit()
 
 

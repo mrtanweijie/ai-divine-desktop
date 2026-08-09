@@ -43,7 +43,12 @@ export interface ToolEvent {
   status: "preparing" | "running" | "confirm" | "done" | "error";
   message: string;
   command?: string;
-  confirm_type?: "terminal" | "external_file" | "plan" | "plan_choice";
+  confirm_type?:
+    | "terminal"
+    | "external_file"
+    | "plan"
+    | "plan_choice"
+    | "write_calendar";
   paths?: string[];
   session_id?: string;
   result?: {
@@ -116,6 +121,41 @@ export interface ToolDefinition {
   description: string;
   category: string;
   parameters: Record<string, unknown>;
+}
+
+export interface ScheduledTask {
+  id: string;
+  session_id: string | null;
+  title: string;
+  description: string;
+  task_type: "reminder" | "agent" | "monitor";
+  frequency: "once" | "interval" | "daily" | "weekly" | "monthly";
+  interval_minutes: number | null;
+  run_at: string | null;
+  run_hour: number | null;
+  run_minute: number | null;
+  days_of_week: number[];
+  day_of_month: number | null;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  status: "active" | "paused" | "done";
+  calendar_synced: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start_at: string;
+  end_at: string | null;
+  notes: string;
+  location: string;
+  task_id: string | null;
+  system_event_id: string | null;
+  synced: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface WorkspaceFile {

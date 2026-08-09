@@ -62,6 +62,7 @@ def delete_session(session_id: str):
     session = db.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    db.pause_tasks_for_session(session_id)
     db.delete_session(session_id)
     logger.info("session deleted id=%s", session_id)
 

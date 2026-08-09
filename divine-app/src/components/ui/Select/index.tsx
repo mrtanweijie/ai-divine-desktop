@@ -1,5 +1,7 @@
 import { ChevronDown } from "lucide-react";
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import "./index.less";
 
 export interface SelectOption {
@@ -24,11 +26,28 @@ export function Select({
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
 
   useEffect(() => {
     if (!open) return;
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setMenuStyle({
+        position: "fixed",
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
     const closeOnOutside = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        ref.current &&
+        menuRef.current &&
+        !ref.current.contains(target) &&
+        !menuRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     };
@@ -60,26 +79,34 @@ export function Select({
           <ChevronDown size={14} className={open ? "open" : ""} />
         </button>
         {open && (
-          <div className="ui-select-menu" role="listbox">
-            {options.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="option"
-                aria-selected={option.value === value}
-                className={`ui-select-option${
-                  option.value === value ? " selected" : ""
-                }`}
-                onClick={() => {
-                  onChange(option.value);
-                  setOpen(false);
-                }}
-                onMouseDown={(event) => event.preventDefault()}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          createPortal(
+            <div
+              ref={menuRef}
+              className="ui-select-menu"
+              role="listbox"
+              style={menuStyle}
+            >
+              {options.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={option.value === value}
+                  className={`ui-select-option${
+                    option.value === value ? " selected" : ""
+                  }`}
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  onMouseDown={(event) => event.preventDefault()}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>,
+            document.body
+          )
         )}
       </div>
     </div>
