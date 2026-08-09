@@ -54,6 +54,7 @@ const APPROVAL_MODE_ITEMS: {
 interface ComposerProps {
   disabled: boolean;
   onSend: (question: string, files: ChatFile[]) => void;
+  onValueChange?: (hasValue: boolean) => void;
   approvalMode: ApprovalMode;
   onApprovalModeChange: (mode: ApprovalMode) => void;
   prefill?: { text: string; nonce: number } | null;
@@ -66,6 +67,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
     {
       disabled,
       onSend,
+      onValueChange,
       approvalMode,
       onApprovalModeChange,
       prefill,
@@ -100,10 +102,12 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
 
     useEffect(() => {
       if (!prefill) return;
-      setValue(prefill.text);
+      const next = prefill.text;
+      setValue(next);
+      onValueChange?.(next.trim().length > 0);
       onPrefillConsumed();
       textareaRef.current?.focus();
-    }, [onPrefillConsumed, prefill]);
+    }, [onPrefillConsumed, onValueChange, prefill]);
 
     const send = () => {
       const question = value.trim();
@@ -148,7 +152,11 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
             value={value}
             rows={1}
             placeholder="随心输入"
-            onChange={(event) => setValue(event.target.value)}
+            onChange={(event) => {
+              const next = event.target.value;
+              setValue(next);
+              onValueChange?.(next.trim().length > 0);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();

@@ -1,3 +1,21 @@
+@keyframes new-chat-guide-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes new-chat-guide-leave {
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+}
+
 .new-chat-guide {
   display: flex;
   flex: 1;
@@ -18,6 +36,7 @@
   height: 64px;
   border-radius: 50%;
   color: var(--color-text-secondary);
+  animation: new-chat-guide-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .new-chat-guide-icon .new-chat-guide-avatar-img {
@@ -31,6 +50,7 @@
   font-size: 24px;
   font-weight: 500;
   text-align: center;
+  animation: new-chat-guide-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
 }
 
 .new-chat-guide-project-link {
@@ -51,6 +71,12 @@
   max-width: 720px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 15px;
+  max-height: 104px;
+  overflow: hidden;
+  transition:
+    max-height 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .new-chat-guide-card {
@@ -67,6 +93,23 @@
   color: var(--color-text);
   text-align: left;
   cursor: pointer;
+  animation: new-chat-guide-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.new-chat-guide-card:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.new-chat-guide-card:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.new-chat-guide-card:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.new-chat-guide-card:nth-child(4) {
+  animation-delay: 0.25s;
 }
 
 .new-chat-guide-card:hover:not(.disabled) {
@@ -110,8 +153,54 @@
   line-height: 1.45;
 }
 
+.new-chat-guide-cards.is-hidden {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+}
+
+.new-chat-guide-cards.is-hidden .new-chat-guide-card {
+  animation: new-chat-guide-leave 0.16s ease forwards;
+}
+
+.new-chat-guide-cards.is-hidden .new-chat-guide-card:nth-child(1) {
+  animation-delay: 0.09s;
+}
+
+.new-chat-guide-cards.is-hidden .new-chat-guide-card:nth-child(2) {
+  animation-delay: 0.06s;
+}
+
+.new-chat-guide-cards.is-hidden .new-chat-guide-card:nth-child(3) {
+  animation-delay: 0.03s;
+}
+
+.new-chat-guide-cards.is-hidden .new-chat-guide-card:nth-child(4) {
+  animation-delay: 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-chat-guide-icon,
+  .new-chat-guide-title,
+  .new-chat-guide-card {
+    animation: none;
+  }
+
+  .new-chat-guide-cards.is-hidden .new-chat-guide-card {
+    animation: none;
+    opacity: 0;
+    transform: none;
+  }
+
+  .new-chat-guide-cards {
+    transition: none;
+  }
+}
+
 @media (max-width: 720px) {
   .new-chat-guide-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 224px;
   }
 }

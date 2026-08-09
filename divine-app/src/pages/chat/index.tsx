@@ -72,6 +72,7 @@ export default function ChatPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [composerKey, setComposerKey] = useState(0);
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>("ask");
+  const [guideCardsVisible, setGuideCardsVisible] = useState(true);
   const [prefill, setPrefill] = useState<{
     text: string;
     nonce: number;
@@ -150,6 +151,12 @@ export default function ChatPage() {
   }, [setSidebarOpen]);
 
   useEffect(() => {
+    if (!selectedId) {
+      setGuideCardsVisible(true);
+    }
+  }, [selectedId]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.ctrlKey && event.key.toLowerCase() === "n") {
         event.preventDefault();
@@ -193,6 +200,7 @@ export default function ChatPage() {
       if (targetProjectId) {
         setSelectedProjectId(targetProjectId);
       }
+      setGuideCardsVisible(true);
       setComposerKey((value) => value + 1);
       setApprovalMode("ask");
       setSelectedId(null);
@@ -218,6 +226,7 @@ export default function ChatPage() {
       if (remaining.length > 0) {
         await loadSession(remaining[0].id);
       } else {
+        setGuideCardsVisible(true);
         setSelectedId(null);
         setMessages([]);
       }
@@ -246,6 +255,7 @@ export default function ChatPage() {
       setProjects((prev) => [project, ...prev]);
       setSelectedProjectId(project.id);
       void refreshSessions(project.id).catch(() => undefined);
+      setGuideCardsVisible(true);
       setSelectedId(null);
       setMessages([]);
       setProjectOpen(false);
@@ -278,10 +288,12 @@ export default function ChatPage() {
               if (sessionList.length > 0) {
                 await loadSession(sessionList[0].id);
               } else {
+                setGuideCardsVisible(true);
                 setSelectedId(null);
                 setMessages([]);
               }
             } else {
+              setGuideCardsVisible(true);
               setSelectedId(null);
               setMessages([]);
             }
@@ -323,6 +335,7 @@ export default function ChatPage() {
             if (remaining.length > 0) {
               await loadSession(remaining[0].id);
             } else {
+              setGuideCardsVisible(true);
               setSelectedId(null);
               setMessages([]);
             }
@@ -359,6 +372,14 @@ export default function ChatPage() {
   const handleGuideAction = useCallback((prompt: string) => {
     setPrefill({ text: prompt, nonce: Date.now() });
     setTimeout(() => composerRef.current?.focus(), 0);
+  }, []);
+
+  const handleGuideValueChange = useCallback((hasValue: boolean) => {
+    if (hasValue) {
+      setGuideCardsVisible(false);
+    } else {
+      setGuideCardsVisible(true);
+    }
   }, []);
 
   const sendMessage = useCallback(
@@ -604,6 +625,7 @@ export default function ChatPage() {
           <NewChatGuide
             projectName={currentProject?.name ?? null}
             projectPath={currentProject?.path ?? null}
+            cardsVisible={guideCardsVisible}
             disabled={!selectedProjectId}
             onAction={handleGuideAction}
           />
@@ -621,6 +643,7 @@ export default function ChatPage() {
           disabled={streaming || !selectedProjectId}
           approvalMode={approvalMode}
           onApprovalModeChange={handleApprovalModeChange}
+          onValueChange={handleGuideValueChange}
           prefill={prefill}
           onPrefillConsumed={() => setPrefill(null)}
           projectPicker={

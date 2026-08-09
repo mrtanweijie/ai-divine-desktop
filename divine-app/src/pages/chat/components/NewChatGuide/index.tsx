@@ -20,6 +20,7 @@ interface GuideCard {
 interface NewChatGuideProps {
   projectName: string | null;
   projectPath?: string | null;
+  cardsVisible?: boolean;
   disabled?: boolean;
   onAction: (prompt: string) => void;
 }
@@ -62,6 +63,7 @@ const CARDS: GuideCard[] = [
 export function NewChatGuide({
   projectName,
   projectPath,
+  cardsVisible = true,
   disabled = false,
   onAction,
 }: NewChatGuideProps) {
@@ -101,19 +103,26 @@ export function NewChatGuide({
           "我们该构建什么"
         )}
       </h2>
-      <div className="new-chat-guide-cards">
+      <div
+        className={`new-chat-guide-cards${cardsVisible ? "" : " is-hidden"}`}
+        aria-hidden={!cardsVisible}
+      >
         {CARDS.map((card) => (
           <div
             key={card.key}
             className={`new-chat-guide-card${disabled ? " disabled" : ""}`}
             role="button"
-            tabIndex={disabled ? -1 : 0}
-            aria-disabled={disabled}
+            tabIndex={cardsVisible && !disabled ? 0 : -1}
+            aria-disabled={!cardsVisible || disabled}
             onClick={() => {
-              if (!disabled) onAction(card.prompt);
+              if (cardsVisible && !disabled) onAction(card.prompt);
             }}
             onKeyDown={(event) => {
-              if (!disabled && (event.key === "Enter" || event.key === " ")) {
+              if (
+                cardsVisible &&
+                !disabled &&
+                (event.key === "Enter" || event.key === " ")
+              ) {
                 onAction(card.prompt);
                 event.currentTarget.blur();
               }
