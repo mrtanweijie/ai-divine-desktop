@@ -1,0 +1,117 @@
+.new-chat-guide {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.new-chat-guide-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+}
+
+.new-chat-guide-icon .new-chat-guide-avatar-img {
+  width: 90px;
+  height: 90px;
+}
+
+.new-chat-guide-title {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 24px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.new-chat-guide-project-link {
+  color: var(--color-accent);
+  cursor: pointer;
+  text-decoration: underline dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.new-chat-guide-project-link:hover {
+  color: var(--color-accent-hover);
+}
+
+.new-chat-guide-cards {
+  display: grid;
+  width: 100%;
+  max-width: 720px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.new-chat-guide-card {
+  display: flex;
+  min-height: 0;
+  height: 96px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.new-chat-guide-card:hover:not(.disabled) {
+  background: var(--color-surface-2);
+}
+
+.new-chat-guide-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.new-chat-guide-card-icon {
+  display: inline-flex;
+  color: var(--color-accent);
+}
+
+.new-chat-guide-card-icon.blue {
+  color: #60a5fa;
+}
+
+.new-chat-guide-card-icon.purple {
+  color: #a78bfa;
+}
+
+.new-chat-guide-card-icon.green {
+  color: #4ade80;
+}
+
+.new-chat-guide-card-icon.orange {
+  color: #fb923c;
+}
+
+.new-chat-guide-card-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.new-chat-guide-card-title {
+  max-width: 100%;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .new-chat-guide-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

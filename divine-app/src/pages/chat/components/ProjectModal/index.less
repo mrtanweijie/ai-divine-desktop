@@ -65,6 +65,63 @@
   white-space: nowrap;
 }
 
+.project-path-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.project-path-value {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-icon-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.project-icon-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.project-icon-option:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.project-icon-option.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
 .project-modal-error {
   margin: 0;
   color: var(--color-danger);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Folder, Plus, Search } from "lucide-react";
+import { ChevronDown, Plus, Search } from "lucide-react";
 import type { Project } from "@/types";
+import { ProjectIcon } from "@/pages/chat/components/ProjectIcon";
 import "./index.less";
 
 interface ProjectPickerProps {
@@ -64,7 +65,7 @@ export function ProjectPicker({
           }
         }}
       >
-        <Folder size={13} />
+        <ProjectIcon icon={currentProject?.icon} size={13} />
         <span className="project-picker-name">
           {currentProject?.name ?? "选择项目"}
         </span>
@@ -93,7 +94,7 @@ export function ProjectPicker({
                   className="project-picker-item"
                   onClick={() => select(project.id)}
                 >
-                  <Folder size={13} />
+                  <ProjectIcon icon={project.icon} size={13} />
                   <span>{project.name}</span>
                 </button>
               ))

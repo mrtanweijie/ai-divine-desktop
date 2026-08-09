@@ -6,7 +6,6 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import {
-  Folder,
   FolderOpen,
   MessageSquare,
   MoreHorizontal,
@@ -21,6 +20,7 @@ import { Input } from "@/components/ui/Input";
 import type { Project, Session } from "@/types";
 import { formatTime } from "@/utils";
 import { openFolder } from "@/services/tauri";
+import { ProjectIcon } from "@/pages/chat/components/ProjectIcon";
 
 interface ProjectListProps {
   projects: Project[];
@@ -30,7 +30,7 @@ interface ProjectListProps {
   onSelectProject: (id: string) => void;
   onNewProject: () => void;
   onNewConversation: (id: string) => void;
-  onRenameProject: (id: string, name: string) => void;
+  onRenameProject: (project: Project) => void;
   onDeleteProject: (id: string) => void;
   onSelectSession: (id: string) => void;
   onRenameSession: (id: string, title: string) => void;
@@ -111,7 +111,7 @@ interface ProjectItemProps {
   active: boolean;
   onSelect: (id: string) => void;
   onNewConversation: (id: string) => void;
-  onRename: (id: string, name: string) => void;
+  onRename: (project: Project) => void;
   onDelete: (id: string) => void;
 }
 
@@ -123,16 +123,7 @@ function ProjectItem({
   onRename,
   onDelete,
 }: ProjectItemProps) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(project.name);
   const [actionOpen, setActionOpen] = useState(false);
-
-  const commitRename = () => {
-    if (name.trim()) {
-      onRename(project.id, name.trim());
-    }
-    setEditing(false);
-  };
 
   return (
     <Flex
@@ -155,42 +146,23 @@ function ProjectItem({
         }
       }}
     >
-      {editing ? (
-        <Input
-          className="project-rename-input"
-          value={name}
-          autoFocus
-          onChange={(event) => setName(event.target.value)}
-          onBlur={commitRename}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") commitRename();
-            if (event.key === "Escape") {
-              setName(project.name);
-              setEditing(false);
-            }
-          }}
-          onClick={(event) => event.stopPropagation()}
+      <ProjectIcon
+        icon={project.icon}
+        size={13}
+        className="project-folder-icon"
+      />
+      <div className="project-copy">
+        <span className="project-name">{project.name}</span>
+      </div>
+      <div className="project-actions">
+        <ProjectActionMenu
+          project={project}
+          onNewConversation={() => onNewConversation(project.id)}
+          onRename={() => onRename(project)}
+          onDelete={() => onDelete(project.id)}
+          onOpenChange={setActionOpen}
         />
-      ) : (
-        <>
-          <Folder size={13} className="project-folder-icon" />
-          <div className="project-copy">
-            <span className="project-name">{project.name}</span>
-          </div>
-          <div className="project-actions">
-            <ProjectActionMenu
-              project={project}
-              onNewConversation={() => onNewConversation(project.id)}
-              onRename={() => {
-                setName(project.name);
-                setEditing(true);
-              }}
-              onDelete={() => onDelete(project.id)}
-              onOpenChange={setActionOpen}
-            />
-          </div>
-        </>
-      )}
+      </div>
     </Flex>
   );
 }

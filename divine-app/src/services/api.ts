@@ -99,9 +99,20 @@ export function listProjects(): Promise<{ projects: Project[] }> {
 export function createProject(body: {
   name: string;
   path?: string;
+  icon?: string;
 }): Promise<Project> {
   return request("/projects", {
     method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateProject(
+  id: string,
+  body: { name?: string; icon?: string }
+): Promise<Project> {
+  return request(`/projects/${id}`, {
+    method: "PATCH",
     body: JSON.stringify(body),
   });
 }

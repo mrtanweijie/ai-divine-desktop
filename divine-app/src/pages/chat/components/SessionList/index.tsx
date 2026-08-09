@@ -14,7 +14,7 @@ interface SessionListProps {
   onSelectProject: (id: string) => void;
   onNewProject: () => void;
   onNewConversationInProject: (id: string) => void;
-  onRenameProject: (id: string, name: string) => void;
+  onRenameProject: (project: Project) => void;
   onDeleteProject: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
@@ -54,7 +54,7 @@ export function SessionList({
             className="new-chat-link"
             role="button"
             tabIndex={0}
-            onClick={onNew}
+            onClick={() => onNew()}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 onNew();

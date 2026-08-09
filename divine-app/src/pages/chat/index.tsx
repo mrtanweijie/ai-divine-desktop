@@ -10,8 +10,8 @@ import {
   listProjects,
   listSessions,
   messagesToChatMessages,
-  renameProject,
   renameSession,
+  updateProject,
   updateSessionApprovalMode,
   updateSettings,
   apiBase,
@@ -21,12 +21,14 @@ import { ChatHeader } from "@/pages/chat/components/ChatHeader";
 import { ChatInput } from "@/pages/chat/components/ChatInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MessageList } from "@/pages/chat/components/MessageList";
+import { NewChatGuide } from "@/pages/chat/components/NewChatGuide";
 import { SessionList } from "@/pages/chat/components/SessionList";
 import { SettingsModal } from "@/components/SettingsModal";
 import type {
   ApprovalMode,
   ChatFile,
   ChatMessage,
+  Project,
   Settings,
   TodoItem,
   ToolEvent,
@@ -67,8 +69,13 @@ export default function ChatPage() {
   const fullscreen = useFullscreen();
   const [searchOpen, setSearchOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [composerKey, setComposerKey] = useState(0);
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>("ask");
+  const [prefill, setPrefill] = useState<{
+    text: string;
+    nonce: number;
+  } | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
   const refreshProjects = useCallback(async () => {
@@ -175,8 +182,10 @@ export default function ChatPage() {
 
   const handleNewSession = useCallback(
     (projectId?: string) => {
+      const safeProjectId =
+        typeof projectId === "string" ? projectId : undefined;
       const targetProjectId =
-        projectId ??
+        safeProjectId ??
         sessions.find((session) => session.id === selectedId)?.project_id ??
         selectedProjectId ??
         projects[0]?.id ??
@@ -217,11 +226,22 @@ export default function ChatPage() {
     [closeSidebarForNarrow, loadSession, refreshSessions, streaming]
   );
 
-  const handleCreateProject = useCallback(
+  const handleSaveProject = useCallback(
     async (body: {
       name: string;
       path?: string;
+      icon?: string;
     }) => {
+      if (editingProject) {
+        await updateProject(editingProject.id, {
+          name: body.name,
+          icon: body.icon,
+        });
+        await refreshProjects();
+        setProjectOpen(false);
+        setEditingProject(null);
+        return;
+      }
       const project = await createProject(body);
       setProjects((prev) => [project, ...prev]);
       setSelectedProjectId(project.id);
@@ -232,16 +252,13 @@ export default function ChatPage() {
       closeSidebarForNarrow();
       setTimeout(() => composerRef.current?.focus(), 0);
     },
-    [closeSidebarForNarrow, refreshSessions]
+    [closeSidebarForNarrow, editingProject, refreshProjects, refreshSessions]
   );
 
-  const handleRenameProject = useCallback(
-    async (id: string, name: string) => {
-      await renameProject(id, name.trim());
-      await refreshProjects();
-    },
-    [refreshProjects]
-  );
+  const handleEditProject = useCallback((project: Project) => {
+    setEditingProject(project);
+    setProjectOpen(true);
+  }, []);
 
   const handleDeleteProject = useCallback(
     (id: string) => {
@@ -338,6 +355,11 @@ export default function ChatPage() {
     },
     [selectedId]
   );
+
+  const handleGuideAction = useCallback((prompt: string) => {
+    setPrefill({ text: prompt, nonce: Date.now() });
+    setTimeout(() => composerRef.current?.focus(), 0);
+  }, []);
 
   const sendMessage = useCallback(
     async (question: string, files: ChatFile[], think: boolean) => {
@@ -550,9 +572,12 @@ export default function ChatPage() {
           onSelect={handleSelectSession}
           onNew={handleNewSession}
           onSelectProject={handleSelectProject}
-          onNewProject={() => setProjectOpen(true)}
+          onNewProject={() => {
+            setEditingProject(null);
+            setProjectOpen(true);
+          }}
           onNewConversationInProject={handleNewSession}
-          onRenameProject={handleRenameProject}
+          onRenameProject={handleEditProject}
           onDeleteProject={handleDeleteProject}
           onRename={handleRename}
           onDelete={handleDelete}
@@ -575,18 +600,29 @@ export default function ChatPage() {
           onOpenSidebar={() => setSidebarOpen(true)}
           onRename={handleRename}
         />
-        <MessageList
-          messages={messages}
-          streaming={streaming}
-          sessionId={selectedId}
-          username={settings?.username || "用户"}
-        />
+        {!selectedId ? (
+          <NewChatGuide
+            projectName={currentProject?.name ?? null}
+            projectPath={currentProject?.path ?? null}
+            disabled={!selectedProjectId}
+            onAction={handleGuideAction}
+          />
+        ) : (
+          <MessageList
+            messages={messages}
+            streaming={streaming}
+            sessionId={selectedId}
+            username={settings?.username || "用户"}
+          />
+        )}
         <ChatInput
           key={composerKey}
           ref={composerRef}
           disabled={streaming || !selectedProjectId}
           approvalMode={approvalMode}
           onApprovalModeChange={handleApprovalModeChange}
+          prefill={prefill}
+          onPrefillConsumed={() => setPrefill(null)}
           projectPicker={
             !selectedId ? (
               <div className="new-chat-project-bar">
@@ -594,7 +630,10 @@ export default function ChatPage() {
                   projects={projects}
                   currentProject={currentProject}
                   onSelect={(id) => handleNewSession(id)}
-                  onNewProject={() => setProjectOpen(true)}
+                  onNewProject={() => {
+                    setEditingProject(null);
+                    setProjectOpen(true);
+                  }}
                 />
               </div>
             ) : undefined
@@ -617,8 +656,12 @@ export default function ChatPage() {
       />
       <ProjectModal
         open={projectOpen}
-        onClose={() => setProjectOpen(false)}
-        onSave={handleCreateProject}
+        project={editingProject}
+        onClose={() => {
+          setProjectOpen(false);
+          setEditingProject(null);
+        }}
+        onSave={handleSaveProject}
       />
       {settingsOpen && settings && (
         <SettingsModal

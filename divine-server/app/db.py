@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS projects (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     path TEXT NOT NULL,
+    icon TEXT NOT NULL DEFAULT 'folder',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -99,6 +100,13 @@ def init_db() -> None:
                 "ALTER TABLE sessions ADD COLUMN approval_mode TEXT "
                 "NOT NULL DEFAULT 'ask'"
             )
+        project_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(projects)")
+        }
+        if "icon" not in project_columns:
+            conn.execute(
+                "ALTER TABLE projects ADD COLUMN icon TEXT NOT NULL DEFAULT 'folder'"
+            )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_project "
             "ON sessions(project_id)"
@@ -117,14 +125,17 @@ def _new_id() -> str:
     return uuid.uuid4().hex
 
 
-def create_project(name: str, path: str) -> dict[str, Any]:
+def create_project(
+    name: str, path: str, icon: str | None = None
+) -> dict[str, Any]:
     project_id = _new_id()
     now = _now()
     with closing(_connect()) as conn:
         conn.execute(
-            "INSERT INTO projects (id, name, path, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (project_id, name, path, now, now),
+            "INSERT INTO projects "
+            "(id, name, path, icon, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (project_id, name, path, icon or "folder", now, now),
         )
         conn.commit()
     return get_project(project_id)
@@ -162,17 +173,22 @@ def list_projects() -> list[dict[str, Any]]:
 
 
 def update_project(
-    project_id: str, name: str | None = None, path: str | None = None
+    project_id: str,
+    name: str | None = None,
+    path: str | None = None,
+    icon: str | None = None,
 ) -> dict[str, Any]:
     project = get_project(project_id)
     if not project:
         raise KeyError(project_id)
     with closing(_connect()) as conn:
         conn.execute(
-            "UPDATE projects SET name = ?, path = ?, updated_at = ? WHERE id = ?",
+            "UPDATE projects SET name = ?, path = ?, icon = ?, updated_at = ? "
+            "WHERE id = ?",
             (
                 name if name is not None else project["name"],
                 path if path is not None else project["path"],
+                icon if icon is not None else project.get("icon", "folder"),
                 _now(),
                 project_id,
             ),

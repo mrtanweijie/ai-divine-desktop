@@ -56,6 +56,8 @@ interface ComposerProps {
   onSend: (question: string, files: ChatFile[]) => void;
   approvalMode: ApprovalMode;
   onApprovalModeChange: (mode: ApprovalMode) => void;
+  prefill?: { text: string; nonce: number } | null;
+  onPrefillConsumed: () => void;
   projectPicker?: ReactNode;
 }
 
@@ -66,6 +68,8 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
       onSend,
       approvalMode,
       onApprovalModeChange,
+      prefill,
+      onPrefillConsumed,
       projectPicker,
     },
     ref
@@ -93,6 +97,13 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
       element.style.height = "auto";
       element.style.height = `${Math.min(element.scrollHeight, 240)}px`;
     }, [value, textareaRef]);
+
+    useEffect(() => {
+      if (!prefill) return;
+      setValue(prefill.text);
+      onPrefillConsumed();
+      textareaRef.current?.focus();
+    }, [onPrefillConsumed, prefill]);
 
     const send = () => {
       const question = value.trim();

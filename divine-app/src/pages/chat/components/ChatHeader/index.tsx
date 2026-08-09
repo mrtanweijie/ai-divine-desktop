@@ -5,12 +5,12 @@ import {
   File,
   FileText,
   FileType,
-  Folder,
   Pencil,
   PanelLeftOpen,
 } from "lucide-react";
 import type { Project, Session } from "@/types";
 import { exportSession } from "@/services/api";
+import { ProjectIcon } from "@/pages/chat/components/ProjectIcon";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
@@ -138,7 +138,7 @@ export function ChatHeader({
         )}
         {project && (
           <span className="project-badge" title={project.path}>
-            <Folder size={12} />
+            <ProjectIcon icon={project.icon} size={12} />
             <span className="project-badge-name">{project.name}</span>
           </span>
         )}

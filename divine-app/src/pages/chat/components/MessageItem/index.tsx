@@ -26,6 +26,7 @@ import { MarkdownView } from "@/pages/chat/components/MarkdownView";
 import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
+import { DivineAvatar } from "@/components/DivineAvatar";
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -48,16 +49,7 @@ export function MessageItem({
         className="message-meta"
       >
         {!isUser && (
-          <span className="divine-avatar" aria-hidden="true">
-            <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M8 2.5 L14 13.5 H2 Z"
-                fill="none"
-                strokeWidth="1.6"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
+          <DivineAvatar />
         )}
         <span className="role-label">
           {isUser ? username || "用户" : "Divine"}

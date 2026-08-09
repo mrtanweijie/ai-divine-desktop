@@ -11,6 +11,21 @@ from ..schemas import ProjectCreate, ProjectUpdate
 router = APIRouter(prefix="/projects", tags=["projects"])
 logger = logging.getLogger("divine.projects")
 
+PROJECT_ICONS = {
+    "folder",
+    "file-sliders",
+    "brick-wall",
+    "mail",
+    "calendar-days",
+    "wallet",
+    "chart-area",
+    "database-zap",
+    "code",
+    "bug",
+    "git-branch-plus",
+    "gamepad-2",
+}
+
 
 def _resolve_path(raw: str | None) -> Path:
     if not raw or not raw.strip():
@@ -31,6 +46,9 @@ def create_project(body: ProjectCreate):
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="项目名称不能为空")
+    icon = body.icon or "folder"
+    if icon not in PROJECT_ICONS:
+        raise HTTPException(status_code=400, detail="项目图标不支持")
 
     path = _resolve_path(body.path)
     if path.exists() and not path.is_dir():
@@ -41,8 +59,14 @@ def create_project(body: ProjectCreate):
         except OSError as exc:
             raise HTTPException(status_code=500, detail=f"创建文件夹失败：{exc}") from exc
 
-    project = db.create_project(name, str(path))
-    logger.info("project created id=%s name=%s path=%s", project["id"], name, path)
+    project = db.create_project(name, str(path), icon)
+    logger.info(
+        "project created id=%s name=%s path=%s icon=%s",
+        project["id"],
+        name,
+        path,
+        icon,
+    )
     return project
 
 
@@ -62,16 +86,24 @@ def update_project(project_id: str, body: ProjectUpdate):
         if not path.is_dir():
             raise HTTPException(status_code=400, detail=f"文件夹不存在：{path}")
         updates["path"] = str(path)
+    if body.icon is not None:
+        if body.icon not in PROJECT_ICONS:
+            raise HTTPException(status_code=400, detail="项目图标不支持")
+        updates["icon"] = body.icon
     if not updates:
         return project
     updated = db.update_project(
-        project_id, name=updates.get("name"), path=updates.get("path")
+        project_id,
+        name=updates.get("name"),
+        path=updates.get("path"),
+        icon=updates.get("icon"),
     )
     logger.info(
-        "project updated id=%s name=%s path=%s",
+        "project updated id=%s name=%s path=%s icon=%s",
         project_id,
         updated["name"],
         updated["path"],
+        updated.get("icon", "folder"),
     )
     return updated
 

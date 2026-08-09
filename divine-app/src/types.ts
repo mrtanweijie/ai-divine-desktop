@@ -4,6 +4,7 @@ export interface Project {
   id: string;
   name: string;
   path: string;
+  icon: string;
   created_at: string;
   updated_at: string;
   session_count?: number;
