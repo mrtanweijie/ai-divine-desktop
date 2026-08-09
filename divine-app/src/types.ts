@@ -1,3 +1,5 @@
+export type ApprovalMode = "ask" | "assist" | "full";
+
 export interface Project {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ export interface Session {
   id: string;
   title: string;
   project_id: string | null;
+  approval_mode: ApprovalMode;
   created_at: string;
   updated_at: string;
 }

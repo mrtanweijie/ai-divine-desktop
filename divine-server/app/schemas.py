@@ -13,6 +13,7 @@ class StreamChatRequest(BaseModel):
     question: str = Field(min_length=1)
     session_id: str | None = None
     project_id: str | None = None
+    approval_mode: str | None = None
     think: bool = False
     attachments: list[Attachment] = []
 
@@ -20,10 +21,12 @@ class StreamChatRequest(BaseModel):
 class SessionCreate(BaseModel):
     title: str | None = None
     project_id: str | None = None
+    approval_mode: str | None = None
 
 
 class SessionUpdate(BaseModel):
-    title: str
+    title: str | None = None
+    approval_mode: str | None = None
 
 
 class ProjectCreate(BaseModel):

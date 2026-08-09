@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '新对话',
     project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+    approval_mode TEXT NOT NULL DEFAULT 'ask',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -93,6 +94,11 @@ def init_db() -> None:
         }
         if "project_id" not in columns:
             conn.execute("ALTER TABLE sessions ADD COLUMN project_id TEXT")
+        if "approval_mode" not in columns:
+            conn.execute(
+                "ALTER TABLE sessions ADD COLUMN approval_mode TEXT "
+                "NOT NULL DEFAULT 'ask'"
+            )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_project "
             "ON sessions(project_id)"
@@ -194,7 +200,9 @@ def session_workspace(session_id: str) -> str | None:
 
 
 def create_session(
-    title: str | None = None, project_id: str | None = None
+    title: str | None = None,
+    project_id: str | None = None,
+    approval_mode: str | None = None,
 ) -> dict[str, Any]:
     session_id = _new_id()
     now = _now()
@@ -202,9 +210,17 @@ def create_session(
         project_id = default_project()["id"]
     with closing(_connect()) as conn:
         conn.execute(
-            "INSERT INTO sessions (id, title, project_id, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (session_id, title or "新对话", project_id, now, now),
+            "INSERT INTO sessions "
+            "(id, title, project_id, approval_mode, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                session_id,
+                title or "新对话",
+                project_id,
+                approval_mode or "ask",
+                now,
+                now,
+            ),
         )
         conn.commit()
     return get_session(session_id)
@@ -233,14 +249,24 @@ def list_sessions(project_id: str | None = None) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
-def update_session(session_id: str, title: str | None = None) -> dict[str, Any]:
+def update_session(
+    session_id: str,
+    title: str | None = None,
+    approval_mode: str | None = None,
+) -> dict[str, Any]:
     session = get_session(session_id)
     if not session:
         raise KeyError(session_id)
     with closing(_connect()) as conn:
         conn.execute(
-            "UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?",
-            (title if title is not None else session["title"], _now(), session_id),
+            "UPDATE sessions SET title = ?, approval_mode = ?, updated_at = ? "
+            "WHERE id = ?",
+            (
+                title if title is not None else session["title"],
+                approval_mode if approval_mode is not None else session["approval_mode"],
+                _now(),
+                session_id,
+            ),
         )
         conn.commit()
     return get_session(session_id)

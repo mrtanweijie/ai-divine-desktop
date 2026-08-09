@@ -59,9 +59,17 @@ async def stream_chat(request: StreamChatRequest):
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
-        session_id = db.create_session(project_id=request.project_id)["id"]
+        session_id = db.create_session(
+            project_id=request.project_id,
+            approval_mode=request.approval_mode,
+        )["id"]
 
     session = db.get_session(session_id)
+    approval_mode = (
+        request.approval_mode
+        or session.get("approval_mode")
+        or "ask"
+    )
     workspace = Path(db.session_workspace(session_id) or workspace_dir())
     messages = db.list_messages(session_id)
     if not messages:
@@ -106,7 +114,11 @@ async def stream_chat(request: StreamChatRequest):
     async def generate():
         try:
             async for event in run_agent(
-                session_id, history, request.think, workspace=workspace
+                session_id,
+                history,
+                request.think,
+                workspace=workspace,
+                approval_mode=approval_mode,
             ):
                 yield event
         except Exception as exc:  # noqa: BLE001

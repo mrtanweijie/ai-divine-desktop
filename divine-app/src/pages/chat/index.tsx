@@ -12,6 +12,7 @@ import {
   messagesToChatMessages,
   renameProject,
   renameSession,
+  updateSessionApprovalMode,
   updateSettings,
   apiBase,
 } from "@/services/api";
@@ -23,6 +24,7 @@ import { MessageList } from "@/pages/chat/components/MessageList";
 import { SessionList } from "@/pages/chat/components/SessionList";
 import { SettingsModal } from "@/components/SettingsModal";
 import type {
+  ApprovalMode,
   ChatFile,
   ChatMessage,
   Settings,
@@ -66,6 +68,7 @@ export default function ChatPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
   const [composerKey, setComposerKey] = useState(0);
+  const [approvalMode, setApprovalMode] = useState<ApprovalMode>("ask");
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
   const refreshProjects = useCallback(async () => {
@@ -94,6 +97,7 @@ export default function ChatPage() {
   const loadSession = useCallback(async (id: string) => {
     const data = await getSession(id);
     setSelectedId(id);
+    setApprovalMode(data.session.approval_mode ?? "ask");
     setMessages(
       messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos)
     );
@@ -181,6 +185,7 @@ export default function ChatPage() {
         setSelectedProjectId(targetProjectId);
       }
       setComposerKey((value) => value + 1);
+      setApprovalMode("ask");
       setSelectedId(null);
       setMessages([]);
       closeSidebarForNarrow();
@@ -324,6 +329,16 @@ export default function ChatPage() {
     [refreshWorkspace]
   );
 
+  const handleApprovalModeChange = useCallback(
+    (mode: ApprovalMode) => {
+      setApprovalMode(mode);
+      if (selectedId) {
+        void updateSessionApprovalMode(selectedId, mode).catch(() => undefined);
+      }
+    },
+    [selectedId]
+  );
+
   const sendMessage = useCallback(
     async (question: string, files: ChatFile[], think: boolean) => {
       const trimmed = question.trim();
@@ -332,7 +347,7 @@ export default function ChatPage() {
       if (!sessionId) {
         const projectId = selectedProjectId ?? projects[0]?.id ?? null;
         if (!projectId) return;
-        const session = await createSession(undefined, projectId);
+        const session = await createSession(undefined, projectId, approvalMode);
         sessionId = session.id;
         setSessions((prev) => [session, ...prev]);
         setSelectedId(session.id);
@@ -364,6 +379,7 @@ export default function ChatPage() {
           body: JSON.stringify({
             question: trimmed,
             session_id: sessionId,
+            approval_mode: approvalMode,
             think,
             attachments: files.map((file) => ({
               name: file.name,
@@ -491,6 +507,7 @@ export default function ChatPage() {
       }
     },
     [
+      approvalMode,
       projects,
       refreshProjects,
       refreshSessions,
@@ -568,6 +585,8 @@ export default function ChatPage() {
           key={composerKey}
           ref={composerRef}
           disabled={streaming || !selectedProjectId}
+          approvalMode={approvalMode}
+          onApprovalModeChange={handleApprovalModeChange}
           projectPicker={
             !selectedId ? (
               <div className="new-chat-project-bar">

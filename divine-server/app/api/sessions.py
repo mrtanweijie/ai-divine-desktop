@@ -23,7 +23,11 @@ def list_sessions(project_id: str | None = None):
 def create_session(body: SessionCreate):
     if body.project_id and db.get_project(body.project_id) is None:
         raise HTTPException(status_code=404, detail="项目不存在")
-    session = db.create_session(body.title, body.project_id)
+    if body.approval_mode and body.approval_mode not in ("ask", "assist", "full"):
+        raise HTTPException(status_code=400, detail="审批模式不支持")
+    session = db.create_session(
+        body.title, body.project_id, body.approval_mode
+    )
     logger.info("session created id=%s title=%s", session["id"], body.title)
     return session
 
@@ -41,7 +45,16 @@ def rename_session(session_id: str, body: SessionUpdate):
     session = db.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
-    return db.update_session(session_id, title=body.title.strip() or "新对话")
+    updates: dict[str, str] = {}
+    if body.title is not None:
+        updates["title"] = body.title.strip() or "新对话"
+    if body.approval_mode is not None:
+        if body.approval_mode not in ("ask", "assist", "full"):
+            raise HTTPException(status_code=400, detail="审批模式不支持")
+        updates["approval_mode"] = body.approval_mode
+    if not updates:
+        return session
+    return db.update_session(session_id, **updates)
 
 
 @router.delete("/{session_id}", status_code=204)

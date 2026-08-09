@@ -1,4 +1,5 @@
 import type {
+  ApprovalMode,
   ChatMessage,
   Message,
   Project,
@@ -42,11 +43,26 @@ export function listSessions(
 
 export function createSession(
   title?: string,
-  projectId?: string
+  projectId?: string,
+  approvalMode?: ApprovalMode
 ): Promise<Session> {
   return request("/sessions", {
     method: "POST",
-    body: JSON.stringify({ title, project_id: projectId }),
+    body: JSON.stringify({
+      title,
+      project_id: projectId,
+      approval_mode: approvalMode,
+    }),
+  });
+}
+
+export function updateSessionApprovalMode(
+  id: string,
+  mode: ApprovalMode
+): Promise<Session> {
+  return request(`/sessions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ approval_mode: mode }),
   });
 }
 

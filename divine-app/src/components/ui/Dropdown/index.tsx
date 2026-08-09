@@ -25,6 +25,7 @@ interface DropdownProps {
   trigger: ReactNode;
   items: DropdownItem[];
   align?: "start" | "center" | "end";
+  direction?: "below" | "above";
   label?: string;
 }
 
@@ -32,6 +33,7 @@ export function Dropdown({
   trigger,
   items,
   align = "end",
+  direction = "below",
   label,
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
@@ -64,21 +66,39 @@ export function Dropdown({
       const rect = ref.current.getBoundingClientRect();
       const base: CSSProperties = {
         position: "fixed",
-        top: rect.bottom + 6,
       };
+      const vertical =
+        direction === "above"
+          ? { top: rect.top - 6, transform: "translateY(-100%)" }
+          : { top: rect.bottom + 6 };
       if (align === "start") {
-        setMenuStyle({ ...base, left: rect.left });
+        setMenuStyle({
+          ...base,
+          ...vertical,
+          left: rect.left,
+          ...(direction === "above"
+            ? { transform: "translate(0, -100%)" }
+            : {}),
+        });
       } else if (align === "end") {
         setMenuStyle({
           ...base,
+          ...vertical,
           left: rect.right,
-          transform: "translateX(-100%)",
+          transform:
+            direction === "above"
+              ? "translate(-100%, -100%)"
+              : "translateX(-100%)",
         });
       } else {
         setMenuStyle({
           ...base,
+          ...vertical,
           left: rect.left + rect.width / 2,
-          transform: "translateX(-50%)",
+          transform:
+            direction === "above"
+              ? "translate(-50%, -100%)"
+              : "translateX(-50%)",
         });
       }
     }
@@ -99,7 +119,7 @@ export function Dropdown({
       document.removeEventListener("mousedown", closeOnOutside);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [align, open]);
+  }, [align, direction, open]);
 
   useEffect(() => {
     return () => {

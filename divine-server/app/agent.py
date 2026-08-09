@@ -185,6 +185,7 @@ async def run_agent(
     history: list[dict[str, Any]],
     think: bool,
     workspace: Any,
+    approval_mode: str = "ask",
 ) -> AsyncIterator[str]:
     settings = settings_store.load()
     context_limit = int(settings.get("context_limit") or 20)
@@ -462,7 +463,7 @@ async def run_agent(
                         call_todos[call_id] = todo
                         yield _todo_update_event(todo)
                 external_paths = adapter.external_paths(workspace, arguments)
-                if external_paths:
+                if external_paths and approval_mode == "ask":
                     logger.info(
                         "external confirm session=%s tool=%s paths=%s",
                         session_id,
@@ -518,6 +519,8 @@ async def run_agent(
                 policy = (
                     terminal_command_policy(command) if is_terminal else "safe"
                 )
+                if is_terminal and approval_mode == "full":
+                    policy = "safe"
                 logger.info(
                     "tool policy session=%s tool=%s policy=%s command=%s",
                     session_id,
