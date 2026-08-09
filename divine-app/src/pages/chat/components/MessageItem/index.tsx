@@ -404,9 +404,20 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
         <Flex align="center" gap={8} className="tool-result-actions">
           {icon}
           <span>{tool.result.message}</span>
+          {tool.tool !== "schedule_task" && (
+            <Button
+              variant="icon"
+              size="small"
+              onClick={copyJson}
+              title="复制结果"
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+            </Button>
+          )}
           {tool.tool === "schedule_task" && (
             <Button
               size="small"
+              className="manage-tasks-button"
               onClick={() =>
                 window.dispatchEvent(new CustomEvent("divine:open-tasks"))
               }
@@ -416,14 +427,6 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
               管理任务
             </Button>
           )}
-          <Button
-            variant="icon"
-            size="small"
-            onClick={copyJson}
-            title="复制结果"
-          >
-            {copied ? <Check size={13} /> : <Copy size={13} />}
-          </Button>
         </Flex>
       )}
     </div>

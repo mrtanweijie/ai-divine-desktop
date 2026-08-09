@@ -17,9 +17,19 @@ def iso(dt: datetime) -> str:
     return dt.isoformat(timespec="seconds")
 
 
+def utc_iso(dt: datetime) -> str:
+    if dt.tzinfo is None:
+        dt = dt.astimezone()
+    return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
+
+
 def compute_next_run(task: dict[str, Any]) -> str | None:
-    """Return the next UTC run time for a scheduled task."""
-    now = datetime.now(timezone.utc)
+    """Return the next UTC run time for a scheduled task.
+
+    run_hour / run_minute are interpreted in the machine's local timezone,
+    then converted to UTC before being stored.
+    """
+    now = datetime.now().astimezone()
     frequency = task.get("frequency") or "interval"
     if frequency == "once":
         parsed = parse_dt(task.get("run_at"))
@@ -35,7 +45,7 @@ def compute_next_run(task: dict[str, Any]) -> str | None:
         base = parse_dt(task.get("next_run_at")) or now
         if base <= now:
             base = now
-        return iso(base + timedelta(minutes=minutes))
+        return utc_iso(base + timedelta(minutes=minutes))
 
     try:
         hour = int(task.get("run_hour") if task.get("run_hour") is not None else 8)
@@ -49,7 +59,7 @@ def compute_next_run(task: dict[str, Any]) -> str | None:
         candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
         if candidate <= now:
             candidate += timedelta(days=1)
-        return iso(candidate)
+        return utc_iso(candidate)
 
     if frequency == "weekly":
         days = task.get("days_of_week") or []
@@ -61,7 +71,7 @@ def compute_next_run(task: dict[str, Any]) -> str | None:
                 candidate = candidate.replace(
                     hour=hour, minute=minute, second=0, microsecond=0
                 )
-                return iso(candidate)
+                return utc_iso(candidate)
         return None
 
     if frequency == "monthly":
@@ -77,7 +87,7 @@ def compute_next_run(task: dict[str, Any]) -> str | None:
                 hour=hour, minute=minute, second=0, microsecond=0
             )
             if candidate > now:
-                return iso(candidate)
+                return utc_iso(candidate)
         return None
 
     return None
