@@ -1,8 +1,10 @@
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::net::{SocketAddr, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use tauri::{AppHandle, Manager, State};
 
@@ -74,23 +76,63 @@ fn port_open() -> bool {
     TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
 }
 
+fn log_line(data_dir: Option<&Path>, message: &str) {
+    eprintln!("[ai-divine-sidecar] {message}");
+    if let Some(dir) = data_dir {
+        let _ = std::fs::create_dir_all(dir);
+        let path = dir.join("divine-sidecar.log");
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or(0);
+        if let Ok(mut file) =
+            OpenOptions::new().create(true).append(true).open(path)
+        {
+            let _ = writeln!(
+                file,
+                "[{timestamp}] [ai-divine-sidecar] {message}"
+            );
+        }
+    }
+}
+
 pub fn spawn(app: &AppHandle) -> Result<(), String> {
+    let data_dir = app.path().app_data_dir().ok();
     if port_open() {
+        log_line(data_dir.as_deref(), "端口已占用，复用现有 sidecar");
         return Ok(());
     }
     let path = sidecar_path(app)?;
+    log_line(
+        data_dir.as_deref(),
+        &format!("准备启动 sidecar: {}", path.display()),
+    );
     let mut cmd = Command::new(&path);
     cmd.env("HOST", SIDECAR_HOST)
         .env("PORT", SIDECAR_PORT.to_string())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    if let Ok(data_dir) = app.path().app_data_dir() {
-        cmd.env("DIVINE_DATA_DIR", &data_dir);
+    if let Some(data_dir) = data_dir.as_ref() {
+        cmd.env("DIVINE_DATA_DIR", data_dir);
         cmd.env("DIVINE_WORKSPACE_DIR", data_dir.join("workspace"));
     }
     let child = cmd
         .spawn()
-        .map_err(|err| format!("启动 sidecar 失败: {err}"))?;
+        .map_err(|err| {
+            log_line(
+                data_dir.as_deref(),
+                &format!("启动 sidecar 失败: {err}"),
+            );
+            format!("启动 sidecar 失败: {err}")
+        })?;
+    log_line(
+        data_dir.as_deref(),
+        &format!(
+            "sidecar 已启动 pid={} port={}",
+            child.id(),
+            SIDECAR_PORT
+        ),
+    );
 
     let state: State<SidecarState> = app.state::<SidecarState>();
     let mut guard = state
@@ -105,12 +147,18 @@ pub fn spawn(app: &AppHandle) -> Result<(), String> {
 }
 
 pub fn stop(app: &AppHandle) {
+    let data_dir = app.path().app_data_dir().ok();
     let state: State<SidecarState> = app.state::<SidecarState>();
     let locked = state.0.lock();
     if let Ok(mut guard) = locked {
         if let Some(mut child) = guard.take() {
+            let pid = child.id();
             let _ = child.kill();
             let _ = child.wait();
+            log_line(
+                data_dir.as_deref(),
+                &format!("sidecar 已停止 pid={pid}"),
+            );
         }
     }
 }
@@ -119,9 +167,11 @@ pub fn spawn_and_monitor(app: AppHandle) -> Result<(), String> {
     spawn(&app)?;
 
     std::thread::spawn(move || {
+        let data_dir = app.path().app_data_dir().ok();
         let deadline = Instant::now() + Duration::from_secs(20);
         while Instant::now() < deadline {
             if port_open() {
+                log_line(data_dir.as_deref(), "sidecar 健康检查通过");
                 break;
             }
             std::thread::sleep(Duration::from_millis(300));
@@ -132,9 +182,19 @@ pub fn spawn_and_monitor(app: AppHandle) -> Result<(), String> {
             if port_open() {
                 continue;
             }
+            log_line(data_dir.as_deref(), "sidecar 掉线，准备重启");
             std::thread::sleep(Duration::from_secs(2));
-            if let Err(err) = spawn(&app) {
-                eprintln!("[sidecar] 重启失败: {err}");
+            match spawn(&app) {
+                Ok(()) => {
+                    log_line(data_dir.as_deref(), "sidecar 重启成功");
+                }
+                Err(err) => {
+                    eprintln!("[ai-divine-sidecar] 重启失败: {err}");
+                    log_line(
+                        data_dir.as_deref(),
+                        &format!("sidecar 重启失败: {err}"),
+                    );
+                }
             }
         }
     });

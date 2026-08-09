@@ -105,6 +105,7 @@ export default function ChatPage() {
   const loadSession = useCallback(async (id: string) => {
     const data = await getSession(id);
     setSelectedId(id);
+    setSelectedProjectId(data.session.project_id);
     setApprovalMode(data.session.approval_mode ?? "ask");
     setMessages(
       messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos)
@@ -568,8 +569,11 @@ export default function ChatPage() {
 
   const currentProject = useMemo(
     () =>
-      projects.find((project) => project.id === selectedProjectId) ?? null,
-    [projects, selectedProjectId]
+      projects.find(
+        (project) =>
+          project.id === (currentSession?.project_id ?? selectedProjectId)
+      ) ?? null,
+    [currentSession?.project_id, projects, selectedProjectId]
   );
 
   return (

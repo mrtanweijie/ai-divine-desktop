@@ -57,7 +57,7 @@ bash build-sidecar.sh darwin-arm64   # darwin-x64 / win32-x64 / linux-x64
 ```bash
 cd divine-app
 pnpm tauri:build:prod    # 正式包，不包含右键调试菜单
-pnpm tauri:build:test    # test 包，保留右键 Reload / Inspect Element
+pnpm tauri:build:test    # test 包，保留右键 Reload / Inspect Element，不签名不公证
 pnpm tauri:build:debug   # 调试包
 ```
 

@@ -67,42 +67,102 @@ export function ProjectList({
         </Button>
       </div>
       <div className="project-list">
-        {projects.map((project) => {
-          const active = project.id === selectedProjectId;
-          const projectSessions = sessions.filter(
-            (session) => session.project_id === project.id
-          );
-          return (
-            <div className={`project-branch${active ? " active" : ""}`} key={project.id}>
-              <ProjectItem
-                project={project}
-                active={active}
-                onSelect={onSelectProject}
-                onNewConversation={onNewConversation}
-                onRename={onRenameProject}
-                onDelete={onDeleteProject}
-              />
-              <div className="project-sessions">
-                {projectSessions.length === 0 ? (
-                  <div className="project-session-empty">该项目还没有会话</div>
-                ) : (
-                  projectSessions.map((session) => (
-                    <ProjectSessionItem
-                      key={session.id}
-                      session={session}
-                      active={session.id === selectedId}
-                      onSelect={onSelectSession}
-                      onRename={onRenameSession}
-                      onDelete={onDeleteSession}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {projects.map((project) => (
+          <ProjectBranch
+            key={project.id}
+            project={project}
+            active={project.id === selectedProjectId}
+            selectedId={selectedId}
+            projectSessions={sessions.filter(
+              (session) => session.project_id === project.id
+            )}
+            onSelectProject={onSelectProject}
+            onNewConversation={onNewConversation}
+            onRenameProject={onRenameProject}
+            onDeleteProject={onDeleteProject}
+            onSelectSession={onSelectSession}
+            onRenameSession={onRenameSession}
+            onDeleteSession={onDeleteSession}
+          />
+        ))}
       </div>
     </section>
+  );
+}
+
+interface ProjectBranchProps {
+  project: Project;
+  active: boolean;
+  selectedId: string | null;
+  projectSessions: Session[];
+  onSelectProject: (id: string) => void;
+  onNewConversation: (id: string) => void;
+  onRenameProject: (project: Project) => void;
+  onDeleteProject: (id: string) => void;
+  onSelectSession: (id: string) => void;
+  onRenameSession: (id: string, title: string) => void;
+  onDeleteSession: (id: string) => void;
+}
+
+function ProjectBranch({
+  project,
+  active,
+  selectedId,
+  projectSessions,
+  onSelectProject,
+  onNewConversation,
+  onRenameProject,
+  onDeleteProject,
+  onSelectSession,
+  onRenameSession,
+  onDeleteSession,
+}: ProjectBranchProps) {
+  const [expanded, setExpanded] = useState(false);
+  const visibleSessions = expanded
+    ? projectSessions
+    : projectSessions.slice(0, 5);
+
+  return (
+    <div className={`project-branch${active ? " active" : ""}`}>
+      <ProjectItem
+        project={project}
+        active={active}
+        onSelect={(id) => {
+          setExpanded(false);
+          onSelectProject(id);
+        }}
+        onNewConversation={onNewConversation}
+        onRename={onRenameProject}
+        onDelete={onDeleteProject}
+      />
+      <div className="project-sessions">
+        {projectSessions.length === 0 ? (
+          <div className="project-session-empty">该项目还没有会话</div>
+        ) : (
+          <>
+            {visibleSessions.map((session) => (
+              <ProjectSessionItem
+                key={session.id}
+                session={session}
+                active={session.id === selectedId}
+                onSelect={onSelectSession}
+                onRename={onRenameSession}
+                onDelete={onDeleteSession}
+              />
+            ))}
+            {!expanded && projectSessions.length > 5 && (
+              <button
+                type="button"
+                className="project-sessions-expand"
+                onClick={() => setExpanded(true)}
+              >
+                <span>展开显示</span>
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
