@@ -50,7 +50,7 @@ cd divine-server
 bash build-sidecar.sh darwin-arm64   # darwin-x64 / win32-x64 / linux-x64
 ```
 
-产物会输出到 `divine-server/bin/<target>/`。
+产物会输出到 `divine-server/bin/<target>/`，并同步生成 Tauri externalBin 文件到 `divine-app/src-tauri/binaries/`。
 
 ### 打包桌面端
 
@@ -60,6 +60,18 @@ pnpm tauri:build:prod    # 正式包，不包含右键调试菜单
 pnpm tauri:build:test    # test 包，保留右键 Reload / Inspect Element
 pnpm tauri:build:debug   # 调试包
 ```
+
+### macOS 签名与公证
+
+```bash
+./scripts/release-macos.sh                  # Developer ID 签名 + 公证
+./scripts/release-macos.sh --skip-notarize  # 只签名，跳过公证
+./scripts/release-macos.sh --keychain-profile <profile>  # 使用已保存的 notarytool profile
+./scripts/release-macos.sh --adhoc          # 本机测试，ad-hoc 签名
+```
+
+完整签名需要安装 Developer ID Application 证书；公证需要设置 `APPLE_ID`、`APPLE_PASSWORD`、`APPLE_TEAM_ID`，或使用 App Store Connect API Key（`APPLE_API_ISSUER`、`APPLE_API_KEY`、`APPLE_API_KEY_PATH`）。
+也可以先用 `xcrun notarytool store-credentials <profile> --apple-id ... --team-id ...` 保存凭据，再用 `--keychain-profile` 公证。
 
 ## GitHub Actions
 

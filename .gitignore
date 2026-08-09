@@ -12,6 +12,7 @@ divine-app/bin/
 # Tauri
 divine-app/src-tauri/target/
 divine-app/src-tauri/gen/
+divine-app/src-tauri/binaries/
 
 # Runtime data
 divine-server/workspace/

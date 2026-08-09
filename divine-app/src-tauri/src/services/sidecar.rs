@@ -44,6 +44,15 @@ fn sidecar_path(app: &AppHandle) -> Result<PathBuf, String> {
         return Ok(dev);
     }
 
+    if let Ok(current_exe) = std::env::current_exe() {
+        if let Some(exe_dir) = current_exe.parent() {
+            let external = exe_dir.join(exe_name());
+            if external.exists() {
+                return Ok(external);
+            }
+        }
+    }
+
     let resource = app
         .path()
         .resource_dir()

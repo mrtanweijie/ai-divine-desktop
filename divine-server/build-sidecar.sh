@@ -25,11 +25,21 @@ if [[ -z "$TARGET" ]]; then
 fi
 
 case "$TARGET" in
-  darwin-arm64|darwin-x64|linux-x64)
+  darwin-arm64)
     EXE="divine-server"
+    TRIPLE="aarch64-apple-darwin"
+    ;;
+  darwin-x64)
+    EXE="divine-server"
+    TRIPLE="x86_64-apple-darwin"
     ;;
   win32-x64)
     EXE="divine-server.exe"
+    TRIPLE="x86_64-pc-windows-msvc"
+    ;;
+  linux-x64)
+    EXE="divine-server"
+    TRIPLE="x86_64-unknown-linux-gnu"
     ;;
   *)
     echo "未知目标平台: $TARGET" >&2
@@ -39,11 +49,22 @@ esac
 
 cd "$ROOT"
 PYTHON_BIN="${PYTHON:-python3}"
+rm -rf "dist/divine-server" "dist/divine-server.exe"
 "$PYTHON_BIN" -m PyInstaller --clean --noconfirm divine-server.spec
 
 BIN_DIR="bin/$TARGET"
+TAURI_BIN_DIR="$ROOT/../divine-app/src-tauri/binaries"
+if [[ "$EXE" == *.exe ]]; then
+  EXTERNAL_NAME="divine-server-$TRIPLE.exe"
+else
+  EXTERNAL_NAME="divine-server-$TRIPLE"
+fi
 mkdir -p "$BIN_DIR"
+mkdir -p "$TAURI_BIN_DIR"
 rm -rf "$BIN_DIR"/*
-cp -R "dist/divine-server/." "$BIN_DIR/"
+rm -f "$TAURI_BIN_DIR/$EXTERNAL_NAME"
+cp "dist/$EXE" "$BIN_DIR/$EXE"
+cp "dist/$EXE" "$TAURI_BIN_DIR/$EXTERNAL_NAME"
 
 echo "sidecar 已生成: $BIN_DIR/$EXE"
+echo "externalBin 已生成: $TAURI_BIN_DIR/$EXTERNAL_NAME"
