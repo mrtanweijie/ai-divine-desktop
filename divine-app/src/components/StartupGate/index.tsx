@@ -3,6 +3,8 @@ import { request } from "@/services/request";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import "./index.less";
 
+const MIN_LOADING_MS = 1000;
+
 interface StartupGateProps {
   children: ReactNode;
 }
@@ -49,8 +51,14 @@ function useBackendReady(): boolean {
 
 export function StartupGate({ children }: StartupGateProps) {
   const ready = useBackendReady();
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
 
-  if (!ready) {
+  useEffect(() => {
+    const timer = window.setTimeout(() => setMinTimeElapsed(true), MIN_LOADING_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (!ready || !minTimeElapsed) {
     return (
       <div className="startup-gate">
         <LoadingOrb state="connecting" size={64} />
