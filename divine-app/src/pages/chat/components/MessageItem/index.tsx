@@ -249,8 +249,11 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
     <div className={`tool-status-card ${tool.status}`}>
       <Flex align="center" gap={8} className="tool-status-main">
         <span className="tool-icon">
-          {icon}
-          {running && <span className="tool-icon-spinner" />}
+          {running ? (
+            <LoadingOrb state="solving" size={20} speed={3} />
+          ) : (
+            icon
+          )}
         </span>
         <div className="tool-copy">
           <span className="tool-name">{tool.tool}</span>
@@ -402,11 +405,6 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
               取消
             </Button>
           </Flex>
-        </div>
-      )}
-      {running && (
-        <div className="tool-progress" aria-hidden="true">
-          <span className="tool-progress-bar" />
         </div>
       )}
       {tool.status === "done" && tool.result && (
