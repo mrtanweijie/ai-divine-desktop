@@ -13,6 +13,10 @@ from ..registry import register_tool
         "type": "object",
         "properties": {
             "title": {"type": "string", "description": "演示文稿标题"},
+            "path": {
+                "type": "string",
+                "description": "保存目录，workspace 内相对路径；默认保存到应用输出目录，不写入项目",
+            },
             "slides": {
                 "type": "array",
                 "description": "幻灯片列表",
@@ -41,4 +45,5 @@ class PresentationAdapter(ToolAdapter):
         return {
             "title": str(arguments.get("title") or "未命名演示文稿"),
             "slides": arguments.get("slides") or [],
+            "path": str(arguments.get("path") or ""),
         }

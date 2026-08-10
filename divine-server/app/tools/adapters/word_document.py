@@ -13,6 +13,10 @@ from ..registry import register_tool
         "type": "object",
         "properties": {
             "title": {"type": "string", "description": "文档标题"},
+            "path": {
+                "type": "string",
+                "description": "保存目录，workspace 内相对路径；默认保存到应用输出目录，不写入项目",
+            },
             "sections": {
                 "type": "array",
                 "description": "文档章节",
@@ -37,4 +41,5 @@ class WordDocumentAdapter(ToolAdapter):
         return {
             "title": str(arguments.get("title") or "未命名文档"),
             "sections": arguments.get("sections") or [],
+            "path": str(arguments.get("path") or ""),
         }

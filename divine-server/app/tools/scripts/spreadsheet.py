@@ -20,8 +20,25 @@ def safe_name(name: str, fallback: str) -> str:
 def main() -> None:
     data = json.load(sys.stdin)
     workspace = Path(data["workspace"])
+    output_root = Path(data.get("output_dir") or workspace)
     params = data.get("params") or {}
-    output_dir = workspace / "spreadsheets"
+    output_dir = output_root / "spreadsheets"
+    raw_path = str(params.get("path") or "").strip()
+    if raw_path:
+        candidate = Path(raw_path)
+        if not candidate.is_absolute():
+            candidate = workspace / candidate
+        output_dir = candidate.resolve()
+        try:
+            output_dir.relative_to(workspace.resolve())
+        except ValueError:
+            print(
+                json.dumps(
+                    {"success": False, "message": f"保存路径越界: {output_dir}"},
+                    ensure_ascii=False,
+                )
+            )
+            return
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / safe_name(params.get("file_name") or "表格", "表格")
 

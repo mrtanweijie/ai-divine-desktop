@@ -62,7 +62,7 @@ def _merge(workspace: Path, params: dict) -> None:
     )
 
 
-def _split(workspace: Path, params: dict) -> None:
+def _split(workspace: Path, params: dict, output_root: Path) -> None:
     raw = str(params.get("file_path") or "").strip()
     if not raw:
         raise ValueError("缺少 file_path")
@@ -72,7 +72,9 @@ def _split(workspace: Path, params: dict) -> None:
     reader = PdfReader(str(source))
     total = len(reader.pages)
     raw_dir = str(params.get("output_dir") or "").strip()
-    output_dir = _resolve(workspace, raw_dir) if raw_dir else source.parent
+    output_dir = (
+        _resolve(workspace, raw_dir) if raw_dir else output_root / "pdf"
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     pages_spec = str(params.get("pages") or "").strip()
@@ -126,7 +128,11 @@ def main() -> None:
         if action == "merge":
             _merge(workspace, params)
         elif action == "split":
-            _split(workspace, params)
+            _split(
+                workspace,
+                params,
+                Path(data.get("output_dir") or workspace).resolve(),
+            )
         else:
             print(json.dumps({"success": False, "message": "action 必须是 merge 或 split"}))
     except Exception as exc:  # noqa: BLE001

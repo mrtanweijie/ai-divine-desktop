@@ -48,7 +48,8 @@ def main() -> None:
             output = workspace / output
         output = output.resolve()
     else:
-        output = source.with_name(f"{source.stem}_resized{source.suffix}")
+        output_root = Path(data.get("output_dir") or workspace).resolve()
+        output = output_root / "images" / f"{source.stem}_resized{source.suffix}"
 
     try:
         image = Image.open(source)

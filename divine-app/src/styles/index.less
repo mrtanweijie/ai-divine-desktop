@@ -1143,7 +1143,20 @@ a:focus-visible {
 .timeline-inner {
   max-width: 860px;
   margin: 0 auto;
-  padding: 28px 18px 18px;
+  padding: 0;
+}
+
+.virtual-message-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+  padding: 0 18px 26px;
+}
+
+.virtual-message-item .message-row {
+  margin-bottom: 0;
 }
 
 .empty-state {
@@ -1453,7 +1466,6 @@ a:focus-visible {
   margin: 10px 0;
   overflow: hidden;
   border: 1px solid var(--color-border);
-  border-left: 2px solid rgba(255, 255, 255, 0.65);
   border-radius: 8px;
   background: var(--color-surface);
 }
@@ -1484,7 +1496,6 @@ a:focus-visible {
 
 .think-content {
   padding: 2px 12px 12px;
-  border-top: 1px solid var(--color-border);
   white-space: pre-wrap;
   color: var(--color-text-muted);
   font-size: 12px;
@@ -1495,7 +1506,6 @@ a:focus-visible {
   margin: 10px 0;
   overflow: hidden;
   border: 1px solid var(--color-border);
-  border-left: 2px solid rgba(255, 255, 255, 0.65);
   border-radius: 8px;
   background: var(--color-surface);
 }
@@ -1535,7 +1545,6 @@ a:focus-visible {
   flex-direction: column;
   gap: 6px;
   padding: 4px 12px 12px;
-  border-top: 1px solid var(--color-border);
 }
 
 .plan-item {
@@ -1683,7 +1692,6 @@ a:focus-visible {
   margin: 10px 12px 12px;
   padding: 7px 11px;
   max-width: calc(100% - 24px);
-  border: 1px solid var(--color-border);
   border-radius: 7px;
   background: var(--color-surface-2);
   color: var(--color-accent);
@@ -1692,7 +1700,6 @@ a:focus-visible {
 }
 
 .file-download:hover {
-  border-color: rgba(255, 255, 255, 0.45);
   background: var(--color-accent-soft);
 }
 
@@ -1788,7 +1795,7 @@ a:focus-visible {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-top: 8px;
+  margin: 8px 12px 0;
   padding: 6px 10px;
   background: var(--color-code-bg);
   border-radius: 4px;

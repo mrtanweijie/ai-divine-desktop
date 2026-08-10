@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from ..config import workspace_dir
+from ..config import output_dir
 
 router = APIRouter(prefix="/files", tags=["files"])
 
@@ -15,15 +15,15 @@ ALLOWED_CATEGORIES = {"documents", "spreadsheets", "notes", "presentations"}
 def _category_dir(category: str) -> Path:
     if category not in ALLOWED_CATEGORIES:
         raise HTTPException(status_code=400, detail="不支持的类别")
-    path = (workspace_dir() / category).resolve()
-    if not str(path).startswith(str(workspace_dir().resolve())):
+    path = (output_dir() / category).resolve()
+    if not str(path).startswith(str(output_dir().resolve())):
         raise HTTPException(status_code=400, detail="路径越界")
     return path
 
 
 @router.get("")
 def list_workspace():
-    root = workspace_dir().resolve()
+    root = output_dir().resolve()
     result = []
     for category in sorted(ALLOWED_CATEGORIES):
         files = []

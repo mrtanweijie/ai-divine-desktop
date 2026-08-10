@@ -178,6 +178,15 @@ function PlanCard({ todos }: { todos: TodoItem[] }) {
 function ToolStatusCard({ tool }: { tool: ToolEvent }) {
   const [copied, setCopied] = useState(false);
   const [deciding, setDeciding] = useState(false);
+  const readOnlyTools = new Set([
+    "read_file",
+    "read_image",
+    "sqlite_query",
+    "rag_search",
+    "rag_index",
+    "directory_tree",
+    "search_files",
+  ]);
   const running = tool.status === "running" || tool.status === "preparing";
   const statusMessage = tool.status === "done" ? "执行完成" : tool.message;
   const icon =
@@ -260,7 +269,9 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
           <span className="tool-message">{statusMessage}</span>
         </div>
       </Flex>
-      {tool.status === "done" && tool.result?.filepath && (
+      {tool.status === "done" &&
+        tool.result?.filepath &&
+        !readOnlyTools.has(tool.tool) && (
         <a
           className="file-download"
           href={

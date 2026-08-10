@@ -150,6 +150,8 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 回答使用简洁的 Markdown，不输出与任务无关的内容。
 重要规则：不要在正文中输出 download_url、/api/files/ 或 http://localhost 等文件链接；
 生成文件后只需说明文件名和内容概要，文件下载/打开由前端工具卡片展示。
+生成文件默认保存到应用输出目录，不写入当前项目/工作区；
+只有用户明确要求保存到项目内时，才使用 path 参数指定 workspace 内相对目录。
 只能调用本次请求提供的工具，不要杜撰未提供的工具名。
 查找或列出工作区文件使用 search_files；搜索完文件后，读取具体内容再使用 read_file。
 查看目录结构使用 directory_tree；缩放图片使用 image_resize；拆分合并 PDF 使用 pdf_split_merge；

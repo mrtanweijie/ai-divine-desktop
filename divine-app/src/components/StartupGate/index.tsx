@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { request } from "@/services/request";
+import { isTauri } from "@/services/tauri";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import "./index.less";
 
@@ -60,7 +61,10 @@ export function StartupGate({ children }: StartupGateProps) {
 
   if (!ready || !minTimeElapsed) {
     return (
-      <div className="startup-gate">
+      <div
+        className="startup-gate"
+        {...(isTauri() ? { "data-tauri-drag-region": true } : {})}
+      >
         <LoadingOrb state="connecting" size={64} />
       </div>
     );

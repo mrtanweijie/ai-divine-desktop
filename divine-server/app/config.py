@@ -98,6 +98,43 @@ def workspace_dir() -> Path:
     return workspace_root()
 
 
+def _project_slug() -> str:
+    import re
+
+    workspace = workspace_dir().resolve()
+    name = workspace.name.strip()
+    if _is_git_workspace(workspace):
+        current = workspace
+        while current != current.parent:
+            if (current / ".git").exists():
+                name = current.name.strip()
+                break
+            current = current.parent
+    slug = re.sub(r"[^\w\u4e00-\u9fff.\-]+", "_", name).strip("._ ")
+    return slug or "workspace"
+
+
+def _is_git_workspace(workspace: Path) -> bool:
+    current = workspace.resolve()
+    for candidate in [current, *current.parents]:
+        if (candidate / ".git").exists():
+            return True
+    return False
+
+
+def output_dir() -> Path:
+    configured = settings_store.load().get("output_dir")
+    if configured:
+        path = Path(configured).expanduser()
+        if not path.is_absolute():
+            path = Path.home() / path
+        return path.resolve() / _project_slug()
+    workspace = workspace_dir().resolve()
+    if _is_git_workspace(workspace):
+        return data_root() / "outputs" / _project_slug()
+    return workspace
+
+
 def data_dir() -> Path:
     configured = os.getenv("DB_PATH")
     path = Path(configured).expanduser() if configured else data_root()
@@ -123,6 +160,7 @@ def cors_origins() -> list[str]:
 
 def ensure_directories() -> None:
     workspace_dir().mkdir(parents=True, exist_ok=True)
+    output_root = output_dir()
     for category in ("documents", "spreadsheets", "notes", "presentations"):
-        (workspace_dir() / category).mkdir(parents=True, exist_ok=True)
+        (output_root / category).mkdir(parents=True, exist_ok=True)
     db_path().parent.mkdir(parents=True, exist_ok=True)

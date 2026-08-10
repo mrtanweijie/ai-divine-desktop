@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { MessageItem } from "@/pages/chat/components/MessageItem";
 import type { ChatMessage } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -20,6 +21,17 @@ export function MessageList({
   const previousSessionId = useRef<string | null | undefined>(undefined);
   const lastUserMessageId = useRef<string | null>(null);
   const stickToBottom = useRef(true);
+
+  const virtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 140,
+    overscan: 12,
+    getItemKey: (index) => messages[index].id,
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
 
   const handleScroll = () => {
     const container = scrollRef.current;
@@ -48,6 +60,7 @@ export function MessageList({
     if (sessionChanged || userChanged) {
       stickToBottom.current = true;
       requestAnimationFrame(scrollToBottom);
+      requestAnimationFrame(scrollToBottom);
       return;
     }
     if (!stickToBottom.current) return;
@@ -60,20 +73,35 @@ export function MessageList({
 
   return (
     <div className="message-timeline" ref={scrollRef} onScroll={handleScroll}>
-      <div className="timeline-inner">
-        {messages.length === 0 ? (
-          <EmptyState title="开始新的对话" />
-        ) : (
-          messages.map((message, index) => (
-            <MessageItem
-              key={message.id}
-              message={message}
-              username={username}
-              streaming={streaming && index === messages.length - 1}
-            />
-          ))
-        )}
-      </div>
+      {messages.length === 0 ? (
+        <EmptyState title="开始新的对话" />
+      ) : (
+        <div
+          className="timeline-inner"
+          style={{ height: totalSize, position: "relative" }}
+        >
+          {virtualItems.map((virtualRow) => {
+            const message = messages[virtualRow.index];
+            return (
+              <div
+                key={message.id}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                className="virtual-message-item"
+                style={{ transform: `translateY(${virtualRow.start}px)` }}
+              >
+                <MessageItem
+                  message={message}
+                  username={username}
+                  streaming={
+                    streaming && virtualRow.index === messages.length - 1
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

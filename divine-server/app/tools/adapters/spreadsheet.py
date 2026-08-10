@@ -13,6 +13,10 @@ from ..registry import register_tool
         "type": "object",
         "properties": {
             "file_name": {"type": "string", "description": "文件名"},
+            "path": {
+                "type": "string",
+                "description": "保存目录，workspace 内相对路径；默认保存到应用输出目录，不写入项目",
+            },
             "headers": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -37,4 +41,5 @@ class SpreadsheetAdapter(ToolAdapter):
             "file_name": str(arguments.get("file_name") or "表格"),
             "headers": arguments.get("headers") or [],
             "rows": arguments.get("rows") or [],
+            "path": str(arguments.get("path") or ""),
         }

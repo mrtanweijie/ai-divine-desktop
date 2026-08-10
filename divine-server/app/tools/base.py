@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..config import output_dir
+
 
 class ToolExecutionError(RuntimeError):
     pass
@@ -150,7 +152,11 @@ class ToolAdapter:
         script = Path(__file__).resolve().parent / "scripts" / self.script_name
         if not script.exists():
             raise ToolExecutionError(f"脚本不存在: {self.script_name}")
-        payload = {"workspace": str(workspace.resolve()), "params": params}
+        payload = {
+            "workspace": str(workspace.resolve()),
+            "output_dir": str(output_dir().resolve()),
+            "params": params,
+        }
         loop = asyncio.get_running_loop()
         output = await loop.run_in_executor(
             None, self._run_subprocess, str(script), payload
@@ -208,8 +214,11 @@ class ToolAdapter:
             filepath = workspace / filepath
         filepath = filepath.resolve()
         workspace_root = workspace.resolve()
-        if not self.allow_external_paths and not _is_within(
-            workspace_root, filepath
+        output_root = output_dir().resolve()
+        if (
+            not self.allow_external_paths
+            and not _is_within(workspace_root, filepath)
+            and not _is_within(output_root, filepath)
         ):
             raise ToolExecutionError("工具输出路径越界，已拒绝")
         if not filepath.exists():

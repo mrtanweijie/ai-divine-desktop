@@ -43,10 +43,11 @@ def _clean_content(content: str) -> str:
 def main() -> None:
     data = json.load(sys.stdin)
     workspace = Path(data["workspace"]).resolve()
+    output_root = Path(data.get("output_dir") or workspace).resolve()
     params = data.get("params") or {}
     content = params.get("content") or ""
     title = derive_title(params.get("title") or "", content)
-    output_dir = workspace / "notes"
+    output_dir = output_root / "notes"
     raw_path = str(params.get("path") or "").strip()
     if raw_path:
         candidate = Path(raw_path)
