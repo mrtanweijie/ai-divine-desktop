@@ -1,28 +1,54 @@
 # ai-divine-desktop
 
-AI Divine Desktop：本地优先、隐私可控的桌面 AI 助手。
+AI Divine Desktop：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI sidecar，前端为 Vite + React + TypeScript，桌面壳为 Tauri 2 + Rust。
+
+默认端口约定：
+
+| 服务 | 端口 | 说明 |
+| --- | --- | --- |
+| FastAPI sidecar | `8019` | Agent、SSE、SQLite、工具系统 |
+| Vite dev server | `8010` | 前端开发服务，`/api` 代理到 sidecar |
 
 ## 功能特性
 
-- DeepSeek 流式对话，支持深度思考和会话历史
-- 本地文件分析：Word、Excel、Markdown、图片识别、网页抓取
-- 工具系统：`notes`、`presentation`、`read_file`、`read_image`、`spreadsheet`、`web_fetch`、`word_document`
+- DeepSeek 流式对话，支持深度思考、会话历史、会话搜索和标题自动生成
+- 项目化会话：项目工作区、项目图标、会话按项目组织
+- 本地文件分析：Word、Excel、Markdown、PDF、图片识别、网页抓取
+- 文档生成：Markdown 笔记、Word、PPT、Excel
+- 本地 RAG：工作区文档向量索引与检索
+- 计划与审批：复杂任务先创建待办计划，高危操作请求用户确认
+- 定时任务与日程：提醒、定时任务、日历事件，macOS 可同步系统日历
+- 终端工具：可交互终端，高危命令需用户确认
+- Markdown 渲染与 Shiki 代码高亮
 - SQLite 本地存储，数据默认保存在本机
-- Tauri 2 + Rust 桌面壳，启动时自动拉起 FastAPI sidecar
+- Tauri 2 + Rust 桌面壳，启动时自动拉起并监控 FastAPI sidecar
 - 自研 React UI 组件，不引入 AntD
+
+## 技术栈
+
+| 层 | 技术 |
+| --- | --- |
+| 后端 | FastAPI、Uvicorn、SQLite、LangChain DeepSeek、GLM 视觉模型、PyInstaller |
+| 前端 | Vite、React 19、TypeScript、react-markdown、Shiki、自研组件 |
+| 桌面壳 | Tauri 2 + Rust，sidecar 生命周期管理、托盘、macOS Calendar 桥接 |
 
 ## 目录结构
 
 | 目录 | 说明 |
 | --- | --- |
-| `divine-server` | FastAPI sidecar：Agent、SSE、SQLite、工具系统 |
+| `divine-server` | FastAPI sidecar：API、Agent、SSE、SQLite、工具系统 |
+| `divine-server/app/tools/adapters` | 工具注册与参数定义 |
+| `divine-server/app/tools/scripts` | 工具子进程脚本 |
 | `divine-app` | Vite + React + TypeScript 前端，自研组件 |
 | `divine-app/src-tauri` | Tauri 2 + Rust 桌面壳 |
 | `docs` | 项目方案文档 |
+| `scripts` | macOS 签名与公证脚本 |
 
 ## 快速开始
 
-### divine-server
+### 1. 启动后端
+
+需要 Python 3.11+。
 
 ```bash
 cd divine-server
@@ -33,7 +59,13 @@ cp .env.example .env
 python run.py
 ```
 
-### divine-app
+后端启动后可通过 <http://127.0.0.1:8019/api/health> 检查健康状态。未配置 `DEEPSEEK_API_KEY` 时，`AI_PROVIDER=auto` 会使用本地演示 Agent；填入 Key 后自动切换为真实 DeepSeek 流式对话。
+
+开发时用 `python run.py`；`python entry.py` 模拟打包后的 sidecar 启动方式，并把日志写入数据目录下的 `divine-server.log`，PyInstaller 也以 `entry.py` 为入口。
+
+### 2. 启动前端
+
+需要 Node.js 20+ 和 pnpm 9+。
 
 ```bash
 cd divine-app
@@ -41,16 +73,130 @@ pnpm install
 pnpm dev
 ```
 
-前端通过 `divine-app/.env*` 配置环境，API 地址由 `VITE_SERVICE_API_URL` 控制。
+浏览器访问 <http://localhost:8010>，Vite 会把 `/api` 请求代理到 `http://127.0.0.1:8019`。
+
+### 3. 桌面开发
+
+Tauri 会自行拉起并监控 sidecar，但需要先为本机平台生成 sidecar 可执行文件：
+
+```bash
+cd divine-server
+pip install -r requirements.txt pyinstaller
+bash build-sidecar.sh        # 自动检测当前平台
+
+cd ../divine-app
+pnpm install
+pnpm tauri:dev
+```
+
+## 环境变量
+
+### divine-server
+
+配置文件为 `divine-server/.env`，参考 [.env.example](divine-server/.env.example)。
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | DeepSeek OpenAI 兼容接口地址 |
+| `DEEPSEEK_API_KEY` | 空 | DeepSeek API Key |
+| `DEEPSEEK_MODEL` | `deepseek-v4-flash` | DeepSeek 模型名 |
+| `AI_PROVIDER` | `auto` | `auto` 有 Key 时用 DeepSeek，否则用本地演示；`mock` 强制本地演示；`langchain` 使用 LangChain DeepSeek |
+| `GLM_BASE_URL` | `https://open.bigmodel.cn/api/paas/v4` | GLM 视觉模型地址 |
+| `GLM_API_KEY` | 空 | GLM API Key，用于 `read_image` |
+| `GLM_MODEL` | `glm-4.6v-flash` | GLM 视觉模型名 |
+| `HOST` | `127.0.0.1` | sidecar 监听地址 |
+| `PORT` | `8019` | sidecar 监听端口 |
+| `CORS_ORIGINS` | `http://localhost:8010,...` | 逗号分隔的允许来源 |
+| `DIVINE_DATA_DIR` | `divine-server/data` | 数据目录：数据库、`settings.json`、日志 |
+| `DIVINE_WORKSPACE_DIR` | `divine-server/workspace` | 工作区根目录 |
+| `DIVINE_PROJECTS_DIR` | 空 | 预留的项目根目录变量，当前代码未使用 |
+| `DB_PATH` | `<data_dir>/ai_workspace.db` | SQLite 数据库路径 |
+
+桌面端启动 sidecar 时会注入 `DIVINE_DATA_DIR` 和 `DIVINE_WORKSPACE_DIR`，指向系统应用数据目录，因此打包后不会依赖仓库内的 `data/` 和 `workspace/`。
+
+普通字段优先读取 `data/settings.json`，未保存时回退到环境变量或默认值；`HOST` 和 `PORT` 始终以环境变量为准。UI 中的设置会写入 `settings.json`，`DIVINE_WORKSPACE_DIR` 只在设置中未指定工作区时生效。
+
+### divine-app
+
+前端使用模式对应的 env 文件：
+
+| 文件 | 模式 | 使用场景 |
+| --- | --- | --- |
+| `.env.dev` | `dev` | `pnpm dev`、`pnpm tauri:dev` |
+| `.env.test` | `test` | `pnpm build:test`、`pnpm tauri:build:test` |
+| `.env.prod` | `prod` | `pnpm build`、`pnpm tauri:build:prod` |
+
+| 变量 | 说明 |
+| --- | --- |
+| `VITE_SERVICE_API_URL` | sidecar API 地址，默认 `http://127.0.0.1:8019/api` |
+| `VITE_DISABLE_CONTEXT_MENU` | 正式包禁用 WebView 右键菜单 |
+
+## 工具系统
+
+| 工具 | 用途 |
+| --- | --- |
+| `calculator` | 安全计算数学表达式 |
+| `clipboard` | 读取、写入、清空系统剪贴板 |
+| `create_plan` | 为复杂任务创建待办计划 |
+| `directory_tree` | 查看目录树结构 |
+| `image_resize` | 缩放图片 |
+| `notes` | 生成 Markdown 笔记 |
+| `pdf_split_merge` | 拆分、合并 PDF |
+| `presentation` | 生成 PPT 演示文稿 |
+| `rag_index` | 建立工作区本地向量索引 |
+| `rag_search` | 检索工作区本地资料 |
+| `read_file` | 读取文本、Office、PDF、表格等文件 |
+| `read_image` | 用 GLM 视觉模型识别图片 |
+| `schedule_task` | 创建和管理定时提醒/定时任务 |
+| `search_files` | 按文件名搜索工作区文件 |
+| `spreadsheet` | 生成 Excel 表格 |
+| `sqlite_query` | 只读查询本地 SQLite 数据库 |
+| `terminal` | 执行终端命令，高危命令需确认 |
+| `web_fetch` | 抓取网页内容 |
+| `word_document` | 生成 Word 文档 |
+| `write_calendar` | 创建和管理日程/日历事件 |
+
+## API
+
+| 路由 | 说明 |
+| --- | --- |
+| `POST /api/stream_chat` | SSE 流式对话 |
+| `GET /api/health` | 健康检查，返回 provider、model、工具数量 |
+| `/api/sessions` | 会话管理 |
+| `/api/projects` | 项目管理 |
+| `/api/scheduled-tasks` | 定时任务管理 |
+| `/api/calendar-events` | 日程管理 |
+| `/api/files` | 工作区文件列表与下载 |
+| `/api/settings` | 运行时设置 |
+| `WS /api/terminal` | 交互式终端 |
+| `POST /api/terminal/decide` | 审批待确认的终端命令 |
+
+## 数据目录
+
+开发模式下：
+
+- 数据库：`divine-server/data/ai_workspace.db`
+- 设置：`divine-server/data/settings.json`
+- 日志：`divine-server/data/divine-server.log`
+- 工作区：`divine-server/workspace/{documents,spreadsheets,notes,presentations}`
+
+桌面安装版默认使用系统应用数据目录，不写入项目目录。数据库、设置和日志由 `DIVINE_DATA_DIR` 控制，工作区由 `DIVINE_WORKSPACE_DIR` 控制。
+
+## 打包
 
 ### 打包 sidecar
 
 ```bash
 cd divine-server
-bash build-sidecar.sh darwin-arm64   # darwin-x64 / win32-x64 / linux-x64
+pip install -r requirements.txt pyinstaller
+bash build-sidecar.sh                  # 自动检测当前平台
+bash build-sidecar.sh darwin-arm64     # 显式指定平台
+bash build-sidecar.sh darwin-x64
+bash build-sidecar.sh win32-x64
+bash build-sidecar.sh linux-x64
 ```
 
-产物会输出到 `divine-server/bin/<target>/`，并同步生成 Tauri externalBin 文件到 `divine-app/src-tauri/binaries/`。
+产物输出到 `divine-server/bin/<target>/`，并同步复制为 Tauri externalBin 文件到 `divine-app/src-tauri/binaries/`。
 
 ### 打包桌面端
 
@@ -58,7 +204,7 @@ bash build-sidecar.sh darwin-arm64   # darwin-x64 / win32-x64 / linux-x64
 cd divine-app
 pnpm tauri:build:prod    # 正式包，不包含右键调试菜单
 pnpm tauri:build:test    # test 包，保留右键 Reload / Inspect Element，不签名不公证
-pnpm tauri:build:debug   # 调试包
+pnpm tauri:build:debug   # 调试包，开启 devtools
 ```
 
 ### macOS 签名与公证
@@ -82,4 +228,4 @@ pnpm tauri:build:debug   # 调试包
 - Windows x64
 - Linux x64
 
-构建产物会作为 Actions Artifact 上传。
+构建产物会作为 Actions Artifact 上传；推送 `v*` tag 时还会上传到对应 GitHub Release。

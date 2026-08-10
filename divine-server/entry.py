@@ -41,7 +41,7 @@ def main() -> None:
     uvicorn.run(
         app,
         host=settings.get("host", "127.0.0.1"),
-        port=int(settings.get("port", 8000)),
+        port=int(settings.get("port", 8019)),
         reload=False,
         log_config=None,
     )

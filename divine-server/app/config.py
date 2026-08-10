@@ -46,7 +46,7 @@ class SettingsStore:
     def load(self) -> dict[str, Any]:
         data: dict[str, Any] = {
             "host": os.getenv("HOST", "127.0.0.1"),
-            "port": int(os.getenv("PORT", "8010")),
+            "port": int(os.getenv("PORT", "8019")),
             "provider": os.getenv("AI_PROVIDER", "auto"),
             "glm_api_key": os.getenv("GLM_API_KEY", ""),
             "glm_base_url": os.getenv(
@@ -73,7 +73,7 @@ class SettingsStore:
         if not data.get("username"):
             data["username"] = "用户"
         data["host"] = os.getenv("HOST", data.get("host", "127.0.0.1"))
-        data["port"] = int(os.getenv("PORT", data.get("port", "8000")))
+        data["port"] = int(os.getenv("PORT", data.get("port", "8019")))
         return data
 
     def save(self, values: dict[str, Any]) -> dict[str, Any]:
@@ -117,7 +117,7 @@ def db_path() -> Path:
 
 
 def cors_origins() -> list[str]:
-    raw = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,tauri://localhost,http://tauri.localhost,https://tauri.localhost")
+    raw = os.getenv("CORS_ORIGINS", "http://localhost:8010,http://127.0.0.1:8010,tauri://localhost,http://tauri.localhost,https://tauri.localhost")
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 

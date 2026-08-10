@@ -29,6 +29,13 @@ interface DropdownProps {
   label?: string;
 }
 
+type DropdownTriggerProps = {
+  onClick?: () => void;
+  "aria-haspopup"?: string;
+  "aria-expanded"?: boolean;
+  "aria-label"?: string;
+};
+
 export function Dropdown({
   trigger,
   items,
@@ -137,7 +144,7 @@ export function Dropdown({
       onMouseLeave={scheduleClose}
     >
       {isValidElement(trigger)
-        ? cloneElement(trigger as ReactElement, {
+        ? cloneElement(trigger as ReactElement<DropdownTriggerProps>, {
             onClick: () => setOpen((value) => !value),
             "aria-haspopup": "menu",
             "aria-expanded": open,

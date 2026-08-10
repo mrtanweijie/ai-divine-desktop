@@ -7,17 +7,19 @@ import {
   ChevronDown,
   Copy,
   Database,
+  FileStack,
   FileSpreadsheet,
   FileText,
   FolderOpen,
   FolderTree,
   Globe,
   Image,
+  LibraryBig,
   ListChecks,
   Presentation,
+  Search,
   StickyNote,
   TerminalSquare,
-  Wrench,
 } from "lucide-react";
 import { useState } from "react";
 import { downloadUrl } from "@/services/api";
@@ -195,6 +197,16 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
       <Copy size={16} />
     ) : tool.tool.includes("sqlite") || tool.tool.includes("database") ? (
       <Database size={16} />
+    ) : tool.tool.includes("rag_index") ? (
+      <LibraryBig size={16} />
+    ) : tool.tool.includes("rag_search") ||
+      tool.tool.includes("search_files") ||
+      tool.tool.includes("search") ? (
+      <Search size={16} />
+    ) : tool.tool === "create_plan" ? (
+      <ListChecks size={16} />
+    ) : tool.tool.includes("pdf") ? (
+      <FileStack size={16} />
     ) : tool.tool.includes("directory") || tool.tool.includes("tree") ? (
       <FolderTree size={16} />
     ) : tool.tool.includes("presentation") ||
@@ -237,11 +249,8 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
     <div className={`tool-status-card ${tool.status}`}>
       <Flex align="center" gap={8} className="tool-status-main">
         <span className="tool-icon">
-          {running ? (
-            <LoadingOrb state="solving" size={20} speed={3} />
-          ) : (
-            <Wrench size={16} />
-          )}
+          {icon}
+          {running && <span className="tool-icon-spinner" />}
         </span>
         <div className="tool-copy">
           <span className="tool-name">{tool.tool}</span>

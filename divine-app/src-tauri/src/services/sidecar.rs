@@ -9,7 +9,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
 
 pub const SIDECAR_HOST: &str = "127.0.0.1";
-pub const SIDECAR_PORT: u16 = 8010;
+pub const SIDECAR_PORT: u16 = 8019;
 
 pub struct SidecarState(pub Mutex<Option<Child>>);
 
