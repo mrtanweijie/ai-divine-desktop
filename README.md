@@ -48,7 +48,7 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 
 ### 1. 启动后端
 
-需要 Python 3.11+。
+需要 Python 3.11+，开发环境当前使用 Python 3.14.6。
 
 ```bash
 cd divine-server
@@ -139,6 +139,9 @@ pnpm tauri:dev
 | `clipboard` | 读取、写入、清空系统剪贴板 |
 | `create_plan` | 为复杂任务创建待办计划 |
 | `directory_tree` | 查看目录树结构 |
+| `describe_svg` | 读取现有 SVG，返回画布、元素、关键 id 和结构摘要 |
+| `draw_svg` | 从零生成 SVG 矢量图/图标/插画，默认保存到 `svg/` |
+| `edit_svg` | 基于现有 SVG 修改，只改动用户提到的元素并保持其他不变 |
 | `generate_chart` | 根据分析结果生成 ECharts 图表并在对话中内联展示 |
 | `image_resize` | 缩放图片 |
 | `mermaid_export` | 把 Mermaid 流程图源码保存为 `.mmd` 文件 |
@@ -154,6 +157,7 @@ pnpm tauri:dev
 | `search_files` | 按文件名搜索工作区文件 |
 | `spreadsheet` | 生成 Excel 表格 |
 | `sqlite_query` | 只读查询本地 SQLite 数据库 |
+| `svg_to_png` | 将最终 SVG 导出为 PNG 位图 |
 | `terminal` | 执行终端命令，高危命令需确认 |
 | `web_fetch` | 抓取网页内容 |
 | `word_document` | 生成 Word 文档 |
@@ -181,7 +185,7 @@ pnpm tauri:dev
 - 数据库：`divine-server/data/ai_workspace.db`
 - 设置：`divine-server/data/settings.json`
 - 日志：`divine-server/data/divine-server.log`
-- 工作区：`divine-server/workspace/{documents,spreadsheets,notes,presentations,diagrams,html}`
+- 工作区：`divine-server/workspace/{documents,spreadsheets,notes,presentations,diagrams,html,svg}`
 
 桌面安装版默认使用系统应用数据目录，不写入项目目录。数据库、设置和日志由 `DIVINE_DATA_DIR` 控制，工作区由 `DIVINE_WORKSPACE_DIR` 控制。
 
@@ -191,6 +195,7 @@ pnpm tauri:dev
 
 ```bash
 cd divine-server
+source .venv/bin/activate
 pip install -r requirements.txt pyinstaller
 bash build-sidecar.sh                  # 自动检测当前平台
 bash build-sidecar.sh darwin-arm64     # 显式指定平台

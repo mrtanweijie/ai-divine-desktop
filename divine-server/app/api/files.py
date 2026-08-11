@@ -16,6 +16,7 @@ ALLOWED_CATEGORIES = {
     "presentations",
     "diagrams",
     "html",
+    "svg",
 }
 
 

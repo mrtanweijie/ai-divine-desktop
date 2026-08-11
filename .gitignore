@@ -1,5 +1,5 @@
 # Python
-divine-server/.venv/
+divine-server/.venv*/
 divine-server/__pycache__/
 *.pyc
 

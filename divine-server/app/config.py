@@ -176,6 +176,7 @@ def ensure_directories() -> None:
         "presentations",
         "diagrams",
         "html",
+        "svg",
     ):
         (output_root / category).mkdir(parents=True, exist_ok=True)
     db_path().parent.mkdir(parents=True, exist_ok=True)

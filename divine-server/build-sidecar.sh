@@ -48,7 +48,13 @@ case "$TARGET" in
 esac
 
 cd "$ROOT"
-PYTHON_BIN="${PYTHON:-python3}"
+if [[ -n "${PYTHON:-}" ]]; then
+  PYTHON_BIN="$PYTHON"
+elif [[ -x "$ROOT/.venv/bin/python" ]]; then
+  PYTHON_BIN="$ROOT/.venv/bin/python"
+else
+  PYTHON_BIN="python3"
+fi
 rm -rf "dist/divine-server" "dist/divine-server.exe"
 "$PYTHON_BIN" -m PyInstaller --clean --noconfirm divine-server.spec
 

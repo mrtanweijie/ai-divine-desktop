@@ -1,7 +1,10 @@
 from .calculator import CalculatorAdapter  # noqa: F401
 from .clipboard import ClipboardAdapter  # noqa: F401
 from .create_plan import CreatePlanAdapter  # noqa: F401
+from .describe_svg import DescribeSvgAdapter  # noqa: F401
 from .directory_tree import DirectoryTreeAdapter  # noqa: F401
+from .draw_svg import DrawSvgAdapter  # noqa: F401
+from .edit_svg import EditSvgAdapter  # noqa: F401
 from .generate_chart import GenerateChartAdapter  # noqa: F401
 from .image_resize import ImageResizeAdapter  # noqa: F401
 from .mermaid_export import MermaidExportAdapter  # noqa: F401
@@ -16,6 +19,7 @@ from .schedule_task import ScheduleTaskAdapter  # noqa: F401
 from .search_files import SearchFilesAdapter  # noqa: F401
 from .sqlite_query import SqliteQueryAdapter  # noqa: F401
 from .spreadsheet import SpreadsheetAdapter  # noqa: F401
+from .svg_to_png import SvgToPngAdapter  # noqa: F401
 from .terminal import TerminalAdapter  # noqa: F401
 from .ux_html import UxHtmlAdapter  # noqa: F401
 from .web_fetch import WebFetchAdapter  # noqa: F401

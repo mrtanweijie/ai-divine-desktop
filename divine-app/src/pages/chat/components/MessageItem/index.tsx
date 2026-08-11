@@ -11,6 +11,7 @@ import {
   Copy,
   Database,
   Eye,
+  FileBox,
   FileStack,
   FileCode2,
   FileSpreadsheet,
@@ -20,8 +21,11 @@ import {
   FolderTree,
   Globe,
   Image,
+  ImageDown,
   LibraryBig,
   ListChecks,
+  Orbit,
+  PenTool,
   Presentation,
   SquareKanban,
   StickyNote,
@@ -215,7 +219,15 @@ function ToolStatusCard({
     [tool.result?.filepath, workspacePath]
   );
   const icon =
-    tool.tool === "schedule_task" ? (
+    tool.tool === "draw_svg" ? (
+      <FileBox size={16} />
+    ) : tool.tool === "describe_svg" || tool.tool === "edit_svg" ? (
+      <Orbit size={16} />
+    ) : tool.tool.includes("svg_to_png") ? (
+      <ImageDown size={16} />
+    ) : tool.tool.includes("svg") ? (
+      <PenTool size={16} />
+    ) : tool.tool === "schedule_task" ? (
       <CalendarClock size={16} />
     ) : tool.tool === "write_calendar" ? (
       <CalendarDays size={16} />

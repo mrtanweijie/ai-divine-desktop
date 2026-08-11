@@ -336,6 +336,25 @@ class MockLLM:
         wants_image = any(
             word in lowered for word in ("图片", "image", "png", "jpg", "jpeg", "webp")
         )
+        wants_svg = any(
+            word in lowered
+            for word in ("svg", "矢量图", "插画", "图标", "角色图", "位图")
+        )
+        wants_svg_edit = any(
+            word in lowered
+            for word in ("修改svg", "编辑svg", "改svg", "修改矢量图", "编辑矢量图")
+        )
+        wants_svg_export = any(
+            word in lowered
+            for word in (
+                "svg转png",
+                "svg 转 png",
+                "导出svg",
+                "svg导出",
+                "svg转位图",
+                "位图",
+            )
+        )
         wants_presentation = any(
             word in lowered
             for word in ("ppt", "幻灯片", "演示文稿", "presentation")
@@ -371,6 +390,18 @@ class MockLLM:
             word in lowered
             for word in ("网页", "网站", "抓取", "浏览", "url", "http")
         )
+        if wants_svg and wants_svg_edit:
+            for tool in tools:
+                if tool.get("function", {}).get("name") == "edit_svg":
+                    return tool
+        if wants_svg and (wants_svg_export or "png" in lowered or "导出" in question):
+            for tool in tools:
+                if tool.get("function", {}).get("name") == "svg_to_png":
+                    return tool
+        if wants_svg:
+            for tool in tools:
+                if tool.get("function", {}).get("name") == "draw_svg":
+                    return tool
         if wants_mermaid_export:
             for tool in tools:
                 if tool.get("function", {}).get("name") == "mermaid_export":
@@ -407,6 +438,56 @@ class MockLLM:
 
     @staticmethod
     def _mock_args(tool_name: str, question: str) -> dict[str, Any]:
+        if tool_name == "draw_svg":
+            return {
+                "title": "小机器人",
+                "content": (
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" '
+                    'viewBox="0 0 320 240">'
+                    '<rect id="body" x="90" y="90" width="140" height="110" rx="18" '
+                    'fill="#0f766e"/>'
+                    '<rect id="head" x="110" y="45" width="100" height="70" rx="16" '
+                    'fill="#14b8a6"/>'
+                    '<circle id="eye-left" cx="135" cy="80" r="7" fill="#ffffff"/>'
+                    '<circle id="eye-right" cx="185" cy="80" r="7" fill="#ffffff"/>'
+                    '<rect id="hair" x="118" y="52" width="84" height="10" rx="5" '
+                    'fill="#134e4a"/>'
+                    '<rect id="arm-left" x="62" y="105" width="28" height="70" rx="10" '
+                    'fill="#0d9488"/>'
+                    '<rect id="arm-right" x="230" y="105" width="28" height="70" rx="10" '
+                    'fill="#0d9488"/>'
+                    '</svg>'
+                ),
+            }
+        if tool_name == "describe_svg":
+            return {"file_path": "svg/小机器人.svg"}
+        if tool_name == "edit_svg":
+            return {
+                "file_path": "svg/小机器人.svg",
+                "content": (
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" '
+                    'viewBox="0 0 320 240">'
+                    '<rect id="body" x="90" y="90" width="140" height="110" rx="18" '
+                    'fill="#0f766e"/>'
+                    '<rect id="head" x="110" y="45" width="100" height="70" rx="16" '
+                    'fill="#14b8a6"/>'
+                    '<circle id="eye-left" cx="135" cy="80" r="9" fill="#ffffff"/>'
+                    '<circle id="eye-right" cx="185" cy="80" r="9" fill="#ffffff"/>'
+                    '<rect id="hair" x="118" y="52" width="84" height="10" rx="5" '
+                    'fill="#134e4a"/>'
+                    '<rect id="arm-left" x="62" y="105" width="28" height="70" rx="10" '
+                    'fill="#0d9488"/>'
+                    '<rect id="arm-right" x="230" y="105" width="28" height="70" rx="10" '
+                    'fill="#0d9488"/>'
+                    '</svg>'
+                ),
+            }
+        if tool_name == "svg_to_png":
+            return {
+                "file_path": "svg/小机器人.svg",
+                "width": 640,
+                "height": 480,
+            }
         if tool_name == "generate_chart":
             return {
                 "title": "AI Divine 能力分布",

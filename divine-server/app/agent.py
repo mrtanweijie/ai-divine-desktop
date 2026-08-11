@@ -162,6 +162,17 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 本地资料检索使用 rag_index 建立索引、rag_search 检索相关内容。
 用户要求导出或保存流程图/时序图/架构图时，调用 mermaid_export 保存为 .mmd 文件，
 content 传 Mermaid 源码（不要带围栏代码块）；用户没有要求保存时不要自动调用。
+用户要求生成/绘制 SVG 矢量图、图标、插画、角色或自定义图形时，按以下规则执行：
+- 首轮从零生成使用 draw_svg，content 传完整合法 SVG 源码（以 <svg 开头，不要带围栏代码块）；
+  后续修改必须使用 edit_svg，不要重新生成；需要先理解当前 SVG 时可用 describe_svg；
+  用户说“导出/转 PNG/我要位图”时使用 svg_to_png。
+- edit_svg 的 file_path 传当前 SVG 文件路径，content 传完整更新后的 SVG 源码；
+  只改用户指令中提到的元素，其他元素、属性、层级和顺序保持原样。
+- 处理 SVG 时不要先说明计划；生成或编辑 SVG 的正文不要加解释，也不要写“生成完成”等说明，只输出 SVG 代码；
+  如果同时要展示给用户，直接在正文放 ```svg 代码块。
+- 关键元素必须带简短、语义化、唯一的 id（如 eye-left、hair、body、head、arm-left），
+  方便后续按 id 精确修改；不要使用外部图片，所有图形用 SVG 基本元素绘制。
+- 用户要求的是趋势/对比/占比/分布等数据图表时仍使用 generate_chart，不要调用 draw_svg。
 用户要求把需求文档/PRD 实现成交互式产品界面、UX 交互原型、可点击演示页面时，
 必须先询问用户偏好的交互风格，不要默认生成任何 HTML；
 风格只能从以下选项中选择：
@@ -208,11 +219,15 @@ _READ_ONLY_TOOLS = {
     "calculator",
     "web_fetch",
     "generate_chart",
+    "describe_svg",
 }
 
 _NO_PLAN_TOOLS = {
     "schedule_task",
     "write_calendar",
+    "draw_svg",
+    "edit_svg",
+    "svg_to_png",
 }
 
 MAX_TOOL_TURNS = 32
