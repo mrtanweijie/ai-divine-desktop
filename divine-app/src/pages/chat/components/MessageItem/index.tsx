@@ -12,6 +12,7 @@ import {
   Database,
   Eye,
   FileStack,
+  FileCode2,
   FileSpreadsheet,
   FileText,
   FolderSearch2,
@@ -249,6 +250,11 @@ function ToolStatusCard({
       <BarChart3 size={16} />
     ) : tool.tool.includes("mermaid") || tool.tool.includes("diagram") ? (
       <Workflow size={16} />
+    ) : tool.tool.includes("requirements") ||
+      tool.tool.includes("html") ||
+      tool.tool.includes("prd") ||
+      tool.tool.includes("ux") ? (
+      <FileCode2 size={16} />
     ) : tool.tool.includes("presentation") ||
       tool.tool.includes("ppt") ||
       tool.tool.includes("slides") ? (
@@ -330,7 +336,7 @@ function ToolStatusCard({
           </a>
           {workspaceRel && isTauri() && (
             <Button
-              variant="ghost"
+              variant="icon"
               size="small"
               className="file-preview-button"
               onClick={() =>
@@ -341,9 +347,9 @@ function ToolStatusCard({
                 })
               }
               title="查看改动"
+              aria-label="查看改动"
             >
               <Eye size={13} />
-              查看改动
             </Button>
           )}
         </div>

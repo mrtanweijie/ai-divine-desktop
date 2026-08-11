@@ -17,11 +17,20 @@ import {
   FolderOpen,
   Presentation,
 } from "lucide-react";
-import { getDirChildren, getFileTree, isTauri } from "@/services/tauri";
+import {
+  getDirChildren,
+  getFileTree,
+  isTauri,
+  listenWorkspaceChanges,
+} from "@/services/tauri";
 import type { WorkspaceFileNode } from "@/types";
 
 const treeCache = new Map<string, WorkspaceFileNode[]>();
 const dirCache = new Map<string, WorkspaceFileNode[]>();
+
+function normalizePath(value: string): string {
+  return value.replace(/\\/g, "/").replace(/\/+$/, "");
+}
 
 interface FileTreeProps {
   repoPath: string;
@@ -224,21 +233,37 @@ export function FileTree({
   useEffect(() => {
     let active = true;
     if (!isTauri()) return;
-    const cached = treeCache.get(repoPath);
-    if (cached) setNodes(cached);
-    else setNodes(null);
-    void getFileTree(repoPath)
-      .then((data) => {
-        if (active) {
-          treeCache.set(repoPath, data);
-          setNodes(data);
-        }
-      })
-      .catch(() => {
-        if (active) setNodes([]);
-      });
+    const load = () => {
+      const cached = treeCache.get(repoPath);
+      if (cached) setNodes(cached);
+      else setNodes(null);
+      void getFileTree(repoPath)
+        .then((data) => {
+          if (active) {
+            treeCache.set(repoPath, data);
+            setNodes(data);
+          }
+        })
+        .catch(() => {
+          if (active) setNodes([]);
+        });
+    };
+    load();
+    let unlisten: (() => void) | undefined;
+    void listenWorkspaceChanges((payload) => {
+      const changed = normalizePath(payload.path);
+      const root = normalizePath(repoPath);
+      if (changed !== root && !changed.startsWith(`${root}/`)) return;
+      treeCache.delete(repoPath);
+      dirCache.clear();
+      load();
+    }).then((stop) => {
+      if (active) unlisten = stop;
+      else stop();
+    });
     return () => {
       active = false;
+      unlisten?.();
     };
   }, [repoPath]);
 

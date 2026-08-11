@@ -15,6 +15,7 @@ ALLOWED_CATEGORIES = {
     "notes",
     "presentations",
     "diagrams",
+    "html",
 }
 
 
@@ -39,7 +40,7 @@ def list_workspace():
                     {
                         "name": path.name,
                         "size": path.stat().st_size,
-                        "download_url": f"/api/files/{category}/{path.name}",
+                        "download_url": f"/files/{category}/{path.name}",
                     }
                 )
         result.append({"category": category, "files": files})
@@ -56,7 +57,7 @@ def list_category(category: str):
                 {
                     "name": item.name,
                     "size": item.stat().st_size,
-                    "download_url": f"/api/files/{category}/{item.name}",
+                    "download_url": f"/files/{category}/{item.name}",
                 }
             )
     return {"category": category, "files": files}

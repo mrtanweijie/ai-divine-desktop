@@ -136,10 +136,6 @@ a:focus-visible {
   background: var(--color-bg);
 }
 
-.app-shell.workspace-open .main-area {
-  flex: 0 1 900px;
-}
-
 .app-shell.workspace-expanded .main-area {
   visibility: hidden;
   opacity: 0;
@@ -1838,27 +1834,34 @@ a:focus-visible {
   gap: 7px;
   min-width: 0;
   flex: 1;
-  padding: 7px 11px;
-  border-radius: 7px;
-  background: var(--color-surface-2);
-  color: var(--color-accent);
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
   font-size: 12.5px;
   text-decoration: none;
 }
 
-.file-download:hover {
-  background: var(--color-accent-soft);
-}
-
 .file-actions {
   display: flex;
-  align-items: stretch;
-  gap: 8px;
+  align-items: center;
+  gap: 4px;
   margin: 10px 12px 12px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--color-surface-2);
 }
 
 .file-preview-button {
   flex-shrink: 0;
+  height: 30px;
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+}
+
+.file-actions .file-preview-button:hover:not(:disabled) {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
 }
 
 .file-size {

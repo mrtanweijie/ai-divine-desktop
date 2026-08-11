@@ -45,6 +45,7 @@ a = Analysis(
         "app.tools.adapters.web_fetch",
         "app.tools.adapters.spreadsheet",
         "app.tools.adapters.terminal",
+        "app.tools.adapters.ux_html",
         "app.tools.adapters.word_document",
         "app.rag_store",
         "reportlab",

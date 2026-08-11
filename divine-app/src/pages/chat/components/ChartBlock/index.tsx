@@ -46,6 +46,8 @@ const NON_CARTESIAN_TYPES = new Set([
   "themeRiver",
 ]);
 
+const FUNCTION_STRING_RE = /^\s*(?:async\s+)?function(?:\s|\()|=>/;
+
 function chartHeight(option: Record<string, unknown>): number {
   const series = Array.isArray(option.series) ? option.series : [];
   const types = series
@@ -144,6 +146,25 @@ function decorateSeries(option: Record<string, unknown>): void {
     }
     return next;
   });
+}
+
+function sanitizeFormatters(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const item of value) sanitizeFormatters(item);
+    return;
+  }
+  if (!isRecord(value)) return;
+  for (const [key, child] of Object.entries(value)) {
+    if (
+      (key === "formatter" || key === "valueFormatter") &&
+      typeof child === "string" &&
+      FUNCTION_STRING_RE.test(child)
+    ) {
+      delete value[key];
+    } else {
+      sanitizeFormatters(child);
+    }
+  }
 }
 
 function buildChartOption(option: Record<string, unknown>): EChartsOption {
@@ -256,6 +277,16 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
       trigger: tooltipTrigger,
     };
   }
+  if (primaryType === "funnel" && isRecord(merged.legend)) {
+    merged.legend = withDefaults(merged.legend, {
+      orient: "vertical",
+      top: 16,
+      right: 12,
+      bottom: "auto",
+      left: "auto",
+    });
+  }
+  sanitizeFormatters(merged);
   decorateSeries(merged);
   return merged as unknown as EChartsOption;
 }

@@ -17,6 +17,7 @@ from .search_files import SearchFilesAdapter  # noqa: F401
 from .sqlite_query import SqliteQueryAdapter  # noqa: F401
 from .spreadsheet import SpreadsheetAdapter  # noqa: F401
 from .terminal import TerminalAdapter  # noqa: F401
+from .ux_html import UxHtmlAdapter  # noqa: F401
 from .web_fetch import WebFetchAdapter  # noqa: F401
 from .write_calendar import WriteCalendarAdapter  # noqa: F401
 from .word_document import WordDocumentAdapter  # noqa: F401

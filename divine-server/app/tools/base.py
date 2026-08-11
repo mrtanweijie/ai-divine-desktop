@@ -223,12 +223,24 @@ class ToolAdapter:
             raise ToolExecutionError("工具输出路径越界，已拒绝")
         if not filepath.exists():
             raise ToolExecutionError(f"工具产物不存在: {filepath.name}")
+        download_url: str | None = None
+        try:
+            relative = filepath.relative_to(output_root)
+            if (
+                self.category
+                and len(relative.parts) > 0
+                and relative.parts[0] == self.category
+            ):
+                # API_BASE already contains /api; downloadUrl() prepends it.
+                download_url = f"/files/{self.category}/{filepath.name}"
+        except ValueError:
+            download_url = None
         return ToolResult(
             success=True,
             message=output.get("message", "执行完成"),
             file_name=filepath.name,
             filepath=str(filepath),
-            download_url=None,
+            download_url=download_url,
             file_size=os.path.getsize(filepath),
             content=output.get("content"),
             data=output.get("data"),

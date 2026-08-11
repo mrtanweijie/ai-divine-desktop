@@ -149,6 +149,7 @@ pnpm tauri:dev
 | `rag_search` | 检索工作区本地资料 |
 | `read_file` | 读取文本、Office、PDF、表格等文件 |
 | `read_image` | 用 GLM 视觉模型识别图片 |
+| `ux_html` | 保存 Agent 按用户选择的风格与需求文档自定义设计的完整 UX 交互 HTML，默认写入项目工作区 `html/` |
 | `schedule_task` | 创建和管理定时提醒/定时任务 |
 | `search_files` | 按文件名搜索工作区文件 |
 | `spreadsheet` | 生成 Excel 表格 |
@@ -180,7 +181,7 @@ pnpm tauri:dev
 - 数据库：`divine-server/data/ai_workspace.db`
 - 设置：`divine-server/data/settings.json`
 - 日志：`divine-server/data/divine-server.log`
-- 工作区：`divine-server/workspace/{documents,spreadsheets,notes,presentations}`
+- 工作区：`divine-server/workspace/{documents,spreadsheets,notes,presentations,diagrams,html}`
 
 桌面安装版默认使用系统应用数据目录，不写入项目目录。数据库、设置和日志由 `DIVINE_DATA_DIR` 控制，工作区由 `DIVINE_WORKSPACE_DIR` 控制。
 
