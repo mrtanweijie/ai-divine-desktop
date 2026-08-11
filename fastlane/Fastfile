@@ -234,7 +234,43 @@ platform :mac do
     #     把 externalBin 软链到 .app/Contents/MacOS/_internal/ 即可。Tauri docs:
     #     https://tauri.app/distribute/macos-application-bundle/
 
-    # ---- 5. 用合并后的 .app 重新打 DMG（不依赖 Tauri 自动打的版本） ----
+    # ---- 5. 完整 codesign 链路（顺序：sidecar → 内部 dylib → .app） ----
+    # 必须在打 DMG 之前完成：DMG 里的 .app 是 staging 的 cp_r 副本，只有先把
+    # 源码树里的 .app 签好，拷进 DMG 的才是带 Developer ID + 时间戳 + 硬化运行时
+    # 的签名版本。否则 notarization 会报 "not signed with valid Developer ID /
+    # no secure timestamp / hardened runtime not enabled"（上一轮就是：DMG 先打、
+    # .app 后签，导致 DMG 内嵌的是 linker 的 ad-hoc 签名）。
+    # 5a) src-tauri/binaries/ 下的 externalBin 源（每个 triple 一份）。
+    #     Tauri 在 macOS universal .app 里运行时实际不会用它们（它用 _internal/ 那份），
+    #     但仍按规范签名以免 spctl/Gatekeeper 误报。
+    Dir.glob(File.join(TAURI_DIR, "src-tauri", "binaries", "divine-server*"))
+       .reject { |p| p.end_with?(".pdb") || File.directory?(p) }
+       .each do |bin|
+      UI.message "Codesigning sidecar: #{File.basename(bin)}"
+      sh(
+        "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
+        "--timestamp --options runtime '#{bin}'"
+      )
+    end
+
+    # 5b) .app 内所有 dylib/framework（深度倒序：先叶子再父目录）。
+    inner_dylibs     = Dir.glob(File.join(arm64_app, "**", "*.dylib")).sort
+    inner_frameworks = Dir.glob(File.join(arm64_app, "**", "*.framework")).sort
+    (inner_dylibs + inner_frameworks).each do |lib|
+      sh(
+        "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
+        "--timestamp --options runtime --deep '#{lib}'"
+      )
+    end
+
+    # 5c) .app 整体（带 entitlements，硬化运行时）。
+    sh(
+      "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
+      "--timestamp --options runtime --entitlements '#{ENTITLEMENTS}' " \
+      "--deep '#{arm64_app}'"
+    )
+
+    # ---- 6. 用已签名的 .app 重新打 DMG（不依赖 Tauri 自动打的版本） ----
     # 清掉 Tauri 自己出的 arm64-only DMG（如果有的话）。
     FileUtils.rm_rf(TAURI_DMG_DIR)
 
@@ -248,49 +284,18 @@ platform :mac do
     sh("hdiutil create -volname '#{APP_DISPLAY_NAME}' -srcfolder '#{staging}' -ov -format UDZO '#{staged_dmg}'")
     FileUtils.rm_rf(staging)
 
-    # ---- 6. 完整 codesign 链路（顺序：sidecar → 内部 dylib → .app → .dmg） ----
-    # 6a) src-tauri/binaries/ 下的 externalBin 源（每个 triple 一份）。
-    #     Tauri 在 macOS universal .app 里运行时实际不会用它们（它用 _internal/ 那份），
-    #     但仍按规范签名以免 spctl/Gatekeeper 误报。
-    Dir.glob(File.join(TAURI_DIR, "src-tauri", "binaries", "divine-server*"))
-       .reject { |p| p.end_with?(".pdb") || File.directory?(p) }
-       .each do |bin|
-      UI.message "Codesigning sidecar: #{File.basename(bin)}"
-      sh(
-        "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
-        "--timestamp --options runtime '#{bin}'"
-      )
-    end
-
-    # 6b) .app 内所有 dylib/framework（深度倒序：先叶子再父目录）。
-    inner_dylibs     = Dir.glob(File.join(arm64_app, "**", "*.dylib")).sort
-    inner_frameworks = Dir.glob(File.join(arm64_app, "**", "*.framework")).sort
-    (inner_dylibs + inner_frameworks).each do |lib|
-      sh(
-        "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
-        "--timestamp --options runtime --deep '#{lib}'"
-      )
-    end
-
-    # 6c) .app 整体（带 entitlements，硬化运行时）。
-    sh(
-      "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
-      "--timestamp --options runtime --entitlements '#{ENTITLEMENTS}' " \
-      "--deep '#{arm64_app}'"
-    )
-
-    # 6d) .dmg 本身。
+    # ---- 7. .dmg 本身再签（带时间戳） ----
     sh(
       "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
       "--timestamp '#{staged_dmg}'"
     )
 
-    # ---- 7. 验证（早失败） ----
+    # ---- 8. 验证（早失败） ----
     sh("/usr/bin/codesign --verify --deep --strict --verbose=2 '#{arm64_app}'")
     sh("hdiutil verify '#{staged_dmg}'")
     sh("/usr/bin/lipo -info '#{arm64_main}'")  # 再次确认 universal
 
-    # ---- 8. 公证：App Store Connect API Key ----
+    # ---- 9. 公证：App Store Connect API Key ----
     key_id      = ENV["APP_STORE_CONNECT_API_KEY_ID"]
     issuer_id   = ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"]
     key_content = ENV["APP_STORE_CONNECT_API_KEY_CONTENT"]
