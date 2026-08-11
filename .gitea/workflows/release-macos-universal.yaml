@@ -252,8 +252,12 @@ jobs:
           done
           HOMEBREW_PREFIX="$(brew --prefix)"
           RUBY_PREFIX="$(brew --prefix ruby@3.3)"
+          PY311_PREFIX="$(brew --prefix python@3.11)"
+          # actions/setup-node 把 node 装到 runner 的 act tool_cache；SSH 子 shell 不会
+          # 继承 actions 设的 PATH，所以这里把 node + pnpm + python@3.11 显式 prepend。
+          NODE_BIN="/Users/duguying/.cache/act/tool_cache/node/20.19.4/arm64/bin"
           {
-            echo "export PATH=\"${HOMEBREW_PREFIX}/bin:${RUBY_PREFIX}/bin:\$HOME/.gem/bin:\$PATH\""
+            echo "export PATH=\"${NODE_BIN}:${HOMEBREW_PREFIX}/bin:${RUBY_PREFIX}/bin:${PY311_PREFIX}/bin:\$HOME/.gem/bin:\$PATH\""
             echo "export GEM_HOME=\"$HOME/.gem\""
             echo "export PROJECT_DIR=\"$PROJECT_DIR\""
           } >> "$ENV_FILE"
