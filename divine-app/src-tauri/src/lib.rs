@@ -2,6 +2,7 @@ mod commands;
 mod services;
 
 use services::sidecar::SidecarState;
+use std::thread;
 use tauri::{Manager, RunEvent, WindowEvent};
 
 fn show_main_window(app: &tauri::AppHandle) {
@@ -9,6 +10,21 @@ fn show_main_window(app: &tauri::AppHandle) {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn handle_close_request(window: &tauri::Window) {
+    if window.is_fullscreen().unwrap_or(false) {
+        let window = window.clone();
+        thread::spawn(move || {
+            // In fullscreen the close button only exits fullscreen and keeps
+            // the window visible.
+            let _ = window.set_fullscreen(false);
+        });
+        return;
+    } else {
+        let _ = window.hide();
     }
 }
 
@@ -66,7 +82,7 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             if let WindowEvent::CloseRequested { api, .. } = _event {
                 api.prevent_close();
-                let _ = _window.hide();
+                handle_close_request(_window);
             }
         })
         .setup(|app| {

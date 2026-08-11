@@ -1,6 +1,6 @@
-# ai-divine-desktop
+# Divine
 
-AI Divine Desktop：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI sidecar，前端为 Vite + React + TypeScript，桌面壳为 Tauri 2 + Rust。
+Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI sidecar，前端为 Vite + React + TypeScript，桌面壳为 Tauri 2 + Rust。
 
 默认端口约定：
 
