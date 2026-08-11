@@ -159,17 +159,23 @@ platform :mac do
     ENV['CI'] = 'true'
 
     # ---- 1. 构建双架构 sidecar ----
-    # CI 环境下显式指定 PYTHON（指向 brew 的 python@3.11），避免 build-sidecar.sh
-    # 退化到 /usr/bin/python3（macOS 自带 3.9，不够新，PyInstaller spec 用了 3.10+ 语法）。
-    sidecar_python = ENV["PYTHON"] || "#{`brew --prefix python@3.11 2>/dev/null`.strip}/bin/python3.11"
-    sidecar_python = "/usr/bin/python3" if sidecar_python.nil? || sidecar_python.empty?
-    ENV["PYTHON"] = sidecar_python
-    UI.message "Using PYTHON=#{sidecar_python} for sidecar builds"
+    # darwin-arm64 用宿主 arm64 Python（默认 brew python@3.11，避免 build-sidecar.sh
+    # 退化到 /usr/bin/python3——macOS 自带 3.9，PyInstaller spec 用了 3.10+ 语法）。
+    # darwin-x64 必须用真正的 x86_64 Python（CI 在 Rosetta 下跑 python-build-standalone
+    # 的 x86_64 构建），否则编出来的二进制是 arm64，lipo 合并报 same architectures。
+    # build-sidecar.sh 内部现在会按目标传 --target-arch，架构不匹配会直接报错。
+    arm64_python = ENV["PYTHON_ARM64"] || ENV["PYTHON"] || "#{`brew --prefix python@3.11 2>/dev/null`.strip}/bin/python3.11"
+    arm64_python = "/usr/bin/python3" if arm64_python.nil? || arm64_python.empty?
+    x64_python = ENV["PYTHON_X86_64"]
+    UI.user_error!("PYTHON_X86_64 未设置：darwin-x64 sidecar 需要 x86_64 Python（CI 里用 Rosetta + python-build-standalone 提供）") if x64_python.nil? || x64_python.empty?
+    UI.user_error!("PYTHON_X86_64 不存在: #{x64_python}") unless File.file?(x64_python)
 
-    UI.message "Building divine-server sidecar for darwin-arm64..."
-    sh("bash '#{File.join(SIDECAR_DIR, 'build-sidecar.sh')}' darwin-arm64")
-    UI.message "Building divine-server sidecar for darwin-x64..."
-    sh("bash '#{File.join(SIDECAR_DIR, 'build-sidecar.sh')}' darwin-x64")
+    UI.message "Building divine-server sidecar for darwin-arm64 (python=#{arm64_python})..."
+    sh("env PYTHON='#{arm64_python}' bash '#{File.join(SIDECAR_DIR, 'build-sidecar.sh')}' darwin-arm64")
+    UI.message "Building divine-server sidecar for darwin-x64 (python=#{x64_python})..."
+    # arch -x86_64 强制 x86_64 模式运行，确保 platform.machine() 返回 x86_64，
+    # pip 解析 x86_64 的 wheel、PyInstaller 产出 x86_64 切片。
+    sh("arch -x86_64 env PYTHON='#{x64_python}' bash '#{File.join(SIDECAR_DIR, 'build-sidecar.sh')}' darwin-x64")
 
     # ---- 2. 双架构 tauri build --no-sign ----
     # 必须分别指定 --target aarch64/x86_64-apple-darwin，让 cargo 编出两个

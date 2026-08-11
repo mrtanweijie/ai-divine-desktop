@@ -198,12 +198,64 @@ jobs:
           "$PY311_BIN" -m ensurepip --upgrade
           "$PY311_BIN" -m pip install --upgrade pip
 
+      - name: Setup Rosetta + x86_64 Python
+        # universal 包里的 sidecar 需要真 x86_64 切片。PyInstaller 在 arm64 宿主上
+        # 不能 cross-arch 编 x86_64（报错，除非宿主 Python 是 universal2），所以
+        # darwin-x64 必须用"真正在 x86_64 模式下运行"的 Python：
+        #   - arm64 宿主机需要 Rosetta（纯 x86_64 二进制只能经 Rosetta 跑）；
+        #   - 用 python-build-standalone 的 cpython-3.11.15+20260807
+        #     -x86_64-apple-darwin-install_only.tar.gz（已验证该 asset 存在）；
+        #   - 用它装 requirements + pyinstaller，pip 按 x86_64 解析 wheel，
+        #     build-sidecar.sh 再传 --target-arch x86_64，产出真 x86_64 切片。
+        #     若宿主本来就是 Intel Mac，arch -x86_64 原样通过，逻辑同样成立。
+        env:
+          RUNNER_PASSWORD: ${{ secrets.RUNNER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # 1) 确保 Rosetta（arm64 宿主才需要；Intel 宿主 arch -x86_64 恒真）
+          if arch -x86_64 true 2>/dev/null; then
+            echo "Rosetta OK"
+          else
+            echo "Rosetta missing, attempting install..."
+            if softwareupdate --install-rosetta --agree-to-license >/tmp/rosetta.log 2>&1; then
+              echo "Rosetta installed via softwareupdate"
+            elif command -v sudo >/dev/null 2>&1; then
+              echo "${RUNNER_PASSWORD:-}" | sudo -S softwareupdate --install-rosetta --agree-to-license >/tmp/rosetta-sudo.log 2>&1 \
+                && echo "Rosetta installed via sudo"
+            fi
+            arch -x86_64 true 2>/dev/null || { echo "::error::Could not install Rosetta. Please run manually on the runner: softwareupdate --install-rosetta --agree-to-license"; exit 1; }
+          fi
+
+          # 2) 下载 / 缓存 x86_64 Python（python-build-standalone install_only）
+          X64_PY_DIR="$HOME/.py-build/x86_64"
+          X64_PY_BIN="$X64_PY_DIR/python/bin/python3.11"
+          if [[ ! -x "$X64_PY_BIN" ]]; then
+            mkdir -p "$HOME/.py-build"
+            TARBALL="/tmp/cpython-3.11.15-x86_64.tar.gz"
+            echo "Downloading x86_64 Python (python-build-standalone 20260807)..."
+            curl -fsSL -o "$TARBALL" \
+              'https://github.com/astral-sh/python-build-standalone/releases/download/20260807/cpython-3.11.15+20260807-x86_64-apple-darwin-install_only.tar.gz'
+            rm -rf "$X64_PY_DIR"
+            mkdir -p "$X64_PY_DIR"
+            tar -xzf "$TARBALL" -C "$X64_PY_DIR" --strip-components=1
+          fi
+          [[ -x "$X64_PY_BIN" ]] || { echo "::error::x86_64 python not found at $X64_PY_BIN"; exit 1; }
+          # 3) 验证：Rosetta 下确实以 x86_64 模式运行
+          MACH="$(arch -x86_64 "$X64_PY_BIN" -c 'import platform; print(platform.machine())')"
+          echo "PYTHON_X86_64=$X64_PY_BIN" >> $GITEA_ENV
+          echo "x86_64 python at $X64_PY_BIN reports machine=$MACH"
+          [[ "$MACH" == "x86_64" ]] || { echo "::error::x86_64 python not running in x86_64 mode"; exit 1; }
+
       - name: Install Python dependencies
         run: |
           set -euo pipefail
           cd "$HOME/workspace/ai-divine-desktop/divine-server"
           PY311_BIN="$(brew --prefix python@3.11)/bin/python3.11"
           "$PY311_BIN" -m pip install -r requirements.txt pyinstaller
+          # x86_64 (Rosetta) Python：同样装 requirements + pyinstaller，
+          # pip 会按 x86_64 解析 wheel。
+          X64_PY_BIN="${PYTHON_X86_64:?}"
+          arch -x86_64 "$X64_PY_BIN" -m pip install -r requirements.txt pyinstaller
 
       # ---------------------------------------------------------------------
       # 6. Fastlane mac dmg：双架构 tauri build + lipo + codesign + notarize。
@@ -253,7 +305,7 @@ jobs:
           for s in MATCH_PASSWORD MATCH_GIT_URL MATCH_GIT_BASIC_AUTHORIZATION \
                    RUNNER_PASSWORD APP_STORE_CONNECT_API_KEY_ID \
                    APP_STORE_CONNECT_API_KEY_ISSUER_ID APP_STORE_CONNECT_API_KEY_CONTENT \
-                   BUILD_VERSION BUILD_NUMBER; do
+                   BUILD_VERSION BUILD_NUMBER PYTHON_X86_64; do
             v="${!s:-}"
             printf 'export %s=%q\n' "$s" "$v" >> "$ENV_FILE"
           done
