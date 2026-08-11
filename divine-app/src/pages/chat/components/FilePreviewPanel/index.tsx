@@ -50,14 +50,10 @@ export function FilePreviewPanel({
   useEffect(() => {
     if (open) {
       setMounted(true);
-      const frame = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setVisible(true));
-      });
-      return () => cancelAnimationFrame(frame);
+      setVisible(true);
+      return;
     }
     setVisible(false);
-    const timer = window.setTimeout(() => setMounted(false), 200);
-    return () => window.clearTimeout(timer);
   }, [open]);
 
   if (!mounted || !repoPath) return null;
@@ -120,8 +116,8 @@ export function FilePreviewPanel({
         resizing ? " is-resizing" : ""
       }${expanded ? " is-expanded" : ""}`}
       style={{
-        width: visible ? width : 0,
-        minWidth: visible ? 320 : 0,
+        width: visible ? (expanded ? "auto" : width) : 0,
+        minWidth: visible ? (expanded ? 0 : 320) : 0,
         transition: noTransition ? "none" : undefined,
       }}
     >

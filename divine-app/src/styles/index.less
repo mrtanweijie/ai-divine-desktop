@@ -78,6 +78,7 @@ a:focus-visible {
   height: 100vh;
   display: flex;
   overflow: hidden;
+  position: relative;
   background: transparent;
 }
 
@@ -140,15 +141,24 @@ a:focus-visible {
 }
 
 .app-shell.workspace-expanded .main-area {
-  display: none;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .app-shell.workspace-expanded .file-inspector-panel {
-  flex: 1 1 auto;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 244px;
+  right: 0;
+  width: auto;
+  max-width: none;
+  flex: none;
 }
 
 .app-shell.sidebar-collapsed.workspace-expanded .file-inspector-panel {
-  max-width: 100vw;
+  left: 0;
 }
 
 .app-shell.traffic-safe .file-inspector-header {

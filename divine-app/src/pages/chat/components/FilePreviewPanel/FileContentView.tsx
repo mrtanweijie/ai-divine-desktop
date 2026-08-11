@@ -127,19 +127,16 @@ export function FileContentView({
         <span className="diff-view-file" title={relPath}>
           {fileName ?? relPath}
         </span>
-        <span className="diff-view-meta">
-          {preview.contentTruncated && <span>已截断前 1MB</span>}
-          <Button
-            variant="icon"
-            size="small"
-            className="diff-expand-button"
-            onClick={onToggleExpand}
-            title={expanded ? "缩小文件区域" : "扩大文件区域"}
-            aria-label={expanded ? "缩小文件区域" : "扩大文件区域"}
-          >
-            {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-          </Button>
-        </span>
+        <Button
+          variant="icon"
+          size="small"
+          className="diff-expand-button"
+          onClick={onToggleExpand}
+          title={expanded ? "缩小文件区域" : "扩大文件区域"}
+          aria-label={expanded ? "缩小文件区域" : "扩大文件区域"}
+        >
+          {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+        </Button>
       </div>
       {preview.isBinary ? (
         <div className="diff-view-state">

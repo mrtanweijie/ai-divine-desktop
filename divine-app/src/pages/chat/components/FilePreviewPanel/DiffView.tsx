@@ -113,25 +113,6 @@ export function DiffView({
         <span className="diff-view-file" title={relPath}>
           {fileName ?? relPath}
         </span>
-        <span className="diff-view-meta">
-          {preview.isGit ? (preview.tracked ? "Git" : "未跟踪") : "非 Git"}
-          {preview.additions + preview.deletions > 0 && (
-            <span className="diff-view-counts">
-              <span className="diff-view-add">+{preview.additions}</span>
-              <span className="diff-view-del">-{preview.deletions}</span>
-            </span>
-          )}
-        </span>
-        <Button
-          variant="icon"
-          size="small"
-          className="diff-expand-button"
-          onClick={onToggleExpand}
-          title={expanded ? "缩小文件区域" : "扩大文件区域"}
-          aria-label={expanded ? "缩小文件区域" : "扩大文件区域"}
-        >
-          {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-        </Button>
         {changed && onAcceptFile && (
           <Button
             variant="ghost"
@@ -144,6 +125,16 @@ export function DiffView({
             接受
           </Button>
         )}
+        <Button
+          variant="icon"
+          size="small"
+          className="diff-expand-button"
+          onClick={onToggleExpand}
+          title={expanded ? "缩小文件区域" : "扩大文件区域"}
+          aria-label={expanded ? "缩小文件区域" : "扩大文件区域"}
+        >
+          {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+        </Button>
       </div>
 
       {preview.isBinary && (

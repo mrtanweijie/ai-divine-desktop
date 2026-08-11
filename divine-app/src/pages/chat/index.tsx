@@ -105,11 +105,13 @@ export default function ChatPage() {
     new Set()
   );
   const [acceptedFiles, setAcceptedFiles] = useState<Set<string>>(new Set());
-  const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true);
+  const [workspacePanelOpen, setWorkspacePanelOpen] = useState(false);
   const [workspacePanelWidth, setWorkspacePanelWidth] = useState(420);
   const [normalWorkspacePanelWidth, setNormalWorkspacePanelWidth] =
     useState(420);
   const [workspaceExpanded, setWorkspaceExpanded] = useState(false);
+  const [workspaceExpandedLayout, setWorkspaceExpandedLayout] =
+    useState(false);
   const [workspaceExpandTransitioning, setWorkspaceExpandTransitioning] =
     useState(false);
   const [workspaceTreeWidth, setWorkspaceTreeWidth] = useState(172);
@@ -152,6 +154,15 @@ export default function ChatPage() {
 
   const loadSession = useCallback(async (id: string) => {
     const data = await getSession(id);
+    let savedExpanded = false;
+    try {
+      savedExpanded =
+        localStorage.getItem(`divine:workspace-expanded:${id}`) === "1";
+    } catch {
+      savedExpanded = false;
+    }
+    setWorkspaceExpanded(savedExpanded);
+    setWorkspaceExpandedLayout(savedExpanded);
     setSelectedId(id);
     setSelectedProjectId(data.session.project_id);
     setApprovalMode(data.session.approval_mode ?? "ask");
@@ -726,19 +737,43 @@ export default function ChatPage() {
     setWorkspaceExpandTransitioning(true);
     if (workspaceExpanded) {
       setWorkspacePanelWidth(normalWorkspacePanelWidth);
+      setWorkspaceExpanded(false);
+      setWorkspaceExpandedLayout(false);
+      if (selectedId) {
+        try {
+          localStorage.setItem(
+            `divine:workspace-expanded:${selectedId}`,
+            "0"
+          );
+        } catch {
+          // localStorage unavailable, state stays in memory
+        }
+      }
     } else {
       setNormalWorkspacePanelWidth(workspacePanelWidth);
       setWorkspacePanelWidth(
         expandedWorkspaceWidth(sidebarOpen ? 244 : 0)
       );
+      setWorkspaceExpanded(true);
+      setWorkspaceExpandedLayout(true);
+      if (selectedId) {
+        try {
+          localStorage.setItem(
+            `divine:workspace-expanded:${selectedId}`,
+            "1"
+          );
+        } catch {
+          // localStorage unavailable, state stays in memory
+        }
+      }
     }
-    setWorkspaceExpanded((value) => !value);
     window.setTimeout(
       () => setWorkspaceExpandTransitioning(false),
       220
     );
   }, [
     normalWorkspacePanelWidth,
+    selectedId,
     workspaceExpanded,
     workspacePanelWidth,
   ]);
@@ -746,6 +781,16 @@ export default function ChatPage() {
   useEffect(() => {
     setPreviewFile(null);
     setAgentChangedFiles(new Set());
+    try {
+      const saved = currentProject?.path
+        ? localStorage.getItem(
+            `divine:workspace-panel-open:${currentProject.path}`
+          )
+        : null;
+      setWorkspacePanelOpen(saved === "1");
+    } catch {
+      setWorkspacePanelOpen(false);
+    }
     try {
       setAcceptedFiles(
         currentProject?.path
@@ -767,6 +812,18 @@ export default function ChatPage() {
     };
   }, [currentProject?.path]);
 
+  useEffect(() => {
+    if (!currentProject?.path) return;
+    try {
+      localStorage.setItem(
+        `divine:workspace-panel-open:${currentProject.path}`,
+        workspacePanelOpen ? "1" : "0"
+      );
+    } catch {
+      // localStorage unavailable, state stays in memory
+    }
+  }, [currentProject?.path, workspacePanelOpen]);
+
   const visibleChangedFiles = useMemo(() => {
     const visible = new Set(agentChangedFiles);
     acceptedFiles.forEach((path) => visible.delete(path));
@@ -774,7 +831,7 @@ export default function ChatPage() {
   }, [acceptedFiles, agentChangedFiles]);
 
   const trafficSafe =
-    isMacosDesktop() && workspaceExpanded && !sidebarOpen;
+    isMacosDesktop() && workspaceExpandedLayout && !sidebarOpen;
 
   useEffect(() => {
     if (!workspacePanelOpen) return;
@@ -785,7 +842,7 @@ export default function ChatPage() {
           320,
           window.innerWidth - leftWidth - 900 - 48
         );
-        if (workspaceExpanded) {
+        if (workspaceExpandedLayout) {
           return expandedWorkspaceWidth(leftWidth);
         }
         const current = Math.max(320, Math.min(760, prev));
@@ -796,20 +853,20 @@ export default function ChatPage() {
     };
     window.addEventListener("resize", updateWidth);
     return () => window.removeEventListener("resize", updateWidth);
-  }, [sidebarOpen, workspaceExpanded, workspacePanelOpen]);
+  }, [sidebarOpen, workspaceExpandedLayout, workspacePanelOpen]);
 
   useEffect(() => {
-    if (!workspacePanelOpen || !workspaceExpanded) return;
+    if (!workspacePanelOpen || !workspaceExpandedLayout) return;
     setWorkspacePanelWidth(
       expandedWorkspaceWidth(sidebarOpen ? 244 : 0)
     );
-  }, [sidebarOpen, workspaceExpanded, workspacePanelOpen]);
+  }, [sidebarOpen, workspaceExpandedLayout, workspacePanelOpen]);
 
   return (
     <Flex
       className={`app-shell ${sidebarOpen ? "sidebar-visible" : "sidebar-collapsed"}${
         workspacePanelOpen ? " workspace-open" : ""
-      }${workspaceExpanded ? " workspace-expanded" : ""}${
+      }${workspaceExpandedLayout ? " workspace-expanded" : ""}${
         fullscreen ? " fullscreen" : ""
       }${trafficSafe ? " traffic-safe" : ""}`}
     >
@@ -846,7 +903,6 @@ export default function ChatPage() {
           model={settings?.model ?? ""}
         />
       </Flex>
-      {!workspaceExpanded && (
       <Flex direction="column" className="main-area">
         {tasksOpen ? (
           <ScheduledTasksPage />
@@ -915,7 +971,6 @@ export default function ChatPage() {
           </>
         )}
       </Flex>
-      )}
       <FilePreviewPanel
         open={workspacePanelOpen}
         repoPath={currentProject?.path ?? ""}
