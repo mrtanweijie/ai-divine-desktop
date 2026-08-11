@@ -1,0 +1,339 @@
+name: macOS Universal DMG Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos-universal:
+    name: Build, sign, notarize and publish macOS Universal DMG (arm64 + x64)
+    # 跑在任意 macOS self-hosted runner 上（Apple Silicon 或 Intel 都可）。
+    # 双 rust target 都在同一台机器上交叉编译：Apple Silicon 上编 x86_64
+    # 会自动用 Rosetta 2；Intel 上编 arm64 用 lipo 等价处理。
+    runs-on: [self-hosted, macos]
+
+    steps:
+      # ---------------------------------------------------------------------
+      # 1. 干净克隆。
+      # ---------------------------------------------------------------------
+      - name: Clean clone via SSH
+        run: |
+          set -euo pipefail
+          PROJECT_DIR="$HOME/workspace/ai-divine-desktop"
+
+          if [ -d "$PROJECT_DIR" ]; then
+            echo "Removing existing project directory..."
+            rm -rf "$PROJECT_DIR"
+          fi
+
+          mkdir -p "$HOME/workspace"
+          cd "$HOME/workspace"
+
+          export GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+
+          if [[ "${GITEA_REF:-}" == refs/tags/* ]]; then
+            git clone --depth 1 --single-branch --branch "${GITEA_REF#refs/tags/}" \
+              git@git.duguying.net:ai-divine/ai-divine-desktop.git \
+              ai-divine-desktop
+          else
+            git clone --depth 1 --single-branch \
+              git@git.duguying.net:ai-divine/ai-divine-desktop.git \
+              ai-divine-desktop
+          fi
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITEA_ENV
+          cd "$PROJECT_DIR"
+          echo "Project ready at: $(pwd)"
+
+      # ---------------------------------------------------------------------
+      # 2. 从 tag 解析版本号（universal 一份包，构建号 YYYYMMDD01）。
+      # ---------------------------------------------------------------------
+      - name: Extract version
+        id: version
+        run: |
+          set -euo pipefail
+          if [[ "${GITEA_REF:-}" == refs/tags/* ]]; then
+            TAG="${GITEA_REF#refs/tags/}"
+            TAG="${TAG#v}"
+          else
+            TAG="$(date +%Y.%m.%d).dev"
+          fi
+
+          if ! [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error::Invalid version format: $TAG (expected x.y.z)"
+            exit 1
+          fi
+
+          BUILD_NUMBER="$(date +%Y%m%d)01"
+          echo "version=$TAG" >> $GITEA_OUTPUT
+          echo "build-number=$BUILD_NUMBER" >> $GITEA_OUTPUT
+          echo "Resolved version=$TAG build-number=$BUILD_NUMBER"
+
+      # ---------------------------------------------------------------------
+      # 3. 同步 tauri.conf.json 的 version。
+      # ---------------------------------------------------------------------
+      - name: Bump tauri.conf.json version
+        working-directory: ${{ env.PROJECT_DIR }}/divine-app/src-tauri
+        run: |
+          python3 - <<PY
+          import json
+          v = "${{ steps.version.outputs.version }}"
+          p = "tauri.conf.json"
+          c = json.load(open(p))
+          c["version"] = v
+          json.dump(c, open(p, "w"), indent=2)
+          print("tauri.conf.json version ->", v)
+          PY
+
+      # ---------------------------------------------------------------------
+      # 4. Homebrew + Ruby 3.3 + Bundler + Fastlane。
+      # ---------------------------------------------------------------------
+      - name: Setup toolchain (Homebrew / Ruby / Bundler)
+        run: |
+          set -euo pipefail
+          HOMEBREW_PREFIX="$(brew --prefix)"
+          echo "${HOMEBREW_PREFIX}/bin" >> $GITEA_PATH
+          export PATH="${HOMEBREW_PREFIX}/bin:$PATH"
+
+          RUBY_PREFIX="$(brew --prefix ruby@3.3 2>/dev/null || true)"
+          if [[ -z "$RUBY_PREFIX" || ! -x "$RUBY_PREFIX/bin/ruby" ]]; then
+            echo "ruby@3.3 not usable at '${RUBY_PREFIX:-<unset>}', installing..."
+            brew install ruby@3.3
+            RUBY_PREFIX="$(brew --prefix ruby@3.3)"
+          fi
+          if [[ ! -x "$RUBY_PREFIX/bin/ruby" ]]; then
+            echo "::error::ruby@3.3 still not found at $RUBY_PREFIX/bin/ruby"
+            exit 1
+          fi
+          echo "${RUBY_PREFIX}/bin" >> $GITEA_PATH
+          export PATH="${RUBY_PREFIX}/bin:$PATH"
+          ruby --version
+
+          export GEM_HOME="$HOME/.gem"
+          export GEM_PATH="$HOME/.gem:${GEM_PATH:-}"
+          export PATH="$HOME/.gem/bin:$PATH"
+          echo "GEM_HOME=$GEM_HOME" >> $GITEA_ENV
+          echo "PATH=$HOME/.gem/bin:$PATH" >> $GITEA_PATH
+
+          gem install bundler --user-install --no-document
+
+          BUNDLE_CMD="$HOME/.gem/bin/bundle"
+          if ! command -v "$BUNDLE_CMD" &>/dev/null; then
+            BUNDLE_CMD="$(find "$HOME/.gem" -name bundle -type f 2>/dev/null | head -1 || true)"
+            [[ -z "$BUNDLE_CMD" ]] && BUNDLE_CMD="bundle"
+          fi
+          echo "Using bundle command: $BUNDLE_CMD"
+          "$BUNDLE_CMD" --version
+          echo "BUNDLE_CMD=$BUNDLE_CMD" >> $GITEA_ENV
+
+          cd "$PROJECT_DIR"
+          "$BUNDLE_CMD" config set --local path 'vendor/bundle'
+          "$BUNDLE_CMD" install
+          "$BUNDLE_CMD" exec fastlane --version
+          echo "Fastlane is ready!"
+
+      # ---------------------------------------------------------------------
+      # 5. pnpm / Node / Rust / Python —— 注意 Rust 要装两个 target。
+      # ---------------------------------------------------------------------
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: ${{ env.PROJECT_DIR }}/divine-app/pnpm-lock.yaml
+
+      - name: Setup Rust (arm64 + x86_64)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.PROJECT_DIR }}/divine-app/src-tauri
+          shared-key: ${{ runner.os }}-tauri-universal
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ${{ env.PROJECT_DIR }}/divine-server/requirements.txt
+
+      - name: Install Python dependencies
+        working-directory: ${{ env.PROJECT_DIR }}/divine-server
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      # ---------------------------------------------------------------------
+      # 6. Fastlane mac dmg：双架构 tauri build + lipo + codesign + notarize。
+      #    通过 SSH localhost 登录会话绕开 keychain 弹窗（与参考项目一致）。
+      # ---------------------------------------------------------------------
+      - name: Build signed & notarized macOS Universal DMG (Fastlane)
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          RUNNER_PASSWORD: ${{ secrets.RUNNER_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          BUILD_VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ steps.version.outputs.build-number }}
+          CI: "true"
+        run: |
+          set -euo pipefail
+          REAL_HOME="$(eval echo ~"$(whoami)")"
+          echo "HOME=$HOME REAL_HOME=$REAL_HOME"
+          SSH_KEY="$REAL_HOME/.ssh/ci_build_key"
+          mkdir -p "$REAL_HOME/.ssh"
+          chmod 700 "$REAL_HOME/.ssh"
+          rm -f "$SSH_KEY" "${SSH_KEY}.pub"
+          ssh-keygen -t ed25519 -f "$SSH_KEY" -N "" -q
+          cat "${SSH_KEY}.pub" >> "$REAL_HOME/.ssh/authorized_keys"
+          chmod 600 "$REAL_HOME/.ssh/authorized_keys"
+
+          ENV_FILE="/tmp/ci_env_universal_$$"
+          cat > "$ENV_FILE" <<'ENVEOF'
+          export CI=true
+          export FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT=120
+          export FASTLANE_XCODEBUILD_SETTINGS_RETRIES=10
+          ENVEOF
+
+          for s in MATCH_PASSWORD MATCH_GIT_URL MATCH_GIT_BASIC_AUTHORIZATION \
+                   RUNNER_PASSWORD APP_STORE_CONNECT_API_KEY_ID \
+                   APP_STORE_CONNECT_API_KEY_ISSUER_ID APP_STORE_CONNECT_API_KEY_CONTENT \
+                   TEAM_ID BUILD_VERSION BUILD_NUMBER; do
+            v="${!s:-}"
+            printf 'export %s=%q\n' "$s" "$v" >> "$ENV_FILE"
+          done
+          HOMEBREW_PREFIX="$(brew --prefix)"
+          RUBY_PREFIX="$(brew --prefix ruby@3.3)"
+          {
+            echo "export PATH=\"${HOMEBREW_PREFIX}/bin:${RUBY_PREFIX}/bin:\$HOME/.gem/bin:\$PATH\""
+            echo "export GEM_HOME=\"$HOME/.gem\""
+            echo "export PROJECT_DIR=\"$PROJECT_DIR\""
+          } >> "$ENV_FILE"
+
+          echo "Testing SSH localhost..."
+          if ssh -o StrictHostKeyChecking=no -o BatchMode=yes -i "$SSH_KEY" localhost "echo SSH_OK" 2>&1 | grep -q SSH_OK; then
+            echo "SSH localhost works - running fastlane mac dmg in login session"
+            ssh -o StrictHostKeyChecking=no -o BatchMode=yes -i "$SSH_KEY" localhost \
+              "source '$ENV_FILE' && cd '$PROJECT_DIR' && bundle exec fastlane mac dmg"
+            BUILD_EXIT=$?
+            rm -f "$SSH_KEY" "${SSH_KEY}.pub" "$ENV_FILE"
+            sed -i '' '/ci_build_key/d' "$REAL_HOME/.ssh/authorized_keys" 2>/dev/null || true
+            exit $BUILD_EXIT
+          else
+            echo "SSH localhost failed - falling back to direct execution"
+            rm -f "$SSH_KEY" "${SSH_KEY}.pub" "$ENV_FILE"
+            sed -i '' '/ci_build_key/d' "$REAL_HOME/.ssh/authorized_keys" 2>/dev/null || true
+            bundle exec fastlane mac dmg
+          fi
+
+      # ---------------------------------------------------------------------
+      # 7. 定位 notarized DMG 路径。
+      # ---------------------------------------------------------------------
+      - name: Resolve notarized DMG path
+        id: dmg
+        run: |
+          set -euo pipefail
+          DMG="$(ls -1 "$PROJECT_DIR/build/"*.dmg 2>/dev/null | head -1 || true)"
+          if [[ -z "$DMG" || ! -f "$DMG" ]]; then
+            echo "::error::Notarized DMG not found under $PROJECT_DIR/build/"
+            ls -la "$PROJECT_DIR/build" 2>/dev/null || true
+            exit 1
+          fi
+          echo "path=$DMG" >> $GITEA_OUTPUT
+          echo "Resolved notarized DMG: $DMG"
+          ls -la "$DMG"
+
+      # ---------------------------------------------------------------------
+      # 8. 上传为 Gitea Release asset（仅 tag 触发）。
+      # ---------------------------------------------------------------------
+      - name: Publish DMG to Gitea Release
+        if: startsWith(gitea.ref, 'refs/tags/')
+        env:
+          DMG_PATH: ${{ steps.dmg.outputs.path }}
+          ASSET_NAME: Divine-macos-universal-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build-number }}.dmg
+          TAG_NAME: ${{ gitea.ref_name }}
+          GITEA_TOKEN: ${{ secrets.RELEASE_UPLOAD_TOKEN }}
+          GITEA_API: ${{ gitea.server_url }}/api/v1/repos/${{ gitea.repository }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GITEA_TOKEN:-}" ]]; then
+            echo "::error::secrets.RELEASE_UPLOAD_TOKEN is not set"
+            exit 1
+          fi
+
+          AUTH="token ${GITEA_TOKEN}"
+          API="${GITEA_API%/}"
+
+          echo "Resolving release for tag ${TAG_NAME}..."
+          HTTP_CODE="$(curl -sS -o /tmp/release.json -w '%{http_code}' \
+            -H "$AUTH" "$API/releases/tags/${TAG_NAME}")"
+
+          if [[ "$HTTP_CODE" == "200" ]]; then
+            RELEASE_ID="$(ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/release.json").force_encoding("UTF-8"))["id"]')"
+            echo "Found existing release id=${RELEASE_ID}"
+          elif [[ "$HTTP_CODE" == "404" ]]; then
+            echo "No release for tag yet, creating..."
+            HTTP_CODE="$(curl -sS -o /tmp/release.json -w '%{http_code}' \
+              -H "$AUTH" -H 'Content-Type: application/json' \
+              -X POST "$API/releases" \
+              --data "$(ruby -rjson -e 'puts({tag_name: ARGV[0], name: ARGV[0], body: "Automated macOS universal release", draft: false, prerelease: false}.to_json)' "$TAG_NAME")")"
+            if [[ "$HTTP_CODE" != "201" && "$HTTP_CODE" != "200" ]]; then
+              echo "::error::Failed to create release (HTTP $HTTP_CODE):"
+              cat /tmp/release.json || true
+              exit 1
+            fi
+            RELEASE_ID="$(ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/release.json").force_encoding("UTF-8"))["id"]')"
+            echo "Created release id=${RELEASE_ID}"
+          else
+            echo "::error::Unexpected HTTP $HTTP_CODE when looking up release:"
+            cat /tmp/release.json || true
+            exit 1
+          fi
+
+          echo "Removing same-named asset (if any) so the upload is idempotent..."
+          curl -sS -H "$AUTH" "$API/releases/${RELEASE_ID}/assets" -o /tmp/assets.json
+          ruby -rjson -e 'JSON.parse(File.binread("/tmp/assets.json").force_encoding("UTF-8")).each { |a| puts a["id"] if a["name"] == ARGV[0] }' "$ASSET_NAME" \
+            | while read -r ASSET_ID; do
+                [[ -z "$ASSET_ID" ]] && continue
+                echo "  Deleting old asset id=${ASSET_ID}"
+                curl -sS -H "$AUTH" -X DELETE \
+                  "$API/releases/${RELEASE_ID}/assets/${ASSET_ID}" -o /dev/null
+              done
+
+          echo "Uploading ${ASSET_NAME}..."
+          HTTP_CODE="$(curl -sS -o /tmp/asset.json -w '%{http_code}' \
+            -H "$AUTH" \
+            -X POST "$API/releases/${RELEASE_ID}/assets?name=${ASSET_NAME}" \
+            -F "attachment=@${DMG_PATH};type=application/octet-stream")"
+          if [[ "$HTTP_CODE" != "201" && "$HTTP_CODE" != "200" ]]; then
+            echo "::error::Asset upload failed (HTTP $HTTP_CODE):"
+            cat /tmp/asset.json || true
+            exit 1
+          fi
+
+          ASSET_URL="$(ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/asset.json").force_encoding("UTF-8"))["browser_download_url"]')"
+          echo "Uploaded: $ASSET_URL"
+
+      - name: Show build log on failure
+        if: failure()
+        run: |
+          if [ -d "$PROJECT_DIR/build" ]; then
+            find "$PROJECT_DIR/build" -type f -name '*.log' -print -exec tail -200 {} \;
+          fi
