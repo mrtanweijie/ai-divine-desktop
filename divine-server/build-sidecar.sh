@@ -64,12 +64,13 @@ else
 fi
 rm -rf "dist/divine-server" "dist/divine-server.exe"
 if [[ "$TARGET" == darwin-* ]]; then
-  # 显式指定目标切片。若宿主 Python 的架构与 TARGET_ARCH 不符，PyInstaller 会
-  # 直接报错（不会静默产出错误的切片）——这正是上一轮 lipo 踩的坑。
-  "$PYTHON_BIN" -m PyInstaller --clean --noconfirm --target-arch "$TARGET_ARCH" divine-server.spec
-else
-  "$PYTHON_BIN" -m PyInstaller --clean --noconfirm divine-server.spec
+  # 目标切片经环境变量传给 divine-server.spec（EXE 的 target_arch）。不能走 CLI
+  # --target-arch：给 .spec 文件时 PyInstaller 会拒绝 makespec 选项。若宿主 Python
+  # 架构与目标不符（arm64 宿主编 x86_64），PyInstaller 会直接报错，不会静默产出
+  # 错误的切片——这正是上一轮 lipo 踩的坑。
+  export SIDECAR_TARGET_ARCH="$TARGET_ARCH"
 fi
+"$PYTHON_BIN" -m PyInstaller --clean --noconfirm divine-server.spec
 
 BIN_DIR="bin/$TARGET"
 TAURI_BIN_DIR="$ROOT/../divine-app/src-tauri/binaries"

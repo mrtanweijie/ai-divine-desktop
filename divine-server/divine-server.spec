@@ -1,6 +1,12 @@
+import os
 from pathlib import Path
 
 project_root = Path(SPECPATH)
+
+# 目标 Mach-O 切片：darwin-arm64 / darwin-x64 时由 build-sidecar.sh 设置。
+# 必须写在 spec 里（EXE 的 target_arch），不能走 CLI --target-arch —— 指定了
+# .spec 文件后 makespec 选项会被 PyInstaller 拒绝。
+target_arch = os.environ.get("SIDECAR_TARGET_ARCH") or None
 
 a = Analysis(
     ["entry.py"],
@@ -86,4 +92,5 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
+    target_arch=target_arch,
 )
