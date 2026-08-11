@@ -107,11 +107,10 @@ jobs:
           echo "${HOMEBREW_PREFIX}/bin" >> $GITEA_PATH
           export PATH="${HOMEBREW_PREFIX}/bin:$PATH"
 
-          if ! command -v pnpm >/dev/null 2>&1; then
-            echo "Installing pnpm via Homebrew..."
-            brew install pnpm
-          fi
-          echo "pnpm: $(pnpm --version)"
+          # 这里不装 pnpm：brew 的 pnpm 11 需要 Node 22+（node:sqlite），而 runner
+          # 是 Node 20.19.4。等第 5 步 Setup Node 之后，在 Build 步骤里用
+          # "npm install -g pnpm@9" 装到 NODE_BIN，SSH session PATH 中 NODE_BIN 排
+          # 在最前，pnpm 会解析到 Node-20 兼容的 v9。
 
           RUBY_PREFIX="$(brew --prefix ruby@3.3 2>/dev/null || true)"
           if [[ -z "$RUBY_PREFIX" || ! -x "$RUBY_PREFIX/bin/ruby" ]]; then
@@ -243,6 +242,14 @@ jobs:
           export FASTLANE_XCODEBUILD_SETTINGS_RETRIES=10
           ENVEOF
 
+          # pnpm 版本钉到 9：brew 的 pnpm 11 需要 Node 22+（node:sqlite builtin），
+          # runner 是 Node 20.19.4。用 npm 装到 NODE_BIN，SSH PATH 里 NODE_BIN 在
+          # /opt/homebrew/bin 之前，pnpm 必然解析到 v9。
+          NODE_BIN="$(dirname "$(command -v node)")"
+          echo "node: $("$NODE_BIN/node" --version) at $NODE_BIN"
+          "$NODE_BIN/npm" install -g pnpm@9 --no-audit --no-fund
+          echo "pnpm: $("$NODE_BIN/pnpm" --version)"
+
           for s in MATCH_PASSWORD MATCH_GIT_URL MATCH_GIT_BASIC_AUTHORIZATION \
                    RUNNER_PASSWORD APP_STORE_CONNECT_API_KEY_ID \
                    APP_STORE_CONNECT_API_KEY_ISSUER_ID APP_STORE_CONNECT_API_KEY_CONTENT \
@@ -253,9 +260,9 @@ jobs:
           HOMEBREW_PREFIX="$(brew --prefix)"
           RUBY_PREFIX="$(brew --prefix ruby@3.3)"
           PY311_PREFIX="$(brew --prefix python@3.11)"
-          # actions/setup-node 把 node 装到 runner 的 act tool_cache；SSH 子 shell 不会
-          # 继承 actions 设的 PATH，所以这里把 node + pnpm + python@3.11 显式 prepend。
-          NODE_BIN="/Users/duguying/.cache/act/tool_cache/node/20.19.4/arm64/bin"
+          # NODE_BIN 上面已通过 command -v node 解析；SSH 子 shell 不会继承 actions 设
+          # 的 PATH，所以这里把 node + pnpm + python@3.11 显式 prepend（NODE_BIN 在最前，
+          # 确保解析到 npm 装的 pnpm@9 而不是 brew 的 pnpm 11）。
           {
             echo "export PATH=\"${NODE_BIN}:${HOMEBREW_PREFIX}/bin:${RUBY_PREFIX}/bin:${PY311_PREFIX}/bin:\$HOME/.gem/bin:\$PATH\""
             echo "export GEM_HOME=\"$HOME/.gem\""
