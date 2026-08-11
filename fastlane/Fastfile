@@ -303,10 +303,22 @@ platform :mac do
     File.write(p8_path, key_content)
 
     UI.message "Submitting DMG to Apple notary service (--wait, 可能需要几分钟)..."
-    sh(
-      "xcrun notarytool submit '#{staged_dmg}' --key '#{p8_path}' --key-id '#{key_id}' " \
-      "--issuer '#{issuer_id}' --wait"
-    )
+    notary_output = `xcrun notarytool submit '#{staged_dmg}' --key '#{p8_path}' --key-id '#{key_id}' --issuer '#{issuer_id}' --wait 2>&1`
+    UI.message(notary_output)
+
+    submission_id = notary_output.match(/id:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/m)&.captures&.first
+    status = notary_output[/status:\s*([A-Za-z]+)/, 1]
+
+    unless status == "Accepted"
+      if submission_id
+        UI.error "Notarization status=#{status || 'unknown'} - fetching detailed log for #{submission_id}..."
+        log_path = File.join(notary_dir, "notary_#{submission_id}.json")
+        `xcrun notarytool log '#{submission_id}' --key '#{p8_path}' --key-id '#{key_id}' --issuer '#{issuer_id}' --output-format json '#{log_path}' 2>&1`
+        UI.message(File.exist?(log_path) ? File.read(log_path) : "(notarytool log produced no output)")
+      end
+      FileUtils.rm_rf(notary_dir)
+      UI.user_error!("Notarization failed: status=#{status || 'unknown'}")
+    end
 
     UI.message "Stapling notarization ticket..."
     sh("xcrun stapler staple '#{staged_dmg}'")
