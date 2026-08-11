@@ -228,7 +228,9 @@ jobs:
 
           # 2) 下载 / 缓存 x86_64 Python（python-build-standalone install_only）
           X64_PY_DIR="$HOME/.py-build/x86_64"
-          X64_PY_BIN="$X64_PY_DIR/python/bin/python3.11"
+          # install_only 包顶层是 python/；--strip-components=1 之后 bin 直接在
+          # X64_PY_DIR 下（第一次写成了 .../python/bin/python3.11，漏了 strip 一层）。
+          X64_PY_BIN="$X64_PY_DIR/bin/python3.11"
           if [[ ! -x "$X64_PY_BIN" ]]; then
             mkdir -p "$HOME/.py-build"
             TARBALL="/tmp/cpython-3.11.15-x86_64.tar.gz"
