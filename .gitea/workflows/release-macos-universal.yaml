@@ -15,7 +15,11 @@ jobs:
     # 跑在任意 macOS self-hosted runner 上（Apple Silicon 或 Intel 都可）。
     # 双 rust target 都在同一台机器上交叉编译：Apple Silicon 上编 x86_64
     # 会自动用 Rosetta 2；Intel 上编 arm64 用 lipo 等价处理。
-    runs-on: [self-hosted, macos]
+    # 注意: 这里的 label 列表必须与已注册 runner 的 labels 完全匹配。
+    # 当前 ai-divine 仓库注册的 macOS runner 是 "李俊的Mac mini" (label=[macos])，
+    # 因此这里只写 macos，不要加 self-hosted（参考项目 gitea-runner-manager
+    # 的工作流也是这么写的）。
+    runs-on: macos
 
     steps:
       # ---------------------------------------------------------------------
