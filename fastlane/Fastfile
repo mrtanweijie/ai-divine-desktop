@@ -205,10 +205,13 @@ platform :mac do
     UI.user_error!("arm64 main binary not found") unless File.file?(arm64_main)
     UI.user_error!("x64   main binary not found") unless File.file?(x64_main)
 
-    # sidecar 在 Tauri 的 .app/Contents/MacOS/_internal/ 下有副本；同时
-    # src-tauri/binaries/ 下也有"原始"位置（externalBin 引用源）。
-    arm64_sidecar_app = File.join(arm64_app, "Contents", "MacOS", "_internal", "divine-server")
-    x64_sidecar_app   = File.join(x64_app,   "Contents", "MacOS", "_internal", "divine-server")
+    # Tauri 把 externalBin 拷进 .app/Contents/MacOS/divine-server（与主二进制同级，
+    # 真实文件拷贝），而不是 _internal/。上一轮就是在 _internal/ 下探测不到导致
+    # sidecar 没被 lipo，最终 DMG 里的 divine-server 是 arm64-only（Apple 公证日志
+    # 里只有 arm64 一个 slice）——Intel Mac 上会直接起不来。src-tauri/binaries/ 下
+    # 的带 triple 后缀文件才是 externalBin 的源。
+    arm64_sidecar_app = File.join(arm64_app, "Contents", "MacOS", "divine-server")
+    x64_sidecar_app   = File.join(x64_app,   "Contents", "MacOS", "divine-server")
 
     # ---- 4. lipo 合并主二进制 + sidecar ----
     # 4a) 主二进制 Divine
@@ -219,7 +222,8 @@ platform :mac do
     FileUtils.rm_f(["#{arm64_main}.arm64", "#{arm64_main}.x64"])
     sh("/usr/bin/lipo -info '#{arm64_main}'")
 
-    # 4b) sidecar（如果 .app 里嵌入了 sidecar）
+    # 4b) sidecar 同样 lipo 成 universal（在 codesign 之前，保证打进 DMG 的是
+    #     双架构版本）。若某个 target 没产出 sidecar（如外部依赖缺失），跳过。
     if File.file?(arm64_sidecar_app) && File.file?(x64_sidecar_app)
       UI.message "lipo: combining in-app sidecar..."
       FileUtils.mv(arm64_sidecar_app, "#{arm64_sidecar_app}.arm64")
@@ -228,11 +232,6 @@ platform :mac do
       FileUtils.rm_f(["#{arm64_sidecar_app}.arm64", "#{arm64_sidecar_app}.x64"])
       sh("/usr/bin/lipo -info '#{arm64_sidecar_app}'")
     end
-
-    # 4c) Tauri 打 DMG 时打包的 sidecar 副本（位于 .app/Contents/Resources/_up_/...），
-    #     走 entitlements 与 .app 一致，不需要单独 lipo 合并 —— 但 Tauri 2 实际
-    #     把 externalBin 软链到 .app/Contents/MacOS/_internal/ 即可。Tauri docs:
-    #     https://tauri.app/distribute/macos-application-bundle/
 
     # ---- 5. 完整 codesign 链路（顺序：sidecar → 内部 dylib → .app） ----
     # 必须在打 DMG 之前完成：DMG 里的 .app 是 staging 的 cp_r 副本，只有先把
@@ -294,6 +293,9 @@ platform :mac do
     sh("/usr/bin/codesign --verify --deep --strict --verbose=2 '#{arm64_app}'")
     sh("hdiutil verify '#{staged_dmg}'")
     sh("/usr/bin/lipo -info '#{arm64_main}'")  # 再次确认 universal
+    # sidecar 必须也是 universal；4b 若因路径问题被跳过，这里直接报错而不是
+    # 默默发一个 Intel 上跑不起来的"universal"包。
+    sh("/usr/bin/lipo -info '#{arm64_sidecar_app}'")
 
     # ---- 9. 公证：App Store Connect API Key ----
     key_id      = ENV["APP_STORE_CONNECT_API_KEY_ID"]
@@ -312,7 +314,11 @@ platform :mac do
     UI.message(notary_output)
 
     submission_id = notary_output.match(/id:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/m)&.captures&.first
-    status = notary_output[/status:\s*([A-Za-z]+)/, 1]
+    # notarytool --wait 的轮询输出里 "Current status: In Progress..." 会重复多行，
+    # 最后一行才是终态（Accepted / Invalid / Rejected）。必须取最后一个 status
+    # 标记；取第一个会被 "In Progress" 的 "In" 骗到（上一轮就是：明明 Accepted，
+    # 却误判为 status=In 而失败）。
+    status = notary_output.scan(/status:\s*([A-Za-z]+)/).flatten.last
 
     unless status == "Accepted"
       if submission_id
