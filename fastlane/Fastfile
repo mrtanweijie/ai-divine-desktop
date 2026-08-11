@@ -32,7 +32,10 @@ default_platform(:mac)
 APP_NAME         = "Divine"
 APP_DISPLAY_NAME = "Divine"
 APP_BUNDLE_ID    = "com.ai-divine.desktop"
-TEAM_ID          = ENV["TEAM_ID"] || "2PM7DZ4Q38"
+# TEAM_ID 不需要：
+#   - Developer ID 直装分发不走 App Store，codesign + notarytool 都不强校 team id
+#   - 我们也未用 xcodebuild / gym / exportArchive，无需 team 给 export method
+#   - 强行加只会因为缺 secret 而失败。
 
 PROJECT_ROOT = File.expand_path("..", __dir__)
 TAURI_DIR    = File.join(PROJECT_ROOT, "divine-app")

@@ -211,7 +211,8 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
-          TEAM_ID: ${{ secrets.TEAM_ID }}
+          # TEAM_ID 不传：Developer ID 直装分发不需要 Apple Team ID（codesign/notarytool
+          # 都不校，Fastfile 也不调 xcodebuild / gym / exportArchive）。
           BUILD_VERSION: ${{ steps.version.outputs.version }}
           BUILD_NUMBER: ${{ steps.version.outputs.build-number }}
           CI: "true"
@@ -237,7 +238,7 @@ jobs:
           for s in MATCH_PASSWORD MATCH_GIT_URL MATCH_GIT_BASIC_AUTHORIZATION \
                    RUNNER_PASSWORD APP_STORE_CONNECT_API_KEY_ID \
                    APP_STORE_CONNECT_API_KEY_ISSUER_ID APP_STORE_CONNECT_API_KEY_CONTENT \
-                   TEAM_ID BUILD_VERSION BUILD_NUMBER; do
+                   BUILD_VERSION BUILD_NUMBER; do
             v="${!s:-}"
             printf 'export %s=%q\n' "$s" "$v" >> "$ENV_FILE"
           done
@@ -291,14 +292,26 @@ jobs:
           DMG_PATH: ${{ steps.dmg.outputs.path }}
           ASSET_NAME: Divine-macos-universal-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build-number }}.dmg
           TAG_NAME: ${{ github.ref_name }}
-          GITEA_TOKEN: ${{ secrets.RELEASE_UPLOAD_TOKEN }}
+          # 复用 MATCH_GIT_BASIC_AUTHORIZATION（base64 of user:token），Gitea Release
+          # API 也吃 PAT token。这里解 base64 取出纯 token 走 "Authorization: token <PAT>"。
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
           GITEA_API: ${{ github.server_url }}/api/v1/repos/${{ github.repository }}
         run: |
           set -euo pipefail
-          if [[ -z "${GITEA_TOKEN:-}" ]]; then
-            echo "::error::secrets.RELEASE_UPLOAD_TOKEN is not set"
+          if [[ -z "${MATCH_GIT_BASIC_AUTHORIZATION:-}" ]]; then
+            echo "::error::secrets.MATCH_GIT_BASIC_AUTHORIZATION is not set"
             exit 1
           fi
+
+          # base64 解码: "dXNlcjp0b2tlbg==" -> "user:token"
+          DECODED="$(printf '%s' "$MATCH_GIT_BASIC_AUTHORIZATION" | openssl base64 -d -A)"
+          GITEA_USER="${DECODED%%:*}"
+          GITEA_TOKEN="${DECODED#*:}"
+          if [[ -z "${GITEA_TOKEN}" || "${GITEA_TOKEN}" == "${DECODED}" ]]; then
+            echo "::error::Failed to extract user:token from MATCH_GIT_BASIC_AUTHORIZATION"
+            exit 1
+          fi
+          echo "Decoded Gitea user: ${GITEA_USER}"
 
           AUTH="token ${GITEA_TOKEN}"
           API="${GITEA_API%/}"
