@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { MessageItem } from "@/pages/chat/components/MessageItem";
-import type { ChatMessage } from "@/types";
+import type { ChatMessage, PreviewFile } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 interface MessageTimelineProps {
@@ -9,6 +9,8 @@ interface MessageTimelineProps {
   streaming: boolean;
   sessionId?: string | null;
   username: string;
+  workspacePath?: string | null;
+  onPreviewFile?: (file: PreviewFile) => void;
 }
 
 export function MessageList({
@@ -16,6 +18,8 @@ export function MessageList({
   streaming,
   sessionId,
   username,
+  workspacePath,
+  onPreviewFile,
 }: MessageTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const previousSessionId = useRef<string | null | undefined>(undefined);
@@ -93,6 +97,8 @@ export function MessageList({
                 <MessageItem
                   message={message}
                   username={username}
+                  workspacePath={workspacePath}
+                  onPreviewFile={onPreviewFile}
                   streaming={
                     streaming && virtualRow.index === messages.length - 1
                   }

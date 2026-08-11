@@ -1,5 +1,7 @@
 import {
   AlertCircle,
+  BookMarked,
+  BookSearch,
   Calculator,
   CalendarClock,
   CalendarDays,
@@ -7,9 +9,11 @@ import {
   ChevronDown,
   Copy,
   Database,
+  Eye,
   FileStack,
   FileSpreadsheet,
   FileText,
+  FolderSearch2,
   FolderOpen,
   FolderTree,
   Globe,
@@ -17,16 +21,17 @@ import {
   LibraryBig,
   ListChecks,
   Presentation,
-  Search,
+  SquareKanban,
   StickyNote,
   TerminalSquare,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { downloadUrl } from "@/services/api";
 import { isTauri, openFileLocation } from "@/services/tauri";
 import { request } from "@/services/request";
-import type { ChatMessage, TodoItem, ToolEvent } from "@/types";
+import type { ChatMessage, PreviewFile, TodoItem, ToolEvent } from "@/types";
 import { formatSize, formatTime } from "@/utils";
+import { toWorkspaceRelative } from "@/services/workspace";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
 import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
@@ -37,12 +42,16 @@ interface MessageItemProps {
   message: ChatMessage;
   streaming: boolean;
   username: string;
+  workspacePath?: string | null;
+  onPreviewFile?: (file: PreviewFile) => void;
 }
 
 export function MessageItem({
   message,
   streaming,
   username,
+  workspacePath,
+  onPreviewFile,
 }: MessageItemProps) {
   const isUser = message.role === "user";
   return (
@@ -87,7 +96,12 @@ export function MessageItem({
             <PlanCard todos={message.todos} />
           )}
           {message.tools.map((tool, index) => (
-            <ToolStatusCard key={`${tool.tool}-${index}`} tool={tool} />
+            <ToolStatusCard
+              key={`${tool.tool}-${index}`}
+              tool={tool}
+              workspacePath={workspacePath}
+              onPreviewFile={onPreviewFile}
+            />
           ))}
           {message.content ? (
             <MarkdownView content={message.content} streaming={streaming} />
@@ -175,20 +189,26 @@ function PlanCard({ todos }: { todos: TodoItem[] }) {
   );
 }
 
-function ToolStatusCard({ tool }: { tool: ToolEvent }) {
+function ToolStatusCard({
+  tool,
+  workspacePath,
+  onPreviewFile,
+}: {
+  tool: ToolEvent;
+  workspacePath?: string | null;
+  onPreviewFile?: (file: PreviewFile) => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [deciding, setDeciding] = useState(false);
-  const readOnlyTools = new Set([
-    "read_file",
-    "read_image",
-    "sqlite_query",
-    "rag_search",
-    "rag_index",
-    "directory_tree",
-    "search_files",
-  ]);
   const running = tool.status === "running" || tool.status === "preparing";
   const statusMessage = tool.status === "done" ? "执行完成" : tool.message;
+  const workspaceRel = useMemo(
+    () =>
+      workspacePath && tool.result?.filepath
+        ? toWorkspaceRelative(workspacePath, tool.result.filepath)
+        : null,
+    [tool.result?.filepath, workspacePath]
+  );
   const icon =
     tool.tool === "schedule_task" ? (
       <CalendarClock size={16} />
@@ -198,6 +218,8 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
       <FileSpreadsheet size={16} />
     ) : tool.tool.includes("notes") ? (
       <StickyNote size={16} />
+    ) : tool.tool === "read_file" ? (
+      <BookMarked size={16} />
     ) : tool.tool.includes("read_image") || tool.tool.includes("image") ? (
       <Image size={16} />
     ) : tool.tool.includes("calculator") ? (
@@ -208,12 +230,13 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
       <Database size={16} />
     ) : tool.tool.includes("rag_index") ? (
       <LibraryBig size={16} />
-    ) : tool.tool.includes("rag_search") ||
-      tool.tool.includes("search_files") ||
+    ) : tool.tool.includes("rag_search") ? (
+      <BookSearch size={16} />
+    ) : tool.tool.includes("search_files") ||
       tool.tool.includes("search") ? (
-      <Search size={16} />
+      <FolderSearch2 size={16} />
     ) : tool.tool === "create_plan" ? (
-      <ListChecks size={16} />
+      <SquareKanban size={16} />
     ) : tool.tool.includes("pdf") ? (
       <FileStack size={16} />
     ) : tool.tool.includes("directory") || tool.tool.includes("tree") ? (
@@ -269,30 +292,48 @@ function ToolStatusCard({ tool }: { tool: ToolEvent }) {
           <span className="tool-message">{statusMessage}</span>
         </div>
       </Flex>
-      {tool.status === "done" &&
-        tool.result?.filepath &&
-        !readOnlyTools.has(tool.tool) && (
-        <a
-          className="file-download"
-          href={
-            tool.result.download_url
-              ? downloadUrl(tool.result.download_url)
-              : "#"
-          }
-          target="_blank"
-          rel="noreferrer"
-          title="打开所在目录"
-          onClick={(event) => {
-            if (tool.result?.filepath && isTauri()) {
-              event.preventDefault();
-              void openFileLocation(tool.result.filepath);
+      {tool.status === "done" && tool.result?.filepath && (
+        <div className="file-actions">
+          <a
+            className="file-download"
+            href={
+              tool.result.download_url
+                ? downloadUrl(tool.result.download_url)
+                : "#"
             }
-          }}
-        >
-          <FolderOpen size={14} />
-          <span>{tool.result.file_name}</span>
-          <span className="file-size">{formatSize(tool.result.file_size)}</span>
-        </a>
+            target="_blank"
+            rel="noreferrer"
+            title="打开所在目录"
+            onClick={(event) => {
+              if (tool.result?.filepath && isTauri()) {
+                event.preventDefault();
+                void openFileLocation(tool.result.filepath);
+              }
+            }}
+          >
+            <FolderOpen size={14} />
+            <span>{tool.result.file_name}</span>
+            <span className="file-size">{formatSize(tool.result.file_size)}</span>
+          </a>
+          {workspaceRel && isTauri() && (
+            <Button
+              variant="ghost"
+              size="small"
+              className="file-preview-button"
+              onClick={() =>
+                onPreviewFile?.({
+                  repoPath: workspacePath ?? "",
+                  relPath: workspaceRel,
+                  fileName: tool.result?.file_name,
+                })
+              }
+              title="查看改动"
+            >
+              <Eye size={13} />
+              查看改动
+            </Button>
+          )}
+        </div>
       )}
       {tool.command && tool.status !== "confirm" && (
         <div className="terminal-command">

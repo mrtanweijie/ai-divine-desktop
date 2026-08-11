@@ -5,6 +5,7 @@ import {
   File,
   FileText,
   FileType,
+  PanelRightOpen,
   Pencil,
   PanelLeftOpen,
 } from "lucide-react";
@@ -15,25 +16,24 @@ import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
-import { Switch } from "@/components/ui/Switch";
 import { isTauri } from "@/services/tauri";
 
 interface ChatHeaderProps {
   session: Session | null;
   project: Project | null;
-  think: boolean;
-  onThinkChange: (value: boolean) => void;
   onOpenSidebar: () => void;
   onRename: (id: string, title: string) => void;
+  workspaceOpen: boolean;
+  onToggleWorkspace: () => void;
 }
 
 export function ChatHeader({
   session,
   project,
-  think,
-  onThinkChange,
   onOpenSidebar,
   onRename,
+  workspaceOpen,
+  onToggleWorkspace,
 }: ChatHeaderProps) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(session?.title ?? "新对话");
@@ -142,11 +142,17 @@ export function ChatHeader({
             <span className="project-badge-name">{project.name}</span>
           </span>
         )}
-        <Switch
-          label="深度思考"
-          checked={think}
-          onChange={onThinkChange}
-        />
+        {!workspaceOpen && (
+          <Button
+            variant="icon"
+            className="workspace-toggle"
+            onClick={onToggleWorkspace}
+            title="打开文件面板"
+            aria-label="打开文件面板"
+          >
+            <PanelRightOpen size={15} />
+          </Button>
+        )}
       </Flex>
     </header>
   );

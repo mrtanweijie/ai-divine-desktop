@@ -1,6 +1,7 @@
 mod commands;
 mod services;
 
+use commands::workspace::WorkspaceWatchState;
 use services::sidecar::SidecarState;
 use std::thread;
 use tauri::{Manager, RunEvent, WindowEvent};
@@ -76,6 +77,7 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 pub fn run() {
     let app = tauri::Builder::default()
         .manage(SidecarState::default())
+        .manage(WorkspaceWatchState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .on_window_event(|_window, _event| {
@@ -118,6 +120,11 @@ pub fn run() {
             commands::system::open_url,
             commands::system::add_calendar_event,
             commands::system::remove_calendar_event,
+            commands::workspace::get_file_tree,
+            commands::workspace::get_dir_children,
+            commands::workspace::get_file_diff,
+            commands::workspace::watch_workspace,
+            commands::workspace::unwatch_workspace,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

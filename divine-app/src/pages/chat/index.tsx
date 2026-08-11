@@ -27,12 +27,21 @@ import { ChatInput } from "@/pages/chat/components/ChatInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MessageList } from "@/pages/chat/components/MessageList";
 import { NewChatGuide } from "@/pages/chat/components/NewChatGuide";
+import { FilePreviewPanel } from "@/pages/chat/components/FilePreviewPanel";
 import { SessionList } from "@/pages/chat/components/SessionList";
 import { SettingsModal } from "@/components/SettingsModal";
+import {
+  isMacosDesktop,
+  isTauri,
+  unwatchWorkspace,
+  watchWorkspace,
+} from "@/services/tauri";
+import { toWorkspaceRelative } from "@/services/workspace";
 import type {
   ApprovalMode,
   ChatFile,
   ChatMessage,
+  PreviewFile,
   Project,
   Settings,
   TodoItem,
@@ -48,6 +57,14 @@ import { TitleBar } from "@/components/TitleBar";
 import { SessionSearchModal } from "@/pages/chat/components/SessionList/SessionSearchModal";
 import { ProjectModal } from "@/pages/chat/components/ProjectModal";
 import { ProjectPicker } from "@/pages/chat/components/ProjectPicker";
+
+function acceptedFilesKey(path: string): string {
+  return `divine:accepted-files:${path}`;
+}
+
+function expandedWorkspaceWidth(leftWidth: number): number {
+  return Math.max(480, window.innerWidth - leftWidth);
+}
 
 export default function ChatPage() {
   const {
@@ -83,7 +100,32 @@ export default function ChatPage() {
     text: string;
     nonce: number;
   } | null>(null);
+  const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
+  const [agentChangedFiles, setAgentChangedFiles] = useState<Set<string>>(
+    new Set()
+  );
+  const [acceptedFiles, setAcceptedFiles] = useState<Set<string>>(new Set());
+  const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true);
+  const [workspacePanelWidth, setWorkspacePanelWidth] = useState(420);
+  const [normalWorkspacePanelWidth, setNormalWorkspacePanelWidth] =
+    useState(420);
+  const [workspaceExpanded, setWorkspaceExpanded] = useState(false);
+  const [workspaceExpandTransitioning, setWorkspaceExpandTransitioning] =
+    useState(false);
+  const [workspaceTreeWidth, setWorkspaceTreeWidth] = useState(172);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const projectPathsRef = useRef<Record<string, string>>({});
+  const workspacePanelOpenRef = useRef(workspacePanelOpen);
+
+  useEffect(() => {
+    projectPathsRef.current = Object.fromEntries(
+      projects.map((project) => [project.id, project.path])
+    );
+  }, [projects]);
+
+  useEffect(() => {
+    workspacePanelOpenRef.current = workspacePanelOpen;
+  }, [workspacePanelOpen]);
 
   const refreshProjects = useCallback(async () => {
     const data = await listProjects();
@@ -117,6 +159,44 @@ export default function ChatPage() {
       messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos)
     );
   }, []);
+
+  const loadChangedFiles = useCallback(async (id: string) => {
+    if (!id) {
+      setAgentChangedFiles(new Set());
+      return;
+    }
+    try {
+      const data = await getSession(id);
+      const projectPath = data.session.project_id
+        ? projectPathsRef.current[data.session.project_id]
+        : null;
+      const changedFiles = new Set<string>();
+      if (projectPath) {
+        for (const run of data.tool_runs ?? []) {
+          if (run.status !== "done" || !run.output) continue;
+          try {
+            const result = JSON.parse(run.output) as {
+              filepath?: string;
+            };
+            if (result.filepath) {
+              const rel = toWorkspaceRelative(projectPath, result.filepath);
+              if (rel) changedFiles.add(rel);
+            }
+          } catch {
+            // malformed tool output is not a file marker
+          }
+        }
+      }
+      setAgentChangedFiles(changedFiles);
+    } catch {
+      setAgentChangedFiles(new Set());
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!workspacePanelOpen || !selectedId) return;
+    void loadChangedFiles(selectedId);
+  }, [loadChangedFiles, selectedId, workspacePanelOpen]);
 
   useEffect(() => {
     Promise.all([refreshProjects(), getSettings()])
@@ -500,6 +580,20 @@ export default function ChatPage() {
           },
           tool: (data) => {
             const event = data as unknown as ToolEvent;
+            if (event.status === "done" && event.result?.filepath) {
+              const projectPath = projects.find(
+                (item) => item.id === selectedProjectId
+              )?.path;
+              if (projectPath) {
+                const rel = toWorkspaceRelative(
+                  projectPath,
+                  event.result.filepath
+                );
+                if (rel && workspacePanelOpenRef.current) {
+                  setAgentChangedFiles((prev) => new Set(prev).add(rel));
+                }
+              }
+            }
             setMessages((prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
@@ -597,11 +691,127 @@ export default function ChatPage() {
     [currentSession?.project_id, projects, selectedProjectId]
   );
 
+  const handlePreviewFile = useCallback((file: PreviewFile) => {
+    setPreviewFile(file);
+    setWorkspacePanelOpen(true);
+  }, []);
+
+  const handleAcceptFile = useCallback(
+    (relPath: string) => {
+      setAgentChangedFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(relPath);
+        return next;
+      });
+      setAcceptedFiles((prev) => {
+        const next = new Set(prev);
+        next.add(relPath);
+        if (currentProject?.path) {
+          try {
+            localStorage.setItem(
+              acceptedFilesKey(currentProject.path),
+              JSON.stringify([...next])
+            );
+          } catch {
+            // localStorage unavailable, accepted state stays in memory
+          }
+        }
+        return next;
+      });
+    },
+    [currentProject?.path]
+  );
+
+  const handleToggleWorkspaceExpand = useCallback(() => {
+    setWorkspaceExpandTransitioning(true);
+    if (workspaceExpanded) {
+      setWorkspacePanelWidth(normalWorkspacePanelWidth);
+    } else {
+      setNormalWorkspacePanelWidth(workspacePanelWidth);
+      setWorkspacePanelWidth(
+        expandedWorkspaceWidth(sidebarOpen ? 244 : 0)
+      );
+    }
+    setWorkspaceExpanded((value) => !value);
+    window.setTimeout(
+      () => setWorkspaceExpandTransitioning(false),
+      220
+    );
+  }, [
+    normalWorkspacePanelWidth,
+    workspaceExpanded,
+    workspacePanelWidth,
+  ]);
+
+  useEffect(() => {
+    setPreviewFile(null);
+    setAgentChangedFiles(new Set());
+    try {
+      setAcceptedFiles(
+        currentProject?.path
+          ? new Set(
+              JSON.parse(
+                localStorage.getItem(acceptedFilesKey(currentProject.path)) ??
+                  "[]"
+              ) as string[]
+            )
+          : new Set()
+      );
+    } catch {
+      setAcceptedFiles(new Set());
+    }
+    if (!isTauri() || !currentProject?.path) return;
+    void watchWorkspace(currentProject.path).catch(() => undefined);
+    return () => {
+      void unwatchWorkspace(currentProject.path).catch(() => undefined);
+    };
+  }, [currentProject?.path]);
+
+  const visibleChangedFiles = useMemo(() => {
+    const visible = new Set(agentChangedFiles);
+    acceptedFiles.forEach((path) => visible.delete(path));
+    return visible;
+  }, [acceptedFiles, agentChangedFiles]);
+
+  const trafficSafe =
+    isMacosDesktop() && workspaceExpanded && !sidebarOpen;
+
+  useEffect(() => {
+    if (!workspacePanelOpen) return;
+    const updateWidth = () => {
+      const leftWidth = sidebarOpen ? 244 : 0;
+      setWorkspacePanelWidth((prev) => {
+        const available = Math.max(
+          320,
+          window.innerWidth - leftWidth - 900 - 48
+        );
+        if (workspaceExpanded) {
+          return expandedWorkspaceWidth(leftWidth);
+        }
+        const current = Math.max(320, Math.min(760, prev));
+        const ratio = current / available;
+        const next = Math.max(320, Math.min(760, ratio * available));
+        return Math.round(next);
+      });
+    };
+    window.addEventListener("resize", updateWidth);
+    return () => window.removeEventListener("resize", updateWidth);
+  }, [sidebarOpen, workspaceExpanded, workspacePanelOpen]);
+
+  useEffect(() => {
+    if (!workspacePanelOpen || !workspaceExpanded) return;
+    setWorkspacePanelWidth(
+      expandedWorkspaceWidth(sidebarOpen ? 244 : 0)
+    );
+  }, [sidebarOpen, workspaceExpanded, workspacePanelOpen]);
+
   return (
     <Flex
       className={`app-shell ${sidebarOpen ? "sidebar-visible" : "sidebar-collapsed"}${
+        workspacePanelOpen ? " workspace-open" : ""
+      }${workspaceExpanded ? " workspace-expanded" : ""}${
         fullscreen ? " fullscreen" : ""
-      }`}
+      }${trafficSafe ? " traffic-safe" : ""}`}
     >
       <Flex
         direction="column"
@@ -636,11 +846,8 @@ export default function ChatPage() {
           model={settings?.model ?? ""}
         />
       </Flex>
-      <Flex
-        direction="column"
-        className="main-area"
-        style={{ flex: 1, minWidth: 0 }}
-      >
+      {!workspaceExpanded && (
+      <Flex direction="column" className="main-area">
         {tasksOpen ? (
           <ScheduledTasksPage />
         ) : (
@@ -648,14 +855,12 @@ export default function ChatPage() {
             <ChatHeader
               session={currentSession}
               project={currentProject}
-              think={settings?.think_default ?? false}
-              onThinkChange={(value) =>
-                setSettings((prev) =>
-                  prev ? { ...prev, think_default: value } : prev
-                )
-              }
               onOpenSidebar={() => setSidebarOpen(true)}
               onRename={handleRename}
+              workspaceOpen={workspacePanelOpen}
+              onToggleWorkspace={() =>
+                setWorkspacePanelOpen((open) => !open)
+              }
             />
             {!selectedId ? (
               <NewChatGuide
@@ -671,6 +876,8 @@ export default function ChatPage() {
                 streaming={streaming}
                 sessionId={selectedId}
                 username={settings?.username || "用户"}
+                workspacePath={currentProject?.path ?? null}
+                onPreviewFile={handlePreviewFile}
               />
             )}
             <ChatInput
@@ -708,6 +915,23 @@ export default function ChatPage() {
           </>
         )}
       </Flex>
+      )}
+      <FilePreviewPanel
+        open={workspacePanelOpen}
+        repoPath={currentProject?.path ?? ""}
+        selectedFile={previewFile}
+        changedFiles={visibleChangedFiles}
+        width={workspacePanelWidth}
+        onWidthChange={setWorkspacePanelWidth}
+        treeWidth={workspaceTreeWidth}
+        onTreeWidthChange={setWorkspaceTreeWidth}
+        expanded={workspaceExpanded}
+        onToggleExpand={handleToggleWorkspaceExpand}
+        noTransition={workspaceExpandTransitioning}
+        onClose={() => setWorkspacePanelOpen(false)}
+        onSelectFile={setPreviewFile}
+        onAcceptFile={handleAcceptFile}
+      />
       <SessionSearchModal
         open={searchOpen}
         sessions={sessions}

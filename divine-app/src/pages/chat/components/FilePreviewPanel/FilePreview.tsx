@@ -1,0 +1,157 @@
+import { useCallback, useEffect, useState } from "react";
+import { AlertCircle } from "lucide-react";
+import { LoadingOrb } from "@/components/ui/LoadingOrb";
+import { getFileDiff, isTauri, listenWorkspaceChanges } from "@/services/tauri";
+import { workspaceJoin } from "@/services/workspace";
+import type { FileDiff } from "@/types";
+import { DiffView } from "./DiffView";
+import { FileContentView } from "./FileContentView";
+
+interface FilePreviewProps {
+  repoPath: string;
+  relPath: string;
+  fileName?: string;
+  changed: boolean;
+  onAcceptFile?: (relPath: string) => void;
+  expanded: boolean;
+  onToggleExpand: () => void;
+}
+
+function normalizePath(value: string): string {
+  return value.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
+export function FilePreview({
+  repoPath,
+  relPath,
+  fileName,
+  changed,
+  onAcceptFile,
+  expanded,
+  onToggleExpand,
+}: FilePreviewProps) {
+  const [preview, setPreview] = useState<FileDiff | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = useCallback(
+    async (showLoading: boolean) => {
+      if (!isTauri()) return;
+      if (showLoading) setLoading(true);
+      setError("");
+      try {
+        setPreview(await getFileDiff(repoPath, relPath));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        setPreview(null);
+      } finally {
+        if (showLoading) setLoading(false);
+      }
+    },
+    [relPath, repoPath]
+  );
+
+  useEffect(() => {
+    void load(true);
+  }, [load, relPath]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    const targetPath = normalizePath(workspaceJoin(repoPath, relPath));
+
+    void listenWorkspaceChanges((payload) => {
+      if (disposed) return;
+      if (normalizePath(payload.path) !== targetPath) return;
+      window.setTimeout(() => {
+        if (!disposed) void load(false);
+      }, 180);
+    }).then((stop) => {
+      if (disposed) stop();
+      else unlisten = stop;
+    });
+
+    const pollTimer = window.setInterval(() => {
+      if (!disposed) void load(false);
+    }, 2500);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(pollTimer);
+      unlisten?.();
+    };
+  }, [load, relPath, repoPath]);
+
+  if (loading) {
+    return (
+      <div className="diff-view">
+        <div className="diff-view-head">
+          <span className="diff-view-file">{fileName ?? relPath}</span>
+        </div>
+        <div className="diff-view-state">
+          <LoadingOrb state="searching" size={20} speed={2} />
+          <span>读取文件...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="diff-view">
+        <div className="diff-view-head">
+          <span className="diff-view-file">{fileName ?? relPath}</span>
+        </div>
+        <div className="diff-view-state error">
+          <AlertCircle size={15} />
+          <span>{error}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!preview) {
+    return (
+      <div className="diff-view">
+        <div className="diff-view-head">
+          <span className="diff-view-file">{fileName ?? relPath}</span>
+        </div>
+        <div className="diff-view-state">
+          <span>没有可读取的内容</span>
+        </div>
+      </div>
+    );
+  }
+
+  const hasChanges = Boolean(
+    changed ||
+    (!preview.isBinary &&
+      (preview.diffText.trim() ||
+        (preview.isGit && !preview.tracked && Boolean(preview.newContent)) ||
+        (!preview.exists && Boolean(preview.oldContent))))
+  );
+
+  if (hasChanges) {
+    return (
+      <DiffView
+        preview={preview}
+        relPath={relPath}
+        fileName={fileName}
+        changed={changed}
+        onAcceptFile={onAcceptFile}
+        expanded={expanded}
+        onToggleExpand={onToggleExpand}
+      />
+    );
+  }
+  return (
+    <FileContentView
+      preview={preview}
+      relPath={relPath}
+      fileName={fileName}
+      expanded={expanded}
+      onToggleExpand={onToggleExpand}
+    />
+  );
+}

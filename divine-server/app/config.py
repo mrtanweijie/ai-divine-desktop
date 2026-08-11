@@ -98,10 +98,10 @@ def workspace_dir() -> Path:
     return workspace_root()
 
 
-def _project_slug() -> str:
+def _project_slug_for(workspace: Path) -> str:
     import re
 
-    workspace = workspace_dir().resolve()
+    workspace = workspace.resolve()
     name = workspace.name.strip()
     if _is_git_workspace(workspace):
         current = workspace
@@ -114,6 +114,10 @@ def _project_slug() -> str:
     return slug or "workspace"
 
 
+def _project_slug() -> str:
+    return _project_slug_for(workspace_dir())
+
+
 def _is_git_workspace(workspace: Path) -> bool:
     current = workspace.resolve()
     for candidate in [current, *current.parents]:
@@ -123,15 +127,19 @@ def _is_git_workspace(workspace: Path) -> bool:
 
 
 def output_dir() -> Path:
+    return output_dir_for_workspace(workspace_dir())
+
+
+def output_dir_for_workspace(workspace: Path) -> Path:
     configured = settings_store.load().get("output_dir")
     if configured:
         path = Path(configured).expanduser()
         if not path.is_absolute():
             path = Path.home() / path
-        return path.resolve() / _project_slug()
-    workspace = workspace_dir().resolve()
+        return path.resolve() / _project_slug_for(workspace)
+    workspace = workspace.resolve()
     if _is_git_workspace(workspace):
-        return data_root() / "outputs" / _project_slug()
+        return data_root() / "outputs" / _project_slug_for(workspace)
     return workspace
 
 

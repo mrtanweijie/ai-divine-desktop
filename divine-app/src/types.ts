@@ -168,3 +168,30 @@ export interface WorkspaceCategory {
   category: string;
   files: WorkspaceFile[];
 }
+
+export interface WorkspaceFileNode {
+  name: string;
+  path: string;
+  isDir: boolean;
+  children: WorkspaceFileNode[] | null;
+}
+
+export interface FileDiff {
+  relPath: string;
+  oldContent: string;
+  newContent: string;
+  diffText: string;
+  additions: number;
+  deletions: number;
+  isGit: boolean;
+  tracked: boolean;
+  isBinary: boolean;
+  exists: boolean;
+  contentTruncated: boolean;
+}
+
+export interface PreviewFile {
+  repoPath: string;
+  relPath: string;
+  fileName?: string;
+}

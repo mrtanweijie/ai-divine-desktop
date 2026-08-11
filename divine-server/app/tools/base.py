@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..config import output_dir
+from ..config import output_dir_for_workspace
 
 
 class ToolExecutionError(RuntimeError):
@@ -152,16 +152,17 @@ class ToolAdapter:
         script = Path(__file__).resolve().parent / "scripts" / self.script_name
         if not script.exists():
             raise ToolExecutionError(f"脚本不存在: {self.script_name}")
+        output_root = output_dir_for_workspace(workspace)
         payload = {
             "workspace": str(workspace.resolve()),
-            "output_dir": str(output_dir().resolve()),
+            "output_dir": str(output_root.resolve()),
             "params": params,
         }
         loop = asyncio.get_running_loop()
         output = await loop.run_in_executor(
             None, self._run_subprocess, str(script), payload
         )
-        return self._result_from_output(workspace, output)
+        return self._result_from_output(workspace, output, output_root)
 
     def _run_subprocess(self, script: str, payload: dict[str, Any]) -> dict[str, Any]:
         if getattr(sys, "frozen", False):
@@ -194,7 +195,7 @@ class ToolAdapter:
             ) from exc
 
     def _result_from_output(
-        self, workspace: Path, output: dict[str, Any]
+        self, workspace: Path, output: dict[str, Any], output_root: Path
     ) -> ToolResult:
         if not output.get("success"):
             raise ToolExecutionError(output.get("message", "工具执行失败"))
@@ -214,7 +215,6 @@ class ToolAdapter:
             filepath = workspace / filepath
         filepath = filepath.resolve()
         workspace_root = workspace.resolve()
-        output_root = output_dir().resolve()
         if (
             not self.allow_external_paths
             and not _is_within(workspace_root, filepath)
