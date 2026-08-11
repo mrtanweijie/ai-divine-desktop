@@ -318,8 +318,22 @@ platform :mac do
     FileUtils.ln_s("/Applications", File.join(staging, "Applications"))
     staged_dmg = File.join(BUILD_DIR, "#{APP_DISPLAY_NAME}.dmg")
     FileUtils.rm_f(staged_dmg)
-    sh("hdiutil create -volname '#{APP_DISPLAY_NAME}' -srcfolder '#{staging}' -ov -format UDZO '#{staged_dmg}'")
+
+    # hdiutil create -srcfolder 会先 mount 一个可写 shadow（/Volumes/<volname>），
+    # 把数据拷进去，再 unmount + 转 UDZO。在根卷紧张（91%）的 runner 上，可写
+    # shadow 默认落在 / 下、占源大小，universal .app 经常把磁盘吃满导致 ENOSPC。
+    # -scratch 把影子目录挪到家目录下的暂存路径，绕开根卷容量限制；创建完即删。
+    hdi_scratch = File.join(BUILD_DIR, "hdi_scratch")
+    FileUtils.rm_rf(hdi_scratch)
+    FileUtils.mkdir_p(hdi_scratch)
+    sh(
+      "hdiutil create -volname '#{APP_DISPLAY_NAME}' " \
+      "-srcfolder '#{staging}' -ov -format UDZO " \
+      "-scratch '#{hdi_scratch}' " \
+      "'#{staged_dmg}'"
+    )
     FileUtils.rm_rf(staging)
+    FileUtils.rm_rf(hdi_scratch)
 
     # ---- 7. .dmg 本身再签（带时间戳） ----
     sh(
