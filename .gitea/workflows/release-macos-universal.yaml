@@ -485,7 +485,31 @@ jobs:
           fi
 
           ASSET_URL="$(ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/asset.json").force_encoding("UTF-8"))["browser_download_url"]')"
-          echo "Uploaded: $ASSET_URL"
+          echo "Uploaded (API says): $ASSET_URL"
+
+          # 校验：run #6671 的 Uploaded: URL 指向 /attachments/<uuid>，而 GET
+          # /releases/tags/v0.2.0 返回的 assets 列表是空 —— Gitea 把这次上传当作
+          # 孤儿 attachment 而不是 release asset。release/download/<tag>/<name>
+          # 因此 404。重新 GET release，确认资产在列表里 + URL 可下载。
+          echo "Verifying asset is attached to release..."
+          curl -sS -H "$AUTH_HEADER" "$API/releases/${RELEASE_ID}" -o /tmp/release_final.json
+          ASSET_COUNT="$(ruby -rjson -e 'puts (JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8")).get("assets") || []).length')"
+          echo "Release now lists ${ASSET_COUNT} asset(s)"
+          if [[ "${ASSET_COUNT}" == "0" ]]; then
+            echo "::error::Asset upload returned a browser_download_url but the release has 0 assets. Likely an orphan attachment; failing so the DMG can be re-uploaded correctly."
+            cat /tmp/asset.json
+            exit 1
+          fi
+          ACTUAL_URL="$(ruby -rjson -e 'a=JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8"))["assets"]; puts a.find { |x| x["name"]==ARGV[0] }["browser_download_url"]' "$ASSET_NAME")"
+          echo "Actual release asset URL: ${ACTUAL_URL}"
+          # HEAD 该 URL，确认可下载（不是孤儿 attachment）
+          HTTP_CODE="$(curl -sS -o /dev/null -I -w '%{http_code}' -H "$AUTH_HEADER" "${ACTUAL_URL}")"
+          echo "HEAD ${ACTUAL_URL} -> ${HTTP_CODE}"
+          if [[ "${HTTP_CODE}" != "200" && "${HTTP_CODE}" != "302" ]]; then
+            echo "::error::Release asset URL returned ${HTTP_CODE}; not downloadable."
+            exit 1
+          fi
+          echo "OK: asset ${ASSET_NAME} is attached and downloadable at ${ACTUAL_URL}"
 
       - name: Show build log on failure
         if: failure()
