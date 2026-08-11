@@ -96,14 +96,22 @@ jobs:
           PY
 
       # ---------------------------------------------------------------------
-      # 4. Homebrew + Ruby 3.3 + Bundler + Fastlane。
+      # 4. Homebrew + pnpm + Ruby 3.3 + Bundler + Fastlane。
+      #    pnpm 装在 brew 下，这样后续 SSH localhost 子 shell 也能找到（pnpm/action-setup
+      #    把 pnpm 装到 corepack 缓存目录，SSH session 不会继承）。
       # ---------------------------------------------------------------------
-      - name: Setup toolchain (Homebrew / Ruby / Bundler)
+      - name: Setup toolchain (Homebrew / pnpm / Ruby / Bundler)
         run: |
           set -euo pipefail
           HOMEBREW_PREFIX="$(brew --prefix)"
           echo "${HOMEBREW_PREFIX}/bin" >> $GITEA_PATH
           export PATH="${HOMEBREW_PREFIX}/bin:$PATH"
+
+          if ! command -v pnpm >/dev/null 2>&1; then
+            echo "Installing pnpm via Homebrew..."
+            brew install pnpm
+          fi
+          echo "pnpm: $(pnpm --version)"
 
           RUBY_PREFIX="$(brew --prefix ruby@3.3 2>/dev/null || true)"
           if [[ -z "$RUBY_PREFIX" || ! -x "$RUBY_PREFIX/bin/ruby" ]]; then
