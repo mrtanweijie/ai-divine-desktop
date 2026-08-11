@@ -155,7 +155,7 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: $HOME/workspace/ai-divine-desktop/divine-app/pnpm-lock.yaml
+          cache-dependency-path: /Users/duguying/workspace/ai-divine-desktop/divine-app/pnpm-lock.yaml
 
       - name: Setup Rust (arm64 + x86_64)
         uses: dtolnay/rust-toolchain@stable
@@ -165,7 +165,7 @@ jobs:
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: $HOME/workspace/ai-divine-desktop/divine-app/src-tauri
+          workspaces: /Users/duguying/workspace/ai-divine-desktop/divine-app/src-tauri
           shared-key: ${{ runner.os }}-tauri-universal
 
       - name: Setup Python
@@ -173,7 +173,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: $HOME/workspace/ai-divine-desktop/divine-server/requirements.txt
+          cache-dependency-path: /Users/duguying/workspace/ai-divine-desktop/divine-server/requirements.txt
 
       - name: Install Python dependencies
         run: |
