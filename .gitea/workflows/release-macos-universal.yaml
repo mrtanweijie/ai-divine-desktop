@@ -393,7 +393,8 @@ jobs:
           # 复用 MATCH_GIT_BASIC_AUTHORIZATION（base64 of user:token），Gitea Release
           # API 也吃 PAT token。这里解 base64 取出纯 token 走 "Authorization: token <PAT>"。
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
-          GITEA_API: ${{ github.server_url }}/api/v1/repos/${{ github.repository }}
+          GITEA_SERVER_URL: ${{ github.server_url }}
+          GITEA_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           if [[ -z "${MATCH_GIT_BASIC_AUTHORIZATION:-}" ]]; then
@@ -422,24 +423,23 @@ jobs:
           # 用同一个 token 先 GET /user（应当返回 200 且 login=duguying）+ GET
           # /repos/.../ai-divine-desktop（确认 token 能看到仓库），把响应正文打出来。
           # 若 GET 也 404，则是 PAT 缺少 write 作用域，或不是当前 user 的 token。
+          AUTH_HEADER="Authorization: token ${GITEA_TOKEN}"
+          API_BASE="${GITEA_SERVER_URL%/}"
+          API="${API_BASE}/api/v1/repos/${GITEA_REPO}"
           echo "--- token probe ---"
-          PROBE_BASE="${GITEA_API%/repos/*}/api/v1"
-          echo "GET ${PROBE_BASE}/user"
+          echo "GET ${API_BASE}/api/v1/user"
           curl -sS -o /tmp/probe_user.json -w 'http=%{http_code}\n' \
-            -H "$AUTH" "${PROBE_BASE}/user"
+            -H "$AUTH_HEADER" "${API_BASE}/api/v1/user"
           cat /tmp/probe_user.json 2>/dev/null | head -c 400; echo
           echo "GET ${API} (repo metadata)"
           curl -sS -o /tmp/probe_repo.json -w 'http=%{http_code}\n' \
-            -H "$AUTH" "${API}"
+            -H "$AUTH_HEADER" "${API}"
           cat /tmp/probe_repo.json 2>/dev/null | head -c 400; echo
           echo "--- end probe ---"
 
-          AUTH="token ${GITEA_TOKEN}"
-          API="${GITEA_API%/}"
-
           echo "Resolving release for tag ${TAG_NAME}..."
           HTTP_CODE="$(curl -sS -o /tmp/release.json -w '%{http_code}' \
-            -H "$AUTH" "$API/releases/tags/${TAG_NAME}")"
+            -H "$AUTH_HEADER" "$API/releases/tags/${TAG_NAME}")"
 
           if [[ "$HTTP_CODE" == "200" ]]; then
             RELEASE_ID="$(ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/release.json").force_encoding("UTF-8"))["id"]')"
@@ -447,7 +447,7 @@ jobs:
           elif [[ "$HTTP_CODE" == "404" ]]; then
             echo "No release for tag yet, creating..."
             HTTP_CODE="$(curl -sS -o /tmp/release.json -w '%{http_code}' \
-              -H "$AUTH" -H 'Content-Type: application/json' \
+              -H "$AUTH_HEADER" -H 'Content-Type: application/json' \
               -X POST "$API/releases" \
               --data "$(ruby -rjson -e 'puts({tag_name: ARGV[0], name: ARGV[0], body: "Automated macOS universal release", draft: false, prerelease: false}.to_json)' "$TAG_NAME")")"
             if [[ "$HTTP_CODE" != "201" && "$HTTP_CODE" != "200" ]]; then
@@ -464,18 +464,18 @@ jobs:
           fi
 
           echo "Removing same-named asset (if any) so the upload is idempotent..."
-          curl -sS -H "$AUTH" "$API/releases/${RELEASE_ID}/assets" -o /tmp/assets.json
+          curl -sS -H "$AUTH_HEADER" "$API/releases/${RELEASE_ID}/assets" -o /tmp/assets.json
           ruby -rjson -e 'JSON.parse(File.binread("/tmp/assets.json").force_encoding("UTF-8")).each { |a| puts a["id"] if a["name"] == ARGV[0] }' "$ASSET_NAME" \
             | while read -r ASSET_ID; do
                 [[ -z "$ASSET_ID" ]] && continue
                 echo "  Deleting old asset id=${ASSET_ID}"
-                curl -sS -H "$AUTH" -X DELETE \
+                curl -sS -H "$AUTH_HEADER" -X DELETE \
                   "$API/releases/${RELEASE_ID}/assets/${ASSET_ID}" -o /dev/null
               done
 
           echo "Uploading ${ASSET_NAME}..."
           HTTP_CODE="$(curl -sS -o /tmp/asset.json -w '%{http_code}' \
-            -H "$AUTH" \
+            -H "$AUTH_HEADER" \
             -X POST "$API/releases/${RELEASE_ID}/assets?name=${ASSET_NAME}" \
             -F "attachment=@${DMG_PATH};type=application/octet-stream")"
           if [[ "$HTTP_CODE" != "201" && "$HTTP_CODE" != "200" ]]; then
