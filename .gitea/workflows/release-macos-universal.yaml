@@ -170,18 +170,33 @@ jobs:
           shared-key: ${{ runner.os }}-tauri-universal
 
       - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          # cache: pip disabled for the same reason as setup-node above; pip
-          # install is fast enough and sidecar step rebuild is incremental.
+        # actions/setup-python@v5 has a bug on self-hosted macOS runners: it
+        # tries to mkdir /Users/runner and fails with "Permission denied".
+        # Use Homebrew's python@3.11 directly (already on PATH from toolchain step).
+        run: |
+          set -euo pipefail
+          if ! command -v python3.11 >/dev/null 2>&1; then
+            echo "Installing python@3.11 via Homebrew..."
+            brew install python@3.11
+          fi
+          PY311_BIN="$(brew --prefix python@3.11)/bin/python3.11"
+          if [[ ! -x "$PY311_BIN" ]]; then
+            echo "::error::python3.11 not found at $PY311_BIN after brew install"
+            exit 1
+          fi
+          echo "Using python3.11: $PY311_BIN ($($PY311_BIN --version))"
+          echo "PY311_BIN=$PY311_BIN" >> $GITEA_ENV
+          echo "/Users/duguying/.gem/bin:$HOME/workspace/ai-divine-desktop/divine-app/node_modules/.bin:$(brew --prefix python@3.11)/bin" >> $GITEA_PATH || true
+          # Set up pip using the new python
+          "$PY311_BIN" -m ensurepip --upgrade
+          "$PY311_BIN" -m pip install --upgrade pip
 
       - name: Install Python dependencies
         run: |
           set -euo pipefail
           cd "$HOME/workspace/ai-divine-desktop/divine-server"
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt pyinstaller
+          PY311_BIN="$(brew --prefix python@3.11)/bin/python3.11"
+          "$PY311_BIN" -m pip install -r requirements.txt pyinstaller
 
       # ---------------------------------------------------------------------
       # 6. Fastlane mac dmg：双架构 tauri build + lipo + codesign + notarize。
