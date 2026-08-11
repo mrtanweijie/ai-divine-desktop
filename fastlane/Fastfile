@@ -300,8 +300,10 @@ platform :mac do
     FileUtils.rm_rf(app_final)
     FileUtils.mv(arm64_app, app_final)
     arm64_app = app_final
-    # .app 整体挪动后，之前基于旧路径算出的 sidecar 路径要重算（step 8 会再查它）。
+    # .app 整体挪动后，之前基于旧路径算出的 sidecar / 主二进制路径要重算
+    # （step 8 的 lipo 兜底会再查它们；否则会指向已删除的 target 目录）。
     arm64_sidecar_app = File.join(arm64_app, "Contents", "MacOS", "divine-server")
+    arm64_main = File.join(arm64_app, "Contents", "MacOS", APP_NAME)
     FileUtils.rm_rf(File.join(TAURI_DIR, "src-tauri", "target"))
     UI.message "Moved signed .app to #{app_final}; removed src-tauri/target"
 
