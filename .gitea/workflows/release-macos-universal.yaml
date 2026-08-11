@@ -418,6 +418,22 @@ jobs:
             exit 1
           fi
 
+          # 调试探针：run #6669 已确认 user=duguying 但 POST /releases 仍 404。
+          # 用同一个 token 先 GET /user（应当返回 200 且 login=duguying）+ GET
+          # /repos/.../ai-divine-desktop（确认 token 能看到仓库），把响应正文打出来。
+          # 若 GET 也 404，则是 PAT 缺少 write 作用域，或不是当前 user 的 token。
+          echo "--- token probe ---"
+          PROBE_BASE="${GITEA_API%/repos/*}/api/v1"
+          echo "GET ${PROBE_BASE}/user"
+          curl -sS -o /tmp/probe_user.json -w 'http=%{http_code}\n' \
+            -H "$AUTH" "${PROBE_BASE}/user"
+          cat /tmp/probe_user.json 2>/dev/null | head -c 400; echo
+          echo "GET ${API} (repo metadata)"
+          curl -sS -o /tmp/probe_repo.json -w 'http=%{http_code}\n' \
+            -H "$AUTH" "${API}"
+          cat /tmp/probe_repo.json 2>/dev/null | head -c 400; echo
+          echo "--- end probe ---"
+
           AUTH="token ${GITEA_TOKEN}"
           API="${GITEA_API%/}"
 
