@@ -160,6 +160,12 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 用户确认后再调用 write_calendar，并把 task_id 传给 write_calendar。
 用户要求记录日程/日历事件时调用 write_calendar，可单独使用，从用户输入中识别标题和起止时间。
 本地资料检索使用 rag_index 建立索引、rag_search 检索相关内容。
+用户要求导出或保存流程图/时序图/架构图时，调用 mermaid_export 保存为 .mmd 文件，
+content 传 Mermaid 源码（不要带围栏代码块）；用户没有要求保存时不要自动调用。
+当用户要求画图、展示趋势/对比/占比/分布等图表时，调用 generate_chart 生成 ECharts option；
+根据数据特征选择图表类型（趋势用 line、对比用 bar、占比用 pie 且类别不超过 8 个、
+分布用 scatter、多指标用 bar + line 组合），option 必须完整合法且 series 非空，
+不要在正文输出 HTML、JS 或图表代码。
 读取文件内容必须使用 read_file、word_document 等专用工具；
 读取 Excel 必须使用 read_file（不要使用 spreadsheet，spreadsheet 只能生成 Excel）；
 默认禁止用 terminal 执行 cat、python、openpyxl、find 等命令来读取或分析文件；
@@ -181,6 +187,7 @@ _READ_ONLY_TOOLS = {
     "sqlite_query",
     "calculator",
     "web_fetch",
+    "generate_chart",
 }
 
 _NO_PLAN_TOOLS = {

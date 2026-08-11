@@ -2,7 +2,9 @@ from .calculator import CalculatorAdapter  # noqa: F401
 from .clipboard import ClipboardAdapter  # noqa: F401
 from .create_plan import CreatePlanAdapter  # noqa: F401
 from .directory_tree import DirectoryTreeAdapter  # noqa: F401
+from .generate_chart import GenerateChartAdapter  # noqa: F401
 from .image_resize import ImageResizeAdapter  # noqa: F401
+from .mermaid_export import MermaidExportAdapter  # noqa: F401
 from .notes import NotesAdapter  # noqa: F401
 from .pdf_split_merge import PdfSplitMergeAdapter  # noqa: F401
 from .presentation import PresentationAdapter  # noqa: F401

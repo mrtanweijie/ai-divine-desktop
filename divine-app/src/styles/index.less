@@ -1507,6 +1507,96 @@ a:focus-visible {
   color: var(--color-code-text);
 }
 
+.mermaid-block {
+  margin: 12px 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.mermaid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 8px 5px 12px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.mermaid-block .mermaid-copy {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.mermaid-block .mermaid-copy:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}
+
+.mermaid-block .mermaid-copy:active {
+  transform: scale(0.94);
+}
+
+.mermaid-canvas {
+  max-height: 520px;
+  padding: 12px;
+  overflow: auto;
+  color: var(--color-text);
+}
+
+.mermaid-canvas svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.mermaid-canvas svg .node rect.basic.label-container,
+.mermaid-canvas svg .cluster rect {
+  rx: 6px !important;
+  ry: 6px !important;
+}
+
+.mermaid-source {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  background: var(--color-code-bg);
+  color: var(--color-code-text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.mermaid-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 140px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
 .think-block {
   margin: 10px 0;
   overflow: hidden;
@@ -1682,6 +1772,18 @@ a:focus-visible {
   gap: 9px;
   min-height: 40px;
   padding: 8px 12px;
+}
+
+.chart-block {
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.echarts-block {
+  width: 100%;
+  min-width: 0;
+  border-radius: 6px;
+  background: var(--color-surface);
 }
 
 .tool-icon {

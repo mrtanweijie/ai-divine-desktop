@@ -39,6 +39,7 @@ a = Analysis(
         "app.api.files",
         "app.api.sessions",
         "app.api.settings",
+        "app.tools.adapters.mermaid_export",
         "app.tools.adapters.notes",
         "app.tools.adapters.presentation",
         "app.tools.adapters.web_fetch",

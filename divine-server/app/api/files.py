@@ -9,7 +9,13 @@ from ..config import output_dir
 
 router = APIRouter(prefix="/files", tags=["files"])
 
-ALLOWED_CATEGORIES = {"documents", "spreadsheets", "notes", "presentations"}
+ALLOWED_CATEGORIES = {
+    "documents",
+    "spreadsheets",
+    "notes",
+    "presentations",
+    "diagrams",
+}
 
 
 def _category_dir(category: str) -> Path:

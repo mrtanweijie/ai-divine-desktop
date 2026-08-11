@@ -61,6 +61,13 @@ export interface ToolEvent {
     stdout?: string;
     stderr?: string;
     exit_code?: number;
+    data?: {
+      title?: string;
+      chart_type?: string;
+      option?: Record<string, unknown>;
+      [key: string]: unknown;
+    };
+    option?: Record<string, unknown>;
   };
 }
 

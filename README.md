@@ -139,7 +139,9 @@ pnpm tauri:dev
 | `clipboard` | 读取、写入、清空系统剪贴板 |
 | `create_plan` | 为复杂任务创建待办计划 |
 | `directory_tree` | 查看目录树结构 |
+| `generate_chart` | 根据分析结果生成 ECharts 图表并在对话中内联展示 |
 | `image_resize` | 缩放图片 |
+| `mermaid_export` | 把 Mermaid 流程图源码保存为 `.mmd` 文件 |
 | `notes` | 生成 Markdown 笔记 |
 | `pdf_split_merge` | 拆分、合并 PDF |
 | `presentation` | 生成 PPT 演示文稿 |

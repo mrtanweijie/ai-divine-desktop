@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, State};
 use walkdir::WalkDir;
@@ -70,12 +70,17 @@ fn is_git_ignored(root: &Path, path: &Path) -> bool {
         .arg("-q")
         .arg("--")
         .arg(path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .map(|status| status.success())
         .unwrap_or(false)
 }
 
 fn scan_dir(root: &Path) -> Vec<FileNode> {
+    let git_aware = run_git(root, &["rev-parse", "--is-inside-work-tree"])
+        .map(|value| value.trim() == "true")
+        .unwrap_or(false);
     let mut nodes: Vec<FileNode> = Vec::new();
     for entry in WalkDir::new(root)
         .min_depth(1)
@@ -86,7 +91,8 @@ fn scan_dir(root: &Path) -> Vec<FileNode> {
                 return true;
             }
             let name = entry.file_name().to_string_lossy();
-            !should_ignore(&name) && !is_git_ignored(root, entry.path())
+            !should_ignore(&name)
+                && (!git_aware || !is_git_ignored(root, entry.path()))
         })
     {
         let Ok(entry) = entry else { continue };

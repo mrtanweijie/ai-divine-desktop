@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  BarChart3,
   BookMarked,
   BookSearch,
   Calculator,
@@ -24,6 +25,7 @@ import {
   SquareKanban,
   StickyNote,
   TerminalSquare,
+  Workflow,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { downloadUrl } from "@/services/api";
@@ -33,6 +35,7 @@ import type { ChatMessage, PreviewFile, TodoItem, ToolEvent } from "@/types";
 import { formatSize, formatTime } from "@/utils";
 import { toWorkspaceRelative } from "@/services/workspace";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
+import { ChartBlock } from "@/pages/chat/components/ChartBlock";
 import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
@@ -202,6 +205,7 @@ function ToolStatusCard({
   const [deciding, setDeciding] = useState(false);
   const running = tool.status === "running" || tool.status === "preparing";
   const statusMessage = tool.status === "done" ? "执行完成" : tool.message;
+  const chartOption = chartOptionFromResult(tool.result);
   const workspaceRel = useMemo(
     () =>
       workspacePath && tool.result?.filepath
@@ -241,6 +245,10 @@ function ToolStatusCard({
       <FileStack size={16} />
     ) : tool.tool.includes("directory") || tool.tool.includes("tree") ? (
       <FolderTree size={16} />
+    ) : tool.tool === "generate_chart" || tool.tool.includes("chart") ? (
+      <BarChart3 size={16} />
+    ) : tool.tool.includes("mermaid") || tool.tool.includes("diagram") ? (
+      <Workflow size={16} />
     ) : tool.tool.includes("presentation") ||
       tool.tool.includes("ppt") ||
       tool.tool.includes("slides") ? (
@@ -292,6 +300,11 @@ function ToolStatusCard({
           <span className="tool-message">{statusMessage}</span>
         </div>
       </Flex>
+      {tool.status === "done" && chartOption && (
+        <div className="chart-block">
+          <ChartBlock option={chartOption} />
+        </div>
+      )}
       {tool.status === "done" && tool.result?.filepath && (
         <div className="file-actions">
           <a
@@ -490,4 +503,17 @@ function ToolStatusCard({
       )}
     </div>
   );
+}
+
+function chartOptionFromResult(
+  result?: ToolEvent["result"]
+): Record<string, unknown> | null {
+  const data = result?.data;
+  if (data && data.option && typeof data.option === "object") {
+    return data.option as Record<string, unknown>;
+  }
+  if (result?.option && typeof result.option === "object") {
+    return result.option as Record<string, unknown>;
+  }
+  return null;
 }

@@ -7,6 +7,7 @@ import { toast } from "@/components/ui/Toast";
 import { isTauri, openUrl } from "@/services/tauri";
 import { HighlightedCode } from "./HighlightedCode";
 import { languageLabel } from "./language";
+import { MermaidBlock } from "./MermaidBlock";
 
 interface MarkdownViewProps {
   content: string;
@@ -102,6 +103,9 @@ function buildComponents(streaming: boolean): Components {
             {children}
           </code>
         );
+      }
+      if (language === "mermaid" || language === "mmd") {
+        return <MermaidBlock code={code} streaming={streaming} />;
       }
       return (
         <CodeBlock code={code} language={language} streaming={streaming} />

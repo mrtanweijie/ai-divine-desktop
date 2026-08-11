@@ -1,4 +1,4 @@
-import { createHashRouter, Navigate } from "react-router-dom";
+import { createHashRouter, Navigate } from "react-router";
 import { AppLayout } from "@/layout/AppLayout";
 import ChatPage from "@/pages/chat";
 import { Providers } from "@/app/providers";
