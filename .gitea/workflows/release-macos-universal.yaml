@@ -493,14 +493,19 @@ jobs:
           # 因此 404。重新 GET release，确认资产在列表里 + URL 可下载。
           echo "Verifying asset is attached to release..."
           curl -sS -H "$AUTH_HEADER" "$API/releases/${RELEASE_ID}" -o /tmp/release_final.json
-          ASSET_COUNT="$(ruby -rjson -e 'puts (JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8")).get("assets") || []).length')"
+          ASSET_COUNT="$(ruby -rjson -e 'd=JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8")); puts (d["assets"] || []).length')"
           echo "Release now lists ${ASSET_COUNT} asset(s)"
           if [[ "${ASSET_COUNT}" == "0" ]]; then
             echo "::error::Asset upload returned a browser_download_url but the release has 0 assets. Likely an orphan attachment; failing so the DMG can be re-uploaded correctly."
             cat /tmp/asset.json
             exit 1
           fi
-          ACTUAL_URL="$(ruby -rjson -e 'a=JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8"))["assets"]; puts a.find { |x| x["name"]==ARGV[0] }["browser_download_url"]' "$ASSET_NAME")"
+          ACTUAL_URL="$(ruby -rjson -e 'a=JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8"))["assets"]; m=a.find { |x| x["name"]==ARGV[0] }; puts(m ? m["browser_download_url"] : "")' "$ASSET_NAME")"
+          if [[ -z "${ACTUAL_URL}" ]]; then
+            echo "::error::Release has ${ASSET_COUNT} asset(s) but none named ${ASSET_NAME}; failing."
+            ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8"))["assets"].map { |x| x["name"] }'
+            exit 1
+          fi
           echo "Actual release asset URL: ${ACTUAL_URL}"
           # HEAD 该 URL，确认可下载（不是孤儿 attachment）
           HTTP_CODE="$(curl -sS -o /dev/null -I -w '%{http_code}' -H "$AUTH_HEADER" "${ACTUAL_URL}")"
