@@ -154,8 +154,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: /Users/duguying/workspace/ai-divine-desktop/divine-app/pnpm-lock.yaml
+          # cache: pnpm disabled - Gitea Actions setup-node fails to resolve
+          # cache-dependency-path reliably on macOS self-hosted runners. pnpm
+          # install --frozen-lockfile is fast enough without cache on Mac mini.
 
       - name: Setup Rust (arm64 + x86_64)
         uses: dtolnay/rust-toolchain@stable
@@ -172,8 +173,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
-          cache-dependency-path: /Users/duguying/workspace/ai-divine-desktop/divine-server/requirements.txt
+          # cache: pip disabled for the same reason as setup-node above; pip
+          # install is fast enough and sidecar step rebuild is incremental.
 
       - name: Install Python dependencies
         run: |
