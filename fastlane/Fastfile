@@ -205,13 +205,15 @@ platform :mac do
     UI.user_error!("arm64 main binary not found") unless File.file?(arm64_main)
     UI.user_error!("x64   main binary not found") unless File.file?(x64_main)
 
-    # Tauri 把 externalBin 拷进 .app/Contents/MacOS/divine-server（与主二进制同级，
-    # 真实文件拷贝），而不是 _internal/。上一轮就是在 _internal/ 下探测不到导致
-    # sidecar 没被 lipo，最终 DMG 里的 divine-server 是 arm64-only（Apple 公证日志
-    # 里只有 arm64 一个 slice）——Intel Mac 上会直接起不来。src-tauri/binaries/ 下
-    # 的带 triple 后缀文件才是 externalBin 的源。
+    # Tauri 把 externalBin 拷进 .app/Contents/MacOS/divine-server（与主二进制同级）。
+    # 注意：macOS 打 bundle 时 externalBin 是"按宿主架构"拷贝，而不是 target 架构
+    # —— 在 arm64 runner 上，x64 那个 .app 里嵌的 sidecar 其实也是 arm64（上一轮
+    # lipo 就报了 same architectures (arm64)）。所以 sidecar 不能像主二进制那样用
+    # 两个 .app 内的副本合并，而是直接用 src-tauri/binaries/ 下按 triple 生成的源
+    # 文件（divine-server-aarch64-*/x86_64-* 是 build-sidecar.sh 各编一份的）。
     arm64_sidecar_app = File.join(arm64_app, "Contents", "MacOS", "divine-server")
-    x64_sidecar_app   = File.join(x64_app,   "Contents", "MacOS", "divine-server")
+    arm64_sidecar_src = File.join(TAURI_DIR, "src-tauri", "binaries", "divine-server-aarch64-apple-darwin")
+    x64_sidecar_src   = File.join(TAURI_DIR, "src-tauri", "binaries", "divine-server-x86_64-apple-darwin")
 
     # ---- 4. lipo 合并主二进制 + sidecar ----
     # 4a) 主二进制 Divine
@@ -222,15 +224,18 @@ platform :mac do
     FileUtils.rm_f(["#{arm64_main}.arm64", "#{arm64_main}.x64"])
     sh("/usr/bin/lipo -info '#{arm64_main}'")
 
-    # 4b) sidecar 同样 lipo 成 universal（在 codesign 之前，保证打进 DMG 的是
-    #     双架构版本）。若某个 target 没产出 sidecar（如外部依赖缺失），跳过。
-    if File.file?(arm64_sidecar_app) && File.file?(x64_sidecar_app)
-      UI.message "lipo: combining in-app sidecar..."
-      FileUtils.mv(arm64_sidecar_app, "#{arm64_sidecar_app}.arm64")
-      FileUtils.mv(x64_sidecar_app,   "#{arm64_sidecar_app}.x64")
-      sh("/usr/bin/lipo -create -output '#{arm64_sidecar_app}' '#{arm64_sidecar_app}.arm64' '#{arm64_sidecar_app}.x64'")
-      FileUtils.rm_f(["#{arm64_sidecar_app}.arm64", "#{arm64_sidecar_app}.x64"])
+    # 4b) sidecar 用两个源二进制 lipo 成 universal，写到 arm64 .app 内的
+    #     Contents/MacOS/divine-server（这就是最终打进 DMG 的那份）。先 rm 掉 .app
+    #     内旧副本（可能与 src 是硬链接，避免 lipo 覆盖时反过来污染源文件）。
+    #     若某个 triple 的 sidecar 没生成（外部依赖缺失），直接失败而不是发
+    #     一个 Intel 上跑不起来的"universal"包。
+    if File.file?(arm64_sidecar_src) && File.file?(x64_sidecar_src)
+      UI.message "lipo: combining sidecar into universal (source binaries)..."
+      FileUtils.rm_f(arm64_sidecar_app)
+      sh("/usr/bin/lipo -create -output '#{arm64_sidecar_app}' '#{arm64_sidecar_src}' '#{x64_sidecar_src}'")
       sh("/usr/bin/lipo -info '#{arm64_sidecar_app}'")
+    else
+      UI.user_error!("sidecar source binaries missing (arm64_src=#{arm64_sidecar_src} x64_src=#{x64_sidecar_src})")
     end
 
     # ---- 5. 完整 codesign 链路（顺序：sidecar → 内部 dylib → .app） ----
@@ -293,9 +298,11 @@ platform :mac do
     sh("/usr/bin/codesign --verify --deep --strict --verbose=2 '#{arm64_app}'")
     sh("hdiutil verify '#{staged_dmg}'")
     sh("/usr/bin/lipo -info '#{arm64_main}'")  # 再次确认 universal
-    # sidecar 必须也是 universal；4b 若因路径问题被跳过，这里直接报错而不是
-    # 默默发一个 Intel 上跑不起来的"universal"包。
-    sh("/usr/bin/lipo -info '#{arm64_sidecar_app}'")
+    # sidecar 必须同时含 x86_64 + arm64 两个 slice（4b 已负责 lipo，这里兜底）。
+    sidecar_archs = `/usr/bin/lipo -archs '#{arm64_sidecar_app}'`.strip
+    UI.user_error!("sidecar missing / unreadable: #{$?}") unless $?.success?
+    UI.message "sidecar architectures: #{sidecar_archs}"
+    UI.user_error!("sidecar not universal: #{sidecar_archs}") unless sidecar_archs.include?("x86_64") && sidecar_archs.include?("arm64")
 
     # ---- 9. 公证：App Store Connect API Key ----
     key_id      = ENV["APP_STORE_CONNECT_API_KEY_ID"]
