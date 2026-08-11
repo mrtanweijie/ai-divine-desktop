@@ -322,16 +322,18 @@ platform :mac do
     # hdiutil create -srcfolder 会先 mount 一个可写 shadow（/Volumes/<volname>），
     # 把数据拷进去，再 unmount + 转 UDZO。在根卷紧张（91%）的 runner 上，可写
     # shadow 默认落在 / 下、占源大小，universal .app 经常把磁盘吃满导致 ENOSPC。
-    # -scratch 把影子目录挪到家目录下的暂存路径，绕开根卷容量限制；创建完即删。
+    # hdiutil create 不接受 -scratch（那是 convert 的选项）；用 SCRATCH_DIR 环境
+    # 变量把 shadow 放到 BUILD_DIR 下、绕开根卷容量限制。创建完即清。
     hdi_scratch = File.join(BUILD_DIR, "hdi_scratch")
     FileUtils.rm_rf(hdi_scratch)
     FileUtils.mkdir_p(hdi_scratch)
+    ENV["SCRATCH_DIR"] = hdi_scratch
     sh(
       "hdiutil create -volname '#{APP_DISPLAY_NAME}' " \
       "-srcfolder '#{staging}' -ov -format UDZO " \
-      "-scratch '#{hdi_scratch}' " \
       "'#{staged_dmg}'"
     )
+    ENV.delete("SCRATCH_DIR")
     FileUtils.rm_rf(staging)
     FileUtils.rm_rf(hdi_scratch)
 

@@ -270,16 +270,16 @@ jobs:
           echo "== top disk users (home) =="
           du -sh "$HOME/workspace" "$HOME/.py-build" "$HOME/.cargo/registry" \
              "$HOME/Library/Caches/pip" "$HOME/.npm/_cacache" \
-             "$HOME/Library/Caches/pnpm" "$HOME/Library/Developer/Xcode/DerivedData" 2>/dev/null || true
+             "$HOME/Library/Caches/pnpm" "$HOME/Library/Developer/Xcode/DerivedData" \
+             "$HOME/.rustup/toolchains" 2>/dev/null || true
           echo "== freeing caches =="
           rm -rf "$HOME/Library/Caches/pip" "$HOME/.cache/pip" "$HOME/.npm/_cacache" 2>/dev/null || true
           (command -v pnpm >/dev/null 2>&1 && pnpm store prune >/dev/null 2>&1) || true
           (command -v brew >/dev/null 2>&1 && brew cleanup -s >/dev/null 2>&1) || true
-          # Xcode DerivedData 重建耗时但能腾出几十 GiB；保留最近一次给 SPM。
-          if [[ -d "$HOME/Library/Developer/Xcode/DerivedData" ]]; then
-            ls -t "$HOME/Library/Developer/Xcode/DerivedData" | tail -n +2 \
-              | while read -r dd; do rm -rf "$HOME/Library/Developer/Xcode/DerivedData/$dd"; done
-          fi
+          # Tauri 编译不会调 Xcode，但 DerivedData 仍然可能占 10+ GiB（其它 job 残留）。
+          # 直接清空整个目录（DerivedData 全量可重建），给 hdiutil 留出空间。
+          rm -rf "$HOME/Library/Developer/Xcode/DerivedData" 2>/dev/null || true
+          rm -rf "$HOME/Library/Developer/CoreSimulator/Caches" 2>/dev/null || true
           rm -rf /tmp/*.tar.gz /tmp/cpython-*.tar.gz /tmp/dmg_staging 2>/dev/null || true
           echo "== df (after cleanup) =="
           df -h /System/Volumes/Data 2>/dev/null || df -h / || true
