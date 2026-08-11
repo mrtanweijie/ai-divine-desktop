@@ -259,6 +259,25 @@ jobs:
           X64_PY_BIN="${PYTHON_X86_64:?}"
           arch -x86_64 "$X64_PY_BIN" -m pip install -r requirements.txt pyinstaller
 
+      - name: Check & free disk space
+        # 上一轮（run #6664）hdiutil 打 DMG 时报"设备上无剩余空间"。universal 包
+        # 比单架构大一倍，DMG 阶段峰值占用 ~6GB+。这里先报当前磁盘用量，再清掉
+        # 可安全重建的缓存（pip / pnpm / npm），给构建腾出空间。
+        run: |
+          set -euo pipefail
+          echo "== df (before cleanup) =="
+          df -h /System/Volumes/Data 2>/dev/null || df -h / || true
+          echo "== top disk users (home) =="
+          du -sh "$HOME/workspace" "$HOME/.py-build" "$HOME/.cargo/registry" \
+             "$HOME/Library/Caches/pip" "$HOME/.npm/_cacache" \
+             "$HOME/Library/Caches/pnpm" 2>/dev/null || true
+          echo "== freeing caches =="
+          rm -rf "$HOME/Library/Caches/pip" "$HOME/.cache/pip" "$HOME/.npm/_cacache" 2>/dev/null || true
+          (command -v pnpm >/dev/null 2>&1 && pnpm store prune >/dev/null 2>&1) || true
+          rm -rf /tmp/*.tar.gz /tmp/cpython-*.tar.gz 2>/dev/null || true
+          echo "== df (after cleanup) =="
+          df -h /System/Volumes/Data 2>/dev/null || df -h / || true
+
       # ---------------------------------------------------------------------
       # 6. Fastlane mac dmg：双架构 tauri build + lipo + codesign + notarize。
       #    通过 SSH localhost 登录会话绕开 keychain 弹窗（与参考项目一致）。

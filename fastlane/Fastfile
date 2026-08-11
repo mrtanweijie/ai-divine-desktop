@@ -177,6 +177,12 @@ platform :mac do
     # pip 解析 x86_64 的 wheel、PyInstaller 产出 x86_64 切片。
     sh("arch -x86_64 env PYTHON='#{x64_python}' bash '#{File.join(SIDECAR_DIR, 'build-sidecar.sh')}' darwin-x64")
 
+    # PyInstaller 工作目录（dist/ 里是最终二进制，build/ 是中间产物，各几百 MB）。
+    # 二进制已经拷到 src-tauri/binaries/ 与 bin/，这里直接清掉省磁盘。
+    FileUtils.rm_rf(File.join(SIDECAR_DIR, "dist"))
+    FileUtils.rm_rf(File.join(SIDECAR_DIR, "build"))
+    UI.message "Cleaned PyInstaller work dirs (divine-server/dist + build)"
+
     # ---- 2. 双架构 tauri build --no-sign ----
     # 必须分别指定 --target aarch64/x86_64-apple-darwin，让 cargo 编出两个
     # 独立的 target/release 子目录；之后用 lipo 合并出 universal。
@@ -230,6 +236,13 @@ platform :mac do
     FileUtils.rm_f(["#{arm64_main}.arm64", "#{arm64_main}.x64"])
     sh("/usr/bin/lipo -info '#{arm64_main}'")
 
+    # x64 .app 的使命到此结束（主二进制已抽出并 lipo）：最终包里只用 arm64 .app +
+    # universal 主二进制 + universal sidecar。整个 x86_64 target 目录 ~2GB，直接删，
+    # 否则后面打 DMG 时磁盘吃紧（上一轮 hdiutil 就 ENOSPC）。
+    x64_target = File.join(TAURI_DIR, "src-tauri", "target", "x86_64-apple-darwin")
+    FileUtils.rm_rf(x64_target) if File.directory?(x64_target)
+    UI.message "Removed x86_64 target dir to free disk"
+
     # 4b) sidecar 用两个源二进制 lipo 成 universal，写到 arm64 .app 内的
     #     Contents/MacOS/divine-server（这就是最终打进 DMG 的那份）。先 rm 掉 .app
     #     内旧副本（可能与 src 是硬链接，避免 lipo 覆盖时反过来污染源文件）。
@@ -279,6 +292,18 @@ platform :mac do
       "--timestamp --options runtime --entitlements '#{ENTITLEMENTS}' " \
       "--deep '#{arm64_app}'"
     )
+
+    # ---- 5.5 把签好的 .app 挪出 target 目录，删掉整个 src-tauri/target（省 ~2GB） ----
+    # .app 是自包含 bundle，后续 staging / verify 只需要它本身。挪到 build/ 下后，
+    # target 里几十 GB 的 Rust 中间产物 + 另一份 .app 即可清空。
+    app_final = File.join(BUILD_DIR, "#{APP_NAME}.app")
+    FileUtils.rm_rf(app_final)
+    FileUtils.mv(arm64_app, app_final)
+    arm64_app = app_final
+    # .app 整体挪动后，之前基于旧路径算出的 sidecar 路径要重算（step 8 会再查它）。
+    arm64_sidecar_app = File.join(arm64_app, "Contents", "MacOS", "divine-server")
+    FileUtils.rm_rf(File.join(TAURI_DIR, "src-tauri", "target"))
+    UI.message "Moved signed .app to #{app_final}; removed src-tauri/target"
 
     # ---- 6. 用已签名的 .app 重新打 DMG（不依赖 Tauri 自动打的版本） ----
     # 清掉 Tauri 自己出的 arm64-only DMG（如果有的话）。
