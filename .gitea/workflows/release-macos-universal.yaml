@@ -40,8 +40,8 @@ jobs:
 
           export GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
 
-          if [[ "${GITEA_REF:-}" == refs/tags/* ]]; then
-            git clone --depth 1 --single-branch --branch "${GITEA_REF#refs/tags/}" \
+          if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
+            git clone --depth 1 --single-branch --branch "${GITHUB_REF#refs/tags/}" \
               git@git.duguying.net:ai-divine/ai-divine-desktop.git \
               ai-divine-desktop
           else
@@ -61,8 +61,8 @@ jobs:
         id: version
         run: |
           set -euo pipefail
-          if [[ "${GITEA_REF:-}" == refs/tags/* ]]; then
-            TAG="${GITEA_REF#refs/tags/}"
+          if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
             TAG="${TAG#v}"
           else
             TAG="$(date +%Y.%m.%d).dev"
@@ -268,13 +268,13 @@ jobs:
       # 8. 上传为 Gitea Release asset（仅 tag 触发）。
       # ---------------------------------------------------------------------
       - name: Publish DMG to Gitea Release
-        if: startsWith(gitea.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           DMG_PATH: ${{ steps.dmg.outputs.path }}
           ASSET_NAME: Divine-macos-universal-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build-number }}.dmg
-          TAG_NAME: ${{ gitea.ref_name }}
+          TAG_NAME: ${{ github.ref_name }}
           GITEA_TOKEN: ${{ secrets.RELEASE_UPLOAD_TOKEN }}
-          GITEA_API: ${{ gitea.server_url }}/api/v1/repos/${{ gitea.repository }}
+          GITEA_API: ${{ github.server_url }}/api/v1/repos/${{ github.repository }}
         run: |
           set -euo pipefail
           if [[ -z "${GITEA_TOKEN:-}" ]]; then
