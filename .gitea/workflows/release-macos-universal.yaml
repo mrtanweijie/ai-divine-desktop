@@ -410,6 +410,13 @@ jobs:
             exit 1
           fi
           echo "Decoded Gitea user: ${GITEA_USER}"
+          # 校验：ai-divine-desktop 仓库的所有者必须是 duguying（仓库设置里能看到）。
+          # 之前 secret 里写成了 duguyng（笔误），PAT 解码后用户名不对，POST /releases
+          # 直接 404 "not found"，且消息会把仓库隐藏。这里显式拦截，避免默默 404。
+          if [[ "${GITEA_USER}" != "duguying" ]]; then
+            echo "::error::MATCH_GIT_BASIC_AUTHORIZATION 解出的用户 (${GITEA_USER}) 不是 ai-divine-desktop 的所有者 duguying。请重新生成 base64(duguying:<PAT>) 后更新 secret。"
+            exit 1
+          fi
 
           AUTH="token ${GITEA_TOKEN}"
           API="${GITEA_API%/}"
