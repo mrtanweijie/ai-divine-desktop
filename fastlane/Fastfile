@@ -216,7 +216,7 @@ platform :mac do
     FileUtils.mv(arm64_main, "#{arm64_main}.arm64")
     FileUtils.mv(x64_main,   "#{arm64_main}.x64")
     sh("/usr/bin/lipo -create -output '#{arm64_main}' '#{arm64_main}.arm64' '#{arm64_main}.x64'")
-    FileUtils.rm_f("#{arm64_main}.arm64", "#{arm64_main}.x64")
+    FileUtils.rm_f(["#{arm64_main}.arm64", "#{arm64_main}.x64"])
     sh("/usr/bin/lipo -info '#{arm64_main}'")
 
     # 4b) sidecar（如果 .app 里嵌入了 sidecar）
@@ -225,7 +225,7 @@ platform :mac do
       FileUtils.mv(arm64_sidecar_app, "#{arm64_sidecar_app}.arm64")
       FileUtils.mv(x64_sidecar_app,   "#{arm64_sidecar_app}.x64")
       sh("/usr/bin/lipo -create -output '#{arm64_sidecar_app}' '#{arm64_sidecar_app}.arm64' '#{arm64_sidecar_app}.x64'")
-      FileUtils.rm_f("#{arm64_sidecar_app}.arm64", "#{arm64_sidecar_app}.x64")
+      FileUtils.rm_f(["#{arm64_sidecar_app}.arm64", "#{arm64_sidecar_app}.x64"])
       sh("/usr/bin/lipo -info '#{arm64_sidecar_app}'")
     end
 
