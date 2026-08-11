@@ -82,16 +82,17 @@ jobs:
       # 3. 同步 tauri.conf.json 的 version。
       # ---------------------------------------------------------------------
       - name: Bump tauri.conf.json version
-        working-directory: $HOME/workspace/ai-divine-desktop/divine-app/src-tauri
         run: |
+          set -euo pipefail
+          cd "$HOME/workspace/ai-divine-desktop/divine-app/src-tauri"
           python3 - <<PY
-          import json
+          import json, os
           v = "${{ steps.version.outputs.version }}"
-          p = "tauri.conf.json"
-          c = json.load(open(p))
+          p = os.path.join(os.getcwd(), "tauri.conf.json")
+          with open(p) as f: c = json.load(f)
           c["version"] = v
-          json.dump(c, open(p, "w"), indent=2)
-          print("tauri.conf.json version ->", v)
+          with open(p, "w") as f: json.dump(c, f, indent=2)
+          print("tauri.conf.json version ->", v, "at", p)
           PY
 
       # ---------------------------------------------------------------------
@@ -175,8 +176,9 @@ jobs:
           cache-dependency-path: $HOME/workspace/ai-divine-desktop/divine-server/requirements.txt
 
       - name: Install Python dependencies
-        working-directory: $HOME/workspace/ai-divine-desktop/divine-server
         run: |
+          set -euo pipefail
+          cd "$HOME/workspace/ai-divine-desktop/divine-server"
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pyinstaller
 
