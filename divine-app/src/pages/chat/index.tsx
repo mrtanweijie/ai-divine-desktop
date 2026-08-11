@@ -115,6 +115,9 @@ export default function ChatPage() {
   const [workspaceExpandTransitioning, setWorkspaceExpandTransitioning] =
     useState(false);
   const [workspaceTreeWidth, setWorkspaceTreeWidth] = useState(172);
+  const [hasMoreOlder, setHasMoreOlder] = useState(false);
+  const [oldestMessageId, setOldestMessageId] = useState<string | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const projectPathsRef = useRef<Record<string, string>>({});
   const workspacePanelOpenRef = useRef(workspacePanelOpen);
@@ -153,7 +156,7 @@ export default function ChatPage() {
   }, []);
 
   const loadSession = useCallback(async (id: string) => {
-    const data = await getSession(id);
+    const data = await getSession(id, { limit: 80 });
     let savedExpanded = false;
     try {
       savedExpanded =
@@ -169,7 +172,47 @@ export default function ChatPage() {
     setMessages(
       messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos)
     );
+    setHasMoreOlder(Boolean(data.has_more));
+    setOldestMessageId(data.messages.length > 0 ? data.messages[0].id : null);
+    setLoadingOlder(false);
   }, []);
+
+  const loadOlderMessages = useCallback(async () => {
+    if (
+      !selectedId ||
+      !oldestMessageId ||
+      loadingOlder ||
+      !hasMoreOlder
+    ) {
+      return;
+    }
+    setLoadingOlder(true);
+    try {
+      const data = await getSession(selectedId, {
+        limit: 80,
+        beforeId: oldestMessageId,
+      });
+      const older = messagesToChatMessages(
+        data.messages,
+        data.tool_runs ?? [],
+        data.todos
+      );
+      setMessages((prev) => [...older, ...prev]);
+      setHasMoreOlder(Boolean(data.has_more));
+      if (data.messages.length > 0) {
+        setOldestMessageId(data.messages[0].id);
+      }
+    } catch {
+      // keep current list and allow retry on next scroll
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [
+    hasMoreOlder,
+    loadingOlder,
+    oldestMessageId,
+    selectedId,
+  ]);
 
   const loadChangedFiles = useCallback(async (id: string) => {
     if (!id) {
@@ -638,6 +681,8 @@ export default function ChatPage() {
                 data.todos
               );
               setMessages((prev) => mergeLocalTools(prev, restored));
+              setHasMoreOlder(false);
+              setOldestMessageId(null);
             }
             await Promise.all([
               refreshSessions(selectedProjectId),
@@ -781,6 +826,9 @@ export default function ChatPage() {
   useEffect(() => {
     setPreviewFile(null);
     setAgentChangedFiles(new Set());
+    setHasMoreOlder(false);
+    setOldestMessageId(null);
+    setLoadingOlder(false);
     try {
       const saved = currentProject?.path
         ? localStorage.getItem(
@@ -934,6 +982,9 @@ export default function ChatPage() {
                 username={settings?.username || "用户"}
                 workspacePath={currentProject?.path ?? null}
                 onPreviewFile={handlePreviewFile}
+                hasMoreOlder={hasMoreOlder}
+                loadingOlder={loadingOlder}
+                onLoadOlder={loadOlderMessages}
               />
             )}
             <ChatInput

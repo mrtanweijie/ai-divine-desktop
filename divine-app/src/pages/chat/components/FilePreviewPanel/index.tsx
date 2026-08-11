@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
@@ -43,20 +42,8 @@ export function FilePreviewPanel({
   onSelectFile,
   onAcceptFile,
 }: FilePreviewPanelProps) {
-  const [mounted, setMounted] = useState(open);
-  const [visible, setVisible] = useState(open);
   const [resizing, setResizing] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setMounted(true);
-      setVisible(true);
-      return;
-    }
-    setVisible(false);
-  }, [open]);
-
-  if (!mounted || !repoPath) return null;
+  if (!repoPath) return null;
 
   const handleResizeStart = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -112,12 +99,12 @@ export function FilePreviewPanel({
 
   return (
     <aside
-      className={`file-inspector-panel ${visible ? "is-open" : "is-closing"}${
+      className={`file-inspector-panel ${open ? "is-open" : "is-closing"}${
         resizing ? " is-resizing" : ""
       }${expanded ? " is-expanded" : ""}`}
       style={{
-        width: visible ? (expanded ? "auto" : width) : 0,
-        minWidth: visible ? (expanded ? 0 : 320) : 0,
+        width: open ? (expanded ? "auto" : width) : 0,
+        minWidth: open ? (expanded ? 0 : 320) : 0,
         transition: noTransition ? "none" : undefined,
       }}
     >

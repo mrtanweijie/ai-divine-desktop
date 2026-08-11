@@ -20,6 +20,9 @@ import {
 import { getDirChildren, getFileTree, isTauri } from "@/services/tauri";
 import type { WorkspaceFileNode } from "@/types";
 
+const treeCache = new Map<string, WorkspaceFileNode[]>();
+const dirCache = new Map<string, WorkspaceFileNode[]>();
+
 interface FileTreeProps {
   repoPath: string;
   changedFiles: ReadonlySet<string>;
@@ -137,9 +140,17 @@ function TreeNode({
     const next = !open;
     setOpen(next);
     if (next && children === null) {
+      const cacheKey = `${repoPath}\u0000${node.path}`;
+      const cached = dirCache.get(cacheKey);
+      if (cached) {
+        setChildren(cached);
+        return;
+      }
       setLoading(true);
       try {
-        setChildren(await getDirChildren(repoPath, node.path));
+        const data = await getDirChildren(repoPath, node.path);
+        dirCache.set(cacheKey, data);
+        setChildren(data);
       } catch {
         setChildren([]);
       } finally {
@@ -212,11 +223,16 @@ export function FileTree({
 
   useEffect(() => {
     let active = true;
-    setNodes(null);
     if (!isTauri()) return;
+    const cached = treeCache.get(repoPath);
+    if (cached) setNodes(cached);
+    else setNodes(null);
     void getFileTree(repoPath)
       .then((data) => {
-        if (active) setNodes(data);
+        if (active) {
+          treeCache.set(repoPath, data);
+          setNodes(data);
+        }
       })
       .catch(() => {
         if (active) setNodes([]);

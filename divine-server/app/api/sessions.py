@@ -33,10 +33,16 @@ def create_session(body: SessionCreate):
 
 
 @router.get("/{session_id}")
-def get_session(session_id: str):
+def get_session(
+    session_id: str,
+    limit: int | None = None,
+    before_id: str | None = None,
+):
     session = db.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    if limit is not None:
+        return db.load_session_page(session_id, before_id, limit)
     return db.load_session(session_id)
 
 

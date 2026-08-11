@@ -916,3 +916,67 @@ def load_session(session_id: str) -> dict[str, Any]:
         "tool_runs": list_tool_runs(session_id),
         "todos": list_todos(session_id),
     }
+
+
+def load_session_page(
+    session_id: str,
+    before_id: str | None = None,
+    limit: int = 100,
+) -> dict[str, Any]:
+    """Cursor-paginated message view for long conversation history."""
+    limit = max(1, min(int(limit or 100), 200))
+    with closing(_connect()) as conn:
+        if before_id:
+            rows = conn.execute(
+                "SELECT *, rowid FROM messages "
+                "WHERE session_id = ? AND rowid < "
+                "(SELECT rowid FROM messages WHERE id = ?) "
+                "ORDER BY rowid DESC LIMIT ?",
+                (session_id, before_id, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT *, rowid FROM messages "
+                "WHERE session_id = ? "
+                "ORDER BY rowid DESC LIMIT ?",
+                (session_id, limit),
+            ).fetchall()
+        page = [dict(row) for row in rows][::-1]
+        while page and page[0]["role"] != "user":
+            page.pop(0)
+        has_more = False
+        if page:
+            oldest_rowid = page[0]["rowid"]
+            count = conn.execute(
+                "SELECT COUNT(*) FROM messages "
+                "WHERE session_id = ? AND rowid < ?",
+                (session_id, oldest_rowid),
+            ).fetchone()[0]
+            has_more = count > 0
+        messages = []
+        for item in page:
+            item.pop("rowid", None)
+            messages.append(
+                {
+                    **item,
+                    "parts": list_message_parts(item["id"]),
+                }
+            )
+
+    tool_runs = list_tool_runs(session_id)
+    if messages:
+        start = messages[0]["created_at"]
+        end = messages[-1]["created_at"]
+        tool_runs = [
+            run
+            for run in tool_runs
+            if start <= run["started_at"] <= end
+        ]
+
+    return {
+        "session": get_session(session_id),
+        "messages": messages,
+        "tool_runs": tool_runs,
+        "todos": list_todos(session_id),
+        "has_more": has_more,
+    }

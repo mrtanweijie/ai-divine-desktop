@@ -65,14 +65,23 @@ export function clearSession(id: string): Promise<unknown> {
 }
 
 export function getSession(
-  id: string
+  id: string,
+  options?: { limit?: number; beforeId?: string }
 ): Promise<{
   session: Session;
   messages: Message[];
   tool_runs?: ToolRun[];
   todos?: TodoItem[];
+  has_more?: boolean;
 }> {
-  return request(`/sessions/${id}`);
+  const query = options
+    ? `?limit=${options.limit ?? 100}${
+        options.beforeId
+          ? `&before_id=${encodeURIComponent(options.beforeId)}`
+          : ""
+      }`
+    : "";
+  return request(`/sessions/${id}${query}`);
 }
 
 export function listProjects(): Promise<{ projects: Project[] }> {
