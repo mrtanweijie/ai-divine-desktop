@@ -136,6 +136,7 @@ export function MessageList({
               >
                 <MessageItem
                   message={message}
+                  sessionId={sessionId}
                   username={username}
                   workspacePath={workspacePath}
                   onPreviewFile={onPreviewFile}

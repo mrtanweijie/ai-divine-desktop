@@ -7,6 +7,7 @@ import re
 from typing import Any, AsyncIterator
 
 import httpx
+from langchain_core.language_models.chat_models import SimpleChatModel
 
 from .config import settings_store
 
@@ -683,6 +684,42 @@ class MockLLM:
                 return {"success": False, "message": "工具执行失败"}
             return result if isinstance(result, dict) else {"success": False}
         return None
+
+
+class MockChatModel(SimpleChatModel):
+    """LangChain chat model used by create_agent when no API key is configured."""
+
+    @property
+    def _llm_type(self) -> str:
+        return "mock-chat-model"
+
+    def _call(
+        self,
+        messages: list[Any],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> str:
+        from langchain_core.messages import HumanMessage
+
+        question = next(
+            (
+                message.content
+                for message in reversed(messages)
+                if isinstance(message, HumanMessage)
+            ),
+            "",
+        )
+        return MockLLM._answer(str(question or ""))
+
+    def bind_tools(
+        self,
+        tools: list[Any],
+        *,
+        tool_choice: str | None = None,
+        **kwargs: Any,
+    ) -> "MockChatModel":
+        return self
 
 
 class ChatDeepSeekProvider:

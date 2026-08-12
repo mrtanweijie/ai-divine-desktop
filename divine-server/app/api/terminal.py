@@ -19,6 +19,16 @@ _ACTIVE_PROCS: set[int] = set()
 _PENDING_TERMINAL: dict[str, dict[str, Any]] = {}
 
 
+def create_terminal_decision(session_id: str) -> dict[str, Any]:
+    pending: dict[str, Any] = {"event": asyncio.Event(), "allowed": None}
+    _PENDING_TERMINAL[session_id] = pending
+    return pending
+
+
+def remove_terminal_decision(session_id: str) -> None:
+    _PENDING_TERMINAL.pop(session_id, None)
+
+
 class TerminalDecision(BaseModel):
     session_id: str
     allow: bool
@@ -27,14 +37,13 @@ class TerminalDecision(BaseModel):
 async def wait_for_terminal_decision(
     session_id: str, command: str, timeout: int = 180
 ) -> bool:
-    pending: dict[str, Any] = {"event": asyncio.Event(), "allowed": None}
-    _PENDING_TERMINAL[session_id] = pending
+    pending = create_terminal_decision(session_id)
     try:
         await asyncio.wait_for(pending["event"].wait(), timeout)
     except asyncio.TimeoutError:
         return False
     finally:
-        _PENDING_TERMINAL.pop(session_id, None)
+        remove_terminal_decision(session_id)
     return bool(pending["allowed"])
 
 

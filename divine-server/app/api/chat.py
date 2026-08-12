@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from .. import db
-from ..agent import run_agent
+from ..agent_langchain import run_agent
 from ..config import settings_store
 from ..document_reader import read_file_text
 from ..file_types import is_image_path

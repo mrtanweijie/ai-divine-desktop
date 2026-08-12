@@ -51,7 +51,11 @@ import { useConfigState } from "@/pages/chat/state/configStore";
 import { useFullscreen } from "@/pages/chat/state/fullscreenStore";
 import { useInputState } from "@/pages/chat/state/inputStore";
 import { useMessageState } from "@/pages/chat/state/messageStore";
-import { useSessionState } from "@/pages/chat/state/sessionStore";
+import {
+  readLastSessionSelection,
+  useSessionState,
+  writeLastSessionSelection,
+} from "@/pages/chat/state/sessionStore";
 import { Flex } from "@/components/ui/Flex";
 import { TitleBar } from "@/components/TitleBar";
 import { SessionSearchModal } from "@/pages/chat/components/SessionList/SessionSearchModal";
@@ -114,6 +118,7 @@ export default function ChatPage() {
     useState(false);
   const [workspaceExpandTransitioning, setWorkspaceExpandTransitioning] =
     useState(false);
+  const [selectionReady, setSelectionReady] = useState(false);
   const [workspaceTreeWidth, setWorkspaceTreeWidth] = useState(172);
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
   const [oldestMessageId, setOldestMessageId] = useState<string | null>(null);
@@ -253,18 +258,54 @@ export default function ChatPage() {
   }, [loadChangedFiles, selectedId, workspacePanelOpen]);
 
   useEffect(() => {
+    let cancelled = false;
+    const savedSelection = readLastSessionSelection();
+
     Promise.all([refreshProjects(), getSettings()])
       .then(async ([projectList, currentSettings]) => {
+        if (cancelled) return;
         setSettings(currentSettings);
-        const initialProjectId = projectList[0]?.id ?? null;
-        setSelectedProjectId(initialProjectId);
-        if (!initialProjectId) return;
-        const sessionList = await refreshSessions(initialProjectId);
-        if (sessionList.length > 0) {
-          await loadSession(sessionList[0].id);
+        const sessionList = await refreshSessions();
+        if (cancelled) return;
+        const savedSession =
+          sessionList.find(
+            (session) => session.id === savedSelection.sessionId
+          ) ?? null;
+        const preferredProjectId =
+          savedSession?.project_id ?? savedSelection.projectId;
+        const initialProject =
+          projectList.find((project) => project.id === preferredProjectId) ??
+          projectList.find(
+            (project) => project.id === savedSession?.project_id
+          ) ??
+          projectList[0] ??
+          null;
+        if (!initialProject) {
+          setSelectedProjectId(null);
+          setSelectionReady(true);
+          return;
         }
+        setSelectedProjectId(initialProject.id);
+        const initialSession =
+          sessionList.find(
+            (session) =>
+              session.id === savedSelection.sessionId &&
+              session.project_id === initialProject.id
+          ) ??
+          sessionList.find(
+            (session) => session.project_id === initialProject.id
+          ) ??
+          null;
+        if (initialSession) {
+          await loadSession(initialSession.id);
+        } else {
+          setSelectedId(null);
+          setMessages([]);
+        }
+        setSelectionReady(true);
       })
       .catch(() => {
+        if (cancelled) return;
         setSettings({
           provider: "mock",
           base_url: "",
@@ -277,8 +318,17 @@ export default function ChatPage() {
           context_limit: 20,
           tools: [],
         });
+        setSelectionReady(true);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [loadSession, refreshProjects, refreshSessions]);
+
+  useEffect(() => {
+    if (!selectionReady) return;
+    writeLastSessionSelection(selectedProjectId, selectedId);
+  }, [selectedId, selectedProjectId, selectionReady]);
 
   useEffect(() => {
     const handleResize = () => {

@@ -67,6 +67,7 @@ import { DivineAvatar } from "@/components/DivineAvatar";
 interface MessageItemProps {
   message: ChatMessage;
   streaming: boolean;
+  sessionId?: string | null;
   username: string;
   workspacePath?: string | null;
   onPreviewFile?: (file: PreviewFile) => void;
@@ -75,6 +76,7 @@ interface MessageItemProps {
 export function MessageItem({
   message,
   streaming,
+  sessionId,
   username,
   workspacePath,
   onPreviewFile,
@@ -160,6 +162,7 @@ export function MessageItem({
             <ToolStatusCard
               key={`${tool.tool}-${index}`}
               tool={tool}
+              sessionId={sessionId}
               workspacePath={workspacePath}
               onPreviewFile={onPreviewFile}
             />
@@ -229,8 +232,11 @@ function PlanCard({ todos }: { todos: TodoItem[] }) {
         </span>
       </summary>
       <div className="plan-items">
-        {todos.map((todo) => (
-          <div key={todo.id} className={`plan-item ${todo.status}`}>
+        {todos.map((todo, index) => (
+          <div
+            key={todo.id || `plan-${index}`}
+            className={`plan-item ${todo.status}`}
+          >
             <span className="plan-item-icon">
               {todo.status === "done" ? (
                 <Check size={13} />
@@ -252,15 +258,18 @@ function PlanCard({ todos }: { todos: TodoItem[] }) {
 
 function ToolStatusCard({
   tool,
+  sessionId,
   workspacePath,
   onPreviewFile,
 }: {
   tool: ToolEvent;
+  sessionId?: string | null;
   workspacePath?: string | null;
   onPreviewFile?: (file: PreviewFile) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [deciding, setDeciding] = useState(false);
+  const targetSessionId = tool.session_id ?? sessionId;
   const running = tool.status === "running" || tool.status === "preparing";
   const statusMessage =
     tool.count && tool.count > 1
@@ -349,13 +358,13 @@ function ToolStatusCard({
   };
 
   const decide = async (allow: boolean) => {
-    if (!tool.session_id || deciding) return;
+    if (!targetSessionId || deciding) return;
     setDeciding(true);
     try {
       await request("/terminal/decide", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: tool.session_id, allow }),
+        body: JSON.stringify({ session_id: targetSessionId, allow }),
       });
     } finally {
       setDeciding(false);
@@ -529,13 +538,18 @@ function ToolStatusCard({
           </div>
           <p className="plan-confirm-text">计划已创建，是否开始执行？</p>
           <Flex align="center" gap={8}>
-            <Button size="small" loading={deciding} onClick={() => void decide(true)}>
+            <Button
+              size="small"
+              loading={deciding}
+              disabled={!targetSessionId || deciding}
+              onClick={() => void decide(true)}
+            >
               开始执行
             </Button>
             <Button
               size="small"
               variant="ghost"
-              disabled={deciding}
+              disabled={!targetSessionId || deciding}
               onClick={() => void decide(false)}
             >
               取消
@@ -586,6 +600,98 @@ function ToolStatusCard({
               size="small"
               variant="ghost"
               disabled={deciding}
+              onClick={() => void decide(false)}
+            >
+              取消
+            </Button>
+          </Flex>
+        </div>
+      )}
+      {tool.status === "confirm" && tool.confirm_type === "skill_migrate" && (
+        <div className="terminal-confirm skill-migrate-confirm">
+          <div className="terminal-confirm-head">
+            <FileCode2 size={14} />
+            <span>技能迁移确认</span>
+          </div>
+          <div className="skill-migrate-meta">
+            <span className="skill-migrate-name">
+              {tool.skill_migrate?.name ?? tool.message}
+            </span>
+            <span>
+              来源：{tool.skill_migrate?.source_tool ?? "未知"} · 目标：
+              {tool.target === "user" ? "用户级 ~/.divine/skills" : "项目 .divine/skills"}
+            </span>
+            {tool.skill_migrate?.description && (
+              <span className="skill-migrate-description">
+                {tool.skill_migrate.description}
+              </span>
+            )}
+          </div>
+          <pre>{tool.skill_migrate?.preview ?? tool.message}</pre>
+          <Flex align="center" gap={8}>
+            <Button
+              size="small"
+              loading={deciding}
+              disabled={!targetSessionId || deciding}
+              onClick={() => void decide(true)}
+            >
+              确认迁移
+            </Button>
+            <Button
+              size="small"
+              variant="ghost"
+              disabled={!targetSessionId || deciding}
+              onClick={() => void decide(false)}
+            >
+              取消
+            </Button>
+          </Flex>
+        </div>
+      )}
+      {tool.status === "confirm" && tool.confirm_type === "skill_install" && (
+        <div className="terminal-confirm skill-migrate-confirm">
+          <div className="terminal-confirm-head">
+            <FileCode2 size={14} />
+            <span>GitHub 技能安装确认</span>
+          </div>
+          <div className="skill-migrate-meta">
+            <span className="skill-migrate-name">
+              {tool.skill_install?.skills?.[0]?.name ?? tool.skill_install?.repo ?? tool.message}
+            </span>
+            <span>
+              仓库：{tool.skill_install?.repo ?? "未知"} · 目标：
+              {tool.target === "user" ? "用户级 ~/.divine/skills" : "项目 .divine/skills"}
+            </span>
+            {tool.skill_install && tool.skill_install.skills.length > 1 && (
+              <span>
+                仓库包含 {tool.skill_install.skills.length} 个技能：
+                {tool.skill_install.skills
+                  .map((skill) => `${skill.name} (${skill.skill_path || "仓库根目录"})`)
+                  .join("、")}
+              </span>
+            )}
+            {tool.skill_install?.skills?.[0]?.description && (
+              <span className="skill-migrate-description">
+                {tool.skill_install.skills[0].description}
+              </span>
+            )}
+          </div>
+          <pre>
+            {tool.skill_install?.skills?.[0]?.preview ?? tool.message}
+          </pre>
+          <Flex align="center" gap={8}>
+            <Button
+              size="small"
+              loading={deciding}
+              disabled={!targetSessionId || deciding}
+              onClick={() => void decide(true)}
+            >
+              确认安装
+            </Button>
+            <Button
+              size="small"
+              variant="ghost"
+              disabled={!targetSessionId || deciding}
               onClick={() => void decide(false)}
             >
               取消

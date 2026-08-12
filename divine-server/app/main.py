@@ -14,6 +14,7 @@ from .api import (
     scheduled_tasks,
     sessions,
     settings,
+    skills,
     terminal,
 )
 from .config import cors_origins, ensure_directories, settings_store
@@ -49,6 +50,7 @@ app.include_router(scheduled_tasks.router, prefix="/api")
 app.include_router(calendar_events.router, prefix="/api")
 app.include_router(files.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
+app.include_router(skills.router)
 app.include_router(terminal.router)
 
 

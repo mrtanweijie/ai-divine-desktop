@@ -52,7 +52,12 @@ export interface ToolEvent {
     | "external_file"
     | "plan"
     | "plan_choice"
-    | "write_calendar";
+    | "write_calendar"
+    | "skill_migrate"
+    | "skill_install";
+  skill_migrate?: SkillMigrationCandidate;
+  skill_install?: SkillInstallPreview;
+  target?: "project" | "user";
   paths?: string[];
   session_id?: string;
   result?: {
@@ -73,6 +78,33 @@ export interface ToolEvent {
     };
     option?: Record<string, unknown>;
   };
+}
+
+export interface SkillMigrationCandidate {
+  name: string;
+  source_tool: string;
+  kind: "skill_dir" | "cursor_rule";
+  source_path: string;
+  source_dir?: string;
+  description: string;
+  preview: string;
+  existing: boolean;
+  target: "project" | "user";
+}
+
+export interface SkillInstallPreview {
+  repo: string;
+  skills: SkillInstallCandidate[];
+}
+
+export interface SkillInstallCandidate {
+  name: string;
+  skill_path: string;
+  description: string;
+  preview: string;
+  files: string[];
+  requirements: string;
+  size: number;
 }
 
 export interface ToolFileLink {
