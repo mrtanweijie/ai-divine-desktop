@@ -4,6 +4,7 @@ import "./index.less";
 export interface ModalProps {
   open: boolean;
   title?: string;
+  titleSuffix?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
@@ -13,6 +14,7 @@ export interface ModalProps {
 export function Modal({
   open,
   title,
+  titleSuffix,
   onClose,
   children,
   footer,
@@ -45,7 +47,12 @@ export function Modal({
       >
         {title && (
           <div className="ui-modal-header">
-            <h2>{title}</h2>
+            <h2>
+              {title}
+              {titleSuffix && (
+                <span className="ui-modal-title-suffix">{titleSuffix}</span>
+              )}
+            </h2>
           </div>
         )}
         <div className="ui-modal-body">{children}</div>

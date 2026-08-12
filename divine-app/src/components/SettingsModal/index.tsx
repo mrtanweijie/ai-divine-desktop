@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, Save } from "lucide-react";
+import tauriConfig from "../../../src-tauri/tauri.conf.json";
 import type { Settings } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
+import { getAppVersion } from "@/services/tauri";
 import "./index.less";
 
 interface SettingsModalProps {
@@ -31,6 +33,7 @@ export function SettingsModal({
   const [provider, setProvider] = useState(settings.provider);
   const [showKey, setShowKey] = useState(false);
   const [showGlmKey, setShowGlmKey] = useState(false);
+  const [version, setVersion] = useState(`v${tauriConfig.version}`);
 
   useEffect(() => {
     setModel(settings.model);
@@ -41,10 +44,21 @@ export function SettingsModal({
     setProvider(settings.provider);
   }, [settings]);
 
+  useEffect(() => {
+    let active = true;
+    void getAppVersion().then((value) => {
+      if (active && value) setVersion(`v${value}`);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <Modal
       open
       title="设置"
+      titleSuffix={version}
       onClose={onClose}
       width={520}
       footer={

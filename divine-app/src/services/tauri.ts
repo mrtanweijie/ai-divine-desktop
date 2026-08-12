@@ -27,6 +27,16 @@ export async function openUrl(url: string): Promise<void> {
   await invoke("open_url", { url });
 }
 
+export async function getAppVersion(): Promise<string> {
+  if (!isTauri()) return "";
+  try {
+    const { getVersion } = await import("@tauri-apps/api/app");
+    return await getVersion();
+  } catch {
+    return "";
+  }
+}
+
 export async function savePasteText(
   text: string
 ): Promise<{ name: string; path: string; size: number; hash: string }> {
