@@ -20,6 +20,7 @@ import {
   Eye,
   FileBox,
   FileStack,
+  FileCode,
   FileCode2,
   FileSpreadsheet,
   FileText,
@@ -269,6 +270,7 @@ function ToolStatusCard({
 }) {
   const [copied, setCopied] = useState(false);
   const [deciding, setDeciding] = useState(false);
+  const [commandsOpen, setCommandsOpen] = useState(false);
   const targetSessionId = tool.session_id ?? sessionId;
   const running = tool.status === "running" || tool.status === "preparing";
   const statusMessage =
@@ -424,11 +426,12 @@ function ToolStatusCard({
                 }
               }}
             >
-              <FileText size={14} />
-              <span>{file.name}</span>
+              {fileIcon(file)}
+              <span className="file-name">{file.name}</span>
               {file.size != null && (
                 <span className="file-size">{formatSize(file.size)}</span>
               )}
+              {file.path && <span className="file-path">{file.path}</span>}
             </a>
           ))}
         </div>
@@ -455,7 +458,7 @@ function ToolStatusCard({
             }}
           >
             <FolderOpen size={14} />
-            <span>{tool.result.file_name}</span>
+            <span className="file-name">{tool.result.file_name}</span>
             <span className="file-size">{formatSize(tool.result.file_size)}</span>
           </a>
           {workspaceRel && isTauri() && (
@@ -478,11 +481,34 @@ function ToolStatusCard({
           )}
         </div>
         )}
-      {tool.command && tool.status !== "confirm" && (
+      {tool.status !== "confirm" &&
+        (tool.commands?.length || tool.command) && (
+        tool.commands?.length ? (
+          <div className="terminal-commands">
+            {tool.commands
+              .slice(0, commandsOpen ? tool.commands.length : 3)
+              .map((command) => (
+              <div className="terminal-command" key={command}>
+                <span className="terminal-command-prompt">$</span>
+                <code>{command}</code>
+              </div>
+            ))}
+            {tool.commands.length > 3 && !commandsOpen && (
+              <button
+                className="terminal-commands-more"
+                type="button"
+                onClick={() => setCommandsOpen(true)}
+              >
+                展开全部 {tool.commands.length} 条命令
+              </button>
+            )}
+          </div>
+        ) : (
         <div className="terminal-command">
           <span className="terminal-command-prompt">$</span>
           <code>{tool.command}</code>
         </div>
+        )
       )}
       {tool.status === "confirm" &&
         tool.confirm_type !== "external_file" &&
@@ -648,6 +674,72 @@ function ToolStatusCard({
           </Flex>
         </div>
       )}
+      {tool.status === "confirm" &&
+        tool.confirm_type === "skill_migrate_batch" && (
+        <div className="terminal-confirm skill-migrate-confirm">
+          <div className="terminal-confirm-head">
+            <FileCode2 size={14} />
+            <span>批量技能迁移确认</span>
+          </div>
+          <div className="skill-migrate-meta">
+            <span className="skill-migrate-name">
+              {tool.skill_migrations?.length ?? 0} 个技能待迁移
+            </span>
+            <span>
+              目标：
+              {tool.target === "user" ? "用户级 ~/.divine/skills" : "项目 .divine/skills"}
+            </span>
+          </div>
+          <div className="skill-migration-list">
+            {tool.skill_migrations?.map((skill) => (
+              <div className="skill-migration-item" key={skill.name}>
+                <span className="skill-migration-item-name">
+                  {skill.name}
+                </span>
+                <span className="skill-migration-item-source">
+                  {skill.source_tool}
+                </span>
+                {skill.existing && (
+                  <span className="skill-migration-item-existing">
+                    已存在，将跳过
+                  </span>
+                )}
+                {skill.description && (
+                  <span className="skill-migration-item-description">
+                    {skill.description}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+          <pre>
+            {tool.skill_migrations
+              ?.map(
+                (skill) =>
+                  `## ${skill.name} (${skill.source_tool})\n${skill.preview}`
+              )
+              .join("\n\n---\n\n") ?? tool.message}
+          </pre>
+          <Flex align="center" gap={8}>
+            <Button
+              size="small"
+              loading={deciding}
+              disabled={!targetSessionId || deciding}
+              onClick={() => void decide(true)}
+            >
+              确认全部迁移
+            </Button>
+            <Button
+              size="small"
+              variant="ghost"
+              disabled={!targetSessionId || deciding}
+              onClick={() => void decide(false)}
+            >
+              取消
+            </Button>
+          </Flex>
+        </div>
+      )}
       {tool.status === "confirm" && tool.confirm_type === "skill_install" && (
         <div className="terminal-confirm skill-migrate-confirm">
           <div className="terminal-confirm-head">
@@ -766,8 +858,10 @@ const GROUPABLE_TOOLS = new Set([
   "calculator",
   "sqlite_query",
   "rag_search",
+  "read_file",
   "search_files",
   "directory_tree",
+  "terminal",
 ]);
 
 function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
@@ -784,6 +878,7 @@ function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
         count: 1,
         urls: toolUrls(tool),
         files: toolFiles(tool),
+        commands: toolCommands(tool),
       });
       continue;
     }
@@ -796,18 +891,29 @@ function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
         file,
       ])
     ).values()];
+    const commands = [
+      ...new Set([
+        ...(existing.commands ?? toolCommands(existing)),
+        ...toolCommands(tool),
+      ]),
+    ];
     grouped[index] = {
       ...existing,
       ...tool,
       count,
       urls,
       files,
+      commands,
       message:
         tool.tool === "web_fetch" || tool.tool === "web_fetch_batch"
           ? `已抓取 ${count} 个数据源`
           : tool.tool === "calculator"
             ? `已完成 ${count} 次计算`
-            : `${tool.tool} 已执行 ${count} 次`,
+            : tool.tool === "read_file"
+              ? `已读取 ${count} 个文件`
+              : tool.tool === "terminal"
+                ? `已执行 ${count} 个终端命令`
+              : `${tool.tool} 已执行 ${count} 次`,
     };
   }
   return grouped;
@@ -878,6 +984,65 @@ function toolFiles(tool: ToolEvent): ToolFileLink[] {
     });
   }
   return files;
+}
+
+function toolCommands(tool: ToolEvent): string[] {
+  if (tool.commands?.length) return tool.commands;
+  return tool.command ? [tool.command] : [];
+}
+
+function fileIcon(file: ToolFileLink): ReactNode {
+  const source = file.path || file.name || "";
+  const ext = source.includes(".")
+    ? source.split(".").pop()?.toLowerCase() ?? ""
+    : "";
+  if (
+    [
+      "rs",
+      "py",
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "go",
+      "java",
+      "c",
+      "h",
+      "cpp",
+      "rb",
+      "sh",
+      "toml",
+      "yaml",
+      "yml",
+      "json",
+      "css",
+      "scss",
+      "html",
+      "vue",
+      "svelte",
+    ].includes(ext)
+  ) {
+    return <FileCode size={14} />;
+  }
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"].includes(ext)) {
+    return <Image size={14} />;
+  }
+  if (["xlsx", "xls", "csv", "numbers"].includes(ext)) {
+    return <FileSpreadsheet size={14} />;
+  }
+  if (["pptx", "ppt", "key"].includes(ext)) {
+    return <Presentation size={14} />;
+  }
+  if (["docx", "doc", "pages"].includes(ext)) {
+    return <BookMarked size={14} />;
+  }
+  if (["pdf"].includes(ext)) {
+    return <FileStack size={14} />;
+  }
+  if (["md", "markdown", "txt", "rst"].includes(ext)) {
+    return <FileText size={14} />;
+  }
+  return <FileText size={14} />;
 }
 
 async function openToolUrl(url: string): Promise<void> {

@@ -122,9 +122,11 @@ function useThemeVersion(): "dark" | "light" {
 }
 
 function normalizeMermaidSource(code: string): string {
-  let text = code.replace(/\\"/g, '"').replace(/\\'/g, "'");
-  text = text.replace(/"([^"\n]*)"/g, "“$1”");
-  return text.replace(/"/g, "「");
+  return code
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\\"/g, '"')
+    .replace(/\\'/g, "'");
 }
 
 interface MermaidBlockProps {
@@ -150,8 +152,6 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
 
   useEffect(() => {
     if (streaming) {
-      setStatus("loading");
-      setSvg("");
       return;
     }
     const cachedSvg = svgCache.get(cacheKey(theme, normalizedCode));
@@ -229,7 +229,9 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
           {copied ? <Check size={13} /> : <Copy size={13} />}
         </Button>
       </div>
-      {status === "ready" && svg ? (
+      {streaming ? (
+        <pre className="mermaid-source">{normalizedCode}</pre>
+      ) : status === "ready" && svg ? (
         <div
           className="mermaid-canvas"
           dangerouslySetInnerHTML={{ __html: svg }}

@@ -27,6 +27,7 @@ from langchain_core.messages import (
 )
 from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.errors import GraphRecursionError
 from langgraph.prebuilt import ToolRuntime
 from langgraph.stream.transformers import CustomTransformer
 from langgraph.types import Command, interrupt
@@ -53,7 +54,11 @@ from .config import settings_store
 from .github_skills import preview_skill_repo
 from .llm import ChatDeepSeekProvider, MockChatModel
 from .sse import error_event, sse_event
-from .skills import find_importable_skill, skill_registry
+from .skills import (
+    discover_importable_skills,
+    find_importable_skill,
+    skill_registry,
+)
 from .tools.registry import registry
 
 logger = logging.getLogger("divine.agent_langchain")
@@ -61,6 +66,17 @@ logger = logging.getLogger("divine.agent_langchain")
 _CHECKPOINTER = InMemorySaver()
 _TOOL_LOCKS: dict[str, asyncio.Lock] = {}
 _ACTIVE_INTERRUPTS: set[tuple[str, str]] = set()
+_PLAN_CONTINUATION_KEYWORDS = (
+    "继续",
+    "下一步",
+    "执行计划",
+    "按计划",
+    "开始执行",
+    "接着",
+    "往下",
+    "continue",
+    "next step",
+)
 
 
 class TodoSyncMiddleware(AgentMiddleware):
@@ -95,6 +111,7 @@ class AgentRunContext:
     approval_mode: str
     plan_choice_resolved: bool = False
     plan_first_pending: bool = False
+    plan_approved: bool = False
 
 
 def _content_text(content: Any) -> str:
@@ -198,6 +215,40 @@ def _skill_catalog_prompt() -> str:
     return "\n".join(lines)
 
 
+def _active_plan_progress(
+    messages: list[Any], todos: list[dict[str, Any]]
+) -> str | None:
+    if not todos:
+        return None
+    last_user_index = -1
+    for index, message in enumerate(messages):
+        if isinstance(message, HumanMessage):
+            last_user_index = index
+    if last_user_index < 0:
+        return _plan_progress(todos)
+
+    question = _content_text(messages[last_user_index].content).lower()
+    if any(
+        keyword in question for keyword in _PLAN_CONTINUATION_KEYWORDS
+    ):
+        return _plan_progress(todos)
+
+    for message in messages[last_user_index + 1 :]:
+        if isinstance(message, ToolMessage) and getattr(
+            message, "name", None
+        ) == "write_todos":
+            return _plan_progress(todos)
+        if not isinstance(message, AIMessage):
+            continue
+        for call in message.tool_calls or []:
+            name = call.get("name") if isinstance(call, dict) else getattr(
+                call, "name", ""
+            )
+            if name == "write_todos":
+                return _plan_progress(todos)
+    return None
+
+
 def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
     @dynamic_prompt
     def prompt(request: ModelRequest) -> str:
@@ -209,8 +260,11 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
             ),
         ]
         todos = db.list_todos(ctx.session_id)
-        if todos:
-            parts.append(_plan_progress(todos))
+        plan_progress = _active_plan_progress(
+            request.state.get("messages") or [], todos
+        )
+        if plan_progress:
+            parts.append(plan_progress)
         rag_context = _auto_rag_context_lc(
             request.state.get("messages") or [], ctx.workspace
         )
@@ -340,6 +394,30 @@ def _custom_sse(payload: Any) -> str:
     return sse_event(event_name, data)
 
 
+def _frontend_tool_result(output: dict[str, Any]) -> dict[str, Any]:
+    result = dict(output)
+    for key in ("content", "stdout", "stderr"):
+        value = result.get(key)
+        if isinstance(value, str) and len(value) > 4000:
+            result[key] = value[:4000] + f"\n...[截断，共 {len(value)} 字符]"
+    data = result.get("data")
+    if isinstance(data, dict):
+        data_copy = dict(data)
+        for key in ("content", "stdout", "stderr", "text"):
+            value = data_copy.get(key)
+            if isinstance(value, str) and len(value) > 4000:
+                data_copy[key] = (
+                    value[:4000] + f"\n...[截断，共 {len(value)} 字符]"
+                )
+        results = data_copy.get("results")
+        if isinstance(results, list) and len(results) > 12:
+            data_copy["results"] = results[:12] + [
+                {"truncated": True, "count": len(results) - 12}
+            ]
+        result["data"] = data_copy
+    return result
+
+
 def _ask_interrupt(
     session_id: str,
     marker: str,
@@ -376,6 +454,7 @@ async def _handle_adapter_call(
                 "session_id": ctx.session_id,
                 "tool": name,
                 "message": "执行任务前是否先出一份方案？",
+                "call_id": call_id,
             },
         )
         plan_first = (
@@ -478,6 +557,78 @@ async def _handle_adapter_call(
                         ensure_ascii=False,
                     )
 
+        if name == "migrate_skills":
+            names = [
+                str(item or "").strip()
+                for item in (arguments.get("names") or [])
+                if str(item or "").strip()
+            ]
+            source_tool = (
+                str(arguments.get("source_tool") or "").strip() or None
+            )
+            target = str(arguments.get("target") or "project")
+            candidates = [
+                candidate
+                for candidate in discover_importable_skills(ctx.workspace)
+                if candidate["name"] in names
+                and (
+                    not source_tool
+                    or candidate["source_tool"] == source_tool
+                )
+            ]
+            unique: dict[str, dict[str, Any]] = {}
+            for candidate in candidates:
+                unique.setdefault(str(candidate["name"]), candidate)
+            selected = list(unique.values())
+            if selected:
+                decision = _ask_interrupt(
+                    ctx.session_id,
+                    f"skill_migrate_batch:{call_id}",
+                    {
+                        "type": "skill_migrate_batch",
+                        "session_id": ctx.session_id,
+                        "tool": name,
+                        "message": (
+                            f"确认批量迁移 {len(selected)} 个技能？"
+                        ),
+                        "skills": selected,
+                        "target": target,
+                        "call_id": call_id,
+                    },
+                )
+                allowed = (
+                    bool(decision.get("allowed"))
+                    if isinstance(decision, dict)
+                    else bool(decision)
+                )
+                if not allowed:
+                    if todo is not None:
+                        _finish_todo(todo, False, "用户取消批量技能迁移")
+                        writer(
+                            {
+                                "event": "todo_update",
+                                "id": todo["id"],
+                                "status": todo["status"],
+                            }
+                        )
+                    writer(
+                        {
+                            "event": "tool",
+                            "tool": name,
+                            "status": "error",
+                            "message": "用户取消批量技能迁移",
+                            "session_id": ctx.session_id,
+                            "call_id": call_id,
+                        }
+                    )
+                    return json.dumps(
+                        {
+                            "error": "用户取消批量技能迁移",
+                            "skills": [item["name"] for item in selected],
+                        },
+                        ensure_ascii=False,
+                    )
+
         if name == "install_skill":
             repo_url = str(arguments.get("repo_url") or "")
             ref = str(arguments.get("ref") or "") or None
@@ -553,6 +704,7 @@ async def _handle_adapter_call(
                     "tool": name,
                     "message": "外部路径需要确认",
                     "paths": external_paths,
+                    "call_id": call_id,
                 },
             )
             allowed = (
@@ -571,20 +723,22 @@ async def _handle_adapter_call(
                         }
                     )
                 writer(
-                    {
-                        "event": "tool",
-                        "tool": name,
-                        "status": "error",
-                        "message": "用户拒绝访问外部路径",
-                        "paths": external_paths,
-                        "session_id": ctx.session_id,
-                        "call_id": call_id,
-                    }
-                )
+                        {
+                            "event": "tool",
+                            "tool": name,
+                            "status": "error",
+                            "message": "已拒绝访问外部路径",
+                            "paths": external_paths,
+                            "session_id": ctx.session_id,
+                            "call_id": call_id,
+                        }
+                    )
                 return json.dumps(
                     {
-                        "error": "用户拒绝访问外部路径",
+                        "success": False,
+                        "message": "用户拒绝了外部路径访问",
                         "paths": external_paths,
+                        "rejected": True,
                     },
                     ensure_ascii=False,
                 )
@@ -599,6 +753,8 @@ async def _handle_adapter_call(
             and ctx.approval_mode == "assist"
             and policy != "block"
         ):
+            policy = "safe"
+        elif is_terminal and policy == "confirm" and ctx.plan_approved:
             policy = "safe"
 
         logger.info(
@@ -646,6 +802,7 @@ async def _handle_adapter_call(
                     "tool": name,
                     "message": "等待用户确认",
                     "command": command,
+                    "call_id": call_id,
                 },
             )
             allowed = (
@@ -668,7 +825,7 @@ async def _handle_adapter_call(
                         "event": "tool",
                         "tool": name,
                         "status": "error",
-                        "message": "用户拒绝执行",
+                        "message": "已拒绝执行",
                         "command": command,
                         "result": {"command": command},
                         "session_id": ctx.session_id,
@@ -676,7 +833,12 @@ async def _handle_adapter_call(
                     }
                 )
                 return json.dumps(
-                    {"error": "用户拒绝执行", "command": command},
+                    {
+                        "success": False,
+                        "message": "用户拒绝了终端命令执行",
+                        "command": command,
+                        "rejected": True,
+                    },
                     ensure_ascii=False,
                 )
 
@@ -694,6 +856,7 @@ async def _handle_adapter_call(
                     "tool": "schedule_task",
                     "message": "创建提醒后是否同时写入日程？",
                     "action": "create",
+                    "call_id": call_id,
                 },
             )
             write_calendar_allowed = (
@@ -723,7 +886,7 @@ async def _handle_adapter_call(
             "tool": name,
             "status": "done" if output.get("success") else "error",
             "message": output.get("message", "执行完成"),
-            "result": output,
+            "result": _frontend_tool_result(output),
             "call_id": call_id,
         }
         if is_terminal:
@@ -895,6 +1058,7 @@ def _build_agent(
                 interrupt_on={
                     "write_todos": {
                         "allowed_decisions": ["approve", "reject"],
+                        "when": lambda _request: not ctx.plan_approved,
                     }
                 }
             ),
@@ -923,6 +1087,7 @@ def _interrupt_sse(
                 "status": "confirm",
                 "message": payload.get("message", "执行任务前是否先出一份方案？"),
                 "confirm_type": "plan_choice",
+                "call_id": payload.get("call_id", ""),
                 "session_id": session_id,
             },
         )
@@ -936,6 +1101,7 @@ def _interrupt_sse(
                     "status": "confirm",
                     "message": payload.get("message", "计划已创建，是否开始执行？"),
                     "confirm_type": "plan",
+                    "call_id": payload.get("call_id", ""),
                     "session_id": session_id,
                 },
             )
@@ -949,6 +1115,7 @@ def _interrupt_sse(
                 "message": payload.get("message", "外部路径需要确认"),
                 "confirm_type": "external_file",
                 "paths": payload.get("paths") or [],
+                "call_id": payload.get("call_id", ""),
                 "session_id": session_id,
             },
         )
@@ -958,8 +1125,10 @@ def _interrupt_sse(
             {
                 "tool": payload.get("tool") or "terminal",
                 "status": "confirm",
+                "confirm_type": "terminal",
                 "message": payload.get("message", "等待用户确认"),
                 "command": payload.get("command") or "",
+                "call_id": payload.get("call_id", ""),
                 "session_id": session_id,
             },
         )
@@ -971,6 +1140,7 @@ def _interrupt_sse(
                 "status": "confirm",
                 "confirm_type": "write_calendar",
                 "message": payload.get("message", "创建提醒后是否同时写入日程？"),
+                "call_id": payload.get("call_id", ""),
                 "session_id": session_id,
             },
         )
@@ -983,6 +1153,20 @@ def _interrupt_sse(
                 "confirm_type": "skill_migrate",
                 "message": payload.get("message", "等待用户确认技能迁移"),
                 "skill_migrate": payload.get("skill") or {},
+                "target": payload.get("target") or "project",
+                "call_id": payload.get("call_id", ""),
+                "session_id": session_id,
+            },
+        )
+    if kind == "skill_migrate_batch":
+        return sse_event(
+            "tool",
+            {
+                "tool": "migrate_skills",
+                "status": "confirm",
+                "confirm_type": "skill_migrate_batch",
+                "message": payload.get("message", "等待用户确认批量技能迁移"),
+                "skill_migrations": payload.get("skills") or [],
                 "target": payload.get("target") or "project",
                 "call_id": payload.get("call_id", ""),
                 "session_id": session_id,
@@ -1026,6 +1210,7 @@ def _interrupt_sse(
                 "status": "confirm",
                 "message": "等待用户确认",
                 "confirm_type": "plan",
+                "call_id": payload.get("call_id", ""),
                 "session_id": session_id,
             },
         )
@@ -1038,6 +1223,7 @@ def _interrupt_sse(
             "tool": payload.get("tool") or "tool",
             "status": "confirm",
             "message": payload.get("message", "等待用户确认"),
+            "call_id": payload.get("call_id", ""),
             "session_id": session_id,
         },
     )
@@ -1156,7 +1342,7 @@ async def run_agent(
     agent = _build_agent(llm, tools, ctx)
     config = {
         "configurable": {"thread_id": session_id},
-        "recursion_limit": max(64, MAX_TOOL_TURNS * 3),
+        "recursion_limit": 256,
     }
 
     snapshot = await agent.aget_state(config)
@@ -1181,49 +1367,84 @@ async def run_agent(
     graph_input: Any = {"messages": input_messages}
     final_state: dict[str, Any] | None = None
     think_by_id: dict[str, str] = {}
-    while True:
-        interrupted = False
-        async for kind, data in _stream_agent_run(
-            agent, graph_input, config
-        ):
-            if kind == "sse":
-                yield data
-                continue
-            if kind == "interrupts":
-                interrupted = True
-                resume_values: dict[str, dict[str, Any]] = {}
-                for item in data:
-                    payload = item.value
-                    pending = create_terminal_decision(session_id)
-                    try:
-                        yield _interrupt_sse(payload, session_id)
-                        await asyncio.wait_for(
-                            pending["event"].wait(), 180
-                        )
-                        allowed = bool(pending["allowed"])
-                    except asyncio.TimeoutError:
-                        allowed = False
-                    finally:
-                        remove_terminal_decision(session_id)
-                    if payload.get("action_requests"):
-                        resume_values[item.id] = {
-                            "decisions": [
+    try:
+        while True:
+            interrupted = False
+            async for kind, data in _stream_agent_run(
+                agent, graph_input, config
+            ):
+                if kind == "sse":
+                    yield data
+                    continue
+                if kind == "interrupts":
+                    interrupted = True
+                    resume_values: dict[str, dict[str, Any]] = {}
+                    for item in data:
+                        payload = dict(item.value)
+                        if not payload.get("call_id"):
+                            payload["call_id"] = f"confirm_{item.id}"
+                        pending = create_terminal_decision(session_id)
+                        try:
+                            yield _interrupt_sse(payload, session_id)
+                            await asyncio.wait_for(
+                                pending["event"].wait(), 180
+                            )
+                            allowed = bool(pending["allowed"])
+                        except asyncio.TimeoutError:
+                            allowed = False
+                        finally:
+                            remove_terminal_decision(session_id)
+                        if (
+                            allowed
+                            and payload.get("type")
+                            in {
+                                "skill_migrate",
+                                "skill_migrate_batch",
+                                "skill_install",
+                            }
+                        ):
+                            tool_name = "migrate_skills"
+                            if payload.get("type") == "skill_migrate":
+                                tool_name = "migrate_skill"
+                            elif payload.get("type") == "skill_install":
+                                tool_name = "install_skill"
+                            yield sse_event(
+                                "tool",
                                 {
-                                    "type": (
-                                        "approve" if allowed else "reject"
-                                    )
-                                }
-                                for _ in payload["action_requests"]
-                            ]
-                        }
-                    else:
-                        resume_values[item.id] = {"allowed": allowed}
-                graph_input = Command(resume=resume_values)
+                                    "tool": tool_name,
+                                    "status": "running",
+                                    "message": "正在执行，请稍候",
+                                    "call_id": payload.get("call_id", ""),
+                                    "session_id": session_id,
+                                },
+                            )
+                        if payload.get("action_requests"):
+                            if allowed:
+                                ctx.plan_approved = True
+                            resume_values[item.id] = {
+                                "decisions": [
+                                    {
+                                        "type": (
+                                            "approve" if allowed else "reject"
+                                        )
+                                    }
+                                    for _ in payload["action_requests"]
+                                ]
+                            }
+                        else:
+                            resume_values[item.id] = {"allowed": allowed}
+                    graph_input = Command(resume=resume_values)
+                    break
+                if kind == "final_state":
+                    final_state, think_by_id = data
+            if not interrupted:
                 break
-            if kind == "final_state":
-                final_state, think_by_id = data
-        if not interrupted:
-            break
+    except GraphRecursionError:
+        yield error_event(
+            "recursion_limit",
+            "任务步骤过多，已停止。请拆分成更小的请求，或减少重复工具调用。",
+        )
+        return
 
     if final_state is None:
         yield error_event("agent_error", "Agent 未返回结果")

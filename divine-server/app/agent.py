@@ -140,10 +140,16 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 生成文件后只需说明文件名和内容概要，文件下载/打开由前端工具卡片展示。
 生成文件默认保存到应用输出目录，不写入当前项目/工作区；
 只有用户明确要求保存到项目内时，才使用 path 参数指定 workspace 内相对目录。
+创建或修改工作区内的文本文件（源码、配置、文档）使用 write_file，
+自动创建父目录；默认禁止用 terminal heredoc 写文件，
+除非用户明确要求使用终端方式。
 只能调用本次请求提供的工具，不要杜撰未提供的工具名。
 用户提到从 Claude Code、Qoder、Cursor 等工具迁移或导入技能时，
 先调用 discover_importable_skills 扫描可迁移候选并向用户展示，
-用户确认后调用 migrate_skill；migrate_skill 执行前系统会再次请求确认。
+用户确认后调用 migrate_skill 或 migrate_skills；
+迁移多个技能时必须一次性调用 migrate_skills，不要逐个调用 migrate_skill；
+已存在的同名技能会自动跳过，不需要单独报错；
+这两类工具执行前系统都会再次请求确认。
 用户给出 GitHub 仓库地址想安装技能时，先调用 preview_skill_repo 拉取并展示
 SKILL.md，用户确认后再调用 install_skill；install_skill 执行前系统会再次确认。
 查找或列出工作区文件使用 search_files；搜索完文件后，读取具体内容再使用 read_file。
@@ -224,6 +230,7 @@ _NO_PLAN_TOOLS = {
     "discover_importable_skills",
     "install_skill",
     "migrate_skill",
+    "migrate_skills",
     "preview_skill_repo",
     "schedule_task",
     "write_calendar",
@@ -233,7 +240,7 @@ _NO_PLAN_TOOLS = {
     "svg_to_png_batch",
 }
 
-MAX_TOOL_TURNS = 32
+MAX_TOOL_TURNS = 64
 
 
 async def _execute_tool(

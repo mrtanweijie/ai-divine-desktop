@@ -160,6 +160,35 @@ export function downloadUrl(url: string): string {
   return `${API_BASE}${url.startsWith("/api") ? url.slice(4) : url}`;
 }
 
+function trimToolResult(result: any): any {
+  if (!result || typeof result !== "object") return result;
+  const copy: any = { ...result };
+  for (const key of ["content", "stdout", "stderr"]) {
+    const value = copy[key];
+    if (typeof value === "string" && value.length > 4000) {
+      copy[key] = `${value.slice(0, 4000)}\n...[截断，共 ${value.length} 字符]`;
+    }
+  }
+  const data = copy.data;
+  if (data && typeof data === "object") {
+    const dataCopy: any = { ...data };
+    for (const key of ["content", "stdout", "stderr", "text"]) {
+      const value = dataCopy[key];
+      if (typeof value === "string" && value.length > 4000) {
+        dataCopy[key] = `${value.slice(0, 4000)}\n...[截断，共 ${value.length} 字符]`;
+      }
+    }
+    if (Array.isArray(dataCopy.results) && dataCopy.results.length > 12) {
+      dataCopy.results = [
+        ...dataCopy.results.slice(0, 12),
+        { truncated: true, count: dataCopy.results.length - 12 },
+      ];
+    }
+    copy.data = dataCopy;
+  }
+  return copy;
+}
+
 export function messagesToChatMessages(
   messages: Message[],
   toolRuns: ToolRun[] = [],
@@ -199,7 +228,9 @@ export function messagesToChatMessages(
           .map((run) => {
             let result;
             try {
-              result = run.output ? JSON.parse(run.output) : undefined;
+              result = run.output
+                ? trimToolResult(JSON.parse(run.output))
+                : undefined;
             } catch {
               result = undefined;
             }
@@ -228,7 +259,13 @@ export function messagesToChatMessages(
       created_at: message.created_at,
       think: message.parts.find((part) => part.type === "think")?.content,
       todos:
-        planTodos && message.role === "assistant" && index === lastAssistantIndex
+        planTodos &&
+        message.role === "assistant" &&
+        index === lastAssistantIndex &&
+        tools.some(
+          (tool) =>
+            tool.tool === "write_todos" || tool.tool === "create_plan"
+        )
           ? planTodos
           : undefined,
       files: message.parts

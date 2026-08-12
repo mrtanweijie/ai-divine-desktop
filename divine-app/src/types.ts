@@ -47,6 +47,7 @@ export interface ToolEvent {
   status: "preparing" | "running" | "confirm" | "done" | "error";
   message: string;
   command?: string;
+  commands?: string[];
   confirm_type?:
     | "terminal"
     | "external_file"
@@ -54,8 +55,10 @@ export interface ToolEvent {
     | "plan_choice"
     | "write_calendar"
     | "skill_migrate"
+    | "skill_migrate_batch"
     | "skill_install";
   skill_migrate?: SkillMigrationCandidate;
+  skill_migrations?: SkillMigrationCandidate[];
   skill_install?: SkillInstallPreview;
   target?: "project" | "user";
   paths?: string[];

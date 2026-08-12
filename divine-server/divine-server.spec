@@ -57,6 +57,7 @@ a = Analysis(
         "app.tools.adapters.skill_migration",
         "app.tools.adapters.web_fetch",
         "app.tools.adapters.web_fetch_batch",
+        "app.tools.adapters.write_file",
         "app.tools.adapters.spreadsheet",
         "app.tools.adapters.terminal",
         "app.tools.adapters.ux_html",

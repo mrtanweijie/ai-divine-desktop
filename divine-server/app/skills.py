@@ -278,18 +278,11 @@ def _cursor_rule_skill_text(
     return f"---\n{frontmatter_text}\n---\n\n{body}\n"
 
 
-def migrate_skill(
+def _migrate_candidate(
     project_root: Path,
-    name: str,
-    source_tool: str | None = None,
-    target: str = "project",
+    candidate: dict[str, Any],
+    target: str,
 ) -> dict[str, Any]:
-    candidate = find_importable_skill(project_root, name, source_tool)
-    if candidate is None:
-        raise SkillMigrationError(
-            f"未找到可迁移技能 {name}，请先调用 discover_importable_skills"
-        )
-
     target_dir = skills_target_dir(project_root, target)
     destination = target_dir / str(candidate["name"])
     if destination.exists():
@@ -312,7 +305,6 @@ def migrate_skill(
             Path(str(candidate["source_dir"])), destination
         )
 
-    skill_registry.refresh(project_root)
     return {
         "ok": True,
         "name": str(candidate["name"]),
@@ -321,6 +313,77 @@ def migrate_skill(
         "target": target,
         "target_path": str(destination),
         "files": copied,
+    }
+
+
+def migrate_skill(
+    project_root: Path,
+    name: str,
+    source_tool: str | None = None,
+    target: str = "project",
+) -> dict[str, Any]:
+    candidate = find_importable_skill(project_root, name, source_tool)
+    if candidate is None:
+        raise SkillMigrationError(
+            f"未找到可迁移技能 {name}，请先调用 discover_importable_skills"
+        )
+    result = _migrate_candidate(project_root, candidate, target)
+    skill_registry.refresh(project_root)
+    return result
+
+
+def migrate_skills(
+    project_root: Path,
+    names: list[str],
+    source_tool: str | None = None,
+    target: str = "project",
+) -> dict[str, Any]:
+    candidates = discover_importable_skills(project_root)
+    migrated: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    failed: list[dict[str, Any]] = []
+    for raw_name in names:
+        name = str(raw_name or "").strip()
+        if not name:
+            continue
+        candidate = None
+        for item in candidates:
+            if item["name"] != name:
+                continue
+            if source_tool and item["source_tool"] != source_tool:
+                continue
+            candidate = item
+            break
+        if candidate is None:
+            failed.append(
+                {
+                    "name": name,
+                    "reason": (
+                        f"未找到可迁移技能 {name}，"
+                        "请先调用 discover_importable_skills"
+                    ),
+                }
+            )
+            continue
+        try:
+            result = _migrate_candidate(project_root, candidate, target)
+            migrated.append(result)
+        except SkillMigrationError as exc:
+            message = str(exc)
+            if "已存在" in message:
+                skipped.append({"name": name, "reason": message})
+            else:
+                failed.append({"name": name, "reason": message})
+    skill_registry.refresh(project_root)
+    if not migrated and not skipped and not failed:
+        raise SkillMigrationError("没有可迁移的技能名")
+    ok = bool(migrated) or not failed
+    return {
+        "ok": ok,
+        "requested": len(names),
+        "migrated": migrated,
+        "skipped": skipped,
+        "failed": failed,
     }
 
 
