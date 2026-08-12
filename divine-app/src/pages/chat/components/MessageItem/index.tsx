@@ -44,7 +44,7 @@ import {
   TerminalSquare,
   Workflow,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { downloadUrl } from "@/services/api";
 import { isTauri, openFileLocation, openUrl } from "@/services/tauri";
@@ -72,6 +72,7 @@ interface MessageItemProps {
   username: string;
   workspacePath?: string | null;
   onPreviewFile?: (file: PreviewFile) => void;
+  onUserInteract?: () => void;
 }
 
 export function MessageItem({
@@ -81,6 +82,7 @@ export function MessageItem({
   username,
   workspacePath,
   onPreviewFile,
+  onUserInteract,
 }: MessageItemProps) {
   const isUser = message.role === "user";
   return (
@@ -155,7 +157,12 @@ export function MessageItem({
         </div>
       ) : (
         <div className="assistant-content">
-          {message.think && <ThinkBlock content={message.think} />}
+          {message.think && (
+            <ThinkBlock
+              content={message.think}
+              onUserInteract={onUserInteract}
+            />
+          )}
           {message.todos && message.todos.length > 0 && (
             <PlanCard todos={message.todos} />
           )}
@@ -195,21 +202,63 @@ export function MessageItem({
   );
 }
 
-function ThinkBlock({ content }: { content: string }) {
+function ThinkBlock({
+  content,
+  onUserInteract,
+}: {
+  content: string;
+  onUserInteract?: () => void;
+}) {
   const [open, setOpen] = useState(false);
+  const blockRef = useRef<HTMLDetailsElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const stickToBottom = useRef(true);
+  useEffect(() => {
+    const content = contentRef.current;
+    if (open && content && stickToBottom.current) {
+      content.scrollTop = content.scrollHeight;
+    }
+  }, [content, open]);
+  const handleContentScroll = () => {
+    const content = contentRef.current;
+    if (!content) return;
+    const distance =
+      content.scrollHeight - content.scrollTop - content.clientHeight;
+    stickToBottom.current = distance < 24;
+  };
+  const toggle = () => {
+    const container = blockRef.current?.closest<HTMLElement>(
+      ".message-timeline"
+    );
+    const scrollTop = container?.scrollTop ?? 0;
+    onUserInteract?.();
+    setOpen((value) => !value);
+    requestAnimationFrame(() => {
+      if (container) container.scrollTop = scrollTop;
+    });
+    requestAnimationFrame(() => {
+      if (container) container.scrollTop = scrollTop;
+    });
+  };
   return (
-    <details className="think-block" open={open}>
+    <details className="think-block" open={open} ref={blockRef}>
       <summary
         className="think-summary"
         onClick={(event) => {
           event.preventDefault();
-          setOpen((value) => !value);
+          toggle();
         }}
       >
         <ChevronDown size={13} className={open ? "expanded" : ""} />
         <span>思考过程</span>
       </summary>
-      <div className="think-content">{content}</div>
+      <div
+        className="think-content"
+        ref={contentRef}
+        onScroll={handleContentScroll}
+      >
+        {content}
+      </div>
     </details>
   );
 }
@@ -270,7 +319,9 @@ function ToolStatusCard({
 }) {
   const [copied, setCopied] = useState(false);
   const [deciding, setDeciding] = useState(false);
+  const [decideError, setDecideError] = useState<string | null>(null);
   const [commandsOpen, setCommandsOpen] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
   const targetSessionId = tool.session_id ?? sessionId;
   const running = tool.status === "running" || tool.status === "preparing";
   const statusMessage =
@@ -362,12 +413,23 @@ function ToolStatusCard({
   const decide = async (allow: boolean) => {
     if (!targetSessionId || deciding) return;
     setDeciding(true);
+    setDecideError(null);
     try {
-      await request("/terminal/decide", {
+      const result = await request<{ ok?: boolean; message?: string }>(
+        "/terminal/decide",
+        {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: targetSessionId, allow }),
-      });
+        }
+      );
+      if (result && result.ok === false) {
+        setDecideError(result.message || "确认失败，请重试");
+      }
+    } catch (error) {
+      setDecideError(
+        error instanceof Error ? error.message : "确认失败，请重试"
+      );
     } finally {
       setDeciding(false);
     }
@@ -411,7 +473,9 @@ function ToolStatusCard({
       )}
       {tool.files && tool.files.length > 0 && (
         <div className="file-actions file-list">
-          {tool.files.map((file) => (
+          {tool.files
+            .slice(0, filesOpen ? tool.files.length : 6)
+            .map((file) => (
             <a
               key={file.path ?? file.name}
               className="file-download"
@@ -434,6 +498,15 @@ function ToolStatusCard({
               {file.path && <span className="file-path">{file.path}</span>}
             </a>
           ))}
+          {tool.files.length > 6 && !filesOpen && (
+            <button
+              className="file-list-more"
+              type="button"
+              onClick={() => setFilesOpen(true)}
+            >
+              展开全部 {tool.files.length} 个文件
+            </button>
+          )}
         </div>
       )}
       {tool.status === "done" &&
@@ -791,6 +864,12 @@ function ToolStatusCard({
           </Flex>
         </div>
       )}
+      {tool.status === "confirm" && decideError && (
+        <div className="message-error">
+          <AlertCircle size={13} />
+          <span>{decideError}</span>
+        </div>
+      )}
       {tool.status === "done" &&
         tool.result &&
         tool.tool !== "web_fetch" &&
@@ -859,6 +938,7 @@ const GROUPABLE_TOOLS = new Set([
   "sqlite_query",
   "rag_search",
   "read_file",
+  "write_file",
   "search_files",
   "directory_tree",
   "terminal",
@@ -909,6 +989,8 @@ function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
           ? `已抓取 ${count} 个数据源`
           : tool.tool === "calculator"
             ? `已完成 ${count} 次计算`
+            : tool.tool === "write_file"
+              ? `已写入 ${count} 个文件`
             : tool.tool === "read_file"
               ? `已读取 ${count} 个文件`
               : tool.tool === "terminal"

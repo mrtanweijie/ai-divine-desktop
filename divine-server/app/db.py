@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     title TEXT NOT NULL DEFAULT '新对话',
     project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
     approval_mode TEXT NOT NULL DEFAULT 'ask',
+    plan_mode TEXT NOT NULL DEFAULT 'ask',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -137,6 +138,11 @@ def init_db() -> None:
         if "approval_mode" not in columns:
             conn.execute(
                 "ALTER TABLE sessions ADD COLUMN approval_mode TEXT "
+                "NOT NULL DEFAULT 'ask'"
+            )
+        if "plan_mode" not in columns:
+            conn.execute(
+                "ALTER TABLE sessions ADD COLUMN plan_mode TEXT "
                 "NOT NULL DEFAULT 'ask'"
             )
         project_columns = {
@@ -308,17 +314,22 @@ def update_session(
     session_id: str,
     title: str | None = None,
     approval_mode: str | None = None,
+    plan_mode: str | None = None,
 ) -> dict[str, Any]:
     session = get_session(session_id)
     if not session:
         raise KeyError(session_id)
     with closing(_connect()) as conn:
         conn.execute(
-            "UPDATE sessions SET title = ?, approval_mode = ?, updated_at = ? "
+            "UPDATE sessions SET title = ?, approval_mode = ?, "
+            "plan_mode = ?, updated_at = ? "
             "WHERE id = ?",
             (
                 title if title is not None else session["title"],
                 approval_mode if approval_mode is not None else session["approval_mode"],
+                plan_mode if plan_mode is not None else session.get(
+                    "plan_mode", "ask"
+                ),
                 _now(),
                 session_id,
             ),

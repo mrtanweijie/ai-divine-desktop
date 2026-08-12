@@ -93,6 +93,7 @@ class TodoSyncMiddleware(AgentMiddleware):
         if request.tool_call.get("name") != "write_todos":
             return result
         self.ctx.plan_first_pending = False
+        db.update_session(self.ctx.session_id, plan_mode="direct")
         raw_todos = (request.tool_call.get("args") or {}).get("todos") or []
         titles = [
             str(todo.get("content") or "").strip()
@@ -247,6 +248,103 @@ def _active_plan_progress(
             if name == "write_todos":
                 return _plan_progress(todos)
     return None
+
+
+_PLAN_EXPLICIT_KEYWORDS = (
+    "先出方案",
+    "出方案",
+    "做方案",
+    "写方案",
+    "给个方案",
+    "制定计划",
+    "做个计划",
+    "做计划",
+    "规划",
+    "方案",
+)
+_NO_PLAN_EXPLICIT_KEYWORDS = (
+    "不要方案",
+    "不用方案",
+    "不需要方案",
+    "别问",
+    "直接执行",
+    "直接做",
+    "直接完成",
+    "不用计划",
+    "不要计划",
+)
+_COMPLEX_PLAN_KEYWORDS = (
+    "重构",
+    "迁移",
+    "搭建",
+    "开发",
+    "创建项目",
+    "生成项目",
+    "整个项目",
+    "项目结构",
+    "全栈",
+    "多文件",
+    "多个文件",
+    "多页面",
+    "多个页面",
+    "多步",
+    "多步骤",
+    "批量",
+    "所有文件",
+    "全部文件",
+    "完整",
+    "复杂",
+    "系统",
+    "模块",
+    "功能",
+    "页面",
+    "前端",
+    "后端",
+    "数据库",
+    "接口",
+    "组件",
+    "网站",
+    "应用",
+    "脚手架",
+    "框架",
+    "教程",
+    "目录结构",
+)
+
+
+def _should_ask_plan(messages: list[Any]) -> bool:
+    user_messages = [
+        message
+        for message in messages
+        if isinstance(message, HumanMessage)
+    ]
+    if not user_messages:
+        return True
+    text = _content_text(user_messages[-1].content).strip()
+    if not text:
+        return True
+    lowered = text.lower()
+    if any(keyword in lowered for keyword in _NO_PLAN_EXPLICIT_KEYWORDS):
+        return False
+    if any(keyword in lowered for keyword in _PLAN_EXPLICIT_KEYWORDS):
+        return True
+
+    score = 0
+    if len(text) >= 100:
+        score += 1
+    score += sum(
+        1 for keyword in _COMPLEX_PLAN_KEYWORDS if keyword in lowered
+    )
+    separators = sum(
+        1
+        for separator in ("、", "，", "和", "以及", "还要", "同时", "\n")
+        if separator in text
+    )
+    if separators >= 2:
+        score += 1
+    if text.count("文件") >= 2 or text.count("页面") >= 2:
+        score += 1
+    return score >= 2
 
 
 def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
@@ -445,6 +543,7 @@ async def _handle_adapter_call(
         not ctx.plan_choice_resolved
         and name not in _READ_ONLY_TOOLS
         and name not in _NO_PLAN_TOOLS
+        and _should_ask_plan(runtime.state.get("messages") or [])
     ):
         decision = _ask_interrupt(
             ctx.session_id,
@@ -463,6 +562,14 @@ async def _handle_adapter_call(
             else bool(decision)
         )
         ctx.plan_choice_resolved = True
+        db.update_session(
+            ctx.session_id,
+            plan_mode="plan_first" if plan_first else "direct",
+        )
+        if plan_first:
+            ctx.plan_first_pending = True
+        else:
+            ctx.plan_approved = True
         writer(
             {
                 "event": "tool",
@@ -474,7 +581,6 @@ async def _handle_adapter_call(
             }
         )
         if plan_first:
-            ctx.plan_first_pending = True
             return (
                 "用户选择先出一份方案。"
                 "请先调用 create_plan 制定计划，不要直接执行其他工具。"
@@ -1058,7 +1164,13 @@ def _build_agent(
                 interrupt_on={
                     "write_todos": {
                         "allowed_decisions": ["approve", "reject"],
-                        "when": lambda _request: not ctx.plan_approved,
+                        "when": lambda request: not ctx.plan_approved
+                        and (
+                            ctx.plan_first_pending
+                            or _should_ask_plan(
+                                request.state.get("messages") or []
+                            )
+                        ),
                     }
                 }
             ),
@@ -1337,6 +1449,14 @@ async def run_agent(
         workspace=workspace_path,
         approval_mode=approval_mode,
     )
+    session = db.get_session(session_id)
+    plan_mode = (session or {}).get("plan_mode") or "ask"
+    if plan_mode == "direct":
+        ctx.plan_choice_resolved = True
+        ctx.plan_approved = True
+    elif plan_mode == "plan_first":
+        ctx.plan_choice_resolved = True
+        ctx.plan_first_pending = True
     llm = _build_llm()
     tools = _build_tools(ctx)
     agent = _build_agent(llm, tools, ctx)
@@ -1421,6 +1541,29 @@ async def run_agent(
                         if payload.get("action_requests"):
                             if allowed:
                                 ctx.plan_approved = True
+                                yield sse_event(
+                                    "tool",
+                                    {
+                                        "tool": "write_todos",
+                                        "status": "done",
+                                        "message": "计划已确认，开始执行",
+                                        "confirm_type": "plan",
+                                        "call_id": payload.get("call_id", ""),
+                                        "session_id": session_id,
+                                    },
+                                )
+                            else:
+                                yield sse_event(
+                                    "tool",
+                                    {
+                                        "tool": "write_todos",
+                                        "status": "error",
+                                        "message": "已取消执行计划",
+                                        "confirm_type": "plan",
+                                        "call_id": payload.get("call_id", ""),
+                                        "session_id": session_id,
+                                    },
+                                )
                             resume_values[item.id] = {
                                 "decisions": [
                                     {

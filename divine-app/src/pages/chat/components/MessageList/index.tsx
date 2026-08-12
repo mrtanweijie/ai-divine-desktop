@@ -140,6 +140,9 @@ export function MessageList({
                   username={username}
                   workspacePath={workspacePath}
                   onPreviewFile={onPreviewFile}
+                  onUserInteract={() => {
+                    stickToBottom.current = false;
+                  }}
                   streaming={
                     streaming && virtualRow.index === messages.length - 1
                   }
