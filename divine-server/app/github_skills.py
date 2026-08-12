@@ -210,6 +210,14 @@ def _inspect_archive(content: bytes, owner: str, repo: str) -> dict[str, Any]:
             ):
                 skill_path = "/".join(parts[:-1])
                 fallback_name = parts[-2] if len(parts) >= 3 else repo
+            elif (
+                len(parts) >= 4
+                and parts[0] == ".claude"
+                and parts[1] == "skills"
+                and parts[-1] == "SKILL.md"
+            ):
+                skill_path = "/".join(parts[:-1])
+                fallback_name = parts[-2] if len(parts) >= 4 else repo
             else:
                 continue
             if skill_path in seen:
