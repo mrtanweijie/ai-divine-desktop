@@ -6,10 +6,17 @@ import {
   Calculator,
   CalendarClock,
   CalendarDays,
+  ChartBar,
+  ChartCandlestick,
+  ChartLine,
+  ChartNetwork,
+  ChartPie,
+  ChartScatter,
   Check,
   ChevronDown,
   Copy,
   Database,
+  Donut,
   Eye,
   FileBox,
   FileStack,
@@ -19,24 +26,35 @@ import {
   FolderSearch2,
   FolderOpen,
   FolderTree,
+  Funnel,
+  Gauge,
   Globe,
   Image,
   ImageDown,
   LibraryBig,
   ListChecks,
+  Link,
   Orbit,
   PenTool,
   Presentation,
+  Radar,
   SquareKanban,
   StickyNote,
   TerminalSquare,
   Workflow,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { downloadUrl } from "@/services/api";
-import { isTauri, openFileLocation } from "@/services/tauri";
+import { isTauri, openFileLocation, openUrl } from "@/services/tauri";
 import { request } from "@/services/request";
-import type { ChatMessage, PreviewFile, TodoItem, ToolEvent } from "@/types";
+import type {
+  ChatMessage,
+  PreviewFile,
+  TodoItem,
+  ToolEvent,
+  ToolFileLink,
+} from "@/types";
 import { formatSize, formatTime } from "@/utils";
 import { toWorkspaceRelative } from "@/services/workspace";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
@@ -103,7 +121,7 @@ export function MessageItem({
           {message.todos && message.todos.length > 0 && (
             <PlanCard todos={message.todos} />
           )}
-          {message.tools.map((tool, index) => (
+          {groupToolCards(message.tools).map((tool, index) => (
             <ToolStatusCard
               key={`${tool.tool}-${index}`}
               tool={tool}
@@ -209,8 +227,14 @@ function ToolStatusCard({
   const [copied, setCopied] = useState(false);
   const [deciding, setDeciding] = useState(false);
   const running = tool.status === "running" || tool.status === "preparing";
-  const statusMessage = tool.status === "done" ? "执行完成" : tool.message;
+  const statusMessage =
+    tool.count && tool.count > 1
+      ? tool.message
+      : tool.status === "done"
+        ? "执行完成"
+        : tool.message;
   const chartOption = chartOptionFromResult(tool.result);
+  const chartIcon = chartOption ? chartTypeIcon(chartOption) : null;
   const workspaceRel = useMemo(
     () =>
       workspacePath && tool.result?.filepath
@@ -323,7 +347,51 @@ function ToolStatusCard({
           <ChartBlock option={chartOption} />
         </div>
       )}
-      {tool.status === "done" && tool.result?.filepath && (
+      {tool.urls && tool.urls.length > 0 && (
+        <div className="tool-url-list">
+          {tool.urls.map((url) => (
+            <button
+              key={url}
+              className="tool-url-link"
+              onClick={() => void openToolUrl(url)}
+              title={url}
+              type="button"
+            >
+              <Link size={13} />
+              <span>{url}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {tool.files && tool.files.length > 0 && (
+        <div className="file-actions file-list">
+          {tool.files.map((file) => (
+            <a
+              key={file.path ?? file.name}
+              className="file-download"
+              href={file.download_url ? downloadUrl(file.download_url) : "#"}
+              target="_blank"
+              rel="noreferrer"
+              title="打开所在目录"
+              onClick={(event) => {
+                if (file.path && isTauri()) {
+                  event.preventDefault();
+                  void openFileLocation(file.path);
+                }
+              }}
+            >
+              <FileText size={14} />
+              <span>{file.name}</span>
+              {file.size != null && (
+                <span className="file-size">{formatSize(file.size)}</span>
+              )}
+            </a>
+          ))}
+        </div>
+      )}
+      {tool.status === "done" &&
+        tool.result?.filepath &&
+        !tool.files?.length && (
         <div className="file-actions">
           <a
             className="file-download"
@@ -365,7 +433,7 @@ function ToolStatusCard({
             </Button>
           )}
         </div>
-      )}
+        )}
       {tool.command && tool.status !== "confirm" && (
         <div className="terminal-command">
           <span className="terminal-command-prompt">$</span>
@@ -490,9 +558,12 @@ function ToolStatusCard({
           </Flex>
         </div>
       )}
-      {tool.status === "done" && tool.result && (
+      {tool.status === "done" &&
+        tool.result &&
+        tool.tool !== "web_fetch" &&
+        tool.tool !== "web_fetch_batch" && (
         <Flex align="center" gap={8} className="tool-result-actions">
-          {icon}
+          {chartIcon ?? icon}
           <span>{tool.result.message}</span>
           {tool.tool !== "schedule_task" && (
             <Button
@@ -518,7 +589,7 @@ function ToolStatusCard({
             </Button>
           )}
         </Flex>
-      )}
+        )}
     </div>
   );
 }
@@ -534,4 +605,201 @@ function chartOptionFromResult(
     return result.option as Record<string, unknown>;
   }
   return null;
+}
+
+const GROUPABLE_TOOLS = new Set([
+  "web_fetch",
+  "web_fetch_batch",
+  "svg_to_png",
+  "svg_to_png_batch",
+  "mermaid_export",
+  "notes",
+  "word_document",
+  "presentation",
+  "spreadsheet",
+  "draw_svg",
+  "edit_svg",
+  "pdf_split_merge",
+  "clipboard",
+  "image_resize",
+  "calculator",
+  "sqlite_query",
+  "rag_search",
+  "search_files",
+  "directory_tree",
+]);
+
+function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
+  const grouped: ToolEvent[] = [];
+  for (const tool of tools) {
+    if (!GROUPABLE_TOOLS.has(tool.tool)) {
+      grouped.push(tool);
+      continue;
+    }
+    const index = grouped.findIndex((item) => item.tool === tool.tool);
+    if (index === -1) {
+      grouped.push({
+        ...tool,
+        count: 1,
+        urls: toolUrls(tool),
+        files: toolFiles(tool),
+      });
+      continue;
+    }
+    const existing = grouped[index];
+    const count = (existing.count ?? 1) + 1;
+    const urls = [...new Set([...(existing.urls ?? []), ...toolUrls(tool)])];
+    const files = [...new Map(
+      [...(existing.files ?? []), ...toolFiles(tool)].map((file) => [
+        file.path ?? file.name,
+        file,
+      ])
+    ).values()];
+    grouped[index] = {
+      ...existing,
+      ...tool,
+      count,
+      urls,
+      files,
+      message:
+        tool.tool === "web_fetch" || tool.tool === "web_fetch_batch"
+          ? `已抓取 ${count} 个数据源`
+          : tool.tool === "calculator"
+            ? `已完成 ${count} 次计算`
+            : `${tool.tool} 已执行 ${count} 次`,
+    };
+  }
+  return grouped;
+}
+
+function toolUrls(tool: ToolEvent): string[] {
+  const urls: string[] = [];
+  const data = tool.result?.data;
+  if (Array.isArray(data?.results)) {
+    for (const item of data.results) {
+      if (
+        item &&
+        typeof item === "object" &&
+        "url" in item &&
+        typeof item.url === "string"
+      ) {
+        urls.push(item.url);
+      }
+    }
+  }
+  if (data && typeof data.url === "string") {
+    urls.push(data.url);
+  }
+  const message = tool.result?.message ?? tool.message ?? "";
+  const matches = message.match(/https?:\/\/[^\s，。、,;；]+/g);
+  if (matches) {
+    urls.push(...matches);
+  }
+  return [...new Set(urls)];
+}
+
+function toolFiles(tool: ToolEvent): ToolFileLink[] {
+  const files: ToolFileLink[] = [];
+  const data = tool.result?.data;
+  if (Array.isArray(data?.results)) {
+    for (const item of data.results) {
+      if (
+        item &&
+        typeof item === "object" &&
+        "filepath" in item &&
+        typeof item.filepath === "string"
+      ) {
+        const rawName =
+          "file_name" in item && typeof item.file_name === "string"
+            ? item.file_name
+            : item.filepath.split("/").pop() ?? item.filepath;
+        files.push({
+          name: rawName,
+          path: item.filepath,
+          download_url:
+            "download_url" in item && typeof item.download_url === "string"
+              ? item.download_url
+              : undefined,
+          size:
+            "file_size" in item && typeof item.file_size === "number"
+              ? item.file_size
+              : undefined,
+        });
+      }
+    }
+  }
+  if (tool.result?.filepath) {
+    files.push({
+      name: tool.result.file_name ?? tool.result.filepath.split("/").pop() ?? "file",
+      path: tool.result.filepath,
+      download_url: tool.result.download_url,
+      size: tool.result.file_size,
+    });
+  }
+  return files;
+}
+
+async function openToolUrl(url: string): Promise<void> {
+  if (isTauri()) {
+    await openUrl(url);
+  } else {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
+function chartTypeIcon(option: Record<string, unknown>): ReactNode {
+  const series = Array.isArray(option.series) ? option.series : [];
+  const first =
+    series.find((item) => isChartSeries(item)) ??
+    ({} as Record<string, unknown>);
+  const type = typeof first.type === "string" ? first.type : "";
+  switch (type) {
+    case "line":
+    case "lines":
+      return <ChartLine size={13} />;
+    case "bar":
+    case "pictorialBar":
+    case "heatmap":
+      return <ChartBar size={13} />;
+    case "pie": {
+      const radius = first.radius;
+      return Array.isArray(radius) && radius.length > 1 ? (
+        <Donut size={13} />
+      ) : (
+        <ChartPie size={13} />
+      );
+    }
+    case "scatter":
+    case "effectScatter":
+      return <ChartScatter size={13} />;
+    case "radar":
+      return <Radar size={13} />;
+    case "funnel":
+      return <Funnel size={13} />;
+    case "gauge":
+      return <Gauge size={13} />;
+    case "candlestick":
+    case "boxplot":
+      return <ChartCandlestick size={13} />;
+    case "sankey":
+    case "graph":
+    case "tree":
+      return <ChartNetwork size={13} />;
+    case "sunburst":
+    case "treemap":
+      return <ChartPie size={13} />;
+    default:
+      return <BarChart3 size={13} />;
+  }
+}
+
+function isChartSeries(
+  value: unknown
+): value is Record<string, unknown> & { type?: unknown } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    "type" in value
+  );
 }

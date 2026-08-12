@@ -40,6 +40,10 @@ export interface Message {
 
 export interface ToolEvent {
   tool: string;
+  call_id?: string;
+  count?: number;
+  urls?: string[];
+  files?: ToolFileLink[];
   status: "preparing" | "running" | "confirm" | "done" | "error";
   message: string;
   command?: string;
@@ -69,6 +73,13 @@ export interface ToolEvent {
     };
     option?: Record<string, unknown>;
   };
+}
+
+export interface ToolFileLink {
+  name: string;
+  path?: string;
+  download_url?: string;
+  size?: number;
 }
 
 export interface ToolRun {

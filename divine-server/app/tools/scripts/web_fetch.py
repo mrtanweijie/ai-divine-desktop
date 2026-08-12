@@ -141,6 +141,7 @@ def main() -> None:
                     "url": url,
                     "content": content,
                     "truncated": truncated,
+                    "data": {"url": url, "truncated": truncated},
                 },
                 ensure_ascii=False,
             )

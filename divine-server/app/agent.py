@@ -160,12 +160,16 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 用户确认后再调用 write_calendar，并把 task_id 传给 write_calendar。
 用户要求记录日程/日历事件时调用 write_calendar，可单独使用，从用户输入中识别标题和起止时间。
 本地资料检索使用 rag_index 建立索引、rag_search 检索相关内容。
-用户要求导出或保存流程图/时序图/架构图时，调用 mermaid_export 保存为 .mmd 文件，
-content 传 Mermaid 源码（不要带围栏代码块）；用户没有要求保存时不要自动调用。
+用户要求查看/绘制/输出流程图、时序图、架构图时，直接在正文输出 ```mermaid ... ```
+代码块，前端会自动渲染；不要调用 mermaid_export，也不要生成文件。
+只有用户明确要求保存/导出/下载为 .mmd 文件时，才调用 mermaid_export，
+content 传 Mermaid 源码（不要带围栏代码块）。
 用户要求生成/绘制 SVG 矢量图、图标、插画、角色或自定义图形时，按以下规则执行：
 - 首轮从零生成使用 draw_svg，content 传完整合法 SVG 源码（以 <svg 开头，不要带围栏代码块）；
   后续修改必须使用 edit_svg，不要重新生成；需要先理解当前 SVG 时可用 describe_svg；
-  用户说“导出/转 PNG/我要位图”时使用 svg_to_png。
+  用户说“导出/转 PNG/我要位图”时使用 svg_to_png；
+  用户要 iOS/Android 多尺寸图标或一次导出多个 PNG 尺寸时，使用 svg_to_png_batch，
+  一次性传入 sizes 列表，不要逐个调用 svg_to_png。
 - edit_svg 的 file_path 传当前 SVG 文件路径，content 传完整更新后的 SVG 源码；
   只改用户指令中提到的元素，其他元素、属性、层级和顺序保持原样。
 - 处理 SVG 时不要先说明计划；生成或编辑 SVG 的正文不要加解释，也不要写“生成完成”等说明，只输出 SVG 代码；
@@ -201,6 +205,8 @@ ux_html 默认保存到当前项目工作区 html/ 目录，不要额外传 path
 读取 Excel 必须使用 read_file（不要使用 spreadsheet，spreadsheet 只能生成 Excel）；
 默认禁止用 terminal 执行 cat、python、openpyxl、find 等命令来读取或分析文件；
 如果用户明确要求，可提交终端确认后执行。
+需要同时抓取多个网页或数据源（如多个指数、多个新闻源）时，
+使用 web_fetch_batch 一次性传入 urls 列表，不要逐个重复调用 web_fetch。
 读取工作区外的本地文件或图片需要用户确认。
 terminal 只能用于系统操作，例如安装依赖、运行命令、管理进程或用户明确要求的终端命令。"""
 
@@ -218,6 +224,7 @@ _READ_ONLY_TOOLS = {
     "sqlite_query",
     "calculator",
     "web_fetch",
+    "web_fetch_batch",
     "generate_chart",
     "describe_svg",
 }
@@ -228,6 +235,7 @@ _NO_PLAN_TOOLS = {
     "draw_svg",
     "edit_svg",
     "svg_to_png",
+    "svg_to_png_batch",
 }
 
 MAX_TOOL_TURNS = 32
@@ -468,6 +476,7 @@ async def run_agent(
                         "tool": name,
                         "status": "error",
                         "message": detail,
+                        "call_id": call_id,
                     },
                 )
                 tool_results.append((call_id, tool_message))
@@ -504,6 +513,7 @@ async def run_agent(
                                 "tool": name,
                                 "status": "error",
                                 "message": "计划项不能为空",
+                                "call_id": call_id,
                             },
                         )
                         tool_results.append((call_id, tool_message))
@@ -526,6 +536,7 @@ async def run_agent(
                                 "message": "计划已创建，是否开始执行？",
                                 "confirm_type": "plan",
                                 "session_id": session_id,
+                                "call_id": call_id,
                             },
                         )
                         allowed = await wait_for_terminal_decision(
@@ -549,6 +560,7 @@ async def run_agent(
                                     "status": "error",
                                     "message": "用户拒绝执行计划",
                                     "session_id": session_id,
+                                    "call_id": call_id,
                                 },
                             )
                             tool_results.append((call_id, tool_message))
@@ -569,6 +581,7 @@ async def run_agent(
                                 "tool": name,
                                 "status": "done",
                                 "message": f"计划已确认，共 {len(todos)} 项",
+                                "call_id": call_id,
                             },
                         )
                         tool_results.append((call_id, tool_message))
@@ -614,6 +627,7 @@ async def run_agent(
                             "confirm_type": "external_file",
                             "paths": external_paths,
                             "session_id": session_id,
+                            "call_id": call_id,
                         },
                     )
                     allowed = await wait_for_terminal_decision(
@@ -641,6 +655,7 @@ async def run_agent(
                                 "message": "用户拒绝访问外部路径",
                                 "paths": external_paths,
                                 "session_id": session_id,
+                                "call_id": call_id,
                             },
                         )
                         tool_results.append((call_id, tool_message))
@@ -683,6 +698,7 @@ async def run_agent(
                             "command": command,
                             "result": {"command": command},
                             "session_id": session_id,
+                            "call_id": call_id,
                         },
                     )
                     tool_results.append((call_id, tool_message))
@@ -699,6 +715,7 @@ async def run_agent(
                             "message": "等待用户确认",
                             "command": command,
                             "session_id": session_id,
+                            "call_id": call_id,
                         },
                     )
                     allowed = await wait_for_terminal_decision(
@@ -718,6 +735,7 @@ async def run_agent(
                                 "command": command,
                                 "result": {"command": command},
                                 "session_id": session_id,
+                                "call_id": call_id,
                             },
                         )
                         tool_results.append((call_id, tool_message))
@@ -734,6 +752,7 @@ async def run_agent(
                                 "message": f"正在调用 {name}",
                                 "command": command,
                                 "session_id": session_id,
+                                "call_id": call_id,
                             },
                         )
                         output = await _execute_tool(
@@ -751,6 +770,7 @@ async def run_agent(
                                 "command": command,
                                 "result": output,
                                 "session_id": session_id,
+                                "call_id": call_id,
                             },
                         )
                         tool_results.append((call_id, tool_message))
@@ -769,6 +789,7 @@ async def run_agent(
                             "tool": name,
                             "status": "running",
                             "message": f"正在调用 {name}",
+                            "call_id": call_id,
                         },
                     )
                     output = await _execute_tool(
@@ -782,6 +803,7 @@ async def run_agent(
                         "status": "done" if output.get("success") else "error",
                         "message": output.get("message", "执行完成"),
                         "result": output,
+                        "call_id": call_id,
                     }
                     if is_terminal:
                         payload["command"] = command

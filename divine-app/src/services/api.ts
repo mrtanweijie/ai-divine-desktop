@@ -212,6 +212,7 @@ export function messagesToChatMessages(
             }
             return {
               tool: run.tool_name,
+              call_id: run.id,
               status: run.status === "done" ? "done" : "error",
               message: result?.message ?? run.status,
               command,

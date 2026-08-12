@@ -160,6 +160,7 @@ pnpm tauri:dev
 | `svg_to_png` | 将最终 SVG 导出为 PNG 位图 |
 | `terminal` | 执行终端命令，高危命令需确认 |
 | `web_fetch` | 抓取网页内容 |
+| `web_fetch_batch` | 批量抓取多个网页/数据源并汇总返回 |
 | `word_document` | 生成 Word 文档 |
 | `write_calendar` | 创建和管理日程/日历事件 |
 

@@ -355,6 +355,18 @@ class MockLLM:
                 "位图",
             )
         )
+        wants_svg_batch = any(
+            word in lowered
+            for word in (
+                "ios 图标",
+                "ios图标",
+                "多尺寸",
+                "多个尺寸",
+                "全套图标",
+                "app 图标",
+                "app图标",
+            )
+        )
         wants_presentation = any(
             word in lowered
             for word in ("ppt", "幻灯片", "演示文稿", "presentation")
@@ -390,9 +402,25 @@ class MockLLM:
             word in lowered
             for word in ("网页", "网站", "抓取", "浏览", "url", "http")
         )
+        wants_batch_fetch = any(
+            word in lowered
+            for word in (
+                "批量抓取",
+                "多个数据源",
+                "多数据源",
+                "多个指数",
+                "几个指数",
+                "指数对比",
+                "多个网站",
+            )
+        )
         if wants_svg and wants_svg_edit:
             for tool in tools:
                 if tool.get("function", {}).get("name") == "edit_svg":
+                    return tool
+        if wants_svg and wants_svg_batch:
+            for tool in tools:
+                if tool.get("function", {}).get("name") == "svg_to_png_batch":
                     return tool
         if wants_svg and (wants_svg_export or "png" in lowered or "导出" in question):
             for tool in tools:
@@ -417,6 +445,10 @@ class MockLLM:
         if wants_presentation:
             for tool in tools:
                 if tool.get("function", {}).get("name") == "presentation":
+                    return tool
+        if wants_batch_fetch:
+            for tool in tools:
+                if tool.get("function", {}).get("name") == "web_fetch_batch":
                     return tool
         if wants_web:
             for tool in tools:
@@ -487,6 +519,12 @@ class MockLLM:
                 "file_path": "svg/小机器人.svg",
                 "width": 640,
                 "height": 480,
+            }
+        if tool_name == "svg_to_png_batch":
+            return {
+                "file_path": "svg/小机器人.svg",
+                "prefix": "简记app图标",
+                "sizes": [1024, 180, 167, 152, 120, 87, 80, 76, 60, 58, 40, 29, 20],
             }
         if tool_name == "generate_chart":
             return {
@@ -582,6 +620,16 @@ class MockLLM:
                 if token.startswith("http"):
                     return {"url": token.strip("，。、,;；")}
             return {"url": "https://example.com"}
+        if tool_name == "web_fetch_batch":
+            return {
+                "urls": [
+                    "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sh000001,day,,,30,qfq",
+                    "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sz399001,day,,,30,qfq",
+                    "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sz399006,day,,,30,qfq",
+                    "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sh000300,day,,,30,qfq",
+                ],
+                "max_results": 4,
+            }
         return {
             "title": "AI Divine 使用笔记",
             "content": (
