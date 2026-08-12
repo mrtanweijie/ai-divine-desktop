@@ -1,0 +1,524 @@
+name: macOS Universal DMG Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos-universal:
+    name: Build, sign, notarize and publish macOS Universal DMG (arm64 + x64)
+    # 跑在任意 macOS self-hosted runner 上（Apple Silicon 或 Intel 都可）。
+    # 双 rust target 都在同一台机器上交叉编译：Apple Silicon 上编 x86_64
+    # 会自动用 Rosetta 2；Intel 上编 arm64 用 lipo 等价处理。
+    # 注意: 这里的 label 列表必须与已注册 runner 的 labels 完全匹配。
+    # 当前 ai-divine 仓库注册的 macOS runner 是 "李俊的Mac mini" (label=[macos])，
+    # 因此这里只写 macos，不要加 self-hosted（参考项目 gitea-runner-manager
+    # 的工作流也是这么写的）。
+    runs-on: macos
+
+    steps:
+      # ---------------------------------------------------------------------
+      # 1. 干净克隆。
+      # ---------------------------------------------------------------------
+      - name: Clean clone via SSH
+        run: |
+          set -euo pipefail
+          PROJECT_DIR="$HOME/workspace/ai-divine-desktop"
+
+          if [ -d "$PROJECT_DIR" ]; then
+            echo "Removing existing project directory..."
+            rm -rf "$PROJECT_DIR"
+          fi
+
+          mkdir -p "$HOME/workspace"
+          cd "$HOME/workspace"
+
+          export GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+
+          if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
+            git clone --depth 1 --single-branch --branch "${GITHUB_REF#refs/tags/}" \
+              git@git.duguying.net:ai-divine/ai-divine-desktop.git \
+              ai-divine-desktop
+          else
+            git clone --depth 1 --single-branch \
+              git@git.duguying.net:ai-divine/ai-divine-desktop.git \
+              ai-divine-desktop
+          fi
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITEA_ENV
+          cd "$PROJECT_DIR"
+          echo "Project ready at: $(pwd)"
+
+      # ---------------------------------------------------------------------
+      # 2. 从 tag 解析版本号（universal 一份包，构建号 YYYYMMDD01）。
+      # ---------------------------------------------------------------------
+      - name: Extract version
+        id: version
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            TAG="${TAG#v}"
+          else
+            TAG="$(date +%Y.%m.%d).dev"
+          fi
+
+          if ! [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error::Invalid version format: $TAG (expected x.y.z)"
+            exit 1
+          fi
+
+          BUILD_NUMBER="$(date +%Y%m%d)01"
+          echo "version=$TAG" >> $GITEA_OUTPUT
+          echo "build-number=$BUILD_NUMBER" >> $GITEA_OUTPUT
+          echo "Resolved version=$TAG build-number=$BUILD_NUMBER"
+
+      # ---------------------------------------------------------------------
+      # 3. 同步 tauri.conf.json 的 version。
+      # ---------------------------------------------------------------------
+      - name: Bump tauri.conf.json version
+        run: |
+          set -euo pipefail
+          cd "$HOME/workspace/ai-divine-desktop/divine-app/src-tauri"
+          python3 - <<PY
+          import json, os
+          v = "${{ steps.version.outputs.version }}"
+          p = os.path.join(os.getcwd(), "tauri.conf.json")
+          with open(p) as f: c = json.load(f)
+          c["version"] = v
+          with open(p, "w") as f: json.dump(c, f, indent=2)
+          print("tauri.conf.json version ->", v, "at", p)
+          PY
+
+      # ---------------------------------------------------------------------
+      # 4. Homebrew + pnpm + Ruby 3.3 + Bundler + Fastlane。
+      #    pnpm 装在 brew 下，这样后续 SSH localhost 子 shell 也能找到（pnpm/action-setup
+      #    把 pnpm 装到 corepack 缓存目录，SSH session 不会继承）。
+      # ---------------------------------------------------------------------
+      - name: Setup toolchain (Homebrew / pnpm / Ruby / Bundler)
+        run: |
+          set -euo pipefail
+          HOMEBREW_PREFIX="$(brew --prefix)"
+          echo "${HOMEBREW_PREFIX}/bin" >> $GITEA_PATH
+          export PATH="${HOMEBREW_PREFIX}/bin:$PATH"
+
+          # 这里不装 pnpm：brew 的 pnpm 11 需要 Node 22+（node:sqlite），而 runner
+          # 是 Node 20.19.4。等第 5 步 Setup Node 之后，在 Build 步骤里用
+          # "npm install -g pnpm@9" 装到 NODE_BIN，SSH session PATH 中 NODE_BIN 排
+          # 在最前，pnpm 会解析到 Node-20 兼容的 v9。
+
+          RUBY_PREFIX="$(brew --prefix ruby@3.3 2>/dev/null || true)"
+          if [[ -z "$RUBY_PREFIX" || ! -x "$RUBY_PREFIX/bin/ruby" ]]; then
+            echo "ruby@3.3 not usable at '${RUBY_PREFIX:-<unset>}', installing..."
+            brew install ruby@3.3
+            RUBY_PREFIX="$(brew --prefix ruby@3.3)"
+          fi
+          if [[ ! -x "$RUBY_PREFIX/bin/ruby" ]]; then
+            echo "::error::ruby@3.3 still not found at $RUBY_PREFIX/bin/ruby"
+            exit 1
+          fi
+          echo "${RUBY_PREFIX}/bin" >> $GITEA_PATH
+          export PATH="${RUBY_PREFIX}/bin:$PATH"
+          ruby --version
+
+          export GEM_HOME="$HOME/.gem"
+          export GEM_PATH="$HOME/.gem:${GEM_PATH:-}"
+          export PATH="$HOME/.gem/bin:$PATH"
+          echo "GEM_HOME=$GEM_HOME" >> $GITEA_ENV
+          echo "PATH=$HOME/.gem/bin:$PATH" >> $GITEA_PATH
+
+          gem install bundler --user-install --no-document
+
+          BUNDLE_CMD="$HOME/.gem/bin/bundle"
+          if ! command -v "$BUNDLE_CMD" &>/dev/null; then
+            BUNDLE_CMD="$(find "$HOME/.gem" -name bundle -type f 2>/dev/null | head -1 || true)"
+            [[ -z "$BUNDLE_CMD" ]] && BUNDLE_CMD="bundle"
+          fi
+          echo "Using bundle command: $BUNDLE_CMD"
+          "$BUNDLE_CMD" --version
+          echo "BUNDLE_CMD=$BUNDLE_CMD" >> $GITEA_ENV
+
+          cd "$PROJECT_DIR"
+          "$BUNDLE_CMD" config set --local path 'vendor/bundle'
+          "$BUNDLE_CMD" install
+          "$BUNDLE_CMD" exec fastlane --version
+          echo "Fastlane is ready!"
+
+      # ---------------------------------------------------------------------
+      # 5. pnpm / Node / Rust / Python —— 注意 Rust 要装两个 target。
+      # ---------------------------------------------------------------------
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # cache: pnpm disabled - Gitea Actions setup-node fails to resolve
+          # cache-dependency-path reliably on macOS self-hosted runners. pnpm
+          # install --frozen-lockfile is fast enough without cache on Mac mini.
+
+      - name: Setup Rust (arm64 + x86_64)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: /Users/duguying/workspace/ai-divine-desktop/divine-app/src-tauri
+          shared-key: ${{ runner.os }}-tauri-universal
+
+      - name: Setup Python
+        # actions/setup-python@v5 has a bug on self-hosted macOS runners: it
+        # tries to mkdir /Users/runner and fails with "Permission denied".
+        # Use Homebrew's python@3.11 directly (already on PATH from toolchain step).
+        run: |
+          set -euo pipefail
+          if ! command -v python3.11 >/dev/null 2>&1; then
+            echo "Installing python@3.11 via Homebrew..."
+            brew install python@3.11
+          fi
+          PY311_BIN="$(brew --prefix python@3.11)/bin/python3.11"
+          if [[ ! -x "$PY311_BIN" ]]; then
+            echo "::error::python3.11 not found at $PY311_BIN after brew install"
+            exit 1
+          fi
+          echo "Using python3.11: $PY311_BIN ($($PY311_BIN --version))"
+          echo "PY311_BIN=$PY311_BIN" >> $GITEA_ENV
+          echo "/Users/duguying/.gem/bin:$HOME/workspace/ai-divine-desktop/divine-app/node_modules/.bin:$(brew --prefix python@3.11)/bin" >> $GITEA_PATH || true
+          # Set up pip using the new python
+          "$PY311_BIN" -m ensurepip --upgrade
+          "$PY311_BIN" -m pip install --upgrade pip
+
+      - name: Setup Rosetta + x86_64 Python
+        # universal 包里的 sidecar 需要真 x86_64 切片。PyInstaller 在 arm64 宿主上
+        # 不能 cross-arch 编 x86_64（报错，除非宿主 Python 是 universal2），所以
+        # darwin-x64 必须用"真正在 x86_64 模式下运行"的 Python：
+        #   - arm64 宿主机需要 Rosetta（纯 x86_64 二进制只能经 Rosetta 跑）；
+        #   - 用 python-build-standalone 的 cpython-3.11.15+20260807
+        #     -x86_64-apple-darwin-install_only.tar.gz（已验证该 asset 存在）；
+        #   - 用它装 requirements + pyinstaller，pip 按 x86_64 解析 wheel，
+        #     build-sidecar.sh 再传 --target-arch x86_64，产出真 x86_64 切片。
+        #     若宿主本来就是 Intel Mac，arch -x86_64 原样通过，逻辑同样成立。
+        env:
+          RUNNER_PASSWORD: ${{ secrets.RUNNER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # 1) 确保 Rosetta（arm64 宿主才需要；Intel 宿主 arch -x86_64 恒真）
+          if arch -x86_64 true 2>/dev/null; then
+            echo "Rosetta OK"
+          else
+            echo "Rosetta missing, attempting install..."
+            if softwareupdate --install-rosetta --agree-to-license >/tmp/rosetta.log 2>&1; then
+              echo "Rosetta installed via softwareupdate"
+            elif command -v sudo >/dev/null 2>&1; then
+              echo "${RUNNER_PASSWORD:-}" | sudo -S softwareupdate --install-rosetta --agree-to-license >/tmp/rosetta-sudo.log 2>&1 \
+                && echo "Rosetta installed via sudo"
+            fi
+            arch -x86_64 true 2>/dev/null || { echo "::error::Could not install Rosetta. Please run manually on the runner: softwareupdate --install-rosetta --agree-to-license"; exit 1; }
+          fi
+
+          # 2) 下载 / 缓存 x86_64 Python（python-build-standalone install_only）
+          X64_PY_DIR="$HOME/.py-build/x86_64"
+          # install_only 包顶层是 python/；--strip-components=1 之后 bin 直接在
+          # X64_PY_DIR 下（第一次写成了 .../python/bin/python3.11，漏了 strip 一层）。
+          X64_PY_BIN="$X64_PY_DIR/bin/python3.11"
+          if [[ ! -x "$X64_PY_BIN" ]]; then
+            mkdir -p "$HOME/.py-build"
+            TARBALL="/tmp/cpython-3.11.15-x86_64.tar.gz"
+            echo "Downloading x86_64 Python (python-build-standalone 20260807)..."
+            curl -fsSL -o "$TARBALL" \
+              'https://github.com/astral-sh/python-build-standalone/releases/download/20260807/cpython-3.11.15+20260807-x86_64-apple-darwin-install_only.tar.gz'
+            rm -rf "$X64_PY_DIR"
+            mkdir -p "$X64_PY_DIR"
+            tar -xzf "$TARBALL" -C "$X64_PY_DIR" --strip-components=1
+          fi
+          [[ -x "$X64_PY_BIN" ]] || { echo "::error::x86_64 python not found at $X64_PY_BIN"; exit 1; }
+          # 3) 验证：Rosetta 下确实以 x86_64 模式运行
+          MACH="$(arch -x86_64 "$X64_PY_BIN" -c 'import platform; print(platform.machine())')"
+          echo "PYTHON_X86_64=$X64_PY_BIN" >> $GITEA_ENV
+          echo "x86_64 python at $X64_PY_BIN reports machine=$MACH"
+          [[ "$MACH" == "x86_64" ]] || { echo "::error::x86_64 python not running in x86_64 mode"; exit 1; }
+
+      - name: Install Python dependencies
+        run: |
+          set -euo pipefail
+          cd "$HOME/workspace/ai-divine-desktop/divine-server"
+          PY311_BIN="$(brew --prefix python@3.11)/bin/python3.11"
+          "$PY311_BIN" -m pip install -r requirements.txt pyinstaller
+          # x86_64 (Rosetta) Python：同样装 requirements + pyinstaller，
+          # pip 会按 x86_64 解析 wheel。
+          X64_PY_BIN="${PYTHON_X86_64:?}"
+          arch -x86_64 "$X64_PY_BIN" -m pip install -r requirements.txt pyinstaller
+
+      - name: Check & free disk space
+        # 上一轮（run #6664）hdiutil 打 DMG 时报"设备上无剩余空间"。universal 包
+        # 比单架构大一倍，DMG 阶段峰值占用 ~6GB+。runner 根卷 ~228Gi，已用 91%，
+        # 可用仅 ~19Gi。这里先报当前磁盘用量，再清掉可安全重建的缓存。
+        run: |
+          set -euo pipefail
+          echo "== df (before cleanup) =="
+          df -h /System/Volumes/Data 2>/dev/null || df -h / || true
+          echo "== top disk users (home) =="
+          du -sh "$HOME/workspace" "$HOME/.py-build" "$HOME/.cargo/registry" \
+             "$HOME/Library/Caches/pip" "$HOME/.npm/_cacache" \
+             "$HOME/Library/Caches/pnpm" "$HOME/Library/Developer/Xcode/DerivedData" \
+             "$HOME/.rustup/toolchains" 2>/dev/null || true
+          echo "== freeing caches =="
+          rm -rf "$HOME/Library/Caches/pip" "$HOME/.cache/pip" "$HOME/.npm/_cacache" 2>/dev/null || true
+          (command -v pnpm >/dev/null 2>&1 && pnpm store prune >/dev/null 2>&1) || true
+          (command -v brew >/dev/null 2>&1 && brew cleanup -s >/dev/null 2>&1) || true
+          # Tauri 编译不会调 Xcode，但 DerivedData 仍然可能占 10+ GiB（其它 job 残留）。
+          # 直接清空整个目录（DerivedData 全量可重建），给 hdiutil 留出空间。
+          rm -rf "$HOME/Library/Developer/Xcode/DerivedData" 2>/dev/null || true
+          rm -rf "$HOME/Library/Developer/CoreSimulator/Caches" 2>/dev/null || true
+          rm -rf /tmp/*.tar.gz /tmp/cpython-*.tar.gz /tmp/dmg_staging 2>/dev/null || true
+          echo "== df (after cleanup) =="
+          df -h /System/Volumes/Data 2>/dev/null || df -h / || true
+
+      # ---------------------------------------------------------------------
+      # 6. Fastlane mac dmg：双架构 tauri build + lipo + codesign + notarize。
+      #    通过 SSH localhost 登录会话绕开 keychain 弹窗（与参考项目一致）。
+      # ---------------------------------------------------------------------
+      - name: Build signed & notarized macOS Universal DMG (Fastlane)
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          RUNNER_PASSWORD: ${{ secrets.RUNNER_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          # TEAM_ID 不传：Developer ID 直装分发不需要 Apple Team ID（codesign/notarytool
+          # 都不校，Fastfile 也不调 xcodebuild / gym / exportArchive）。
+          BUILD_VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ steps.version.outputs.build-number }}
+          CI: "true"
+        run: |
+          set -euo pipefail
+          REAL_HOME="$(eval echo ~"$(whoami)")"
+          echo "HOME=$HOME REAL_HOME=$REAL_HOME"
+          SSH_KEY="$REAL_HOME/.ssh/ci_build_key"
+          mkdir -p "$REAL_HOME/.ssh"
+          chmod 700 "$REAL_HOME/.ssh"
+          rm -f "$SSH_KEY" "${SSH_KEY}.pub"
+          ssh-keygen -t ed25519 -f "$SSH_KEY" -N "" -q
+          cat "${SSH_KEY}.pub" >> "$REAL_HOME/.ssh/authorized_keys"
+          chmod 600 "$REAL_HOME/.ssh/authorized_keys"
+
+          ENV_FILE="/tmp/ci_env_universal_$$"
+          cat > "$ENV_FILE" <<'ENVEOF'
+          export CI=true
+          export FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT=120
+          export FASTLANE_XCODEBUILD_SETTINGS_RETRIES=10
+          ENVEOF
+
+          # pnpm 版本钉到 9：brew 的 pnpm 11 需要 Node 22+（node:sqlite builtin），
+          # runner 是 Node 20.19.4。用 npm 装到 NODE_BIN，SSH PATH 里 NODE_BIN 在
+          # /opt/homebrew/bin 之前，pnpm 必然解析到 v9。
+          NODE_BIN="$(dirname "$(command -v node)")"
+          echo "node: $("$NODE_BIN/node" --version) at $NODE_BIN"
+          "$NODE_BIN/npm" install -g pnpm@9 --no-audit --no-fund
+          echo "pnpm: $("$NODE_BIN/pnpm" --version)"
+
+          for s in MATCH_PASSWORD MATCH_GIT_URL MATCH_GIT_BASIC_AUTHORIZATION \
+                   RUNNER_PASSWORD APP_STORE_CONNECT_API_KEY_ID \
+                   APP_STORE_CONNECT_API_KEY_ISSUER_ID APP_STORE_CONNECT_API_KEY_CONTENT \
+                   BUILD_VERSION BUILD_NUMBER PYTHON_X86_64; do
+            v="${!s:-}"
+            printf 'export %s=%q\n' "$s" "$v" >> "$ENV_FILE"
+          done
+          HOMEBREW_PREFIX="$(brew --prefix)"
+          RUBY_PREFIX="$(brew --prefix ruby@3.3)"
+          PY311_PREFIX="$(brew --prefix python@3.11)"
+          # NODE_BIN 上面已通过 command -v node 解析；SSH 子 shell 不会继承 actions 设
+          # 的 PATH，所以这里把 node + pnpm + python@3.11 显式 prepend（NODE_BIN 在最前，
+          # 确保解析到 npm 装的 pnpm@9 而不是 brew 的 pnpm 11）。
+          {
+            echo "export PATH=\"${NODE_BIN}:${HOMEBREW_PREFIX}/bin:${RUBY_PREFIX}/bin:${PY311_PREFIX}/bin:\$HOME/.gem/bin:\$PATH\""
+            echo "export GEM_HOME=\"$HOME/.gem\""
+            echo "export PROJECT_DIR=\"$PROJECT_DIR\""
+          } >> "$ENV_FILE"
+
+          echo "Testing SSH localhost..."
+          if ssh -o StrictHostKeyChecking=no -o BatchMode=yes -i "$SSH_KEY" localhost "echo SSH_OK" 2>&1 | grep -q SSH_OK; then
+            echo "SSH localhost works - running fastlane mac dmg in login session"
+            ssh -o StrictHostKeyChecking=no -o BatchMode=yes -i "$SSH_KEY" localhost \
+              "source '$ENV_FILE' && cd '$PROJECT_DIR' && bundle exec fastlane mac dmg"
+            BUILD_EXIT=$?
+            rm -f "$SSH_KEY" "${SSH_KEY}.pub" "$ENV_FILE"
+            sed -i '' '/ci_build_key/d' "$REAL_HOME/.ssh/authorized_keys" 2>/dev/null || true
+            exit $BUILD_EXIT
+          else
+            echo "SSH localhost failed - falling back to direct execution"
+            rm -f "$SSH_KEY" "${SSH_KEY}.pub" "$ENV_FILE"
+            sed -i '' '/ci_build_key/d' "$REAL_HOME/.ssh/authorized_keys" 2>/dev/null || true
+            bundle exec fastlane mac dmg
+          fi
+
+      # ---------------------------------------------------------------------
+      # 7. 定位 notarized DMG 路径。
+      # ---------------------------------------------------------------------
+      - name: Resolve notarized DMG path
+        id: dmg
+        run: |
+          set -euo pipefail
+          DMG="$(ls -1 "$PROJECT_DIR/build/"*.dmg 2>/dev/null | head -1 || true)"
+          if [[ -z "$DMG" || ! -f "$DMG" ]]; then
+            echo "::error::Notarized DMG not found under $PROJECT_DIR/build/"
+            ls -la "$PROJECT_DIR/build" 2>/dev/null || true
+            exit 1
+          fi
+          echo "path=$DMG" >> $GITEA_OUTPUT
+          echo "Resolved notarized DMG: $DMG"
+          ls -la "$DMG"
+
+      # ---------------------------------------------------------------------
+      # 8. 上传为 Gitea Release asset（仅 tag 触发）。
+      # ---------------------------------------------------------------------
+      - name: Publish DMG to Gitea Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          DMG_PATH: ${{ steps.dmg.outputs.path }}
+          ASSET_NAME: Divine-macos-universal-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build-number }}.dmg
+          TAG_NAME: ${{ github.ref_name }}
+          # 复用 MATCH_GIT_BASIC_AUTHORIZATION（base64 of user:token），Gitea Release
+          # API 也吃 PAT token。这里解 base64 取出纯 token 走 "Authorization: token <PAT>"。
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          GITEA_SERVER_URL: ${{ github.server_url }}
+          GITEA_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${MATCH_GIT_BASIC_AUTHORIZATION:-}" ]]; then
+            echo "::error::secrets.MATCH_GIT_BASIC_AUTHORIZATION is not set"
+            exit 1
+          fi
+
+          # base64 解码: "dXNlcjp0b2tlbg==" -> "user:token"
+          DECODED="$(printf '%s' "$MATCH_GIT_BASIC_AUTHORIZATION" | openssl base64 -d -A)"
+          GITEA_USER="${DECODED%%:*}"
+          GITEA_TOKEN="${DECODED#*:}"
+          if [[ -z "${GITEA_TOKEN}" || "${GITEA_TOKEN}" == "${DECODED}" ]]; then
+            echo "::error::Failed to extract user:token from MATCH_GIT_BASIC_AUTHORIZATION"
+            exit 1
+          fi
+          echo "Decoded Gitea user: ${GITEA_USER}"
+          # 校验：ai-divine-desktop 仓库的所有者必须是 duguying（仓库设置里能看到）。
+          # 之前 secret 里写成了 duguyng（笔误），PAT 解码后用户名不对，POST /releases
+          # 直接 404 "not found"，且消息会把仓库隐藏。这里显式拦截，避免默默 404。
+          if [[ "${GITEA_USER}" != "duguying" ]]; then
+            echo "::error::MATCH_GIT_BASIC_AUTHORIZATION 解出的用户 (${GITEA_USER}) 不是 ai-divine-desktop 的所有者 duguying。请重新生成 base64(duguying:<PAT>) 后更新 secret。"
+            exit 1
+          fi
+
+          # 调试探针：run #6669 已确认 user=duguying 但 POST /releases 仍 404。
+          # 用同一个 token 先 GET /user（应当返回 200 且 login=duguying）+ GET
+          # /repos/.../ai-divine-desktop（确认 token 能看到仓库），把响应正文打出来。
+          # 若 GET 也 404，则是 PAT 缺少 write 作用域，或不是当前 user 的 token。
+          AUTH_HEADER="Authorization: token ${GITEA_TOKEN}"
+          API_BASE="${GITEA_SERVER_URL%/}"
+          API="${API_BASE}/api/v1/repos/${GITEA_REPO}"
+          echo "--- token probe ---"
+          echo "GET ${API_BASE}/api/v1/user"
+          curl -sS -o /tmp/probe_user.json -w 'http=%{http_code}\n' \
+            -H "$AUTH_HEADER" "${API_BASE}/api/v1/user"
+          cat /tmp/probe_user.json 2>/dev/null | head -c 400; echo
+          echo "GET ${API} (repo metadata)"
+          curl -sS -o /tmp/probe_repo.json -w 'http=%{http_code}\n' \
+            -H "$AUTH_HEADER" "${API}"
+          cat /tmp/probe_repo.json 2>/dev/null | head -c 400; echo
+          echo "--- end probe ---"
+
+          echo "Resolving release for tag ${TAG_NAME}..."
+          HTTP_CODE="$(curl -sS -o /tmp/release.json -w '%{http_code}' \
+            -H "$AUTH_HEADER" "$API/releases/tags/${TAG_NAME}")"
+
+          if [[ "$HTTP_CODE" == "200" ]]; then
+            RELEASE_ID="$(ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/release.json").force_encoding("UTF-8"))["id"]')"
+            echo "Found existing release id=${RELEASE_ID}"
+          elif [[ "$HTTP_CODE" == "404" ]]; then
+            echo "No release for tag yet, creating..."
+            HTTP_CODE="$(curl -sS -o /tmp/release.json -w '%{http_code}' \
+              -H "$AUTH_HEADER" -H 'Content-Type: application/json' \
+              -X POST "$API/releases" \
+              --data "$(ruby -rjson -e 'puts({tag_name: ARGV[0], name: ARGV[0], body: "Automated macOS universal release", draft: false, prerelease: false}.to_json)' "$TAG_NAME")")"
+            if [[ "$HTTP_CODE" != "201" && "$HTTP_CODE" != "200" ]]; then
+              echo "::error::Failed to create release (HTTP $HTTP_CODE):"
+              cat /tmp/release.json || true
+              exit 1
+            fi
+            RELEASE_ID="$(ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/release.json").force_encoding("UTF-8"))["id"]')"
+            echo "Created release id=${RELEASE_ID}"
+          else
+            echo "::error::Unexpected HTTP $HTTP_CODE when looking up release:"
+            cat /tmp/release.json || true
+            exit 1
+          fi
+
+          echo "Removing same-named asset (if any) so the upload is idempotent..."
+          curl -sS -H "$AUTH_HEADER" "$API/releases/${RELEASE_ID}/assets" -o /tmp/assets.json
+          ruby -rjson -e 'JSON.parse(File.binread("/tmp/assets.json").force_encoding("UTF-8")).each { |a| puts a["id"] if a["name"] == ARGV[0] }' "$ASSET_NAME" \
+            | while read -r ASSET_ID; do
+                [[ -z "$ASSET_ID" ]] && continue
+                echo "  Deleting old asset id=${ASSET_ID}"
+                curl -sS -H "$AUTH_HEADER" -X DELETE \
+                  "$API/releases/${RELEASE_ID}/assets/${ASSET_ID}" -o /dev/null
+              done
+
+          echo "Uploading ${ASSET_NAME}..."
+          HTTP_CODE="$(curl -sS -o /tmp/asset.json -w '%{http_code}' \
+            -H "$AUTH_HEADER" \
+            -X POST "$API/releases/${RELEASE_ID}/assets?name=${ASSET_NAME}" \
+            -F "attachment=@${DMG_PATH};type=application/octet-stream")"
+          if [[ "$HTTP_CODE" != "201" && "$HTTP_CODE" != "200" ]]; then
+            echo "::error::Asset upload failed (HTTP $HTTP_CODE):"
+            cat /tmp/asset.json || true
+            exit 1
+          fi
+
+          ASSET_URL="$(ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/asset.json").force_encoding("UTF-8"))["browser_download_url"]')"
+          echo "Uploaded (API says): $ASSET_URL"
+
+          # 校验：run #6671 的 Uploaded: URL 指向 /attachments/<uuid>，而 GET
+          # /releases/tags/v0.2.0 返回的 assets 列表是空 —— Gitea 把这次上传当作
+          # 孤儿 attachment 而不是 release asset。release/download/<tag>/<name>
+          # 因此 404。重新 GET release，确认资产在列表里 + URL 可下载。
+          echo "Verifying asset is attached to release..."
+          curl -sS -H "$AUTH_HEADER" "$API/releases/${RELEASE_ID}" -o /tmp/release_final.json
+          ASSET_COUNT="$(ruby -rjson -e 'd=JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8")); puts (d["assets"] || []).length')"
+          echo "Release now lists ${ASSET_COUNT} asset(s)"
+          if [[ "${ASSET_COUNT}" == "0" ]]; then
+            echo "::error::Asset upload returned a browser_download_url but the release has 0 assets. Likely an orphan attachment; failing so the DMG can be re-uploaded correctly."
+            cat /tmp/asset.json
+            exit 1
+          fi
+          ACTUAL_URL="$(ruby -rjson -e 'a=JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8"))["assets"]; m=a.find { |x| x["name"]==ARGV[0] }; puts(m ? m["browser_download_url"] : "")' "$ASSET_NAME")"
+          if [[ -z "${ACTUAL_URL}" ]]; then
+            echo "::error::Release has ${ASSET_COUNT} asset(s) but none named ${ASSET_NAME}; failing."
+            ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8"))["assets"].map { |x| x["name"] }'
+            exit 1
+          fi
+          echo "Actual release asset URL: ${ACTUAL_URL}"
+          # HEAD 该 URL，确认可下载（不是孤儿 attachment）
+          HTTP_CODE="$(curl -sS -o /dev/null -I -w '%{http_code}' -H "$AUTH_HEADER" "${ACTUAL_URL}")"
+          echo "HEAD ${ACTUAL_URL} -> ${HTTP_CODE}"
+          if [[ "${HTTP_CODE}" != "200" && "${HTTP_CODE}" != "302" ]]; then
+            echo "::error::Release asset URL returned ${HTTP_CODE}; not downloadable."
+            exit 1
+          fi
+          echo "OK: asset ${ASSET_NAME} is attached and downloadable at ${ACTUAL_URL}"
+
+      - name: Show build log on failure
+        if: failure()
+        run: |
+          if [ -d "$PROJECT_DIR/build" ]; then
+            find "$PROJECT_DIR/build" -type f -name '*.log' -print -exec tail -200 {} \;
+          fi

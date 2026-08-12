@@ -24,14 +24,21 @@ if [[ -z "$TARGET" ]]; then
   esac
 fi
 
+# PyInstaller 的 --target-arch 只对 macOS 有意义。darwin-arm64 / darwin-x64
+# 各指定 TARGET_ARCH，让构建脚本明确产出的 Mach-O 切片：CI 里 darwin-x64 必须
+# 用 x86_64 的 Python（Rosetta 下运行），否则 PyInstaller 会拒绝 cross-arch，
+# 或者像上一轮一样在 arm64 宿主机上用 arm64 Python 编出"名为 x86_64 实为 arm64"
+# 的二进制，lipo 合并时报 same architectures (arm64)。
 case "$TARGET" in
   darwin-arm64)
     EXE="divine-server"
     TRIPLE="aarch64-apple-darwin"
+    TARGET_ARCH="arm64"
     ;;
   darwin-x64)
     EXE="divine-server"
     TRIPLE="x86_64-apple-darwin"
+    TARGET_ARCH="x86_64"
     ;;
   win32-x64)
     EXE="divine-server.exe"
@@ -56,6 +63,13 @@ else
   PYTHON_BIN="python3"
 fi
 rm -rf "dist/divine-server" "dist/divine-server.exe"
+if [[ "$TARGET" == darwin-* ]]; then
+  # 目标切片经环境变量传给 divine-server.spec（EXE 的 target_arch）。不能走 CLI
+  # --target-arch：给 .spec 文件时 PyInstaller 会拒绝 makespec 选项。若宿主 Python
+  # 架构与目标不符（arm64 宿主编 x86_64），PyInstaller 会直接报错，不会静默产出
+  # 错误的切片——这正是上一轮 lipo 踩的坑。
+  export SIDECAR_TARGET_ARCH="$TARGET_ARCH"
+fi
 "$PYTHON_BIN" -m PyInstaller --clean --noconfirm divine-server.spec
 
 BIN_DIR="bin/$TARGET"
