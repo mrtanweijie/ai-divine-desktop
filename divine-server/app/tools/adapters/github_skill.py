@@ -14,14 +14,14 @@ from ..registry import register_tool
 
 @register_tool(
     "preview_skill_repo",
-    "只读拉取 GitHub 仓库并解析其中的 SKILL.md，返回技能名称、描述和正文预览。"
-    "用户给出 GitHub 地址想安装技能时，先调用本工具展示内容，不要直接安装。",
+    "只读拉取 GitHub/Gitee 仓库并解析其中的 SKILL.md，返回技能名称、描述和正文预览。"
+    "用户给出 GitHub/Gitee 地址想安装技能时，先调用本工具展示内容，不要直接安装。",
     {
         "type": "object",
         "properties": {
             "repo_url": {
                 "type": "string",
-                "description": "GitHub 仓库地址，例如 https://github.com/owner/repo",
+                "description": "GitHub/Gitee 仓库地址，例如 https://github.com/owner/repo 或 https://gitee.com/owner/repo",
             },
             "ref": {
                 "type": "string",
@@ -54,7 +54,7 @@ class PreviewSkillRepoAdapter(ToolAdapter):
 
 @register_tool(
     "install_skill",
-    "把 GitHub 仓库中的 SKILL.md 技能安装到 AI Divine。"
+    "把 GitHub/Gitee 仓库中的 SKILL.md 技能安装到 AI Divine。"
     "默认安装到当前项目 .divine/skills，target 传 user 时安装到用户级目录。"
     "安装前系统会再次展示 SKILL.md 并请求确认；"
     "仓库包含多个技能时，skill_path 必须传 preview_skill_repo 返回的相对目录。",
@@ -63,7 +63,7 @@ class PreviewSkillRepoAdapter(ToolAdapter):
         "properties": {
             "repo_url": {
                 "type": "string",
-                "description": "GitHub 仓库地址",
+                "description": "GitHub/Gitee 仓库地址",
             },
             "skill_path": {
                 "type": "string",

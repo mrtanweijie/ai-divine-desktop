@@ -3,6 +3,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import re
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -185,6 +189,93 @@ def _make_args_model(
     )
 
 
+def _skill_tool_name(name: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", name.strip()).strip("_-")
+    return f"skill_{cleaned or 'script'}"
+
+
+def _skill_script_timeout() -> int:
+    try:
+        return max(1, int(os.getenv("DIVINE_SKILL_SCRIPT_TIMEOUT", "120")))
+    except ValueError:
+        return 120
+
+
+def _run_skill_script(
+    script: Path,
+    skill_dir: Path,
+    mode: str,
+    params: dict[str, Any] | None,
+    args: list[str] | None,
+    timeout: int | None,
+) -> Any:
+    timeout = timeout or _skill_script_timeout()
+    command = [sys.executable, str(script)]
+    stdin_text: str | None = None
+    if mode == "json":
+        stdin_text = json.dumps({"params": params or {}}, ensure_ascii=False)
+    else:
+        command.extend(str(item) for item in (args or []))
+
+    try:
+        completed = subprocess.run(
+            command,
+            input=stdin_text,
+            capture_output=True,
+            text=True,
+            cwd=str(skill_dir),
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"技能脚本执行超时（{timeout}s）") from exc
+    except OSError as exc:
+        raise RuntimeError(f"无法启动技能脚本: {exc}") from exc
+
+    stdout_text = completed.stdout or ""
+    stderr_text = completed.stderr or ""
+    if completed.returncode != 0:
+        detail = stderr_text.strip() or stdout_text.strip()
+        raise RuntimeError(
+            "技能脚本退出码 %d：%s"
+            % (completed.returncode, detail[-500:] if detail else "无输出")
+        )
+
+    if mode == "json":
+        try:
+            return json.loads(stdout_text)
+        except json.JSONDecodeError as exc:
+            tail = stderr_text.strip()[-200:] if stderr_text.strip() else ""
+            raise RuntimeError(
+                "技能脚本未返回合法 JSON: "
+                + stdout_text[-300:]
+                + (f"；stderr: {tail}" if tail else "")
+            ) from exc
+
+    output = stdout_text.strip()
+    if stderr_text.strip():
+        output = output + ("\n" if output else "") + "[stderr]\n" + stderr_text.strip()[-2000:]
+    if not output:
+        output = "（技能脚本无输出）"
+    if len(output) > 30000:
+        output = output[:30000] + "\n...[输出已截断]"
+    return output
+
+
+def _skill_args_model(name: str, mode: str) -> Any:
+    model_name = f"{_skill_tool_name(name)}_args".replace("-", "_")
+    if mode == "json":
+        return create_model(
+            model_name,
+            params=(dict[str, Any], ...),
+            timeout=(Optional[int], None),
+        )
+    return create_model(
+        model_name,
+        args=(Optional[list[str]], None),
+        timeout=(Optional[int], None),
+    )
+
+
 def _auto_rag_context_lc(
     messages: list[Any], workspace: Path
 ) -> str | None:
@@ -207,12 +298,27 @@ def _auto_rag_context_lc(
 
 
 def _skill_catalog_prompt() -> str:
-    skills = skill_registry.knowledge_skills()
-    if not skills:
+    knowledge_skills = skill_registry.knowledge_skills()
+    executable_skills = skill_registry.executable_skills()
+    if not knowledge_skills and not executable_skills:
         return ""
-    lines = ["可用技能（需要时调用 load_skill 加载正文和参考资料）："]
-    for skill in skills:
-        lines.append(f"- {skill.name}: {skill.description}")
+    lines: list[str] = []
+    if knowledge_skills:
+        lines.append("可用知识技能（需要时调用 load_skill 加载正文和参考资料）：")
+        for skill in knowledge_skills:
+            lines.append(f"- {skill.name}: {skill.description}")
+    if executable_skills:
+        lines.append("可用能力技能（可直接调用脚本工具执行）：")
+        for skill in executable_skills:
+            tool_name = _skill_tool_name(skill.name)
+            if skill.script_mode == "json":
+                usage = "从 stdin 读取 JSON 参数"
+            else:
+                usage = "接收命令行参数 args"
+            lines.append(
+                f"- {skill.name}: {skill.description}"
+                f"（调用 {tool_name}，{usage}）"
+            )
     return "\n".join(lines)
 
 
@@ -1125,6 +1231,47 @@ def _build_tools(ctx: AgentRunContext) -> list[StructuredTool]:
                 name=meta["name"],
                 description=meta["description"],
                 args_schema=args_model,
+            )
+        )
+
+    for skill in skill_registry.executable_skills():
+        if skill.script_path is None:
+            continue
+        tool_name = _skill_tool_name(skill.name)
+        if skill.script_mode == "json":
+            description = (
+                f"执行能力型技能 {skill.name} 的 script.py。"
+                f"{skill.description} 参数 params 通过 stdin JSON 传给脚本。"
+            )
+        else:
+            description = (
+                f"执行能力型技能 {skill.name} 的脚本。"
+                f"{skill.description} args 为传给脚本的命令行参数列表。"
+            )
+
+        async def _call_skill(
+            params: dict[str, Any] | None = None,
+            args: list[str] | None = None,
+            timeout: int | None = None,
+            _meta: Any = skill,
+            _mode: str = skill.script_mode,
+        ) -> Any:
+            return await asyncio.to_thread(
+                _run_skill_script,
+                _meta.script_path,
+                _meta.dir,
+                _mode,
+                params,
+                args,
+                timeout,
+            )
+
+        tools.append(
+            StructuredTool.from_function(
+                coroutine=_call_skill,
+                name=tool_name,
+                description=description,
+                args_schema=_skill_args_model(skill.name, skill.script_mode),
             )
         )
 

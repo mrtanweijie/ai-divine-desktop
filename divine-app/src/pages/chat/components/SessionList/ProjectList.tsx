@@ -27,6 +27,7 @@ interface ProjectListProps {
   sessions: Session[];
   selectedProjectId: string | null;
   selectedId: string | null;
+  selectionActive: boolean;
   onSelectProject: (id: string) => void;
   onNewProject: () => void;
   onNewConversation: (id: string) => void;
@@ -42,6 +43,7 @@ export function ProjectList({
   sessions,
   selectedProjectId,
   selectedId,
+  selectionActive,
   onSelectProject,
   onNewProject,
   onNewConversation,
@@ -71,8 +73,9 @@ export function ProjectList({
           <ProjectBranch
             key={project.id}
             project={project}
-            active={project.id === selectedProjectId}
+            active={selectionActive && project.id === selectedProjectId}
             selectedId={selectedId}
+            selectionActive={selectionActive}
             projectSessions={sessions.filter(
               (session) => session.project_id === project.id
             )}
@@ -94,6 +97,7 @@ interface ProjectBranchProps {
   project: Project;
   active: boolean;
   selectedId: string | null;
+  selectionActive: boolean;
   projectSessions: Session[];
   onSelectProject: (id: string) => void;
   onNewConversation: (id: string) => void;
@@ -108,6 +112,7 @@ function ProjectBranch({
   project,
   active,
   selectedId,
+  selectionActive,
   projectSessions,
   onSelectProject,
   onNewConversation,
@@ -144,7 +149,7 @@ function ProjectBranch({
               <ProjectSessionItem
                 key={session.id}
                 session={session}
-                active={session.id === selectedId}
+                active={selectionActive && session.id === selectedId}
                 onSelect={onSelectSession}
                 onRename={onRenameSession}
                 onDelete={onDeleteSession}

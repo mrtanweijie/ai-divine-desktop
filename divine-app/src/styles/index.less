@@ -191,7 +191,8 @@ a:focus-visible {
   color: var(--color-accent);
 }
 
-.tasks-nav-link {
+.tasks-nav-link,
+.skills-nav-link {
   display: flex;
   height: 34px;
   align-items: center;
@@ -206,10 +207,19 @@ a:focus-visible {
   cursor: pointer;
 }
 
-.tasks-nav-link:hover {
+.tasks-nav-link:hover,
+.skills-nav-link:hover {
   border-radius: 12px;
   background: var(--color-accent-soft);
   color: var(--color-accent);
+}
+
+.tasks-nav-link.active,
+.skills-nav-link.active {
+  border-radius: 12px;
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+  font-weight: 600;
 }
 
 .sidebar-section-label {

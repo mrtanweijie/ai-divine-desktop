@@ -110,6 +110,20 @@ export interface SkillInstallCandidate {
   size: number;
 }
 
+export interface InstalledSkill {
+  name: string;
+  description: string;
+  type: "knowledge" | "executable" | "mcp";
+  source: string;
+  version: string;
+  path: string;
+  dependencies: string[];
+  body: string;
+  references: string[];
+  script_path: string | null;
+  script_mode: "cli" | "json";
+}
+
 export interface ToolFileLink {
   name: string;
   path?: string;

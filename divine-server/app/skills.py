@@ -18,6 +18,12 @@ MAX_REFERENCE_TOTAL_CHARS = 20000
 MAX_IMPORT_PREVIEW_CHARS = 2000
 MAX_IMPORTED_SKILL_SIZE = 10 * 1024 * 1024
 
+_ENTRY_SCRIPT_CANDIDATES = (
+    "scripts/main.py",
+    "scripts/run.py",
+    "scripts/entrypoint.py",
+)
+
 
 class SkillMigrationError(RuntimeError):
     pass
@@ -93,6 +99,14 @@ def _sanitize_skill_name(value: str, fallback: str = "") -> str:
     return cleaned or "skill"
 
 
+def _is_within(root: Path, path: Path) -> bool:
+    try:
+        path.relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def _description_from_markdown(frontmatter: dict[str, Any], body: str) -> str:
     description = str(frontmatter.get("description") or "").strip()
     if description:
@@ -106,6 +120,43 @@ def _description_from_markdown(frontmatter: dict[str, Any], body: str) -> str:
         if stripped:
             return stripped[:200]
     return ""
+
+
+def _detect_script_path(
+    skill_dir: Path, frontmatter: dict[str, Any]
+) -> tuple[Path | None, str]:
+    explicit = str(frontmatter.get("script") or "").strip()
+    if explicit:
+        candidate = (skill_dir / explicit).resolve()
+        try:
+            candidate.relative_to(skill_dir.resolve())
+        except ValueError:
+            candidate = None
+        if candidate is not None and candidate.is_file():
+            mode = str(frontmatter.get("script_mode") or "").strip().lower()
+            if mode not in {"json", "cli"}:
+                mode = "json" if candidate.name == "script.py" else "cli"
+            return candidate, mode
+
+    root_script = skill_dir / "script.py"
+    if root_script.is_file():
+        return root_script, "json"
+
+    for relative in _ENTRY_SCRIPT_CANDIDATES:
+        candidate = skill_dir / relative
+        if candidate.is_file():
+            return candidate, "cli"
+
+    scripts_dir = skill_dir / "scripts"
+    if scripts_dir.is_dir():
+        scripts = sorted(
+            path
+            for path in scripts_dir.iterdir()
+            if path.is_file() and path.suffix == ".py"
+        )
+        if len(scripts) == 1:
+            return scripts[0], "cli"
+    return None, "cli"
 
 
 def _import_source_roots(
@@ -400,6 +451,8 @@ class SkillMeta:
     body: str = ""
     references_content: str = ""
     reference_files: list[str] = field(default_factory=list)
+    script_path: Path | None = None
+    script_mode: str = "cli"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -412,6 +465,8 @@ class SkillMeta:
             "dependencies": self.dependencies,
             "body": self.body,
             "references": self.reference_files,
+            "script_path": str(self.script_path) if self.script_path else None,
+            "script_mode": self.script_mode,
         }
 
 
@@ -431,7 +486,8 @@ def _parse_skill(skill_dir: Path, source: str) -> SkillMeta | None:
     type_name = str(frontmatter.get("type") or "knowledge").strip().lower()
     if type_name not in {"knowledge", "executable", "mcp"}:
         type_name = "knowledge"
-    if type_name == "knowledge" and (skill_dir / "script.py").is_file():
+    script_path, script_mode = _detect_script_path(skill_dir, frontmatter)
+    if type_name == "knowledge" and script_path is not None:
         type_name = "executable"
     version = str(frontmatter.get("version") or "0.0.0").strip()
     dependencies: list[str] = []
@@ -458,6 +514,8 @@ def _parse_skill(skill_dir: Path, source: str) -> SkillMeta | None:
         body=body.strip()[:MAX_SKILL_BODY_CHARS],
         references_content=references_content,
         reference_files=reference_files,
+        script_path=script_path,
+        script_mode=script_mode,
     )
 
 
@@ -503,6 +561,38 @@ class SkillRegistry:
             if meta.type == "knowledge"
         ]
 
+    def executable_skills(self) -> list[SkillMeta]:
+        return [
+            meta
+            for meta in self._skills.values()
+            if meta.type == "executable" and meta.script_path is not None
+        ]
+
+    def uninstall(
+        self, name: str, project_root: Path | None = None
+    ) -> dict[str, Any]:
+        self.refresh(project_root)
+        meta = self._skills.get(name)
+        if meta is None:
+            raise KeyError(f"技能不存在: {name}")
+        if meta.source == "builtin":
+            raise PermissionError("内置技能不能卸载")
+        allowed_roots = [user_skills_dir()]
+        if project_root is not None:
+            allowed_roots.append(project_root / ".divine" / "skills")
+        skill_dir = meta.dir.resolve()
+        if not any(
+            _is_within(root, skill_dir) for root in allowed_roots
+        ):
+            raise PermissionError("只能卸载用户级或项目级技能")
+        shutil.rmtree(skill_dir)
+        self.refresh(project_root)
+        return {
+            "ok": True,
+            "name": name,
+            "dir": str(skill_dir),
+        }
+
     def load(self, name: str) -> str:
         meta = self._skills.get(name)
         if meta is None:
@@ -513,7 +603,10 @@ class SkillRegistry:
                 + ", ".join(sorted(self._skills))
                 + '"}'
             )
-        parts = [meta.body]
+        parts = [
+            f"技能目录：{meta.dir}（运行本技能脚本时以该目录为工作目录）",
+            meta.body,
+        ]
         if meta.references_content:
             parts.append(
                 "参考资料：\n" + meta.references_content

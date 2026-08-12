@@ -1,4 +1,4 @@
-import { Clock, Settings, SquarePen } from "lucide-react";
+import { Clock, Settings, Sparkles, SquarePen } from "lucide-react";
 import { Flex } from "@/components/ui/Flex";
 import type { Project, Session } from "@/types";
 import { ProjectList } from "./ProjectList";
@@ -20,6 +20,8 @@ interface SessionListProps {
   onDelete: (id: string) => void;
   onOpenSettings: () => void;
   onOpenTasks: () => void;
+  onOpenSkills: () => void;
+  activeView: "chat" | "tasks" | "skills";
   model: string;
 }
 
@@ -40,6 +42,8 @@ export function SessionList({
   onDelete,
   onOpenSettings,
   onOpenTasks,
+  onOpenSkills,
+  activeView,
   model,
 }: SessionListProps) {
   return (
@@ -70,7 +74,9 @@ export function SessionList({
         </Flex>
 
         <div
-          className="tasks-link tasks-nav-link"
+          className={`tasks-link tasks-nav-link${
+            activeView === "tasks" ? " active" : ""
+          }`}
           role="button"
           tabIndex={0}
           onClick={onOpenTasks}
@@ -86,11 +92,31 @@ export function SessionList({
           <span>已安排</span>
         </div>
 
+        <div
+          className={`tasks-link skills-nav-link${
+            activeView === "skills" ? " active" : ""
+          }`}
+          role="button"
+          tabIndex={0}
+          onClick={onOpenSkills}
+          title="技能"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              onOpenSkills();
+              event.currentTarget.blur();
+            }
+          }}
+        >
+          <Sparkles size={15} />
+          <span>技能</span>
+        </div>
+
         <ProjectList
           projects={projects}
           sessions={sessions}
           selectedProjectId={selectedProjectId}
           selectedId={selectedId}
+          selectionActive={activeView === "chat"}
           onSelectProject={onSelectProject}
           onNewProject={onNewProject}
           onNewConversation={onNewConversationInProject}

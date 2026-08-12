@@ -5,6 +5,7 @@ export interface ModalProps {
   open: boolean;
   title?: string;
   titleSuffix?: ReactNode;
+  headerAction?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
@@ -15,6 +16,7 @@ export function Modal({
   open,
   title,
   titleSuffix,
+  headerAction,
   onClose,
   children,
   footer,
@@ -53,6 +55,9 @@ export function Modal({
                 <span className="ui-modal-title-suffix">{titleSuffix}</span>
               )}
             </h2>
+            {headerAction && (
+              <div className="ui-modal-header-action">{headerAction}</div>
+            )}
           </div>
         )}
         <div className="ui-modal-body">{children}</div>

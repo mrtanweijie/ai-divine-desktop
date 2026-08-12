@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import {
   createProject,
   createSession,
@@ -22,6 +23,7 @@ import {
   emitTasksChanged,
 } from "@/services/scheduledTasks";
 import { ScheduledTasksPage } from "@/pages/tasks";
+import { SkillsPage } from "@/pages/skills";
 import { ChatHeader } from "@/pages/chat/components/ChatHeader";
 import { ChatInput } from "@/pages/chat/components/ChatInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -94,7 +96,19 @@ export default function ChatPage() {
   } = useInputState();
   const fullscreen = useFullscreen();
   const [searchOpen, setSearchOpen] = useState(false);
-  const [tasksOpen, setTasksOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = searchParams.get("view");
+  const tasksOpen = view === "tasks";
+  const skillsOpen = view === "skills";
+  const openView = useCallback(
+    (nextView: "tasks" | "skills") => {
+      setWorkspacePanelOpen(false);
+      setWorkspaceExpanded(false);
+      setWorkspaceExpandedLayout(false);
+      setSearchParams({ view: nextView });
+    },
+    [setSearchParams]
+  );
   const [projectOpen, setProjectOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [composerKey, setComposerKey] = useState(0);
@@ -342,10 +356,15 @@ export default function ChatPage() {
   }, [setSidebarOpen]);
 
   useEffect(() => {
-    const handleOpenTasks = () => setTasksOpen(true);
+    const handleOpenTasks = () => openView("tasks");
+    const handleOpenSkills = () => openView("skills");
     window.addEventListener("divine:open-tasks", handleOpenTasks);
-    return () => window.removeEventListener("divine:open-tasks", handleOpenTasks);
-  }, []);
+    window.addEventListener("divine:open-skills", handleOpenSkills);
+    return () => {
+      window.removeEventListener("divine:open-tasks", handleOpenTasks);
+      window.removeEventListener("divine:open-skills", handleOpenSkills);
+    };
+  }, [openView]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -386,7 +405,11 @@ export default function ChatPage() {
 
   const handleNewSession = useCallback(
     (projectId?: string) => {
-      setTasksOpen(false);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("view");
+        return next;
+      });
       const safeProjectId =
         typeof projectId === "string" ? projectId : undefined;
       const targetProjectId =
@@ -411,6 +434,7 @@ export default function ChatPage() {
       projects,
       selectedId,
       selectedProjectId,
+      setSearchParams,
       setSelectedProjectId,
       sessions,
     ]
@@ -419,7 +443,11 @@ export default function ChatPage() {
   const handleSelectProject = useCallback(
     async (id: string) => {
       if (streaming) return;
-      setTasksOpen(false);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("view");
+        return next;
+      });
       setSelectedProjectId(id);
       const remaining = await refreshSessions(id);
       if (remaining.length > 0) {
@@ -431,7 +459,13 @@ export default function ChatPage() {
       }
       closeSidebarForNarrow();
     },
-    [closeSidebarForNarrow, loadSession, refreshSessions, streaming]
+    [
+      closeSidebarForNarrow,
+      loadSession,
+      refreshSessions,
+      setSearchParams,
+      streaming,
+    ]
   );
 
   const handleSaveProject = useCallback(
@@ -507,11 +541,15 @@ export default function ChatPage() {
   const handleSelectSession = useCallback(
     async (id: string) => {
       if (streaming) return;
-      setTasksOpen(false);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("view");
+        return next;
+      });
       await loadSession(id);
       closeSidebarForNarrow();
     },
-    [closeSidebarForNarrow, loadSession, streaming]
+    [closeSidebarForNarrow, loadSession, setSearchParams, streaming]
   );
 
   const handleRename = useCallback(
@@ -998,13 +1036,17 @@ export default function ChatPage() {
           onRename={handleRename}
           onDelete={handleDelete}
           onOpenSettings={() => setSettingsOpen(true)}
-          onOpenTasks={() => setTasksOpen(true)}
+          onOpenTasks={() => openView("tasks")}
+          onOpenSkills={() => openView("skills")}
+          activeView={tasksOpen ? "tasks" : skillsOpen ? "skills" : "chat"}
           model={settings?.model ?? ""}
         />
       </Flex>
       <Flex direction="column" className="main-area">
         {tasksOpen ? (
           <ScheduledTasksPage />
+        ) : skillsOpen ? (
+          <SkillsPage workspacePath={currentProject?.path ?? null} />
         ) : (
           <>
             <ChatHeader
