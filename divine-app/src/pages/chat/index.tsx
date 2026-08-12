@@ -576,6 +576,7 @@ export default function ChatPage() {
             think,
             attachments: files.map((file) => ({
               name: file.name,
+              size: file.size,
               ...(file.path
                 ? { file_path: file.path }
                 : { content: file.content ?? "" }),
@@ -1018,6 +1019,7 @@ export default function ChatPage() {
                   settings?.think_default ?? false
                 )
               }
+              onPreviewFile={handlePreviewFile}
             />
           </>
         )}

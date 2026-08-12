@@ -165,9 +165,11 @@ export function FilePreviewPanel({
         <div className="file-inspector-preview">
           {selectedFile ? (
             <FilePreview
-              key={selectedFile.relPath}
+              key={`${selectedFile.relPath}-${selectedFile.path ?? ""}`}
               repoPath={selectedFile.repoPath}
               relPath={selectedFile.relPath}
+              absolutePath={selectedFile.path}
+              content={selectedFile.content}
               fileName={selectedFile.fileName}
               changed={changedFiles.has(selectedFile.relPath)}
               onAcceptFile={onAcceptFile}

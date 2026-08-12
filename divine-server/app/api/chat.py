@@ -77,9 +77,17 @@ async def stream_chat(request: StreamChatRequest):
         db.update_session(session_id, title=title)
     message = db.add_message(session_id, "user", question)
     for index, attachment in enumerate(request.attachments):
-        meta: dict[str, str] = {"name": attachment.name}
+        meta: dict[str, object] = {
+            "name": attachment.name,
+            "size": attachment.size,
+        }
         if attachment.file_path:
             meta["path"] = attachment.file_path
+            if not attachment.size:
+                try:
+                    meta["size"] = Path(attachment.file_path).stat().st_size
+                except OSError:
+                    meta["size"] = None
             if not is_image_path(attachment.file_path):
                 try:
                     meta["content"] = read_file_text(

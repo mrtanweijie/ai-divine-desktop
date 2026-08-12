@@ -20,8 +20,12 @@ import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
 import { TextArea } from "@/components/ui/TextArea";
-import type { ApprovalMode, ChatFile } from "@/types";
-import { isTauri } from "@/services/tauri";
+import type { ApprovalMode, ChatFile, PreviewFile } from "@/types";
+import { isTauri, savePasteText } from "@/services/tauri";
+import { formatSize } from "@/utils";
+
+const PASTE_AS_FILE_CHAR_THRESHOLD = 2000;
+const PASTE_AS_FILE_LINE_THRESHOLD = 500;
 
 const APPROVAL_MODE_LABELS: Record<ApprovalMode, string> = {
   ask: "请求批准",
@@ -54,6 +58,7 @@ const APPROVAL_MODE_ITEMS: {
 interface ComposerProps {
   disabled: boolean;
   onSend: (question: string, files: ChatFile[]) => void;
+  onPreviewFile?: (file: PreviewFile) => void;
   onValueChange?: (hasValue: boolean) => void;
   approvalMode: ApprovalMode;
   onApprovalModeChange: (mode: ApprovalMode) => void;
@@ -67,6 +72,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
     {
       disabled,
       onSend,
+      onPreviewFile,
       onValueChange,
       approvalMode,
       onApprovalModeChange,
@@ -77,7 +83,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
     ref
   ) {
     const [value, setValue] = useState("");
-    const [attached, setAttached] = useState<ChatFile | null>(null);
+    const [attached, setAttached] = useState<ChatFile[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const localRef = useRef<HTMLTextAreaElement>(
       null
@@ -112,10 +118,17 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
     const send = () => {
       const question = value.trim();
       if (!question || disabled) return;
-      const files: ChatFile[] = attached ? [attached] : [];
-      onSend(question, files);
+      onSend(question, attached);
       setValue("");
-      setAttached(null);
+      setAttached([]);
+    };
+
+    const attachmentKey = (file: ChatFile) =>
+      `${file.name}-${file.path ?? file.content?.slice(0, 8) ?? ""}`;
+
+    const removeAttachment = (file: ChatFile) => {
+      const key = attachmentKey(file);
+      setAttached((prev) => prev.filter((item) => attachmentKey(item) !== key));
     };
 
     const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -127,8 +140,42 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
       } catch {
         content = "";
       }
-      setAttached({ name: file.name, size: file.size, content });
+      setAttached((prev) => [
+        ...prev,
+        { name: file.name, size: file.size, content },
+      ]);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const handlePaste = async (
+      event: React.ClipboardEvent<HTMLTextAreaElement>
+    ) => {
+      const native = event.nativeEvent as ClipboardEvent & {
+        ctrlKey?: boolean;
+        metaKey?: boolean;
+        shiftKey?: boolean;
+      };
+      if (native.ctrlKey && native.shiftKey) return;
+      if (native.metaKey && native.shiftKey) return;
+      const text = event.clipboardData?.getData("text/plain") || "";
+      const lineCount = text.split(/\r?\n/).length;
+      const tooLarge =
+        text.length >= PASTE_AS_FILE_CHAR_THRESHOLD ||
+        lineCount >= PASTE_AS_FILE_LINE_THRESHOLD;
+      if (!text || !tooLarge) return;
+
+      event.preventDefault();
+      try {
+        const saved = await savePasteText(text);
+        setAttached((prev) => [
+          ...prev,
+          { name: saved.name, path: saved.path, size: saved.size },
+        ]);
+      } catch {
+        setValue((prev) => (prev ? `${prev}\n${text}` : text));
+        onValueChange?.(true);
+        textareaRef.current?.focus();
+      }
     };
 
     const pickAttachment = async () => {
@@ -136,7 +183,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
         const selected = await open({ multiple: false });
         if (typeof selected === "string") {
           const name = selected.split(/[\\/]/).pop() || selected;
-          setAttached({ name, path: selected });
+          setAttached((prev) => [...prev, { name, path: selected }]);
         }
         return;
       }
@@ -157,6 +204,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
               setValue(next);
               onValueChange?.(next.trim().length > 0);
             }}
+            onPaste={(event) => void handlePaste(event)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
@@ -165,18 +213,66 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
             }}
             aria-label="输入消息"
           />
-          {attached && (
-            <Flex align="center" gap={6} className="attachment-chip">
-              <FileText size={13} />
-              <span>{attached.name}</span>
-              <Button
-                variant="icon"
-                size="small"
-                onClick={() => setAttached(null)}
-                aria-label="移除附件"
-              >
-                <X size={12} />
-              </Button>
+          {attached.length > 0 && (
+            <Flex direction="column" gap={6} className="attachment-chips">
+              {attached.map((file) => (
+                <Flex
+                  key={attachmentKey(file)}
+                  align="center"
+                  gap={6}
+                  className="attachment-chip"
+                >
+                  <FileText size={13} />
+                  <span
+                    className={
+                      file.path && onPreviewFile
+                        ? "attachment-name attachment-name-preview"
+                        : "attachment-name"
+                    }
+                    role={file.path && onPreviewFile ? "button" : undefined}
+                    tabIndex={file.path && onPreviewFile ? 0 : undefined}
+                    title={file.path && onPreviewFile ? "预览" : undefined}
+                    onClick={
+                      file.path && onPreviewFile
+                        ? () =>
+                            onPreviewFile({
+                              repoPath: "",
+                              relPath: file.name,
+                              fileName: file.name,
+                              path: file.path,
+                            })
+                        : undefined
+                    }
+                    onKeyDown={
+                      file.path && onPreviewFile
+                        ? (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              onPreviewFile({
+                                repoPath: "",
+                                relPath: file.name,
+                                fileName: file.name,
+                                path: file.path,
+                              });
+                            }
+                          }
+                        : undefined
+                    }
+                  >
+                    {file.name}
+                  </span>
+                  {file.size != null && (
+                    <span className="attachment-size">{formatSize(file.size)}</span>
+                  )}
+                  <Button
+                    variant="icon"
+                    size="small"
+                    onClick={() => removeAttachment(file)}
+                    aria-label={`移除附件 ${file.name}`}
+                  >
+                    <X size={12} />
+                  </Button>
+                </Flex>
+              ))}
             </Flex>
           )}
           <Flex

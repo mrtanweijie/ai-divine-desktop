@@ -9,6 +9,7 @@ class Attachment(BaseModel):
     name: str
     content: str = ""
     file_path: str | None = None
+    size: int | None = None
 
 
 class StreamChatRequest(BaseModel):

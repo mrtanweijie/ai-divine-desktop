@@ -309,6 +309,37 @@ pub fn get_file_diff(repo_path: String, rel_path: String) -> Result<FileDiff, St
 }
 
 #[tauri::command]
+pub fn get_external_file_preview(path: String) -> Result<FileDiff, String> {
+    let target = PathBuf::from(&path)
+        .canonicalize()
+        .map_err(|err| format!("文件路径无效: {err}"))?;
+    if !target.is_file() {
+        return Err("目标不是文件".to_string());
+    }
+    let (bytes, truncated) = read_preview_bytes(&target)
+        .ok_or_else(|| "读取文件失败".to_string())?;
+    let is_binary = looks_binary(&bytes);
+    let content = if is_binary {
+        String::new()
+    } else {
+        String::from_utf8_lossy(&bytes).into_owned()
+    };
+    Ok(FileDiff {
+        rel_path: target.to_string_lossy().into_owned(),
+        old_content: String::new(),
+        new_content: content,
+        diff_text: String::new(),
+        additions: 0,
+        deletions: 0,
+        is_git: false,
+        tracked: true,
+        is_binary,
+        exists: true,
+        content_truncated: truncated,
+    })
+}
+
+#[tauri::command]
 pub fn watch_workspace(
     app: AppHandle,
     state: State<'_, WorkspaceWatchState>,

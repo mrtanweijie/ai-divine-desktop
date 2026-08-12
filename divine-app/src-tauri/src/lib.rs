@@ -114,6 +114,7 @@ pub fn run() {
             commands::sidecar::stop_sidecar,
             commands::sidecar::sidecar_health,
             commands::sidecar::get_sidecar_env,
+            commands::paste::save_paste_text,
             commands::system::open_local_file,
             commands::system::open_file_location,
             commands::system::open_folder,
@@ -123,6 +124,7 @@ pub fn run() {
             commands::workspace::get_file_tree,
             commands::workspace::get_dir_children,
             commands::workspace::get_file_diff,
+            commands::workspace::get_external_file_preview,
             commands::workspace::watch_workspace,
             commands::workspace::unwatch_workspace,
         ])

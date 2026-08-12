@@ -235,8 +235,18 @@ export function messagesToChatMessages(
         .filter((part) => part.type === "file")
         .map((part) => {
           try {
-            const parsed = JSON.parse(part.content) as { name?: string };
-            return { name: parsed.name ?? part.content };
+            const parsed = JSON.parse(part.content) as {
+              name?: string;
+              size?: number;
+              path?: string;
+              content?: string;
+            };
+            return {
+              name: parsed.name ?? part.content,
+              size: parsed.size,
+              path: parsed.path,
+              content: parsed.content,
+            };
           } catch {
             return { name: part.content };
           }

@@ -212,4 +212,6 @@ export interface PreviewFile {
   repoPath: string;
   relPath: string;
   fileName?: string;
+  path?: string;
+  content?: string;
 }

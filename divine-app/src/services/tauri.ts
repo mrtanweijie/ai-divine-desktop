@@ -27,6 +27,18 @@ export async function openUrl(url: string): Promise<void> {
   await invoke("open_url", { url });
 }
 
+export async function savePasteText(
+  text: string
+): Promise<{ name: string; path: string; size: number; hash: string }> {
+  return invoke("save_paste_text", { text });
+}
+
+export async function getExternalFilePreview(
+  path: string
+): Promise<FileDiff> {
+  return invoke("get_external_file_preview", { path });
+}
+
 export async function getFileTree(
   root: string
 ): Promise<WorkspaceFileNode[]> {

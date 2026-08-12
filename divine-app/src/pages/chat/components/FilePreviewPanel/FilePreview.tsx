@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
-import { getFileDiff, isTauri, listenWorkspaceChanges } from "@/services/tauri";
+import {
+  getExternalFilePreview,
+  getFileDiff,
+  isTauri,
+  listenWorkspaceChanges,
+} from "@/services/tauri";
 import { workspaceJoin } from "@/services/workspace";
 import type { FileDiff } from "@/types";
 import { DiffView } from "./DiffView";
@@ -10,6 +15,8 @@ import { FileContentView } from "./FileContentView";
 interface FilePreviewProps {
   repoPath: string;
   relPath: string;
+  absolutePath?: string;
+  content?: string;
   fileName?: string;
   changed: boolean;
   onAcceptFile?: (relPath: string) => void;
@@ -24,6 +31,8 @@ function normalizePath(value: string): string {
 export function FilePreview({
   repoPath,
   relPath,
+  absolutePath,
+  content,
   fileName,
   changed,
   onAcceptFile,
@@ -40,7 +49,25 @@ export function FilePreview({
       if (showLoading) setLoading(true);
       setError("");
       try {
-        setPreview(await getFileDiff(repoPath, relPath));
+        if (absolutePath) {
+          setPreview(await getExternalFilePreview(absolutePath));
+        } else if (content !== undefined) {
+          setPreview({
+            relPath,
+            oldContent: "",
+            newContent: content,
+            diffText: "",
+            additions: 0,
+            deletions: 0,
+            isGit: false,
+            tracked: true,
+            isBinary: false,
+            exists: true,
+            contentTruncated: false,
+          });
+        } else {
+          setPreview(await getFileDiff(repoPath, relPath));
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
         setPreview(null);
@@ -48,15 +75,16 @@ export function FilePreview({
         if (showLoading) setLoading(false);
       }
     },
-    [relPath, repoPath]
+    [absolutePath, content, relPath, repoPath]
   );
 
   useEffect(() => {
     void load(true);
-  }, [load, relPath]);
+  }, [absolutePath, content, load, relPath]);
 
   useEffect(() => {
     if (!isTauri()) return;
+    if (absolutePath) return;
     let disposed = false;
     let unlisten: (() => void) | undefined;
     const targetPath = normalizePath(workspaceJoin(repoPath, relPath));
@@ -81,7 +109,7 @@ export function FilePreview({
       window.clearInterval(pollTimer);
       unlisten?.();
     };
-  }, [load, relPath, repoPath]);
+  }, [absolutePath, content, load, relPath, repoPath]);
 
   if (loading) {
     return (

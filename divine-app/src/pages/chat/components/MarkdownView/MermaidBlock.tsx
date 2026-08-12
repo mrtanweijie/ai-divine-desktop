@@ -121,6 +121,12 @@ function useThemeVersion(): "dark" | "light" {
   return theme;
 }
 
+function normalizeMermaidSource(code: string): string {
+  let text = code.replace(/\\"/g, '"').replace(/\\'/g, "'");
+  text = text.replace(/"([^"\n]*)"/g, "“$1”");
+  return text.replace(/"/g, "「");
+}
+
 interface MermaidBlockProps {
   code: string;
   streaming: boolean;
@@ -128,9 +134,10 @@ interface MermaidBlockProps {
 
 export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
   const theme = useThemeVersion();
+  const normalizedCode = normalizeMermaidSource(code);
   const baseId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const instanceId = `mermaid-${baseId}`;
-  const key = cacheKey(theme, code);
+  const key = cacheKey(theme, normalizedCode);
   const cached = svgCache.get(key);
   const [status, setStatus] = useState<RenderStatus>(
     cached ? "ready" : "loading"
@@ -147,7 +154,7 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
       setSvg("");
       return;
     }
-    const cachedSvg = svgCache.get(cacheKey(theme, code));
+    const cachedSvg = svgCache.get(cacheKey(theme, normalizedCode));
     if (cachedSvg) {
       setSvg(replaceSvgId(cachedSvg.svg, cachedSvg.id, instanceId));
       setStatus("ready");
@@ -163,11 +170,11 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
       .then((mermaid) => {
         if (cancelled) return null;
         mermaid.initialize(mermaidConfig(theme));
-        return mermaid.render(`${instanceId}-${seq}`, code);
+        return mermaid.render(`${instanceId}-${seq}`, normalizedCode);
       })
       .then((result) => {
         if (cancelled || !result || seq !== renderSeq.current) return;
-        rememberSvg(cacheKey(theme, code), {
+        rememberSvg(cacheKey(theme, normalizedCode), {
           id: `${instanceId}-${seq}`,
           svg: result.svg,
         });
@@ -183,7 +190,7 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
     return () => {
       cancelled = true;
     };
-  }, [code, instanceId, streaming, theme]);
+  }, [normalizedCode, instanceId, streaming, theme]);
 
   function replaceSvgId(source: string, fromId: string, toId: string): string {
     return fromId === toId ? source : source.split(fromId).join(toId);
@@ -191,10 +198,10 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(normalizedCode);
     } catch {
       const textarea = document.createElement("textarea");
-      textarea.value = code;
+      textarea.value = normalizedCode;
       textarea.style.position = "fixed";
       textarea.style.opacity = "0";
       document.body.appendChild(textarea);
@@ -228,7 +235,7 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       ) : status === "error" ? (
-        <pre className="mermaid-source">{code}</pre>
+        <pre className="mermaid-source">{normalizedCode}</pre>
       ) : (
         <div className="mermaid-loading">
           <LoadingOrb state="working" size={20} speed={3} />

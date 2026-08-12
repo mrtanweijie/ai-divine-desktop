@@ -102,7 +102,41 @@ export function MessageItem({
           {message.files && message.files.length > 0 && (
             <div className="user-files">
               {message.files.map((file) => (
-                <div className="user-file-card" key={file.name}>
+                <div
+                  className={`user-file-card${
+                    file.path || file.content ? " previewable" : ""
+                  }`}
+                  key={file.name}
+                  role={file.path || file.content ? "button" : undefined}
+                  tabIndex={file.path || file.content ? 0 : undefined}
+                  onClick={
+                    file.path || file.content
+                      ? () =>
+                          onPreviewFile?.({
+                            repoPath: "",
+                            relPath: file.name,
+                            fileName: file.name,
+                            path: file.path,
+                            content: file.content,
+                          })
+                      : undefined
+                  }
+                  onKeyDown={
+                    file.path || file.content
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            onPreviewFile?.({
+                              repoPath: "",
+                              relPath: file.name,
+                              fileName: file.name,
+                              path: file.path,
+                              content: file.content,
+                            });
+                          }
+                        }
+                      : undefined
+                  }
+                >
                   <FileText size={13} />
                   <span>{file.name}</span>
                   {file.size != null && (
@@ -110,6 +144,7 @@ export function MessageItem({
                       {formatSize(file.size)}
                     </span>
                   )}
+                  {(file.path || file.content) && <Eye size={13} />}
                 </div>
               ))}
             </div>
