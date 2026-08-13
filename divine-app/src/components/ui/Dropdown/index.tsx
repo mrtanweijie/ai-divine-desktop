@@ -27,6 +27,7 @@ interface DropdownProps {
   align?: "start" | "center" | "end";
   direction?: "below" | "above";
   label?: string;
+  openOn?: "click" | "hover" | "both";
 }
 
 type DropdownTriggerProps = {
@@ -42,11 +43,13 @@ export function Dropdown({
   align = "end",
   direction = "below",
   label,
+  openOn = "click",
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const ref = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
+  const supportsHover = openOn === "hover" || openOn === "both";
 
   const cancelClose = () => {
     if (closeTimer.current !== null) {
@@ -140,8 +143,8 @@ export function Dropdown({
     <div
       className="ui-dropdown"
       ref={ref}
-      onMouseEnter={openMenu}
-      onMouseLeave={scheduleClose}
+      onMouseEnter={supportsHover ? openMenu : undefined}
+      onMouseLeave={supportsHover ? scheduleClose : undefined}
     >
       {isValidElement(trigger)
         ? cloneElement(trigger as ReactElement<DropdownTriggerProps>, {
@@ -157,8 +160,8 @@ export function Dropdown({
             className={`ui-menu ui-menu--${align}`}
             style={menuStyle}
             role="menu"
-            onMouseEnter={cancelClose}
-            onMouseLeave={scheduleClose}
+            onMouseEnter={supportsHover ? cancelClose : undefined}
+            onMouseLeave={supportsHover ? scheduleClose : undefined}
           >
             {items.map((item) => (
               <button

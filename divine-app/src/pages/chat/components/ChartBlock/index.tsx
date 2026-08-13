@@ -192,10 +192,12 @@ function decorateSeries(option: Record<string, unknown>): void {
       itemStyle.borderColor = "transparent";
       itemStyle.borderWidth = 0;
       next.itemStyle = itemStyle;
+      const hasSecondaryXAxis =
+        Array.isArray(option.xAxis) && option.xAxis.length > 1;
       const volumeLike =
         /成交量|成交额|volume/i.test(String(next.name ?? "")) ||
-        next.xAxisIndex === 1 ||
-        next.yAxisIndex === 1;
+        (hasSecondaryXAxis &&
+          (next.xAxisIndex === 1 || next.yAxisIndex === 1));
       if (isHorizontalCartesian(option)) {
         next.barWidth = "70%";
         next.barCategoryGap = "10%";
@@ -232,13 +234,26 @@ function decorateSeries(option: Record<string, unknown>): void {
       itemStyle.borderColor = "transparent";
       itemStyle.borderWidth = 0;
       next.itemStyle = itemStyle;
-      next.label = withDefaults(next.label, {
-        color: "#f2f4f6",
-        fontSize: 11,
-      });
-      next.labelLine = withDefaults(next.labelLine, {
-        lineStyle: { color: "rgba(255,255,255,0.18)" },
-      });
+      const label = isRecord(next.label) ? { ...next.label } : {};
+      label.color = "#f2f4f6";
+      label.fontSize = label.fontSize ?? 11;
+      next.label = label;
+      const labelLine = isRecord(next.labelLine) ? { ...next.labelLine } : {};
+      const labelLineStyle = isRecord(labelLine.lineStyle)
+        ? { ...labelLine.lineStyle }
+        : {};
+      labelLineStyle.color = "rgba(255,255,255,0.18)";
+      labelLine.lineStyle = labelLineStyle;
+      next.labelLine = labelLine;
+      if (isRecord(next.emphasis)) {
+        const emphasis = { ...next.emphasis };
+        const emphasisLabel = isRecord(emphasis.label)
+          ? { ...emphasis.label }
+          : {};
+        emphasisLabel.color = "#f2f4f6";
+        emphasis.label = emphasisLabel;
+        next.emphasis = emphasis;
+      }
     } else if (type === "treemap") {
       const itemStyle = isRecord(next.itemStyle) ? { ...next.itemStyle } : {};
       itemStyle.borderColor = "#121517";
@@ -316,6 +331,31 @@ function decorateAxes(option: Record<string, unknown>): void {
       ...(isRecord(axis.splitArea) ? axis.splitArea : {}),
       show: false,
     };
+    const label = isRecord(axis.axisLabel) ? { ...axis.axisLabel } : {};
+    label.color = "#a4adba";
+    label.fontFamily = UI_FONT;
+    label.fontSize = label.fontSize ?? 11;
+    axis.axisLabel = label;
+    const nameStyle = isRecord(axis.nameTextStyle)
+      ? { ...axis.nameTextStyle }
+      : {};
+    nameStyle.color = "#a4adba";
+    nameStyle.fontFamily = UI_FONT;
+    axis.nameTextStyle = nameStyle;
+    const axisLine = isRecord(axis.axisLine) ? { ...axis.axisLine } : {};
+    const axisLineStyle = isRecord(axisLine.lineStyle)
+      ? { ...axisLine.lineStyle }
+      : {};
+    axisLineStyle.color = "rgba(255,255,255,0.12)";
+    axisLine.lineStyle = axisLineStyle;
+    axis.axisLine = axisLine;
+    const splitLine = isRecord(axis.splitLine) ? { ...axis.splitLine } : {};
+    const splitLineStyle = isRecord(splitLine.lineStyle)
+      ? { ...splitLine.lineStyle }
+      : {};
+    splitLineStyle.color = "rgba(255,255,255,0.07)";
+    splitLine.lineStyle = splitLineStyle;
+    axis.splitLine = splitLine;
   };
   for (const key of ["xAxis", "yAxis"] as const) {
     const value = option[key];
@@ -326,6 +366,34 @@ function decorateAxes(option: Record<string, unknown>): void {
     } else if (isRecord(value)) {
       applyAxis(value);
     }
+  }
+}
+
+function decorateReadableText(option: Record<string, unknown>): void {
+  if (isRecord(option.legend)) {
+    const textStyle = isRecord(option.legend.textStyle)
+      ? { ...option.legend.textStyle }
+      : {};
+    textStyle.color = "#a4adba";
+    textStyle.fontFamily = UI_FONT;
+    textStyle.fontSize = textStyle.fontSize ?? 11;
+    option.legend.textStyle = textStyle;
+  }
+  if (isRecord(option.title)) {
+    const textStyle = isRecord(option.title.textStyle)
+      ? { ...option.title.textStyle }
+      : {};
+    textStyle.color = "#f2f4f6";
+    textStyle.fontFamily = UI_FONT;
+    option.title.textStyle = textStyle;
+  }
+  if (isRecord(option.tooltip)) {
+    const textStyle = isRecord(option.tooltip.textStyle)
+      ? { ...option.tooltip.textStyle }
+      : {};
+    textStyle.color = "#f2f4f6";
+    textStyle.fontFamily = UI_FONT;
+    option.tooltip.textStyle = textStyle;
   }
 }
 
@@ -584,6 +652,7 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
   };
 
   const merged = mergeRecord(theme, option);
+  decorateReadableText(merged);
   const usesCartesianAxis =
     primaryType === "" || !NON_CARTESIAN_TYPES.has(primaryType);
   if (usesCartesianAxis) {
@@ -616,6 +685,21 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
   }
   if (primaryType === "pie") {
     delete merged.title;
+    const firstSeries = series[0];
+    const radius =
+      isRecord(firstSeries) && Array.isArray(firstSeries.radius)
+        ? firstSeries.radius
+        : null;
+    if (radius && radius.length > 1 && isRecord(merged.legend)) {
+      merged.legend = {
+        ...merged.legend,
+        orient: "vertical",
+        left: 16,
+        top: "middle",
+        right: "auto",
+        bottom: "auto",
+      };
+    }
   }
   if (primaryType === "funnel") {
     delete merged.title;

@@ -1845,7 +1845,12 @@ a:focus-visible {
   color: var(--color-accent);
 }
 
+.tool-url-link svg {
+  flex-shrink: 0;
+}
+
 .tool-url-link span {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2640,6 +2645,26 @@ a:focus-visible {
 }
 
 .mobile-sidebar-button {
+  display: none;
+}
+
+.ui-button--icon.scheduled-sidebar-button {
+  flex-shrink: 0;
+  width: 32px !important;
+  height: 32px !important;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.ui-button--icon.scheduled-sidebar-button:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.app-shell.sidebar-visible .scheduled-sidebar-button {
   display: none;
 }
 

@@ -1,13 +1,22 @@
+import json
 import logging
+import runpy
+import sys
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-import uvicorn
 
-from app.config import data_root, settings_store
-from app.main import app
+def _run_bundled_script() -> bool:
+    if len(sys.argv) < 3 or sys.argv[1] != "--run-script":
+        return False
+    script = Path(sys.argv[2])
+    runpy.run_path(str(script), run_name="__main__")
+    return True
 
 
 def _setup_logging() -> None:
+    from app.config import data_root
+
     root_dir = data_root()
     root_dir.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger()
@@ -30,6 +39,13 @@ def _setup_logging() -> None:
 
 
 def main() -> None:
+    if _run_bundled_script():
+        return
+    import uvicorn
+
+    from app.config import data_root, settings_store
+    from app.main import app
+
     _setup_logging()
     settings = settings_store.load()
     logging.getLogger("divine").info(

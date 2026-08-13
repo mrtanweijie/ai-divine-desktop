@@ -4,6 +4,7 @@ from .create_plan import CreatePlanAdapter  # noqa: F401
 from .describe_svg import DescribeSvgAdapter  # noqa: F401
 from .directory_tree import DirectoryTreeAdapter  # noqa: F401
 from .draw_svg import DrawSvgAdapter  # noqa: F401
+from .edit_files import EditFilesAdapter  # noqa: F401
 from .edit_svg import EditSvgAdapter  # noqa: F401
 from .generate_chart import GenerateChartAdapter  # noqa: F401
 from .github_skill import (  # noqa: F401

@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
-import io
 import json
 import os
-import runpy
 import subprocess
 import sys
-import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,54 +14,6 @@ from ..config import output_dir_for_workspace
 
 class ToolExecutionError(RuntimeError):
     pass
-
-
-_IN_PROCESS_TOOL_LOCK = threading.Lock()
-
-
-def _run_script_in_process(
-    script: Path, payload: dict[str, Any], timeout: int
-) -> dict[str, Any]:
-    stdin_text = json.dumps(payload, ensure_ascii=False)
-
-    def execute() -> tuple[str, str]:
-        with _IN_PROCESS_TOOL_LOCK:
-            old_stdin, old_stdout, old_stderr = sys.stdin, sys.stdout, sys.stderr
-            out = io.StringIO()
-            err = io.StringIO()
-            try:
-                sys.stdin = io.StringIO(stdin_text)
-                sys.stdout = out
-                sys.stderr = err
-                runpy.run_path(str(script), run_name="__main__")
-            except SystemExit:
-                pass
-            except Exception as exc:
-                raise ToolExecutionError(f"工具脚本执行异常: {exc}") from exc
-            finally:
-                sys.stdin, sys.stdout, sys.stderr = old_stdin, old_stdout, old_stderr
-            return out.getvalue(), err.getvalue()
-
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    future = executor.submit(execute)
-    try:
-        raw, stderr_text = future.result(timeout=timeout)
-    except concurrent.futures.TimeoutError as exc:
-        executor.shutdown(wait=False)
-        raise ToolExecutionError(f"工具执行超时（{timeout}s）") from exc
-    executor.shutdown(wait=False)
-
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as exc:
-        stderr_tail = (
-            stderr_text.strip()[-200:] if stderr_text.strip() else ""
-        )
-        raise ToolExecutionError(
-            "工具脚本未返回合法 JSON: "
-            + raw[-200:]
-            + (f"；stderr: {stderr_tail}" if stderr_tail else "")
-        ) from exc
 
 
 @dataclass
@@ -165,14 +113,15 @@ class ToolAdapter:
         return self._result_from_output(workspace, output, output_root)
 
     def _run_subprocess(self, script: str, payload: dict[str, Any]) -> dict[str, Any]:
+        stdin_text = json.dumps(payload, ensure_ascii=False)
         if getattr(sys, "frozen", False):
-            return _run_script_in_process(
-                Path(script), payload, self.timeout
-            )
+            command = [sys.executable, "--run-script", str(script)]
+        else:
+            command = [sys.executable, str(script)]
         try:
             completed = subprocess.run(
-                [sys.executable, script],
-                input=json.dumps(payload, ensure_ascii=False),
+                command,
+                input=stdin_text,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,

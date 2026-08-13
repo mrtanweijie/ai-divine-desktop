@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -140,9 +141,23 @@ read_image 返回的 content 就是图片识别结果，请基于它回答用户
 生成文件后只需说明文件名和内容概要，文件下载/打开由前端工具卡片展示。
 生成文件默认保存到应用输出目录，不写入当前项目/工作区；
 只有用户明确要求保存到项目内时，才使用 path 参数指定 workspace 内相对目录。
-创建或修改工作区内的文本文件（源码、配置、文档）使用 write_file，
+修改已有源码、配置或文档必须使用 edit_files，一次调用传入所有文件的
+SEARCH/REPLACE，不要逐个文件调用；修改前先在正文中列出将要修改的文件
+和每个文件的改动点。SEARCH 必须与文件现有内容完全一致（含缩进、空行
+和结尾换行），找不到时先用 read_file 查看文件内容再重试，不要改写其他位置。
+创建新文件使用 edit_files 且 search 传空字符串，或用 write_file 写入完整内容。
 自动创建父目录；默认禁止用 terminal heredoc 写文件，
 除非用户明确要求使用终端方式。
+## 代码修改
+- 修改任何代码前，先列出将要修改的文件，并说明每个文件的改动内容。
+- 所有改动必须一次性通过 `edit_files` 批量完成，不要逐个文件修改。
+- 使用 SEARCH/REPLACE 块：
+  - SEARCH 必须是文件中存在的精确文本，包含缩进和空白。
+  - SEARCH 文本必须完整复制原文件内容，不能省略、不能添加注释、不能改变缩进。
+  - 如果文本太长，只复制要修改的函数体或代码块，不要包含整个文件。
+  - REPLACE 是替换后的内容。
+  - 创建新文件时 SEARCH 传空字符串 `""`。
+  - 一次调用可包含多个文件的改动。
 只能调用本次请求提供的工具，不要杜撰未提供的工具名。
 用户提到从 Claude Code、Qoder、Cursor 等工具迁移或导入技能时，
 先调用 discover_importable_skills 扫描可迁移候选并向用户展示，
@@ -201,6 +216,7 @@ ux_html 默认保存到当前项目工作区 html/ 目录，不要额外传 path
 分布用 scatter、多指标用 bar + line 组合），option 必须完整合法且 series 非空，
 不要在正文输出 HTML、JS 或图表代码。
 读取文件内容必须使用 read_file、word_document 等专用工具；
+读取大文件时使用 read_file 的 start_line/end_line 只读取需要的行段；
 读取 Excel 必须使用 read_file（不要使用 spreadsheet，spreadsheet 只能生成 Excel）；
 默认禁止用 terminal 执行 cat、python、openpyxl、find 等命令来读取或分析文件；
 如果用户明确要求，可提交终端确认后执行。
@@ -260,7 +276,10 @@ async def _execute_tool(
         _summarize_arguments(arguments),
     )
     try:
-        result = await adapter.run(workspace, arguments)
+        result = await asyncio.wait_for(
+            adapter.run(workspace, arguments),
+            timeout=adapter.timeout,
+        )
         output = result.as_dict()
         db.update_tool_run(run["id"], "done", output)
         logger.info(
@@ -269,6 +288,17 @@ async def _execute_tool(
             name,
             time.monotonic() - started,
             output.get("success"),
+        )
+        return output
+    except asyncio.TimeoutError:
+        output = {"success": False, "message": f"工具执行超时（{adapter.timeout}s）"}
+        db.update_tool_run(run["id"], "error", output)
+        logger.warning(
+            "tool timeout session=%s name=%s duration=%.2fs timeout=%s",
+            session_id,
+            name,
+            time.monotonic() - started,
+            adapter.timeout,
         )
         return output
     except ToolExecutionError as exc:

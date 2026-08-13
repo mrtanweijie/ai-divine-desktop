@@ -7,6 +7,39 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from app.document_reader import read_file_text  # noqa: E402
 
 
+def parse_line_range(params: dict) -> tuple[int, int | None]:
+    start_line = params.get("start_line")
+    end_line = params.get("end_line")
+    try:
+        start = 1 if start_line is None else int(start_line)
+    except (TypeError, ValueError):
+        raise ValueError("start_line 必须是整数")
+    if start < 1:
+        raise ValueError("start_line 必须大于等于 1")
+
+    end = None
+    if end_line is not None:
+        try:
+            end = int(end_line)
+        except (TypeError, ValueError):
+            raise ValueError("end_line 必须是整数")
+        if end < start:
+            raise ValueError("end_line 必须大于等于 start_line")
+    return start, end
+
+
+def slice_lines(
+    content: str, start: int, end: int | None
+) -> tuple[str, int, int]:
+    lines = content.splitlines()
+    total = len(lines)
+    if total > 0 and start > total:
+        raise ValueError(f"start_line={start} 超出文件总行数 {total}")
+    stop = total if end is None else min(end, total)
+    selected = lines[start - 1 : stop]
+    return "\n".join(selected), total, stop
+
+
 def main() -> None:
     data = json.load(sys.stdin)
     workspace = Path(data["workspace"]).resolve()
@@ -35,20 +68,35 @@ def main() -> None:
 
     try:
         content = read_file_text(path)
+        start, end = parse_line_range(params)
+        selected, total_lines, line_end = slice_lines(content, start, end)
     except Exception as exc:  # noqa: BLE001
         print(json.dumps({"success": False, "message": f"读取失败: {exc}"}))
         return
 
-    capped = content[:12000]
+    capped = selected[:12000]
+    has_range = (
+        params.get("start_line") is not None
+        or params.get("end_line") is not None
+    )
+    display_start = start if total_lines > 0 else 0
+    message = f"已读取 {path.name}"
+    if has_range:
+        message += f" 第 {display_start}-{line_end} 行（共 {total_lines} 行）"
     print(
         json.dumps(
             {
                 "success": True,
-                "message": f"已读取 {path.name}",
+                "message": message,
                 "file_name": path.name,
                 "filepath": str(path),
                 "content": capped,
-                "truncated": len(content) > len(capped),
+                "truncated": len(selected) > len(capped),
+                "data": {
+                    "total_lines": total_lines,
+                    "line_start": start,
+                    "line_end": line_end,
+                },
             },
             ensure_ascii=False,
         )

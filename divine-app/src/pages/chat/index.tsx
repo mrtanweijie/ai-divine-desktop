@@ -1044,9 +1044,14 @@ export default function ChatPage() {
       </Flex>
       <Flex direction="column" className="main-area">
         {tasksOpen ? (
-          <ScheduledTasksPage />
+          <ScheduledTasksPage
+            onOpenSidebar={() => setSidebarOpen(true)}
+          />
         ) : skillsOpen ? (
-          <SkillsPage workspacePath={currentProject?.path ?? null} />
+          <SkillsPage
+            workspacePath={currentProject?.path ?? null}
+            onOpenSidebar={() => setSidebarOpen(true)}
+          />
         ) : (
           <>
             <ChatHeader

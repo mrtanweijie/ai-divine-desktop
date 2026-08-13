@@ -77,6 +77,48 @@
   animation: ui-spin 0.7s linear infinite;
 }
 
+.skills-install-tip {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  column-gap: 6px;
+  row-gap: 5px;
+  margin: 0 22px 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font-size: 12px;
+}
+
+.skills-install-tip-title {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.skills-install-tip-body {
+  grid-column: 2;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+.skills-install-tip svg {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.skills-install-tip code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--color-code-bg);
+  color: var(--color-code-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
 .skills-notice {
   display: flex;
   align-items: center;

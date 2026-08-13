@@ -309,6 +309,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                 align="start"
                 direction="above"
                 label="审批模式"
+                openOn="click"
                 trigger={
                   <Button
                     variant="ghost"

@@ -141,6 +141,7 @@ pnpm tauri:dev
 | `directory_tree` | 查看目录树结构 |
 | `describe_svg` | 读取现有 SVG，返回画布、元素、关键 id 和结构摘要 |
 | `draw_svg` | 从零生成 SVG 矢量图/图标/插画，默认保存到 `svg/` |
+| `edit_files` | 按 SEARCH/REPLACE 批量修改或创建多个文本文件；SEARCH 必须精确匹配，创建新文件时 search 传空字符串 |
 | `edit_svg` | 基于现有 SVG 修改，只改动用户提到的元素并保持其他不变 |
 | `generate_chart` | 根据分析结果生成 ECharts 图表并在对话中内联展示 |
 | `image_resize` | 缩放图片 |
@@ -150,7 +151,7 @@ pnpm tauri:dev
 | `presentation` | 生成 PPT 演示文稿 |
 | `rag_index` | 建立工作区本地向量索引 |
 | `rag_search` | 检索工作区本地资料 |
-| `read_file` | 读取文本、Office、PDF、表格等文件 |
+| `read_file` | 读取文本、Office、PDF、表格等文件；支持 start_line/end_line 分段读取 |
 | `read_image` | 用 GLM 视觉模型识别图片 |
 | `ux_html` | 保存 Agent 按用户选择的风格与需求文档自定义设计的完整 UX 交互 HTML，默认写入项目工作区 `html/` |
 | `schedule_task` | 创建和管理定时提醒/定时任务 |

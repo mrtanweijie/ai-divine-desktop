@@ -6,6 +6,7 @@ import {
   FileText,
   FolderTree,
   Package,
+  PanelLeftOpen,
   RotateCw,
   Search,
   Sparkles,
@@ -61,8 +62,10 @@ function skillScriptLabel(skill: InstalledSkill): string {
 
 export function SkillsPage({
   workspacePath,
+  onOpenSidebar,
 }: {
   workspacePath?: string | null;
+  onOpenSidebar: () => void;
 }) {
   const [skills, setSkills] = useState<InstalledSkill[]>([]);
   const [search, setSearch] = useState("");
@@ -175,16 +178,25 @@ export function SkillsPage({
   return (
     <div className="skills-page">
       <header className="skills-header">
-        <div className="skills-search">
-          <Search size={14} />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="搜索技能"
-            aria-label="搜索技能"
-          />
-        </div>
         <Flex align="center" gap={8} className="skills-header-actions">
+          <Button
+            variant="icon"
+            className="scheduled-sidebar-button"
+            onClick={onOpenSidebar}
+            aria-label="展开会话列表"
+            title="会话列表"
+          >
+            <PanelLeftOpen size={15} />
+          </Button>
+          <div className="skills-search">
+            <Search size={14} />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="搜索技能"
+              aria-label="搜索技能"
+            />
+          </div>
           <Button
             variant="secondary"
             size="small"
@@ -201,6 +213,19 @@ export function SkillsPage({
           </Button>
         </Flex>
       </header>
+
+      <div className="skills-install-tip">
+        <div className="skills-install-tip-title">
+          <Sparkles size={14} />
+          <span>安装方法</span>
+        </div>
+        <div className="skills-install-tip-body">
+          将包含 <code>SKILL.md</code> 的目录放入项目{" "}
+          <code>.divine/skills/</code> 或用户 <code>~/.divine/skills/</code>
+          ；也可以直接在对话中给 Agent 一个 GitHub 仓库地址，由 Agent
+          预览并安装。
+        </div>
+      </div>
 
       {error && (
         <div className="skills-notice">

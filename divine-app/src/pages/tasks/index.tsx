@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Clock,
   MoreHorizontal,
+  PanelLeftOpen,
   Pencil,
   Plus,
   Search,
@@ -98,7 +99,11 @@ const SUGGESTIONS: {
   },
 ];
 
-export function ScheduledTasksPage() {
+export function ScheduledTasksPage({
+  onOpenSidebar,
+}: {
+  onOpenSidebar: () => void;
+}) {
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [search, setSearch] = useState("");
@@ -289,6 +294,15 @@ export function ScheduledTasksPage() {
     <div className="scheduled-page">
       <header className="scheduled-header">
         <Flex align="center" gap={8} className="scheduled-header-actions">
+          <Button
+            variant="icon"
+            className="scheduled-sidebar-button"
+            onClick={onOpenSidebar}
+            aria-label="展开会话列表"
+            title="会话列表"
+          >
+            <PanelLeftOpen size={15} />
+          </Button>
           <div className="scheduled-search">
             <Search size={14} />
             <Input

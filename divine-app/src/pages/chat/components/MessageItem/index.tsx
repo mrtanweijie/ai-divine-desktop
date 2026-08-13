@@ -29,6 +29,7 @@ import {
   FolderTree,
   Funnel,
   Gauge,
+  Group,
   Globe,
   Image,
   ImageDown,
@@ -340,7 +341,9 @@ function ToolStatusCard({
     [tool.result?.filepath, workspacePath]
   );
   const icon =
-    tool.tool === "draw_svg" ? (
+    tool.tool === "edit_files" ? (
+      <Group size={16} />
+    ) : tool.tool === "draw_svg" ? (
       <FileBox size={16} />
     ) : tool.tool === "describe_svg" || tool.tool === "edit_svg" ? (
       <Orbit size={16} />
@@ -938,6 +941,7 @@ const GROUPABLE_TOOLS = new Set([
   "sqlite_query",
   "rag_search",
   "read_file",
+  "edit_files",
   "write_file",
   "search_files",
   "directory_tree",
@@ -989,6 +993,8 @@ function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
           ? `已抓取 ${count} 个数据源`
           : tool.tool === "calculator"
             ? `已完成 ${count} 次计算`
+            : tool.tool === "edit_files"
+              ? `已修改 ${count} 个文件`
             : tool.tool === "write_file"
               ? `已写入 ${count} 个文件`
             : tool.tool === "read_file"
@@ -1030,6 +1036,28 @@ function toolUrls(tool: ToolEvent): string[] {
 function toolFiles(tool: ToolEvent): ToolFileLink[] {
   const files: ToolFileLink[] = [];
   const data = tool.result?.data;
+  if (Array.isArray(data?.files)) {
+    for (const item of data.files) {
+      if (
+        item &&
+        typeof item === "object" &&
+        "path" in item &&
+        typeof item.path === "string"
+      ) {
+        const rawName = item.path.split("/").pop() ?? item.path;
+        const action = item.action === "created" ? "新增" : "修改";
+        files.push({
+          name: `${action} ${rawName}`,
+          path:
+            "filepath" in item && typeof item.filepath === "string"
+              ? item.filepath
+              : item.path,
+          download_url: undefined,
+          size: undefined,
+        });
+      }
+    }
+  }
   if (Array.isArray(data?.results)) {
     for (const item of data.results) {
       if (
