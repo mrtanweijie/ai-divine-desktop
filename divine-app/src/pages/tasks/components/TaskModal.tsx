@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Flex } from "@/components/ui/Flex";
@@ -11,7 +12,7 @@ import {
   updateScheduledTask,
 } from "@/services/scheduledTasks";
 import type { ScheduledTask } from "@/types";
-import { WEEKDAYS, toLocalInputValue } from "../scheduleUtils";
+import { weekdayLabels, toLocalInputValue } from "../scheduleUtils";
 import "./TaskModal.less";
 
 interface TaskModalProps {
@@ -21,6 +22,7 @@ interface TaskModalProps {
 }
 
 export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
   const [frequency, setFrequency] = useState<ScheduledTask["frequency"]>(
@@ -47,19 +49,19 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
 
   const handleSave = async () => {
     if (!title.trim()) {
-      setError("请填写任务标题");
+      setError(t("tasks.titleRequired", "请填写任务标题"));
       return;
     }
     if (frequency === "once" && !runAt) {
-      setError("请选择一次性任务的时间");
+      setError(t("tasks.onceTimeRequired", "请选择一次性任务的时间"));
       return;
     }
     if (frequency === "interval" && (!intervalMinutes || intervalMinutes < 1)) {
-      setError("请填写有效的间隔分钟数");
+      setError(t("tasks.intervalRequired", "请填写有效的间隔分钟数"));
       return;
     }
     if (frequency === "weekly" && daysOfWeek.length === 0) {
-      setError("请至少选择一天");
+      setError(t("tasks.weekdayRequired", "请至少选择一天"));
       return;
     }
     setSaving(true);
@@ -89,9 +91,15 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
         await createScheduledTask(payload);
       }
       await onSaved();
-      toast.success(task ? "定时任务已更新" : "定时任务已创建");
+      toast.success(
+        task
+          ? t("tasks.taskUpdated", "定时任务已更新")
+          : t("tasks.taskCreated", "定时任务已创建")
+      );
     } catch (error) {
-      setError(error instanceof Error ? error.message : "保存失败");
+      setError(
+        error instanceof Error ? error.message : t("tasks.saveFailed", "保存失败")
+      );
     } finally {
       setSaving(false);
     }
@@ -100,61 +108,65 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
   return (
     <Modal
       open
-      title={task ? "编辑定时任务" : "新建定时任务"}
+      title={
+        task
+          ? t("tasks.editTitle", "编辑定时任务")
+          : t("tasks.createTitle", "新建定时任务")
+      }
       onClose={onClose}
       width={560}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            取消
+            {t("common.cancel", "取消")}
           </Button>
           <Button
             variant="primary"
             loading={saving}
             onClick={() => void handleSave()}
           >
-            保存
+            {t("common.save", "保存")}
           </Button>
         </>
       }
     >
       <div className="scheduled-form">
         <Input
-          label="标题"
+          label={t("tasks.titleLabel", "标题")}
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="例如：买机票"
+          placeholder={t("tasks.titlePlaceholder", "例如：买机票")}
         />
         <Input
-          label="描述"
+          label={t("tasks.descriptionLabel", "描述")}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
-          placeholder="提醒内容或任务描述"
+          placeholder={t("tasks.descriptionPlaceholder", "提醒内容或任务描述")}
         />
         <Select
-          label="频率"
+          label={t("tasks.frequencyLabel", "频率")}
           value={frequency}
           onChange={(value) =>
             setFrequency(value as ScheduledTask["frequency"])
           }
           options={[
-            { value: "once", label: "一次性" },
-            { value: "interval", label: "每隔 x 分钟" },
-            { value: "daily", label: "每天" },
-            { value: "weekly", label: "每周" },
-            { value: "monthly", label: "每月" },
+            { value: "once", label: t("tasks.frequencyOnce", "一次性") },
+            { value: "interval", label: t("tasks.frequencyInterval", "每隔 x 分钟") },
+            { value: "daily", label: t("tasks.frequencyDaily", "每天") },
+            { value: "weekly", label: t("tasks.frequencyWeekly", "每周") },
+            { value: "monthly", label: t("tasks.frequencyMonthly", "每月") },
           ]}
         />
         {frequency === "once" && (
           <DateTimePicker
-            label="时间"
+            label={t("time.label", "时间")}
             value={runAt}
             onChange={setRunAt}
           />
         )}
         {frequency === "interval" && (
           <Input
-            label="间隔（分钟）"
+            label={t("tasks.intervalLabel", "间隔（分钟）")}
             type="text"
             inputMode="numeric"
             value={intervalMinutes}
@@ -167,7 +179,7 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
         {frequency !== "once" && frequency !== "interval" && (
           <>
             <Input
-              label="小时（每天的几点）"
+              label={t("tasks.hourLabel", "小时（每天的几点）")}
               type="text"
               inputMode="numeric"
               value={runHour}
@@ -177,7 +189,7 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
               }}
             />
             <Input
-              label="分钟（几点几分）"
+              label={t("tasks.minuteLabel", "分钟（几点几分）")}
               type="text"
               inputMode="numeric"
               value={runMinute}
@@ -190,9 +202,11 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
         )}
         {frequency === "weekly" && (
           <div className="ui-field">
-            <span className="ui-field-label">每周</span>
+            <span className="ui-field-label">
+              {t("tasks.frequencyWeekly", "每周")}
+            </span>
             <Flex gap={6} wrap className="weekday-picker">
-              {WEEKDAYS.map((label, day) => (
+              {weekdayLabels().map((label, day) => (
                 <button
                   key={label}
                   type="button"
@@ -207,7 +221,7 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
         )}
         {frequency === "monthly" && (
           <Input
-            label="每月日期"
+            label={t("tasks.monthlyDate", "每月日期")}
             type="text"
             inputMode="numeric"
             value={dayOfMonth}

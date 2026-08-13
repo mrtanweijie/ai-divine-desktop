@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { MessageSquare, Pencil, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
@@ -21,6 +22,7 @@ export function SessionListItem({
   onRename,
   onDelete,
 }: SessionListItemProps) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(session.title);
 
@@ -83,8 +85,8 @@ export function SessionListItem({
             <Button
               variant="icon"
               size="small"
-              title="重命名"
-              aria-label="重命名"
+              title={t("session.rename", "重命名")}
+              aria-label={t("session.rename", "重命名")}
               onClick={(event) => {
                 event.stopPropagation();
                 startRename();
@@ -96,8 +98,8 @@ export function SessionListItem({
               variant="icon"
               size="small"
               className="danger"
-              title="删除"
-              aria-label="删除会话"
+              title={t("session.delete", "删除")}
+              aria-label={t("session.deleteSession", "删除会话")}
               onClick={(event) => {
                 event.stopPropagation();
                 onDelete(session.id);

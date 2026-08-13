@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/Input";
 import type { Project } from "@/types";
 import { ProjectIcon } from "@/pages/chat/components/ProjectIcon";
@@ -18,6 +19,7 @@ export function ProjectPicker({
   onSelect,
   onNewProject,
 }: ProjectPickerProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -68,7 +70,7 @@ export function ProjectPicker({
       >
         <ProjectIcon icon={currentProject?.icon} size={13} />
         <span className="project-picker-name">
-          {currentProject?.name ?? "选择项目"}
+          {currentProject?.name ?? t("chat.chooseProject", "选择项目")}
         </span>
         <ChevronDown size={13} className={open ? "open" : ""} />
       </div>
@@ -80,13 +82,15 @@ export function ProjectPicker({
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索项目"
+              placeholder={t("chat.searchProject", "搜索项目")}
               autoFocus
             />
           </div>
           <div className="project-picker-list">
             {filtered.length === 0 ? (
-              <div className="project-picker-empty">没有匹配的项目</div>
+              <div className="project-picker-empty">
+                {t("chat.noMatchingProject", "没有匹配的项目")}
+              </div>
             ) : (
               filtered.map((project) => (
                 <button
@@ -111,7 +115,7 @@ export function ProjectPicker({
               }}
             >
               <Plus size={13} />
-              新建项目
+              {t("chat.newProject", "新建项目")}
             </button>
           </div>
         </div>

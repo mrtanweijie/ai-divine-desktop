@@ -2,6 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
+import { useTranslation } from "react-i18next";
 import "./index.less";
 
 export interface SelectOption {
@@ -23,9 +24,10 @@ export function Select({
   onChange,
   options,
   label,
-  placeholder = "请选择",
+  placeholder,
   editable = false,
 }: SelectProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -65,6 +67,7 @@ export function Select({
   }, [open]);
 
   const current = options.find((option) => option.value === value);
+  const resolvedPlaceholder = placeholder ?? t("common.pleaseSelect", "请选择");
 
   return (
     <div className="ui-field">
@@ -74,7 +77,7 @@ export function Select({
           <div className="ui-select-input-wrap">
             <input
               value={value}
-              placeholder={placeholder}
+              placeholder={resolvedPlaceholder}
               onChange={(event) => onChange(event.target.value)}
               onFocus={() => setOpen(true)}
               aria-haspopup="listbox"
@@ -94,7 +97,7 @@ export function Select({
             aria-haspopup="listbox"
             aria-expanded={open}
           >
-            <span>{current?.label ?? placeholder}</span>
+            <span>{current?.label ?? resolvedPlaceholder}</span>
             <ChevronDown size={14} className={open ? "open" : ""} />
           </button>
         )}

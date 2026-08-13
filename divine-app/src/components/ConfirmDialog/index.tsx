@@ -1,4 +1,5 @@
 import { AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import "./index.less";
@@ -16,6 +17,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
   return (
     <Modal
       open
@@ -24,10 +26,10 @@ export function ConfirmDialog({
       footer={
         <>
           <Button variant="secondary" onClick={onCancel}>
-            取消
+            {t("common.cancel", "取消")}
           </Button>
           <Button variant="danger" onClick={onConfirm}>
-            确认
+            {t("common.confirm", "确认")}
           </Button>
         </>
       }

@@ -4,6 +4,7 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Flex } from "@/components/ui/Flex";
 import type { Project, Session } from "@/types";
 import { ProjectList } from "./ProjectList";
@@ -51,10 +52,11 @@ export function SessionList({
   activeView,
   model,
 }: SessionListProps) {
+  const { t } = useTranslation();
   return (
     <aside
       className={`session-sidebar${collapsed ? " collapsed" : ""}`}
-      aria-label="会话列表"
+      aria-label={t("session.list", "会话列表")}
     >
       <div
         className="session-sidebar-content"
@@ -74,7 +76,7 @@ export function SessionList({
             }}
           >
             <MessageSquareQuote size={16} aria-hidden="true" />
-            <span>新对话</span>
+            <span>{t("session.newChat", "新对话")}</span>
           </div>
         </Flex>
 
@@ -85,7 +87,7 @@ export function SessionList({
           role="button"
           tabIndex={0}
           onClick={onOpenTasks}
-          title="已安排"
+          title={t("session.scheduled", "已安排")}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               onOpenTasks();
@@ -94,7 +96,7 @@ export function SessionList({
           }}
         >
           <Clock size={15} />
-          <span>已安排</span>
+          <span>{t("session.scheduled", "已安排")}</span>
         </div>
 
         <div
@@ -104,7 +106,7 @@ export function SessionList({
           role="button"
           tabIndex={0}
           onClick={onOpenSkills}
-          title="技能"
+          title={t("session.skills", "技能")}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               onOpenSkills();
@@ -113,7 +115,7 @@ export function SessionList({
           }}
         >
           <Sparkles size={15} />
-          <span>技能</span>
+          <span>{t("session.skills", "技能")}</span>
         </div>
 
         <ProjectList
@@ -138,7 +140,7 @@ export function SessionList({
             role="button"
             tabIndex={0}
             onClick={onOpenSettings}
-            title="设置"
+            title={t("session.settings", "设置")}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 onOpenSettings();
@@ -147,7 +149,7 @@ export function SessionList({
             }}
           >
             <Settings size={15} />
-            <span>{model || "本地演示"}</span>
+            <span>{model || t("settings.providerMock", "本地演示")}</span>
           </div>
         </div>
       </div>

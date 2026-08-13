@@ -5,6 +5,7 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import {
   FolderOpen,
   MessageSquare,
@@ -53,17 +54,23 @@ export function ProjectList({
   onRenameSession,
   onDeleteSession,
 }: ProjectListProps) {
+  const { t } = useTranslation();
   return (
-    <section className="project-section" aria-label="项目">
+    <section
+      className="project-section"
+      aria-label={t("session.projects", "项目")}
+    >
       <div className="project-header">
-        <span className="sidebar-section-label">项目</span>
+        <span className="sidebar-section-label">
+          {t("session.projects", "项目")}
+        </span>
         <Button
           variant="icon"
           size="small"
           className="project-add-button"
           onClick={onNewProject}
-          title="新建项目"
-          aria-label="新建项目"
+          title={t("session.newProject", "新建项目")}
+          aria-label={t("session.newProject", "新建项目")}
         >
           <Plus size={14} />
         </Button>
@@ -122,6 +129,7 @@ function ProjectBranch({
   onRenameSession,
   onDeleteSession,
 }: ProjectBranchProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const visibleSessions = expanded
     ? projectSessions
@@ -142,7 +150,9 @@ function ProjectBranch({
       />
       <div className="project-sessions">
         {projectSessions.length === 0 ? (
-          <div className="project-session-empty">该项目还没有会话</div>
+          <div className="project-session-empty">
+            {t("session.emptyProjectSessions", "该项目还没有会话")}
+          </div>
         ) : (
           <>
             {visibleSessions.map((session) => (
@@ -168,7 +178,7 @@ function ProjectBranch({
                   }
                 }}
               >
-                <span>展开显示</span>
+                <span>{t("session.expand", "展开显示")}</span>
               </div>
             )}
           </>
@@ -254,6 +264,7 @@ function ProjectActionMenu({
   onDelete,
   onOpenChange,
 }: ProjectActionMenuProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [style, setStyle] = useState<CSSProperties>({});
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -317,8 +328,10 @@ function ProjectActionMenu({
         className="project-action-trigger"
         role="button"
         tabIndex={0}
-        title="项目操作"
-        aria-label={`${project.name} 项目操作`}
+        title={t("session.projectActions", "项目操作")}
+        aria-label={t("session.projectActionsFor", "{{name}} 项目操作", {
+          name: project.name,
+        })}
         onMouseEnter={() => {
           cancelClose();
           setOpen(true);
@@ -356,14 +369,18 @@ function ProjectActionMenu({
               }}
             >
               <Plus size={13} />
-              <span>新建对话</span>
+              <span>{t("session.newConversation", "新建对话")}</span>
             </button>
             <div
               className="project-action-item project-action-count"
               role="presentation"
             >
               <MessageSquare size={13} />
-              <span>{project.session_count ?? 0} 个对话</span>
+              <span>
+                {t("session.sessionCount", "{{count}} 个对话", {
+                  count: project.session_count ?? 0,
+                })}
+              </span>
             </div>
             <button
               type="button"
@@ -389,7 +406,7 @@ function ProjectActionMenu({
               }}
             >
               <Settings size={13} />
-              <span>编辑项目</span>
+              <span>{t("session.editProject", "编辑项目")}</span>
             </button>
             <button
               type="button"
@@ -402,7 +419,7 @@ function ProjectActionMenu({
               }}
             >
               <Trash2 size={13} />
-              <span>删除项目</span>
+              <span>{t("session.deleteProject", "删除项目")}</span>
             </button>
             </div>
           </div>,
@@ -427,6 +444,7 @@ function ProjectSessionItem({
   onRename,
   onDelete,
 }: ProjectSessionItemProps) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(session.title);
 
@@ -483,8 +501,8 @@ function ProjectSessionItem({
             <Button
               variant="icon"
               size="small"
-              title="重命名"
-              aria-label="重命名"
+              title={t("session.rename", "重命名")}
+              aria-label={t("session.rename", "重命名")}
               onClick={(event) => {
                 event.stopPropagation();
                 setEditing(true);
@@ -495,8 +513,8 @@ function ProjectSessionItem({
             <Button
               variant="icon"
               size="small"
-              title="删除"
-              aria-label="删除会话"
+              title={t("session.delete", "删除")}
+              aria-label={t("session.deleteSession", "删除会话")}
               onClick={(event) => {
                 event.stopPropagation();
                 onDelete(session.id);

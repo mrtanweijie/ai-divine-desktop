@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
@@ -26,34 +27,6 @@ import { formatSize } from "@/utils";
 
 const PASTE_AS_FILE_CHAR_THRESHOLD = 2000;
 const PASTE_AS_FILE_LINE_THRESHOLD = 500;
-
-const APPROVAL_MODE_LABELS: Record<ApprovalMode, string> = {
-  ask: "请求批准",
-  assist: "帮我批准",
-  full: "完全访问权限",
-};
-
-const APPROVAL_MODE_ITEMS: {
-  key: ApprovalMode;
-  label: string;
-  description: string;
-}[] = [
-  {
-    key: "ask",
-    label: "请求批准",
-    description: "编辑外部文件和使用互联网时始终询问",
-  },
-  {
-    key: "assist",
-    label: "帮我批准",
-    description: "仅检测到危险操作请求批准",
-  },
-  {
-    key: "full",
-    label: "完全访问权限",
-    description: "可不受限制地访问互联网和您电脑上的任何文件",
-  },
-];
 
 interface ComposerProps {
   disabled: boolean;
@@ -82,6 +55,38 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
     },
     ref
   ) {
+    const { t } = useTranslation();
+    const approvalModeLabels: Record<ApprovalMode, string> = {
+      ask: t("chat.approvalAsk", "请求批准"),
+      assist: t("chat.approvalAssist", "帮我批准"),
+      full: t("chat.approvalFull", "完全访问权限"),
+    };
+    const approvalModeItems = [
+      {
+        key: "ask" as const,
+        label: t("chat.approvalAsk", "请求批准"),
+        description: t(
+          "chat.approvalAskDescription",
+          "编辑外部文件和使用互联网时始终询问"
+        ),
+      },
+      {
+        key: "assist" as const,
+        label: t("chat.approvalAssist", "帮我批准"),
+        description: t(
+          "chat.approvalAssistDescription",
+          "仅检测到危险操作请求批准"
+        ),
+      },
+      {
+        key: "full" as const,
+        label: t("chat.approvalFull", "完全访问权限"),
+        description: t(
+          "chat.approvalFullDescription",
+          "可不受限制地访问互联网和您电脑上的任何文件"
+        ),
+      },
+    ];
     const [value, setValue] = useState("");
     const [attached, setAttached] = useState<ChatFile[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -198,7 +203,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
             ref={setRefs}
             value={value}
             rows={1}
-            placeholder="随心输入"
+            placeholder={t("chat.inputPlaceholder", "随心输入")}
             onChange={(event) => {
               const next = event.target.value;
               setValue(next);
@@ -211,7 +216,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                 send();
               }
             }}
-            aria-label="输入消息"
+            aria-label={t("chat.inputLabel", "输入消息")}
           />
           {attached.length > 0 && (
             <Flex direction="column" gap={6} className="attachment-chips">
@@ -231,7 +236,11 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                     }
                     role={file.path && onPreviewFile ? "button" : undefined}
                     tabIndex={file.path && onPreviewFile ? 0 : undefined}
-                    title={file.path && onPreviewFile ? "预览" : undefined}
+                    title={
+                      file.path && onPreviewFile
+                        ? t("chat.preview", "预览")
+                        : undefined
+                    }
                     onClick={
                       file.path && onPreviewFile
                         ? () =>
@@ -267,7 +276,9 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                     variant="icon"
                     size="small"
                     onClick={() => removeAttachment(file)}
-                    aria-label={`移除附件 ${file.name}`}
+                    aria-label={t("chat.removeAttachment", "移除附件 {{name}}", {
+                      name: file.name,
+                    })}
                   >
                     <X size={12} />
                   </Button>
@@ -293,8 +304,8 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                 className="attachment-trigger"
                 role="button"
                 tabIndex={0}
-                title="附加文件"
-                aria-label="附加文件"
+                title={t("chat.attachFile", "附加文件")}
+                aria-label={t("chat.attachFile", "附加文件")}
                 onClick={() => void pickAttachment()}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
@@ -308,21 +319,21 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
               <Dropdown
                 align="start"
                 direction="above"
-                label="审批模式"
+                label={t("chat.approvalMode", "审批模式")}
                 openOn="click"
                 trigger={
                   <Button
                     variant="ghost"
                     size="small"
                     className="approval-mode-trigger"
-                    title="审批模式"
+                    title={t("chat.approvalMode", "审批模式")}
                   >
                     <ShieldCheck size={14} />
-                    <span>{APPROVAL_MODE_LABELS[approvalMode]}</span>
+                    <span>{approvalModeLabels[approvalMode]}</span>
                     <ChevronDown size={12} />
                   </Button>
                 }
-                items={APPROVAL_MODE_ITEMS.map((item) => ({
+                items={approvalModeItems.map((item) => ({
                   key: item.key,
                   label: item.label,
                   description: item.description,
@@ -335,13 +346,15 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
               className="send-button"
               onClick={send}
               disabled={(!value.trim() && attached.length === 0) || disabled}
-              aria-label="发送"
+              aria-label={t("chat.send", "发送")}
             >
               <ArrowUp size={16} />
             </Button>
           </Flex>
         </Flex>
-        <p className="composer-hint">内容由 AI 生成，请核实重要信息</p>
+        <p className="composer-hint">
+          {t("chat.aiDisclaimer", "内容由 AI 生成，请核实重要信息")}
+        </p>
       </div>
     );
   }

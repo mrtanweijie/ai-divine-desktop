@@ -47,6 +47,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import i18next from "@/i18n";
 import { downloadUrl } from "@/services/api";
 import { isTauri, openFileLocation, openUrl } from "@/services/tauri";
 import { request } from "@/services/request";
@@ -85,6 +87,7 @@ export function MessageItem({
   onPreviewFile,
   onUserInteract,
 }: MessageItemProps) {
+  const { t } = useTranslation();
   const isUser = message.role === "user";
   return (
     <article className={`message-row ${isUser ? "user-message" : "assistant-message"}`}>
@@ -98,7 +101,7 @@ export function MessageItem({
           <DivineAvatar />
         )}
         <span className="role-label">
-          {isUser ? username || "用户" : "Divine"}
+          {isUser ? username || t("common.user", "用户") : "Divine"}
         </span>
         <time className="message-time">{formatTime(message.created_at)}</time>
       </Flex>
@@ -180,7 +183,10 @@ export function MessageItem({
             <MarkdownView content={message.content} streaming={streaming} />
           ) : (
             !message.error && (
-              <Flex className="loading-cursor" aria-label="正在生成">
+              <Flex
+                className="loading-cursor"
+                aria-label={t("message.generating", "正在生成")}
+              >
                 <LoadingOrb state="shaping" size={20} speed={2} />
               </Flex>
             )
@@ -188,7 +194,9 @@ export function MessageItem({
           {streaming && message.content && (
             <span className="stream-orb">
               <LoadingOrb state="connecting" size={20} speed={2} />
-              <span className="stream-text">Working...</span>
+              <span className="stream-text">
+                {t("message.working", "Working...")}
+              </span>
             </span>
           )}
           {message.error && (
@@ -210,6 +218,7 @@ function ThinkBlock({
   content: string;
   onUserInteract?: () => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const blockRef = useRef<HTMLDetailsElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -251,7 +260,7 @@ function ThinkBlock({
         }}
       >
         <ChevronDown size={13} className={open ? "expanded" : ""} />
-        <span>思考过程</span>
+        <span>{t("message.thinking", "思考过程")}</span>
       </summary>
       <div
         className="think-content"
@@ -265,6 +274,7 @@ function ThinkBlock({
 }
 
 function PlanCard({ todos }: { todos: TodoItem[] }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(true);
   const done = todos.filter((todo) => todo.status === "done").length;
   return (
@@ -277,7 +287,7 @@ function PlanCard({ todos }: { todos: TodoItem[] }) {
         }}
       >
         <ChevronDown size={13} className={open ? "expanded" : ""} />
-        <span>执行计划</span>
+        <span>{t("message.plan", "执行计划")}</span>
         <span className="plan-progress">
           {done}/{todos.length}
         </span>
@@ -318,6 +328,7 @@ function ToolStatusCard({
   workspacePath?: string | null;
   onPreviewFile?: (file: PreviewFile) => void;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [deciding, setDeciding] = useState(false);
   const [decideError, setDecideError] = useState<string | null>(null);
@@ -329,7 +340,7 @@ function ToolStatusCard({
     tool.count && tool.count > 1
       ? tool.message
       : tool.status === "done"
-        ? "执行完成"
+        ? t("tool.done", "执行完成")
         : tool.message;
   const chartOption = chartOptionFromResult(tool.result);
   const chartIcon = chartOption ? chartTypeIcon(chartOption) : null;
@@ -427,11 +438,13 @@ function ToolStatusCard({
         }
       );
       if (result && result.ok === false) {
-        setDecideError(result.message || "确认失败，请重试");
+        setDecideError(result.message || t("tool.decideFailed", "确认失败，请重试"));
       }
     } catch (error) {
       setDecideError(
-        error instanceof Error ? error.message : "确认失败，请重试"
+        error instanceof Error
+          ? error.message
+          : t("tool.decideFailed", "确认失败，请重试")
       );
     } finally {
       setDeciding(false);
@@ -485,7 +498,7 @@ function ToolStatusCard({
               href={file.download_url ? downloadUrl(file.download_url) : "#"}
               target="_blank"
               rel="noreferrer"
-              title="打开所在目录"
+              title={t("tool.openDirectory", "打开所在目录")}
               onClick={(event) => {
                 if (file.path && isTauri()) {
                   event.preventDefault();
@@ -507,7 +520,9 @@ function ToolStatusCard({
               type="button"
               onClick={() => setFilesOpen(true)}
             >
-              展开全部 {tool.files.length} 个文件
+              {t("tool.expandFiles", "展开全部 {{count}} 个文件", {
+                count: tool.files.length,
+              })}
             </button>
           )}
         </div>
@@ -525,7 +540,7 @@ function ToolStatusCard({
             }
             target="_blank"
             rel="noreferrer"
-            title="打开所在目录"
+            title={t("tool.openDirectory", "打开所在目录")}
             onClick={(event) => {
               if (tool.result?.filepath && isTauri()) {
                 event.preventDefault();
@@ -549,8 +564,8 @@ function ToolStatusCard({
                   fileName: tool.result?.file_name,
                 })
               }
-              title="查看改动"
-              aria-label="查看改动"
+              title={t("tool.viewChanges", "查看改动")}
+              aria-label={t("tool.viewChanges", "查看改动")}
             >
               <Eye size={13} />
             </Button>
@@ -574,8 +589,10 @@ function ToolStatusCard({
                 className="terminal-commands-more"
                 type="button"
                 onClick={() => setCommandsOpen(true)}
-              >
-                展开全部 {tool.commands.length} 条命令
+            >
+              {t("tool.expandCommands", "展开全部 {{count}} 条命令", {
+                count: tool.commands.length,
+              })}
               </button>
             )}
           </div>
@@ -592,12 +609,12 @@ function ToolStatusCard({
         <div className="terminal-confirm">
           <div className="terminal-confirm-head">
             <TerminalSquare size={14} />
-            <span>终端命令确认</span>
+            <span>{t("tool.terminalConfirm", "终端命令确认")}</span>
           </div>
           <pre>{tool.command}</pre>
           <Flex align="center" gap={8}>
             <Button size="small" loading={deciding} onClick={() => void decide(true)}>
-              允许执行
+              {t("tool.allowRun", "允许执行")}
             </Button>
             <Button
               size="small"
@@ -605,7 +622,7 @@ function ToolStatusCard({
               disabled={deciding}
               onClick={() => void decide(false)}
             >
-              拒绝
+              {t("tool.reject", "拒绝")}
             </Button>
           </Flex>
         </div>
@@ -614,12 +631,12 @@ function ToolStatusCard({
         <div className="terminal-confirm external-file-confirm">
           <div className="terminal-confirm-head">
             <FolderOpen size={14} />
-            <span>外部文件访问确认</span>
+            <span>{t("tool.externalFileConfirm", "外部文件访问确认")}</span>
           </div>
           <pre>{(tool.paths ?? [tool.command]).join("\n")}</pre>
           <Flex align="center" gap={8}>
             <Button size="small" loading={deciding} onClick={() => void decide(true)}>
-              允许访问
+              {t("tool.allowAccess", "允许访问")}
             </Button>
             <Button
               size="small"
@@ -627,7 +644,7 @@ function ToolStatusCard({
               disabled={deciding}
               onClick={() => void decide(false)}
             >
-              拒绝
+              {t("tool.reject", "拒绝")}
             </Button>
           </Flex>
         </div>
@@ -636,9 +653,11 @@ function ToolStatusCard({
         <div className="terminal-confirm plan-confirm">
           <div className="terminal-confirm-head">
             <ListChecks size={14} />
-            <span>执行计划确认</span>
+            <span>{t("tool.planConfirm", "执行计划确认")}</span>
           </div>
-          <p className="plan-confirm-text">计划已创建，是否开始执行？</p>
+          <p className="plan-confirm-text">
+            {t("tool.planConfirmText", "计划已创建，是否开始执行？")}
+          </p>
           <Flex align="center" gap={8}>
             <Button
               size="small"
@@ -646,7 +665,7 @@ function ToolStatusCard({
               disabled={!targetSessionId || deciding}
               onClick={() => void decide(true)}
             >
-              开始执行
+              {t("tool.startExecution", "开始执行")}
             </Button>
             <Button
               size="small"
@@ -654,7 +673,7 @@ function ToolStatusCard({
               disabled={!targetSessionId || deciding}
               onClick={() => void decide(false)}
             >
-              取消
+              {t("common.cancel", "取消")}
             </Button>
           </Flex>
         </div>
@@ -663,10 +682,10 @@ function ToolStatusCard({
         <div className="terminal-confirm plan-choice-confirm">
           <div className="terminal-confirm-head">
             <ListChecks size={14} />
-            <span>方案确认</span>
+            <span>{t("tool.planChoiceConfirm", "方案确认")}</span>
           </div>
           <p className="plan-confirm-text">
-            执行任务前是否先出一份方案？
+            {t("tool.planChoiceText", "执行任务前是否先出一份方案？")}
           </p>
           <Flex align="center" gap={8}>
             <Button
@@ -674,7 +693,7 @@ function ToolStatusCard({
               loading={deciding}
               onClick={() => void decide(true)}
             >
-              先出方案
+              {t("tool.planFirst", "先出方案")}
             </Button>
             <Button
               size="small"
@@ -682,7 +701,7 @@ function ToolStatusCard({
               disabled={deciding}
               onClick={() => void decide(false)}
             >
-              直接执行
+              {t("tool.executeDirectly", "直接执行")}
             </Button>
           </Flex>
         </div>
@@ -691,12 +710,14 @@ function ToolStatusCard({
         <div className="terminal-confirm calendar-confirm">
           <div className="terminal-confirm-head">
             <CalendarDays size={14} />
-            <span>写入日程确认</span>
+            <span>{t("tool.calendarConfirm", "写入日程确认")}</span>
           </div>
-          <p className="plan-confirm-text">是否同时写入日程？</p>
+          <p className="plan-confirm-text">
+            {t("tool.calendarConfirmText", "是否同时写入日程？")}
+          </p>
           <Flex align="center" gap={8}>
             <Button size="small" loading={deciding} onClick={() => void decide(true)}>
-              写入日程
+              {t("tool.writeCalendar", "写入日程")}
             </Button>
             <Button
               size="small"
@@ -704,7 +725,7 @@ function ToolStatusCard({
               disabled={deciding}
               onClick={() => void decide(false)}
             >
-              取消
+              {t("common.cancel", "取消")}
             </Button>
           </Flex>
         </div>
@@ -713,15 +734,20 @@ function ToolStatusCard({
         <div className="terminal-confirm skill-migrate-confirm">
           <div className="terminal-confirm-head">
             <FileCode2 size={14} />
-            <span>技能迁移确认</span>
+            <span>{t("tool.skillMigrateConfirm", "技能迁移确认")}</span>
           </div>
           <div className="skill-migrate-meta">
             <span className="skill-migrate-name">
               {tool.skill_migrate?.name ?? tool.message}
             </span>
             <span>
-              来源：{tool.skill_migrate?.source_tool ?? "未知"} · 目标：
-              {tool.target === "user" ? "用户级 ~/.divine/skills" : "项目 .divine/skills"}
+              {t("tool.sourceTarget", "来源：{{source}} · 目标：{{target}}", {
+                source: tool.skill_migrate?.source_tool ?? t("tool.unknown", "未知"),
+                target:
+                  tool.target === "user"
+                    ? t("tool.targetUser", "用户级 ~/.divine/skills")
+                    : t("tool.targetProject", "项目 .divine/skills"),
+              })}
             </span>
             {tool.skill_migrate?.description && (
               <span className="skill-migrate-description">
@@ -737,7 +763,7 @@ function ToolStatusCard({
               disabled={!targetSessionId || deciding}
               onClick={() => void decide(true)}
             >
-              确认迁移
+              {t("tool.confirmMigrate", "确认迁移")}
             </Button>
             <Button
               size="small"
@@ -745,7 +771,7 @@ function ToolStatusCard({
               disabled={!targetSessionId || deciding}
               onClick={() => void decide(false)}
             >
-              取消
+              {t("common.cancel", "取消")}
             </Button>
           </Flex>
         </div>
@@ -755,15 +781,21 @@ function ToolStatusCard({
         <div className="terminal-confirm skill-migrate-confirm">
           <div className="terminal-confirm-head">
             <FileCode2 size={14} />
-            <span>批量技能迁移确认</span>
+            <span>{t("tool.batchMigrateConfirm", "批量技能迁移确认")}</span>
           </div>
           <div className="skill-migrate-meta">
             <span className="skill-migrate-name">
-              {tool.skill_migrations?.length ?? 0} 个技能待迁移
+              {t("tool.skillsToMigrate", "{{count}} 个技能待迁移", {
+                count: tool.skill_migrations?.length ?? 0,
+              })}
             </span>
             <span>
-              目标：
-              {tool.target === "user" ? "用户级 ~/.divine/skills" : "项目 .divine/skills"}
+              {t("tool.targetLabel", "目标：{{target}}", {
+                target:
+                  tool.target === "user"
+                    ? t("tool.targetUser", "用户级 ~/.divine/skills")
+                    : t("tool.targetProject", "项目 .divine/skills"),
+              })}
             </span>
           </div>
           <div className="skill-migration-list">
@@ -777,7 +809,7 @@ function ToolStatusCard({
                 </span>
                 {skill.existing && (
                   <span className="skill-migration-item-existing">
-                    已存在，将跳过
+                    {t("tool.existingSkip", "已存在，将跳过")}
                   </span>
                 )}
                 {skill.description && (
@@ -803,7 +835,7 @@ function ToolStatusCard({
               disabled={!targetSessionId || deciding}
               onClick={() => void decide(true)}
             >
-              确认全部迁移
+              {t("tool.confirmAllMigrate", "确认全部迁移")}
             </Button>
             <Button
               size="small"
@@ -811,7 +843,7 @@ function ToolStatusCard({
               disabled={!targetSessionId || deciding}
               onClick={() => void decide(false)}
             >
-              取消
+              {t("common.cancel", "取消")}
             </Button>
           </Flex>
         </div>
@@ -820,22 +852,32 @@ function ToolStatusCard({
         <div className="terminal-confirm skill-migrate-confirm">
           <div className="terminal-confirm-head">
             <FileCode2 size={14} />
-            <span>GitHub 技能安装确认</span>
+            <span>{t("tool.gitHubInstallConfirm", "GitHub 技能安装确认")}</span>
           </div>
           <div className="skill-migrate-meta">
             <span className="skill-migrate-name">
               {tool.skill_install?.skills?.[0]?.name ?? tool.skill_install?.repo ?? tool.message}
             </span>
             <span>
-              仓库：{tool.skill_install?.repo ?? "未知"} · 目标：
-              {tool.target === "user" ? "用户级 ~/.divine/skills" : "项目 .divine/skills"}
+              {t("tool.repoTarget", "仓库：{{repo}} · 目标：{{target}}", {
+                repo: tool.skill_install?.repo ?? t("tool.unknown", "未知"),
+                target:
+                  tool.target === "user"
+                    ? t("tool.targetUser", "用户级 ~/.divine/skills")
+                    : t("tool.targetProject", "项目 .divine/skills"),
+              })}
             </span>
             {tool.skill_install && tool.skill_install.skills.length > 1 && (
               <span>
-                仓库包含 {tool.skill_install.skills.length} 个技能：
+                {t("tool.repoContains", "仓库包含 {{count}} 个技能：", {
+                  count: tool.skill_install.skills.length,
+                })}
                 {tool.skill_install.skills
-                  .map((skill) => `${skill.name} (${skill.skill_path || "仓库根目录"})`)
-                  .join("、")}
+                  .map(
+                    (skill) =>
+                      `${skill.name} (${skill.skill_path || t("tool.repoRoot", "仓库根目录")})`
+                  )
+                  .join(t("tasks.dayJoin", "、"))}
               </span>
             )}
             {tool.skill_install?.skills?.[0]?.description && (
@@ -854,7 +896,7 @@ function ToolStatusCard({
               disabled={!targetSessionId || deciding}
               onClick={() => void decide(true)}
             >
-              确认安装
+              {t("tool.confirmInstall", "确认安装")}
             </Button>
             <Button
               size="small"
@@ -862,7 +904,7 @@ function ToolStatusCard({
               disabled={!targetSessionId || deciding}
               onClick={() => void decide(false)}
             >
-              取消
+              {t("common.cancel", "取消")}
             </Button>
           </Flex>
         </div>
@@ -885,7 +927,7 @@ function ToolStatusCard({
               variant="icon"
               size="small"
               onClick={copyJson}
-              title="复制结果"
+              title={t("tool.copyResult", "复制结果")}
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
             </Button>
@@ -897,10 +939,10 @@ function ToolStatusCard({
               onClick={() =>
                 window.dispatchEvent(new CustomEvent("divine:open-tasks"))
               }
-              title="管理定时任务"
+              title={t("tool.manageTasks", "管理定时任务")}
             >
               <CalendarClock size={13} />
-              管理任务
+              {t("tool.manageTasks", "管理任务")}
             </Button>
           )}
         </Flex>
@@ -990,18 +1032,33 @@ function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
       commands,
       message:
         tool.tool === "web_fetch" || tool.tool === "web_fetch_batch"
-          ? `已抓取 ${count} 个数据源`
+          ? i18next.t("tool.fetchedSources", "已抓取 {{count}} 个数据源", {
+              count,
+            })
           : tool.tool === "calculator"
-            ? `已完成 ${count} 次计算`
+            ? i18next.t("tool.completedCalculations", "已完成 {{count}} 次计算", {
+                count,
+              })
             : tool.tool === "edit_files"
-              ? `已修改 ${count} 个文件`
+              ? i18next.t("tool.modifiedFiles", "已修改 {{count}} 个文件", {
+                  count,
+                })
             : tool.tool === "write_file"
-              ? `已写入 ${count} 个文件`
+              ? i18next.t("tool.writtenFiles", "已写入 {{count}} 个文件", {
+                  count,
+                })
             : tool.tool === "read_file"
-              ? `已读取 ${count} 个文件`
+              ? i18next.t("tool.readFiles", "已读取 {{count}} 个文件", {
+                  count,
+                })
               : tool.tool === "terminal"
-                ? `已执行 ${count} 个终端命令`
-              : `${tool.tool} 已执行 ${count} 次`,
+                ? i18next.t("tool.executedCommands", "已执行 {{count}} 个终端命令", {
+                    count,
+                  })
+              : i18next.t("tool.executedTimes", "{{tool}} 已执行 {{count}} 次", {
+                  tool: tool.tool,
+                  count,
+                }),
     };
   }
   return grouped;
@@ -1045,9 +1102,11 @@ function toolFiles(tool: ToolEvent): ToolFileLink[] {
         typeof item.path === "string"
       ) {
         const rawName = item.path.split("/").pop() ?? item.path;
-        const action = item.action === "created" ? "新增" : "修改";
         files.push({
-          name: `${action} ${rawName}`,
+          name:
+            item.action === "created"
+              ? i18next.t("tool.addedFile", "新增 {{name}}", { name: rawName })
+              : i18next.t("tool.modifiedFile", "修改 {{name}}", { name: rawName }),
           path:
             "filepath" in item && typeof item.filepath === "string"
               ? item.filepath

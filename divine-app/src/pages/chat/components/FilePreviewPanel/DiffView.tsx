@@ -1,4 +1,5 @@
 import { Check, FileText, Maximize2, Minimize2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import type { FileDiff } from "@/types";
 
@@ -92,6 +93,7 @@ export function DiffView({
   expanded,
   onToggleExpand,
 }: DiffViewProps) {
+  const { t } = useTranslation();
   const rows =
     !preview.isBinary
       ? preview.diffText.trim()
@@ -119,10 +121,10 @@ export function DiffView({
             size="small"
             className="diff-accept-button"
             onClick={() => onAcceptFile(relPath)}
-            title="接受变更，清除蓝点"
+            title={t("file.acceptChanges", "接受变更，清除蓝点")}
           >
             <Check size={13} />
-            接受
+            {t("common.accept", "接受")}
           </Button>
         )}
         <Button
@@ -130,8 +132,16 @@ export function DiffView({
           size="small"
           className="diff-expand-button"
           onClick={onToggleExpand}
-          title={expanded ? "缩小文件区域" : "扩大文件区域"}
-          aria-label={expanded ? "缩小文件区域" : "扩大文件区域"}
+          title={
+            expanded
+              ? t("file.shrinkArea", "缩小文件区域")
+              : t("file.expandArea", "扩大文件区域")
+          }
+          aria-label={
+            expanded
+              ? t("file.shrinkArea", "缩小文件区域")
+              : t("file.expandArea", "扩大文件区域")
+          }
         >
           {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
         </Button>
@@ -140,12 +150,12 @@ export function DiffView({
       {preview.isBinary && (
         <div className="diff-view-state">
           <FileText size={15} />
-          <span>二进制文件不支持逐行 diff</span>
+          <span>{t("file.binaryDiffUnsupported", "二进制文件不支持逐行 diff")}</span>
         </div>
       )}
       {!preview.isBinary && rows.length === 0 && (
         <div className="diff-view-state">
-          <span>当前文件没有可见改动</span>
+          <span>{t("file.noVisibleChanges", "当前文件没有可见改动")}</span>
         </div>
       )}
       {!preview.isBinary && rows.length > 0 && (

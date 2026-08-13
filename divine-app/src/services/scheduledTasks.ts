@@ -11,6 +11,7 @@ import {
 import { request } from "@/services/request";
 import { isTauri } from "@/services/tauri";
 import type { CalendarEvent, ScheduledTask } from "@/types";
+import i18next from "@/i18n";
 
 type Listener = () => void;
 
@@ -196,7 +197,7 @@ export async function syncTaskNotifications(
         sendNotification({
           id: plan.id,
           title: task.title,
-          body: task.description || "定时任务提醒",
+          body: task.description || i18next.t("tasks.reminderBody", "定时任务提醒"),
           schedule: plan.schedule,
           group: "divine-scheduled-tasks",
         });

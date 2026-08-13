@@ -23,6 +23,7 @@ import {
   isTauri,
   listenWorkspaceChanges,
 } from "@/services/tauri";
+import { useTranslation } from "react-i18next";
 import type { WorkspaceFileNode } from "@/types";
 
 const treeCache = new Map<string, WorkspaceFileNode[]>();
@@ -228,6 +229,7 @@ export function FileTree({
   onSelectFile,
   width,
 }: FileTreeProps) {
+  const { t } = useTranslation();
   const [nodes, setNodes] = useState<WorkspaceFileNode[] | null>(null);
 
   useEffect(() => {
@@ -270,21 +272,21 @@ export function FileTree({
   if (!isTauri()) {
     return (
       <div className="file-tree-empty" style={{ width, minWidth: width }}>
-        桌面端支持文件树
+        {t("file.desktopTreeOnly", "桌面端支持文件树")}
       </div>
     );
   }
   if (nodes === null) {
     return (
       <div className="file-tree-empty" style={{ width, minWidth: width }}>
-        加载中...
+        {t("file.loading", "加载中...")}
       </div>
     );
   }
   if (nodes.length === 0) {
     return (
       <div className="file-tree-empty" style={{ width, minWidth: width }}>
-        空目录
+        {t("file.emptyDirectory", "空目录")}
       </div>
     );
   }

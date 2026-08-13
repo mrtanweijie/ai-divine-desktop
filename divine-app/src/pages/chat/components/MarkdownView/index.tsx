@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check, Copy } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/Toast";
 import { isTauri, openUrl } from "@/services/tauri";
@@ -47,6 +48,7 @@ function CodeBlock({
   language?: string;
   streaming: boolean;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -62,7 +64,7 @@ function CodeBlock({
       textarea.remove();
     }
     setCopied(true);
-    toast.success("代码已复制");
+    toast.success(t("markdown.copied", "代码已复制"));
     setTimeout(() => setCopied(false), 1200);
   };
   return (
@@ -74,8 +76,10 @@ function CodeBlock({
           size="small"
           className="code-copy"
           onClick={copy}
-          aria-label="复制代码"
-          title={copied ? "已复制" : "复制"}
+          aria-label={t("markdown.copyCode", "复制代码")}
+          title={
+            copied ? t("common.copied", "已复制") : t("markdown.copy", "复制")
+          }
         >
           {copied ? <Check size={13} /> : <Copy size={13} />}
         </Button>

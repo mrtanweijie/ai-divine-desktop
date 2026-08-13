@@ -7,7 +7,9 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
+import i18next from "@/i18n";
 import "./index.less";
 
 interface DateTimePickerProps {
@@ -16,7 +18,6 @@ interface DateTimePickerProps {
   label?: string;
 }
 
-const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 const HOURS = Array.from({ length: 24 }, (_, index) => index);
 const MINUTES = Array.from({ length: 12 }, (_, index) => index * 5);
 
@@ -31,7 +32,7 @@ function parseValue(value: string): Date | null {
 }
 
 function formatDisplay(date: Date | null): string {
-  if (!date) return "选择日期和时间";
+  if (!date) return i18next.t("time.pickDateTime", "选择日期和时间");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
     date.getDate()
   )} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -48,8 +49,19 @@ function sameDay(a: Date, b: Date): boolean {
 export function DateTimePicker({
   value,
   onChange,
-  label = "时间",
+  label,
 }: DateTimePickerProps) {
+  const { t } = useTranslation();
+  const resolvedLabel = label ?? t("time.label", "时间");
+  const weekdays = [
+    t("time.weekdayShort.sunday", "日"),
+    t("time.weekdayShort.monday", "一"),
+    t("time.weekdayShort.tuesday", "二"),
+    t("time.weekdayShort.wednesday", "三"),
+    t("time.weekdayShort.thursday", "四"),
+    t("time.weekdayShort.friday", "五"),
+    t("time.weekdayShort.saturday", "六"),
+  ];
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -224,7 +236,7 @@ export function DateTimePicker({
 
   return (
     <div className="ui-field">
-      {label && <span className="ui-field-label">{label}</span>}
+      {resolvedLabel && <span className="ui-field-label">{resolvedLabel}</span>}
       <div className="datetime-picker" ref={wrapRef}>
         <button
           type="button"
@@ -244,7 +256,7 @@ export function DateTimePicker({
             className="datetime-picker-popover"
             style={menuStyle}
             role="dialog"
-            aria-label="选择日期和时间"
+            aria-label={t("time.pickDateTime", "选择日期和时间")}
           >
             <div className="datetime-picker-body">
               <div ref={calendarRef} className="datetime-picker-calendar">
@@ -253,26 +265,29 @@ export function DateTimePicker({
                     variant="icon"
                     size="small"
                     onClick={prevMonth}
-                    title="上个月"
-                    aria-label="上个月"
+                    title={t("time.previousMonth", "上个月")}
+                    aria-label={t("time.previousMonth", "上个月")}
                   >
                     <ChevronLeft size={14} />
                   </Button>
                   <span className="datetime-picker-title">
-                    {view.year}年{view.month + 1}月
+                    {t("time.monthTitle", "{{year}}年{{month}}月", {
+                      year: view.year,
+                      month: view.month + 1,
+                    })}
                   </span>
                   <Button
                     variant="icon"
                     size="small"
                     onClick={nextMonth}
-                    title="下个月"
-                    aria-label="下个月"
+                    title={t("time.nextMonth", "下个月")}
+                    aria-label={t("time.nextMonth", "下个月")}
                   >
                     <ChevronRight size={14} />
                   </Button>
                 </div>
                 <div className="datetime-picker-weekdays">
-                  {WEEKDAYS.map((weekday) => (
+                  {weekdays.map((weekday) => (
                     <span key={weekday}>{weekday}</span>
                   ))}
                 </div>
@@ -297,7 +312,7 @@ export function DateTimePicker({
               </div>
               <div ref={timePanelRef} className="datetime-picker-time">
                 <div className="datetime-picker-time-col">
-                  <span>时</span>
+                  <span>{t("time.hourColumn", "时")}</span>
                   <div
                     ref={hourListRef}
                     className="datetime-picker-time-list"
@@ -318,7 +333,7 @@ export function DateTimePicker({
                   </div>
                 </div>
                 <div className="datetime-picker-time-col">
-                  <span>分</span>
+                  <span>{t("time.minuteColumn", "分")}</span>
                   <div
                     ref={minuteListRef}
                     className="datetime-picker-time-list"
@@ -346,10 +361,10 @@ export function DateTimePicker({
                 variant="ghost"
                 onClick={() => setDraft(new Date())}
               >
-                现在
+                {t("common.now", "现在")}
               </Button>
               <Button size="small" onClick={confirm}>
-                确定
+                {t("common.confirm", "确定")}
               </Button>
             </div>
           </div>,

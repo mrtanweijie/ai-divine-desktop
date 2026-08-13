@@ -5,6 +5,7 @@ import {
   type CSSProperties,
 } from "react";
 import { FileText, Maximize2, Minimize2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { ThemedToken } from "shiki";
 import { Button } from "@/components/ui/Button";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
@@ -40,6 +41,7 @@ function tokenStyle(token: ThemedToken): CSSProperties {
 }
 
 function CodePreview({ code, relPath }: { code: string; relPath: string }) {
+  const { t } = useTranslation();
   const content = code || "";
   const theme = useTheme();
   const language = useMemo(
@@ -81,7 +83,7 @@ function CodePreview({ code, relPath }: { code: string; relPath: string }) {
   if (!content) {
     return (
       <div className="diff-view-state">
-        <span>文件内容为空</span>
+        <span>{t("file.emptyContent", "文件内容为空")}</span>
       </div>
     );
   }
@@ -90,7 +92,7 @@ function CodePreview({ code, relPath }: { code: string; relPath: string }) {
     return (
       <div className="diff-view-state">
         <LoadingOrb state="searching" size={20} speed={2} />
-        <span>加载代码...</span>
+        <span>{t("file.loadingCode", "加载代码...")}</span>
       </div>
     );
   }
@@ -127,6 +129,7 @@ export function FileContentView({
   expanded,
   onToggleExpand,
 }: FileContentViewProps) {
+  const { t } = useTranslation();
   const content = preview.newContent || preview.oldContent || "";
   return (
     <div className="diff-view file-content-view">
@@ -139,8 +142,16 @@ export function FileContentView({
           size="small"
           className="diff-expand-button"
           onClick={onToggleExpand}
-          title={expanded ? "缩小文件区域" : "扩大文件区域"}
-          aria-label={expanded ? "缩小文件区域" : "扩大文件区域"}
+          title={
+            expanded
+              ? t("file.shrinkArea", "缩小文件区域")
+              : t("file.expandArea", "扩大文件区域")
+          }
+          aria-label={
+            expanded
+              ? t("file.shrinkArea", "缩小文件区域")
+              : t("file.expandArea", "扩大文件区域")
+          }
         >
           {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
         </Button>
@@ -148,7 +159,9 @@ export function FileContentView({
       {preview.isBinary ? (
         <div className="diff-view-state">
           <FileText size={15} />
-          <span>二进制文件不支持内容预览</span>
+          <span>
+            {t("file.binaryPreviewUnsupported", "二进制文件不支持内容预览")}
+          </span>
         </div>
       ) : (
         <CodePreview code={content} relPath={relPath} />

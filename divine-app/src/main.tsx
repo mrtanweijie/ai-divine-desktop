@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router/dom";
 import { router } from "@/app/router";
 import "@/styles/index.less";
+import "@/i18n";
 import { initTheme } from "@/services/theme";
 
 initTheme();

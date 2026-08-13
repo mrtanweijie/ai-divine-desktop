@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useTranslation } from "react-i18next";
 import { MessageItem } from "@/pages/chat/components/MessageItem";
 import type { ChatMessage, PreviewFile } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -27,6 +28,7 @@ export function MessageList({
   loadingOlder = false,
   onLoadOlder,
 }: MessageTimelineProps) {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const previousSessionId = useRef<string | null | undefined>(undefined);
   const lastUserMessageId = useRef<string | null>(null);
@@ -113,10 +115,12 @@ export function MessageList({
   return (
     <div className="message-timeline" ref={scrollRef} onScroll={handleScroll}>
       {loadingOlder && (
-        <div className="message-loading-older">加载更早消息...</div>
+        <div className="message-loading-older">
+          {t("chat.loadingOlder", "加载更早消息...")}
+        </div>
       )}
       {messages.length === 0 ? (
-        <EmptyState title="开始新的对话" />
+        <EmptyState title={t("chat.startNewChat", "开始新的对话")} />
       ) : (
         <div
           className="timeline-inner"

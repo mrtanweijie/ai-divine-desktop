@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import {
   getExternalFilePreview,
@@ -39,6 +40,7 @@ export function FilePreview({
   expanded,
   onToggleExpand,
 }: FilePreviewProps) {
+  const { t } = useTranslation();
   const [preview, setPreview] = useState<FileDiff | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -119,7 +121,7 @@ export function FilePreview({
         </div>
         <div className="diff-view-state">
           <LoadingOrb state="searching" size={20} speed={2} />
-          <span>读取文件...</span>
+          <span>{t("file.readingFile", "读取文件...")}</span>
         </div>
       </div>
     );
@@ -146,7 +148,7 @@ export function FilePreview({
           <span className="diff-view-file">{fileName ?? relPath}</span>
         </div>
         <div className="diff-view-state">
-          <span>没有可读取的内容</span>
+          <span>{t("file.noReadableContent", "没有可读取的内容")}</span>
         </div>
       </div>
     );

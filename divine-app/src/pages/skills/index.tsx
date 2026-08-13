@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -27,23 +28,26 @@ import {
   uninstallSkill,
 } from "@/services/skills";
 import type { InstalledSkill } from "@/types";
+import i18next from "@/i18n";
 import "./index.less";
 
 type SkillFilter = "all" | "knowledge" | "executable";
 
 const MIN_REFRESH_MS = 700;
 
-const SOURCE_LABELS: Record<string, string> = {
-  user: "用户",
-  project: "项目",
-  builtin: "内置",
-};
+function sourceLabel(source: string): string {
+  if (source === "user") return i18next.t("skills.sourceUser", "用户");
+  if (source === "project") return i18next.t("skills.sourceProject", "项目");
+  return i18next.t("skills.sourceBuiltin", "内置");
+}
 
-const TYPE_LABELS: Record<InstalledSkill["type"], string> = {
-  knowledge: "知识型",
-  executable: "能力型",
-  mcp: "MCP",
-};
+function typeLabel(type: InstalledSkill["type"]): string {
+  if (type === "knowledge")
+    return i18next.t("skills.typeKnowledge", "知识型");
+  if (type === "executable")
+    return i18next.t("skills.typeExecutable", "能力型");
+  return "MCP";
+}
 
 function SkillTypeIcon({ skill }: { skill: InstalledSkill }) {
   if (skill.type === "executable") return <Braces size={15} />;
@@ -67,6 +71,7 @@ export function SkillsPage({
   workspacePath?: string | null;
   onOpenSidebar: () => void;
 }) {
+  const { t } = useTranslation();
   const [skills, setSkills] = useState<InstalledSkill[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<SkillFilter>("all");
@@ -86,12 +91,12 @@ export function SkillsPage({
         try {
           const data = await reloadSkills(workspacePath ?? undefined);
           setSkills(data.skills);
-          toast.success("技能列表已刷新");
+          toast.success(t("skills.refreshed", "技能列表已刷新"));
         } catch (refreshError) {
           setError(
             refreshError instanceof Error
               ? refreshError.message
-              : "技能列表加载失败"
+              : t("skills.loadFailed", "技能列表加载失败")
           );
         } finally {
           const remaining = MIN_REFRESH_MS - (performance.now() - startedAt);
@@ -111,13 +116,13 @@ export function SkillsPage({
         setError(
           refreshError instanceof Error
             ? refreshError.message
-            : "技能列表加载失败"
+            : t("skills.loadFailed", "技能列表加载失败")
         );
       } finally {
         setLoading(false);
       }
     },
-    [workspacePath]
+    [t, workspacePath]
   );
 
   const handleUninstall = useCallback(
@@ -131,16 +136,20 @@ export function SkillsPage({
         setSkills((prev) =>
           prev.filter((item) => item.name !== data.name)
         );
-        toast.success(`技能“${skill.name}”已卸载`);
+        toast.success(
+          t("skills.uninstalled", "技能“{{name}}”已卸载", {
+            name: skill.name,
+          })
+        );
       } catch (uninstallError) {
         toast.error(
           uninstallError instanceof Error
             ? uninstallError.message
-            : "卸载失败"
+            : t("skills.uninstallFailed", "卸载失败")
         );
       }
     },
-    [workspacePath]
+    [t, workspacePath]
   );
 
   useEffect(() => {
@@ -183,8 +192,8 @@ export function SkillsPage({
             variant="icon"
             className="scheduled-sidebar-button"
             onClick={onOpenSidebar}
-            aria-label="展开会话列表"
-            title="会话列表"
+            aria-label={t("common.expandSessionList", "展开会话列表")}
+            title={t("session.list", "会话列表")}
           >
             <PanelLeftOpen size={15} />
           </Button>
@@ -193,8 +202,8 @@ export function SkillsPage({
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索技能"
-              aria-label="搜索技能"
+              placeholder={t("skills.search", "搜索技能")}
+              aria-label={t("skills.search", "搜索技能")}
             />
           </div>
           <Button
@@ -209,7 +218,7 @@ export function SkillsPage({
               size={14}
               className={refreshing ? "skills-refresh-spinning" : undefined}
             />
-            刷新
+            {t("skills.refresh", "刷新")}
           </Button>
         </Flex>
       </header>
@@ -217,13 +226,15 @@ export function SkillsPage({
       <div className="skills-install-tip">
         <div className="skills-install-tip-title">
           <Sparkles size={14} />
-          <span>安装方法</span>
+          <span>{t("skills.installTitle", "安装方法")}</span>
         </div>
         <div className="skills-install-tip-body">
-          将包含 <code>SKILL.md</code> 的目录放入项目{" "}
-          <code>.divine/skills/</code> 或用户 <code>~/.divine/skills/</code>
-          ；也可以直接在对话中给 Agent 一个 GitHub 仓库地址，由 Agent
-          预览并安装。
+          <Trans i18nKey="skills.installTip">
+            将包含 <code>SKILL.md</code> 的目录放入项目{" "}
+            <code>.divine/skills/</code> 或用户 <code>~/.divine/skills/</code>
+            ；也可以直接在对话中给 Agent 一个 GitHub 仓库地址，由 Agent
+            预览并安装。
+          </Trans>
         </div>
       </div>
 
@@ -232,25 +243,41 @@ export function SkillsPage({
           <AlertCircle size={15} />
           <span>{error}</span>
           <Button size="small" variant="ghost" onClick={() => setError(null)}>
-            关闭
+            {t("common.close", "关闭")}
           </Button>
         </div>
       )}
 
       <div className="skills-toolbar">
         <div className="skills-summary">
-          <span>共 {counts.total} 个技能</span>
+          <span>
+            {t("skills.totalCount", "共 {{count}} 个技能", {
+              count: counts.total,
+            })}
+          </span>
           <span className="skills-summary-sep">·</span>
-          <span>知识型 {counts.knowledge}</span>
+          <span>
+            {t("skills.knowledgeCount", "知识型 {{count}}", {
+              count: counts.knowledge,
+            })}
+          </span>
           <span className="skills-summary-sep">·</span>
-          <span>能力型 {counts.executable}</span>
+          <span>
+            {t("skills.executableCount", "能力型 {{count}}", {
+              count: counts.executable,
+            })}
+          </span>
         </div>
-        <div className="skills-filter" role="group" aria-label="技能类型筛选">
+        <div
+          className="skills-filter"
+          role="group"
+          aria-label={t("skills.filterLabel", "技能类型筛选")}
+        >
           {(
             [
-              ["all", "全部"],
-              ["knowledge", "知识型"],
-              ["executable", "能力型"],
+              ["all", t("skills.filterAll", "全部")],
+              ["knowledge", t("skills.filterKnowledge", "知识型")],
+              ["executable", t("skills.filterExecutable", "能力型")],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -268,7 +295,7 @@ export function SkillsPage({
       </div>
 
       {loading ? (
-        <div className="skills-empty">加载中...</div>
+        <div className="skills-empty">{t("common.loading", "加载中...")}</div>
       ) : (
         <div className="skills-content">
           {filteredSkills.length > 0 ? (
@@ -295,10 +322,10 @@ export function SkillsPage({
                       <div className="skill-row-title">{skill.name}</div>
                       <div className="skill-card-badges">
                         <span className="skill-badge">
-                          {TYPE_LABELS[skill.type]}
+                          {typeLabel(skill.type)}
                         </span>
                         <span className="skill-badge muted">
-                          {SOURCE_LABELS[skill.source] ?? skill.source}
+                          {sourceLabel(skill.source) ?? skill.source}
                         </span>
                         <span className="skill-badge muted">
                           v{skill.version}
@@ -319,8 +346,12 @@ export function SkillsPage({
                         variant="icon"
                         size="small"
                         className="skill-card-uninstall"
-                        title={`卸载 ${skill.name}`}
-                        aria-label={`卸载 ${skill.name}`}
+                        title={t("skills.uninstall", "卸载 {{name}}", {
+                          name: skill.name,
+                        })}
+                        aria-label={t("skills.uninstall", "卸载 {{name}}", {
+                          name: skill.name,
+                        })}
                         onClick={(event) => {
                           event.stopPropagation();
                           setUninstallTarget(skill);
@@ -330,7 +361,7 @@ export function SkillsPage({
                       </Button>
                     )}
                     <span className="skill-card-footer-detail">
-                      <span>查看详情</span>
+                      <span>{t("skills.viewDetails", "查看详情")}</span>
                       <ChevronRight size={14} />
                     </span>
                   </div>
@@ -340,11 +371,18 @@ export function SkillsPage({
           ) : (
             <EmptyState
               icon={<Sparkles size={18} />}
-              title={search || filter !== "all" ? "没有匹配的技能" : "还没有安装技能"}
+              title={
+                search || filter !== "all"
+                  ? t("skills.noMatches", "没有匹配的技能")
+                  : t("skills.noneInstalled", "还没有安装技能")
+              }
               description={
                 search || filter !== "all"
-                  ? "换个关键词或筛选条件试试"
-                  : "安装后的技能会出现在这里，也可以在对话中让 Agent 安装"
+                  ? t("skills.noMatchesHint", "换个关键词或筛选条件试试")
+                  : t(
+                      "skills.noneInstalledHint",
+                      "安装后的技能会出现在这里，也可以在对话中让 Agent 安装"
+                    )
               }
             />
           )}
@@ -359,8 +397,12 @@ export function SkillsPage({
       )}
       {uninstallTarget && (
         <ConfirmDialog
-          title="卸载技能"
-          description={`确定卸载技能“${uninstallTarget.name}”吗？会删除它的技能目录，无法撤销。`}
+          title={t("skills.uninstallTitle", "卸载技能")}
+          description={t(
+            "skills.uninstallConfirm",
+            "确定卸载技能“{{name}}”吗？会删除它的技能目录，无法撤销。",
+            { name: uninstallTarget.name }
+          )}
           onConfirm={() => void handleUninstall(uninstallTarget)}
           onCancel={() => setUninstallTarget(null)}
         />
@@ -376,18 +418,19 @@ function SkillDetailModal({
   skill: InstalledSkill;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Modal
       open
-      title="技能详情"
+      title={t("skills.detailTitle", "技能详情")}
       titleSuffix={`v${skill.version}`}
       headerAction={
         <Button
           variant="icon"
           size="small"
           onClick={onClose}
-          title="关闭"
-          aria-label="关闭"
+          title={t("common.close", "关闭")}
+          aria-label={t("common.close", "关闭")}
         >
           <X size={15} />
         </Button>
@@ -403,9 +446,9 @@ function SkillDetailModal({
           <div className="skills-detail-title">
             <h3>{skill.name}</h3>
             <div className="skills-detail-meta">
-              <span className="skill-badge">{TYPE_LABELS[skill.type]}</span>
+              <span className="skill-badge">{typeLabel(skill.type)}</span>
               <span className="skill-badge muted">
-                {SOURCE_LABELS[skill.source] ?? skill.source}
+                {sourceLabel(skill.source) ?? skill.source}
               </span>
               <span className="skill-badge muted">v{skill.version}</span>
             </div>
@@ -416,19 +459,19 @@ function SkillDetailModal({
 
         <dl className="skills-detail-grid">
           <div>
-            <dt>类型</dt>
-            <dd>{TYPE_LABELS[skill.type]}</dd>
+            <dt>{t("skills.detailTypeLabel", "类型")}</dt>
+            <dd>{typeLabel(skill.type)}</dd>
           </div>
           <div>
-            <dt>来源</dt>
-            <dd>{SOURCE_LABELS[skill.source] ?? skill.source}</dd>
+            <dt>{t("skills.detailSourceLabel", "来源")}</dt>
+            <dd>{sourceLabel(skill.source) ?? skill.source}</dd>
           </div>
           <div>
-            <dt>脚本</dt>
-            <dd>{skillScriptLabel(skill) || "无"}</dd>
+            <dt>{t("skills.detailScriptLabel", "脚本")}</dt>
+            <dd>{skillScriptLabel(skill) || t("common.none", "无")}</dd>
           </div>
           <div>
-            <dt>路径</dt>
+            <dt>{t("skills.detailPathLabel", "路径")}</dt>
             <dd className="skills-detail-path">{skill.path}</dd>
           </div>
         </dl>
@@ -436,10 +479,10 @@ function SkillDetailModal({
         <section className="skills-detail-section">
           <h4>
             <FileText size={13} />
-            SKILL.md 正文
+            {t("skills.bodyTitle", "SKILL.md 正文")}
           </h4>
           <pre className="skills-detail-body">
-            {skill.body || "（无正文）"}
+            {skill.body || t("skills.noBody", "（无正文）")}
           </pre>
         </section>
 
@@ -447,7 +490,7 @@ function SkillDetailModal({
           <section className="skills-detail-section">
             <h4>
               <FolderTree size={13} />
-              参考资料
+              {t("skills.referencesTitle", "参考资料")}
             </h4>
             <ul className="skills-detail-references">
               {skill.references.map((reference) => (
@@ -461,7 +504,7 @@ function SkillDetailModal({
           <section className="skills-detail-section">
             <h4>
               <Package size={13} />
-              依赖
+              {t("skills.dependenciesTitle", "依赖")}
             </h4>
             <ul className="skills-detail-references">
               {skill.dependencies.map((dependency) => (

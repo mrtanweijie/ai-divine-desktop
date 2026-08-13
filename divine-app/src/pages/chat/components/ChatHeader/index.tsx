@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ChevronLeft,
   Download,
@@ -35,12 +36,15 @@ export function ChatHeader({
   workspaceOpen,
   onToggleWorkspace,
 }: ChatHeaderProps) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(session?.title ?? "新对话");
+  const [title, setTitle] = useState(
+    session?.title ?? t("session.newChat", "新对话")
+  );
 
   useEffect(() => {
-    setTitle(session?.title ?? "新对话");
-  }, [session?.title]);
+    setTitle(session?.title ?? t("session.newChat", "新对话"));
+  }, [session?.title, t]);
 
   const commitTitle = () => {
     if (session && title.trim()) {
@@ -56,8 +60,8 @@ export function ChatHeader({
           variant="icon"
           className="mobile-sidebar-button"
           onClick={onOpenSidebar}
-          aria-label="打开会话列表"
-          title="会话列表"
+          aria-label={t("chat.openSessionList", "打开会话列表")}
+          title={t("session.list", "会话列表")}
         >
           <PanelLeftOpen size={16} />
         </Button>
@@ -76,17 +80,17 @@ export function ChatHeader({
                 setEditing(false);
               }
             }}
-            aria-label="会话标题"
+            aria-label={t("session.titleLabel", "会话标题")}
           />
         ) : (
           <Button
             variant="ghost"
             className="title-button"
             onClick={() => {
-              setTitle(session?.title ?? "新对话");
+              setTitle(session?.title ?? t("session.newChat", "新对话"));
               setEditing(true);
             }}
-            title="点击重命名"
+            title={t("session.clickToRename", "点击重命名")}
           >
             <span
               className="session-title-text"
@@ -107,10 +111,13 @@ export function ChatHeader({
       <Flex align="center" gap={6} className="chat-header-right">
         {session && (
           <Dropdown
-            label="导出会话"
+            label={t("chat.exportSession", "导出会话")}
             align="center"
             trigger={
-              <Button variant="icon" title="导出会话">
+              <Button
+                variant="icon"
+                title={t("chat.exportSession", "导出会话")}
+              >
                 <Download size={15} />
               </Button>
             }
@@ -129,7 +136,7 @@ export function ChatHeader({
               },
               {
                 key: "text",
-                label: "文本",
+                label: t("chat.text", "文本"),
                 icon: <File size={13} />,
                 onClick: () => exportSession(session.id, "text"),
               },
@@ -147,8 +154,8 @@ export function ChatHeader({
             variant="icon"
             className="workspace-toggle"
             onClick={onToggleWorkspace}
-            title="打开文件面板"
-            aria-label="打开文件面板"
+            title={t("chat.openFilePanel", "打开文件面板")}
+            aria-label={t("chat.openFilePanel", "打开文件面板")}
           >
             <PanelRightOpen size={15} />
           </Button>

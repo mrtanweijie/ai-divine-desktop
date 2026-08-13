@@ -3,6 +3,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Minimize2, PanelRightClose } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import type { PreviewFile } from "@/types";
 import { FilePreview } from "./FilePreview";
@@ -42,6 +43,7 @@ export function FilePreviewPanel({
   onSelectFile,
   onAcceptFile,
 }: FilePreviewPanelProps) {
+  const { t } = useTranslation();
   const [resizing, setResizing] = useState(false);
   if (!repoPath) return null;
 
@@ -111,19 +113,19 @@ export function FilePreviewPanel({
       <div
         className="file-inspector-resizer"
         onPointerDown={handleResizeStart}
-        title="拖拽调整宽度"
-        aria-label="拖拽调整宽度"
+        title={t("file.dragResizeWidth", "拖拽调整宽度")}
+        aria-label={t("file.dragResizeWidth", "拖拽调整宽度")}
       />
       <header className="file-inspector-header">
-        <span className="file-inspector-title">文件</span>
+        <span className="file-inspector-title">{t("file.title", "文件")}</span>
         <div className="file-inspector-actions">
           {!expanded && (
             <Button
               variant="icon"
               size="small"
               onClick={onClose}
-              title="收起面板"
-              aria-label="收起面板"
+              title={t("file.collapsePanel", "收起面板")}
+              aria-label={t("file.collapsePanel", "收起面板")}
             >
               <PanelRightClose size={14} />
             </Button>
@@ -133,8 +135,8 @@ export function FilePreviewPanel({
               variant="icon"
               size="small"
               onClick={onToggleExpand}
-              title="缩小文件区域"
-              aria-label="缩小文件区域"
+              title={t("file.shrinkArea", "缩小文件区域")}
+              aria-label={t("file.shrinkArea", "缩小文件区域")}
             >
               <Minimize2 size={14} />
             </Button>
@@ -159,8 +161,8 @@ export function FilePreviewPanel({
           className="file-tree-resizer"
           style={{ left: treeWidth - 2 }}
           onPointerDown={handleTreeResizeStart}
-          title="拖拽调整文件树宽度"
-          aria-label="拖拽调整文件树宽度"
+          title={t("file.dragResizeTree", "拖拽调整文件树宽度")}
+          aria-label={t("file.dragResizeTree", "拖拽调整文件树宽度")}
         />
         <div className="file-inspector-preview">
           {selectedFile ? (
@@ -178,7 +180,7 @@ export function FilePreviewPanel({
             />
           ) : (
             <div className="file-inspector-empty">
-              <span>从左侧选择文件查看改动</span>
+              <span>{t("file.selectFromLeft", "从左侧选择文件查看改动")}</span>
             </div>
           )}
         </div>

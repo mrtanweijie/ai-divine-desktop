@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { Cpu, Eye, EyeOff, Save, Settings2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
 import type { Settings } from "@/types";
+import {
+  readLocalePreference,
+  setLocale,
+  type AppLocale,
+} from "@/i18n";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -32,6 +38,8 @@ export function SettingsModal({
   onClose,
   onSave,
 }: SettingsModalProps) {
+  const { t } = useTranslation();
+  const [locale, setLocaleState] = useState<AppLocale>(readLocalePreference);
   const [model, setModel] = useState(settings.model);
   const [baseUrl, setBaseUrl] = useState(settings.base_url);
   const [apiKey, setApiKey] = useState("");
@@ -68,14 +76,14 @@ export function SettingsModal({
   return (
     <Modal
       open
-      title="设置"
+      title={t("settings.title", "设置")}
       titleSuffix={version}
       onClose={onClose}
       width={700}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            取消
+            {t("common.cancel", "取消")}
           </Button>
           <Button
             variant="primary"
@@ -93,7 +101,7 @@ export function SettingsModal({
             }
           >
             <Save size={15} />
-            保存
+            {t("common.save", "保存")}
           </Button>
         </>
       }
@@ -108,7 +116,7 @@ export function SettingsModal({
             onClick={() => setSection("basic")}
           >
             <Settings2 size={15} />
-            <span>通用</span>
+            <span>{t("settings.sectionGeneral", "通用")}</span>
           </button>
           <button
             type="button"
@@ -118,32 +126,46 @@ export function SettingsModal({
             onClick={() => setSection("model")}
           >
             <Cpu size={15} />
-            <span>模型</span>
+            <span>{t("settings.sectionModel", "模型")}</span>
           </button>
         </div>
         <div className="settings-main">
           {section === "basic" ? (
             <div className="settings-form">
               <Select
-                label="主题"
+                label={t("settings.theme", "主题")}
                 value={themePreference}
                 onChange={(value) =>
                   setThemePreferenceState(value as ThemePreference)
                 }
                 options={[
-                  { value: "dark", label: "深色" },
-                  { value: "light", label: "浅色" },
-                  { value: "system", label: "跟随系统" },
+                  { value: "dark", label: t("settings.themeDark", "深色") },
+                  { value: "light", label: t("settings.themeLight", "浅色") },
+                  { value: "system", label: t("settings.themeSystem", "跟随系统") },
+                ]}
+              />
+              <Select
+                label={t("settings.language", "语言")}
+                value={locale}
+                onChange={(value) => {
+                  const next = value as AppLocale;
+                  setLocaleState(next);
+                  setLocale(next);
+                }}
+                options={[
+                  { value: "zh-CN", label: "简体中文" },
+                  { value: "zh-TW", label: "繁體中文" },
+                  { value: "en", label: "English" },
                 ]}
               />
               <Input
-                label="用户名"
+                label={t("settings.username", "用户名")}
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                placeholder="用户"
+                placeholder={t("settings.usernamePlaceholder", "用户")}
               />
               <Input
-                label="上下文保留条数"
+                label={t("settings.contextLimit", "上下文保留条数")}
                 type="text"
                 inputMode="numeric"
                 value={contextLimit}
@@ -155,7 +177,9 @@ export function SettingsModal({
                 }}
               />
               <div className="ui-field">
-                <span className="ui-field-label">默认深度思考</span>
+                <span className="ui-field-label">
+                  {t("settings.thinkDefault", "默认深度思考")}
+                </span>
                 <Switch checked={thinkDefault} onChange={setThinkDefault} />
               </div>
             </div>
@@ -166,13 +190,13 @@ export function SettingsModal({
                 value={provider}
                 onChange={setProvider}
                 options={[
-                  { value: "auto", label: "自动（有 Key 用 DeepSeek）" },
-                  { value: "langchain", label: "DeepSeek（ChatDeepSeek）" },
-                  { value: "mock", label: "本地演示" },
+                  { value: "auto", label: t("settings.providerAuto", "自动（有 Key 用 DeepSeek）") },
+                  { value: "langchain", label: t("settings.providerLangchain", "DeepSeek（ChatDeepSeek）") },
+                  { value: "mock", label: t("settings.providerMock", "本地演示") },
                 ]}
               />
               <Select
-                label="模型"
+                label={t("settings.model", "模型")}
                 value={model}
                 onChange={setModel}
                 editable
@@ -186,7 +210,11 @@ export function SettingsModal({
                 placeholder="https://api.deepseek.com"
               />
               <Input
-                label={`API Key${settings.has_api_key ? "（已保存）" : ""}`}
+                label={t("settings.apiKeyLabel", "API Key{{saved}}", {
+                  saved: settings.has_api_key
+                    ? t("settings.saved", "（已保存）")
+                    : "",
+                })}
                 type={showKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
@@ -197,16 +225,22 @@ export function SettingsModal({
                     variant="icon"
                     size="small"
                     onClick={() => setShowKey((value) => !value)}
-                    aria-label={showKey ? "隐藏 API Key" : "显示 API Key"}
+                    aria-label={
+                      showKey
+                        ? t("settings.hideApiKey", "隐藏 API Key")
+                        : t("settings.showApiKey", "显示 API Key")
+                    }
                   >
                     {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
                   </Button>
                 }
               />
               <Input
-                label={`GLM API Key（识图能力支持）${
-                  settings.has_glm_key ? "（已保存）" : ""
-                }`}
+                label={t("settings.glmApiKeyLabel", "GLM API Key（识图能力支持）{{saved}}", {
+                  saved: settings.has_glm_key
+                    ? t("settings.saved", "（已保存）")
+                    : "",
+                })}
                 type={showGlmKey ? "text" : "password"}
                 value={glmApiKey}
                 onChange={(event) => setGlmApiKey(event.target.value)}
@@ -218,7 +252,9 @@ export function SettingsModal({
                     size="small"
                     onClick={() => setShowGlmKey((value) => !value)}
                     aria-label={
-                      showGlmKey ? "隐藏 GLM API Key" : "显示 GLM API Key"
+                      showGlmKey
+                        ? t("settings.hideGlmApiKey", "隐藏 GLM API Key")
+                        : t("settings.showGlmApiKey", "显示 GLM API Key")
                     }
                   >
                     {showGlmKey ? <EyeOff size={14} /> : <Eye size={14} />}

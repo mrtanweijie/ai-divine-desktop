@@ -12,6 +12,7 @@ import type {
 } from "@/types";
 import { isTauri, openUrl } from "@/services/tauri";
 import { API_BASE, apiBase, request } from "@/services/request";
+import i18next from "@/i18n";
 
 export { apiBase };
 
@@ -166,7 +167,10 @@ function trimToolResult(result: any): any {
   for (const key of ["content", "stdout", "stderr"]) {
     const value = copy[key];
     if (typeof value === "string" && value.length > 4000) {
-      copy[key] = `${value.slice(0, 4000)}\n...[截断，共 ${value.length} 字符]`;
+      copy[key] = i18next.t("common.truncated", "{{prefix}}\n...[截断，共 {{count}} 字符]", {
+        prefix: value.slice(0, 4000),
+        count: value.length,
+      });
     }
   }
   const data = copy.data;
@@ -175,7 +179,10 @@ function trimToolResult(result: any): any {
     for (const key of ["content", "stdout", "stderr", "text"]) {
       const value = dataCopy[key];
       if (typeof value === "string" && value.length > 4000) {
-        dataCopy[key] = `${value.slice(0, 4000)}\n...[截断，共 ${value.length} 字符]`;
+        dataCopy[key] = i18next.t("common.truncated", "{{prefix}}\n...[截断，共 {{count}} 字符]", {
+          prefix: value.slice(0, 4000),
+          count: value.length,
+        });
       }
     }
     if (Array.isArray(dataCopy.results) && dataCopy.results.length > 12) {

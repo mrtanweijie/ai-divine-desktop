@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import "./index.less";
 
@@ -47,6 +48,7 @@ export const toast = {
 
 export function Toaster() {
   const [items, setItems] = useState<ToastItem[]>(currentItems);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const callback: Listener = (next) => setItems(next);
@@ -79,7 +81,7 @@ export function Toaster() {
             size="small"
             className="toast-close"
             onClick={() => dismiss(item.id)}
-            aria-label="关闭"
+            aria-label={t("common.close", "关闭")}
           >
             <X size={13} />
           </Button>

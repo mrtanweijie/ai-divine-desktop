@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { MermaidConfig } from "mermaid";
 import { Check, Copy } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { toast } from "@/components/ui/Toast";
@@ -135,6 +136,7 @@ interface MermaidBlockProps {
 }
 
 export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
+  const { t } = useTranslation();
   const theme = useThemeVersion();
   const normalizedCode = normalizeMermaidSource(code);
   const baseId = useId().replace(/[^a-zA-Z0-9]/g, "");
@@ -210,21 +212,29 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
       textarea.remove();
     }
     setCopied(true);
-    toast.success("Mermaid 源码已复制");
+    toast.success(t("mermaid.copiedSource", "Mermaid 源码已复制"));
     setTimeout(() => setCopied(false), 1200);
   };
 
   return (
     <div className={`mermaid-block ${status}`}>
       <div className="mermaid-header">
-        <span>{status === "error" ? "Mermaid 解析失败" : "Mermaid"}</span>
+        <span>
+          {status === "error"
+            ? t("mermaid.parseFailed", "Mermaid 解析失败")
+            : "Mermaid"}
+        </span>
         <Button
           variant="icon"
           size="small"
           className="mermaid-copy"
           onClick={copy}
-          aria-label="复制 Mermaid 源码"
-          title={copied ? "已复制" : "复制源码"}
+          aria-label={t("mermaid.copySource", "复制 Mermaid 源码")}
+          title={
+            copied
+              ? t("common.copied", "已复制")
+              : t("mermaid.copyCode", "复制源码")
+          }
         >
           {copied ? <Check size={13} /> : <Copy size={13} />}
         </Button>
@@ -241,7 +251,7 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
       ) : (
         <div className="mermaid-loading">
           <LoadingOrb state="working" size={20} speed={3} />
-          <span>渲染中</span>
+          <span>{t("mermaid.rendering", "渲染中")}</span>
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   FolderSearch,
   Ghost,
@@ -25,41 +26,6 @@ interface NewChatGuideProps {
   onAction: (prompt: string) => void;
 }
 
-const CARDS: GuideCard[] = [
-  {
-    key: "workspace",
-    icon: <FolderSearch size={20} />,
-    tone: "blue",
-    title: "工作空间目录",
-    prompt:
-      "请查看当前项目工作空间目录，并介绍里面的内容和结构。",
-  },
-  {
-    key: "architecture",
-    icon: <Ghost size={20} />,
-    tone: "purple",
-    title: "分析项目架构",
-    prompt:
-      "请分析当前项目的工作空间目录结构、技术架构和关键文件，并给出总结。",
-  },
-  {
-    key: "build",
-    icon: <Cherry size={20} />,
-    tone: "green",
-    title: "开始构建新项目",
-    prompt:
-      "请基于当前项目目录开始构建一个新项目，先制定方案和计划，再逐步实现。",
-  },
-  {
-    key: "fix",
-    icon: <PackageSearch size={20} />,
-    tone: "orange",
-    title: "修复项目问题",
-    prompt:
-      "请检查当前项目目录中的问题，定位错误并给出修复方案，然后执行修复。",
-  },
-];
-
 export function NewChatGuide({
   projectName,
   projectPath,
@@ -67,15 +33,62 @@ export function NewChatGuide({
   disabled = false,
   onAction,
 }: NewChatGuideProps) {
+  const { t } = useTranslation();
+  const cards = useMemo<GuideCard[]>(
+    () => [
+      {
+        key: "workspace",
+        icon: <FolderSearch size={20} />,
+        tone: "blue",
+        title: t("guide.workspace", "工作空间目录"),
+        prompt: t(
+          "guide.workspacePrompt",
+          "请查看当前项目工作空间目录，并介绍里面的内容和结构。"
+        ),
+      },
+      {
+        key: "architecture",
+        icon: <Ghost size={20} />,
+        tone: "purple",
+        title: t("guide.architecture", "分析项目架构"),
+        prompt: t(
+          "guide.architecturePrompt",
+          "请分析当前项目的工作空间目录结构、技术架构和关键文件，并给出总结。"
+        ),
+      },
+      {
+        key: "build",
+        icon: <Cherry size={20} />,
+        tone: "green",
+        title: t("guide.build", "开始构建新项目"),
+        prompt: t(
+          "guide.buildPrompt",
+          "请基于当前项目目录开始构建一个新项目，先制定方案和计划，再逐步实现。"
+        ),
+      },
+      {
+        key: "fix",
+        icon: <PackageSearch size={20} />,
+        tone: "orange",
+        title: t("guide.fix", "修复项目问题"),
+        prompt: t(
+          "guide.fixPrompt",
+          "请检查当前项目目录中的问题，定位错误并给出修复方案，然后执行修复。"
+        ),
+      },
+    ],
+    [t]
+  );
   return (
     <div className="new-chat-guide">
       <div className="new-chat-guide-icon">
         <img src={avatarUrl} alt="" className="new-chat-guide-avatar-img" />
       </div>
+      {/* i18next-instrument-ignore */}
       <h2 className="new-chat-guide-title">
         {projectName ? (
           <>
-            要在{" "}
+            {t("guide.whatToDoInPrefix", "要在")}{" "}
             <span
               className="new-chat-guide-project-link"
               role="button"
@@ -97,17 +110,17 @@ export function NewChatGuide({
             >
               {projectName}
             </span>{" "}
-            下做什么
+            {t("guide.whatToDoInSuffix", " 下做什么")}
           </>
         ) : (
-          "我们该构建什么"
+          t("guide.whatToBuild", "我们该构建什么")
         )}
       </h2>
       <div
         className={`new-chat-guide-cards${cardsVisible ? "" : " is-hidden"}`}
         aria-hidden={!cardsVisible}
       >
-        {CARDS.map((card) => (
+        {cards.map((card) => (
           <div
             key={card.key}
             className={`new-chat-guide-card${disabled ? " disabled" : ""}`}

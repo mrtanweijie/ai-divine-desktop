@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   createProject,
   createSession,
@@ -73,6 +74,7 @@ function expandedWorkspaceWidth(leftWidth: number): number {
 }
 
 export default function ChatPage() {
+  const { t } = useTranslation();
   const {
     sessions,
     setSessions,
@@ -327,7 +329,7 @@ export default function ChatPage() {
           has_api_key: false,
           has_glm_key: false,
           workspace_dir: "",
-          username: "用户",
+          username: t("common.user", "用户"),
           think_default: false,
           context_limit: 20,
           tools: [],
@@ -337,7 +339,7 @@ export default function ChatPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadSession, refreshProjects, refreshSessions]);
+  }, [loadSession, refreshProjects, refreshSessions, t]);
 
   useEffect(() => {
     if (!selectionReady) return;
@@ -508,8 +510,12 @@ export default function ChatPage() {
       const project = projects.find((item) => item.id === id);
       const sessionCount = project?.session_count ?? 0;
       setConfirmState({
-        title: "删除项目",
-        description: `将删除项目“${project?.name ?? ""}”及其 ${sessionCount} 个会话；文件夹和文件保留在磁盘上，不会删除。`,
+        title: t("session.deleteProjectTitle", "删除项目"),
+        description: t(
+          "session.deleteProjectConfirm",
+          "将删除项目“{{name}}”及其 {{count}} 个会话；文件夹和文件保留在磁盘上，不会删除。",
+          { name: project?.name ?? "", count: sessionCount }
+        ),
         action: async () => {
           await deleteProject(id);
           const remaining = await refreshProjects();
@@ -535,7 +541,14 @@ export default function ChatPage() {
         },
       });
     },
-    [loadSession, projects, refreshProjects, refreshSessions, selectedProjectId]
+    [
+      loadSession,
+      projects,
+      refreshProjects,
+      refreshSessions,
+      selectedProjectId,
+      t,
+    ]
   );
 
   const handleSelectSession = useCallback(
@@ -564,8 +577,11 @@ export default function ChatPage() {
   const handleDelete = useCallback(
     (id: string) => {
       setConfirmState({
-        title: "删除会话",
-        description: "删除后该会话的消息和工具记录将无法恢复。",
+        title: t("session.deleteTitle", "删除会话"),
+        description: t(
+          "session.deleteConfirm",
+          "删除后该会话的消息和工具记录将无法恢复。"
+        ),
         action: async () => {
           await deleteSession(id);
           const remaining = await refreshSessions(selectedProjectId);
@@ -582,7 +598,7 @@ export default function ChatPage() {
         },
       });
     },
-    [loadSession, refreshSessions, selectedId, selectedProjectId]
+    [loadSession, refreshSessions, selectedId, selectedProjectId, t]
   );
 
   const handleSettingsSave = useCallback(
@@ -624,7 +640,8 @@ export default function ChatPage() {
     async (question: string, files: ChatFile[], think: boolean) => {
       const trimmed = question.trim();
       if ((!trimmed && files.length === 0) || streaming) return;
-      const effectiveQuestion = trimmed || "请分析附件";
+      const effectiveQuestion =
+        trimmed || t("chat.analyzeAttachment", "请分析附件");
       let sessionId = selectedId;
       if (!sessionId) {
         const projectId = selectedProjectId ?? projects[0]?.id ?? null;
@@ -802,7 +819,9 @@ export default function ChatPage() {
                   ...item,
                   streaming: false,
                   error:
-                    error instanceof Error ? error.message : "请求失败，请稍后重试",
+                    error instanceof Error
+                      ? error.message
+                      : t("chat.requestFailed", "请求失败，请稍后重试"),
                 }
               : item
           )
@@ -820,6 +839,7 @@ export default function ChatPage() {
       selectedId,
       selectedProjectId,
       streaming,
+      t,
     ]
   );
 
@@ -1078,7 +1098,7 @@ export default function ChatPage() {
                 messages={messages}
                 streaming={streaming}
                 sessionId={selectedId}
-                username={settings?.username || "用户"}
+                username={settings?.username || t("common.user", "用户")}
                 workspacePath={currentProject?.path ?? null}
                 onPreviewFile={handlePreviewFile}
                 hasMoreOlder={hasMoreOlder}
