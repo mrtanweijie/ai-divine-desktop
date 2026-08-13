@@ -37,12 +37,14 @@ def _read_text_fallback(path: Path) -> str:
 @router.post("/stream_chat")
 async def stream_chat(request: StreamChatRequest):
     question = request.question.strip()
-    if not question:
+    if not question and not request.attachments:
         return StreamingResponse(
             iter([error_event("invalid_request", "问题不能为空")]),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+    if not question:
+        question = "请分析附件"
 
     session_id = request.session_id
     if session_id:

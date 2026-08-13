@@ -13,7 +13,7 @@ class Attachment(BaseModel):
 
 
 class StreamChatRequest(BaseModel):
-    question: str = Field(min_length=1)
+    question: str = Field(default="")
     session_id: str | None = None
     project_id: str | None = None
     approval_mode: str | None = None

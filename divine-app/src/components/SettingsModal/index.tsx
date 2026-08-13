@@ -10,6 +10,11 @@ import { Switch } from "@/components/ui/Switch";
 import { getAppVersion } from "@/services/tauri";
 import "./index.less";
 
+const MODEL_OPTIONS = [
+  { value: "deepseek-v4-flash", label: "deepseek-v4-flash" },
+  { value: "deepseek-v4-pro", label: "deepseek-v4-pro" },
+];
+
 interface SettingsModalProps {
   settings: Settings;
   onClose: () => void;
@@ -104,10 +109,12 @@ export function SettingsModal({
           onChange={(event) => setUsername(event.target.value)}
           placeholder="用户"
         />
-        <Input
+        <Select
           label="模型"
           value={model}
-          onChange={(event) => setModel(event.target.value)}
+          onChange={setModel}
+          editable
+          options={MODEL_OPTIONS}
           placeholder="deepseek-v4-flash"
         />
         <Input

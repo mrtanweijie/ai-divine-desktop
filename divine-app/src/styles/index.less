@@ -250,15 +250,12 @@ a:focus-visible {
 .project-add-button {
   width: 24px;
   height: 24px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease;
+  transition: background 120ms ease, color 120ms ease;
 }
 
-.project-header:hover .project-add-button,
-.project-header:focus-within .project-add-button {
-  opacity: 1;
-  pointer-events: auto;
+.project-add-button:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
 }
 
 .project-list {

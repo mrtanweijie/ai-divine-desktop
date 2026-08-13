@@ -456,12 +456,22 @@ def _should_ask_plan(messages: list[Any]) -> bool:
 def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
     @dynamic_prompt
     def prompt(request: ModelRequest) -> str:
+        current_settings = settings_store.load()
+        provider = current_settings.get("provider") or "auto"
+        model_name = current_settings.get("model") or "deepseek-v4-flash"
+        if provider == "mock" or (
+            provider == "auto" and not current_settings.get("api_key")
+        ):
+            model_line = "当前模型：本地演示模式（Mock）"
+        else:
+            model_line = f"当前模型：{model_name}"
         parts = [
             SYSTEM_PROMPT.replace("create_plan", "write_todos"),
             (
                 f"当前会话所属项目工作目录：{ctx.workspace}\n"
                 "请以该目录作为方案设计和文件操作的工作区。"
             ),
+            model_line,
         ]
         todos = db.list_todos(ctx.session_id)
         plan_progress = _active_plan_progress(

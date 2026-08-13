@@ -41,6 +41,44 @@
   transform: rotate(180deg);
 }
 
+.ui-select.editable .ui-select-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: var(--color-surface);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.ui-select.editable .ui-select-input-wrap:focus-within {
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: var(--focus-ring);
+}
+
+.ui-select.editable .ui-select-input-wrap input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.ui-select.editable .ui-select-input-wrap svg {
+  flex: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: transform 150ms ease;
+}
+
+.ui-select.editable .ui-select-input-wrap svg.open {
+  transform: rotate(180deg);
+}
+
 .ui-select-menu {
   display: flex;
   flex-direction: column;

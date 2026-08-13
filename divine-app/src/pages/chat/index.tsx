@@ -623,7 +623,8 @@ export default function ChatPage() {
   const sendMessage = useCallback(
     async (question: string, files: ChatFile[], think: boolean) => {
       const trimmed = question.trim();
-      if (!trimmed || streaming) return;
+      if ((!trimmed && files.length === 0) || streaming) return;
+      const effectiveQuestion = trimmed || "请分析附件";
       let sessionId = selectedId;
       if (!sessionId) {
         const projectId = selectedProjectId ?? projects[0]?.id ?? null;
@@ -637,7 +638,7 @@ export default function ChatPage() {
       const userMessage: ChatMessage = {
         id: `local-user-${Date.now()}`,
         role: "user",
-        content: trimmed,
+        content: effectiveQuestion,
         created_at: new Date().toISOString(),
         tools: [],
         files,
@@ -658,7 +659,7 @@ export default function ChatPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            question: trimmed,
+            question: effectiveQuestion,
             session_id: sessionId,
             approval_mode: approvalMode,
             think,

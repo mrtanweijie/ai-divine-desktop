@@ -141,7 +141,7 @@ export function Dropdown({
 
   return (
     <div
-      className="ui-dropdown"
+      className={`ui-dropdown${open ? " open" : ""}`}
       ref={ref}
       onMouseEnter={supportsHover ? openMenu : undefined}
       onMouseLeave={supportsHover ? scheduleClose : undefined}

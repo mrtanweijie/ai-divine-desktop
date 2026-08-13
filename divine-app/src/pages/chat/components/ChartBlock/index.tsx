@@ -216,7 +216,7 @@ function decorateSeries(option: Record<string, unknown>): void {
       } else {
         label.show = true;
         label.position = isHorizontalCartesian(option) ? "right" : "top";
-        label.color = label.color ?? "#f2f4f6";
+        label.color = label.color ?? "#e8ecf1";
         label.fontSize = label.fontSize ?? 11;
         label.fontWeight = label.fontWeight ?? 600;
       }
@@ -226,6 +226,18 @@ function decorateSeries(option: Record<string, unknown>): void {
       next.symbol = next.symbol ?? "circle";
       next.symbolSize = next.symbolSize ?? 5;
       next.lineStyle = withDefaults(next.lineStyle, { width: 1.5 });
+      const label = isRecord(next.label) ? { ...next.label } : {};
+      if (label.show !== false) {
+        label.color = "#e8ecf1";
+        label.fontSize = label.fontSize ?? 11;
+        label.fontWeight = label.fontWeight ?? 600;
+        label.backgroundColor = "rgba(15, 18, 21, 0.78)";
+        label.borderRadius = 4;
+        label.padding = [2, 5];
+        label.shadowBlur = 4;
+        label.shadowColor = "rgba(0, 0, 0, 0.45)";
+      }
+      next.label = label;
       if (next.areaStyle === undefined) {
         next.areaStyle = { opacity: 0.12 };
       }
@@ -235,7 +247,7 @@ function decorateSeries(option: Record<string, unknown>): void {
       itemStyle.borderWidth = 0;
       next.itemStyle = itemStyle;
       const label = isRecord(next.label) ? { ...next.label } : {};
-      label.color = "#f2f4f6";
+      label.color = "#e8ecf1";
       label.fontSize = label.fontSize ?? 11;
       next.label = label;
       const labelLine = isRecord(next.labelLine) ? { ...next.labelLine } : {};
@@ -250,7 +262,7 @@ function decorateSeries(option: Record<string, unknown>): void {
         const emphasisLabel = isRecord(emphasis.label)
           ? { ...emphasis.label }
           : {};
-        emphasisLabel.color = "#f2f4f6";
+        emphasisLabel.color = "#e8ecf1";
         emphasis.label = emphasisLabel;
         next.emphasis = emphasis;
       }
@@ -383,15 +395,19 @@ function decorateReadableText(option: Record<string, unknown>): void {
     const textStyle = isRecord(option.title.textStyle)
       ? { ...option.title.textStyle }
       : {};
-    textStyle.color = "#f2f4f6";
+    textStyle.color = "#a4adba";
     textStyle.fontFamily = UI_FONT;
     option.title.textStyle = textStyle;
+    if (isRecord(option.legend) && option.legend.show !== false) {
+      option.title = { ...option.title, left: 16, top: 10 };
+      option.legend = { ...option.legend, top: 48, right: 12 };
+    }
   }
   if (isRecord(option.tooltip)) {
     const textStyle = isRecord(option.tooltip.textStyle)
       ? { ...option.tooltip.textStyle }
       : {};
-    textStyle.color = "#f2f4f6";
+    textStyle.color = "#e8ecf1";
     textStyle.fontFamily = UI_FONT;
     option.tooltip.textStyle = textStyle;
   }
@@ -587,7 +603,7 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
     title: {
       textStyle: {
         fontFamily: UI_FONT,
-        color: "#f2f4f6",
+        color: "#e8ecf1",
         fontSize: 13,
         fontWeight: 600,
       },
@@ -612,7 +628,7 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
       padding: [8, 10],
       textStyle: {
         fontFamily: UI_FONT,
-        color: "#f2f4f6",
+        color: "#e8ecf1",
         fontSize: 12,
       },
       extraCssText:
@@ -656,6 +672,14 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
   const usesCartesianAxis =
     primaryType === "" || !NON_CARTESIAN_TYPES.has(primaryType);
   if (usesCartesianAxis) {
+    if (
+      isRecord(merged.title) &&
+      isRecord(merged.legend) &&
+      merged.legend.show !== false &&
+      isRecord(merged.grid)
+    ) {
+      merged.grid = { ...merged.grid, top: 96 };
+    }
     if (Array.isArray(option.xAxis) || !isRecord(option.xAxis)) {
       merged.xAxis = mergeAxis(
         option.xAxis,

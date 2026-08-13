@@ -117,7 +117,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
 
     const send = () => {
       const question = value.trim();
-      if (!question || disabled) return;
+      if ((!question && attached.length === 0) || disabled) return;
       onSend(question, attached);
       setValue("");
       setAttached([]);
@@ -334,7 +334,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
               variant="primary"
               className="send-button"
               onClick={send}
-              disabled={!value.trim() || disabled}
+              disabled={(!value.trim() && attached.length === 0) || disabled}
               aria-label="发送"
             >
               <ArrowUp size={16} />

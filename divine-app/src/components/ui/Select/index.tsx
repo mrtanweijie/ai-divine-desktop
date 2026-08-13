@@ -15,6 +15,7 @@ interface SelectProps {
   options: SelectOption[];
   label?: string;
   placeholder?: string;
+  editable?: boolean;
 }
 
 export function Select({
@@ -23,6 +24,7 @@ export function Select({
   options,
   label,
   placeholder = "请选择",
+  editable = false,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -67,17 +69,35 @@ export function Select({
   return (
     <div className="ui-field">
       {label && <span className="ui-field-label">{label}</span>}
-      <div className="ui-select" ref={ref}>
-        <button
-          type="button"
-          className="ui-select-trigger"
-          onClick={() => setOpen((value) => !value)}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-        >
-          <span>{current?.label ?? placeholder}</span>
-          <ChevronDown size={14} className={open ? "open" : ""} />
-        </button>
+      <div className={`ui-select${editable ? " editable" : ""}`} ref={ref}>
+        {editable ? (
+          <div className="ui-select-input-wrap">
+            <input
+              value={value}
+              placeholder={placeholder}
+              onChange={(event) => onChange(event.target.value)}
+              onFocus={() => setOpen(true)}
+              aria-haspopup="listbox"
+              aria-expanded={open}
+            />
+            <ChevronDown
+              size={14}
+              className={open ? "open" : ""}
+              onClick={() => setOpen((value) => !value)}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="ui-select-trigger"
+            onClick={() => setOpen((value) => !value)}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+          >
+            <span>{current?.label ?? placeholder}</span>
+            <ChevronDown size={14} className={open ? "open" : ""} />
+          </button>
+        )}
         {open && (
           createPortal(
             <div

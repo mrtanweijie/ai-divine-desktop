@@ -393,6 +393,7 @@ export function ScheduledTasksPage({
                   <Flex align="center" gap={4} className="task-row-actions">
                     <Dropdown
                       align="end"
+                      openOn="hover"
                       trigger={
                         <Button
                           variant="icon"

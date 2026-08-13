@@ -1,4 +1,9 @@
-import { Clock, Settings, Sparkles, SquarePen } from "lucide-react";
+import {
+  Clock,
+  MessageSquareQuote,
+  Settings,
+  Sparkles,
+} from "lucide-react";
 import { Flex } from "@/components/ui/Flex";
 import type { Project, Session } from "@/types";
 import { ProjectList } from "./ProjectList";
@@ -68,7 +73,7 @@ export function SessionList({
               }
             }}
           >
-            <SquarePen size={16} aria-hidden="true" />
+            <MessageSquareQuote size={16} aria-hidden="true" />
             <span>新对话</span>
           </div>
         </Flex>
