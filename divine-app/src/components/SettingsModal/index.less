@@ -1,3 +1,50 @@
+.settings-layout {
+  display: flex;
+  gap: 18px;
+  min-height: 365px;
+}
+
+.settings-sidebar {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 4px;
+  width: 200px;
+  padding-right: 16px;
+  border-right: 1px solid var(--color-border);
+}
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-nav-item:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.settings-nav-item.active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.settings-main {
+  flex: 1;
+  min-width: 0;
+}
+
 .settings-form {
   display: flex;
   flex-direction: column;

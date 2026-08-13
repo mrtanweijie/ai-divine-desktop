@@ -9,6 +9,7 @@ import type { ThemedToken } from "shiki";
 import { Button } from "@/components/ui/Button";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import type { FileDiff } from "@/types";
+import { useTheme } from "@/services/theme";
 import { normalizeLanguage } from "@/pages/chat/components/MarkdownView/language";
 
 interface FileContentViewProps {
@@ -40,6 +41,7 @@ function tokenStyle(token: ThemedToken): CSSProperties {
 
 function CodePreview({ code, relPath }: { code: string; relPath: string }) {
   const content = code || "";
+  const theme = useTheme();
   const language = useMemo(
     () => normalizeLanguage(languageFromPath(relPath)),
     [relPath]
@@ -50,13 +52,18 @@ function CodePreview({ code, relPath }: { code: string; relPath: string }) {
     let active = true;
     setLines(null);
     void import("@/pages/chat/components/MarkdownView/shiki")
-      .then(({ getHighlighter }) => getHighlighter())
+      .then(({ getHighlighter, highlightTheme }) => {
+        return getHighlighter().then((highlighter) => ({
+          highlighter,
+          highlightTheme,
+        }));
+      })
       .then((highlighter) => {
         if (!active) return;
         try {
-          const result = highlighter.codeToTokens(content, {
+          const result = highlighter.highlighter.codeToTokens(content, {
             lang: language,
-            theme: "github-dark",
+            theme: highlighter.highlightTheme(theme),
           });
           if (active) setLines(result.tokens);
         } catch {
@@ -69,7 +76,7 @@ function CodePreview({ code, relPath }: { code: string; relPath: string }) {
     return () => {
       active = false;
     };
-  }, [content, language]);
+  }, [content, language, theme]);
 
   if (!content) {
     return (

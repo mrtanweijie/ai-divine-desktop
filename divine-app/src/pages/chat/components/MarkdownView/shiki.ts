@@ -1,6 +1,7 @@
 import { createHighlighterCore, type HighlighterCore } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 import githubDark from "@shikijs/themes/github-dark";
+import githubLight from "@shikijs/themes/github-light";
 
 import javascript from "@shikijs/langs/javascript";
 import typescript from "@shikijs/langs/typescript";
@@ -38,7 +39,9 @@ import vue from "@shikijs/langs/vue";
 import svelte from "@shikijs/langs/svelte";
 import toml from "@shikijs/langs/toml";
 
-export const HIGHLIGHT_THEME = "github-dark";
+export function highlightTheme(theme: "dark" | "light"): string {
+  return theme === "light" ? "github-light" : "github-dark";
+}
 
 const LANGS = [
   javascript,
@@ -82,7 +85,7 @@ let highlighterPromise: Promise<HighlighterCore> | null = null;
 
 export function getHighlighter(): Promise<HighlighterCore> {
   highlighterPromise ??= createHighlighterCore({
-    themes: [githubDark],
+    themes: [githubDark, githubLight],
     langs: LANGS,
     engine: createJavaScriptRegexEngine(),
   });

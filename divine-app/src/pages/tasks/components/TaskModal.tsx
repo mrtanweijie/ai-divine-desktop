@@ -102,7 +102,7 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
       open
       title={task ? "编辑定时任务" : "新建定时任务"}
       onClose={onClose}
-      width={520}
+      width={560}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { ECharts, EChartsOption } from "echarts";
+import { useTheme } from "@/services/theme";
 
 interface ChartBlockProps {
   option: Record<string, unknown>;
@@ -18,6 +19,45 @@ const UI_PALETTE = [
   "#c4b5fd",
   "#5eead4",
 ];
+
+type ChartTheme = "dark" | "light";
+
+interface ChartPalette {
+  text: string;
+  muted: string;
+  label: string;
+  labelBg: string;
+  border: string;
+  axisLine: string;
+  splitLine: string;
+  tooltipBg: string;
+  tooltipBorder: string;
+}
+
+const CHART_PALETTES: Record<ChartTheme, ChartPalette> = {
+  dark: {
+    text: "#e8ecf1",
+    muted: "#a4adba",
+    label: "#e8ecf1",
+    labelBg: "rgba(15, 18, 21, 0.78)",
+    border: "#121517",
+    axisLine: "rgba(255,255,255,0.12)",
+    splitLine: "rgba(255,255,255,0.07)",
+    tooltipBg: "rgba(18,21,23,0.96)",
+    tooltipBorder: "rgba(255,255,255,0.12)",
+  },
+  light: {
+    text: "#1f2937",
+    muted: "#5b6472",
+    label: "#1f2937",
+    labelBg: "rgba(255,255,255,0.92)",
+    border: "#e5e7eb",
+    axisLine: "rgba(15,23,42,0.25)",
+    splitLine: "rgba(15,23,42,0.10)",
+    tooltipBg: "rgba(255,255,255,0.96)",
+    tooltipBorder: "rgba(15,23,42,0.14)",
+  },
+};
 
 const ITEM_TRIGGER_TYPES = new Set([
   "pie",
@@ -178,7 +218,10 @@ function mergeAxis(
   return isRecord(value) ? mergeRecord(defaults, value) : defaults;
 }
 
-function decorateSeries(option: Record<string, unknown>): void {
+function decorateSeries(
+  option: Record<string, unknown>,
+  palette: ChartPalette
+): void {
   if (!Array.isArray(option.series)) return;
   option.series = option.series.map((item) => {
     if (!isRecord(item)) return item;
@@ -216,7 +259,7 @@ function decorateSeries(option: Record<string, unknown>): void {
       } else {
         label.show = true;
         label.position = isHorizontalCartesian(option) ? "right" : "top";
-        label.color = label.color ?? "#e8ecf1";
+        label.color = label.color ?? palette.label;
         label.fontSize = label.fontSize ?? 11;
         label.fontWeight = label.fontWeight ?? 600;
       }
@@ -228,14 +271,17 @@ function decorateSeries(option: Record<string, unknown>): void {
       next.lineStyle = withDefaults(next.lineStyle, { width: 1.5 });
       const label = isRecord(next.label) ? { ...next.label } : {};
       if (label.show !== false) {
-        label.color = "#e8ecf1";
+        label.color = palette.label;
         label.fontSize = label.fontSize ?? 11;
         label.fontWeight = label.fontWeight ?? 600;
-        label.backgroundColor = "rgba(15, 18, 21, 0.78)";
+        label.backgroundColor = palette.labelBg;
         label.borderRadius = 4;
         label.padding = [2, 5];
         label.shadowBlur = 4;
-        label.shadowColor = "rgba(0, 0, 0, 0.45)";
+        label.shadowColor =
+          palette.border === "#121517"
+            ? "rgba(0, 0, 0, 0.45)"
+            : "rgba(15, 23, 42, 0.18)";
       }
       next.label = label;
       if (next.areaStyle === undefined) {
@@ -247,14 +293,14 @@ function decorateSeries(option: Record<string, unknown>): void {
       itemStyle.borderWidth = 0;
       next.itemStyle = itemStyle;
       const label = isRecord(next.label) ? { ...next.label } : {};
-      label.color = "#e8ecf1";
+      label.color = palette.label;
       label.fontSize = label.fontSize ?? 11;
       next.label = label;
       const labelLine = isRecord(next.labelLine) ? { ...next.labelLine } : {};
       const labelLineStyle = isRecord(labelLine.lineStyle)
         ? { ...labelLine.lineStyle }
         : {};
-      labelLineStyle.color = "rgba(255,255,255,0.18)";
+      labelLineStyle.color = palette.axisLine;
       labelLine.lineStyle = labelLineStyle;
       next.labelLine = labelLine;
       if (isRecord(next.emphasis)) {
@@ -262,13 +308,13 @@ function decorateSeries(option: Record<string, unknown>): void {
         const emphasisLabel = isRecord(emphasis.label)
           ? { ...emphasis.label }
           : {};
-        emphasisLabel.color = "#e8ecf1";
+        emphasisLabel.color = palette.label;
         emphasis.label = emphasisLabel;
         next.emphasis = emphasis;
       }
     } else if (type === "treemap") {
       const itemStyle = isRecord(next.itemStyle) ? { ...next.itemStyle } : {};
-      itemStyle.borderColor = "#121517";
+      itemStyle.borderColor = palette.border;
       next.itemStyle = itemStyle;
       if (Array.isArray(next.levels)) {
         next.levels = next.levels.map((level) => {
@@ -277,7 +323,7 @@ function decorateSeries(option: Record<string, unknown>): void {
           const levelStyle = isRecord(nextLevel.itemStyle)
             ? { ...nextLevel.itemStyle }
             : {};
-          levelStyle.borderColor = "#121517";
+          levelStyle.borderColor = palette.border;
           nextLevel.itemStyle = levelStyle;
           return nextLevel;
         });
@@ -286,11 +332,11 @@ function decorateSeries(option: Record<string, unknown>): void {
       next.breadcrumb = {
         ...breadcrumb,
         itemStyle: withDefaults(breadcrumb.itemStyle, {
-          color: "#121517",
-          borderColor: "rgba(255,255,255,0.12)",
+          color: palette.border,
+          borderColor: palette.axisLine,
           borderWidth: 1,
           textStyle: {
-            color: "#a4adba",
+            color: palette.muted,
             fontFamily: UI_FONT,
             fontSize: 11,
           },
@@ -306,23 +352,26 @@ function decorateSeries(option: Record<string, unknown>): void {
   });
 }
 
-function decorateRadar(option: Record<string, unknown>): void {
+function decorateRadar(
+  option: Record<string, unknown>,
+  palette: ChartPalette
+): void {
   const applyRadar = (radar: Record<string, unknown>) => {
     radar.axisName = withDefaults(radar.axisName, {
-      color: "#a4adba",
+      color: palette.muted,
       fontFamily: UI_FONT,
       fontSize: 11,
     });
     radar.axisLabel = withDefaults(radar.axisLabel, {
-      color: "#6f7783",
+      color: palette.muted,
       fontFamily: UI_FONT,
       fontSize: 10,
     });
     radar.axisLine = withDefaults(radar.axisLine, {
-      lineStyle: { color: "rgba(255,255,255,0.14)" },
+      lineStyle: { color: palette.axisLine },
     });
     radar.splitLine = withDefaults(radar.splitLine, {
-      lineStyle: { color: "rgba(255,255,255,0.10)" },
+      lineStyle: { color: palette.splitLine },
     });
     const splitArea = isRecord(radar.splitArea) ? { ...radar.splitArea } : {};
     splitArea.show = false;
@@ -337,35 +386,38 @@ function decorateRadar(option: Record<string, unknown>): void {
   }
 }
 
-function decorateAxes(option: Record<string, unknown>): void {
+function decorateAxes(
+  option: Record<string, unknown>,
+  palette: ChartPalette
+): void {
   const applyAxis = (axis: Record<string, unknown>) => {
     axis.splitArea = {
       ...(isRecord(axis.splitArea) ? axis.splitArea : {}),
       show: false,
     };
     const label = isRecord(axis.axisLabel) ? { ...axis.axisLabel } : {};
-    label.color = "#a4adba";
+    label.color = palette.muted;
     label.fontFamily = UI_FONT;
     label.fontSize = label.fontSize ?? 11;
     axis.axisLabel = label;
     const nameStyle = isRecord(axis.nameTextStyle)
       ? { ...axis.nameTextStyle }
       : {};
-    nameStyle.color = "#a4adba";
+    nameStyle.color = palette.muted;
     nameStyle.fontFamily = UI_FONT;
     axis.nameTextStyle = nameStyle;
     const axisLine = isRecord(axis.axisLine) ? { ...axis.axisLine } : {};
     const axisLineStyle = isRecord(axisLine.lineStyle)
       ? { ...axisLine.lineStyle }
       : {};
-    axisLineStyle.color = "rgba(255,255,255,0.12)";
+    axisLineStyle.color = palette.axisLine;
     axisLine.lineStyle = axisLineStyle;
     axis.axisLine = axisLine;
     const splitLine = isRecord(axis.splitLine) ? { ...axis.splitLine } : {};
     const splitLineStyle = isRecord(splitLine.lineStyle)
       ? { ...splitLine.lineStyle }
       : {};
-    splitLineStyle.color = "rgba(255,255,255,0.07)";
+    splitLineStyle.color = palette.splitLine;
     splitLine.lineStyle = splitLineStyle;
     axis.splitLine = splitLine;
   };
@@ -381,12 +433,15 @@ function decorateAxes(option: Record<string, unknown>): void {
   }
 }
 
-function decorateReadableText(option: Record<string, unknown>): void {
+function decorateReadableText(
+  option: Record<string, unknown>,
+  palette: ChartPalette
+): void {
   if (isRecord(option.legend)) {
     const textStyle = isRecord(option.legend.textStyle)
       ? { ...option.legend.textStyle }
       : {};
-    textStyle.color = "#a4adba";
+    textStyle.color = palette.muted;
     textStyle.fontFamily = UI_FONT;
     textStyle.fontSize = textStyle.fontSize ?? 11;
     option.legend.textStyle = textStyle;
@@ -395,7 +450,7 @@ function decorateReadableText(option: Record<string, unknown>): void {
     const textStyle = isRecord(option.title.textStyle)
       ? { ...option.title.textStyle }
       : {};
-    textStyle.color = "#a4adba";
+    textStyle.color = palette.muted;
     textStyle.fontFamily = UI_FONT;
     option.title.textStyle = textStyle;
     if (isRecord(option.legend) && option.legend.show !== false) {
@@ -407,7 +462,7 @@ function decorateReadableText(option: Record<string, unknown>): void {
     const textStyle = isRecord(option.tooltip.textStyle)
       ? { ...option.tooltip.textStyle }
       : {};
-    textStyle.color = "#e8ecf1";
+    textStyle.color = palette.text;
     textStyle.fontFamily = UI_FONT;
     option.tooltip.textStyle = textStyle;
   }
@@ -429,7 +484,10 @@ function movingAverage(values: number[], dayCount: number): (number | string)[] 
   return result;
 }
 
-function decorateCandlestick(option: Record<string, unknown>): void {
+function decorateCandlestick(
+  option: Record<string, unknown>,
+  palette: ChartPalette
+): void {
   const upColor = "#00da3c";
   const downColor = "#ec0000";
   const series = Array.isArray(option.series)
@@ -560,7 +618,7 @@ function decorateCandlestick(option: Record<string, unknown>): void {
   if (!isRecord(option.axisPointer)) {
     option.axisPointer = {
       link: [{ xAxisIndex: "all" }],
-      label: { backgroundColor: "#6f7783" },
+      label: { backgroundColor: palette.muted },
     };
   }
 }
@@ -584,7 +642,11 @@ function sanitizeFormatters(value: unknown): void {
   }
 }
 
-function buildChartOption(option: Record<string, unknown>): EChartsOption {
+function buildChartOption(
+  option: Record<string, unknown>,
+  theme: ChartTheme
+): EChartsOption {
+  const palette = CHART_PALETTES[theme];
   const series = Array.isArray(option.series) ? option.series : [];
   const primaryType =
     series.length > 0 &&
@@ -594,16 +656,16 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
       : "";
   const tooltipTrigger = ITEM_TRIGGER_TYPES.has(primaryType) ? "item" : "axis";
 
-  const theme: Record<string, unknown> = {
+  const themeBase: Record<string, unknown> = {
     color: UI_PALETTE,
     textStyle: {
       fontFamily: UI_FONT,
-      color: "#a4adba",
+      color: palette.muted,
     },
     title: {
       textStyle: {
         fontFamily: UI_FONT,
-        color: "#e8ecf1",
+        color: palette.text,
         fontSize: 13,
         fontWeight: 600,
       },
@@ -617,22 +679,24 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
       itemGap: 12,
       textStyle: {
         fontFamily: UI_FONT,
-        color: "#a4adba",
+        color: palette.muted,
         fontSize: 11,
       },
     },
     tooltip: {
-      backgroundColor: "rgba(18,21,23,0.96)",
-      borderColor: "rgba(255,255,255,0.12)",
+      backgroundColor: palette.tooltipBg,
+      borderColor: palette.tooltipBorder,
       borderWidth: 1,
       padding: [8, 10],
       textStyle: {
         fontFamily: UI_FONT,
-        color: "#e8ecf1",
+        color: palette.text,
         fontSize: 12,
       },
       extraCssText:
-        "border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.35);",
+        theme === "light"
+          ? "border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,0.12);"
+          : "border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.35);",
     },
     grid: {
       left: 12,
@@ -643,11 +707,11 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
     },
     xAxis: {
       axisLine: {
-        lineStyle: { color: "rgba(255,255,255,0.14)" },
+        lineStyle: { color: palette.axisLine },
       },
       axisTick: { show: false },
       axisLabel: {
-        color: "#a4adba",
+        color: palette.muted,
         fontFamily: UI_FONT,
         fontSize: 11,
       },
@@ -657,18 +721,18 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
       axisLine: { show: false },
       axisTick: { show: false },
       axisLabel: {
-        color: "#6f7783",
+        color: palette.muted,
         fontFamily: UI_FONT,
         fontSize: 11,
       },
       splitLine: {
-        lineStyle: { color: "rgba(255,255,255,0.06)" },
+        lineStyle: { color: palette.splitLine },
       },
     },
   };
 
-  const merged = mergeRecord(theme, option);
-  decorateReadableText(merged);
+  const merged = mergeRecord(themeBase, option);
+  decorateReadableText(merged, palette);
   const usesCartesianAxis =
     primaryType === "" || !NON_CARTESIAN_TYPES.has(primaryType);
   if (usesCartesianAxis) {
@@ -683,18 +747,18 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
     if (Array.isArray(option.xAxis) || !isRecord(option.xAxis)) {
       merged.xAxis = mergeAxis(
         option.xAxis,
-        theme.xAxis as Record<string, unknown>
+        themeBase.xAxis as Record<string, unknown>
       );
     }
     if (Array.isArray(option.yAxis) || !isRecord(option.yAxis)) {
       merged.yAxis = mergeAxis(
         option.yAxis,
-        theme.yAxis as Record<string, unknown>
+        themeBase.yAxis as Record<string, unknown>
       );
     }
-    decorateAxes(merged);
+    decorateAxes(merged, palette);
     if (primaryType === "candlestick") {
-      decorateCandlestick(merged);
+      decorateCandlestick(merged, palette);
     }
   } else {
     if (option.xAxis === undefined) delete merged.xAxis;
@@ -738,7 +802,7 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
     });
   }
   if (primaryType === "radar") {
-    decorateRadar(merged);
+    decorateRadar(merged, palette);
   }
   if (
     usesCartesianAxis &&
@@ -761,12 +825,13 @@ function buildChartOption(option: Record<string, unknown>): EChartsOption {
     }
   }
   sanitizeFormatters(merged);
-  decorateSeries(merged);
+  decorateSeries(merged, palette);
   return merged as unknown as EChartsOption;
 }
 
 export function ChartBlock({ option }: ChartBlockProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
 
   useEffect(() => {
     const container = containerRef.current;
@@ -781,7 +846,7 @@ export function ChartBlock({ option }: ChartBlockProps) {
       if (disposed) return;
       chart = echarts.init(container);
       frame = requestAnimationFrame(() => {
-        chart?.setOption(buildChartOption(option), { notMerge: true });
+        chart?.setOption(buildChartOption(option, theme), { notMerge: true });
         chart?.resize();
       });
       observer = new ResizeObserver(() => chart?.resize());
@@ -794,7 +859,7 @@ export function ChartBlock({ option }: ChartBlockProps) {
       observer?.disconnect();
       chart?.dispose();
     };
-  }, [option]);
+  }, [option, theme]);
 
   return (
     <div

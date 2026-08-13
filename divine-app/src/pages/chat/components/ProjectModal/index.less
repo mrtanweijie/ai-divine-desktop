@@ -27,8 +27,8 @@
 }
 
 .project-source-box:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.45);
-  background: var(--color-surface-2);
+  border-color: var(--color-border-strong);
+  background: var(--color-hover-soft);
   color: var(--color-text);
 }
 
@@ -112,12 +112,17 @@
 }
 
 .project-icon-option:hover {
-  border-color: rgba(255, 255, 255, 0.45);
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-2);
   color: var(--color-text);
 }
 
+:root[data-theme="light"] .project-icon-option:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
 .project-icon-option.active {
-  border-color: rgba(255, 255, 255, 0.45);
+  border-color: var(--color-accent);
   background: var(--color-accent-soft);
   color: var(--color-accent);
 }

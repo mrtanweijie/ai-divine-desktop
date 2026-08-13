@@ -24,7 +24,7 @@
   width: 32px;
   height: 18px;
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--color-switch-off);
   transition: background 150ms ease;
 }
 
@@ -35,7 +35,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--color-switch-thumb);
   transition: transform 150ms ease, background 150ms ease;
 }
 
@@ -44,7 +44,7 @@
 }
 
 .ui-switch-input:checked + .ui-switch-track .ui-switch-thumb {
-  background: #0b0d0f;
+  background: var(--color-on-accent);
   transform: translateX(14px);
 }
 

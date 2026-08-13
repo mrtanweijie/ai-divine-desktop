@@ -31,7 +31,7 @@ export function SessionSearchModal({
   }, [query, sessions]);
 
   return (
-    <Modal open={open} title="搜索会话" onClose={onClose} width={420}>
+    <Modal open={open} title="搜索会话" onClose={onClose} width={560}>
       <Input
         autoFocus
         value={query}

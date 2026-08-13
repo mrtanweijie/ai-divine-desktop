@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router/dom";
 import { router } from "@/app/router";
 import "@/styles/index.less";
+import { initTheme } from "@/services/theme";
+
+initTheme();
 
 if (import.meta.env.VITE_DISABLE_CONTEXT_MENU === "true") {
   window.addEventListener("contextmenu", (event) => {

@@ -4,6 +4,7 @@ import {
   type RecallToken,
 } from "@shikijs/stream";
 import type { ThemedToken } from "shiki";
+import { useTheme } from "@/services/theme";
 import { normalizeLanguage } from "./language";
 
 interface HighlightedCodeProps {
@@ -45,7 +46,8 @@ function flattenLines(lines: ThemedToken[][]): ThemedToken[] {
 
 function createStreamHandle(
   language: string,
-  sink: (token: ThemedToken | RecallToken) => void
+  sink: (token: ThemedToken | RecallToken) => void,
+  theme: "dark" | "light"
 ): StreamHandle {
   let source: ReadableStreamDefaultController<string> | null = null;
   let cancelled = false;
@@ -56,18 +58,18 @@ function createStreamHandle(
   });
 
   void import("./shiki")
-    .then(({ getHighlighter }) => getHighlighter())
-    .then((highlighter) => {
+    .then(async ({ getHighlighter, highlightTheme }) => {
+      const highlighter = await getHighlighter();
       if (cancelled) return;
       const tokenStream = readable.pipeThrough(
         new CodeToTokenTransformStream({
           highlighter,
           lang: language,
-          theme: "github-dark",
+          theme: highlightTheme(theme),
           allowRecalls: true,
         })
       );
-      void tokenStream
+      await tokenStream
         .pipeTo(
           new WritableStream<ThemedToken | RecallToken>({
             write(token) {
@@ -75,9 +77,9 @@ function createStreamHandle(
             },
           })
         )
-        .catch(() => {});
+        .catch(() => undefined);
     })
-    .catch(() => {});
+    .catch(() => undefined);
 
   return {
     enqueue(chunk) {
@@ -106,6 +108,7 @@ export function HighlightedCode({
   streaming,
 }: HighlightedCodeProps) {
   const lang = normalizeLanguage(language);
+  const theme = useTheme();
   const [tokens, setTokens] = useState<ThemedToken[]>([]);
   const streamRef = useRef<StreamHandle | null>(null);
   const pendingCodeRef = useRef(code);
@@ -126,7 +129,7 @@ export function HighlightedCode({
 
   useEffect(() => {
     if (!streaming) return;
-    const handle = createStreamHandle(lang, applyToken);
+    const handle = createStreamHandle(lang, applyToken, theme);
     streamRef.current = handle;
     const initial = pendingCodeRef.current;
     if (initial) {
@@ -138,7 +141,7 @@ export function HighlightedCode({
       streamRef.current = null;
       setTokens([]);
     };
-  }, [lang, streaming]);
+  }, [lang, streaming, theme]);
 
   useEffect(() => {
     if (!streaming) return;
@@ -154,24 +157,29 @@ export function HighlightedCode({
     }
     handle.cancel();
     setTokens([]);
-    const next = createStreamHandle(lang, applyToken);
+    const next = createStreamHandle(lang, applyToken, theme);
     streamRef.current = next;
     next.enqueue(code);
     next.prevCode = code;
-  }, [code, lang, streaming]);
+  }, [code, lang, streaming, theme]);
 
   useEffect(() => {
     if (streaming) return;
     let cancelled = false;
     setTokens([]);
     void import("./shiki")
-      .then(({ getHighlighter }) => getHighlighter())
+      .then(({ getHighlighter, highlightTheme }) => {
+        return getHighlighter().then((highlighter) => ({
+          highlighter,
+          highlightTheme,
+        }));
+      })
       .then((highlighter) => {
         if (cancelled) return;
         try {
-          const result = highlighter.codeToTokens(code, {
+          const result = highlighter.highlighter.codeToTokens(code, {
             lang,
-            theme: "github-dark",
+            theme: highlighter.highlightTheme(theme),
           });
           if (!cancelled) setTokens(flattenLines(result.tokens));
         } catch {
@@ -182,7 +190,7 @@ export function HighlightedCode({
     return () => {
       cancelled = true;
     };
-  }, [code, lang, streaming]);
+  }, [code, lang, streaming, theme]);
 
   return (
     <code className="shiki-code">
