@@ -36,7 +36,10 @@ class PreviewSkillRepoAdapter(ToolAdapter):
     timeout = 60
 
     async def run(
-        self, workspace: Any, arguments: dict[str, Any]
+        self,
+        workspace: Any,
+        arguments: dict[str, Any],
+        locale: str | None = None,
     ) -> ToolResult:
         repo_url = str(arguments.get("repo_url") or "").strip()
         ref = str(arguments.get("ref") or "").strip() or None
@@ -49,6 +52,8 @@ class PreviewSkillRepoAdapter(ToolAdapter):
             success=True,
             message=f"仓库 {info.get('repo')} 找到 {count} 个技能",
             data=info,
+            message_key="tool.skillRepoFound",
+            message_params={"repo": info.get("repo", ""), "count": count},
         )
 
 
@@ -87,7 +92,10 @@ class InstallSkillAdapter(ToolAdapter):
     timeout = 120
 
     async def run(
-        self, workspace: Path, arguments: dict[str, Any]
+        self,
+        workspace: Path,
+        arguments: dict[str, Any],
+        locale: str | None = None,
     ) -> ToolResult:
         repo_url = str(arguments.get("repo_url") or "").strip()
         skill_path = str(arguments.get("skill_path") or "").strip() or None
@@ -109,4 +117,6 @@ class InstallSkillAdapter(ToolAdapter):
             success=True,
             message=f"技能 {result['name']} 已安装",
             data=result,
+            message_key="tool.skillInstalled",
+            message_params={"name": result["name"]},
         )

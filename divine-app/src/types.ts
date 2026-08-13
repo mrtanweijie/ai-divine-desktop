@@ -16,6 +16,7 @@ export interface Session {
   title: string;
   project_id: string | null;
   approval_mode: ApprovalMode;
+  locale?: string;
   created_at: string;
   updated_at: string;
 }
@@ -46,6 +47,8 @@ export interface ToolEvent {
   files?: ToolFileLink[];
   status: "preparing" | "running" | "confirm" | "done" | "error";
   message: string;
+  messageKey?: string;
+  messageParams?: Record<string, unknown>;
   command?: string;
   commands?: string[];
   confirm_type?:
@@ -69,6 +72,8 @@ export interface ToolEvent {
     download_url?: string;
     file_size?: number;
     message?: string;
+    messageKey?: string;
+    messageParams?: Record<string, unknown>;
     success?: boolean;
     stdout?: string;
     stderr?: string;

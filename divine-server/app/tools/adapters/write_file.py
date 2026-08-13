@@ -53,7 +53,10 @@ class WriteFileAdapter(ToolAdapter):
         return [external] if external else []
 
     async def run(
-        self, workspace: Path, arguments: dict[str, Any]
+        self,
+        workspace: Path,
+        arguments: dict[str, Any],
+        locale: str | None = None,
     ) -> ToolResult:
         raw_path = str(arguments.get("path") or "").strip()
         content = str(arguments.get("content") or "")
@@ -91,6 +94,10 @@ class WriteFileAdapter(ToolAdapter):
             message=(
                 "文件已追加" if mode == "append" else "文件已写入"
             ),
+            message_key=(
+                "tool.fileAppended" if mode == "append" else "tool.fileWritten"
+            ),
+            message_params={},
             file_name=target.name,
             filepath=str(target),
             file_size=target.stat().st_size,

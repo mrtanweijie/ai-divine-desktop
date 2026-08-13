@@ -11,6 +11,11 @@ const toTraditional = Converter({ from: "cn", to: "tw" });
 
 // Ordered replacements so specific phrases win over generic terms.
 const TERMS = [
+  ["批量", "批次"],
+  ["剪贴板", "剪貼簿"],
+  ["交互", "互動"],
+  ["磁盤", "磁碟"],
+  ["調用", "呼叫"],
   ["用戶級", "使用者層級"],
   ["用戶名", "使用者名稱"],
   ["文件樹", "檔案樹"],
@@ -77,9 +82,14 @@ function convertValue(value) {
 
 function fillFromZhCN(zhCNSection, targetSection) {
   const output = {};
-  for (const [key, value] of Object.entries(targetSection)) {
-    if (value && typeof value === "object") {
-      output[key] = fillFromZhCN(zhCNSection?.[key], value);
+  const zhCNKeys = Object.keys(zhCNSection ?? {});
+  const targetKeys = Object.keys(targetSection ?? {});
+  for (const key of new Set([...zhCNKeys, ...targetKeys])) {
+    const existing = targetSection?.[key];
+    if (existing && typeof existing === "object") {
+      output[key] = fillFromZhCN(zhCNSection?.[key], existing);
+    } else if (existing !== undefined) {
+      output[key] = existing;
     } else {
       const baseKey = key.replace(/_(one|other|few|many|zero|two)$/, "");
       const source = zhCNSection?.[baseKey] ?? zhCNSection?.[key] ?? "";

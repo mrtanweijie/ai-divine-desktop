@@ -13,7 +13,15 @@ from ..config import output_dir_for_workspace
 
 
 class ToolExecutionError(RuntimeError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        message_key: str | None = None,
+        message_params: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.message_key = message_key
+        self.message_params = message_params
 
 
 @dataclass
@@ -26,6 +34,8 @@ class ToolResult:
     file_size: int | None = None
     content: str | None = None
     data: dict[str, Any] | None = None
+    message_key: str | None = None
+    message_params: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -37,6 +47,8 @@ class ToolResult:
             "file_size": self.file_size,
             "content": self.content,
             "data": self.data,
+            "messageKey": self.message_key,
+            "messageParams": self.message_params,
         }
 
 
@@ -95,7 +107,12 @@ class ToolAdapter:
     ) -> list[str]:
         return []
 
-    async def run(self, workspace: Path, arguments: dict[str, Any]) -> ToolResult:
+    async def run(
+        self,
+        workspace: Path,
+        arguments: dict[str, Any],
+        locale: str | None = None,
+    ) -> ToolResult:
         params = self.build_params(arguments or {})
         script = Path(__file__).resolve().parent / "scripts" / self.script_name
         if not script.exists():
@@ -105,6 +122,7 @@ class ToolAdapter:
             "workspace": str(workspace.resolve()),
             "output_dir": str(output_root.resolve()),
             "params": params,
+            "locale": locale or "zh-CN",
         }
         loop = asyncio.get_running_loop()
         output = await loop.run_in_executor(
@@ -147,7 +165,13 @@ class ToolAdapter:
         self, workspace: Path, output: dict[str, Any], output_root: Path
     ) -> ToolResult:
         if not output.get("success"):
-            raise ToolExecutionError(output.get("message", "工具执行失败"))
+            raise ToolExecutionError(
+                output.get("message", "工具执行失败"),
+                message_key=output.get("messageKey")
+                or output.get("message_key"),
+                message_params=output.get("messageParams")
+                or output.get("message_params"),
+            )
         filepath_value = output.get("filepath") or output.get("file_name")
         if not filepath_value:
             return ToolResult(
@@ -158,6 +182,10 @@ class ToolAdapter:
                 file_size=None,
                 content=output.get("content"),
                 data=output.get("data"),
+                message_key=output.get("messageKey")
+                or output.get("message_key"),
+                message_params=output.get("messageParams")
+                or output.get("message_params"),
             )
         filepath = Path(filepath_value)
         if not filepath.is_absolute():
@@ -193,4 +221,8 @@ class ToolAdapter:
             file_size=os.path.getsize(filepath),
             content=output.get("content"),
             data=output.get("data"),
+            message_key=output.get("messageKey")
+            or output.get("message_key"),
+            message_params=output.get("messageParams")
+            or output.get("message_params"),
         )

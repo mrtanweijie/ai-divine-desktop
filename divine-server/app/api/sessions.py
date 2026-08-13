@@ -7,6 +7,11 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
 from .. import db
+from ..localization import (
+    default_session_title,
+    export_labels,
+    normalize_locale,
+)
 from ..pdf_export import render_markdown_pdf
 from ..schemas import SessionCreate, SessionUpdate
 
@@ -25,8 +30,12 @@ def create_session(body: SessionCreate):
         raise HTTPException(status_code=404, detail="项目不存在")
     if body.approval_mode and body.approval_mode not in ("ask", "assist", "full"):
         raise HTTPException(status_code=400, detail="审批模式不支持")
+    locale = normalize_locale(body.locale)
     session = db.create_session(
-        body.title, body.project_id, body.approval_mode
+        body.title or default_session_title(locale),
+        body.project_id,
+        body.approval_mode,
+        locale,
     )
     logger.info("session created id=%s title=%s", session["id"], body.title)
     return session
@@ -53,7 +62,10 @@ def rename_session(session_id: str, body: SessionUpdate):
         raise HTTPException(status_code=404, detail="会话不存在")
     updates: dict[str, str] = {}
     if body.title is not None:
-        updates["title"] = body.title.strip() or "新对话"
+        updates["title"] = (
+            body.title.strip()
+            or default_session_title(session.get("locale") or "zh-CN")
+        )
     if body.approval_mode is not None:
         if body.approval_mode not in ("ask", "assist", "full"):
             raise HTTPException(status_code=400, detail="审批模式不支持")
@@ -84,15 +96,18 @@ def clear_session(session_id: str):
 
 
 @router.get("/{session_id}/export")
-def export_session(session_id: str, format: str = "markdown"):
+def export_session(
+    session_id: str, format: str = "markdown", locale: str = "zh-CN"
+):
     session = db.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    labels = export_labels(locale)
     messages = db.list_messages(session_id)
     lines = [
         f"# {session['title']}",
         "",
-        f"导出时间：{datetime.now().isoformat(timespec='seconds')}",
+        f"{labels['exported_at']}：{datetime.now().isoformat(timespec='seconds')}",
         "",
     ]
     for message in messages:
@@ -102,7 +117,7 @@ def export_session(session_id: str, format: str = "markdown"):
             parts = db.list_message_parts(message["id"])
             if any(part["type"] == "tool_calls" for part in parts):
                 continue
-        role = "用户" if message["role"] == "user" else "AI"
+        role = labels["user"] if message["role"] == "user" else labels["ai"]
         lines.extend([f"## {role}", "", message["content"], ""])
     if format == "text":
         text = "\n".join(lines)
@@ -112,7 +127,9 @@ def export_session(session_id: str, format: str = "markdown"):
             headers={"Content-Disposition": 'attachment; filename="chat.txt"'},
         )
     if format == "pdf":
-        payload = render_markdown_pdf("\n".join(lines), session["title"])
+        payload = render_markdown_pdf(
+            "\n".join(lines), labels["title"]
+        )
         return Response(
             payload,
             media_type="application/pdf",

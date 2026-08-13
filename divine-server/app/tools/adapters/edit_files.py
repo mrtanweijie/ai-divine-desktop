@@ -93,7 +93,10 @@ class EditFilesAdapter(ToolAdapter):
         return paths
 
     async def run(
-        self, workspace: Path, arguments: dict[str, Any]
+        self,
+        workspace: Path,
+        arguments: dict[str, Any],
+        locale: str | None = None,
     ) -> ToolResult:
         workspace = workspace.resolve()
         raw_files = arguments.get("files") or []
@@ -195,6 +198,8 @@ class EditFilesAdapter(ToolAdapter):
         return ToolResult(
             success=True,
             message=f"已批量完成：新增 {created} 个文件，修改 {modified} 个文件",
+            message_key="tool.filesEdited",
+            message_params={"created": created, "modified": modified},
             content=None,
             data={"files": summary},
         )

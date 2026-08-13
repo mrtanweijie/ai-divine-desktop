@@ -18,6 +18,7 @@ class StreamChatRequest(BaseModel):
     project_id: str | None = None
     approval_mode: str | None = None
     think: bool = False
+    locale: str | None = None
     attachments: list[Attachment] = []
 
 
@@ -25,6 +26,7 @@ class SessionCreate(BaseModel):
     title: str | None = None
     project_id: str | None = None
     approval_mode: str | None = None
+    locale: str | None = None
 
 
 class SessionUpdate(BaseModel):

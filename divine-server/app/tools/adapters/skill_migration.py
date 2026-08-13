@@ -27,13 +27,18 @@ class DiscoverImportableSkillsAdapter(ToolAdapter):
     timeout = 15
 
     async def run(
-        self, workspace: Any, arguments: dict[str, Any]
+        self,
+        workspace: Any,
+        arguments: dict[str, Any],
+        locale: str | None = None,
     ) -> ToolResult:
         skills = discover_importable_skills(workspace)
         return ToolResult(
             success=True,
             message=f"发现 {len(skills)} 个可迁移技能",
             data={"skills": skills},
+            message_key="tool.skillsDiscovered",
+            message_params={"count": len(skills)},
         )
 
 
@@ -68,7 +73,10 @@ class MigrateSkillAdapter(ToolAdapter):
     timeout = 30
 
     async def run(
-        self, workspace: Any, arguments: dict[str, Any]
+        self,
+        workspace: Any,
+        arguments: dict[str, Any],
+        locale: str | None = None,
     ) -> ToolResult:
         name = str(arguments.get("name") or "").strip()
         source_tool = str(arguments.get("source_tool") or "").strip() or None
@@ -87,6 +95,8 @@ class MigrateSkillAdapter(ToolAdapter):
             success=True,
             message=f"技能 {result['name']} 已迁移",
             data=result,
+            message_key="tool.skillMigrated",
+            message_params={"name": result["name"]},
         )
 
 
@@ -121,7 +131,10 @@ class MigrateSkillsAdapter(ToolAdapter):
     timeout = 60
 
     async def run(
-        self, workspace: Any, arguments: dict[str, Any]
+        self,
+        workspace: Any,
+        arguments: dict[str, Any],
+        locale: str | None = None,
     ) -> ToolResult:
         names = [
             str(item or "").strip()
@@ -154,4 +167,10 @@ class MigrateSkillsAdapter(ToolAdapter):
                 f"失败 {failed} 个"
             ),
             data=result,
+            message_key="tool.skillsMigrated",
+            message_params={
+                "migrated": migrated,
+                "skipped": skipped,
+                "failed": failed,
+            },
         )

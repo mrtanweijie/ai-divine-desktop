@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
     approval_mode TEXT NOT NULL DEFAULT 'ask',
     plan_mode TEXT NOT NULL DEFAULT 'ask',
+    locale TEXT NOT NULL DEFAULT 'zh-CN',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -144,6 +145,11 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE sessions ADD COLUMN plan_mode TEXT "
                 "NOT NULL DEFAULT 'ask'"
+            )
+        if "locale" not in columns:
+            conn.execute(
+                "ALTER TABLE sessions ADD COLUMN locale TEXT "
+                "NOT NULL DEFAULT 'zh-CN'"
             )
         project_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(projects)")
@@ -264,6 +270,7 @@ def create_session(
     title: str | None = None,
     project_id: str | None = None,
     approval_mode: str | None = None,
+    locale: str | None = None,
 ) -> dict[str, Any]:
     session_id = _new_id()
     now = _now()
@@ -272,13 +279,14 @@ def create_session(
     with closing(_connect()) as conn:
         conn.execute(
             "INSERT INTO sessions "
-            "(id, title, project_id, approval_mode, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "(id, title, project_id, approval_mode, locale, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 session_id,
                 title or "新对话",
                 project_id,
                 approval_mode or "ask",
+                locale or "zh-CN",
                 now,
                 now,
             ),
@@ -315,6 +323,7 @@ def update_session(
     title: str | None = None,
     approval_mode: str | None = None,
     plan_mode: str | None = None,
+    locale: str | None = None,
 ) -> dict[str, Any]:
     session = get_session(session_id)
     if not session:
@@ -322,7 +331,7 @@ def update_session(
     with closing(_connect()) as conn:
         conn.execute(
             "UPDATE sessions SET title = ?, approval_mode = ?, "
-            "plan_mode = ?, updated_at = ? "
+            "plan_mode = ?, locale = ?, updated_at = ? "
             "WHERE id = ?",
             (
                 title if title is not None else session["title"],
@@ -330,6 +339,7 @@ def update_session(
                 plan_mode if plan_mode is not None else session.get(
                     "plan_mode", "ask"
                 ),
+                locale if locale is not None else session.get("locale", "zh-CN"),
                 _now(),
                 session_id,
             ),

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
+import i18next from "@/i18n";
 import {
   createProject,
   createSession,
@@ -646,7 +647,12 @@ export default function ChatPage() {
       if (!sessionId) {
         const projectId = selectedProjectId ?? projects[0]?.id ?? null;
         if (!projectId) return;
-        const session = await createSession(undefined, projectId, approvalMode);
+        const session = await createSession(
+          undefined,
+          projectId,
+          approvalMode,
+          i18next.language || "zh-CN"
+        );
         sessionId = session.id;
         setSessions((prev) => [session, ...prev]);
         setSelectedId(session.id);
@@ -680,6 +686,7 @@ export default function ChatPage() {
             session_id: sessionId,
             approval_mode: approvalMode,
             think,
+            locale: i18next.language || "zh-CN",
             attachments: files.map((file) => ({
               name: file.name,
               size: file.size,
@@ -797,14 +804,16 @@ export default function ChatPage() {
               refreshWorkspace(),
             ]);
           },
-          error: ({ message }) => {
+          error: ({ message, messageKey, messageParams }) => {
             setMessages((prev) =>
               prev.map((item) =>
                 item.id === assistantMessage.id
                   ? {
                       ...item,
                       streaming: false,
-                      error: message,
+                      error: messageKey
+                        ? t(messageKey, messageParams ?? {})
+                        : message,
                     }
                   : item
               )

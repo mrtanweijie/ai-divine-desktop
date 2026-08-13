@@ -57,6 +57,7 @@ from .api.terminal import (
 from .config import settings_store
 from .github_skills import preview_skill_repo
 from .llm import ChatDeepSeekProvider, MockChatModel
+from .localization import language_instruction, normalize_locale
 from .sse import error_event, sse_event
 from .skills import (
     discover_importable_skills,
@@ -114,6 +115,7 @@ class AgentRunContext:
     session_id: str
     workspace: Path
     approval_mode: str
+    locale: str = "zh-CN"
     plan_choice_resolved: bool = False
     plan_first_pending: bool = False
     plan_approved: bool = False
@@ -467,6 +469,7 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
             model_line = f"当前模型：{model_name}"
         parts = [
             SYSTEM_PROMPT.replace("create_plan", "write_todos"),
+            language_instruction(ctx.locale),
             (
                 f"当前会话所属项目工作目录：{ctx.workspace}\n"
                 "请以该目录作为方案设计和文件操作的工作区。"
@@ -692,6 +695,10 @@ async def _handle_adapter_call(
                 "tool": "plan_choice",
                 "status": "done",
                 "message": "已选择先出方案" if plan_first else "已选择直接执行",
+                "messageKey": (
+                    "tool.planChoiceFirst" if plan_first else "tool.planChoiceDirect"
+                ),
+                "messageParams": {},
                 "confirm_type": "plan_choice",
                 "session_id": ctx.session_id,
             }
@@ -767,6 +774,8 @@ async def _handle_adapter_call(
                             "tool": name,
                             "status": "error",
                             "message": "用户取消技能迁移",
+                            "messageKey": "tool.skillMigrateCancelled",
+                            "messageParams": {},
                             "session_id": ctx.session_id,
                             "call_id": call_id,
                         }
@@ -839,6 +848,8 @@ async def _handle_adapter_call(
                             "tool": name,
                             "status": "error",
                             "message": "用户取消批量技能迁移",
+                            "messageKey": "tool.batchMigrateCancelled",
+                            "messageParams": {},
                             "session_id": ctx.session_id,
                             "call_id": call_id,
                         }
@@ -897,6 +908,8 @@ async def _handle_adapter_call(
                             "tool": name,
                             "status": "error",
                             "message": "用户取消技能安装",
+                            "messageKey": "tool.skillInstallCancelled",
+                            "messageParams": {},
                             "session_id": ctx.session_id,
                             "call_id": call_id,
                         }
@@ -950,6 +963,8 @@ async def _handle_adapter_call(
                             "tool": name,
                             "status": "error",
                             "message": "已拒绝访问外部路径",
+                            "messageKey": "tool.externalFileRejected",
+                            "messageParams": {},
                             "paths": external_paths,
                             "session_id": ctx.session_id,
                             "call_id": call_id,
@@ -1003,6 +1018,8 @@ async def _handle_adapter_call(
                     "tool": name,
                     "status": "error",
                     "message": "已阻止危险命令",
+                    "messageKey": "tool.dangerousCommandBlocked",
+                    "messageParams": {},
                     "command": command,
                     "result": {"command": command},
                     "session_id": ctx.session_id,
@@ -1048,6 +1065,8 @@ async def _handle_adapter_call(
                         "tool": name,
                         "status": "error",
                         "message": "已拒绝执行",
+                        "messageKey": "tool.terminalRejected",
+                        "messageParams": {},
                         "command": command,
                         "result": {"command": command},
                         "session_id": ctx.session_id,
@@ -1093,12 +1112,19 @@ async def _handle_adapter_call(
                 "tool": name,
                 "status": "running",
                 "message": f"正在调用 {name}",
+                "messageKey": "tool.runningTool",
+                "messageParams": {"tool": name},
                 "command": command if is_terminal else None,
                 "call_id": call_id,
             }
         )
         output = await _execute_tool(
-            ctx.session_id, adapter, name, arguments, ctx.workspace
+            ctx.session_id,
+            adapter,
+            name,
+            arguments,
+            ctx.workspace,
+            locale=ctx.locale,
         )
         tool_content = output.get("content") or json.dumps(
             output, ensure_ascii=False
@@ -1108,6 +1134,8 @@ async def _handle_adapter_call(
             "tool": name,
             "status": "done" if output.get("success") else "error",
             "message": output.get("message", "执行完成"),
+            "messageKey": output.get("messageKey"),
+            "messageParams": output.get("messageParams") or {},
             "result": _frontend_tool_result(output),
             "call_id": call_id,
         }
@@ -1136,6 +1164,8 @@ async def _handle_adapter_call(
                         "tool": "schedule_task",
                         "status": "done",
                         "message": "已确认写入日程",
+                        "messageKey": "tool.calendarWritten",
+                        "messageParams": {},
                         "session_id": ctx.session_id,
                         "result": calendar_pending,
                     }
@@ -1166,6 +1196,8 @@ async def _handle_adapter_call(
                         "tool": "schedule_task",
                         "status": "done",
                         "message": "不写入日程",
+                        "messageKey": "tool.calendarSkipped",
+                        "messageParams": {},
                         "session_id": ctx.session_id,
                         "result": calendar_pending,
                     }
@@ -1355,6 +1387,8 @@ def _interrupt_sse(
                 "tool": "plan_choice",
                 "status": "confirm",
                 "message": payload.get("message", "执行任务前是否先出一份方案？"),
+                "messageKey": "tool.planChoiceText",
+                "messageParams": {},
                 "confirm_type": "plan_choice",
                 "call_id": payload.get("call_id", ""),
                 "session_id": session_id,
@@ -1369,6 +1403,8 @@ def _interrupt_sse(
                     "tool": "create_plan",
                     "status": "confirm",
                     "message": payload.get("message", "计划已创建，是否开始执行？"),
+                    "messageKey": "tool.planConfirmText",
+                    "messageParams": {},
                     "confirm_type": "plan",
                     "call_id": payload.get("call_id", ""),
                     "session_id": session_id,
@@ -1382,6 +1418,8 @@ def _interrupt_sse(
                 "tool": payload.get("tool") or "tool",
                 "status": "confirm",
                 "message": payload.get("message", "外部路径需要确认"),
+                "messageKey": "tool.externalFileConfirm",
+                "messageParams": {},
                 "confirm_type": "external_file",
                 "paths": payload.get("paths") or [],
                 "call_id": payload.get("call_id", ""),
@@ -1396,6 +1434,8 @@ def _interrupt_sse(
                 "status": "confirm",
                 "confirm_type": "terminal",
                 "message": payload.get("message", "等待用户确认"),
+                "messageKey": "tool.terminalWaitText",
+                "messageParams": {},
                 "command": payload.get("command") or "",
                 "call_id": payload.get("call_id", ""),
                 "session_id": session_id,
@@ -1409,6 +1449,8 @@ def _interrupt_sse(
                 "status": "confirm",
                 "confirm_type": "write_calendar",
                 "message": payload.get("message", "创建提醒后是否同时写入日程？"),
+                "messageKey": "tool.calendarConfirmText",
+                "messageParams": {},
                 "call_id": payload.get("call_id", ""),
                 "session_id": session_id,
             },
@@ -1421,6 +1463,11 @@ def _interrupt_sse(
                 "status": "confirm",
                 "confirm_type": "skill_migrate",
                 "message": payload.get("message", "等待用户确认技能迁移"),
+                "messageKey": "tool.skillMigrateWait",
+                "messageParams": {
+                    "name": (payload.get("skill") or {}).get("name", ""),
+                    "target": payload.get("target") or "project",
+                },
                 "skill_migrate": payload.get("skill") or {},
                 "target": payload.get("target") or "project",
                 "call_id": payload.get("call_id", ""),
@@ -1435,6 +1482,10 @@ def _interrupt_sse(
                 "status": "confirm",
                 "confirm_type": "skill_migrate_batch",
                 "message": payload.get("message", "等待用户确认批量技能迁移"),
+                "messageKey": "tool.batchMigrateWait",
+                "messageParams": {
+                    "count": len(payload.get("skills") or []),
+                },
                 "skill_migrations": payload.get("skills") or [],
                 "target": payload.get("target") or "project",
                 "call_id": payload.get("call_id", ""),
@@ -1449,6 +1500,12 @@ def _interrupt_sse(
                 "status": "confirm",
                 "confirm_type": "skill_install",
                 "message": payload.get("message", "等待用户确认技能安装"),
+                "messageKey": "tool.skillInstallWait",
+                "messageParams": {
+                    "repo": (payload.get("repo_preview") or {}).get(
+                        "repo", ""
+                    ),
+                },
                 "skill_install": payload.get("repo_preview") or {},
                 "target": payload.get("target") or "project",
                 "call_id": payload.get("call_id", ""),
@@ -1478,6 +1535,8 @@ def _interrupt_sse(
                 "tool": "write_todos",
                 "status": "confirm",
                 "message": "等待用户确认",
+                "messageKey": "tool.planConfirmText",
+                "messageParams": {},
                 "confirm_type": "plan",
                 "call_id": payload.get("call_id", ""),
                 "session_id": session_id,
@@ -1492,6 +1551,8 @@ def _interrupt_sse(
             "tool": payload.get("tool") or "tool",
             "status": "confirm",
             "message": payload.get("message", "等待用户确认"),
+            "messageKey": "tool.waitingUserConfirm",
+            "messageParams": {},
             "call_id": payload.get("call_id", ""),
             "session_id": session_id,
         },
@@ -1599,14 +1660,18 @@ async def run_agent(
     think: bool,
     workspace: Any,
     approval_mode: str = "ask",
+    locale: str | None = None,
 ) -> AsyncIterator[str]:
     workspace_path = workspace if isinstance(workspace, Path) else Path(workspace)
+    session = db.get_session(session_id)
     ctx = AgentRunContext(
         session_id=session_id,
         workspace=workspace_path,
         approval_mode=approval_mode,
+        locale=normalize_locale(
+            locale or (session or {}).get("locale") or "zh-CN"
+        ),
     )
-    session = db.get_session(session_id)
     plan_mode = (session or {}).get("plan_mode") or "ask"
     if plan_mode == "direct":
         ctx.plan_choice_resolved = True
@@ -1691,6 +1756,8 @@ async def run_agent(
                                     "tool": tool_name,
                                     "status": "running",
                                     "message": "正在执行，请稍候",
+                                    "messageKey": "tool.executingWait",
+                                    "messageParams": {},
                                     "call_id": payload.get("call_id", ""),
                                     "session_id": session_id,
                                 },
@@ -1704,6 +1771,8 @@ async def run_agent(
                                         "tool": "write_todos",
                                         "status": "done",
                                         "message": "计划已确认，开始执行",
+                                        "messageKey": "tool.planConfirmedStart",
+                                        "messageParams": {},
                                         "confirm_type": "plan",
                                         "call_id": payload.get("call_id", ""),
                                         "session_id": session_id,
@@ -1716,6 +1785,8 @@ async def run_agent(
                                         "tool": "write_todos",
                                         "status": "error",
                                         "message": "已取消执行计划",
+                                        "messageKey": "tool.planCancelled",
+                                        "messageParams": {},
                                         "confirm_type": "plan",
                                         "call_id": payload.get("call_id", ""),
                                         "session_id": session_id,
@@ -1743,11 +1814,16 @@ async def run_agent(
         yield error_event(
             "recursion_limit",
             "任务步骤过多，已停止。请拆分成更小的请求，或减少重复工具调用。",
+            message_key="tool.recursionLimit",
         )
         return
 
     if final_state is None:
-        yield error_event("agent_error", "Agent 未返回结果")
+        yield error_event(
+            "agent_error",
+            "Agent 未返回结果",
+            message_key="tool.agentError",
+        )
         return
 
     messages = final_state.get("messages") or []
@@ -1758,6 +1834,8 @@ async def run_agent(
         "done",
         {
             "message": "回答完成",
+            "messageKey": "tool.answerDone",
+            "messageParams": {},
             "content": final_content,
         },
     )

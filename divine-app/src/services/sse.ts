@@ -15,7 +15,12 @@ export interface SSEHandlers {
     events: Record<string, unknown>[];
   }) => void;
   done?: (data: { message: string }) => void;
-  error?: (data: { code: string; message: string }) => void;
+  error?: (data: {
+    code: string;
+    message: string;
+    messageKey?: string;
+    messageParams?: Record<string, unknown>;
+  }) => void;
 }
 
 const SSE_DEBUG =

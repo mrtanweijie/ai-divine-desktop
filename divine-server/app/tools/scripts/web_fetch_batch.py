@@ -13,6 +13,14 @@ MAX_CONTENT_PER_SOURCE = 6000
 MAX_TOTAL_CONTENT = 24000
 
 
+def _accept_language(locale: str) -> str:
+    return {
+        "zh-CN": "zh-CN,zh;q=0.9",
+        "zh-TW": "zh-TW,zh-Hant;q=0.9,zh;q=0.8",
+        "en": "en-US,en;q=0.9",
+    }.get(locale, "zh-CN,zh;q=0.9")
+
+
 def _text_content(text: str, content_type: str) -> str:
     content_type = content_type.lower()
     if "text/html" not in content_type and "application/xhtml" not in content_type:
@@ -108,6 +116,7 @@ def _fetch(url: str, headers: dict[str, str]) -> tuple[str, str, bool]:
 
 def main() -> None:
     data = json.load(sys.stdin)
+    locale = str(data.get("locale") or "zh-CN")
     params = data.get("params") or {}
     raw_urls = params.get("urls") or []
     if isinstance(raw_urls, str):
@@ -129,7 +138,7 @@ def main() -> None:
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/120.0 Safari/537.36"
         ),
-        "Accept-Language": "zh-CN,zh;q=0.9",
+        "Accept-Language": _accept_language(locale),
     }
     sources: list[dict[str, object]] = []
     success_count = 0

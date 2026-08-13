@@ -9,5 +9,14 @@ def sse_event(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {payload}\n\n"
 
 
-def error_event(code: str, message: str) -> str:
-    return sse_event("error", {"code": code, "message": message})
+def error_event(
+    code: str,
+    message: str,
+    message_key: str | None = None,
+    message_params: dict[str, Any] | None = None,
+) -> str:
+    data: dict[str, Any] = {"code": code, "message": message}
+    if message_key:
+        data["messageKey"] = message_key
+        data["messageParams"] = message_params or {}
+    return sse_event("error", data)

@@ -28,7 +28,8 @@ export function listSessions(
 export function createSession(
   title?: string,
   projectId?: string,
-  approvalMode?: ApprovalMode
+  approvalMode?: ApprovalMode,
+  locale?: string
 ): Promise<Session> {
   return request("/sessions", {
     method: "POST",
@@ -36,6 +37,7 @@ export function createSession(
       title,
       project_id: projectId,
       approval_mode: approvalMode,
+      locale: locale ?? i18next.language ?? "zh-CN",
     }),
   });
 }
@@ -123,9 +125,12 @@ export function deleteProject(id: string): Promise<void> {
 
 export function exportSession(
   id: string,
-  format: "markdown" | "text" | "pdf"
+  format: "markdown" | "text" | "pdf",
+  locale?: string
 ) {
-  const path = `/sessions/${id}/export?format=${format}`;
+  const path = `/sessions/${id}/export?format=${format}&locale=${
+    locale ?? i18next.language ?? "zh-CN"
+  }`;
   const base = API_BASE.startsWith("http")
     ? API_BASE
     : `${window.location.origin}${API_BASE}`;
@@ -253,6 +258,8 @@ export function messagesToChatMessages(
               call_id: run.id,
               status: run.status === "done" ? "done" : "error",
               message: result?.message ?? run.status,
+              messageKey: result?.messageKey,
+              messageParams: result?.messageParams,
               command,
               result,
             } satisfies ToolEvent;

@@ -341,7 +341,9 @@ function ToolStatusCard({
       ? tool.message
       : tool.status === "done"
         ? t("tool.done", "执行完成")
-        : tool.message;
+        : tool.messageKey
+          ? t(tool.messageKey, tool.messageParams ?? {})
+          : tool.message;
   const chartOption = chartOptionFromResult(tool.result);
   const chartIcon = chartOption ? chartTypeIcon(chartOption) : null;
   const workspaceRel = useMemo(
@@ -919,9 +921,13 @@ function ToolStatusCard({
         tool.result &&
         tool.tool !== "web_fetch" &&
         tool.tool !== "web_fetch_batch" && (
-        <Flex align="center" gap={8} className="tool-result-actions">
-          {chartIcon ?? icon}
-          <span>{tool.result.message}</span>
+          <Flex align="center" gap={8} className="tool-result-actions">
+            {chartIcon ?? icon}
+            <span>
+              {tool.result.messageKey
+                ? t(tool.result.messageKey, tool.result.messageParams ?? {})
+                : tool.result.message ?? ""}
+            </span>
           {tool.tool !== "schedule_task" && (
             <Button
               variant="icon"
@@ -1056,7 +1062,7 @@ function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
                     count,
                   })
               : i18next.t("tool.executedTimes", "{{tool}} 已执行 {{count}} 次", {
-                  tool: tool.tool,
+                  tool: tool.tool.toUpperCase(),
                   count,
                 }),
     };

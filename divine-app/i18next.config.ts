@@ -7,5 +7,6 @@ export default defineConfig({
     output: "src/i18n/locales/{{language}}/{{namespace}}.json",
     defaultNS: "translation",
     primaryLanguage: "zh-CN",
+    removeUnusedKeys: false,
   },
 });

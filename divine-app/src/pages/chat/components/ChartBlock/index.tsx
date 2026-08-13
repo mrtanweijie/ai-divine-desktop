@@ -264,6 +264,24 @@ function decorateSeries(
         label.fontWeight = label.fontWeight ?? 600;
       }
       next.label = label;
+      if (isHorizontalCartesian(option)) {
+        const emphasis = isRecord(next.emphasis) ? { ...next.emphasis } : {};
+        const emphasisStyle = isRecord(emphasis.itemStyle)
+          ? { ...emphasis.itemStyle }
+          : {};
+        emphasisStyle.borderRadius = 4;
+        emphasis.itemStyle = emphasisStyle;
+        next.emphasis = emphasis;
+        if (isRecord(option.tooltip)) {
+          option.tooltip = {
+            ...option.tooltip,
+            axisPointer: {
+              type: "line",
+              lineStyle: { color: "rgba(255,255,255,0.18)" },
+            },
+          };
+        }
+      }
     } else if (type === "line") {
       next.smooth = next.smooth ?? true;
       next.symbol = next.symbol ?? "circle";
@@ -459,12 +477,28 @@ function decorateReadableText(
     }
   }
   if (isRecord(option.tooltip)) {
+    const tooltip = { ...option.tooltip };
     const textStyle = isRecord(option.tooltip.textStyle)
       ? { ...option.tooltip.textStyle }
       : {};
     textStyle.color = palette.text;
     textStyle.fontFamily = UI_FONT;
-    option.tooltip.textStyle = textStyle;
+    tooltip.textStyle = textStyle;
+    const extraCss =
+      typeof tooltip.extraCssText === "string" ? tooltip.extraCssText : "";
+    tooltip.extraCssText = /border-radius/i.test(extraCss)
+      ? extraCss
+      : `${extraCss ? `${extraCss};` : ""}border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.35);`;
+    if (isRecord(tooltip.axisPointer)) {
+      const pointer = { ...tooltip.axisPointer };
+      const shadowStyle = isRecord(pointer.shadowStyle)
+        ? { ...pointer.shadowStyle }
+        : {};
+      shadowStyle.borderRadius = 4;
+      pointer.shadowStyle = shadowStyle;
+      tooltip.axisPointer = pointer;
+    }
+    option.tooltip = tooltip;
   }
 }
 

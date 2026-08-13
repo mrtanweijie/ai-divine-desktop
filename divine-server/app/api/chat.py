@@ -12,6 +12,7 @@ from ..agent_langchain import run_agent
 from ..config import settings_store
 from ..document_reader import read_file_text
 from ..file_types import is_image_path
+from ..localization import default_session_title, normalize_locale
 from ..schemas import Attachment, StreamChatRequest
 from ..sse import error_event, sse_event
 
@@ -37,33 +38,72 @@ def _read_text_fallback(path: Path) -> str:
 @router.post("/stream_chat")
 async def stream_chat(request: StreamChatRequest):
     question = request.question.strip()
+    locale = normalize_locale(request.locale)
+    if request.session_id:
+        existing_session = db.get_session(request.session_id)
+        if existing_session is not None:
+            locale = normalize_locale(
+                request.locale or existing_session.get("locale")
+            )
     if not question and not request.attachments:
         return StreamingResponse(
-            iter([error_event("invalid_request", "问题不能为空")]),
+            iter(
+                [
+                    error_event(
+                        "invalid_request",
+                        "问题不能为空",
+                        message_key="tool.questionEmpty",
+                    )
+                ]
+            ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
     if not question:
-        question = "请分析附件"
+        question = {
+            "zh-CN": "请分析附件",
+            "zh-TW": "請分析附件",
+            "en": "Analyze the attachment",
+        }.get(locale, "请分析附件")
 
     session_id = request.session_id
     if session_id:
         if db.get_session(session_id) is None:
             return StreamingResponse(
-                iter([error_event("not_found", "会话不存在")]),
+                iter(
+                    [
+                        error_event(
+                            "not_found",
+                            "会话不存在",
+                            message_key="tool.sessionNotFound",
+                        )
+                    ]
+                ),
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
+        if request.locale:
+            db.update_session(session_id, locale=locale)
     else:
         if request.project_id and db.get_project(request.project_id) is None:
             return StreamingResponse(
-                iter([error_event("not_found", "项目不存在")]),
+                iter(
+                    [
+                        error_event(
+                            "not_found",
+                            "项目不存在",
+                            message_key="tool.projectNotFound",
+                        )
+                    ]
+                ),
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
         session_id = db.create_session(
+            title=default_session_title(locale),
             project_id=request.project_id,
             approval_mode=request.approval_mode,
+            locale=locale,
         )["id"]
 
     session = db.get_session(session_id)
@@ -129,6 +169,7 @@ async def stream_chat(request: StreamChatRequest):
                 request.think,
                 workspace=workspace,
                 approval_mode=approval_mode,
+                locale=locale,
             ):
                 yield event
         except Exception as exc:  # noqa: BLE001
