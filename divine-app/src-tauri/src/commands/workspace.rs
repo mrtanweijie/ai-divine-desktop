@@ -55,6 +55,17 @@ fn normalize_rel_path(raw: &str) -> Result<String, String> {
     Ok(parts.join("/"))
 }
 
+fn find_git_root(start: &Path) -> Option<PathBuf> {
+    let mut current = start.parent();
+    while let Some(dir) = current {
+        if dir.join(".git").exists() {
+            return Some(dir.to_path_buf());
+        }
+        current = dir.parent();
+    }
+    None
+}
+
 fn should_ignore(name: &str) -> bool {
     matches!(
         name,
@@ -242,9 +253,8 @@ pub fn get_file_diff(repo_path: String, rel_path: String) -> Result<FileDiff, St
     let mut old_bytes: Option<Vec<u8>> = None;
     let mut diff_text = String::new();
 
-    if let Some(root_text) = run_git(&repo, &["rev-parse", "--show-toplevel"]) {
+    if let Some(root) = find_git_root(&target) {
         is_git = true;
-        let root = PathBuf::from(root_text.trim());
         let repo_rel = target
             .strip_prefix(&root)
             .unwrap_or(&target)
@@ -437,6 +447,69 @@ mod tests {
         .expect("diff command");
         assert!(diff.is_binary);
         assert!(diff.new_content.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn finds_nearest_git_root_for_nested_repo() {
+        let dir = std::env::temp_dir().join(format!(
+            "divine-nested-git-{}",
+            std::process::id()
+        ));
+        let nested = dir.join("outer").join("nested");
+        std::fs::create_dir_all(nested.join("src")).expect("create temp dirs");
+        std::fs::create_dir(dir.join("outer").join(".git")).expect("create outer git");
+        std::fs::create_dir(nested.join(".git")).expect("create nested git");
+        let target = nested.join("src/app.ts");
+        std::fs::write(&target, "export const x = 1;").expect("write temp file");
+        assert_eq!(
+            find_git_root(&target),
+            Some(nested)
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn reads_diff_from_nested_repo() {
+        let dir = std::env::temp_dir().join(format!(
+            "divine-nested-diff-{}",
+            std::process::id()
+        ));
+        let project = dir.join("project");
+        let repo = project.join("nested");
+        std::fs::create_dir_all(&repo).expect("create repo dir");
+        let file = repo.join("note.txt");
+        std::fs::write(&file, "line one\n").expect("write initial file");
+
+        assert!(run_git(&repo, &["init", "-q"]).is_some());
+        assert!(run_git(&repo, &["add", "-A"]).is_some());
+        assert!(
+            run_git(
+                &repo,
+                &[
+                    "-c",
+                    "user.name=divine test",
+                    "-c",
+                    "user.email=divine@example.com",
+                    "commit",
+                    "-m",
+                    "init",
+                    "-q",
+                ],
+            )
+            .is_some()
+        );
+
+        std::fs::write(&file, "line one\nline two\n").expect("update file");
+        let diff = get_file_diff(
+            project.to_string_lossy().into_owned(),
+            "nested/note.txt".to_string(),
+        )
+        .expect("diff command");
+        assert!(diff.is_git);
+        assert!(diff.tracked);
+        assert!(diff.diff_text.contains("+line two"));
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

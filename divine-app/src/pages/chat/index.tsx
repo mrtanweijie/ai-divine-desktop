@@ -70,6 +70,42 @@ function acceptedFilesKey(path: string): string {
   return `divine:accepted-files:${path}`;
 }
 
+function changedFilePathsFromResult(result: unknown): string[] {
+  const paths: string[] = [];
+  if (!result || typeof result !== "object") return paths;
+  const payload = result as Record<string, unknown>;
+  if (typeof payload.filepath === "string") paths.push(payload.filepath);
+
+  const data = payload.data;
+  if (data && typeof data === "object") {
+    const dataRecord = data as Record<string, unknown>;
+    for (const listKey of ["files", "results"]) {
+      const items = dataRecord[listKey];
+      if (!Array.isArray(items)) continue;
+      for (const item of items) {
+        if (!item || typeof item !== "object") continue;
+        const record = item as Record<string, unknown>;
+        const path =
+          typeof record.filepath === "string"
+            ? record.filepath
+            : typeof record.path === "string"
+              ? record.path
+              : null;
+        if (path) paths.push(path);
+      }
+    }
+  }
+  return [...new Set(paths)];
+}
+
+function changedFileRel(base: string, raw: string): string | null {
+  const normalized = raw.replace(/\\/g, "/").replace(/^\.\//, "");
+  if (/^([A-Za-z]:)?\//.test(normalized)) {
+    return toWorkspaceRelative(base, normalized);
+  }
+  return normalized;
+}
+
 function expandedWorkspaceWidth(leftWidth: number): number {
   return Math.max(480, window.innerWidth - leftWidth);
 }
@@ -251,11 +287,9 @@ export default function ChatPage() {
         for (const run of data.tool_runs ?? []) {
           if (run.status !== "done" || !run.output) continue;
           try {
-            const result = JSON.parse(run.output) as {
-              filepath?: string;
-            };
-            if (result.filepath) {
-              const rel = toWorkspaceRelative(projectPath, result.filepath);
+            const result = JSON.parse(run.output) as unknown;
+            for (const filePath of changedFilePathsFromResult(result)) {
+              const rel = changedFileRel(projectPath, filePath);
               if (rel) changedFiles.add(rel);
             }
           } catch {
@@ -748,17 +782,18 @@ export default function ChatPage() {
           },
           tool: (data) => {
             const event = data as unknown as ToolEvent;
-            if (event.status === "done" && event.result?.filepath) {
+            if (event.status === "done" && event.result) {
               const projectPath = projects.find(
                 (item) => item.id === selectedProjectId
               )?.path;
               if (projectPath) {
-                const rel = toWorkspaceRelative(
-                  projectPath,
-                  event.result.filepath
-                );
-                if (rel && workspacePanelOpenRef.current) {
-                  setAgentChangedFiles((prev) => new Set(prev).add(rel));
+                for (const filePath of changedFilePathsFromResult(
+                  event.result
+                )) {
+                  const rel = changedFileRel(projectPath, filePath);
+                  if (rel && workspacePanelOpenRef.current) {
+                    setAgentChangedFiles((prev) => new Set(prev).add(rel));
+                  }
                 }
               }
             }
@@ -803,6 +838,9 @@ export default function ChatPage() {
               refreshProjects(),
               refreshWorkspace(),
             ]);
+            if (sessionId && workspacePanelOpenRef.current) {
+              await loadChangedFiles(sessionId);
+            }
           },
           error: ({ message, messageKey, messageParams }) => {
             setMessages((prev) =>
@@ -849,6 +887,7 @@ export default function ChatPage() {
       selectedProjectId,
       streaming,
       t,
+      loadChangedFiles,
     ]
   );
 

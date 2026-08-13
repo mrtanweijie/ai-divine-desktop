@@ -493,29 +493,57 @@ function ToolStatusCard({
         <div className="file-actions file-list">
           {tool.files
             .slice(0, filesOpen ? tool.files.length : 6)
-            .map((file) => (
-            <a
-              key={file.path ?? file.name}
-              className="file-download"
-              href={file.download_url ? downloadUrl(file.download_url) : "#"}
-              target="_blank"
-              rel="noreferrer"
-              title={t("tool.openDirectory", "打开所在目录")}
-              onClick={(event) => {
-                if (file.path && isTauri()) {
-                  event.preventDefault();
-                  void openFileLocation(file.path);
-                }
-              }}
-            >
-              {fileIcon(file)}
-              <span className="file-name">{file.name}</span>
-              {file.size != null && (
-                <span className="file-size">{formatSize(file.size)}</span>
-              )}
-              {file.path && <span className="file-path">{file.path}</span>}
-            </a>
-          ))}
+            .map((file) => {
+              const fileRel =
+                file.path && workspacePath
+                  ? toWorkspaceRelative(workspacePath, file.path)
+                  : null;
+              return (
+                <div className="file-list-item" key={file.path ?? file.name}>
+                  <a
+                    className="file-download"
+                    href={file.download_url ? downloadUrl(file.download_url) : "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={t("tool.openDirectory", "打开所在目录")}
+                    onClick={(event) => {
+                      if (file.path && isTauri()) {
+                        event.preventDefault();
+                        void openFileLocation(file.path);
+                      }
+                    }}
+                  >
+                    {fileIcon(file)}
+                    <span className="file-name">{file.name}</span>
+                    {file.size != null && (
+                      <span className="file-size">{formatSize(file.size)}</span>
+                    )}
+                    {file.path && (
+                      <span className="file-path">{file.path}</span>
+                    )}
+                  </a>
+                  {fileRel && isTauri() && (
+                    <Button
+                      variant="icon"
+                      size="small"
+                      className="file-preview-button"
+                      onClick={() =>
+                        onPreviewFile?.({
+                          repoPath: workspacePath ?? "",
+                          relPath: fileRel,
+                          fileName:
+                            file.path?.split("/").pop() ?? file.name,
+                        })
+                      }
+                      title={t("tool.viewChanges", "查看改动")}
+                      aria-label={t("tool.viewChanges", "查看改动")}
+                    >
+                      <Eye size={13} />
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
           {tool.files.length > 6 && !filesOpen && (
             <button
               className="file-list-more"
