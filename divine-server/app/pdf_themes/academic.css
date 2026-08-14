@@ -233,6 +233,22 @@ tbody tr:nth-child(even) {
   background: var(--bg-soft);
 }
 
+thead th:first-child {
+  border-top-left-radius: var(--radius);
+}
+
+thead th:last-child {
+  border-top-right-radius: var(--radius);
+}
+
+tbody tr:last-child td:first-child {
+  border-bottom-left-radius: var(--radius);
+}
+
+tbody tr:last-child td:last-child {
+  border-bottom-right-radius: var(--radius);
+}
+
 /* ---------- 图片 ---------- */
 
 figure {

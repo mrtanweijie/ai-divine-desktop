@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from ..config import output_dir_for_workspace
+
+logger = logging.getLogger("divine.tools")
 
 
 class ToolExecutionError(RuntimeError):
@@ -151,14 +154,27 @@ class ToolAdapter:
             ) from exc
         if completed.returncode != 0:
             detail = (completed.stderr or completed.stdout or "").strip()
+            logger.warning(
+                "tool script failed script=%s returncode=%s detail=%s",
+                script,
+                completed.returncode,
+                detail[-2000:],
+            )
             raise ToolExecutionError(
-                f"工具脚本退出码 {completed.returncode}: {detail[-500:]}"
+                "工具执行失败，请重试",
+                message_key="tool.actionFailed",
             )
         try:
             return json.loads(completed.stdout)
         except json.JSONDecodeError as exc:
+            logger.warning(
+                "tool script returned invalid json script=%s stdout=%s",
+                script,
+                (completed.stdout or "")[-2000:],
+            )
             raise ToolExecutionError(
-                "工具脚本未返回合法 JSON: " + (completed.stdout or "")[-200:]
+                "工具执行失败，请重试",
+                message_key="tool.actionFailed",
             ) from exc
 
     def _result_from_output(

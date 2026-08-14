@@ -21,6 +21,18 @@ THEMES: dict[str, dict[str, Any]] = {
             "--bg-soft": "#f8fafc",
         },
     },
+    "resume": {
+        "file": "resume.css",
+        "display_name": "个人简历",
+        "description": "单栏专业简历，适合求职、简历打印",
+        "variables": {
+            "--primary": "#1e40af",
+            "--primary-light": "#eff6ff",
+            "--text": "#1f2937",
+            "--text-secondary": "#4b5563",
+            "--bg-soft": "#f8fafc",
+        },
+    },
     "notion": {
         "file": "notion.css",
         "display_name": "Notion 极简",
@@ -122,6 +134,14 @@ THEMES: dict[str, dict[str, Any]] = {
 }
 
 COVER_TEMPLATES: dict[str, str] = {
+    "resume": """
+    <div class="cover">
+      <h1>{title}</h1>
+      <div class="subtitle">{subtitle}</div>
+      <div class="meta">{theme_name}</div>
+    </div>
+    <div style="page-break-after:always;"></div>
+    """,
     "universal": """
     <div class="cover">
       <div class="cover-content">

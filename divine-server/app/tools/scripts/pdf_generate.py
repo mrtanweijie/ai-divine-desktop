@@ -66,6 +66,7 @@ async def main() -> None:
         toc=bool(params.get("toc")),
         base_dir=workspace,
         content=str(params.get("markdown") or "").strip() or None,
+        resume_data=params.get("resume_data") or None,
     )
     print(
         json.dumps(

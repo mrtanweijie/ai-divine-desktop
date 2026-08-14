@@ -1,0 +1,238 @@
+/* ============================================================
+   Resume PDF Template — 个人简历单栏专业版
+   ============================================================ */
+
+@page {
+  size: A4;
+  margin: 1.6cm 1.7cm 2cm 1.7cm;
+  @bottom-center {
+    content: counter(page);
+    font-size: 8pt;
+    color: #b3b3b3;
+  }
+}
+
+:root {
+  --primary: #1e40af;
+  --primary-light: #eff6ff;
+  --text: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --bg-soft: #f8fafc;
+  --border: #e5e7eb;
+  --radius: 6px;
+}
+
+body {
+  font-family: 'Noto Sans SC', 'Source Han Sans CN', 'PingFang SC', sans-serif;
+  font-size: 9.5pt;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+h1, h2, h3, h4 {
+  page-break-after: avoid;
+}
+
+p {
+  margin: 0.4em 0;
+}
+
+ul, ol {
+  margin: 0.35em 0;
+  padding-left: 1.3em;
+}
+
+li {
+  margin: 0.2em 0;
+}
+
+/* ---------- 头部 ---------- */
+
+.resume-header {
+  text-align: left;
+  border-bottom: 1.5pt solid var(--primary);
+  padding-bottom: 0.6em;
+  margin-bottom: 0.9em;
+}
+
+.resume-name {
+  font-size: 24pt;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.resume-role {
+  font-size: 13pt;
+  font-weight: 600;
+  color: var(--primary);
+  margin-top: 0.2em;
+}
+
+.resume-contact {
+  font-size: 9pt;
+  color: var(--text-secondary);
+  margin-top: 0.4em;
+}
+
+.resume-summary {
+  margin: 0.8em 0 1.2em;
+  color: var(--text-secondary);
+}
+
+/* ---------- 章节 ---------- */
+
+.resume-section-title {
+  font-size: 13pt;
+  font-weight: 700;
+  color: var(--primary);
+  margin: 1.1em 0 0.4em;
+  padding-left: 0.5em;
+  border-left: 3pt solid var(--primary);
+}
+
+.resume-block,
+.experience-item,
+.project-card {
+  margin: 0.55em 0;
+  padding: 0.5em 0.7em;
+  background: var(--bg-soft);
+  border-radius: var(--radius);
+  page-break-inside: avoid;
+}
+
+.experience-item {
+  border-left: 2.5pt solid var(--primary);
+}
+
+.project-card {
+  border: 0.5pt solid var(--border);
+}
+
+.resume-point {
+  margin: 0.2em 0;
+  color: var(--text);
+}
+
+/* ---------- 技能标签 ---------- */
+
+.skill-tags {
+  margin: 0.4em 0 0.8em;
+}
+
+.skill-tag {
+  display: inline-block;
+  font-size: 8pt;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  border-radius: 999px;
+  padding: 2pt 8pt;
+  margin: 0 0.35em 0.35em 0;
+}
+
+/* ---------- 其他元素 ---------- */
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+blockquote {
+  margin: 0.8em 0;
+  padding: 0.5em 0.9em;
+  background: var(--bg-soft);
+  border-left: 2.5pt solid var(--primary);
+  color: var(--text-secondary);
+}
+
+code {
+  font-family: 'SF Mono', 'JetBrains Mono', monospace;
+  font-size: 8pt;
+  background: var(--bg-soft);
+  color: #374151;
+  padding: 0.5pt 3pt;
+  border-radius: 3pt;
+}
+
+pre {
+  margin: 0.8em 0;
+  padding: 0.8em 1em;
+  background: #f8fafc;
+  border: 0.5pt solid var(--border);
+  border-radius: var(--radius);
+  page-break-inside: avoid;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.9em 0;
+  font-size: 9pt;
+}
+
+th, td {
+  padding: 0.4em 0.6em;
+  border-bottom: 0.5pt solid var(--border);
+  text-align: left;
+}
+
+thead th:first-child {
+  border-top-left-radius: var(--radius);
+}
+
+thead th:last-child {
+  border-top-right-radius: var(--radius);
+}
+
+tbody tr:last-child td:first-child {
+  border-bottom-left-radius: var(--radius);
+}
+
+tbody tr:last-child td:last-child {
+  border-bottom-right-radius: var(--radius);
+}
+
+figure,
+.illustration {
+  text-align: center;
+  margin: 0.8em auto;
+  page-break-inside: avoid;
+}
+
+figure img,
+.illustration img,
+figure svg,
+.illustration svg {
+  max-width: 70%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.cover {
+  page-break-after: always;
+  text-align: center;
+  padding-top: 30vh;
+}
+
+.cover h1 {
+  font-size: 28pt;
+}
+
+.cover .subtitle {
+  font-size: 13pt;
+  color: var(--text-secondary);
+  margin-top: 0.8em;
+}
+
+.cover .meta {
+  margin-top: 2.5em;
+  font-size: 9pt;
+  color: var(--text-muted);
+}

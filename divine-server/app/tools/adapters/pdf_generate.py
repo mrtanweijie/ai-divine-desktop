@@ -10,6 +10,7 @@ from ..registry import register_tool
     "pdf_generate",
     "统一 PDF 生成入口：根据用户需求自动选择 Report/Travel/Roadmap/Book/Slide 配方，"
     "解析结构、生成正文并渲染为美观 PDF。"
+    "生成个人简历时，Agent 应根据用户信息整理 resume_data 结构化 JSON 后传入；"
     "prompt 传用户需求；kind 可选 report/travel/roadmap/book/slide；"
     "style 支持 modern/academic/corporate/minimal/playful，"
     "color_scheme 支持 blue/green/warm/monochrome/purple；"
@@ -20,7 +21,7 @@ from ..registry import register_tool
             "prompt": {"type": "string", "description": "用户对 PDF 文档的需求描述"},
             "kind": {
                 "type": "string",
-                "enum": ["report", "travel", "roadmap", "book", "slide"],
+                "enum": ["report", "travel", "roadmap", "book", "slide", "resume"],
                 "description": "文档配方；不传时自动识别",
             },
             "style": {
@@ -30,7 +31,7 @@ from ..registry import register_tool
             },
             "theme": {
                 "type": "string",
-                "enum": ["universal", "modern", "academic", "travel", "roadmap", "minimal", "notion", "linear", "apple"],
+                "enum": ["universal", "resume", "professional", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "modern", "academic", "travel", "roadmap", "notion", "linear", "apple"],
                 "description": "主题 ID，优先于 style；report 默认 modern，travel 默认 travel，roadmap 默认 roadmap",
             },
             "color_scheme": {
@@ -54,6 +55,10 @@ from ..registry import register_tool
             "file_name": {
                 "type": "string",
                 "description": "可选，PDF 文件名；默认由 prompt 生成",
+            },
+            "resume_data": {
+                "type": "object",
+                "description": "简历结构化数据；kind=resume 时优先使用此数据渲染，不再走 LLM 生成",
             },
             "path": {
                 "type": "string",
@@ -79,5 +84,6 @@ class PdfGenerateAdapter(ToolAdapter):
             "cover": bool(arguments.get("cover")),
             "toc": bool(arguments.get("toc")),
             "file_name": str(arguments.get("file_name") or "").strip(),
+            "resume_data": arguments.get("resume_data") or {},
             "path": str(arguments.get("path") or "").strip(),
         }

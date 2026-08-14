@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html as html_lib
+
 from .base import PDFIntent, PDFRecipe
 
 
@@ -142,6 +144,110 @@ class SlideRecipe(PDFRecipe):
         )
 
 
+class ResumeRecipe(PDFRecipe):
+    name = "resume"
+    display_name = "个人简历"
+    css_template = "resume"
+    color_scheme = "blue"
+    illustration_plan = {
+        "mermaid": False,
+        "svg": False,
+        "icons_only": True,
+        "chart": False,
+        "ai_image": False,
+    }
+    intent_json_hint = (
+        '{"title": "姓名 - 目标职位", "name": "姓名", "role": "目标职位", '
+        '"contact": "邮箱 · 电话 · 城市", "summary": "一句话简介", '
+        '"skills": ["技能一", "技能二"], '
+        '"sections": [{"title": "工作经历", "key_points": ["公司 · 职位 · 时间", "成果一"]}]}'
+    )
+
+    def content_system_prompt(self, intent: PDFIntent) -> str:
+        meta = intent.meta or {}
+        return (
+            "你是资深简历顾问。根据简历结构输出适合直接打印的单页 A4 简历 HTML。\n"
+            "使用以下类：resume-header、resume-name、resume-role、resume-contact、"
+            "resume-summary、resume-section、skill-tag、experience-item、"
+            "project-card、resume-point。\n"
+            "要求：信息密度高、无多余装饰；不要使用 SVG 插图。\n"
+            "内容规范：把职责描述改成成果描述；每条经历保留 2-4 条高密度 bullet；\n"
+            "bullet 使用“动作 + 产物 + 结果”结构，优先量化；没有精确数字时写范围、频率或流程变化；\n"
+            "严禁编造指标、头衔或项目背景，缺失数据用“[量化数据待补]”占位；\n"
+            "每个项目先写一句背景（系统定位 + 服务对象 + 解决什么问题），再列 bullet；\n"
+            "技能只保留与目标岗位匹配的关键词；默认单页或两页。\n"
+            f"姓名：{meta.get('name', intent.title)}，"
+            f"目标职位：{meta.get('role', '')}"
+        )
+
+    def fallback_intent(self, user_input: str) -> PDFIntent:
+        title = user_input.strip().splitlines()[0][:40] or "个人简历"
+        return PDFIntent(
+            title=title,
+            topic=user_input,
+            style=self.css_template,
+            color_scheme=self.color_scheme,
+            sections=[
+                {"title": "个人简介", "key_points": [user_input]},
+                {"title": "核心技能", "key_points": ["技能一", "技能二"]},
+                {"title": "工作经历", "key_points": ["公司 · 职位 · 时间"]},
+                {"title": "项目经历", "key_points": ["项目名称 · 成果"]},
+                {"title": "教育背景", "key_points": ["学校 · 专业 · 时间"]},
+            ],
+            meta={
+                "recipe": self.name,
+                "name": user_input,
+                "role": "",
+                "contact": "",
+                "summary": user_input,
+                "skills": [],
+            },
+        )
+
+    def fallback_content(self, intent: PDFIntent) -> str:
+        meta = intent.meta or {}
+        name = html_lib.escape(str(meta.get("name") or intent.title))
+        role = html_lib.escape(str(meta.get("role") or ""))
+        contact = html_lib.escape(str(meta.get("contact") or ""))
+        summary = html_lib.escape(str(meta.get("summary") or intent.topic))
+        skills = meta.get("skills") or []
+
+        lines = [
+            '<div class="resume-header">',
+            f'<div class="resume-name">{name}</div>',
+            f'<div class="resume-role">{role}</div>' if role else "",
+            f'<div class="resume-contact">{contact}</div>' if contact else "",
+            "</div>",
+            f'<div class="resume-summary">{summary}</div>',
+        ]
+        if isinstance(skills, list) and skills:
+            tags = "".join(
+                f'<span class="skill-tag">{html_lib.escape(str(skill))}</span>'
+                for skill in skills
+            )
+            lines.append(f'<div class="resume-section-title">核心技能</div>')
+            lines.append(f'<div class="skill-tags">{tags}</div>')
+
+        for section in intent.sections:
+            title = str(section.get("title") or "经历")
+            points = section.get("key_points") or []
+            lines.append(f'<div class="resume-section-title">{html_lib.escape(title)}</div>')
+            card_class = (
+                "experience-item"
+                if any(word in title for word in ("工作", "经历"))
+                else "project-card"
+                if "项目" in title
+                else "resume-block"
+            )
+            lines.append(f'<div class="{card_class}">')
+            for point in points:
+                lines.append(
+                    f'<div class="resume-point">{html_lib.escape(str(point))}</div>'
+                )
+            lines.append("</div>")
+        return "\n".join(line for line in lines if line).strip()
+
+
 RECIPE_REGISTRY: dict[str, type[PDFRecipe]] = {
     recipe.name: recipe
     for recipe in (
@@ -150,6 +256,7 @@ RECIPE_REGISTRY: dict[str, type[PDFRecipe]] = {
         RoadmapRecipe,
         BookRecipe,
         SlideRecipe,
+        ResumeRecipe,
     )
 }
 
@@ -162,6 +269,11 @@ def get_recipe(name: str | None) -> PDFRecipe:
 
 def detect_recipe(user_input: str) -> str:
     text = user_input.lower()
+    if any(
+        word in text
+        for word in ("简历", "resume", "cv", "求职")
+    ):
+        return "resume"
     if any(
         word in text
         for word in ("旅游", "攻略", "行程", "旅行", "景点", "目的地")

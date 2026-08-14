@@ -34,7 +34,7 @@ from ..registry import register_tool
             },
             "theme": {
                 "type": "string",
-                "enum": ["universal", "modern", "academic", "travel", "roadmap", "minimal", "notion", "linear", "apple"],
+                "enum": ["universal", "resume", "modern", "academic", "travel", "roadmap", "minimal", "notion", "linear", "apple"],
                 "description": "主题 ID，优先于 style",
             },
             "color_scheme": {
