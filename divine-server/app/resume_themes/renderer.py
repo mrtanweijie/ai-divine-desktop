@@ -709,7 +709,17 @@ def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
             contact_html += '<span class="sep">|</span>'
         contact_html += item
 
-    header_html = f"""
+    if style in ("kami", "kami_white"):
+        header_html = f"""
+    <div class="header">
+      <h1>{_esc(resume.name)}</h1>
+      <div class="header-side">
+        {f'<div class="subtitle">{_esc(resume.title)}</div>' if resume.title else ''}
+        {f'<div class="contact">{contact_html}</div>' if contact_html else ''}
+      </div>
+    </div>"""
+    else:
+        header_html = f"""
     <div class="header">
       <h1>{_esc(resume.name)}</h1>
       {f'<div class="subtitle">{_esc(resume.title)}</div>' if resume.title else ''}

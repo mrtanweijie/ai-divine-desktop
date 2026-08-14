@@ -1332,6 +1332,10 @@ body {
 }
 
 .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24pt;
   margin-bottom: 5mm;
 }
 
@@ -1342,6 +1346,11 @@ body {
   letter-spacing: 0.5pt;
   margin-bottom: 2mm;
   line-height: 1.15;
+}
+
+.header-side {
+  text-align: right;
+  padding-top: 2mm;
 }
 
 .header .subtitle {
