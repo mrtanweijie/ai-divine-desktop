@@ -4,6 +4,7 @@ import {
   FileText,
   Plus,
   ShieldCheck,
+  Square,
   X,
 } from "lucide-react";
 import {
@@ -31,6 +32,7 @@ const PASTE_AS_FILE_LINE_THRESHOLD = 500;
 interface ComposerProps {
   disabled: boolean;
   onSend: (question: string, files: ChatFile[]) => void;
+  onStop?: () => void;
   onPreviewFile?: (file: PreviewFile) => void;
   onValueChange?: (hasValue: boolean) => void;
   approvalMode: ApprovalMode;
@@ -45,6 +47,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
     {
       disabled,
       onSend,
+      onStop,
       onPreviewFile,
       onValueChange,
       approvalMode,
@@ -341,15 +344,27 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                 }))}
               />
             </Flex>
-            <Button
-              variant="primary"
-              className="send-button"
-              onClick={send}
-              disabled={(!value.trim() && attached.length === 0) || disabled}
-              aria-label={t("chat.send", "发送")}
-            >
-              <ArrowUp size={16} />
-            </Button>
+            {disabled && onStop ? (
+              <Button
+                variant="secondary"
+                className="send-button stop-button"
+                onClick={onStop}
+                aria-label={t("chat.stop", "停止生成")}
+                title={t("chat.stop", "停止生成")}
+              >
+                <Square size={16} />
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                className="send-button"
+                onClick={send}
+                disabled={(!value.trim() && attached.length === 0) || disabled}
+                aria-label={t("chat.send", "发送")}
+              >
+                <ArrowUp size={16} />
+              </Button>
+            )}
           </Flex>
         </Flex>
         <p className="composer-hint">

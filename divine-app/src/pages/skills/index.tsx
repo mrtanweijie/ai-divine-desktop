@@ -1,17 +1,9 @@
 import {
   AlertCircle,
-  BookOpen,
-  Braces,
-  ChevronRight,
-  FileText,
-  FolderTree,
-  Package,
   PanelLeftOpen,
   RotateCw,
   Search,
   Sparkles,
-  Trash2,
-  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
@@ -20,7 +12,6 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
-import { Modal } from "@/components/ui/Modal";
 import { toast } from "@/components/ui/Toast";
 import {
   listSkills,
@@ -28,41 +19,13 @@ import {
   uninstallSkill,
 } from "@/services/skills";
 import type { InstalledSkill } from "@/types";
-import i18next from "@/i18n";
+import { SkillCard } from "./components/SkillCard";
+import { SkillDetailModal } from "./components/SkillDetailModal";
 import "./index.less";
 
 type SkillFilter = "all" | "knowledge" | "executable";
 
 const MIN_REFRESH_MS = 700;
-
-function sourceLabel(source: string): string {
-  if (source === "user") return i18next.t("skills.sourceUser", "用户");
-  if (source === "project") return i18next.t("skills.sourceProject", "项目");
-  return i18next.t("skills.sourceBuiltin", "内置");
-}
-
-function typeLabel(type: InstalledSkill["type"]): string {
-  if (type === "knowledge")
-    return i18next.t("skills.typeKnowledge", "知识型");
-  if (type === "executable")
-    return i18next.t("skills.typeExecutable", "能力型");
-  return "MCP";
-}
-
-function SkillTypeIcon({ skill }: { skill: InstalledSkill }) {
-  if (skill.type === "executable") return <Braces size={15} />;
-  if (skill.type === "mcp") return <Package size={15} />;
-  return <BookOpen size={15} />;
-}
-
-function skillScriptLabel(skill: InstalledSkill): string {
-  if (!skill.script_path) return "";
-  const path = skill.script_path;
-  const shortPath = path.startsWith("/")
-    ? path.split("/").slice(-3).join("/")
-    : path;
-  return `${shortPath} · ${skill.script_mode === "json" ? "JSON" : "CLI"}`;
-}
 
 export function SkillsPage({
   workspacePath,
@@ -301,71 +264,12 @@ export function SkillsPage({
           {filteredSkills.length > 0 ? (
             <div className="skill-grid">
               {filteredSkills.map((skill) => (
-                <div
+                <SkillCard
                   key={skill.name}
-                  className={`skill-card ${skill.type}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSelected(skill)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      setSelected(skill);
-                      event.currentTarget.blur();
-                    }
-                  }}
-                >
-                  <div className="skill-card-head">
-                    <div className={`skill-row-icon ${skill.type}`}>
-                      <SkillTypeIcon skill={skill} />
-                    </div>
-                    <div className="skill-card-title-block">
-                      <div className="skill-row-title">{skill.name}</div>
-                      <div className="skill-card-badges">
-                        <span className="skill-badge">
-                          {typeLabel(skill.type)}
-                        </span>
-                        <span className="skill-badge muted">
-                          {sourceLabel(skill.source) ?? skill.source}
-                        </span>
-                        <span className="skill-badge muted">
-                          v{skill.version}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="skill-card-desc">{skill.description}</div>
-                  {skillScriptLabel(skill) && (
-                    <div className="skill-card-script">
-                      <Braces size={12} />
-                      {skillScriptLabel(skill)}
-                    </div>
-                  )}
-                  <div className="skill-card-footer">
-                    {skill.source !== "builtin" && (
-                      <Button
-                        variant="icon"
-                        size="small"
-                        className="skill-card-uninstall"
-                        title={t("skills.uninstall", "卸载 {{name}}", {
-                          name: skill.name,
-                        })}
-                        aria-label={t("skills.uninstall", "卸载 {{name}}", {
-                          name: skill.name,
-                        })}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setUninstallTarget(skill);
-                        }}
-                      >
-                        <Trash2 size={13} />
-                      </Button>
-                    )}
-                    <span className="skill-card-footer-detail">
-                      <span>{t("skills.viewDetails", "查看详情")}</span>
-                      <ChevronRight size={14} />
-                    </span>
-                  </div>
-                </div>
+                  skill={skill}
+                  onSelect={setSelected}
+                  onUninstall={setUninstallTarget}
+                />
               ))}
             </div>
           ) : (
@@ -408,112 +312,5 @@ export function SkillsPage({
         />
       )}
     </div>
-  );
-}
-
-function SkillDetailModal({
-  skill,
-  onClose,
-}: {
-  skill: InstalledSkill;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <Modal
-      open
-      title={t("skills.detailTitle", "技能详情")}
-      titleSuffix={`v${skill.version}`}
-      headerAction={
-        <Button
-          variant="icon"
-          size="small"
-          onClick={onClose}
-          title={t("common.close", "关闭")}
-          aria-label={t("common.close", "关闭")}
-        >
-          <X size={15} />
-        </Button>
-      }
-      onClose={onClose}
-      width={620}
-    >
-      <div className="skills-detail">
-        <div className="skills-detail-head">
-          <div className={`skill-row-icon ${skill.type}`}>
-            <SkillTypeIcon skill={skill} />
-          </div>
-          <div className="skills-detail-title">
-            <h3>{skill.name}</h3>
-            <div className="skills-detail-meta">
-              <span className="skill-badge">{typeLabel(skill.type)}</span>
-              <span className="skill-badge muted">
-                {sourceLabel(skill.source) ?? skill.source}
-              </span>
-              <span className="skill-badge muted">v{skill.version}</span>
-            </div>
-          </div>
-        </div>
-
-        <p className="skills-detail-description">{skill.description}</p>
-
-        <dl className="skills-detail-grid">
-          <div>
-            <dt>{t("skills.detailTypeLabel", "类型")}</dt>
-            <dd>{typeLabel(skill.type)}</dd>
-          </div>
-          <div>
-            <dt>{t("skills.detailSourceLabel", "来源")}</dt>
-            <dd>{sourceLabel(skill.source) ?? skill.source}</dd>
-          </div>
-          <div>
-            <dt>{t("skills.detailScriptLabel", "脚本")}</dt>
-            <dd>{skillScriptLabel(skill) || t("common.none", "无")}</dd>
-          </div>
-          <div>
-            <dt>{t("skills.detailPathLabel", "路径")}</dt>
-            <dd className="skills-detail-path">{skill.path}</dd>
-          </div>
-        </dl>
-
-        <section className="skills-detail-section">
-          <h4>
-            <FileText size={13} />
-            {t("skills.bodyTitle", "SKILL.md 正文")}
-          </h4>
-          <pre className="skills-detail-body">
-            {skill.body || t("skills.noBody", "（无正文）")}
-          </pre>
-        </section>
-
-        {skill.references.length > 0 && (
-          <section className="skills-detail-section">
-            <h4>
-              <FolderTree size={13} />
-              {t("skills.referencesTitle", "参考资料")}
-            </h4>
-            <ul className="skills-detail-references">
-              {skill.references.map((reference) => (
-                <li key={reference}>{reference}</li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {skill.dependencies.length > 0 && (
-          <section className="skills-detail-section">
-            <h4>
-              <Package size={13} />
-              {t("skills.dependenciesTitle", "依赖")}
-            </h4>
-            <ul className="skills-detail-references">
-              {skill.dependencies.map((dependency) => (
-                <li key={dependency}>{dependency}</li>
-              ))}
-            </ul>
-          </section>
-        )}
-      </div>
-    </Modal>
   );
 }

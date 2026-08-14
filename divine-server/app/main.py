@@ -19,6 +19,7 @@ from .api import (
     terminal,
 )
 from .config import cors_origins, ensure_directories, settings_store
+from .scheduler import scheduler
 from .tools.registry import registry
 
 
@@ -26,7 +27,9 @@ from .tools.registry import registry
 async def lifespan(_: FastAPI):
     ensure_directories()
     db.init_db()
+    await scheduler.start()
     yield
+    await scheduler.stop()
     terminal.shutdown_terminal()
 
 

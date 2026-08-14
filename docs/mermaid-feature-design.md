@@ -3,7 +3,7 @@
 > 版本：v1.0
 > 日期：2026-08-11
 > 状态：已实现（前端渲染 + mermaid_export）
-> 关联模块：`divine-app/src/pages/chat/components/MarkdownView`、`divine-server/app/agent.py`、`divine-server/app/llm.py`
+> 关联模块：`divine-app/src/pages/chat/components/MarkdownView`、`divine-server/app/agent/constants.py`、`divine-server/app/llm/legacy.py`
 
 ## 1. 背景与目标
 
@@ -149,7 +149,7 @@ mermaid.initialize({
 
 ### 5.1 触发规则
 
-在 `divine-server/app/agent.py` 的 `SYSTEM_PROMPT` 中增加 Mermaid 规则：
+在 `divine-server/app/agent/constants.py` 的 `SYSTEM_PROMPT` 中增加 Mermaid 规则：
 
 - 用户要求展示流程、处理链路、步骤关系、决策分支或架构时，输出一个 `mermaid` fenced code block。
 - 其他回答不强制输出图，避免每轮都出现流程图噪音。

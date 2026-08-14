@@ -1,21 +1,10 @@
 import {
   AlertCircle,
   BellRing,
-  Calendar1,
-  CalendarClock,
-  CalendarHeart,
-  CalendarPlus,
-  CalendarSync,
   CalendarX,
-  Check,
-  ChevronRight,
-  Clock,
-  MoreHorizontal,
   PanelLeftOpen,
-  Pencil,
   Plus,
   Search,
-  Trash2,
 } from "lucide-react";
 import {
   useCallback,
@@ -26,10 +15,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
-import { Switch } from "@/components/ui/Switch";
 import { toast } from "@/components/ui/Toast";
 import {
   createCalendarEvent,
@@ -47,27 +34,9 @@ import {
 } from "@/services/scheduledTasks";
 import type { CalendarEvent, ScheduledTask } from "@/types";
 import { TaskModal } from "./components/TaskModal";
-import { formatDateTime, formatTaskSchedule } from "./scheduleUtils";
+import { SuggestionCards, type TaskSuggestion } from "./components/SuggestionCards";
+import { TaskRow } from "./components/TaskRow";
 import "./index.less";
-
-function TaskFrequencyIcon({ task }: { task: ScheduledTask }) {
-  if (task.frequency === "daily") return <Clock size={15} />;
-  if (task.frequency === "weekly") return <CalendarClock size={15} />;
-  if (task.frequency === "monthly") return <CalendarHeart size={15} />;
-  if (task.frequency === "once") return <Calendar1 size={15} />;
-  return <CalendarSync size={15} />;
-}
-
-interface Suggestion {
-  key: string;
-  title: string;
-  schedule: string;
-  description: string;
-  frequency: ScheduledTask["frequency"];
-  run_hour: number;
-  run_minute: number;
-  days_of_week: number[];
-}
 
 export function ScheduledTasksPage({
   onOpenSidebar,
@@ -75,7 +44,7 @@ export function ScheduledTasksPage({
   onOpenSidebar: () => void;
 }) {
   const { t } = useTranslation();
-  const suggestions = useMemo<Suggestion[]>(
+  const suggestions = useMemo<TaskSuggestion[]>(
     () => [
       {
         key: "daily",
@@ -181,7 +150,7 @@ export function ScheduledTasksPage({
   }, [search, tasks]);
 
   const handleCreateSuggestion = useCallback(
-    async (suggestion: Suggestion) => {
+    async (suggestion: TaskSuggestion) => {
       setCreatingSuggestion(suggestion.key);
       setActionError(null);
       try {
@@ -407,78 +376,15 @@ export function ScheduledTasksPage({
           {filteredTasks.length > 0 ? (
             <div className="task-list">
               {filteredTasks.map((task) => (
-                <div key={task.id} className={`task-row ${task.status}`}>
-                  <div className={`task-row-icon ${task.frequency}`}>
-                    <TaskFrequencyIcon task={task} />
-                  </div>
-                  <div className="task-row-main">
-                    <div className="task-row-title">
-                      {task.title}
-                      {task.status === "paused" && (
-                        <span className="task-status-badge">
-                          {t("tasks.paused", "已暂停")}
-                        </span>
-                      )}
-                    </div>
-                    <div className="task-row-schedule">
-                      {formatTaskSchedule(task)}
-                      {task.next_run_at && (
-                        <>
-                          <span className="task-row-sep">·</span>
-                          {t("tasks.nextRun", "下次 {{time}}", {
-                            time: formatDateTime(task.next_run_at),
-                          })}
-                        </>
-                      )}
-                    </div>
-                    {task.description && (
-                      <div className="task-row-desc">{task.description}</div>
-                    )}
-                  </div>
-                  <Flex align="center" gap={4} className="task-row-actions">
-                    <Dropdown
-                      align="end"
-                      openOn="hover"
-                      trigger={
-                        <Button
-                          variant="icon"
-                          size="small"
-                          title={t("tasks.moreActions", "更多操作")}
-                          aria-label={t("tasks.moreActions", "更多操作")}
-                        >
-                          <MoreHorizontal size={15} />
-                        </Button>
-                      }
-                      items={[
-                        {
-                          key: "calendar",
-                          label: t("tasks.writeCalendar", "写入日程"),
-                          icon: <CalendarPlus size={13} />,
-                          disabled:
-                            !task.next_run_at ||
-                            writingCalendarTaskId === task.id,
-                          onClick: () => void handleWriteCalendar(task),
-                        },
-                        {
-                          key: "edit",
-                          label: t("tasks.edit", "编辑"),
-                          icon: <Pencil size={13} />,
-                          onClick: () => setTaskModal({ mode: "edit", task }),
-                        },
-                        {
-                          key: "delete",
-                          label: t("tasks.delete", "删除"),
-                          icon: <Trash2 size={13} />,
-                          onClick: () => setDeleteTask(task),
-                        },
-                      ]}
-                    />
-                    <Switch
-                      checked={task.status === "active"}
-                      onChange={() => void handleToggleTask(task)}
-                    />
-                  </Flex>
-                </div>
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  writingCalendarTaskId={writingCalendarTaskId}
+                  onWriteCalendar={(item) => void handleWriteCalendar(item)}
+                  onEdit={(item) => setTaskModal({ mode: "edit", task: item })}
+                  onDelete={setDeleteTask}
+                  onToggle={(item) => void handleToggleTask(item)}
+                />
               ))}
             </div>
           ) : (
@@ -490,53 +396,12 @@ export function ScheduledTasksPage({
           )}
 
           {!search && (
-            <section className="suggestion-section">
-              <h2>{t("tasks.suggestions", "建议")}</h2>
-              <div className="suggestion-grid">
-                {suggestions.map((suggestion) => (
-                  <div
-                    key={suggestion.key}
-                    className={`suggestion-card${
-                      creatingSuggestion === suggestion.key ? " creating" : ""
-                    }`}
-                    role="button"
-                    tabIndex={creatingSuggestion ? -1 : 0}
-                    aria-disabled={creatingSuggestion !== null}
-                    onClick={() => void handleCreateSuggestion(suggestion)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        void handleCreateSuggestion(suggestion);
-                        event.currentTarget.blur();
-                      }
-                    }}
-                  >
-                    <div className="suggestion-head">
-                      <span className="suggestion-title">
-                        {suggestion.title}
-                      </span>
-                      {creatingSuggestion === suggestion.key ? (
-                        <span className="suggestion-state">
-                          {t("tasks.creating", "创建中...")}
-                        </span>
-                      ) : createdSuggestion === suggestion.key ? (
-                        <span className="suggestion-state created">
-                          <Check size={13} />
-                          {t("tasks.createdBadge", "已创建")}
-                        </span>
-                      ) : (
-                        <ChevronRight size={14} />
-                      )}
-                    </div>
-                    <div className="suggestion-schedule">
-                      {suggestion.schedule}
-                    </div>
-                    <div className="suggestion-desc">
-                      {suggestion.description}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <SuggestionCards
+              suggestions={suggestions}
+              creatingSuggestion={creatingSuggestion}
+              createdSuggestion={createdSuggestion}
+              onCreate={(suggestion) => void handleCreateSuggestion(suggestion)}
+            />
           )}
         </div>
       )}

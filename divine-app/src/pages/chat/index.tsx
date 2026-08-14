@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import i18next from "@/i18n";
 import {
+  cancelSessionGeneration,
   createProject,
-  createSession,
   deleteProject,
   deleteSession,
   getSession,
@@ -18,12 +17,6 @@ import {
   updateSessionApprovalMode,
   updateSettings,
 } from "@/services/api";
-import { consumeSSE } from "@/services/sse";
-import { requestRaw } from "@/services/request";
-import {
-  emitEventsChanged,
-  emitTasksChanged,
-} from "@/services/scheduledTasks";
 import { ScheduledTasksPage } from "@/pages/tasks";
 import { SkillsPage } from "@/pages/skills";
 import { ChatHeader } from "@/pages/chat/components/ChatHeader";
@@ -40,17 +33,7 @@ import {
   unwatchWorkspace,
   watchWorkspace,
 } from "@/services/tauri";
-import { toWorkspaceRelative } from "@/services/workspace";
-import type {
-  ApprovalMode,
-  ChatFile,
-  ChatMessage,
-  PreviewFile,
-  Project,
-  Settings,
-  TodoItem,
-  ToolEvent,
-} from "@/types";
+import type { ApprovalMode, PreviewFile, Project, Settings } from "@/types";
 import { useConfigState } from "@/pages/chat/state/configStore";
 import { useFullscreen } from "@/pages/chat/state/fullscreenStore";
 import { useInputState } from "@/pages/chat/state/inputStore";
@@ -65,50 +48,13 @@ import { TitleBar } from "@/components/TitleBar";
 import { SessionSearchModal } from "@/pages/chat/components/SessionList/SessionSearchModal";
 import { ProjectModal } from "@/pages/chat/components/ProjectModal";
 import { ProjectPicker } from "@/pages/chat/components/ProjectPicker";
-
-function acceptedFilesKey(path: string): string {
-  return `divine:accepted-files:${path}`;
-}
-
-function changedFilePathsFromResult(result: unknown): string[] {
-  const paths: string[] = [];
-  if (!result || typeof result !== "object") return paths;
-  const payload = result as Record<string, unknown>;
-  if (typeof payload.filepath === "string") paths.push(payload.filepath);
-
-  const data = payload.data;
-  if (data && typeof data === "object") {
-    const dataRecord = data as Record<string, unknown>;
-    for (const listKey of ["files", "results"]) {
-      const items = dataRecord[listKey];
-      if (!Array.isArray(items)) continue;
-      for (const item of items) {
-        if (!item || typeof item !== "object") continue;
-        const record = item as Record<string, unknown>;
-        const path =
-          typeof record.filepath === "string"
-            ? record.filepath
-            : typeof record.path === "string"
-              ? record.path
-              : null;
-        if (path) paths.push(path);
-      }
-    }
-  }
-  return [...new Set(paths)];
-}
-
-function changedFileRel(base: string, raw: string): string | null {
-  const normalized = raw.replace(/\\/g, "/").replace(/^\.\//, "");
-  if (/^([A-Za-z]:)?\//.test(normalized)) {
-    return toWorkspaceRelative(base, normalized);
-  }
-  return normalized;
-}
-
-function expandedWorkspaceWidth(leftWidth: number): number {
-  return Math.max(480, window.innerWidth - leftWidth);
-}
+import { useChatStream } from "@/pages/chat/hooks/useChatStream";
+import {
+  acceptedFilesKey,
+  changedFilePathsFromResult,
+  changedFileRel,
+  expandedWorkspaceWidth,
+} from "@/pages/chat/chatUtils";
 
 export default function ChatPage() {
   const { t } = useTranslation();
@@ -671,225 +617,36 @@ export default function ChatPage() {
     }
   }, []);
 
-  const sendMessage = useCallback(
-    async (question: string, files: ChatFile[], think: boolean) => {
-      const trimmed = question.trim();
-      if ((!trimmed && files.length === 0) || streaming) return;
-      const effectiveQuestion =
-        trimmed || t("chat.analyzeAttachment", "请分析附件");
-      let sessionId = selectedId;
-      if (!sessionId) {
-        const projectId = selectedProjectId ?? projects[0]?.id ?? null;
-        if (!projectId) return;
-        const session = await createSession(
-          undefined,
-          projectId,
-          approvalMode,
-          i18next.language || "zh-CN"
-        );
-        sessionId = session.id;
-        setSessions((prev) => [session, ...prev]);
-        setSelectedId(session.id);
-      }
+  const handleStopStreaming = useCallback(async () => {
+    if (!selectedId) return;
+    try {
+      await cancelSessionGeneration(selectedId);
+    } catch {
+      // sidecar may already be gone; the stream will fail on its own
+    }
+  }, [selectedId]);
 
-      const userMessage: ChatMessage = {
-        id: `local-user-${Date.now()}`,
-        role: "user",
-        content: effectiveQuestion,
-        created_at: new Date().toISOString(),
-        tools: [],
-        files,
-      };
-      const assistantMessage: ChatMessage = {
-        id: `local-assistant-${Date.now()}`,
-        role: "assistant",
-        content: "",
-        created_at: new Date().toISOString(),
-        tools: [],
-        streaming: true,
-      };
-      setMessages((prev) => [...prev, userMessage, assistantMessage]);
-      setStreaming(true);
 
-      try {
-        const response = await requestRaw("/stream_chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            question: effectiveQuestion,
-            session_id: sessionId,
-            approval_mode: approvalMode,
-            think,
-            locale: i18next.language || "zh-CN",
-            attachments: files.map((file) => ({
-              name: file.name,
-              size: file.size,
-              ...(file.path
-                ? { file_path: file.path }
-                : { content: file.content ?? "" }),
-            })),
-          }),
-        });
-        await consumeSSE(response, {
-          think: ({ content }) => {
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? { ...message, think: (message.think ?? "") + content }
-                  : message
-              )
-            );
-          },
-          message: ({ content }) => {
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? { ...message, content: message.content + content }
-                  : message
-              )
-            );
-          },
-          plan: (data) => {
-            const items = (data.items ?? []) as unknown as TodoItem[];
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? { ...message, todos: items }
-                  : message
-              )
-            );
-          },
-          todo_update: (data) => {
-            const next = data as {
-              id: string;
-              status: TodoItem["status"];
-              result?: string;
-            };
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? {
-                      ...message,
-                      todos: (message.todos ?? []).map((todo) =>
-                        todo.id === next.id
-                          ? { ...todo, status: next.status, result: next.result }
-                          : todo
-                      ),
-                    }
-                  : message
-              )
-            );
-          },
-          tool: (data) => {
-            const event = data as unknown as ToolEvent;
-            if (event.status === "done" && event.result) {
-              const projectPath = projects.find(
-                (item) => item.id === selectedProjectId
-              )?.path;
-              if (projectPath) {
-                for (const filePath of changedFilePathsFromResult(
-                  event.result
-                )) {
-                  const rel = changedFileRel(projectPath, filePath);
-                  if (rel && workspacePanelOpenRef.current) {
-                    setAgentChangedFiles((prev) => new Set(prev).add(rel));
-                  }
-                }
-              }
-            }
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? {
-                      ...message,
-                      tools: upsertTool(message.tools, event),
-                    }
-                  : message
-              )
-            );
-          },
-          scheduled_tasks_changed: () => {
-            emitTasksChanged();
-          },
-          calendar_events_changed: () => {
-            emitEventsChanged();
-          },
-          done: async () => {
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? { ...message, streaming: false }
-                  : message
-              )
-            );
-            if (sessionId) {
-              const data = await getSession(sessionId);
-              const restored = messagesToChatMessages(
-                data.messages,
-                data.tool_runs ?? [],
-                data.todos
-              );
-              setMessages((prev) => mergeLocalTools(prev, restored));
-              setHasMoreOlder(false);
-              setOldestMessageId(null);
-            }
-            await Promise.all([
-              refreshSessions(selectedProjectId),
-              refreshProjects(),
-              refreshWorkspace(),
-            ]);
-            if (sessionId && workspacePanelOpenRef.current) {
-              await loadChangedFiles(sessionId);
-            }
-          },
-          error: ({ message, messageKey, messageParams }) => {
-            setMessages((prev) =>
-              prev.map((item) =>
-                item.id === assistantMessage.id
-                  ? {
-                      ...item,
-                      streaming: false,
-                      error: messageKey
-                        ? t(messageKey, messageParams ?? {})
-                        : message,
-                    }
-                  : item
-              )
-            );
-          },
-        });
-      } catch (error) {
-        setMessages((prev) =>
-          prev.map((item) =>
-            item.id === assistantMessage.id
-              ? {
-                  ...item,
-                  streaming: false,
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : t("chat.requestFailed", "请求失败，请稍后重试"),
-                }
-              : item
-          )
-        );
-      } finally {
-        setStreaming(false);
-      }
-    },
-    [
-      approvalMode,
-      projects,
-      refreshProjects,
-      refreshSessions,
-      refreshWorkspace,
-      selectedId,
-      selectedProjectId,
-      streaming,
-      t,
-      loadChangedFiles,
-    ]
-  );
+  const { sendMessage } = useChatStream({
+    selectedId,
+    selectedProjectId,
+    projects,
+    approvalMode,
+    streaming,
+    workspacePanelOpenRef,
+    setSessions,
+    setSelectedId,
+    setMessages,
+    setStreaming,
+    setAgentChangedFiles,
+    setHasMoreOlder,
+    setOldestMessageId,
+    refreshSessions,
+    refreshProjects,
+    refreshWorkspace,
+    loadChangedFiles,
+    t,
+  });
 
   const currentSession = useMemo(
     () => sessions.find((session) => session.id === selectedId) ?? null,
@@ -1185,6 +942,7 @@ export default function ChatPage() {
                   settings?.think_default ?? false
                 )
               }
+              onStop={handleStopStreaming}
               onPreviewFile={handlePreviewFile}
             />
           </>
@@ -1239,25 +997,4 @@ export default function ChatPage() {
       )}
     </Flex>
   );
-}
-
-function upsertTool(tools: ToolEvent[], next: ToolEvent): ToolEvent[] {
-  const index = tools.findIndex((tool) =>
-    next.call_id ? tool.call_id === next.call_id : tool.tool === next.tool
-  );
-  if (index === -1) {
-    return [...tools, { ...next, status: next.status || "preparing" }];
-  }
-  const updated = [...tools];
-  updated[index] = { ...updated[index], ...next };
-  return updated;
-}
-
-function mergeLocalTools(local: ChatMessage[], restored: ChatMessage[]) {
-  if (local.length !== restored.length) return restored;
-  return restored.map((message, index) => ({
-    ...message,
-    tools: local[index]?.tools?.length ? local[index].tools : message.tools,
-    files: local[index]?.files?.length ? local[index].files : message.files,
-  }));
 }

@@ -37,6 +37,9 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 | 目录 | 说明 |
 | --- | --- |
 | `divine-server` | FastAPI sidecar：API、Agent、SSE、SQLite、工具系统 |
+| `divine-server/app/agent` | Agent 编排、prompt、工具执行与 SSE 流拆分的子模块 |
+| `divine-server/app/db` | SQLite 连接、迁移与按领域拆分的仓储 |
+| `divine-server/app/llm` | LLM provider、DSML 流解析与 LangChain 适配 |
 | `divine-server/app/tools/adapters` | 工具注册与参数定义 |
 | `divine-server/app/tools/scripts` | 工具子进程脚本 |
 | `divine-app` | Vite + React + TypeScript 前端，自研组件 |

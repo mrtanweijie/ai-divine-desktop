@@ -1,0 +1,260 @@
+"""Creative resume theme CSS."""
+
+from __future__ import annotations
+
+CREATIVE_CSS = r"""
+/* ============================================================
+   Creative Resume Theme — 现代创意紫橙
+   适用：设计/互联网/创业公司/海外求职
+   特点：顶部色块 Header + 卡片式布局 + 渐变点缀
+   ============================================================ */
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans SC', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 9.5pt;
+  line-height: 1.65;
+  color: #1e1e2e;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ===== Header 顶部色块 ===== */
+.header {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #ec4899 100%);
+  padding: 32pt 30pt 28pt 30pt;
+  color: white;
+}
+
+.header .name {
+  font-size: 30pt;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 4pt;
+}
+
+.header .subtitle {
+  font-size: 11pt;
+  font-weight: 300;
+  opacity: 0.9;
+  margin-bottom: 12pt;
+}
+
+.header .contact-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14pt;
+}
+
+.header .contact-item {
+  font-size: 8.8pt;
+  opacity: 0.9;
+  display: flex;
+  align-items: center;
+  gap: 4pt;
+}
+
+/* ===== Body 区域 ===== */
+.body {
+  padding: 22pt 30pt 26pt 30pt;
+}
+
+/* ===== 双栏主体 ===== */
+.two-col {
+  display: flex;
+  gap: 22pt;
+}
+
+.col-left {
+  width: 62%;
+}
+
+.col-right {
+  width: 38%;
+}
+
+/* ===== Section 标题 ===== */
+.section {
+  margin-bottom: 16pt;
+  page-break-inside: auto;
+}
+
+.section h2 {
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #7c3aed;
+  margin-bottom: 8pt;
+  display: flex;
+  align-items: center;
+  gap: 6pt;
+}
+
+.section h2::before {
+  content: "";
+  display: inline-block;
+  width: 12pt;
+  height: 3pt;
+  background: linear-gradient(90deg, #7c3aed, #ec4899);
+  border-radius: 2pt;
+}
+
+/* ===== 经历卡片 ===== */
+.card {
+  background: #faf5ff;
+  border-radius: 6pt;
+  padding: 10pt 12pt;
+  margin-bottom: 10pt;
+  border-left: 3pt solid #a855f7;
+  page-break-inside: avoid;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4pt;
+}
+
+.card-title {
+  font-size: 10pt;
+  font-weight: 600;
+  color: #2d1b69;
+}
+
+.card-subtitle {
+  font-size: 9pt;
+  color: #6b5b95;
+}
+
+.card-period {
+  font-size: 8pt;
+  color: #a78bfa;
+  white-space: nowrap;
+}
+
+.card-body {
+  font-size: 8.8pt;
+  color: #3d2b6e;
+  line-height: 1.6;
+}
+
+.card-body ul {
+  padding-left: 1.1em;
+  margin: 3pt 0;
+}
+
+.card-body li {
+  margin: 2pt 0;
+}
+
+/* ===== 技能标签云（右侧栏用） ===== */
+.skill-group {
+  margin-bottom: 12pt;
+}
+
+.skill-group h4 {
+  font-size: 9pt;
+  font-weight: 600;
+  color: #5b21b6;
+  margin-bottom: 5pt;
+}
+
+.skill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4pt;
+}
+
+.skill-tag {
+  font-size: 7.8pt;
+  padding: 2pt 7pt;
+  background: linear-gradient(135deg, #ede9fe, #fce7f3);
+  color: #6b21a8;
+  border-radius: 3pt;
+  font-weight: 500;
+}
+
+/* ===== 项目（带链接感） ===== */
+.project-card {
+  background: white;
+  border: 1pt solid #e9d5ff;
+  border-radius: 6pt;
+  padding: 10pt 12pt;
+  margin-bottom: 10pt;
+  page-break-inside: avoid;
+  transition: none;
+}
+
+.project-card:hover {
+  border-color: #a855f7;
+}
+
+.project-card .name {
+  font-size: 10pt;
+  font-weight: 600;
+  color: #2d1b69;
+  margin-bottom: 3pt;
+}
+
+.project-card .desc {
+  font-size: 8.8pt;
+  color: #4a3a7a;
+  line-height: 1.55;
+}
+
+.project-card .project-highlights {
+  margin-top: 4pt;
+}
+
+.project-card .project-highlights ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.project-card .project-highlights li {
+  margin: 1pt 0;
+  font-size: 8.3pt;
+  color: #5b4a8a;
+}
+
+/* ===== 摘要 ===== */
+.summary {
+  font-size: 9.5pt;
+  color: #2d2d3a;
+  line-height: 1.75;
+  background: linear-gradient(135deg, #faf5ff, #fdf2f8);
+  padding: 12pt 14pt;
+  border-radius: 6pt;
+  margin-bottom: 4pt;
+}
+
+/* ===== 教育 ===== */
+.edu-card {
+  margin-bottom: 10pt;
+  page-break-inside: avoid;
+}
+
+.edu-card .degree {
+  font-size: 10pt;
+  font-weight: 600;
+  color: #2d1b69;
+}
+
+.edu-card .school {
+  font-size: 9pt;
+  color: #6b5b95;
+}
+
+.edu-card .meta {
+  font-size: 8.5pt;
+  color: #a78bfa;
+  margin-top: 2pt;
+}
+"""

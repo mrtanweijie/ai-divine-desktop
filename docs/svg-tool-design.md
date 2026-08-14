@@ -3,7 +3,7 @@
 > 版本：v1.0
 > 日期：2026-08-11
 > 状态：已实现
-> 关联模块：`divine-server/app/tools/adapters`、`divine-server/app/tools/scripts`、`divine-server/app/agent.py`
+> 关联模块：`divine-server/app/tools/adapters`、`divine-server/app/tools/scripts`、`divine-server/app/agent/constants.py`
 
 ## 1. 背景与目标
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -8,7 +9,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from .. import db
-from ..agent_langchain import run_agent
+from ..agent import run_agent
 from ..config import settings_store
 from ..document_reader import read_file_text
 from ..file_types import is_image_path
@@ -18,6 +19,8 @@ from ..sse import error_event, sse_event
 
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger("divine.chat")
+# Session-id -> cancel event, used by POST /sessions/{id}/cancel to stop a stream.
+_CANCEL_EVENTS: dict[str, asyncio.Event] = {}
 
 
 def _read_text_fallback(path: Path) -> str:
@@ -162,6 +165,9 @@ async def stream_chat(request: StreamChatRequest):
     )
 
     async def generate():
+        # Register a per-session cancel event so the UI can stop this stream.
+        cancel_event = asyncio.Event()
+        _CANCEL_EVENTS[session_id] = cancel_event
         try:
             async for event in run_agent(
                 session_id,
@@ -170,6 +176,7 @@ async def stream_chat(request: StreamChatRequest):
                 workspace=workspace,
                 approval_mode=approval_mode,
                 locale=locale,
+                cancel_event=cancel_event,
             ):
                 yield event
         except Exception as exc:  # noqa: BLE001
@@ -178,6 +185,7 @@ async def stream_chat(request: StreamChatRequest):
             )
             yield error_event("server_error", str(exc))
         finally:
+            _CANCEL_EVENTS.pop(session_id, None)
             db.touch_session(session_id)
 
     return StreamingResponse(
@@ -185,3 +193,12 @@ async def stream_chat(request: StreamChatRequest):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/sessions/{session_id}/cancel")
+async def cancel_session(session_id: str) -> dict[str, object]:
+    cancel_event = _CANCEL_EVENTS.get(session_id)
+    if cancel_event is None:
+        return {"ok": False, "message": "没有正在运行的会话"}
+    cancel_event.set()
+    return {"ok": True}

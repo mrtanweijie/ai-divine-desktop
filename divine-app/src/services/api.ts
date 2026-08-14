@@ -67,6 +67,10 @@ export function clearSession(id: string): Promise<unknown> {
   return request(`/sessions/${id}/clear`, { method: "POST" });
 }
 
+export function cancelSessionGeneration(id: string): Promise<{ ok: boolean }> {
+  return request(`/sessions/${id}/cancel`, { method: "POST" });
+}
+
 export function getSession(
   id: string,
   options?: { limit?: number; beforeId?: string }

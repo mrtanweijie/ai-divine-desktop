@@ -1,0 +1,68 @@
+"""SQLite persistence layer for projects, sessions, messages, todos, and tasks.
+
+Modules are split by domain; this package re-exports the repository functions
+so existing ``from app import db; db.list_projects()`` calls keep working.
+"""
+
+from . import (
+    calendar_events,
+    history,
+    messages,
+    migrations,
+    projects,
+    scheduled_tasks,
+    sessions,
+    todos,
+    tool_runs,
+)
+from .calendar_events import (
+    create_calendar_event,
+    delete_calendar_event,
+    get_calendar_event,
+    list_calendar_events,
+    update_calendar_event,
+)
+from .connection import _connect, _json, _new_id, _now
+from .history import history_for_model, load_session, load_session_page
+from .messages import (
+    add_message,
+    add_message_part,
+    clear_messages,
+    get_message,
+    list_messages,
+)
+from .migrations import SCHEMA, init_db
+from .projects import (
+    create_project,
+    default_project,
+    delete_project,
+    get_project,
+    list_projects,
+    update_project,
+)
+from .scheduled_tasks import (
+    create_scheduled_task,
+    delete_scheduled_task,
+    get_scheduled_task,
+    list_scheduled_tasks,
+    pause_tasks_for_session,
+    update_scheduled_task,
+)
+from .sessions import (
+    create_session,
+    delete_session,
+    get_session,
+    list_sessions,
+    session_workspace,
+    touch_session,
+    update_session,
+)
+from .todos import list_todos, replace_todos, update_todo_status
+from .tool_runs import (
+    add_tool_run,
+    get_tool_run,
+    list_message_parts,
+    list_tool_runs,
+    save_tool_turn,
+    update_tool_run,
+)

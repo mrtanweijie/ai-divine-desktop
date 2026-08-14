@@ -1,0 +1,615 @@
+"""Tool adapter execution with approvals, terminal policy, and todo tracking."""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+from typing import Any
+
+from langgraph.prebuilt import ToolRuntime
+
+from .. import db
+from ..api.terminal import terminal_command_policy
+from ..github_skills import preview_skill_repo
+from ..skills import discover_importable_skills, find_importable_skill
+from .constants import _NO_PLAN_TOOLS, _READ_ONLY_TOOLS
+from .context import AgentRunContext
+from .interrupts import _ask_interrupt
+from .persistence import _frontend_tool_result
+from .plans import _claim_next_todo, _finish_todo
+from .prompts import _should_ask_plan
+from .tool_runtime import _execute_tool
+
+logger = logging.getLogger("divine.agent.execution")
+
+async def _handle_adapter_call(
+    ctx: AgentRunContext,
+    runtime: ToolRuntime,
+    adapter: Any,
+    name: str,
+    arguments: dict[str, Any],
+) -> Any:
+    """Execute a tool inside the LangGraph runtime with approval and SSE events."""
+    call_id = runtime.tool_call_id or f"call_{time.monotonic_ns()}"
+    writer = runtime.stream_writer
+
+    if (
+        not ctx.plan_choice_resolved
+        and name not in _READ_ONLY_TOOLS
+        and name not in _NO_PLAN_TOOLS
+        and _should_ask_plan(runtime.state.get("messages") or [])
+    ):
+        decision = _ask_interrupt(
+            ctx.session_id,
+            f"plan_choice:{call_id}",
+            {
+                "type": "plan_choice",
+                "session_id": ctx.session_id,
+                "tool": name,
+                "message": "执行任务前是否先出一份方案？",
+                "call_id": call_id,
+            },
+        )
+        plan_first = (
+            bool(decision.get("allowed"))
+            if isinstance(decision, dict)
+            else bool(decision)
+        )
+        ctx.plan_choice_resolved = True
+        db.update_session(
+            ctx.session_id,
+            plan_mode="plan_first" if plan_first else "direct",
+        )
+        if plan_first:
+            ctx.plan_first_pending = True
+        else:
+            ctx.plan_approved = True
+        writer(
+            {
+                "event": "tool",
+                "tool": "plan_choice",
+                "status": "done",
+                "message": "已选择先出方案" if plan_first else "已选择直接执行",
+                "messageKey": (
+                    "tool.planChoiceFirst" if plan_first else "tool.planChoiceDirect"
+                ),
+                "messageParams": {},
+                "confirm_type": "plan_choice",
+                "session_id": ctx.session_id,
+            }
+        )
+        if plan_first:
+            return (
+                "用户选择先出一份方案。"
+                "请先调用 create_plan 制定计划，不要直接执行其他工具。"
+            )
+
+    if name != "create_plan" and ctx.plan_first_pending:
+        return (
+            "用户选择先出一份方案。"
+            "请先调用 create_plan 制定计划，不要直接执行其他工具。"
+        )
+
+    todo = None
+    todos = db.list_todos(ctx.session_id)
+    if todos:
+        todo = _claim_next_todo(ctx.session_id, todos)
+        if todo is not None:
+            writer(
+                {
+                    "event": "todo_update",
+                    "id": todo["id"],
+                    "status": todo["status"],
+                }
+            )
+
+    try:
+        if name == "migrate_skill":
+            candidate = find_importable_skill(
+                ctx.workspace,
+                str(arguments.get("name") or ""),
+                str(arguments.get("source_tool") or "") or None,
+            )
+            if candidate is not None:
+                target = str(arguments.get("target") or "project")
+                decision = _ask_interrupt(
+                    ctx.session_id,
+                    f"skill_migrate:{call_id}",
+                    {
+                        "type": "skill_migrate",
+                        "session_id": ctx.session_id,
+                        "tool": name,
+                        "message": (
+                            f"确认将技能 {candidate['name']} "
+                            f"迁移到 {target} 级目录？"
+                        ),
+                        "skill": candidate,
+                        "target": target,
+                        "call_id": call_id,
+                    },
+                )
+                allowed = (
+                    bool(decision.get("allowed"))
+                    if isinstance(decision, dict)
+                    else bool(decision)
+                )
+                if not allowed:
+                    if todo is not None:
+                        _finish_todo(todo, False, "用户取消技能迁移")
+                        writer(
+                            {
+                                "event": "todo_update",
+                                "id": todo["id"],
+                                "status": todo["status"],
+                            }
+                        )
+                    writer(
+                        {
+                            "event": "tool",
+                            "tool": name,
+                            "status": "error",
+                            "message": "用户取消技能迁移",
+                            "messageKey": "tool.skillMigrateCancelled",
+                            "messageParams": {},
+                            "session_id": ctx.session_id,
+                            "call_id": call_id,
+                        }
+                    )
+                    return json.dumps(
+                        {
+                            "error": "用户取消技能迁移",
+                            "skill": candidate["name"],
+                        },
+                        ensure_ascii=False,
+                    )
+
+        if name == "migrate_skills":
+            names = [
+                str(item or "").strip()
+                for item in (arguments.get("names") or [])
+                if str(item or "").strip()
+            ]
+            source_tool = (
+                str(arguments.get("source_tool") or "").strip() or None
+            )
+            target = str(arguments.get("target") or "project")
+            candidates = [
+                candidate
+                for candidate in discover_importable_skills(ctx.workspace)
+                if candidate["name"] in names
+                and (
+                    not source_tool
+                    or candidate["source_tool"] == source_tool
+                )
+            ]
+            unique: dict[str, dict[str, Any]] = {}
+            for candidate in candidates:
+                unique.setdefault(str(candidate["name"]), candidate)
+            selected = list(unique.values())
+            if selected:
+                decision = _ask_interrupt(
+                    ctx.session_id,
+                    f"skill_migrate_batch:{call_id}",
+                    {
+                        "type": "skill_migrate_batch",
+                        "session_id": ctx.session_id,
+                        "tool": name,
+                        "message": (
+                            f"确认批量迁移 {len(selected)} 个技能？"
+                        ),
+                        "skills": selected,
+                        "target": target,
+                        "call_id": call_id,
+                    },
+                )
+                allowed = (
+                    bool(decision.get("allowed"))
+                    if isinstance(decision, dict)
+                    else bool(decision)
+                )
+                if not allowed:
+                    if todo is not None:
+                        _finish_todo(todo, False, "用户取消批量技能迁移")
+                        writer(
+                            {
+                                "event": "todo_update",
+                                "id": todo["id"],
+                                "status": todo["status"],
+                            }
+                        )
+                    writer(
+                        {
+                            "event": "tool",
+                            "tool": name,
+                            "status": "error",
+                            "message": "用户取消批量技能迁移",
+                            "messageKey": "tool.batchMigrateCancelled",
+                            "messageParams": {},
+                            "session_id": ctx.session_id,
+                            "call_id": call_id,
+                        }
+                    )
+                    return json.dumps(
+                        {
+                            "error": "用户取消批量技能迁移",
+                            "skills": [item["name"] for item in selected],
+                        },
+                        ensure_ascii=False,
+                    )
+
+        if name == "install_skill":
+            repo_url = str(arguments.get("repo_url") or "")
+            ref = str(arguments.get("ref") or "") or None
+            target = str(arguments.get("target") or "project")
+            try:
+                repo_preview = await preview_skill_repo(repo_url, ref)
+            except Exception:
+                repo_preview = None
+            if repo_preview is not None:
+                decision = _ask_interrupt(
+                    ctx.session_id,
+                    f"skill_install:{call_id}",
+                    {
+                        "type": "skill_install",
+                        "session_id": ctx.session_id,
+                        "tool": name,
+                        "message": (
+                            f"确认安装 GitHub 仓库 "
+                            f"{repo_preview.get('repo', '')} 中的技能？"
+                        ),
+                        "repo_preview": repo_preview,
+                        "target": target,
+                        "call_id": call_id,
+                    },
+                )
+                allowed = (
+                    bool(decision.get("allowed"))
+                    if isinstance(decision, dict)
+                    else bool(decision)
+                )
+                if not allowed:
+                    if todo is not None:
+                        _finish_todo(todo, False, "用户取消技能安装")
+                        writer(
+                            {
+                                "event": "todo_update",
+                                "id": todo["id"],
+                                "status": todo["status"],
+                            }
+                        )
+                    writer(
+                        {
+                            "event": "tool",
+                            "tool": name,
+                            "status": "error",
+                            "message": "用户取消技能安装",
+                            "messageKey": "tool.skillInstallCancelled",
+                            "messageParams": {},
+                            "session_id": ctx.session_id,
+                            "call_id": call_id,
+                        }
+                    )
+                    return json.dumps(
+                        {
+                            "error": "用户取消技能安装",
+                            "repo": repo_preview.get("repo", ""),
+                        },
+                        ensure_ascii=False,
+                    )
+
+        external_paths = adapter.external_paths(ctx.workspace, arguments)
+        if external_paths and ctx.approval_mode == "ask":
+            logger.info(
+                "external confirm session=%s tool=%s paths=%s",
+                ctx.session_id,
+                name,
+                external_paths,
+            )
+            decision = _ask_interrupt(
+                ctx.session_id,
+                f"external_file:{call_id}",
+                {
+                    "type": "external_file",
+                    "session_id": ctx.session_id,
+                    "tool": name,
+                    "message": "外部路径需要确认",
+                    "paths": external_paths,
+                    "call_id": call_id,
+                },
+            )
+            allowed = (
+                bool(decision.get("allowed"))
+                if isinstance(decision, dict)
+                else bool(decision)
+            )
+            if not allowed:
+                if todo is not None:
+                    _finish_todo(todo, False, "用户拒绝访问外部路径")
+                    writer(
+                        {
+                            "event": "todo_update",
+                            "id": todo["id"],
+                            "status": todo["status"],
+                        }
+                    )
+                writer(
+                        {
+                            "event": "tool",
+                            "tool": name,
+                            "status": "error",
+                            "message": "已拒绝访问外部路径",
+                            "messageKey": "tool.externalFileRejected",
+                            "messageParams": {},
+                            "paths": external_paths,
+                            "session_id": ctx.session_id,
+                            "call_id": call_id,
+                        }
+                    )
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": "用户拒绝了外部路径访问",
+                        "paths": external_paths,
+                        "rejected": True,
+                    },
+                    ensure_ascii=False,
+                )
+
+        is_terminal = name == "terminal"
+        command = str(arguments.get("command") or "")
+        policy = terminal_command_policy(command) if is_terminal else "safe"
+        if is_terminal and ctx.approval_mode == "full":
+            policy = "safe"
+        elif (
+            is_terminal
+            and ctx.approval_mode == "assist"
+            and policy != "block"
+        ):
+            policy = "safe"
+        elif is_terminal and policy == "confirm" and ctx.plan_approved:
+            policy = "safe"
+
+        logger.info(
+            "tool policy session=%s tool=%s policy=%s command=%s",
+            ctx.session_id,
+            name,
+            policy,
+            command[:300],
+        )
+
+        if is_terminal and policy == "block":
+            if todo is not None:
+                _finish_todo(todo, False, "已阻止危险命令")
+                writer(
+                    {
+                        "event": "todo_update",
+                        "id": todo["id"],
+                        "status": todo["status"],
+                    }
+                )
+            writer(
+                {
+                    "event": "tool",
+                    "tool": name,
+                    "status": "error",
+                    "message": "已阻止危险命令",
+                    "messageKey": "tool.dangerousCommandBlocked",
+                    "messageParams": {},
+                    "command": command,
+                    "result": {"command": command},
+                    "session_id": ctx.session_id,
+                    "call_id": call_id,
+                }
+            )
+            return json.dumps(
+                {"error": "已阻止危险命令", "command": command},
+                ensure_ascii=False,
+            )
+
+        if is_terminal and policy == "confirm":
+            decision = _ask_interrupt(
+                ctx.session_id,
+                f"terminal:{call_id}",
+                {
+                    "type": "terminal",
+                    "session_id": ctx.session_id,
+                    "tool": name,
+                    "message": "等待用户确认",
+                    "command": command,
+                    "call_id": call_id,
+                },
+            )
+            allowed = (
+                bool(decision.get("allowed"))
+                if isinstance(decision, dict)
+                else bool(decision)
+            )
+            if not allowed:
+                if todo is not None:
+                    _finish_todo(todo, False, "用户拒绝执行")
+                    writer(
+                        {
+                            "event": "todo_update",
+                            "id": todo["id"],
+                            "status": todo["status"],
+                        }
+                    )
+                writer(
+                    {
+                        "event": "tool",
+                        "tool": name,
+                        "status": "error",
+                        "message": "已拒绝执行",
+                        "messageKey": "tool.terminalRejected",
+                        "messageParams": {},
+                        "command": command,
+                        "result": {"command": command},
+                        "session_id": ctx.session_id,
+                        "call_id": call_id,
+                    }
+                )
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": "用户拒绝了终端命令执行",
+                        "command": command,
+                        "rejected": True,
+                    },
+                    ensure_ascii=False,
+                )
+
+        write_calendar_allowed = False
+        if (
+            name == "schedule_task"
+            and str(arguments.get("action") or "") == "create"
+        ):
+            decision = _ask_interrupt(
+                ctx.session_id,
+                f"write_calendar:{call_id}",
+                {
+                    "type": "write_calendar",
+                    "session_id": ctx.session_id,
+                    "tool": "schedule_task",
+                    "message": "创建提醒后是否同时写入日程？",
+                    "action": "create",
+                    "call_id": call_id,
+                },
+            )
+            write_calendar_allowed = (
+                bool(decision.get("allowed"))
+                if isinstance(decision, dict)
+                else bool(decision)
+            )
+
+        writer(
+            {
+                "event": "tool",
+                "tool": name,
+                "status": "running",
+                "message": f"正在调用 {name}",
+                "messageKey": "tool.runningTool",
+                "messageParams": {"tool": name},
+                "command": command if is_terminal else None,
+                "call_id": call_id,
+            }
+        )
+        output = await _execute_tool(
+            ctx.session_id,
+            adapter,
+            name,
+            arguments,
+            ctx.workspace,
+            locale=ctx.locale,
+        )
+        tool_content = output.get("content") or json.dumps(
+            output, ensure_ascii=False
+        )
+        payload: dict[str, Any] = {
+            "event": "tool",
+            "tool": name,
+            "status": "done" if output.get("success") else "error",
+            "message": output.get("message", "执行完成"),
+            "messageKey": output.get("messageKey"),
+            "messageParams": output.get("messageParams") or {},
+            "result": _frontend_tool_result(output),
+            "call_id": call_id,
+        }
+        if is_terminal:
+            payload["command"] = command
+        writer(payload)
+
+        if (
+            name == "schedule_task"
+            and str(arguments.get("action") or "") == "create"
+            and output.get("success")
+        ):
+            writer(
+                {
+                    "event": "scheduled_tasks_changed",
+                    "tasks": db.list_scheduled_tasks(),
+                }
+            )
+            calendar_pending = (
+                (output.get("data") or {}).get("task") or output
+            )
+            if write_calendar_allowed:
+                writer(
+                    {
+                        "event": "tool",
+                        "tool": "schedule_task",
+                        "status": "done",
+                        "message": "已确认写入日程",
+                        "messageKey": "tool.calendarWritten",
+                        "messageParams": {},
+                        "session_id": ctx.session_id,
+                        "result": calendar_pending,
+                    }
+                )
+                task_id = str(calendar_pending.get("id") or "")
+                title = str(
+                    calendar_pending.get("title")
+                    or calendar_pending.get("message")
+                    or "定时任务"
+                )
+                tool_content = json.dumps(
+                    {
+                        "success": True,
+                        "message": (
+                            f"提醒“{title}”已创建，用户同意写入日程。"
+                            "请立即调用 write_calendar 创建日程，"
+                            f"task_id 传 {task_id}，"
+                            "标题和起止时间按该提醒的信息填写。"
+                        ),
+                        "data": calendar_pending,
+                    },
+                    ensure_ascii=False,
+                )
+            else:
+                writer(
+                    {
+                        "event": "tool",
+                        "tool": "schedule_task",
+                        "status": "done",
+                        "message": "不写入日程",
+                        "messageKey": "tool.calendarSkipped",
+                        "messageParams": {},
+                        "session_id": ctx.session_id,
+                        "result": calendar_pending,
+                    }
+                )
+
+        if name == "write_calendar" and output.get("success"):
+            writer(
+                {
+                    "event": "calendar_events_changed",
+                    "events": db.list_calendar_events(),
+                }
+            )
+
+        if todo is not None:
+            _finish_todo(
+                todo,
+                bool(output.get("success")),
+                str(output.get("message") or ""),
+            )
+            writer(
+                {
+                    "event": "todo_update",
+                    "id": todo["id"],
+                    "status": todo["status"],
+                }
+            )
+
+        return tool_content
+    except Exception:
+        if todo is not None:
+            _finish_todo(todo, False, "工具执行异常")
+            writer(
+                {
+                    "event": "todo_update",
+                    "id": todo["id"],
+                    "status": todo["status"],
+                }
+            )
+        raise
