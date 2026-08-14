@@ -58,7 +58,7 @@ from ..registry import register_tool
             },
             "resume_data": {
                 "type": "object",
-                "description": "简历结构化数据；kind=resume 时优先使用此数据渲染，不再走 LLM 生成",
+                "description": "简历结构化数据，推荐一页简历结构：name/target/contact/summary/core_skills/work/projects/education；kind=resume 时优先使用此数据渲染，不再走 LLM 生成",
             },
             "path": {
                 "type": "string",

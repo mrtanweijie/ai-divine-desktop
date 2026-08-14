@@ -58,6 +58,7 @@ class Education:
 class Project:
     """项目经历"""
     name: str = ""
+    role: str = ""
     description: str = ""
     highlights: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
@@ -76,6 +77,7 @@ class ResumeData:
     """完整简历数据"""
     name: str = ""
     title: str = ""           # 如 "高级产品经理"
+    target: str = ""          # 目标岗位，兼容 one-page 结构
     summary: str = ""         # 自我介绍/摘要
     contact: Contact = field(default_factory=Contact)
     experiences: list[Experience] = field(default_factory=list)
@@ -83,13 +85,14 @@ class ResumeData:
     projects: list[Project] = field(default_factory=list)
     skills: list[Skill] = field(default_factory=list)
     skill_groups: dict[str, list[str]] = field(default_factory=dict)  # 创意主题用：分组技能标签
+    core_skills: list[str] = field(default_factory=list)  # 一页简历结构：核心技能关键词
 
     @classmethod
     def from_dict(cls, data: dict) -> "ResumeData":
         """从 dict 构造（方便 JSON 传入）"""
         data = json.loads(json.dumps(data))  # deep copy
         data = _normalize_resume_input(data)
-        if "contact" in data and isinstance(data["contact"], dict):
+        if isinstance(data.get("contact"), dict):
             allowed = {f.name for f in fields(Contact)}
             data["contact"] = Contact(
                 **{
@@ -119,13 +122,14 @@ class ResumeData:
                     if isinstance(item, dict)
                 ]
         allowed = {f.name for f in fields(cls)}
-        return cls(
-            **{
-                key: value
-                for key, value in data.items()
-                if key in allowed
-            }
+        resume = cls(
+            **{key: value for key, value in data.items() if key in allowed}
         )
+        if not resume.title and resume.target:
+            resume.title = resume.target
+        if resume.core_skills and not resume.skills:
+            resume.skills = [Skill(name=skill, level=80) for skill in resume.core_skills]
+        return resume
 
     def to_dict(self) -> dict:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False))
@@ -135,16 +139,51 @@ def _normalize_resume_input(data: dict) -> dict:
     """兼容 basics/experience/startDate/level 1-5 等常见简历 JSON 结构。"""
     normalized = dict(data)
 
+    if isinstance(normalized.get("contact"), str):
+        contact: dict[str, str] = {}
+        for part in normalized["contact"].split("|"):
+            part = part.strip()
+            if not part:
+                continue
+            if "@" in part and not contact.get("email"):
+                contact["email"] = part
+            elif any(ch.isdigit() for ch in part) and not contact.get("phone"):
+                contact["phone"] = part
+            elif not contact.get("website"):
+                contact["website"] = part
+        normalized["contact"] = contact
+
     basics = normalized.get("basics")
     if isinstance(basics, dict):
         normalized.setdefault("name", basics.get("name") or "")
         normalized.setdefault("title", basics.get("title") or "")
+        normalized.setdefault("target", basics.get("target") or "")
         normalized.setdefault("summary", basics.get("summary") or "")
         contact = dict(normalized.get("contact") or {})
         for key in ("email", "phone", "location", "city", "website", "github", "linkedin"):
             if basics.get(key):
                 contact.setdefault(key, basics.get(key))
         normalized["contact"] = contact
+
+    if "work" in normalized and not normalized.get("experiences"):
+        work_items = []
+        for item in normalized.get("work") or []:
+            if not isinstance(item, dict):
+                continue
+            work_items.append(
+                {
+                    "title": item.get("position") or item.get("title") or "",
+                    "company": item.get("company") or "",
+                    "period": item.get("period")
+                    or _resume_period(
+                        item.get("startDate"),
+                        item.get("endDate"),
+                    ),
+                    "description": item.get("description") or "",
+                    "highlights": item.get("points") or item.get("highlights") or [],
+                }
+            )
+        normalized["experiences"] = work_items
 
     if "experience" in normalized and not normalized.get("experiences"):
         experiences = []
@@ -160,10 +199,22 @@ def _normalize_resume_input(data: dict) -> dict:
                         item.get("endDate"),
                     ),
                     "description": item.get("description") or "",
-                    "highlights": item.get("highlights") or [],
+                    "highlights": item.get("highlights") or item.get("points") or [],
                 }
             )
         normalized["experiences"] = experiences
+
+    raw_core_skills = normalized.get("core_skills")
+    if isinstance(raw_core_skills, str):
+        raw_core_skills = [
+            part.strip()
+            for part in raw_core_skills.replace("，", ",").split(",")
+            if part.strip()
+        ]
+    if isinstance(raw_core_skills, list):
+        normalized["core_skills"] = [str(skill) for skill in raw_core_skills]
+    elif not isinstance(raw_core_skills, list):
+        normalized["core_skills"] = []
 
     education = []
     for item in normalized.get("education") or []:
@@ -201,13 +252,12 @@ def _normalize_resume_input(data: dict) -> dict:
         if not isinstance(item, dict):
             continue
         role = item.get("role") or ""
-        description = item.get("description") or ""
-        if role and role not in description:
-            description = f"{role} · {description}"
-        highlights = item.get("highlights") or []
+        description = item.get("context") or item.get("description") or ""
+        highlights = item.get("points") or item.get("highlights") or []
         projects.append(
             {
                 "name": item.get("name") or "",
+                "role": role,
                 "description": description,
                 "highlights": highlights,
                 "tags": item.get("tags") or [],
@@ -233,7 +283,15 @@ def _normalize_resume_input(data: dict) -> dict:
                 "level": level,
             }
         )
+    if not skills and normalized.get("core_skills"):
+        skills = [
+            {"name": skill, "level": 80}
+            for skill in normalized["core_skills"]
+        ]
     normalized["skills"] = skills
+
+    if normalized.get("target") and not normalized.get("title"):
+        normalized["title"] = normalized["target"]
 
     return normalized
 
@@ -316,7 +374,7 @@ def _render_professional(resume: ResumeData) -> str:
         highlights = "".join(f"<li>{_esc(h)}</li>" for h in p.highlights)
         proj_html += f"""
         <div class="project-item">
-          <div class="project-title">{_esc(p.name)}</div>
+          <div class="project-title">{_esc(p.name)}{f' · {_esc(p.role)}' if p.role else ''}</div>
           <div class="project-desc">{_esc(p.description)}</div>
           {f'<div class="project-highlights"><ul>{highlights}</ul></div>' if highlights else ''}
           <div class="project-tags">{tags}</div>
@@ -401,7 +459,7 @@ def _render_creative(resume: ResumeData) -> str:
         highlights = "".join(f"<li>{_esc(h)}</li>" for h in p.highlights)
         proj_html += f"""
         <div class="project-card">
-          <div class="name">{_esc(p.name)}</div>
+          <div class="name">{_esc(p.name)}{f' · {_esc(p.role)}' if p.role else ''}</div>
           <div class="desc">{_esc(p.description)}</div>
           {f'<div class="project-highlights"><ul>{highlights}</ul></div>' if highlights else ''}
         </div>"""
@@ -509,7 +567,7 @@ def _render_minimal(resume: ResumeData) -> str:
         highlights = "".join(f"<li>{_esc(h)}</li>" for h in p.highlights)
         proj_html += f"""
         <div class="project-item">
-          <div class="project-name">{_esc(p.name)}</div>
+          <div class="project-name">{_esc(p.name)}{f' · {_esc(p.role)}' if p.role else ''}</div>
           <div class="project-desc">{_esc(p.description)}</div>
           {f'<div class="project-highlights"><ul>{highlights}</ul></div>' if highlights else ''}
         </div>"""
@@ -701,7 +759,8 @@ def _compact_contact_items(resume: ResumeData) -> list[str]:
 
 
 def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
-    """单栏克制排版，finance / linkedin 共用同一套 HTML 结构。"""
+    """单栏克制排版，finance / linkedin / kami 共用同一套 HTML 结构。"""
+    is_kami = style in ("kami", "kami_white")
     contact_items = _compact_contact_items(resume)
     contact_html = ""
     for index, item in enumerate(contact_items):
@@ -735,9 +794,10 @@ def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
 
     summary_html = ""
     if resume.summary:
+        summary_title = "职业摘要" if is_kami else "个人总结"
         summary_html = f"""
         <div class="section">
-          <div class="section-title">个人总结</div>
+          <div class="section-title">{summary_title}</div>
           <p style="font-size:9pt;color:#333;">{_esc(resume.summary)}</p>
         </div>"""
 
@@ -785,11 +845,21 @@ def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
                 f"<li>{_esc(highlight)}</li>"
                 for highlight in item.highlights
             )
+            role_html = (
+                f'<span class="role">{_esc(item.role)}</span>'
+                if item.role
+                else ""
+            )
+            left_html = (
+                f'{_esc(item.name)}<span class="sep">|</span>{role_html}'
+                if role_html
+                else _esc(item.name)
+            )
             entries.append(
                 f"""
         <div class="entry">
           <div class="entry-head">
-            <div class="left">{_esc(item.name)}</div>
+            <div class="left">{left_html}</div>
           </div>
           {f'<div class="desc">{_esc(item.description)}</div>' if item.description else ''}
           {f'<ul>{highlights}</ul>' if highlights else ''}
@@ -856,12 +926,25 @@ def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
                 else:
                     items.append(_esc(skill))
             inner_html = " · ".join(items)
+        skills_title = "核心技能" if is_kami else "专业技能"
         skills_html = (
             '<div class="section">'
-            '<div class="section-title">专业技能</div>'
+            f'<div class="section-title">{skills_title}</div>'
             f'<div class="skills">{inner_html}</div>'
             "</div>"
         )
+
+    if is_kami:
+        return f"""
+    {top_html}
+    {header_html}
+    {bottom_html}
+    {summary_html}
+    {skills_html}
+    {exp_html}
+    {project_html}
+    {education_html}
+    """
 
     return f"""
     {top_html}

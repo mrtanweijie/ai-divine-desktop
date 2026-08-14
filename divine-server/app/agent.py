@@ -192,10 +192,16 @@ SKILL.md，用户确认后再调用 install_skill；install_skill 执行前系�
 PPT 内容页可用 layout=cards/timeline/columns 指定版式，不传时工具会自动判断；
 阶段/路线类标题优先时间轴，要点较多时用卡片，少量要点时分栏。
 kind 按报告/旅游攻略/学习路线/电子书手册/讲义/简历自动识别或显式指定；
-用户要求生成个人简历时，先根据用户提供的信息整理 resume_data 结构化 JSON：
-name、title、contact、summary、experiences、education、projects、skills、skill_groups；
+用户要求生成个人简历时，按一页简历数据结构整理 resume_data：
+name（姓名）、target（目标岗位）、contact（可传 "电话 | 邮箱 | 网站" 或对象）、
+summary（1-2 行职业摘要）、core_skills（6-12 个核心技能关键词）、
+work（[{company, position, period, points[2-4 条成果]}]）、
+projects（[{name, role, context(一句话背景), points[2-4 条成果]}]）、
+education（[{school, degree, period}]）；
 也兼容 basics、experience、startDate/endDate、level 1-5 等常见简历字段；
 整理完成后再调用 pdf_generate，传 kind=resume 和 resume_data；
+resume_data 的字段结构只是规范示例，具体内容必须根据用户实际信息生成，
+不要套用示例简历内容；用户信息不足时先询问姓名、目标岗位、工作经历、技能。
 不要要求用户填写复杂表单，关键信息缺失时简单询问姓名、目标职位、工作经历、技能即可；
 简历主题可选 professional/creative/minimal/boss_zhipin/finance/linkedin/kami/kami_white，用户未指定时默认 professional。
 场景推荐：BOSS 直聘/招聘平台/ATS/海投 → boss_zhipin；
@@ -209,7 +215,8 @@ LinkedIn/海外投递 → linkedin；金融/银行/投行/证券/基金/财务/�
 bullet 使用“动作 + 产物 + 结果”结构；有量化数据优先写数字，没有精确数字时写范围/频率/流程变化；
 严禁编造指标、头衔或项目背景，缺失数据用“[量化数据待补]”占位；
 每段项目先写一句背景（系统定位 + 服务对象 + 解决什么问题）再列 bullet；
-技能只保留与目标岗位匹配的关键词；默认输出单页或两页，控制信息密度。
+技能只保留与目标岗位匹配的关键词；不强制限制页数，按实际内容控制信息密度；
+用户明确要求一页版时，再按一页简历规则压缩。
 不要把完整 Markdown 当 prompt 传入，除非用户已经提供现成内容；
 如果只是把已有 Markdown 渲染成 PDF，才使用 pdf_render。
 只读查询数据库使用 sqlite_query；数学计算使用 calculator；剪贴板操作使用 clipboard。
