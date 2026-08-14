@@ -80,6 +80,13 @@ a { color: var(--brand); text-decoration: none; }
   color: var(--stone);
   letter-spacing: 0.2pt;
 }
+.tagline {
+  font-size: 9.5pt;
+  color: var(--olive);
+  line-height: 1.3;
+  margin-top: 1mm;
+}
+.tagline .accent { color: var(--brand); font-weight: 500; }
 .contact {
   text-align: right;
   font-size: 9pt;
@@ -90,6 +97,7 @@ a { color: var(--brand); text-decoration: none; }
 .contact .role { color: var(--brand); font-size: 10.5pt; font-weight: 500; }
 .contact .sep { color: var(--border); margin: 0 0.4em; }
 .contact .loc { color: var(--olive); font-weight: 500; }
+.contact .status { color: var(--brand); font-weight: 500; }
 
 /* ===== 4 个数字卡片 ===== */
 .metrics {
@@ -131,17 +139,28 @@ a { color: var(--brand); text-decoration: none; }
 
 /* ===== Section ===== */
 .section-title {
+  position: relative;
   font-family: var(--serif);
   font-size: 12.5pt;
   font-weight: 500;
+  line-height: 1.15;
   color: var(--near-black);
-  border-bottom: 0.5pt solid var(--border);
-  padding: 0 0 1mm 0;
-  margin: 5.8mm 0 1.7mm 0;
+  padding: 0 0 1mm 2.5mm;
+  margin: 8mm 0 1.7mm 0;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 2mm;
+}
+.section-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.65mm;
+  width: 2.5pt;
+  height: 3.8mm;
+  background: var(--brand);
+  border-radius: 0.5pt;
 }
 .section-title .sub {
   font-family: var(--serif);
@@ -246,6 +265,120 @@ section:first-of-type .section-title { margin-top: 0; }
 }
 .proj-text .hl { color: var(--brand); }
 
+/* ===== 工作经历（内容向） ===== */
+.job {
+  padding: 2.2mm 0;
+  break-inside: auto;
+}
+.job-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.8mm;
+}
+.job-header .company {
+  font-family: var(--serif);
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: var(--near-black);
+}
+.job-header .company .dept {
+  font-weight: 400;
+  color: var(--olive);
+  font-size: 9.5pt;
+}
+.job-header .company .position {
+  font-weight: 400;
+  color: var(--stone);
+  font-size: 8.5pt;
+}
+.job-header .period {
+  font-size: 8.5pt;
+  color: var(--stone);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.job-role {
+  font-size: 9.5pt;
+  font-weight: 500;
+  color: var(--dark-warm);
+  margin-bottom: 0.8mm;
+}
+.job-desc {
+  font-size: 9pt;
+  color: var(--olive);
+  margin: 0.5mm 0 1mm 0;
+  line-height: 1.45;
+}
+.job ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.5mm 0 0 0;
+}
+.job ul li {
+  position: relative;
+  padding-left: 5mm;
+  font-size: 9pt;
+  color: var(--near-black);
+  line-height: 1.5;
+  margin-bottom: 1.6mm;
+}
+.job ul li::before {
+  content: "›";
+  position: absolute;
+  left: 2mm;
+  color: var(--brand);
+  font-size: 8.5pt;
+}
+.project-name {
+  position: relative;
+  padding-left: 1.8mm;
+  font-size: 10.5pt;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--brand);
+  margin: 1.8mm 0 0.5mm 0;
+}
+.project-name::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.7mm;
+  width: 2pt;
+  height: 2.6mm;
+  background: var(--brand);
+  border-radius: 0.5pt;
+}
+.project-summary {
+  font-size: 9pt;
+  font-weight: 400;
+  color: var(--stone);
+  line-height: 1.4;
+  margin-left: 0.6mm;
+}
+
+/* ===== 个人亮点 ===== */
+.highlight-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+.highlight-list li {
+  position: relative;
+  padding-left: 5mm;
+  font-size: 9pt;
+  color: var(--near-black);
+  line-height: 1.45;
+  margin-bottom: 0.8mm;
+}
+.highlight-list li::before {
+  content: "›";
+  position: absolute;
+  left: 2mm;
+  color: var(--brand);
+  font-size: 8.5pt;
+}
+
 /* ===== Page 2 ===== */
 .page-break { break-before: page; }
 
@@ -258,6 +391,7 @@ section:first-of-type .section-title { margin-top: 0; }
   align-items: baseline;
 }
 .skill-row:last-of-type { border-bottom: none; }
+.skill-row:last-child { border-bottom: none; }
 .skill-label {
   font-size: 9pt;
   font-weight: 500;
@@ -294,6 +428,12 @@ section:first-of-type .section-title { margin-top: 0; }
   color: var(--stone);
   font-variant-numeric: tabular-nums;
   font-size: 9pt;
+}
+.edu-desc {
+  font-size: 9pt;
+  color: var(--olive);
+  margin-top: 0.3mm;
+  line-height: 1.4;
 }
 
 /* ===== Public work ===== */

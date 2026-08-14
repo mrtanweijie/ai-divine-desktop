@@ -194,11 +194,15 @@ PPT 内容页可用 layout=cards/timeline/columns 指定版式，不传时工具
 kind 按报告/旅游攻略/学习路线/电子书手册/讲义/简历自动识别或显式指定；
 用户要求生成个人简历时，按一页简历数据结构整理 resume_data：
 name（姓名）、target（目标岗位）、contact（可传 "电话 | 邮箱 | 网站" 或对象）、
-summary（约 80 字职业摘要）、metrics（4 个数字卡片 [{value, label}]）、
-timeline（3 步长期演进 [{period, head, body}]）、
-projects（[{name, kind, role, description(项目背景), actions[2-4 条], impact(量化结果)}]）、
-skills（5 条核心技能）、education（[{school, degree, period}]）、
-public_work（可选，开源/对外产出）；
+contact.status 可写求职状态；summary（约 80 字职业摘要）、
+metrics（可选，4 个数字卡片 [{value, label}]）、
+skills（按 "分类|内容" 的技能行）、
+work（[{company, dept, position, period, description,
+projects[{name, summary(一句简介), points[2-4 条成果]}] 或 points[2-4 条成果]}]）、
+education（[{school, degree, period, description}]）、
+highlights（个人亮点）、public_work（可选，开源/对外产出）、
+sections（可选，板块顺序，如 ["skills","highlights","experience","public_work","education"]）；
+metrics 数字卡片始终显示在头部下方，不参与 sections 排序；
 也兼容 basics、experience、startDate/endDate、level 1-5 等常见简历字段；
 整理完成后再调用 pdf_generate，传 kind=resume 和 resume_data；
 resume_data 的字段结构只是规范示例，具体内容必须根据用户实际信息生成，
@@ -216,8 +220,10 @@ LinkedIn/海外投递 → linkedin；金融/银行/投行/证券/基金/财务/�
 bullet 使用“动作 + 产物 + 结果”结构；有量化数据优先写数字，没有精确数字时写范围/频率/流程变化；
 严禁编造指标、头衔或项目背景，缺失数据用“[量化数据待补]”占位；
 每段项目先写一句背景（系统定位 + 服务对象 + 解决什么问题）再列 bullet；
+工作经历按 公司/部门/角色 + 项目子标题 + 成果 bullet 组织；
 项目描述按 角色/动作/结果 三段式组织，impact 必须量化；
-技能只保留与目标岗位匹配的关键词；不强制限制页数，按实际内容控制信息密度；
+技能每条内容写 1-2 行，尽量占满整行，包含技术栈、使用年限、量化结果或代表场景；
+不强制限制页数，按实际内容控制信息密度；
 用户明确要求一页版时，再按一页简历规则压缩。
 不要把完整 Markdown 当 prompt 传入，除非用户已经提供现成内容；
 如果只是把已有 Markdown 渲染成 PDF，才使用 pdf_render。

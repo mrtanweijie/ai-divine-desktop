@@ -34,6 +34,7 @@ class Contact:
     website: str = ""
     github: str = ""
     linkedin: str = ""
+    status: str = ""          # 求职状态，如 "在职 · 考虑机会"
 
 
 @dataclass
@@ -41,9 +42,11 @@ class Experience:
     """工作经历"""
     title: str = ""
     company: str = ""
+    dept: str = ""
     period: str = ""        # 如 "2022.03 - 至今"
     description: str = ""   # 支持多行，用 \n 分隔
     highlights: list[str] = field(default_factory=list)  # bullet points
+    projects: list[dict] = field(default_factory=list)   # 项目子标题 + bullet
 
 
 @dataclass
@@ -93,6 +96,8 @@ class ResumeData:
     metrics: list["Metric"] = field(default_factory=list)      # Kami：4 个数字卡片
     timeline: list["TimelineStep"] = field(default_factory=list)  # Kami：3 步演进
     public_work: list[str] = field(default_factory=list)       # Kami：开源/对外产出
+    highlights: list[str] = field(default_factory=list)        # 个人亮点
+    sections: list[str] = field(default_factory=list)          # 板块顺序，可选
 
     @classmethod
     def from_dict(cls, data: dict) -> "ResumeData":
@@ -186,8 +191,9 @@ def _normalize_resume_input(data: dict) -> dict:
         normalized.setdefault("title", basics.get("title") or "")
         normalized.setdefault("target", basics.get("target") or "")
         normalized.setdefault("summary", basics.get("summary") or "")
+        normalized.setdefault("highlights", basics.get("highlights") or [])
         contact = dict(normalized.get("contact") or {})
-        for key in ("email", "phone", "location", "city", "website", "github", "linkedin"):
+        for key in ("email", "phone", "location", "city", "website", "github", "linkedin", "status"):
             if basics.get(key):
                 contact.setdefault(key, basics.get(key))
         normalized["contact"] = contact
@@ -201,6 +207,7 @@ def _normalize_resume_input(data: dict) -> dict:
                 {
                     "title": item.get("position") or item.get("title") or "",
                     "company": item.get("company") or "",
+                    "dept": item.get("dept") or item.get("department") or "",
                     "period": item.get("period")
                     or _resume_period(
                         item.get("startDate"),
@@ -208,6 +215,7 @@ def _normalize_resume_input(data: dict) -> dict:
                     ),
                     "description": item.get("description") or "",
                     "highlights": item.get("points") or item.get("highlights") or [],
+                    "projects": item.get("projects") or item.get("project_groups") or [],
                 }
             )
         normalized["experiences"] = work_items
@@ -221,12 +229,14 @@ def _normalize_resume_input(data: dict) -> dict:
                 {
                     "title": item.get("position") or item.get("title") or "",
                     "company": item.get("company") or "",
+                    "dept": item.get("dept") or item.get("department") or "",
                     "period": _resume_period(
                         item.get("startDate"),
                         item.get("endDate"),
                     ),
                     "description": item.get("description") or "",
                     "highlights": item.get("highlights") or item.get("points") or [],
+                    "projects": item.get("projects") or item.get("project_groups") or [],
                 }
             )
         normalized["experiences"] = experiences
@@ -278,6 +288,16 @@ def _normalize_resume_input(data: dict) -> dict:
     if isinstance(public_work, str):
         public_work = [public_work]
     normalized["public_work"] = [str(item) for item in public_work]
+
+    sections = normalized.get("sections") or []
+    if isinstance(sections, str):
+        sections = [sections]
+    normalized["sections"] = [str(section).strip() for section in sections if str(section).strip()]
+
+    highlights = normalized.get("highlights") or []
+    if isinstance(highlights, str):
+        highlights = [highlights]
+    normalized["highlights"] = [str(item) for item in highlights]
 
     education = []
     for item in normalized.get("education") or []:
@@ -1052,6 +1072,20 @@ def _highlight_numbers(text: str) -> str:
     return _NUMBER_RE.sub(r'<span class="hl">\1</span>', _esc(text))
 
 
+def _format_resume_line(text: str) -> str:
+    """加粗 bullet 开头的小标题，并高亮数字指标。"""
+    escaped = _esc(text)
+    match = re.match(r"^([^：:]{1,14})[：:]", escaped)
+    if match:
+        label = match.group(1)
+        body = escaped[match.end():]
+        return f"<b>{label}</b>：" + _NUMBER_RE.sub(
+            r'<span class="hl">\1</span>',
+            body,
+        )
+    return _NUMBER_RE.sub(r'<span class="hl">\1</span>', escaped)
+
+
 def _split_value_unit(value: str) -> tuple[str, str]:
     match = re.match(r"^(\d+(?:\.\d+)?)(.*)$", value or "")
     if match:
@@ -1060,28 +1094,38 @@ def _split_value_unit(value: str) -> tuple[str, str]:
 
 
 def _render_kami_original(resume: ResumeData, *, parchment: bool = True) -> str:
-    """真实 Kami 简历版式：数字卡片 + 时间线 + 项目三段式 + 2 页。"""
+    """Kami 视觉 + 内容向简历版式：专业技能 / 工作经历 / 教育背景 / 个人亮点。"""
     c = resume.contact
-    contact_parts = []
-    if c.phone:
-        contact_parts.append(_esc(c.phone))
-    if c.email:
-        contact_parts.append(_esc(c.email))
+    role_parts = []
+    if resume.title:
+        role_parts.append(f'<span class="role">{_esc(resume.title)}</span>')
     website = c.website or c.github or c.linkedin
     if website:
-        contact_parts.append(_esc(website))
-    if c.location or c.city or c.address:
-        location = c.location or c.city or c.address
-        contact_parts.append(f'<span class="loc">{_esc(location)}</span>')
-    contact_line = '<span class="sep">·</span>'.join(contact_parts)
-    role_html = (
-        f'<span class="role">{_esc(resume.title)}</span><br>'
-        if resume.title
+        role_parts.append(_esc(website))
+    role_line = (
+        '<span class="sep">·</span>'.join(role_parts) + "<br>"
+        if role_parts
         else ""
     )
+
+    info_parts = []
+    if c.phone:
+        info_parts.append(_esc(c.phone))
+    if c.email:
+        info_parts.append(_esc(c.email))
+    if c.location or c.city or c.address:
+        location = c.location or c.city or c.address
+        info_parts.append(f'<span class="loc">{_esc(location)}</span>')
+    info_line = '<span class="sep">·</span>'.join(info_parts)
+    status_html = (
+        f'<span class="sep">·</span><span class="status">{_esc(c.status)}</span>'
+        if c.status
+        else ""
+    )
+    contact_line = info_line + status_html
     contact_html = (
-        f'<div class="contact">{role_html}{contact_line}</div>'
-        if contact_line
+        f'<div class="contact">{role_line}{contact_line}</div>'
+        if role_line or contact_line
         else ""
     )
 
@@ -1107,14 +1151,6 @@ def _render_kami_original(resume: ResumeData, *, parchment: bool = True) -> str:
             )
         metrics_html = f'<div class="metrics">{"".join(cards)}</div>'
 
-    summary_html = ""
-    if resume.summary:
-        summary_html = f"""
-    <section>
-      <div class="section-title">个人简介</div>
-      <div class="summary">{_highlight_numbers(resume.summary)}</div>
-    </section>"""
-
     timeline_html = ""
     if resume.timeline:
         steps = []
@@ -1131,48 +1167,102 @@ def _render_kami_original(resume: ResumeData, *, parchment: bool = True) -> str:
             )
         timeline_html = f'<div class="timeline">{"".join(steps)}</div>'
 
-    projects_html = ""
-    for project in resume.projects:
-        actions = project.actions or project.highlights
-        impact = project.impact or (project.highlights[-1] if project.highlights else "")
-        role_row = project.description or project.role
-        chip = project.role if project.role and len(project.role) <= 24 else ""
-        if not chip and project.kind:
-            chip = project.kind
-        kind_html = (
-            f'<span class="proj-kind">· {_esc(project.kind)}</span>'
-            if project.kind
-            else ""
-        )
-        chip_html = (
-            f'<span class="proj-role">{_esc(chip)}</span>'
-            if chip
-            else ""
-        )
-        rows = ""
-        if role_row:
-            rows += (
-                '<div class="proj-row">'
-                '<div class="proj-label">角色</div>'
-                f'<div class="proj-text">{_esc(role_row)}</div>'
-                "</div>"
+    jobs_html = ""
+    if resume.experiences:
+        for item in resume.experiences:
+            dept_html = (
+                f'<span class="dept"> · {_esc(item.dept)}</span>'
+                if item.dept
+                else ""
             )
-        if actions:
-            actions_text = "；".join(_esc(action) for action in actions)
-            rows += (
-                '<div class="proj-row">'
-                '<div class="proj-label">动作</div>'
-                f'<div class="proj-text">{actions_text}</div>'
-                "</div>"
+            position_html = (
+                f'<span class="position"> · {_esc(item.title)}</span>'
+                if item.title
+                else ""
             )
-        if impact:
-            rows += (
-                '<div class="proj-row">'
-                '<div class="proj-label">结果</div>'
-                f'<div class="proj-text">{_highlight_numbers(impact)}</div>'
-                "</div>"
+            desc_html = (
+                f'<div class="job-desc">{_esc(item.description)}</div>'
+                if item.description
+                else ""
             )
-        projects_html += f"""
+            body_html = ""
+            if item.projects:
+                for project in item.projects:
+                    if not isinstance(project, dict):
+                        continue
+                    name = project.get("name") or ""
+                    points = project.get("points") or project.get("highlights") or []
+                    bullet_html = "".join(
+                        f"<li>{_format_resume_line(point)}</li>"
+                        for point in points
+                    )
+                    summary = project.get("summary") or project.get("desc") or ""
+                    summary_html = (
+                        f'<span class="project-summary">：{_esc(summary)}</span>'
+                        if summary
+                        else ""
+                    )
+                    body_html += (
+                        f'<div class="project-name">{_esc(name)}{summary_html}</div>'
+                        f"<ul>{bullet_html}</ul>"
+                    )
+            elif item.highlights:
+                bullet_html = "".join(
+                    f"<li>{_format_resume_line(highlight)}</li>"
+                    for highlight in item.highlights
+                )
+                body_html = f"<ul>{bullet_html}</ul>"
+            jobs_html += f"""
+    <div class="job">
+      <div class="job-header">
+        <div class="company">{_esc(item.company)}{dept_html}{position_html}</div>
+        <div class="period">{_esc(item.period)}</div>
+      </div>
+      {desc_html}
+      {body_html}
+    </div>"""
+    elif resume.projects:
+        for project in resume.projects:
+            actions = project.actions or project.highlights
+            impact = project.impact or (project.highlights[-1] if project.highlights else "")
+            role_row = project.description or project.role
+            chip = project.role if project.role and len(project.role) <= 24 else ""
+            if not chip and project.kind:
+                chip = project.kind
+            kind_html = (
+                f'<span class="proj-kind">· {_esc(project.kind)}</span>'
+                if project.kind
+                else ""
+            )
+            chip_html = (
+                f'<span class="proj-role">{_esc(chip)}</span>'
+                if chip
+                else ""
+            )
+            rows = ""
+            if role_row:
+                rows += (
+                    '<div class="proj-row">'
+                    '<div class="proj-label">角色</div>'
+                    f'<div class="proj-text">{_esc(role_row)}</div>'
+                    "</div>"
+                )
+            if actions:
+                actions_text = "；".join(_esc(action) for action in actions)
+                rows += (
+                    '<div class="proj-row">'
+                    '<div class="proj-label">动作</div>'
+                    f'<div class="proj-text">{actions_text}</div>'
+                    "</div>"
+                )
+            if impact:
+                rows += (
+                    '<div class="proj-row">'
+                    '<div class="proj-label">结果</div>'
+                    f'<div class="proj-text">{_highlight_numbers(impact)}</div>'
+                    "</div>"
+                )
+            jobs_html += f"""
     <div class="project">
       <div class="proj-head">
         <span class="proj-name serif">{_esc(project.name)}</span>{kind_html}{chip_html}
@@ -1189,19 +1279,19 @@ def _render_kami_original(resume: ResumeData, *, parchment: bool = True) -> str:
             f" · {_esc(last.head)}</span>"
         )
     experience_html = ""
-    if resume.timeline or resume.projects:
+    if resume.timeline or resume.experiences or resume.projects:
         experience_html = f"""
     <section>
       <div class="section-title">工作经历{exp_sub}</div>
       {timeline_html}
-      {projects_html}
+      {jobs_html}
     </section>"""
 
     skills = resume.core_skills or [skill.name for skill in resume.skills]
     skills_html = ""
     if skills:
         rows = []
-        for index, skill in enumerate(skills[:5], 1):
+        for index, skill in enumerate(skills, 1):
             if "：" in skill:
                 label, body = skill.split("：", 1)
             elif "|" in skill:
@@ -1216,7 +1306,7 @@ def _render_kami_original(resume: ResumeData, *, parchment: bool = True) -> str:
       </div>"""
             )
         skills_html = (
-            '<div class="section-title">核心技能</div>'
+            '<div class="section-title">专业技能</div>'
             + "".join(rows)
         )
 
@@ -1225,18 +1315,34 @@ def _render_kami_original(resume: ResumeData, *, parchment: bool = True) -> str:
         rows = []
         for item in resume.education:
             major = f" · {_esc(item.degree)}" if item.degree else ""
+            desc_html = (
+                f'<div class="edu-desc">{_esc(item.description)}</div>'
+                if item.description
+                else ""
+            )
             rows.append(
                 f"""
       <div class="edu-row">
         <span class="school">{_esc(item.school)}</span>
         <span class="major">{major}</span>
         <span class="date">{_esc(item.period)}</span>
-      </div>"""
+      </div>
+      {desc_html}"""
             )
         education_html = (
             '<div class="section-title">教育背景</div>'
             + "".join(rows)
         )
+
+    highlights_html = ""
+    if resume.highlights:
+        items = "".join(
+            f"<li>{_format_resume_line(highlight)}</li>"
+            for highlight in resume.highlights
+        )
+        highlights_html = f"""
+      <div class="section-title">个人亮点</div>
+      <ul class="highlight-list">{items}</ul>"""
 
     public_html = ""
     if resume.public_work:
@@ -1257,23 +1363,26 @@ def _render_kami_original(resume: ResumeData, *, parchment: bool = True) -> str:
             + "".join(items)
         )
 
-    page_two = skills_html or education_html or public_html
-    if page_two:
-        page_two = (
-            '<section class="page-break">'
-            + skills_html
-            + education_html
-            + public_html
-            + "</section>"
-        )
-
-    return f"""
-    {header_html}
-    {metrics_html}
-    {summary_html}
-    {experience_html}
-    {page_two}
-    """
+    section_map = {
+        "skills": skills_html,
+        "highlights": highlights_html,
+        "experience": experience_html,
+        "public_work": public_html,
+        "education": education_html,
+    }
+    default_order = [
+        "skills",
+        "highlights",
+        "experience",
+        "public_work",
+        "education",
+    ]
+    order = [key for key in resume.sections if key in section_map] or list(default_order)
+    for key in default_order:
+        if key not in order and section_map[key]:
+            order.append(key)
+    body_html = "".join(section_map[key] for key in order if section_map[key])
+    return f"{header_html}\n{metrics_html}\n{body_html}"
 
 
 def _render_kami(resume: ResumeData) -> str:
