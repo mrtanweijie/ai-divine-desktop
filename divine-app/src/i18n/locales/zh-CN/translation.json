@@ -305,6 +305,7 @@
     "yesterday": "昨天"
   },
   "tool": {
+    "actionFailed": "工具执行失败，请重试",
     "addedFile": "新增 {{name}}",
     "agentError": "Agent 未返回结果",
     "allowAccess": "允许访问",

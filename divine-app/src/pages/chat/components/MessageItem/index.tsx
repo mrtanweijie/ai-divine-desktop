@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   BarChart3,
+  BookAudio,
   BookMarked,
   BookSearch,
   Calculator,
@@ -392,7 +393,7 @@ function ToolStatusCard({
     ) : tool.tool === "create_plan" ? (
       <SquareKanban size={16} />
     ) : tool.tool.includes("pdf") ? (
-      <FileStack size={16} />
+      <BookAudio size={16} />
     ) : tool.tool.includes("directory") || tool.tool.includes("tree") ? (
       <FolderTree size={16} />
     ) : tool.tool === "generate_chart" || tool.tool.includes("chart") ? (

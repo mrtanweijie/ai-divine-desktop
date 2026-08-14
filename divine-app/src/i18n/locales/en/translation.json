@@ -314,6 +314,7 @@
     "yesterday": "Yesterday"
   },
   "tool": {
+    "actionFailed": "Tool execution failed. Please try again.",
     "addedFile": "Added {{name}}",
     "agentError": "Agent did not return a result",
     "allowAccess": "Allow access",
