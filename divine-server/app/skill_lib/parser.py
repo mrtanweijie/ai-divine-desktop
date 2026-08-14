@@ -109,6 +109,7 @@ def _detect_script_path(
             return scripts[0], "cli"
     return None, "cli"
 
+@dataclass
 class SkillMeta:
     name: str
     description: str
