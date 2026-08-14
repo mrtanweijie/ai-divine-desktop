@@ -375,6 +375,8 @@
     "openDirectory": "開啟所在目錄",
     "pdfMerged": "PDF 合併完成",
     "pdfPagesExtracted": "已提取所選頁面",
+    "pdfGenerated": "PDF 文件產生完成",
+    "pdfRendered": "PDF 渲染完成",
     "pdfSplit": "已拆分 PDF",
     "planCancelled": "已取消執行計畫",
     "planChoiceConfirm": "方案確認",

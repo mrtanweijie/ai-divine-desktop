@@ -14,7 +14,9 @@ from .github_skill import (  # noqa: F401
 from .image_resize import ImageResizeAdapter  # noqa: F401
 from .mermaid_export import MermaidExportAdapter  # noqa: F401
 from .notes import NotesAdapter  # noqa: F401
+from .pdf_generate import PdfGenerateAdapter  # noqa: F401
 from .pdf_split_merge import PdfSplitMergeAdapter  # noqa: F401
+from .pdf_render import PdfRenderAdapter  # noqa: F401
 from .presentation import PresentationAdapter  # noqa: F401
 from .rag_index import RagIndexAdapter  # noqa: F401
 from .rag_search import RagSearchAdapter  # noqa: F401

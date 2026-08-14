@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import runpy
 import sys
 from logging.handlers import RotatingFileHandler
@@ -10,8 +11,49 @@ def _run_bundled_script() -> bool:
     if len(sys.argv) < 3 or sys.argv[1] != "--run-script":
         return False
     script = Path(sys.argv[2])
+    if not script.exists():
+        bundle_root = Path(
+            getattr(sys, "_MEIPASS", Path(sys.argv[0]).resolve().parent)
+        )
+        candidate = bundle_root / script
+        if candidate.exists():
+            script = candidate
     runpy.run_path(str(script), run_name="__main__")
     return True
+
+
+def _prepend_library_path(env_name: str, candidates: list[str]) -> None:
+    existing = os.environ.get(env_name)
+    merged = [path for path in candidates if path and Path(path).exists()]
+    if existing:
+        merged.append(existing)
+    if merged:
+        os.environ[env_name] = os.pathsep.join(merged)
+
+
+def _prepare_library_path() -> None:
+    bundle_root = Path(
+        getattr(sys, "_MEIPASS", Path(sys.argv[0]).resolve().parent)
+    )
+    bundled_libs = bundle_root / "weasyprint_libs"
+    if sys.platform == "darwin":
+        candidates = [str(bundled_libs), "/opt/homebrew/lib", "/usr/local/lib"]
+        _prepend_library_path("DYLD_FALLBACK_LIBRARY_PATH", candidates)
+    elif sys.platform == "win32":
+        candidates = [
+            str(bundled_libs),
+            r"C:\Program Files\GTK3-Runtime Win64\bin",
+            r"C:\msys64\mingw64\bin",
+        ]
+        _prepend_library_path("PATH", candidates)
+    else:
+        candidates = [
+            str(bundled_libs),
+            "/usr/lib/x86_64-linux-gnu",
+            "/usr/lib/aarch64-linux-gnu",
+            "/usr/lib",
+        ]
+        _prepend_library_path("LD_LIBRARY_PATH", candidates)
 
 
 def _setup_logging() -> None:
@@ -39,6 +81,7 @@ def _setup_logging() -> None:
 
 
 def main() -> None:
+    _prepare_library_path()
     if _run_bundled_script():
         return
     import uvicorn

@@ -13,6 +13,7 @@ ALLOWED_CATEGORIES = {
     "documents",
     "spreadsheets",
     "notes",
+    "pdf",
     "presentations",
     "diagrams",
     "html",

@@ -1,0 +1,533 @@
+/* ============================================================
+   Travel PDF Template — 旅游攻略风格
+   适用：旅游攻略 / 美食指南 / 出行手册
+   配色：暖橙 + 自然绿，活泼有温度
+   ============================================================ */
+
+@page {
+  size: A4;
+  margin:2.2cm 2cm 2.6cm 2cm;
+
+  @top-center {
+    content: element(header);
+    border-bottom:1.5pt solid #fed7aa;
+    padding-bottom:5pt;
+  }
+
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-size:8.5pt;
+    color:#fb923c;
+    font-family:'Nunito','Noto Sans SC',sans-serif;
+  }
+}
+
+:root {
+  --primary:#ea580c;       /* 活力橙 */
+  --primary-light:#fff7ed;
+  --primary-dark:#9a3412;
+  --accent:#059669;         /* 自然绿 */
+  --accent-light:#ecfdf5;
+  --text:#1c1917;
+  --text-secondary:#57534e;
+  --text-muted:#a8a29e;
+  --bg-soft:#fffbeb;
+  --bg-card:#ffffff;
+  --border:#fde68a;
+  --border-soft:#fef3c7;
+  --radius:10px;
+  --shadow:0 2px 10px rgba(234,88,12,0.08);
+  --shadow-lg:0 6px 20px rgba(234,88,12,0.12);
+}
+
+body {
+  font-family:'Nunito','Noto Sans SC','PingFang SC',sans-serif;
+  font-size:10.5pt;
+  line-height:1.85;
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- 页眉 ---------- */
+
+.header {
+  position:running(header);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:7.5pt;
+  color:var(--text-muted);
+}
+
+.header .logo {
+  font-weight:700;
+  color:var(--primary);
+  font-size:8.5pt;
+}
+
+/* ---------- 标题 ---------- */
+
+h1 {
+  font-size:28pt;
+  font-weight:800;
+  color:var(--primary-dark);
+  line-height:1.25;
+  letter-spacing:-0.02em;
+  margin:0 0 0.4em 0;
+}
+
+h2 {
+  font-size:16pt;
+  font-weight:700;
+  color:var(--primary);
+  line-height:1.35;
+  margin:2.2em 0 0.6em 0;
+  padding:0.3em 0.7em;
+  background:linear-gradient(90deg,var(--primary-light),transparent);
+  border-radius:var(--radius);
+  page-break-after:avoid;
+  orphans:2;
+  widows:2;
+}
+
+h3 {
+  font-size:13pt;
+  font-weight:600;
+  color:var(--text);
+  margin:1.6em 0 0.5em 0;
+  page-break-after:avoid;
+}
+
+h4 {
+  font-size:11pt;
+  font-weight:600;
+  color:var(--text-secondary);
+  margin:1.3em 0 0.4em 0;
+}
+
+/* ---------- 段落 ---------- */
+
+p {
+  margin:0.65em 0;
+  orphans:2;
+  widows:2;
+}
+
+/* ---------- 链接 ---------- */
+
+a {
+  color:var(--primary);
+  text-decoration:none;
+  border-bottom:0.5pt solid var(--primary);
+}
+
+/* ---------- 列表 ---------- */
+
+ul,ol {
+  margin:0.7em 0;
+  padding-left:1.5em;
+}
+
+li {
+  margin:0.4em 0;
+  line-height:1.75;
+}
+
+ul {
+  list-style:none;
+  padding-left:1.2em;
+}
+
+ul > li::before {
+  content:"✦";
+  color:var(--primary);
+  font-weight:700;
+  display:inline-block;
+  width:1.2em;
+  margin-left:-1.2em;
+}
+
+ul ul > li::before {
+  content:"•";
+  color:var(--accent);
+}
+
+ol > li::marker {
+  color:var(--primary);
+  font-weight:700;
+}
+
+/* ---------- 引用 ---------- */
+
+blockquote {
+  margin:1.3em 0;
+  padding:0.8em 1.2em;
+  background:var(--accent-light);
+  border-left:3.5pt solid var(--accent);
+  border-radius:0 var(--radius) var(--radius) 0;
+  color:var(--text-secondary);
+  font-style:italic;
+  page-break-inside:avoid;
+}
+
+/* ---------- 代码 ---------- */
+
+code {
+  font-family:'JetBrains Mono','Fira Code',monospace;
+  font-size:9pt;
+  background:#fef3c7;
+  color:#92400e;
+  padding:1pt 5pt;
+  border-radius:3pt;
+}
+
+pre {
+  margin:1.2em 0;
+  padding:1em 1.2em;
+  background:#1c1917;
+  border-radius:var(--radius);
+  overflow-x:auto;
+  page-break-inside:avoid;
+}
+
+pre code {
+  background:none;
+  color:#fef3c7;
+  padding:0;
+}
+
+/* ---------- 表格 ---------- */
+
+table {
+  width:100%;
+  border-collapse:collapse;
+  margin:1.5em 0;
+  font-size:9.5pt;
+  border:0.5pt solid var(--border);
+  border-radius:var(--radius);
+  overflow:hidden;
+}
+
+thead {
+  background:var(--primary);
+  color:white;
+}
+
+th,td {
+  padding:0.55em 0.8em;
+  border-bottom:0.5pt solid var(--border-soft);
+  text-align:left;
+}
+
+tbody tr:nth-child(even) {
+  background:var(--bg-soft);
+}
+
+/* ---------- 图片 ---------- */
+
+figure,.illustration {
+  text-align:center;
+  margin:2em auto;
+  page-break-inside:avoid;
+  page-break-after:avoid;
+}
+
+figure img,.illustration img,figure svg,.illustration svg {
+  max-width:88%;
+  height:auto;
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);
+  display:inline-block;
+}
+
+figcaption,.illustration .caption {
+  font-size:8.5pt;
+  color:var(--text-muted);
+  margin-top:0.6em;
+  font-style:italic;
+}
+
+/* ---------- 景点卡片 ---------- */
+
+.attraction-card {
+  margin:1.5em 0;
+  padding:1.2em;
+  background:var(--bg-card);
+  border:1pt solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  page-break-inside:avoid;
+}
+
+.attraction-card .card-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:0.6em;
+}
+
+.attraction-card .name {
+  font-weight:700;
+  font-size:12pt;
+  color:var(--primary-dark);
+}
+
+.attraction-card .rating {
+  display:inline-block;
+  background:var(--primary);
+  color:white;
+  font-size:8pt;
+  font-weight:700;
+  padding:2pt 8pt;
+  border-radius:10pt;
+}
+
+.attraction-card .info-row {
+  display:flex;
+  gap:1em;
+  margin-top:0.5em;
+  font-size:9pt;
+  color:var(--text-secondary);
+  flex-wrap:wrap;
+}
+
+.attraction-card .info-tag {
+  display:inline-flex;
+  align-items:center;
+  gap:0.3em;
+  background:var(--bg-soft);
+  padding:2pt 8pt;
+  border-radius:4pt;
+}
+
+/* ---------- 美食卡片 ---------- */
+
+.food-card {
+  margin:1em 0;
+  padding:0.9em 1.1em;
+  background:var(--accent-light);
+  border-left:4pt solid var(--accent);
+  border-radius:0 var(--radius) var(--radius) 0;
+  page-break-inside:avoid;
+}
+
+.food-card .dish-name {
+  font-weight:700;
+  font-size:11pt;
+  color:var(--accent);
+}
+
+.food-card .dish-desc {
+  font-size:9.5pt;
+  color:var(--text-secondary);
+  margin-top:0.3em;
+}
+
+/* ---------- 小贴士 / Callout ---------- */
+
+.tip {
+  margin:1.3em 0;
+  padding:0.9em 1.2em;
+  background:var(--primary-light);
+  border-left:4pt solid var(--primary);
+  border-radius:0 var(--radius) var(--radius) 0;
+  page-break-inside:avoid;
+}
+
+.tip-warning {
+  background:#fefce8;
+  border-left-color:#eab308;
+}
+
+.tip-info {
+  background:#eff6ff;
+  border-left-color:#3b82f6;
+}
+
+.tip-title {
+  font-weight:700;
+  font-size:10pt;
+  margin-bottom:0.3em;
+  display:flex;
+  align-items:center;
+  gap:0.4em;
+}
+
+.tip .tip-title { color:var(--primary-dark); }
+.tip-warning .tip-title { color:#854d0e; }
+.tip-info .tip-title { color:#1e40af; }
+
+/* ---------- 行程时间线 ---------- */
+
+.timeline {
+  margin:1.5em 0;
+  padding-left:1.5em;
+  border-left:2pt solid var(--border);
+  page-break-inside:avoid;
+}
+
+.timeline-item {
+  position:relative;
+  margin:1em 0;
+  padding-left:1em;
+}
+
+.timeline-item::before {
+  content:"";
+  position:absolute;
+  left:-1.85em;
+  top:0.4em;
+  width:10pt;
+  height:10pt;
+  border-radius:50%;
+  background:var(--primary);
+  border:2pt solid white;
+  box-shadow:0 0 0 1pt var(--primary);
+}
+
+.timeline-time {
+  font-weight:700;
+  font-size:9.5pt;
+  color:var(--primary);
+}
+
+.timeline-content {
+  font-size:10pt;
+  color:var(--text);
+  margin-top:0.2em;
+}
+
+/* ---------- 封面 ---------- */
+
+.cover {
+  page-break-after:always;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  padding:0 3em;
+  background:linear-gradient(160deg,#fff7ed 0%,#ffedd5 40%,#fed7aa 100%);
+  position:relative;
+  overflow:hidden;
+}
+
+.cover::before {
+  content:"✈";
+  position:absolute;
+  top:15%;
+  right:12%;
+  font-size:80pt;
+  opacity:0.08;
+}
+
+.cover::after {
+  content:"🏝";
+  position:absolute;
+  bottom:15%;
+  left:10%;
+  font-size:60pt;
+  opacity:0.08;
+}
+
+.cover-content {
+  position:relative;
+  z-index:1;
+}
+
+.cover .badge {
+  display:inline-block;
+  font-size:8pt;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.15em;
+  color:var(--primary);
+  background:white;
+  padding:4pt 14pt;
+  border-radius:20pt;
+  margin-bottom:1.5em;
+  box-shadow:var(--shadow);
+}
+
+.cover h1 {
+  font-size:32pt;
+  color:var(--primary-dark);
+}
+
+.cover .subtitle {
+  font-size:14pt;
+  color:var(--text-secondary);
+  margin-top:0.8em;
+  font-weight:400;
+}
+
+.cover .trip-meta {
+  margin-top:2.5em;
+  display:flex;
+  gap:2em;
+  justify-content:center;
+  font-size:10pt;
+  color:var(--text-secondary);
+}
+
+.cover .trip-meta-item {
+  display:flex;
+  align-items:center;
+  gap:0.4em;
+}
+
+.cover .footer-note {
+  position:absolute;
+  bottom:3em;
+  font-size:8pt;
+  color:var(--text-muted);
+}
+
+/* ---------- 目录 ---------- */
+
+.toc {
+  page-break-after:always;
+  padding:2em 0;
+}
+
+.toc h2 {
+  background:none;
+  padding:0;
+  text-align:center;
+  border-bottom:1.5pt solid var(--border);
+  border-radius:0;
+  padding-bottom:0.5em;
+}
+
+.toc a {
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  text-decoration:none;
+  border:none;
+  padding:0.4em 0;
+  color:var(--text);
+  font-size:10.5pt;
+  border-bottom:0.5pt dotted var(--border);
+}
+
+.toc a:hover { color:var(--primary); }
+
+/* ---------- 水平线 ---------- */
+
+hr {
+  border:none;
+  height:1pt;
+  background:linear-gradient(to right,transparent,var(--border),transparent);
+  margin:2.5em 0;
+}
+
+/* ---------- 打印优化 ---------- */
+
+@media print {
+  body {
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+}

@@ -10,6 +10,7 @@ from .api import (
     calendar_events,
     chat,
     files,
+    pdf_themes,
     projects,
     scheduled_tasks,
     sessions,
@@ -49,6 +50,7 @@ app.include_router(projects.router, prefix="/api")
 app.include_router(scheduled_tasks.router, prefix="/api")
 app.include_router(calendar_events.router, prefix="/api")
 app.include_router(files.router, prefix="/api")
+app.include_router(pdf_themes.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(skills.router)
 app.include_router(terminal.router)

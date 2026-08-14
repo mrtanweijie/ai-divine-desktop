@@ -10,6 +10,10 @@ from pptx.enum.text import PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.util import Inches, Pt
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from app import ppt_themes  # noqa: E402
+
 BG_DARK = RGBColor(0x10, 0x13, 0x1A)
 BG_LIGHT = RGBColor(0xFF, 0xFF, 0xFF)
 ACCENT = RGBColor(0x4F, 0x8F, 0xFF)
@@ -140,6 +144,90 @@ def _add_content_slide(prs, index, heading, body):
     _set_run(p.runs[0], 11, TEXT_MUTED)
 
 
+def _slide_heading(item: object) -> str:
+    if isinstance(item, dict):
+        return str(item.get("heading") or item.get("title") or "无标题")
+    return "无标题"
+
+
+def _slide_body(item: object) -> str:
+    if isinstance(item, str):
+        return item
+    if not isinstance(item, dict):
+        return ""
+    points = item.get("points") or item.get("bullets") or item.get("list")
+    if isinstance(points, list):
+        lines = []
+        for point in points:
+            text = str(point).strip()
+            if text and not text.startswith(("-", "•", "–")):
+                text = f"- {text}"
+            lines.append(text)
+        return "\n".join(lines)
+    return str(
+        item.get("body")
+        or item.get("content")
+        or item.get("text")
+        or ""
+    )
+
+
+def _is_cover_slide(item: object) -> bool:
+    if not isinstance(item, dict):
+        return False
+    return bool(
+        item.get("subtitle")
+        and not item.get("points")
+        and not item.get("bullets")
+        and not item.get("list")
+        and not item.get("body")
+        and not item.get("content")
+        and not item.get("text")
+    )
+
+
+def _slide_items(item: object) -> list[str]:
+    if isinstance(item, str):
+        return [line for line in item.splitlines() if line.strip()]
+    if not isinstance(item, dict):
+        return []
+    points = (
+        item.get("points")
+        or item.get("bullets")
+        or item.get("list")
+        or item.get("items")
+        or item.get("columns")
+    )
+    if isinstance(points, list):
+        return [
+            str(point.get("title") or point.get("content") or point)
+            if isinstance(point, dict)
+            else str(point)
+            for point in points
+        ]
+    body = _slide_body(item)
+    return [line for line in body.splitlines() if line.strip()]
+
+
+def _slide_layout(item: object) -> str:
+    if isinstance(item, dict):
+        layout = str(item.get("layout") or "").lower()
+        if layout in ("cards", "timeline", "columns", "default"):
+            return layout
+    heading = _slide_heading(item).lower()
+    if any(
+        word in heading
+        for word in ("时间线", "timeline", "路线", "roadmap", "阶段")
+    ):
+        return "timeline"
+    items = _slide_items(item)
+    if len(items) >= 5:
+        return "cards"
+    if 0 < len(items) <= 3:
+        return "columns"
+    return "default"
+
+
 def main() -> None:
     data = json.load(sys.stdin)
     workspace = Path(data["workspace"])
@@ -147,6 +235,7 @@ def main() -> None:
     params = data.get("params") or {}
     title = params.get("title") or "未命名演示文稿"
     slides = params.get("slides") or []
+    theme = str(params.get("theme") or params.get("style") or "universal").strip()
     output_dir = output_root / "presentations"
     raw_path = str(params.get("path") or "").strip()
     if raw_path:
@@ -168,16 +257,40 @@ def main() -> None:
     output_path = output_dir / safe_name(title, "演示文稿")
 
     prs = Presentation()
-    prs.slide_width = SLIDE_W
-    prs.slide_height = SLIDE_H
-    _add_title_slide(prs, title, len(slides))
-    for index, item in enumerate(slides, 1):
-        _add_content_slide(
-            prs,
-            index,
-            item.get("heading") or "无标题",
-            item.get("body") or "",
-        )
+    prs.slide_width = ppt_themes.SLIDE_W
+    prs.slide_height = ppt_themes.SLIDE_H
+    subtitle = ""
+    slide_items = slides
+    if slides and _is_cover_slide(slides[0]):
+        subtitle = str(slides[0].get("subtitle") or "")
+        slide_items = slides[1:]
+    ppt_themes.add_title_slide(
+        prs,
+        title,
+        len(slide_items),
+        theme,
+        subtitle=subtitle,
+    )
+    for index, item in enumerate(slide_items, 1):
+        heading = _slide_heading(item)
+        body = _slide_body(item)
+        layout = _slide_layout(item)
+        if layout == "cards":
+            ppt_themes.add_cards_slide(
+                prs, index, heading, _slide_items(item), theme
+            )
+        elif layout == "timeline":
+            ppt_themes.add_timeline_slide(
+                prs, index, heading, _slide_items(item), theme
+            )
+        elif layout == "columns":
+            ppt_themes.add_columns_slide(
+                prs, index, heading, _slide_items(item), theme
+            )
+        else:
+            ppt_themes.add_content_slide(
+                prs, index, heading, body, theme
+            )
     prs.save(output_path)
     print(
         json.dumps(
@@ -186,6 +299,7 @@ def main() -> None:
                 "message": "PPT 生成完成",
                 "file_name": output_path.name,
                 "filepath": str(output_path),
+                "data": {"theme": theme},
             },
             ensure_ascii=False,
         )

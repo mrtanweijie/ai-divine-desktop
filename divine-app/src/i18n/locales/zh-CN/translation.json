@@ -359,6 +359,8 @@
     "openDirectory": "打开所在目录",
     "pdfMerged": "PDF 合并完成",
     "pdfPagesExtracted": "已提取所选页面",
+    "pdfGenerated": "PDF 文档生成完成",
+    "pdfRendered": "PDF 渲染完成",
     "pdfSplit": "已拆分 PDF",
     "planCancelled": "已取消执行计划",
     "planChoiceConfirm": "方案确认",

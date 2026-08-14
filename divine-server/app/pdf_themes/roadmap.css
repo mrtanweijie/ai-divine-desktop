@@ -1,0 +1,623 @@
+/* ============================================================
+   Roadmap PDF Template — 学习路线 / 知识图谱风格
+   适用：学习路线 / 技能树 / 知识图谱 / 培训手册
+   配色：深紫 + 科技蓝渐变，节点卡片化
+   ============================================================ */
+
+@page {
+  size: A4;
+  margin:2.4cm 2.2cm 2.8cm 2.2cm;
+
+  @top-center {
+    content:element(header);
+    border-bottom:1.5pt solid #e9d5ff;
+    padding-bottom:5pt;
+  }
+
+  @bottom-center {
+    content:counter(page);
+    font-size:8.5pt;
+    color:#a78bfa;
+    font-family:'Inter','Noto Sans SC',sans-serif;
+  }
+}
+
+:root {
+  --primary:#7c3aed;       /* 深紫 */
+  --primary-light:#f3e8ff;
+  --primary-dark:#4c1d95;
+  --accent:#2563eb;         /* 科技蓝 */
+  --accent-light:#dbeafe;
+  --text:#1e1b4b;
+  --text-secondary:#4338ca;
+  --text-muted:#a78bfa;
+  --bg-soft:#faf5ff;
+  --bg-card:#ffffff;
+  --border:#e9d5ff;
+  --border-soft:#f3e8ff;
+  --success:#10b981;
+  --warning:#f59e0b;
+  --radius:10px;
+  --shadow:0 2px 12px rgba(124,58,237,0.08);
+  --shadow-lg:0 6px 24px rgba(124,58,237,0.12);
+}
+
+body {
+  font-family:'Inter','Noto Sans SC','PingFang SC',sans-serif;
+  font-size:10.5pt;
+  line-height:1.85;
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- 页眉 ---------- */
+
+.header {
+  position:running(header);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:7.5pt;
+  color:var(--text-muted);
+}
+
+.header .roadmap-title {
+  font-weight:700;
+  color:var(--primary);
+  font-size:8pt;
+}
+
+/* ---------- 标题 ---------- */
+
+h1 {
+  font-size:28pt;
+  font-weight:800;
+  color:var(--primary-dark);
+  line-height:1.2;
+  letter-spacing:-0.03em;
+  margin:0 0 0.5em 0;
+}
+
+h2 {
+  font-size:16pt;
+  font-weight:700;
+  color:var(--primary);
+  line-height:1.35;
+  margin:2.5em 0 0.7em 0;
+  padding:0.4em 0.8em;
+  background:linear-gradient(90deg,var(--primary-light),transparent);
+  border-radius:var(--radius);
+  display:flex;
+  align-items:center;
+  gap:0.5em;
+  page-break-after:avoid;
+  orphans:2;
+  widows:2;
+}
+
+/* 阶段编号徽章 */
+h2::before {
+  content:counter(tier);
+  counter-increment:tier;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:1.6em;
+  height:1.6em;
+  font-size:0.7em;
+  font-weight:800;
+  color:white;
+  background:var(--primary);
+  border-radius:50%;
+  flex-shrink:0;
+}
+
+body { counter-reset:tier; }
+
+h3 {
+  font-size:13pt;
+  font-weight:600;
+  color:var(--text);
+  margin:1.6em 0 0.5em 0;
+  padding-left:0.5em;
+  border-left:3pt solid var(--accent);
+  page-break-after:avoid;
+}
+
+h4 {
+  font-size:11pt;
+  font-weight:600;
+  color:var(--text-secondary);
+  margin:1.3em 0 0.4em 0;
+}
+
+/* ---------- 段落 ---------- */
+
+p {
+  margin:0.65em 0;
+  orphans:2;
+  widows:2;
+}
+
+/* ---------- 链接 ---------- */
+
+a {
+  color:var(--primary);
+  text-decoration:none;
+  border-bottom:0.5pt dotted var(--primary);
+}
+
+/* ---------- 列表 ---------- */
+
+ul,ol {
+  margin:0.7em 0;
+  padding-left:1.5em;
+}
+
+li {
+  margin:0.4em 0;
+  line-height:1.75;
+}
+
+ul { list-style:none; padding-left:1.2em; }
+
+ul > li::before {
+  content:"▸";
+  color:var(--primary);
+  font-weight:700;
+  display:inline-block;
+  width:1em;
+  margin-left:-1em;
+}
+
+ul ul > li::before { content:"◦"; color:var(--accent); }
+
+ol > li::marker {
+  color:var(--primary);
+  font-weight:700;
+}
+
+/* ---------- 引用 ---------- */
+
+blockquote {
+  margin:1.3em 0;
+  padding:0.8em 1.2em;
+  background:var(--bg-soft);
+  border-left:3.5pt solid var(--primary);
+  border-radius:0 var(--radius) var(--radius) 0;
+  color:var(--text-secondary);
+  font-style:italic;
+  page-break-inside:avoid;
+}
+
+/* ---------- 代码 ---------- */
+
+code {
+  font-family:'JetBrains Mono','Fira Code',monospace;
+  font-size:9pt;
+  background:var(--bg-soft);
+  color:#7c3aed;
+  padding:1.5pt 5pt;
+  border-radius:3pt;
+  border:0.5pt solid var(--border-soft);
+}
+
+pre {
+  margin:1.2em 0;
+  padding:1em 1.2em;
+  background:#1e1b4b;
+  border-radius:var(--radius);
+  overflow-x:auto;
+  page-break-inside:avoid;
+  box-shadow:var(--shadow);
+}
+
+pre code {
+  background:none;
+  color:#e9d5ff;
+  padding:0;
+  font-size:8.5pt;
+  line-height:1.6;
+}
+
+/* ---------- 表格 ---------- */
+
+table {
+  width:100%;
+  border-collapse:collapse;
+  margin:1.5em 0;
+  font-size:9.5pt;
+  border:0.5pt solid var(--border);
+  border-radius:var(--radius);
+  overflow:hidden;
+}
+
+thead {
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  color:white;
+}
+
+th,td {
+  padding:0.55em 0.8em;
+  border-bottom:0.5pt solid var(--border-soft);
+  text-align:left;
+}
+
+tbody tr:nth-child(even) { background:var(--bg-soft); }
+
+/* ---------- 图片 / 流程图 ---------- */
+
+figure,.illustration {
+  text-align:center;
+  margin:2em auto;
+  page-break-inside:avoid;
+  page-break-after:avoid;
+}
+
+figure img,.illustration img,figure svg,.illustration svg {
+  max-width:90%;
+  height:auto;
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);
+}
+
+figcaption,.illustration .caption {
+  font-size:8.5pt;
+  color:var(--text-muted);
+  margin-top:0.6em;
+  font-style:italic;
+}
+
+/* ---------- 水平线 ---------- */
+
+hr {
+  border:none;
+  height:1.5pt;
+  background:linear-gradient(to right,transparent,var(--primary),transparent);
+  margin:2.5em 0;
+  opacity:0.4;
+}
+
+/* ============================================================
+   节点卡片（知识图谱核心组件）
+   ============================================================ */
+
+.node-card {
+  margin:1em 0;
+  padding:1em 1.2em;
+  background:var(--bg-card);
+  border:1pt solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  page-break-inside:avoid;
+  position:relative;
+  overflow:hidden;
+}
+
+.node-card::before {
+  content:"";
+  position:absolute;
+  top:0;left:0;bottom:0;
+  width:4pt;
+  background:var(--primary);
+}
+
+.node-card.tier-2::before { background:var(--accent); }
+.node-card.tier-3::before { background:var(--success); }
+.node-card.tier-4::before { background:var(--warning); }
+
+.node-card .node-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:0.5em;
+}
+
+.node-card .node-name {
+  font-weight:700;
+  font-size:11.5pt;
+  color:var(--text);
+}
+
+.node-card .node-week {
+  display:inline-block;
+  font-size:7.5pt;
+  font-weight:700;
+  padding:2pt 8pt;
+  border-radius:10pt;
+  background:var(--primary-light);
+  color:var(--primary);
+}
+
+.node-card .node-deps {
+  font-size:8.5pt;
+  color:var(--text-muted);
+  margin-top:0.3em;
+}
+
+.node-card .node-deps strong {
+  color:var(--accent);
+}
+
+/* ---------- 资源卡片 ---------- */
+
+.resource-card {
+  margin:0.7em 0;
+  padding:0.7em 1em;
+  background:var(--bg-soft);
+  border:0.5pt solid var(--border-soft);
+  border-radius:8px;
+  display:flex;
+  gap:0.8em;
+  align-items:flex-start;
+  page-break-inside:avoid;
+}
+
+.resource-card .tag {
+  display:inline-block;
+  font-size:7pt;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  padding:2pt 6pt;
+  border-radius:3pt;
+  white-space:nowrap;
+  margin-top:2pt;
+}
+
+.resource-card .tag-book { background:#ede9fe; color:#6d28d9; }
+.resource-card .tag-video { background:#fee2e2; color:#b91c1c; }
+.resource-card .tag-course { background:#dbeafe; color:#1d4ed8; }
+.resource-card .tag-tool { background:#d1fae5; color:#065f46; }
+.resource-card .tag-paper { background:#fef3c7; color:#92400e; }
+
+.resource-card .r-title {
+  font-weight:600;
+  font-size:10pt;
+  color:var(--text);
+}
+
+.resource-card .r-meta {
+  font-size:8.5pt;
+  color:var(--text-muted);
+  margin-top:2pt;
+}
+
+/* ---------- 进度条 ---------- */
+
+.progress-bar {
+  margin:1.5em 0;
+  page-break-inside:avoid;
+}
+
+.progress-bar .bar-label {
+  display:flex;
+  justify-content:space-between;
+  font-size:9pt;
+  color:var(--text-secondary);
+  margin-bottom:0.3em;
+}
+
+.progress-bar .bar-track {
+  height:8pt;
+  background:var(--bg-soft);
+  border-radius:4pt;
+  overflow:hidden;
+}
+
+.progress-bar .bar-fill {
+  height:100%;
+  background:linear-gradient(90deg,var(--primary),var(--accent));
+  border-radius:4pt;
+}
+
+/* ---------- 阶段分隔页 ---------- */
+
+.tier-break {
+  page-break-before:always;
+  text-align:center;
+  padding:30vh 0;
+}
+
+.tier-break .tier-num {
+  font-size:60pt;
+  font-weight:800;
+  color:var(--primary);
+  opacity:0.15;
+  line-height:1;
+}
+
+.tier-break .tier-name {
+  font-size:18pt;
+  font-weight:700;
+  color:var(--primary-dark);
+  margin-top:0.3em;
+}
+
+.tier-break .tier-desc {
+  font-size:11pt;
+  color:var(--text-muted);
+  margin-top:0.8em;
+  max-width:60%;
+  margin-left:auto;
+  margin-right:auto;
+}
+
+/* ---------- 时间轴 ---------- */
+
+.timeline {
+  margin:1.5em 0;
+  padding-left:1.5em;
+  border-left:2.5pt solid var(--border);
+  page-break-inside:avoid;
+}
+
+.timeline-item {
+  position:relative;
+  margin:1em 0;
+  padding-left:1em;
+}
+
+.timeline-item::before {
+  content:"";
+  position:absolute;
+  left:-1.9em;
+  top:0.4em;
+  width:12pt;
+  height:12pt;
+  border-radius:50%;
+  background:var(--primary);
+  border:2.5pt solid white;
+  box-shadow:0 0 0 1pt var(--primary);
+}
+
+.timeline-item.phase-2::before { background:var(--accent); box-shadow:0 0 0 1pt var(--accent); }
+.timeline-item.phase-3::before { background:var(--success); box-shadow:0 0 0 1pt var(--success); }
+.timeline-item.phase-4::before { background:var(--warning); box-shadow:0 0 0 1pt var(--warning); }
+
+.timeline-time {
+  font-weight:700;
+  font-size:9.5pt;
+  color:var(--primary);
+}
+
+.timeline-content {
+  font-size:10pt;
+  color:var(--text);
+  margin-top:0.2em;
+}
+
+/* ---------- 封面 ---------- */
+
+.cover {
+  page-break-after:always;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  padding:0 3em;
+  background:linear-gradient(160deg,#faf5ff 0%,#ede9fe 30%,#ddd6fe 60%,#c4b5fd 100%);
+  position:relative;
+  overflow:hidden;
+}
+
+.cover::before {
+  content:"";
+  position:absolute;
+  top:-10%;
+  right:-5%;
+  width:50%;
+  height:50%;
+  background:radial-gradient(circle,rgba(124,58,237,0.15),transparent 70%);
+}
+
+.cover::after {
+  content:"";
+  position:absolute;
+  bottom:-10%;
+  left:-5%;
+  width:40%;
+  height:40%;
+  background:radial-gradient(circle,rgba(37,99,235,0.12),transparent 70%);
+}
+
+.cover-content {
+  position:relative;
+  z-index:1;
+}
+
+.cover .badge {
+  display:inline-block;
+  font-size:8pt;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.15em;
+  color:var(--primary);
+  background:white;
+  padding:4pt 14pt;
+  border-radius:20pt;
+  margin-bottom:1.5em;
+  box-shadow:var(--shadow);
+}
+
+.cover h1 {
+  font-size:34pt;
+  color:var(--primary-dark);
+  letter-spacing:-0.03em;
+}
+
+.cover .subtitle {
+  font-size:14pt;
+  color:var(--text-secondary);
+  margin-top:0.8em;
+  font-weight:400;
+}
+
+.cover .roadmap-meta {
+  margin-top:2.5em;
+  display:flex;
+  gap:2em;
+  justify-content:center;
+  font-size:10pt;
+  color:var(--text-secondary);
+}
+
+.cover .meta-item {
+  display:flex;
+  align-items:center;
+  gap:0.4em;
+}
+
+.cover .footer-note {
+  position:absolute;
+  bottom:3em;
+  font-size:8pt;
+  color:var(--text-muted);
+  letter-spacing:0.05em;
+}
+
+/* ---------- 目录 ---------- */
+
+.toc {
+  page-break-after:always;
+  padding:2em 0;
+}
+
+.toc h2 {
+  background:none;
+  padding:0;
+  text-align:center;
+  border-bottom:1.5pt solid var(--border);
+  border-radius:0;
+  padding-bottom:0.5em;
+}
+
+.toc h2::before { display:none; }
+
+.toc a {
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  text-decoration:none;
+  border:none;
+  padding:0.4em 0;
+  color:var(--text);
+  font-size:10.5pt;
+  border-bottom:0.5pt dotted var(--border);
+}
+
+.toc a:hover { color:var(--primary); }
+
+.toc .toc-level-1 { font-weight:600; }
+.toc .toc-level-2 { padding-left:1.5em; font-weight:400; font-size:10pt; }
+
+/* ---------- 打印优化 ---------- */
+
+@media print {
+  body {
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+}

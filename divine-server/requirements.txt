@@ -15,5 +15,7 @@ langchain-deepseek==1.1.0
 langgraph>=1.2.10,<2
 pypdf>=4,<6
 reportlab>=4,<5
+weasyprint>=65,<67
+markdown>=3.5,<4
 resvg_py>=0.3.3; python_version >= "3.10"
 zhipuai>=2.1,<3

@@ -1,0 +1,426 @@
+/* ============================================================
+   Universal PDF Template — 通用现代风格
+   适用：报告 / 攻略 / 学习路线 / 手册 / 讲义 / 笔记
+   配色：中性蓝灰 + 克制的强调色，所有内容类型通用
+   ============================================================ */
+
+@page {
+  size: A4;
+  margin: 2.4cm 2.2cm 2.8cm 2.2cm;
+
+  @top-center {
+    content: element(header);
+    border-bottom: 0.5pt solid #e5e7eb;
+    padding-bottom: 6pt;
+  }
+
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-size: 8.5pt;
+    color: #9ca3af;
+    font-family: 'Noto Sans SC', 'PingFang SC', sans-serif;
+  }
+}
+
+:root {
+  --primary: #2563eb;
+  --primary-light: #eff6ff;
+  --primary-dark: #1e40af;
+  --accent: #0ea5e9;
+  --accent-light: #f0f9ff;
+  --text: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --bg-soft: #f8fafc;
+  --bg-card: #ffffff;
+  --border: #e5e7eb;
+  --border-soft: #f1f5f9;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --radius: 8px;
+  --shadow: 0 2px 8px rgba(17, 24, 39, 0.06);
+  --shadow-lg: 0 4px 16px rgba(17, 24, 39, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans SC', 'Source Han Sans CN', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.85;
+  color: var(--text);
+  text-align: justify;
+  -webkit-font-smoothing: antialiased;
+}
+
+.header {
+  position: running(header);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 7.5pt;
+  color: var(--text-muted);
+}
+
+.header .doc-title {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* ---------- 标题 ---------- */
+
+h1 {
+  font-size: 26pt;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.5em 0;
+}
+
+h2 {
+  font-size: 17pt;
+  font-weight: 700;
+  color: var(--primary-dark);
+  line-height: 1.35;
+  margin: 2.2em 0 0.6em 0;
+  padding-left: 0.7em;
+  border-left: 4pt solid var(--primary);
+  page-break-after: avoid;
+  orphans: 2;
+  widows: 2;
+}
+
+h3 {
+  font-size: 13.5pt;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+  margin: 1.8em 0 0.5em 0;
+  page-break-after: avoid;
+}
+
+h4 {
+  font-size: 11.5pt;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 1.4em 0 0.4em 0;
+  page-break-after: avoid;
+}
+
+h5, h6 {
+  font-size: 10.5pt;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 1.2em 0 0.3em 0;
+}
+
+/* ---------- 段落 / 行内 ---------- */
+
+p {
+  margin: 0.7em 0;
+  orphans: 2;
+  widows: 2;
+}
+
+strong, b {
+  font-weight: 700;
+  color: var(--text);
+}
+
+em, i {
+  color: var(--text-secondary);
+}
+
+.lead::first-letter {
+  font-size: 3em;
+  font-weight: 800;
+  float: left;
+  line-height: 0.9;
+  margin: 0.05em 0.1em 0 0;
+  color: var(--primary);
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  border-bottom: 0.5pt dotted var(--primary);
+}
+
+/* ---------- 列表 ---------- */
+
+ul, ol {
+  margin: 0.7em 0;
+  padding-left: 1.5em;
+}
+
+li {
+  margin: 0.4em 0;
+  line-height: 1.75;
+}
+
+ul {
+  list-style: none;
+  padding-left: 1.2em;
+}
+
+ul > li::before {
+  content: "•";
+  color: var(--primary);
+  font-weight: 700;
+  display: inline-block;
+  width: 1em;
+  margin-left: -1em;
+}
+
+ul ul > li::before {
+  content: "◦";
+  color: var(--accent);
+}
+
+ol > li::marker {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ---------- 引用 / 代码 / 表格 ---------- */
+
+blockquote {
+  margin: 1.4em 0;
+  padding: 0.9em 1.3em;
+  background: var(--bg-soft);
+  border-left: 3.5pt solid var(--primary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--text-secondary);
+  font-style: italic;
+  page-break-inside: avoid;
+}
+
+blockquote p {
+  margin: 0.3em 0;
+}
+
+code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 8.5pt;
+  background: var(--bg-soft);
+  color: var(--primary-dark);
+  padding: 1pt 4pt;
+  border-radius: 3pt;
+  border: 0.5pt solid var(--border);
+}
+
+pre {
+  margin: 1.3em 0;
+  padding: 1em 1.2em;
+  background: #111827;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  page-break-inside: avoid;
+  box-shadow: var(--shadow);
+}
+
+pre code {
+  background: none;
+  border: 0;
+  color: #e5e7eb;
+  padding: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: 9.5pt;
+  page-break-inside: auto;
+}
+
+thead {
+  background: var(--primary);
+  color: white;
+}
+
+th, td {
+  padding: 0.55em 0.8em;
+  border: 0.5pt solid var(--border);
+  text-align: left;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--bg-soft);
+}
+
+/* ---------- 图片 / SVG ---------- */
+
+figure,
+.illustration {
+  text-align: center;
+  margin: 2em auto;
+  page-break-inside: avoid;
+  page-break-after: avoid;
+}
+
+figure img,
+.illustration img,
+figure svg,
+.illustration svg {
+  max-width: 86%;
+  height: auto;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+figcaption,
+.illustration .caption {
+  font-size: 8.5pt;
+  color: var(--text-muted);
+  margin-top: 0.6em;
+  font-style: italic;
+}
+
+hr {
+  border: 0;
+  height: 0.8pt;
+  background: var(--border);
+  margin: 2.4em 0;
+}
+
+/* ---------- 通用组件 ---------- */
+
+.card,
+.callout,
+.resource-card,
+.node-card {
+  margin: 1.2em 0;
+  padding: 1em 1.2em;
+  background: var(--bg-card);
+  border: 1pt solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  page-break-inside: avoid;
+}
+
+.card .card-header,
+.callout .card-header,
+.resource-card .card-header {
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-bottom: 0.4em;
+}
+
+.resource-card .tag,
+.tag {
+  display: inline-block;
+  font-size: 7.5pt;
+  font-weight: 600;
+  padding: 1pt 6pt;
+  border-radius: 3pt;
+  background: var(--primary-light);
+  color: var(--primary);
+  margin-right: 0.5em;
+}
+
+.resource-card .r-title {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.resource-card .r-meta {
+  font-size: 8.5pt;
+  color: var(--text-muted);
+  margin-top: 0.3em;
+}
+
+.node-card {
+  border-left: 3pt solid var(--primary);
+}
+
+.callout {
+  border-left: 3.5pt solid var(--accent);
+  background: var(--accent-light);
+}
+
+.badge {
+  display: inline-block;
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--primary);
+  background: var(--primary-light);
+  border-radius: 999px;
+  padding: 3pt 10pt;
+  margin-bottom: 1em;
+}
+
+/* ---------- 封面 ---------- */
+
+.cover {
+  page-break-after: always;
+  text-align: center;
+  padding-top: 28vh;
+}
+
+.cover h1 {
+  font-size: 32pt;
+  letter-spacing: -0.03em;
+}
+
+.cover .subtitle {
+  font-size: 14pt;
+  color: var(--text-secondary);
+  margin-top: 0.8em;
+  font-weight: 300;
+}
+
+.cover .meta {
+  margin-top: 2.5em;
+  font-size: 9.5pt;
+  color: var(--text-muted);
+}
+
+.cover .meta-divider {
+  display: inline-block;
+  width: 4pt;
+  height: 4pt;
+  border-radius: 50%;
+  background: var(--primary);
+  margin: 0 0.6em;
+}
+
+.footer-note {
+  margin-top: 4em;
+  font-size: 8.5pt;
+  color: var(--text-muted);
+}
+
+/* ---------- 目录 ---------- */
+
+.toc {
+  page-break-after: always;
+  padding: 2em 0;
+}
+
+.toc h2 {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.toc a {
+  color: var(--text);
+  border-bottom: 0;
+}
+
+.toc li {
+  margin: 0.5em 0;
+}
+
+/* ---------- 防孤行 ---------- */
+
+h1, h2, h3, h4, h5, h6 {
+  orphans: 2;
+  widows: 2;
+}

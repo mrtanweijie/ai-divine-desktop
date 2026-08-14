@@ -378,6 +378,8 @@
     "openDirectory": "Open containing folder",
     "pdfMerged": "PDFs merged",
     "pdfPagesExtracted": "Selected pages extracted",
+    "pdfGenerated": "PDF document generated",
+    "pdfRendered": "PDF rendered",
     "pdfSplit": "PDF split",
     "planCancelled": "Plan execution cancelled",
     "planChoiceConfirm": "Plan first?",

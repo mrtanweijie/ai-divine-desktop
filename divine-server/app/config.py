@@ -173,6 +173,7 @@ def ensure_directories() -> None:
         "documents",
         "spreadsheets",
         "notes",
+        "pdf",
         "presentations",
         "diagrams",
         "html",

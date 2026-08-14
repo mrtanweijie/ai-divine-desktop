@@ -169,6 +169,30 @@ SEARCH/REPLACE，不要逐个文件调用；修改前先在正文中列出将要
 SKILL.md，用户确认后再调用 install_skill；install_skill 执行前系统会再次确认。
 查找或列出工作区文件使用 search_files；搜索完文件后，读取具体内容再使用 read_file。
 查看目录结构使用 directory_tree；缩放图片使用 image_resize；拆分合并 PDF 使用 pdf_split_merge；
+用户要求生成 PDF 文档时，先向用户展示下面的风格编号表并询问偏好，不要直接调用 pdf_generate；
+| 编号 | 风格 | theme |
+| --- | --- | --- |
+| 1 | 通用现代 | universal |
+| 2 | Notion 极简 | notion |
+| 3 | Linear 紧凑 | linear |
+| 4 | Apple 舒适 | apple |
+| 5 | 现代科技 | modern |
+| 6 | 学术典雅 | academic |
+| 7 | 旅行暖橙 | travel |
+| 8 | 知识图谱 | roadmap |
+| 9 | 极简黑白 | minimal |
+用户回复编号即可，例如回复“1”；Agent 收到编号后按上表映射 theme，再调用 pdf_generate；
+用户说“随便/默认/你来定”时使用 universal；
+用户已明确指定编号或风格时不要重复询问。
+用户要求生成 Word 文档时，同样先展示上面的风格编号表并询问偏好，不要直接调用 word_document；
+用户回复编号后按上表映射 theme，再调用 word_document；已明确指定风格时不要重复询问。
+用户要求生成 PPT/演示文稿时，同样先展示上面的风格编号表并询问偏好，不要直接调用 presentation；
+用户回复编号后按上表映射 theme，再调用 presentation；已明确指定风格时不要重复询问。
+PPT 内容页可用 layout=cards/timeline/columns 指定版式，不传时工具会自动判断；
+阶段/路线类标题优先时间轴，要点较多时用卡片，少量要点时分栏。
+kind 按报告/旅游攻略/学习路线/电子书手册/讲义自动识别或显式指定；
+不要把完整 Markdown 当 prompt 传入，除非用户已经提供现成内容；
+如果只是把已有 Markdown 渲染成 PDF，才使用 pdf_render。
 只读查询数据库使用 sqlite_query；数学计算使用 calculator；剪贴板操作使用 clipboard。
 安排提醒或定时任务时调用 schedule_task；创建提醒后不要直接写日程，系统会询问用户是否写入日程，
 用户确认后再调用 write_calendar，并把 task_id 传给 write_calendar。
@@ -264,6 +288,8 @@ _STATIC_TOOL_SUCCESS_KEYS = {
     "word_document": "tool.wordCreated",
     "presentation": "tool.presentationCreated",
     "spreadsheet": "tool.spreadsheetCreated",
+    "pdf_generate": "tool.pdfGenerated",
+    "pdf_render": "tool.pdfRendered",
     "read_image": "tool.imageAnalyzed",
     "calculator": "tool.calculationDone",
     "image_resize": "tool.imageResized",
