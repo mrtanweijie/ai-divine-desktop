@@ -1300,9 +1300,9 @@ body {
 }
 """
 
-KAMI_CSS = r"""
+KAMI_WHITE_CSS = r"""
 /* ============================================================
-   Kami Resume Theme — Resume Optimizer 排版
+   Kami Resume Theme — 纯白投递版
    适用：社招技术岗、投递前定制、一页简历
    特点：纯白背景、章节标题左侧品牌色竖线、克制高密度
    ============================================================ */
@@ -1310,6 +1310,7 @@ KAMI_CSS = r"""
 @page {
   size: A4;
   margin: 18mm 20mm 16mm 20mm;
+  background: #ffffff;
   @bottom-right {
     content: counter(page);
     font-size: 8pt;
@@ -1357,7 +1358,7 @@ body {
 }
 
 .header .contact .sep {
-  color: #dcd9cd;
+  color: #d8d5c9;
   margin: 0 5px;
 }
 
@@ -1398,7 +1399,7 @@ body {
 }
 
 .entry-head .left .sep {
-  color: #dcd9cd;
+  color: #d8d5c9;
   margin: 0 4px;
 }
 
@@ -1470,6 +1471,23 @@ body {
 """
 
 
+def _kami_css(*, parchment: bool) -> str:
+    """Kami 两版共用一套样式，只切换纸色与分隔线深浅。"""
+    if not parchment:
+        return KAMI_WHITE_CSS
+    return (
+        KAMI_WHITE_CSS
+        .replace("纯白投递版", "暖色纸感底（parchment）")
+        .replace("纯白背景", "暖色纸感底 #f5f4ed")
+        .replace("#ffffff", "#f5f4ed")
+        .replace("#dcd9cd", "#e8e6dc")
+        .replace("#d8d5c9", "#e5e3d8")
+    )
+
+
+KAMI_CSS = _kami_css(parchment=True)
+
+
 # 主题注册表
 THEMES = {
     "professional": {
@@ -1522,10 +1540,18 @@ THEMES = {
     },
     "kami": {
         "name": "kami",
-        "display_name": "Kami 排版",
-        "description": "纯白单栏、章节标题左侧品牌色竖线，适合投递前定制的专业简历",
+        "display_name": "Kami 暖色",
+        "description": "Kami 默认暖色纸感底 + 章节标题品牌色竖线，适合屏幕阅读与个人排版",
         "css": KAMI_CSS,
-        "preview_color": "#203b61",
-        "preview_accent": "#dcd9cd",
+        "preview_color": "#f5f4ed",
+        "preview_accent": "#203b61",
+    },
+    "kami_white": {
+        "name": "kami_white",
+        "display_name": "Kami 纯白",
+        "description": "Kami 纯白投递版，打印零风险，适合正式投递 PDF",
+        "css": KAMI_WHITE_CSS,
+        "preview_color": "#ffffff",
+        "preview_accent": "#203b61",
     },
 }

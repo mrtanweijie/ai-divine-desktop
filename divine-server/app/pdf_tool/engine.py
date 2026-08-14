@@ -15,6 +15,11 @@ def _suggest_resume_theme(prompt: str, resume_data: dict[str, Any]) -> str:
     text = prompt.lower()
     if any(
         word in text
+        for word in ("kami_white", "kami 白色", "纯白投递", "白色版")
+    ):
+        return "kami_white"
+    if any(
+        word in text
         for word in ("kami", "resume-optimizer", "resume optimizer", "排版优化")
     ):
         return "kami"
@@ -101,6 +106,7 @@ class PDFTool:
                 "finance",
                 "linkedin",
                 "kami",
+                "kami_white",
             ):
                 resume_theme = theme
             elif not theme or theme in ("resume", "universal", "auto"):
