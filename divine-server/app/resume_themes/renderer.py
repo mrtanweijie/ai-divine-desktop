@@ -7,6 +7,7 @@
 
 import json
 import os
+import re
 from dataclasses import dataclass, field, asdict, fields
 from typing import Optional
 from pathlib import Path
@@ -59,8 +60,11 @@ class Project:
     """项目经历"""
     name: str = ""
     role: str = ""
+    kind: str = ""
     description: str = ""
     highlights: list[str] = field(default_factory=list)
+    actions: list[str] = field(default_factory=list)
+    impact: str = ""
     tags: list[str] = field(default_factory=list)
     link: str = ""
 
@@ -86,6 +90,9 @@ class ResumeData:
     skills: list[Skill] = field(default_factory=list)
     skill_groups: dict[str, list[str]] = field(default_factory=dict)  # 创意主题用：分组技能标签
     core_skills: list[str] = field(default_factory=list)  # 一页简历结构：核心技能关键词
+    metrics: list["Metric"] = field(default_factory=list)      # Kami：4 个数字卡片
+    timeline: list["TimelineStep"] = field(default_factory=list)  # Kami：3 步演进
+    public_work: list[str] = field(default_factory=list)       # Kami：开源/对外产出
 
     @classmethod
     def from_dict(cls, data: dict) -> "ResumeData":
@@ -101,13 +108,15 @@ class ResumeData:
                     if key in allowed
                 }
             )
-        for key in ["experiences", "education", "projects", "skills"]:
+        for key in ["experiences", "education", "projects", "skills", "metrics", "timeline"]:
             if key in data and isinstance(data[key], list):
                 cls_map = {
                     "experiences": Experience,
                     "education": Education,
                     "projects": Project,
                     "skills": Skill,
+                    "metrics": Metric,
+                    "timeline": TimelineStep,
                 }
                 allowed = {f.name for f in fields(cls_map[key])}
                 data[key] = [
@@ -121,6 +130,8 @@ class ResumeData:
                     for item in data[key]
                     if isinstance(item, dict)
                 ]
+        if isinstance(data.get("public_work"), list):
+            data["public_work"] = [str(item) for item in data["public_work"]]
         allowed = {f.name for f in fields(cls)}
         resume = cls(
             **{key: value for key, value in data.items() if key in allowed}
@@ -133,6 +144,22 @@ class ResumeData:
 
     def to_dict(self) -> dict:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False))
+
+
+@dataclass
+class Metric:
+    """Kami 数字卡片"""
+    value: str = ""
+    label: str = ""
+
+
+@dataclass
+class TimelineStep:
+    """Kami 演进时间线"""
+    period: str = ""
+    milestone: str = ""
+    head: str = ""
+    body: str = ""
 
 
 def _normalize_resume_input(data: dict) -> dict:
@@ -216,6 +243,42 @@ def _normalize_resume_input(data: dict) -> dict:
     elif not isinstance(raw_core_skills, list):
         normalized["core_skills"] = []
 
+    metrics = []
+    for item in normalized.get("metrics") or []:
+        if isinstance(item, dict):
+            metrics.append(
+                {
+                    "value": item.get("value") or "",
+                    "label": item.get("label") or "",
+                }
+            )
+        elif isinstance(item, str) and "|" in item:
+            value, label = item.split("|", 1)
+            metrics.append({"value": value.strip(), "label": label.strip()})
+    normalized["metrics"] = metrics
+
+    timeline = []
+    for item in normalized.get("timeline") or []:
+        if not isinstance(item, dict):
+            continue
+        period = item.get("period") or item.get("year") or ""
+        head = item.get("head") or item.get("milestone") or ""
+        body = item.get("body") or ""
+        timeline.append(
+            {
+                "period": period,
+                "milestone": head,
+                "head": head,
+                "body": body,
+            }
+        )
+    normalized["timeline"] = timeline
+
+    public_work = normalized.get("public_work") or []
+    if isinstance(public_work, str):
+        public_work = [public_work]
+    normalized["public_work"] = [str(item) for item in public_work]
+
     education = []
     for item in normalized.get("education") or []:
         if not isinstance(item, dict):
@@ -253,13 +316,23 @@ def _normalize_resume_input(data: dict) -> dict:
             continue
         role = item.get("role") or ""
         description = item.get("context") or item.get("description") or ""
-        highlights = item.get("points") or item.get("highlights") or []
+        actions = item.get("actions") or item.get("points") or []
+        impact = item.get("impact") or ""
+        highlights = (
+            item.get("points")
+            or item.get("highlights")
+            or actions
+            or ([impact] if impact else [])
+        )
         projects.append(
             {
                 "name": item.get("name") or "",
                 "role": role,
+                "kind": item.get("kind") or item.get("type") or "",
                 "description": description,
                 "highlights": highlights,
+                "actions": actions,
+                "impact": impact,
                 "tags": item.get("tags") or [],
                 "link": item.get("link") or "",
             }
@@ -268,6 +341,9 @@ def _normalize_resume_input(data: dict) -> dict:
 
     skills = []
     for item in normalized.get("skills") or []:
+        if isinstance(item, str):
+            skills.append({"name": item, "level": 80})
+            continue
         if not isinstance(item, dict):
             continue
         level = item.get("level") or 0
@@ -966,12 +1042,246 @@ def _render_linkedin(resume: ResumeData) -> str:
     return _render_flat_resume(resume, style="linkedin")
 
 
+_NUMBER_RE = re.compile(
+    r"(\d+(?:\.\d+)?\s*(?:%|ms|s|fps|年|月|天|周|倍|万\+?|亿\+?|\+)?)"
+)
+
+
+def _highlight_numbers(text: str) -> str:
+    """把数字/指标包成 Kami 的强调色。"""
+    return _NUMBER_RE.sub(r'<span class="hl">\1</span>', _esc(text))
+
+
+def _split_value_unit(value: str) -> tuple[str, str]:
+    match = re.match(r"^(\d+(?:\.\d+)?)(.*)$", value or "")
+    if match:
+        return match.group(1), match.group(2)
+    return value or "", ""
+
+
+def _render_kami_original(resume: ResumeData, *, parchment: bool = True) -> str:
+    """真实 Kami 简历版式：数字卡片 + 时间线 + 项目三段式 + 2 页。"""
+    c = resume.contact
+    contact_parts = []
+    if c.phone:
+        contact_parts.append(_esc(c.phone))
+    if c.email:
+        contact_parts.append(_esc(c.email))
+    website = c.website or c.github or c.linkedin
+    if website:
+        contact_parts.append(_esc(website))
+    if c.location or c.city or c.address:
+        location = c.location or c.city or c.address
+        contact_parts.append(f'<span class="loc">{_esc(location)}</span>')
+    contact_line = '<span class="sep">·</span>'.join(contact_parts)
+    role_html = (
+        f'<span class="role">{_esc(resume.title)}</span><br>'
+        if resume.title
+        else ""
+    )
+    contact_html = (
+        f'<div class="contact">{role_html}{contact_line}</div>'
+        if contact_line
+        else ""
+    )
+
+    header_html = f"""
+    <div class="header">
+      <div>
+        <div class="name serif">{_esc(resume.name)}</div>
+      </div>
+      {contact_html}
+    </div>"""
+
+    metrics_html = ""
+    if resume.metrics:
+        cards = []
+        for metric in resume.metrics[:4]:
+            value, unit = _split_value_unit(metric.value)
+            cards.append(
+                f"""
+        <div class="metric">
+          <span class="metric-value serif">{_esc(value)}<span class="unit">{_esc(unit)}</span></span>
+          <span class="metric-label">{_esc(metric.label)}</span>
+        </div>"""
+            )
+        metrics_html = f'<div class="metrics">{"".join(cards)}</div>'
+
+    summary_html = ""
+    if resume.summary:
+        summary_html = f"""
+    <section>
+      <div class="section-title">个人简介</div>
+      <div class="summary">{_highlight_numbers(resume.summary)}</div>
+    </section>"""
+
+    timeline_html = ""
+    if resume.timeline:
+        steps = []
+        for step in resume.timeline[:3]:
+            steps.append(
+                f"""
+        <div class="tl-step">
+          <div class="tl-top">
+            <div class="tl-year serif">{_esc(step.period)}</div>
+            <div class="tl-head">{_esc(step.head)}</div>
+          </div>
+          <div class="tl-body">{_esc(step.body)}</div>
+        </div>"""
+            )
+        timeline_html = f'<div class="timeline">{"".join(steps)}</div>'
+
+    projects_html = ""
+    for project in resume.projects:
+        actions = project.actions or project.highlights
+        impact = project.impact or (project.highlights[-1] if project.highlights else "")
+        role_row = project.description or project.role
+        chip = project.role if project.role and len(project.role) <= 24 else ""
+        if not chip and project.kind:
+            chip = project.kind
+        kind_html = (
+            f'<span class="proj-kind">· {_esc(project.kind)}</span>'
+            if project.kind
+            else ""
+        )
+        chip_html = (
+            f'<span class="proj-role">{_esc(chip)}</span>'
+            if chip
+            else ""
+        )
+        rows = ""
+        if role_row:
+            rows += (
+                '<div class="proj-row">'
+                '<div class="proj-label">角色</div>'
+                f'<div class="proj-text">{_esc(role_row)}</div>'
+                "</div>"
+            )
+        if actions:
+            actions_text = "；".join(_esc(action) for action in actions)
+            rows += (
+                '<div class="proj-row">'
+                '<div class="proj-label">动作</div>'
+                f'<div class="proj-text">{actions_text}</div>'
+                "</div>"
+            )
+        if impact:
+            rows += (
+                '<div class="proj-row">'
+                '<div class="proj-label">结果</div>'
+                f'<div class="proj-text">{_highlight_numbers(impact)}</div>'
+                "</div>"
+            )
+        projects_html += f"""
+    <div class="project">
+      <div class="proj-head">
+        <span class="proj-name serif">{_esc(project.name)}</span>{kind_html}{chip_html}
+      </div>
+      <div class="proj-lines">{rows}</div>
+    </div>"""
+
+    exp_sub = ""
+    if resume.timeline:
+        first = resume.timeline[0]
+        last = resume.timeline[-1]
+        exp_sub = (
+            f'<span class="sub">{_esc(first.period)} - {_esc(last.period)}'
+            f" · {_esc(last.head)}</span>"
+        )
+    experience_html = ""
+    if resume.timeline or resume.projects:
+        experience_html = f"""
+    <section>
+      <div class="section-title">工作经历{exp_sub}</div>
+      {timeline_html}
+      {projects_html}
+    </section>"""
+
+    skills = resume.core_skills or [skill.name for skill in resume.skills]
+    skills_html = ""
+    if skills:
+        rows = []
+        for index, skill in enumerate(skills[:5], 1):
+            if "：" in skill:
+                label, body = skill.split("：", 1)
+            elif "|" in skill:
+                label, body = skill.split("|", 1)
+            else:
+                label, body = f"能力 {index:02d}", skill
+            rows.append(
+                f"""
+      <div class="skill-row">
+        <div class="skill-label">{_esc(label)}</div>
+        <div class="skill-body">{_highlight_numbers(body)}</div>
+      </div>"""
+            )
+        skills_html = (
+            '<div class="section-title">核心技能</div>'
+            + "".join(rows)
+        )
+
+    education_html = ""
+    if resume.education:
+        rows = []
+        for item in resume.education:
+            major = f" · {_esc(item.degree)}" if item.degree else ""
+            rows.append(
+                f"""
+      <div class="edu-row">
+        <span class="school">{_esc(item.school)}</span>
+        <span class="major">{major}</span>
+        <span class="date">{_esc(item.period)}</span>
+      </div>"""
+            )
+        education_html = (
+            '<div class="section-title">教育背景</div>'
+            + "".join(rows)
+        )
+
+    public_html = ""
+    if resume.public_work:
+        items = []
+        for item in resume.public_work:
+            parts = item.split("|")
+            name = parts[0].strip()
+            desc = parts[1].strip() if len(parts) > 1 else ""
+            items.append(
+                f"""
+      <div class="os-item">
+        <span class="os-name serif">{_esc(name)}</span>
+        <span class="os-desc">{_esc(desc)}</span>
+      </div>"""
+            )
+        public_html = (
+            '<div class="section-title">开源与对外产出</div>'
+            + "".join(items)
+        )
+
+    page_two = skills_html or education_html or public_html
+    if page_two:
+        page_two = (
+            '<section class="page-break">'
+            + skills_html
+            + education_html
+            + public_html
+            + "</section>"
+        )
+
+    return f"""
+    {header_html}
+    {metrics_html}
+    {summary_html}
+    {experience_html}
+    {page_two}
+    """
+
+
 def _render_kami(resume: ResumeData) -> str:
-    return _render_flat_resume(resume, style="kami")
+    return _render_kami_original(resume, parchment=True)
 
 
 def _render_kami_white(resume: ResumeData) -> str:
-    return _render_flat_resume(resume, style="kami_white")
+    return _render_kami_original(resume, parchment=False)
 
 
 # 主题 → 渲染函数映射

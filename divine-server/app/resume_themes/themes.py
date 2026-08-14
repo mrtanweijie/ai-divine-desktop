@@ -6,6 +6,14 @@
 3. minimal      — 极简黑白，适合学术/咨询/金融
 """
 
+try:
+    from .kami_css import KAMI_CSS as KAMI_ORIGINAL_CSS
+    from .kami_css import KAMI_WHITE_CSS as KAMI_WHITE_ORIGINAL_CSS
+except ImportError:
+    from kami_css import KAMI_CSS as KAMI_ORIGINAL_CSS
+    from kami_css import KAMI_WHITE_CSS as KAMI_WHITE_ORIGINAL_CSS
+
+
 PROFESSIONAL_CSS = r"""
 /* ============================================================
    Professional Resume Theme — 经典商务蓝
@@ -1550,17 +1558,17 @@ THEMES = {
     "kami": {
         "name": "kami",
         "display_name": "Kami 暖色",
-        "description": "Kami 默认暖色纸感底 + 章节标题品牌色竖线，适合屏幕阅读与个人排版",
-        "css": KAMI_CSS,
+        "description": "Kami 原版暖色纸感底，4 数字卡片 + 3 步时间线 + 项目三段式，2 页",
+        "css": KAMI_ORIGINAL_CSS,
         "preview_color": "#f5f4ed",
-        "preview_accent": "#203b61",
+        "preview_accent": "#1B365D",
     },
     "kami_white": {
         "name": "kami_white",
         "display_name": "Kami 纯白",
-        "description": "Kami 纯白投递版，打印零风险，适合正式投递 PDF",
-        "css": KAMI_WHITE_CSS,
+        "description": "Kami 纯白投递版，打印零风险，同样保留数字卡片与项目三段式",
+        "css": KAMI_WHITE_ORIGINAL_CSS,
         "preview_color": "#ffffff",
-        "preview_accent": "#203b61",
+        "preview_accent": "#1B365D",
     },
 }
