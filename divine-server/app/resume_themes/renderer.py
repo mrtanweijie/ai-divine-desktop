@@ -1,6 +1,6 @@
 """
 简历渲染引擎
-- 支持多套主题：professional / creative / minimal / boss_zhipin / finance / linkedin
+- 支持多套主题：professional / creative / minimal / boss_zhipin / finance / linkedin / kami
 - 输入：ResumeData（dataclass）或 JSON dict
 - 输出：PDF 文件路径
 """
@@ -873,6 +873,10 @@ def _render_linkedin(resume: ResumeData) -> str:
     return _render_flat_resume(resume, style="linkedin")
 
 
+def _render_kami(resume: ResumeData) -> str:
+    return _render_flat_resume(resume, style="kami")
+
+
 # 主题 → 渲染函数映射
 _RENDERERS = {
     "professional": _render_professional,
@@ -881,6 +885,7 @@ _RENDERERS = {
     "boss_zhipin": _render_boss_zhipin,
     "finance": _render_finance,
     "linkedin": _render_linkedin,
+    "kami": _render_kami,
 }
 
 
@@ -899,7 +904,7 @@ def render_resume(
     Args:
         resume_data: ResumeData 对象或 dict
         output_path: 输出 PDF 路径
-        theme: 主题名 (professional / creative / minimal / boss_zhipin / finance / linkedin)
+        theme: 主题名 (professional / creative / minimal / boss_zhipin / finance / linkedin / kami)
 
     Returns:
         输出文件路径

@@ -197,8 +197,9 @@ name、title、contact、summary、experiences、education、projects、skills�
 也兼容 basics、experience、startDate/endDate、level 1-5 等常见简历字段；
 整理完成后再调用 pdf_generate，传 kind=resume 和 resume_data；
 不要要求用户填写复杂表单，关键信息缺失时简单询问姓名、目标职位、工作经历、技能即可；
-简历主题可选 professional/creative/minimal/boss_zhipin/finance/linkedin，用户未指定时默认 professional。
+简历主题可选 professional/creative/minimal/boss_zhipin/finance/linkedin/kami，用户未指定时默认 professional。
 场景推荐：BOSS 直聘/招聘平台/ATS/海投 → boss_zhipin；
+Kami/Resume Optimizer 风格/排版优化 → kami；
 LinkedIn/海外投递 → linkedin；金融/银行/投行/证券/基金/财务/审计 → finance；
 投大厂/外企/传统行业 → professional；
 互联网/创业/设计岗/内推 → creative；学术/咨询/法律/科研 → minimal；

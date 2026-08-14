@@ -31,7 +31,7 @@ from ..registry import register_tool
             },
             "theme": {
                 "type": "string",
-                "enum": ["universal", "resume", "professional", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "modern", "academic", "travel", "roadmap", "notion", "linear", "apple"],
+                "enum": ["universal", "resume", "professional", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "kami", "modern", "academic", "travel", "roadmap", "notion", "linear", "apple"],
                 "description": "主题 ID，优先于 style；report 默认 modern，travel 默认 travel，roadmap 默认 roadmap",
             },
             "color_scheme": {
