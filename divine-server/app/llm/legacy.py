@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, AsyncIterator
 
 import httpx
 
 from ..config import settings_store
 from .dsml import DsmlStreamProcessor
+
+logger = logging.getLogger("divine.llm.legacy")
 
 class DeepSeekLLM:
     def __init__(self) -> None:
