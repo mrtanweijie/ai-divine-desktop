@@ -3,6 +3,10 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
+
 
 def safe_name(name: str, fallback: str) -> str:
     cleaned = re.sub(r"[\\/:*?\"<>|\s]+", "_", name).strip("._")
@@ -76,7 +80,7 @@ def main() -> None:
         )
         return
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / safe_name(title, "笔记")
+    output_path = unique_output_path(output_dir, title, "笔记", ".md")
 
     cleaned = _clean_content(content)
     text = f"# {title}\n\n{cleaned}\n" if cleaned else f"# {title}\n"

@@ -12,6 +12,7 @@ from pptx.util import Inches, Pt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
 from app import ppt_themes  # noqa: E402
 
 BG_DARK = RGBColor(0x10, 0x13, 0x1A)
@@ -254,7 +255,7 @@ def main() -> None:
             )
             return
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / safe_name(title, "演示文稿")
+    output_path = unique_output_path(output_dir, title, "演示文稿", ".pptx")
 
     prs = Presentation()
     prs.slide_width = ppt_themes.SLIDE_W

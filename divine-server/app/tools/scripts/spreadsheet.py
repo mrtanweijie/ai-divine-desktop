@@ -3,6 +3,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -40,7 +43,12 @@ def main() -> None:
             )
             return
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / safe_name(params.get("file_name") or "表格", "表格")
+    output_path = unique_output_path(
+        output_dir,
+        params.get("file_name") or "表格",
+        "表格",
+        ".xlsx",
+    )
 
     workbook = Workbook()
     sheet = workbook.active

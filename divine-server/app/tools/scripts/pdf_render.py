@@ -5,6 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
 from app.pdf_renderer import render_markdown_to_pdf  # noqa: E402
 
 
@@ -94,7 +95,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     file_name = str(params.get("file_name") or "").strip() or title
-    output_path = output_dir / safe_name(file_name, "PDF文档")
+    output_path = unique_output_path(output_dir, file_name, "PDF文档", ".pdf")
     meta = render_markdown_to_pdf(
         content,
         output_path,

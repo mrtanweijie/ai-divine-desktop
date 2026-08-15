@@ -6,6 +6,10 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
+
 
 def safe_name(name: str, fallback: str) -> str:
     cleaned = re.sub(r"[\\/:*?\"<>|\s]+", "_", name).strip("._")
@@ -110,7 +114,7 @@ def main() -> None:
         )
         return
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / safe_name(title, "UX交互原型")
+    output_path = unique_output_path(output_dir, title, "UX交互原型", ".html")
     output_path.write_text(content, encoding="utf-8")
 
     print(

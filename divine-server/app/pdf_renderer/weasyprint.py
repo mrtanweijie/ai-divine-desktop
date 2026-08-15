@@ -51,6 +51,10 @@ def _render_with_weasyprint(
     from ..pdf_theme_manager import build_cover_html, load_theme_css
 
     css = load_theme_css(theme, paper_size=paper_size)
+    css += (
+        "\nimg { max-width: 100%; height: auto; }\n"
+        "figure, .illustration { text-align: center; }\n"
+    )
     prepared = _prepare_markdown(markdown)
     body = markdown_lib.markdown(
         prepared,

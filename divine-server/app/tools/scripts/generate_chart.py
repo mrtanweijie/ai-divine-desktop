@@ -1,5 +1,12 @@
 import json
+import re
 import sys
+import uuid
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from app.chart_svg import render_chart_svg
 
 
 _ALLOWED_SERIES_TYPES = {
@@ -138,23 +145,43 @@ def main() -> None:
         return
 
     chart_type = _series_type(series[0]) or "line"
+    chart_title = _option_title(title, option)
     summary = (
-        f"图表已生成：{_option_title(title, option)}"
+        f"图表已生成：{chart_title}"
         f"（{chart_type}，{len(series)} 个系列）"
     )
+    output_root = Path(data.get("output_dir") or data.get("workspace")).resolve()
+    chart_dir = output_root / "charts"
+    chart_dir.mkdir(parents=True, exist_ok=True)
+    safe_title = re.sub(r"[\\/:*?\"<>|\s]+", "_", chart_title).strip("._")[:60]
+    chart_path = chart_dir / f"{safe_title or 'chart'}-{uuid.uuid4().hex[:8]}.svg"
+    chart_path.write_text(
+        render_chart_svg(option, chart_title),
+        encoding="utf-8",
+    )
+    relative_file = f"charts/{chart_path.name}"
     print(
         json.dumps(
             {
                 "success": True,
                 "message": "图表已生成",
                 "content": json.dumps(
-                    {"success": True, "message": summary},
+                    {
+                        "success": True,
+                        "message": summary,
+                        "file": str(chart_path),
+                        "relative_file": relative_file,
+                    },
                     ensure_ascii=False,
                 ),
+                "file_name": chart_path.name,
+                "filepath": str(chart_path),
                 "data": {
-                    "title": _option_title(title, option),
+                    "title": chart_title,
                     "chart_type": chart_type,
                     "option": option,
+                    "filepath": str(chart_path),
+                    "relative_file": relative_file,
                 },
             },
             ensure_ascii=False,

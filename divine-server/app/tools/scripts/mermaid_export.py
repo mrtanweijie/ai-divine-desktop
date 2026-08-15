@@ -3,6 +3,10 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
+
 
 _DIAGRAM_STARTS = (
     "flowchart",
@@ -127,7 +131,7 @@ def main() -> None:
 
     output_dir.mkdir(parents=True, exist_ok=True)
     file_name = str(params.get("file_name") or "").strip() or title
-    output_path = output_dir / safe_name(file_name, "流程图")
+    output_path = unique_output_path(output_dir, file_name, "流程图", ".mmd")
     output_path.write_text(content + "\n", encoding="utf-8")
     print(
         json.dumps(

@@ -19,6 +19,13 @@ from ..registry import register_tool
         "type": "object",
         "properties": {
             "prompt": {"type": "string", "description": "用户对 PDF 文档的需求描述"},
+            "markdown": {
+                "type": "string",
+                "description": (
+                    "可选，完整 Markdown 正文；传入后直接按该内容渲染 PDF，"
+                    "可使用 ![图表标题](图表文件路径) 嵌入之前生成的图表"
+                ),
+            },
             "kind": {
                 "type": "string",
                 "enum": ["report", "travel", "roadmap", "book", "slide", "resume"],
@@ -86,4 +93,5 @@ class PdfGenerateAdapter(ToolAdapter):
             "file_name": str(arguments.get("file_name") or "").strip(),
             "resume_data": arguments.get("resume_data") or {},
             "path": str(arguments.get("path") or "").strip(),
+            "markdown": str(arguments.get("markdown") or "").strip(),
         }

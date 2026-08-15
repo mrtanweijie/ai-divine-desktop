@@ -6,6 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
 from app.pdf_tool import PDFTool  # noqa: E402
 
 
@@ -53,7 +54,7 @@ async def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     file_name = str(params.get("file_name") or "").strip() or prompt[:40]
-    output_path = output_dir / safe_name(file_name, "PDF文档")
+    output_path = unique_output_path(output_dir, file_name, "PDF文档", ".pdf")
     meta = await PDFTool().run(
         prompt,
         output_path,

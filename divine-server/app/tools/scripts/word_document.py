@@ -9,6 +9,7 @@ from docx.shared import Pt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
 from app.word_themes import add_title_page, apply_word_theme  # noqa: E402
 
 
@@ -90,7 +91,7 @@ def main() -> None:
             )
             return
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / safe_name(title, "文档")
+    output_path = unique_output_path(output_dir, title, "文档", ".docx")
 
     for attempt in range(2):
         try:
