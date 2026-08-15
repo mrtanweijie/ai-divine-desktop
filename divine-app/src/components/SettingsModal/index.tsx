@@ -42,6 +42,9 @@ export function SettingsModal({
   const [glmApiKey, setGlmApiKey] = useState("");
   const [username, setUsername] = useState(settings.username);
   const [thinkDefault, setThinkDefault] = useState(settings.think_default);
+  const [reasoningEffort, setReasoningEffort] = useState(
+    settings.reasoning_effort ?? "high"
+  );
   const [contextLimit, setContextLimit] = useState(settings.context_limit);
   const [provider, setProvider] = useState(settings.provider);
   const [showKey, setShowKey] = useState(false);
@@ -60,6 +63,7 @@ export function SettingsModal({
     setBaseUrl(settings.base_url);
     setUsername(settings.username);
     setThinkDefault(settings.think_default);
+    setReasoningEffort(settings.reasoning_effort ?? "high");
     setContextLimit(settings.context_limit);
     setProvider(settings.provider);
   }, [settings]);
@@ -97,6 +101,7 @@ export function SettingsModal({
                 glm_api_key: glmApiKey,
                 username,
                 think_default: thinkDefault,
+                reasoning_effort: reasoningEffort,
                 context_limit: contextLimit,
               })
             }
@@ -158,6 +163,8 @@ export function SettingsModal({
               onContextLimitChange={setContextLimit}
               thinkDefault={thinkDefault}
               onThinkDefaultChange={setThinkDefault}
+              reasoningEffort={reasoningEffort}
+              onReasoningEffortChange={setReasoningEffort}
             />
           ) : section === "model" ? (
             <ModelSection

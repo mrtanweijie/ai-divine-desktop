@@ -51,6 +51,32 @@ def _has_incomplete_tool_calls(messages: list[Any]) -> bool:
                     del pending[call_id]
     return bool(pending)
 
+def _thread_trim_removals(
+    messages: list[Any], limit: int
+) -> list[Any]:
+    """RemoveMessage entries dropping the oldest thread messages beyond limit.
+
+    The kept suffix always starts at a HumanMessage boundary so tool-call
+    pairs (AIMessage -> ToolMessage) are never split, which would otherwise
+    make DeepSeek reject the request with a 400.
+    """
+    from langchain_core.messages import HumanMessage, RemoveMessage
+
+    if limit <= 0 or len(messages) <= limit:
+        return []
+    keep_from = len(messages) - limit
+    while keep_from < len(messages) and not isinstance(
+        messages[keep_from], HumanMessage
+    ):
+        keep_from += 1
+    if keep_from >= len(messages):
+        return []
+    return [
+        RemoveMessage(id=message.id)
+        for message in messages[:keep_from]
+        if getattr(message, "id", None)
+    ]
+
 def _parse_stream_event(event: str) -> tuple[str, dict[str, Any]] | None:
     event_name = ""
     data_text = ""
@@ -82,6 +108,8 @@ async def run_agent(
     workspace: Any,
     approval_mode: str = "ask",
     locale: str | None = None,
+    effort: str | None = None,
+    context_limit: int | None = None,
     cancel_event: asyncio.Event | None = None,
 ) -> AsyncIterator[str]:
     """Stream one agent turn as SSE strings, handling interrupts and persistence."""
@@ -102,7 +130,7 @@ async def run_agent(
     elif plan_mode == "plan_first":
         ctx.plan_choice_resolved = True
         ctx.plan_first_pending = True
-    llm = _build_llm()
+    llm = _build_llm(think=think, effort=effort)
     tools = _build_tools(ctx)
     agent = _build_agent(llm, tools, ctx)
     config = {
@@ -111,10 +139,9 @@ async def run_agent(
     }
 
     snapshot = await agent.aget_state(config)
-    has_thread = bool((snapshot.values or {}).get("messages"))
-    if has_thread and _has_incomplete_tool_calls(
-        (snapshot.values or {}).get("messages") or []
-    ):
+    thread_messages = (snapshot.values or {}).get("messages") or []
+    has_thread = bool(thread_messages)
+    if has_thread and _has_incomplete_tool_calls(thread_messages):
         logger.warning(
             "agent thread has incomplete tool calls, resetting session=%s",
             session_id,
@@ -122,6 +149,23 @@ async def run_agent(
         await reset_agent_thread(session_id)
         has_thread = False
     if has_thread:
+        # Keep only the newest `context_limit` messages in the thread so long
+        # sessions do not grow unbounded; trimming happens before this turn.
+        limit = int(context_limit or 20)
+        removals = _thread_trim_removals(thread_messages, limit)
+        if removals:
+            try:
+                await agent.aupdate_state(config, {"messages": removals})
+                logger.info(
+                    "agent thread trimmed session=%s removed=%d kept<=%d",
+                    session_id,
+                    len(removals),
+                    limit,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "agent thread trim failed session=%s: %s", session_id, exc
+                )
         user_messages = [
             message
             for message in history

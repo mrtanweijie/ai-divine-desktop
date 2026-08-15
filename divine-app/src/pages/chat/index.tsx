@@ -98,6 +98,8 @@ export default function ChatPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [composerKey, setComposerKey] = useState(0);
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>("ask");
+  const [thinkEnabled, setThinkEnabled] = useState(false);
+  const [reasoningEffort, setReasoningEffort] = useState("high");
   const [guideCardsVisible, setGuideCardsVisible] = useState(true);
   const [prefill, setPrefill] = useState<{
     text: string;
@@ -262,6 +264,8 @@ export default function ChatPage() {
       .then(async ([projectList, currentSettings]) => {
         if (cancelled) return;
         setSettings(currentSettings);
+        setThinkEnabled(Boolean(currentSettings.think_default));
+        setReasoningEffort(currentSettings.reasoning_effort ?? "high");
         const sessionList = await refreshSessions();
         if (cancelled) return;
         const savedSession =
@@ -312,6 +316,7 @@ export default function ChatPage() {
           workspace_dir: "",
           username: t("common.user", "用户"),
           think_default: false,
+          reasoning_effort: "high",
           context_limit: 20,
           tools: [],
         });
@@ -372,7 +377,9 @@ export default function ChatPage() {
       if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "t") {
         event.preventDefault();
         if (settings) {
-          setSettings({ ...settings, think_default: !settings.think_default });
+          const next = !thinkEnabled;
+          setThinkEnabled(next);
+          setSettings({ ...settings, think_default: next });
         }
       }
     };
@@ -407,6 +414,8 @@ export default function ChatPage() {
       setGuideCardsVisible(true);
       setComposerKey((value) => value + 1);
       setApprovalMode("ask");
+      setThinkEnabled(settings?.think_default ?? false);
+      setReasoningEffort(settings?.reasoning_effort ?? "high");
       setSelectedId(null);
       setMessages([]);
       closeSidebarForNarrow();
@@ -420,6 +429,7 @@ export default function ChatPage() {
       setSearchParams,
       setSelectedProjectId,
       sessions,
+      settings,
     ]
   );
 
@@ -917,6 +927,10 @@ export default function ChatPage() {
               disabled={streaming || !selectedProjectId}
               approvalMode={approvalMode}
               onApprovalModeChange={handleApprovalModeChange}
+              think={thinkEnabled}
+              onThinkChange={setThinkEnabled}
+              reasoningEffort={reasoningEffort}
+              onReasoningEffortChange={setReasoningEffort}
               onValueChange={handleGuideValueChange}
               prefill={prefill}
               onPrefillConsumed={() => setPrefill(null)}
@@ -939,7 +953,8 @@ export default function ChatPage() {
                 void sendMessage(
                   question,
                   files,
-                  settings?.think_default ?? false
+                  thinkEnabled,
+                  reasoningEffort
                 )
               }
               onStop={handleStopStreaming}

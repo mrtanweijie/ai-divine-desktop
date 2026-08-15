@@ -11,6 +11,8 @@ from ..config import settings_store
 from .content import _content_text
 from .dsml import DsmlStreamProcessor
 from .legacy import MockLLM
+from .thinking import normalize_reasoning_effort, thinking_extra_body
+
 
 class MockChatModel(SimpleChatModel):
     """LangChain chat model used by create_agent when no API key is configured."""
@@ -48,7 +50,11 @@ class MockChatModel(SimpleChatModel):
         return self
 
 class ChatDeepSeekProvider:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        think: bool = False,
+        effort: str | None = None,
+    ) -> None:
         from langchain_core.messages import (
             AIMessage,
             ToolMessage,
@@ -104,18 +110,27 @@ class ChatDeepSeekProvider:
         model = self.settings.get("model") or "deepseek-v4-flash"
         if model in ("", "local", "mock"):
             model = "deepseek-v4-flash"
+        # DeepSeek thinking mode ignores sampling params (temperature, top_p,
+        # presence/frequency penalty), so only send temperature when thinking
+        # is disabled.
+        self.effort = normalize_reasoning_effort(
+            effort if effort is not None
+            else self.settings.get("reasoning_effort")
+        )
         self.llm = ReasoningChatDeepSeek(
             model=model,
             api_key=self.settings.get("api_key"),
-            temperature=0.7,
+            temperature=0.7 if not think else None,
+            reasoning_effort=self.effort if think else None,
             streaming=True,
+            extra_body=thinking_extra_body(think),
         )
 
     async def stream(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
-        think: bool = False,
+        think: bool | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         from langchain_core.messages import (
             AIMessage,
@@ -176,7 +191,17 @@ class ChatDeepSeekProvider:
             else:
                 converted.append(HumanMessage(content=content))
 
-        bound = self.llm.bind_tools(tools) if tools else self.llm
+        llm = self.llm
+        if think is not None:
+            # Keep the toggle symmetric: an explicit think flag overrides the
+            # constructor setting in both directions (enable *and* disable).
+            bind_kwargs: dict[str, Any] = {
+                "extra_body": thinking_extra_body(think)
+            }
+            if think:
+                bind_kwargs["reasoning_effort"] = self.effort
+            llm = llm.bind(**bind_kwargs)
+        bound = llm.bind_tools(tools) if tools else llm
         dsml = DsmlStreamProcessor()
         calls: dict[int, dict[str, str]] = {}
         async for chunk in bound.astream(converted):

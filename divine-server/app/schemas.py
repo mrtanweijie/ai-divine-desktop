@@ -4,6 +4,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+# DeepSeek thinking-mode effort vocabulary (see
+# https://api-docs.deepseek.com/zh-cn/guides/thinking_mode).
+ReasoningEffort = Literal["low", "medium", "high", "xhigh", "max"]
+
 
 class Attachment(BaseModel):
     name: str
@@ -18,6 +22,7 @@ class StreamChatRequest(BaseModel):
     project_id: str | None = None
     approval_mode: str | None = None
     think: bool = False
+    reasoning_effort: ReasoningEffort | None = None
     locale: str | None = None
     attachments: list[Attachment] = []
 
@@ -54,6 +59,7 @@ class SettingsUpdate(BaseModel):
     workspace_dir: str | None = None
     username: str | None = None
     think_default: bool | None = None
+    reasoning_effort: ReasoningEffort | None = None
     context_limit: int | None = Field(default=None, ge=1, le=200)
 
 

@@ -10,6 +10,7 @@ import httpx
 
 from ..config import settings_store
 from .dsml import DsmlStreamProcessor
+from .thinking import normalize_reasoning_effort
 
 logger = logging.getLogger("divine.llm.legacy")
 
@@ -17,21 +18,40 @@ class DeepSeekLLM:
     def __init__(self) -> None:
         self.settings = settings_store.load()
 
+    def _build_payload(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        think: bool = False,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model": self.settings.get("model") or "deepseek-v4-flash",
+            "messages": messages,
+            "stream": True,
+        }
+        # Explicit thinking-mode toggle. DeepSeek thinking mode ignores
+        # sampling params (temperature/top_p/penalties), so temperature is
+        # only sent while thinking is disabled.
+        if think:
+            payload["thinking"] = {"type": "enabled"}
+            payload["reasoning_effort"] = normalize_reasoning_effort(
+                self.settings.get("reasoning_effort")
+            )
+        else:
+            payload["thinking"] = {"type": "disabled"}
+            payload["temperature"] = 0.7
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+        return payload
+
     async def stream(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         think: bool = False,
     ) -> AsyncIterator[dict[str, Any]]:
-        payload: dict[str, Any] = {
-            "model": self.settings.get("model") or "deepseek-v4-flash",
-            "messages": messages,
-            "stream": True,
-            "temperature": 0.7,
-        }
-        if tools:
-            payload["tools"] = tools
-            payload["tool_choice"] = "auto"
+        payload = self._build_payload(messages, tools=tools, think=think)
         url = (self.settings.get("base_url") or "https://api.deepseek.com").rstrip(
             "/"
         ) + "/chat/completions"

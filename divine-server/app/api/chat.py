@@ -156,11 +156,13 @@ async def stream_chat(request: StreamChatRequest):
     context_limit = int(settings.get("context_limit") or 20)
     history = db.history_for_model(session_id, limit=context_limit)
     logger.info(
-        "chat request session=%s question_len=%d attachments=%d think=%s history=%d",
+        "chat request session=%s question_len=%d attachments=%d think=%s "
+        "effort=%s history=%d",
         session_id,
         len(question),
         len(request.attachments),
         request.think,
+        request.reasoning_effort,
         len(history),
     )
 
@@ -176,6 +178,8 @@ async def stream_chat(request: StreamChatRequest):
                 workspace=workspace,
                 approval_mode=approval_mode,
                 locale=locale,
+                effort=request.reasoning_effort,
+                context_limit=context_limit,
                 cancel_event=cancel_event,
             ):
                 yield event

@@ -58,6 +58,9 @@ class SettingsStore:
             "model": os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
             "username": "用户",
             "think_default": False,
+            "reasoning_effort": os.getenv(
+                "DEEPSEEK_REASONING_EFFORT", "high"
+            ),
             "context_limit": 20,
         }
         if self.path.exists():

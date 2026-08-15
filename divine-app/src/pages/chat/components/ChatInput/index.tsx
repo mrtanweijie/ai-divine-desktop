@@ -1,5 +1,6 @@
 import {
   ArrowUp,
+  Brain,
   ChevronDown,
   FileText,
   Plus,
@@ -21,6 +22,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
+import { Switch } from "@/components/ui/Switch";
 import { TextArea } from "@/components/ui/TextArea";
 import type { ApprovalMode, ChatFile, PreviewFile } from "@/types";
 import { isTauri, savePasteText } from "@/services/tauri";
@@ -37,6 +39,10 @@ interface ComposerProps {
   onValueChange?: (hasValue: boolean) => void;
   approvalMode: ApprovalMode;
   onApprovalModeChange: (mode: ApprovalMode) => void;
+  think: boolean;
+  onThinkChange: (value: boolean) => void;
+  reasoningEffort: string;
+  onReasoningEffortChange: (value: string) => void;
   prefill?: { text: string; nonce: number } | null;
   onPrefillConsumed: () => void;
   projectPicker?: ReactNode;
@@ -52,6 +58,10 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
       onValueChange,
       approvalMode,
       onApprovalModeChange,
+      think,
+      onThinkChange,
+      reasoningEffort,
+      onReasoningEffortChange,
       prefill,
       onPrefillConsumed,
       projectPicker,
@@ -64,6 +74,28 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
       assist: t("chat.approvalAssist", "帮我批准"),
       full: t("chat.approvalFull", "完全访问权限"),
     };
+    const effortLabels: Record<string, string> = {
+      low: t("settings.effortLow", "低"),
+      high: t("settings.effortHigh", "高"),
+      max: t("settings.effortMax", "最高"),
+    };
+    const effortItems = [
+      {
+        key: "low",
+        label: t("settings.effortLow", "低"),
+        description: t("chat.effortLowDescription", "更快的回答，思考较少"),
+      },
+      {
+        key: "high",
+        label: t("settings.effortHigh", "高"),
+        description: t("chat.effortHighDescription", "默认档位"),
+      },
+      {
+        key: "max",
+        label: t("settings.effortMax", "最高"),
+        description: t("chat.effortMaxDescription", "最深入的思考"),
+      },
+    ];
     const approvalModeItems = [
       {
         key: "ask" as const,
@@ -344,27 +376,70 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                 }))}
               />
             </Flex>
-            {disabled && onStop ? (
-              <Button
-                variant="secondary"
-                className="send-button stop-button"
-                onClick={onStop}
-                aria-label={t("chat.stop", "停止生成")}
-                title={t("chat.stop", "停止生成")}
+            <Flex align="center" gap={8}>
+              {think && (
+                <Dropdown
+                  align="end"
+                  direction="above"
+                  label={t("chat.reasoningEffort", "思考强度")}
+                  openOn="click"
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="small"
+                      className="approval-mode-trigger composer-effort-trigger"
+                      disabled={disabled}
+                      title={t(
+                        "chat.reasoningEffortTooltip",
+                        "本条消息的思考强度"
+                      )}
+                    >
+                      <Brain size={14} />
+                      <span>{effortLabels[reasoningEffort] ?? "高"}</span>
+                      <ChevronDown size={12} />
+                    </Button>
+                  }
+                  items={effortItems.map((item) => ({
+                    key: item.key,
+                    label: item.label,
+                    description: item.description,
+                    onClick: () => onReasoningEffortChange(item.key),
+                  }))}
+                />
+              )}
+              <div
+                className="composer-toggle"
+                title={t("chat.thinkTooltip", "发送时启用深度思考")}
               >
-                <Square size={14} />
-              </Button>
-            ) : (
-              <Button
-                variant="primary"
-                className="send-button"
-                onClick={send}
-                disabled={(!value.trim() && attached.length === 0) || disabled}
-                aria-label={t("chat.send", "发送")}
-              >
-                <ArrowUp size={16} />
-              </Button>
-            )}
+                <Switch
+                  checked={think}
+                  onChange={onThinkChange}
+                  disabled={disabled}
+                  label={t("chat.think", "深度思考")}
+                />
+              </div>
+              {disabled && onStop ? (
+                <Button
+                  variant="secondary"
+                  className="send-button stop-button"
+                  onClick={onStop}
+                  aria-label={t("chat.stop", "停止生成")}
+                  title={t("chat.stop", "停止生成")}
+                >
+                  <Square size={14} />
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  className="send-button"
+                  onClick={send}
+                  disabled={(!value.trim() && attached.length === 0) || disabled}
+                  aria-label={t("chat.send", "发送")}
+                >
+                  <ArrowUp size={16} />
+                </Button>
+              )}
+            </Flex>
           </Flex>
         </Flex>
         <p className="composer-hint">

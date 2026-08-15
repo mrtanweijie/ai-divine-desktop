@@ -24,16 +24,16 @@ def _compact_cjk_spaces(text: str) -> str:
         text,
     )
 
-def _build_llm() -> Any:
+def _build_llm(think: bool = False, effort: str | None = None) -> Any:
     settings = settings_store.load()
     provider = settings.get("provider") or "auto"
     if provider == "mock":
         return MockChatModel()
     if provider == "langchain":
-        return ChatDeepSeekProvider().llm
+        return ChatDeepSeekProvider(think=think, effort=effort).llm
     if provider == "auto" and not settings.get("api_key"):
         return MockChatModel()
-    return ChatDeepSeekProvider().llm
+    return ChatDeepSeekProvider(think=think, effort=effort).llm
 
 async def generate_session_title(
     llm: Any,

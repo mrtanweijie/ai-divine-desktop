@@ -78,7 +78,12 @@ export function useChatStream(options: UseChatStreamOptions) {
   } = options;
 
   const sendMessage = useCallback(
-    async (question: string, files: ChatFile[], think: boolean) => {
+    async (
+      question: string,
+      files: ChatFile[],
+      think: boolean,
+      reasoningEffort?: string | null
+    ) => {
       // Optimistically append user/assistant messages, then stream SSE events
       // into the assistant message and finally restore server-persisted state.
       const trimmed = question.trim();
@@ -128,6 +133,9 @@ export function useChatStream(options: UseChatStreamOptions) {
             session_id: sessionId,
             approval_mode: approvalMode,
             think,
+            ...(think && reasoningEffort
+              ? { reasoning_effort: reasoningEffort }
+              : {}),
             locale: i18next.language || "zh-CN",
             attachments: files.map((file) => ({
               name: file.name,

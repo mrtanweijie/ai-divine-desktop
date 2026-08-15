@@ -22,6 +22,7 @@ def _public(settings: dict) -> dict:
         "workspace_dir": str(workspace_dir()),
         "username": settings.get("username", "用户"),
         "think_default": bool(settings.get("think_default", False)),
+        "reasoning_effort": settings.get("reasoning_effort", "high"),
         "context_limit": int(settings.get("context_limit", 20)),
         "tools": registry.list(),
     }

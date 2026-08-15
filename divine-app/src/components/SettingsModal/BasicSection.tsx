@@ -17,6 +17,8 @@ interface SettingsBasicSectionProps {
   onContextLimitChange: (value: number) => void;
   thinkDefault: boolean;
   onThinkDefaultChange: (value: boolean) => void;
+  reasoningEffort: string;
+  onReasoningEffortChange: (value: string) => void;
 }
 
 export function BasicSection({
@@ -30,6 +32,8 @@ export function BasicSection({
   onContextLimitChange,
   thinkDefault,
   onThinkDefaultChange,
+  reasoningEffort,
+  onReasoningEffortChange,
 }: SettingsBasicSectionProps) {
   const { t } = useTranslation();
 
@@ -79,6 +83,22 @@ export function BasicSection({
         </span>
         <Switch checked={thinkDefault} onChange={onThinkDefaultChange} />
       </div>
+      <Select
+        label={t("settings.reasoningEffort", "思考强度")}
+        value={reasoningEffort}
+        onChange={onReasoningEffortChange}
+        options={[
+          { value: "low", label: t("settings.effortLow", "低") },
+          { value: "high", label: t("settings.effortHigh", "高") },
+          { value: "max", label: t("settings.effortMax", "最高") },
+        ]}
+      />
+      <p className="settings-field-hint">
+        {t(
+          "settings.reasoningEffortHint",
+          "思考强度仅在开启深度思考时生效；档位越高，思考越深入、响应越慢、消耗越多。"
+        )}
+      </p>
       <UpdaterSection />
     </div>
   );

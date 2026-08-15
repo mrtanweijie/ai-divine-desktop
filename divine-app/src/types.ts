@@ -186,6 +186,7 @@ export interface Settings {
   workspace_dir: string;
   username: string;
   think_default: boolean;
+  reasoning_effort: string;
   context_limit: number;
   tools: ToolDefinition[];
 }
