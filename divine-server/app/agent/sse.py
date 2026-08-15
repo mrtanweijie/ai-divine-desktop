@@ -231,6 +231,8 @@ async def _consume_message(
 
     output_future = asyncio.ensure_future(message.output)
     await asyncio.gather(drain_text(), drain_reasoning())
+    if reasoning_parts:
+        await queue.put(("sse", sse_event("think_done", {})))
     output = await output_future
     return output, "".join(reasoning_parts)
 

@@ -30,6 +30,7 @@ class WebFetchBatchAdapter(ToolAdapter):
     script_name = "web_fetch_batch.py"
     category = "web"
     timeout = 120
+    supports_progress = True
 
     def build_params(self, arguments: dict[str, Any]) -> dict[str, Any]:
         raw_urls = arguments.get("urls") or []

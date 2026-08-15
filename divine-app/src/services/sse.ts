@@ -1,5 +1,6 @@
 export interface SSEHandlers {
   think?: (data: { content: string }) => void;
+  think_done?: () => void;
   message?: (data: { content: string }) => void;
   plan?: (data: { items: Record<string, unknown>[] }) => void;
   todo_update?: (data: {

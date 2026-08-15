@@ -112,6 +112,7 @@ export function MessageItem({
           {message.think && (
             <ThinkBlock
               content={message.think}
+              thinking={message.thinking}
               onUserInteract={onUserInteract}
             />
           )}
@@ -161,13 +162,20 @@ export function MessageItem({
 
 function ThinkBlock({
   content,
+  thinking,
   onUserInteract,
 }: {
   content: string;
+  thinking?: boolean;
   onUserInteract?: () => void;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const latestLine = lines[lines.length - 1] ?? "";
   const blockRef = useRef<HTMLDetailsElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -208,7 +216,14 @@ function ThinkBlock({
         }}
       >
         <ChevronDown size={13} className={open ? "expanded" : ""} />
-        <span>{t("message.thinking", "思考过程")}</span>
+        <span className="think-title">
+          {t("message.thinking", "思考过程")}
+        </span>
+        {!open && thinking && latestLine && (
+          <span className="think-preview" title={latestLine}>
+            {latestLine}
+          </span>
+        )}
       </summary>
       <div
         className="think-content"

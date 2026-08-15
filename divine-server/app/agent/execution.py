@@ -491,9 +491,46 @@ async def _handle_adapter_call(
                 "messageKey": "tool.runningTool",
                 "messageParams": {"tool": name},
                 "command": command if is_terminal else None,
+                **(
+                    {
+                        "urls": [
+                            str(url).strip()
+                            for url in (arguments.get("urls") or [])
+                            if str(url).strip()
+                        ]
+                    }
+                    if name == "web_fetch_batch"
+                    else {}
+                ),
                 "call_id": call_id,
             }
         )
+
+        async def _emit_fetch_progress(item: dict[str, Any]) -> None:
+            current_url = str(item.get("url") or "")
+            writer(
+                {
+                    "event": "tool",
+                    "tool": name,
+                    "status": "running",
+                    "message": f"正在抓取 {current_url}",
+                    "currentUrl": current_url,
+                    **(
+                        {
+                            "urls": [
+                                str(url).strip()
+                                for url in (arguments.get("urls") or [])
+                                if str(url).strip()
+                            ]
+                        }
+                        if name == "web_fetch_batch"
+                        else {}
+                    ),
+                    "call_id": call_id,
+                    "session_id": ctx.session_id,
+                }
+            )
+
         output = await _execute_tool(
             ctx.session_id,
             adapter,
@@ -501,6 +538,11 @@ async def _handle_adapter_call(
             arguments,
             ctx.workspace,
             locale=ctx.locale,
+            progress_callback=(
+                _emit_fetch_progress
+                if name == "web_fetch_batch"
+                else None
+            ),
         )
         tool_content = output.get("content") or json.dumps(
             output, ensure_ascii=False

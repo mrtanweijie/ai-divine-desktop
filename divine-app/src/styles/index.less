@@ -1665,7 +1665,7 @@ a:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 12px;
+  padding: 12px;
   color: var(--color-text-secondary);
   font-size: 12px;
   cursor: pointer;
@@ -1683,6 +1683,19 @@ a:focus-visible {
 
 .think-summary svg.expanded {
   transform: rotate(180deg);
+}
+
+.think-summary .think-title {
+  flex-shrink: 0;
+}
+
+.think-summary .think-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
 }
 
 .think-content {
@@ -1831,6 +1844,26 @@ a:focus-visible {
   gap: 9px;
   min-height: 40px;
   padding: 8px 12px;
+}
+
+.tool-status-main.clickable {
+  cursor: pointer;
+}
+
+.tool-url-count {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.tool-url-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+}
+
+.tool-url-chevron.expanded {
+  transform: rotate(180deg);
 }
 
 .chart-block {
@@ -2306,6 +2339,10 @@ a:focus-visible {
   background: rgba(244, 123, 110, 0.08);
   color: var(--color-danger);
   font-size: 13px;
+}
+
+.message-error svg {
+  flex: none;
 }
 
 .composer-wrap {

@@ -10,6 +10,7 @@ import {
   CalendarClock,
   CalendarDays,
   Check,
+  ChevronDown,
   Copy,
   Database,
   Eye,
@@ -70,16 +71,26 @@ export function ToolStatusCard({
   const [decideError, setDecideError] = useState<string | null>(null);
   const [commandsOpen, setCommandsOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
+  const [urlsOpen, setUrlsOpen] = useState(
+    tool.tool !== "web_fetch_batch"
+  );
   const targetSessionId = tool.session_id ?? sessionId;
   const running = tool.status === "running" || tool.status === "preparing";
+  const urls = tool.urls ?? [];
+  const hasUrls = urls.length > 0;
+  const toggleUrls = () => setUrlsOpen((value) => !value);
   const statusMessage =
-    tool.count && tool.count > 1
-      ? tool.message
-      : tool.status === "done"
-        ? t("tool.done", "执行完成")
-        : tool.messageKey
-          ? t(tool.messageKey, tool.messageParams ?? {})
-          : tool.message;
+    tool.status === "running" && tool.currentUrl
+      ? t("tool.fetchingUrl", "正在抓取：{{url}}", {
+          url: tool.currentUrl,
+        })
+      : tool.count && tool.count > 1
+        ? tool.message
+        : tool.status === "done"
+          ? t("tool.done", "执行完成")
+          : tool.messageKey
+            ? t(tool.messageKey, tool.messageParams ?? {})
+            : tool.message;
   const chartOption = chartOptionFromResult(tool.result);
   const chartIcon = chartOption ? chartTypeIcon(chartOption) : null;
   const workspaceRel = useMemo(
@@ -191,7 +202,25 @@ export function ToolStatusCard({
 
   return (
     <div className={`tool-status-card ${tool.status}`}>
-      <Flex align="center" gap={8} className="tool-status-main">
+      <Flex
+        align="center"
+        gap={8}
+        className={`tool-status-main${hasUrls ? " clickable" : ""}`}
+        onClick={hasUrls ? toggleUrls : undefined}
+        role={hasUrls ? "button" : undefined}
+        tabIndex={hasUrls ? 0 : undefined}
+        aria-expanded={hasUrls ? urlsOpen : undefined}
+        onKeyDown={
+          hasUrls
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  toggleUrls();
+                }
+              }
+            : undefined
+        }
+      >
         <span className="tool-icon">
           {running ? (
             <LoadingOrb state="solving" size={20} speed={3} />
@@ -203,15 +232,28 @@ export function ToolStatusCard({
           <span className="tool-name">{tool.tool}</span>
           <span className="tool-message">{statusMessage}</span>
         </div>
+        {hasUrls && (
+          <>
+            <span className="tool-url-count">
+              {t("tool.urlCount", "{{count}} 个链接", {
+                count: urls.length,
+              })}
+            </span>
+            <ChevronDown
+              size={14}
+              className={`tool-url-chevron${urlsOpen ? " expanded" : ""}`}
+            />
+          </>
+        )}
       </Flex>
       {tool.status === "done" && chartOption && (
         <div className="chart-block">
           <ChartBlock option={chartOption} />
         </div>
       )}
-      {tool.urls && tool.urls.length > 0 && (
+      {hasUrls && urlsOpen && (
         <div className="tool-url-list">
-          {tool.urls.map((url) => (
+          {urls.map((url) => (
             <button
               key={url}
               className="tool-url-link"

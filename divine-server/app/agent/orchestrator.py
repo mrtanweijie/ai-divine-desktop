@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -23,9 +24,55 @@ from .persistence import (
     _sync_todos_from_state,
 )
 from .sse import _interrupt_sse, _stream_agent_run
-from .tools import _build_agent, _build_tools
+from .tools import _build_agent, _build_tools, reset_agent_thread
 
 logger = logging.getLogger("divine.agent.orchestrator")
+
+def _has_incomplete_tool_calls(messages: list[Any]) -> bool:
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    pending: dict[str, int] = {}
+    for message in messages:
+        if isinstance(message, AIMessage):
+            for call in message.tool_calls or []:
+                call_id = (
+                    call.get("id")
+                    if isinstance(call, dict)
+                    else getattr(call, "id", "")
+                )
+                if call_id:
+                    pending[call_id] = pending.get(call_id, 0) + 1
+        elif isinstance(message, ToolMessage):
+            call_id = getattr(message, "tool_call_id", "") or ""
+            if call_id in pending:
+                pending[call_id] -= 1
+                if pending[call_id] <= 0:
+                    del pending[call_id]
+    return bool(pending)
+
+def _parse_stream_event(event: str) -> tuple[str, dict[str, Any]] | None:
+    event_name = ""
+    data_text = ""
+    for line in event.splitlines():
+        if line.startswith("event:"):
+            event_name = line[6:].strip()
+        elif line.startswith("data:"):
+            data_text = line[5:].strip()
+    if not data_text:
+        return None
+    try:
+        return event_name, json.loads(data_text)
+    except json.JSONDecodeError:
+        return None
+
+def _persist_partial_generation(
+    session_id: str, content: str, think: str
+) -> None:
+    if not content and not think:
+        return
+    saved = db.add_message(session_id, "assistant", content)
+    if think:
+        db.add_message_part(saved["id"], "think", think, order=0)
 
 async def run_agent(
     session_id: str,
@@ -64,6 +111,15 @@ async def run_agent(
 
     snapshot = await agent.aget_state(config)
     has_thread = bool((snapshot.values or {}).get("messages"))
+    if has_thread and _has_incomplete_tool_calls(
+        (snapshot.values or {}).get("messages") or []
+    ):
+        logger.warning(
+            "agent thread has incomplete tool calls, resetting session=%s",
+            session_id,
+        )
+        await reset_agent_thread(session_id)
+        has_thread = False
     if has_thread:
         user_messages = [
             message
@@ -84,6 +140,8 @@ async def run_agent(
     graph_input: Any = {"messages": input_messages}
     final_state: dict[str, Any] | None = None
     think_by_id: dict[str, str] = {}
+    partial_think: list[str] = []
+    partial_content: list[str] = []
     try:
         while True:
             interrupted = False
@@ -91,6 +149,11 @@ async def run_agent(
                 agent, graph_input, config
             ):
                 if cancel_event is not None and cancel_event.is_set():
+                    _persist_partial_generation(
+                        session_id,
+                        "".join(partial_content),
+                        "".join(partial_think),
+                    )
                     yield error_event(
                         "cancelled",
                         "任务已取消",
@@ -98,6 +161,17 @@ async def run_agent(
                     )
                     return
                 if kind == "sse":
+                    parsed = _parse_stream_event(data)
+                    if parsed:
+                        event_name, payload = parsed
+                        if event_name == "think":
+                            partial_think.append(
+                                str(payload.get("content") or "")
+                            )
+                        elif event_name == "message":
+                            partial_content.append(
+                                str(payload.get("content") or "")
+                            )
                     yield data
                     continue
                 if kind == "interrupts":

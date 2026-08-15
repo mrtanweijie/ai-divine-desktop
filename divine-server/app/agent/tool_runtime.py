@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from .. import db
@@ -177,6 +178,7 @@ async def _execute_tool(
     arguments: dict[str, Any],
     workspace: Any,
     locale: str | None = None,
+    progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
     """Run one adapter call with timeout, logging, and persistent tool runs."""
     run = db.add_tool_run(session_id, name, "start", arguments)
@@ -190,7 +192,12 @@ async def _execute_tool(
     )
     try:
         result = await asyncio.wait_for(
-            adapter.run(workspace, arguments, locale=locale or "zh-CN"),
+            adapter.run(
+                workspace,
+                arguments,
+                locale=locale or "zh-CN",
+                progress_callback=progress_callback,
+            ),
             timeout=adapter.timeout,
         )
         output = result.as_dict()

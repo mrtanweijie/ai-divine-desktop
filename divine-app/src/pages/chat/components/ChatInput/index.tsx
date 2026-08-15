@@ -352,7 +352,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                 aria-label={t("chat.stop", "停止生成")}
                 title={t("chat.stop", "停止生成")}
               >
-                <Square size={16} />
+                <Square size={14} />
               </Button>
             ) : (
               <Button

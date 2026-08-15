@@ -65,7 +65,7 @@ def _persist_new_messages(
                     )
                 )
                 next_index += 1
-            if results:
+            if results and len(results) >= len(calls):
                 db.save_tool_turn(
                     session_id,
                     calls,

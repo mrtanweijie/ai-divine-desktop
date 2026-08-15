@@ -123,6 +123,9 @@ def _build_tools(ctx: AgentRunContext) -> list[StructuredTool]:
     )
     return tools
 
+async def reset_agent_thread(thread_id: str) -> None:
+    await _CHECKPOINTER.adelete_thread(thread_id)
+
 def _build_agent(
     llm: Any, tools: list[StructuredTool], ctx: AgentRunContext
 ) -> Any:

@@ -143,7 +143,20 @@ export function useChatStream(options: UseChatStreamOptions) {
             setMessages((prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
-                  ? { ...message, think: (message.think ?? "") + content }
+                  ? {
+                      ...message,
+                      think: (message.think ?? "") + content,
+                      thinking: true,
+                    }
+                  : message
+              )
+            );
+          },
+          think_done: () => {
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantMessage.id
+                  ? { ...message, thinking: false }
                   : message
               )
             );
@@ -152,7 +165,11 @@ export function useChatStream(options: UseChatStreamOptions) {
             setMessages((prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
-                  ? { ...message, content: message.content + content }
+                  ? {
+                      ...message,
+                      content: message.content + content,
+                      thinking: false,
+                    }
                   : message
               )
             );
@@ -226,7 +243,7 @@ export function useChatStream(options: UseChatStreamOptions) {
             setMessages((prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
-                  ? { ...message, streaming: false }
+                  ? { ...message, streaming: false, thinking: false }
                   : message
               )
             );
@@ -257,6 +274,7 @@ export function useChatStream(options: UseChatStreamOptions) {
                   ? {
                       ...item,
                       streaming: false,
+                      thinking: false,
                       error: messageKey
                         ? t(messageKey, {
                             ...(messageParams ?? {}),
@@ -276,6 +294,7 @@ export function useChatStream(options: UseChatStreamOptions) {
               ? {
                   ...item,
                   streaming: false,
+                  thinking: false,
                   error:
                     error instanceof Error
                       ? error.message

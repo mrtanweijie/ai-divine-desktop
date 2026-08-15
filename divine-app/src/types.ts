@@ -49,6 +49,7 @@ export interface ToolEvent {
   message: string;
   messageKey?: string;
   messageParams?: Record<string, unknown>;
+  currentUrl?: string;
   command?: string;
   commands?: string[];
   confirm_type?:
@@ -161,6 +162,7 @@ export interface ChatMessage {
   content: string;
   created_at: string;
   think?: string;
+  thinking?: boolean;
   todos?: TodoItem[];
   tools: ToolEvent[];
   files?: ChatFile[];

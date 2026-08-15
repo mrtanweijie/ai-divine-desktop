@@ -76,10 +76,13 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
     }
     const index = grouped.findIndex((item) => item.tool === tool.tool);
     if (index === -1) {
+      const urls = [
+        ...new Set([...(tool.urls ?? []), ...toolUrls(tool)]),
+      ];
       grouped.push({
         ...tool,
         count: 1,
-        urls: toolUrls(tool),
+        urls,
         files: toolFiles(tool),
         commands: toolCommands(tool),
       });
@@ -87,7 +90,13 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
     }
     const existing = grouped[index];
     const count = (existing.count ?? 1) + 1;
-    const urls = [...new Set([...(existing.urls ?? []), ...toolUrls(tool)])];
+    const urls = [
+      ...new Set([
+        ...(existing.urls ?? []),
+        ...(tool.urls ?? []),
+        ...toolUrls(tool),
+      ]),
+    ];
     const files = [...new Map(
       [...(existing.files ?? []), ...toolFiles(tool)].map((file) => [
         file.path ?? file.name,

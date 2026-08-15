@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 import sys
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -115,6 +116,7 @@ class ToolAdapter:
         workspace: Path,
         arguments: dict[str, Any],
         locale: str | None = None,
+        progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     ) -> ToolResult:
         params = self.build_params(arguments or {})
         script = Path(__file__).resolve().parent / "scripts" / self.script_name
@@ -128,9 +130,14 @@ class ToolAdapter:
             "locale": locale or "zh-CN",
         }
         loop = asyncio.get_running_loop()
-        output = await loop.run_in_executor(
-            None, self._run_subprocess, str(script), payload
-        )
+        if self.supports_progress:
+            output = await self._run_subprocess_with_progress(
+                str(script), payload, progress_callback
+            )
+        else:
+            output = await loop.run_in_executor(
+                None, self._run_subprocess, str(script), payload
+            )
         return self._result_from_output(workspace, output, output_root)
 
     def _run_subprocess(self, script: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -171,6 +178,102 @@ class ToolAdapter:
                 "tool script returned invalid json script=%s stdout=%s",
                 script,
                 (completed.stdout or "")[-2000:],
+            )
+            raise ToolExecutionError(
+                "工具执行失败，请重试",
+                message_key="tool.actionFailed",
+            ) from exc
+
+    async def _run_subprocess_with_progress(
+        self,
+        script: str,
+        payload: dict[str, Any],
+        progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None,
+    ) -> dict[str, Any]:
+        stdin_text = json.dumps(payload, ensure_ascii=False)
+        if getattr(sys, "frozen", False):
+            command = [sys.executable, "--run-script", str(script)]
+        else:
+            command = [sys.executable, str(script)]
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        final_lines: list[str] = []
+        try:
+            async with asyncio.timeout(self.timeout):
+                assert process.stdin is not None
+                process.stdin.write(stdin_text.encode("utf-8"))
+                await process.stdin.drain()
+                process.stdin.close()
+
+                stderr_task = asyncio.create_task(
+                    (
+                        process.stderr.read()
+                        if process.stderr is not None
+                        else asyncio.sleep(0)
+                    )
+                )
+                assert process.stdout is not None
+                while True:
+                    line = await process.stdout.readline()
+                    if not line:
+                        break
+                    line = line.decode("utf-8", errors="replace").strip()
+                    if not line:
+                        continue
+                    try:
+                        item = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if item.get("progress"):
+                        if progress_callback is not None:
+                            await progress_callback(item)
+                    else:
+                        final_lines.append(line)
+                stderr_bytes = await stderr_task
+                returncode = await process.wait()
+        except TimeoutError:
+            process.kill()
+            stderr_task.cancel()
+            try:
+                await stderr_task
+            except asyncio.CancelledError:
+                pass
+            await process.communicate()
+            raise ToolExecutionError(
+                f"工具执行超时（{self.timeout}s）"
+            ) from None
+        if returncode != 0:
+            detail = (
+                stderr_bytes.decode("utf-8", errors="replace").strip()
+                if isinstance(stderr_bytes, bytes)
+                else ""
+            )
+            logger.warning(
+                "tool script failed script=%s returncode=%s detail=%s",
+                script,
+                returncode,
+                detail[-2000:],
+            )
+            raise ToolExecutionError(
+                "工具执行失败，请重试",
+                message_key="tool.actionFailed",
+            )
+        if not final_lines:
+            raise ToolExecutionError(
+                "工具执行失败，请重试",
+                message_key="tool.actionFailed",
+            )
+        try:
+            return json.loads(final_lines[-1])
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "tool script returned invalid json script=%s stdout=%s",
+                script,
+                final_lines[-1][-2000:],
             )
             raise ToolExecutionError(
                 "工具执行失败，请重试",

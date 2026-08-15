@@ -143,6 +143,18 @@ def main() -> None:
     sources: list[dict[str, object]] = []
     success_count = 0
     for url in urls[:max_results]:
+        print(
+            json.dumps(
+                {
+                    "progress": True,
+                    "index": len(sources),
+                    "url": url,
+                    "total": len(urls[:max_results]),
+                },
+                ensure_ascii=False,
+            ),
+            flush=True,
+        )
         try:
             text, content_type, truncated = _fetch(url, headers)
             content = _text_content(text, content_type)
