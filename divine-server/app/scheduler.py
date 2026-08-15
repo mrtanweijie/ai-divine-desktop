@@ -24,9 +24,9 @@ def _utc_now() -> str:
 class Scheduler:
     """Background loop that advances due scheduled tasks.
 
-    Reminder tasks only get bookkeeping updated here; the actual OS-level
-    notification is still scheduled by the desktop frontend. Agent/monitor
-    tasks run a real Agent turn when they have a session_id.
+    Reminder tasks only get bookkeeping updated here; the desktop frontend
+    polls the updated last_run_at and shows the actual notification.
+    Agent/monitor tasks run a real Agent turn when they have a session_id.
     """
 
     def __init__(self) -> None:
@@ -92,6 +92,8 @@ class Scheduler:
             try:
                 if task.get("task_type") in ("agent", "monitor"):
                     await self._run_agent_task(task)
+                elif task.get("task_type") == "reminder":
+                    self._mark_reminder_due(task)
             except Exception:
                 logger.exception(
                     "scheduled agent task failed task_id=%s", task["id"]
@@ -103,6 +105,13 @@ class Scheduler:
                     "scheduled task bookkeeping failed task_id=%s",
                     task["id"],
                 )
+
+    def _mark_reminder_due(self, task: dict[str, Any]) -> None:
+        logger.info(
+            "reminder due task_id=%s title=%s",
+            task["id"],
+            task.get("title") or "定时任务提醒",
+        )
 
     def _advance(self, task: dict[str, Any]) -> None:
         """Update last run time and compute the next occurrence in SQLite."""

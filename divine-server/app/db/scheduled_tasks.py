@@ -115,7 +115,7 @@ def update_scheduled_task(
     values: list[Any] = []
     assignments: list[str] = []
     for column in columns:
-        if column in fields and fields[column] is not None:
+        if column in fields:
             value = fields[column]
             if column == "days_of_week":
                 value = json.dumps(list(value or []), ensure_ascii=False)

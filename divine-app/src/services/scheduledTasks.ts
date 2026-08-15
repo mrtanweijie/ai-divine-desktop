@@ -9,7 +9,7 @@ import {
   cancel,
 } from "@tauri-apps/plugin-notification";
 import { request } from "@/services/request";
-import { isTauri } from "@/services/tauri";
+import { isMacosDesktop, isTauri } from "@/services/tauri";
 import type { CalendarEvent, ScheduledTask } from "@/types";
 import i18next from "@/i18n";
 
@@ -97,8 +97,50 @@ export function notificationId(id: string): number {
   return Number.isNaN(parsed) ? 0 : parsed & 0x7fffffff;
 }
 
+function webNotificationPermission(): NotificationPermission | null {
+  if (typeof window === "undefined" || !("Notification" in window)) return null;
+  return window.Notification.permission;
+}
+
+let nativePermissionCache: boolean | null = null;
+
+async function requestNativeNotificationPermission(): Promise<boolean | null> {
+  if (!isMacosDesktop()) return null;
+  try {
+    const granted = await invoke<boolean>("request_notification_permission");
+    nativePermissionCache = granted;
+    return granted;
+  } catch (error) {
+    console.warn("[notifications] native permission request failed", error);
+    return null;
+  }
+}
+
+async function showNativeNotification(
+  title: string,
+  body: string
+): Promise<boolean> {
+  if (!isMacosDesktop()) return false;
+  try {
+    await invoke("show_native_notification", { title, body });
+    return true;
+  } catch (error) {
+    console.warn("[notifications] native notification failed", error);
+    return false;
+  }
+}
+
 export async function isNotificationGranted(): Promise<boolean> {
   if (!isTauri()) return true;
+  if (isMacosDesktop()) {
+    const native = await requestNativeNotificationPermission();
+    if (native !== null) return native;
+    // 原生通道不可用（例如 dev 裸二进制）：不显示误导性的“未开启”提示。
+    return true;
+  }
+  const webPermission = webNotificationPermission();
+  if (webPermission === "granted") return true;
+  if (webPermission === "denied") return false;
   try {
     return await isPermissionGranted();
   } catch {
@@ -108,15 +150,82 @@ export async function isNotificationGranted(): Promise<boolean> {
 
 export async function ensureNotificationPermission(): Promise<boolean> {
   if (!isTauri()) return true;
+  if (isMacosDesktop()) {
+    const native = await requestNativeNotificationPermission();
+    if (native !== null) return native;
+    return true;
+  }
+  const webPermission = webNotificationPermission();
+  if (webPermission === "granted") return true;
+  if (webPermission === "denied") return false;
   try {
-    let granted = await isPermissionGranted();
-    if (!granted) {
-      granted = (await requestPermission()) === "granted";
+    if (webPermission === "default") {
+      return (await requestPermission()) === "granted";
     }
-    return granted;
+    return await isPermissionGranted();
   } catch {
     return false;
   }
+}
+
+const REMINDER_SEEN_PREFIX = "divine:reminder-seen:";
+const REMINDER_LOOKBACK_MS = 10 * 60 * 1000;
+let reminderPollTimer: ReturnType<typeof setInterval> | null = null;
+const seenReminderRuns = new Set<string>();
+
+function reminderSeenAt(taskId: string): string | null {
+  try {
+    return localStorage.getItem(`${REMINDER_SEEN_PREFIX}${taskId}`);
+  } catch {
+    return null;
+  }
+}
+
+function markReminderSeen(taskId: string, lastRunAt: string): void {
+  seenReminderRuns.add(`${taskId}:${lastRunAt}`);
+  try {
+    localStorage.setItem(`${REMINDER_SEEN_PREFIX}${taskId}`, lastRunAt);
+  } catch {
+    // The in-memory set still prevents duplicate notifications this session.
+  }
+}
+
+export async function notifyDueReminders(
+  tasks: ScheduledTask[]
+): Promise<number> {
+  if (!isTauri()) return 0;
+  const nativeAvailable = isMacosDesktop() && nativePermissionCache === true;
+  if (!nativeAvailable && webNotificationPermission() !== "granted") return 0;
+  const now = Date.now();
+  let shown = 0;
+  for (const task of tasks) {
+    if (task.status !== "active" || task.task_type !== "reminder") continue;
+    if (!task.last_run_at) continue;
+    const runAt = Date.parse(task.last_run_at);
+    if (Number.isNaN(runAt) || runAt < now - REMINDER_LOOKBACK_MS) continue;
+    if (reminderSeenAt(task.id) === task.last_run_at) continue;
+    const runKey = `${task.id}:${task.last_run_at}`;
+    if (seenReminderRuns.has(runKey)) continue;
+    const title = task.title;
+    const body = task.description || task.title;
+    const nativeShown = await showNativeNotification(title, body);
+    if (nativeShown) {
+      markReminderSeen(task.id, task.last_run_at);
+      shown++;
+      continue;
+    }
+    try {
+      new window.Notification(title, {
+        body,
+        tag: `divine-task-${task.id}`,
+      });
+      markReminderSeen(task.id, task.last_run_at);
+      shown++;
+    } catch (error) {
+      console.warn("[notifications] failed to show reminder", error);
+    }
+  }
+  return shown;
 }
 
 function pluginWeekday(day: number): number {
@@ -185,6 +294,29 @@ export async function syncTaskNotifications(
 ): Promise<{ scheduled: number; cancelled: number }> {
   if (!isTauri()) return { scheduled: 0, cancelled: 0 };
   try {
+    localStorage.setItem(
+      "divine:notification-debug",
+      JSON.stringify({
+        hasNotification:
+          typeof window !== "undefined" && "Notification" in window,
+        permission:
+          typeof window !== "undefined" && "Notification" in window
+            ? window.Notification.permission
+            : null,
+        isMacosDesktop: isMacosDesktop(),
+        nativePermission: nativePermissionCache,
+        time: new Date().toISOString(),
+      })
+    );
+  } catch {
+    // Diagnostic only.
+  }
+  if (isMacosDesktop()) {
+    // The Tauri plugin cannot schedule desktop notifications, so macOS shows
+    // them from the frontend as soon as the sidecar advances a reminder.
+    return { scheduled: await notifyDueReminders(tasks), cancelled: 0 };
+  }
+  try {
     const existing = await pending();
     const existingIds = new Set(existing.map((notification) => notification.id));
     const wantedIds = new Set<number>();
@@ -213,6 +345,58 @@ export async function syncTaskNotifications(
     console.warn("[notifications] sync failed", error);
     return { scheduled: 0, cancelled: 0 };
   }
+}
+
+export async function syncActiveTaskNotifications(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const { tasks } = await listScheduledTasks();
+    await syncTaskNotifications(tasks);
+  } catch (error) {
+    console.warn("[notifications] startup sync failed", error);
+  }
+}
+
+export function startTaskReminderPolling(): () => void {
+  if (!isTauri()) return () => undefined;
+  if (reminderPollTimer !== null) return () => undefined;
+
+  const poll = async () => {
+    try {
+      const granted = await ensureNotificationPermission();
+      try {
+        localStorage.setItem(
+          "divine:notification-debug",
+          JSON.stringify({
+            hasNotification:
+              typeof window !== "undefined" && "Notification" in window,
+            permission:
+              typeof window !== "undefined" && "Notification" in window
+                ? window.Notification.permission
+                : null,
+            granted,
+            nativePermission: nativePermissionCache,
+            time: new Date().toISOString(),
+          })
+        );
+      } catch {
+        // Diagnostic only; polling should keep running without it.
+      }
+      const { tasks } = await listScheduledTasks();
+      await syncTaskNotifications(tasks);
+    } catch (error) {
+      console.warn("[notifications] poll failed", error);
+    }
+  };
+
+  void poll();
+  reminderPollTimer = window.setInterval(() => void poll(), 10_000);
+  return () => {
+    if (reminderPollTimer !== null) {
+      window.clearInterval(reminderPollTimer);
+      reminderPollTimer = null;
+    }
+  };
 }
 
 export async function syncCalendarToSystem(

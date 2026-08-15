@@ -1,6 +1,51 @@
 use std::path::Path;
 use std::process::Command;
 
+#[cfg(target_os = "macos")]
+fn native_notification_available() -> Result<(), String> {
+    let current_exe = std::env::current_exe()
+        .map_err(|err| format!("无法定位可执行文件: {err}"))?;
+    let path = current_exe.to_string_lossy();
+    if !path.contains(".app/Contents/MacOS/") {
+        return Err("原生通知需要以 .app 应用包方式运行".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+pub async fn request_notification_permission() -> Result<bool, String> {
+    native_notification_available()?;
+    notify_rust::request_auth()
+        .await
+        .map_err(|err| err.to_string())
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+pub async fn show_native_notification(title: String, body: String) -> Result<(), String> {
+    native_notification_available()?;
+    notify_rust::Notification::new()
+        .summary(&title)
+        .body(&body)
+        .show_async()
+        .await
+        .map(|_| ())
+        .map_err(|err| err.to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+pub async fn request_notification_permission() -> Result<bool, String> {
+    Err("原生通知权限仅在 macOS 可用".to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+pub async fn show_native_notification(_title: String, _body: String) -> Result<(), String> {
+    Err("原生通知仅在 macOS 可用".to_string())
+}
+
 #[tauri::command]
 pub fn open_local_file(path: String) -> Result<(), String> {
     let target = Path::new(&path)

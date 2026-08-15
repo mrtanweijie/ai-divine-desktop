@@ -75,13 +75,15 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 }
 
 pub fn run() {
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .manage(SidecarState::default())
         .manage(WorkspaceWatchState::default())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build());
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.plugin(tauri_plugin_notification::init());
+    let app = builder
         .on_window_event(|_window, _event| {
             #[cfg(target_os = "macos")]
             if let WindowEvent::CloseRequested { api, .. } = _event {
@@ -121,6 +123,8 @@ pub fn run() {
             commands::system::open_file_location,
             commands::system::open_folder,
             commands::system::open_url,
+            commands::system::request_notification_permission,
+            commands::system::show_native_notification,
             commands::system::add_calendar_event,
             commands::system::remove_calendar_event,
             commands::workspace::get_file_tree,
