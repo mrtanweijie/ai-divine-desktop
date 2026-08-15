@@ -875,7 +875,6 @@ export default function ChatPage() {
           />
         ) : skillsOpen ? (
           <SkillsPage
-            workspacePath={currentProject?.path ?? null}
             onOpenSidebar={() => setSidebarOpen(true)}
           />
         ) : (

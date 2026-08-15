@@ -16,10 +16,24 @@ class SkillRegistry:
     def __init__(self) -> None:
         self._skills: dict[str, SkillMeta] = {}
 
-    def refresh(self, project_root: Path | None = None) -> list[dict[str, Any]]:
+    def refresh(
+        self,
+        project_root: Path | None = None,
+        project_roots: list[Path] | None = None,
+    ) -> list[dict[str, Any]]:
         roots: list[tuple[Path, str]] = []
+        seen_projects: set[Path] = set()
+        for root in project_roots or []:
+            resolved = root.resolve()
+            if resolved in seen_projects:
+                continue
+            seen_projects.add(resolved)
+            roots.append((resolved / ".divine" / "skills", "project"))
         if project_root is not None:
-            roots.append((project_root / ".divine" / "skills", "project"))
+            resolved = project_root.resolve()
+            if resolved not in seen_projects:
+                seen_projects.add(resolved)
+                roots.append((resolved / ".divine" / "skills", "project"))
         roots.append((user_skills_dir(), "user"))
         roots.append((builtin_skills_dir(), "builtin"))
 
@@ -62,9 +76,12 @@ class SkillRegistry:
         ]
 
     def uninstall(
-        self, name: str, project_root: Path | None = None
+        self,
+        name: str,
+        project_root: Path | None = None,
+        project_roots: list[Path] | None = None,
     ) -> dict[str, Any]:
-        self.refresh(project_root)
+        self.refresh(project_root, project_roots)
         meta = self._skills.get(name)
         if meta is None:
             raise KeyError(f"技能不存在: {name}")
@@ -73,6 +90,8 @@ class SkillRegistry:
         allowed_roots = [user_skills_dir()]
         if project_root is not None:
             allowed_roots.append(project_root / ".divine" / "skills")
+        for root in project_roots or []:
+            allowed_roots.append(root / ".divine" / "skills")
         skill_dir = meta.dir.resolve()
         if not any(
             _is_within(root, skill_dir) for root in allowed_roots
