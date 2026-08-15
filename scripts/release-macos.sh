@@ -22,6 +22,14 @@ load_env_file() {
 
 load_env_file "$ROOT/.env"
 
+if [[ -n "${TAURI_SIGNING_PRIVATE_KEY_PATH:-}" && -f "${TAURI_SIGNING_PRIVATE_KEY_PATH}" ]]; then
+  export TAURI_SIGNING_PRIVATE_KEY="$(tr -d '\r\n' < "${TAURI_SIGNING_PRIVATE_KEY_PATH}")"
+elif [[ -f "$HOME/.tauri/divine.key" ]]; then
+  export TAURI_SIGNING_PRIVATE_KEY="$(tr -d '\r\n' < "$HOME/.tauri/divine.key")"
+  export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/divine.key"
+fi
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
+
 ARCH=""
 BUNDLES="app,dmg"
 ADHOC=0
@@ -228,11 +236,13 @@ echo "构建并打包桌面端..."
 (
   cd "$APP_DIR"
   CONFIG_ARGS=(--config src-tauri/tauri.prod.conf.json)
-  OVERLAY="$(mktemp "${TMPDIR:-/tmp}/divine-signing.XXXXXX.json")"
+  OVERLAY_DIR="$(mktemp -d "${TMPDIR:-/tmp}/divine-signing.XXXXXX")"
+  OVERLAY="$OVERLAY_DIR/signing.json"
   printf '{"bundle":{"macOS":{"signingIdentity":"%s"}}}\n' "$IDENTITY" > "$OVERLAY"
   CONFIG_ARGS+=(--config "$OVERLAY")
   "$PNPM" exec tauri build "${CONFIG_ARGS[@]}" --bundles "$BUNDLES"
   rm -f "$OVERLAY"
+  rmdir "$OVERLAY_DIR" 2>/dev/null || true
 )
 
 BUNDLE_DIR="$APP_DIR/src-tauri/target/release/bundle/macos"

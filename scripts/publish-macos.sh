@@ -165,7 +165,8 @@ case "$ARCH" in
 esac
 
 export TAURI_SIGNING_PRIVATE_KEY_PATH="$UPDATER_KEY"
-unset TAURI_SIGNING_PRIVATE_KEY || true
+export TAURI_SIGNING_PRIVATE_KEY="$(tr -d '\r\n' < "$UPDATER_KEY")"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
 
 "$ROOT/scripts/release-macos.sh" \
   --arch "$ARCH" \
