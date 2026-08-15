@@ -139,7 +139,7 @@ fi
 if [[ -z "$TAG" ]]; then
   TAG="v$VERSION"
 fi
-if [[ "$UPLOAD" == 1 && -z "$REPO" ]]; then
+if [[ -z "$REPO" ]]; then
   REMOTE="$(git -C "$ROOT" remote get-url origin 2>/dev/null || true)"
   REPO="$(printf '%s' "$REMOTE" \
     | sed -E 's#(https://github.com/|git@github.com:)([^/]+/[^/.]+)(\.git)?#\2#')"
@@ -190,7 +190,9 @@ SIGNATURE="$(cd "$APP_DIR" \
   pnpm tauri signer sign \
     -f "$UPDATER_KEY" \
     ${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:+-p "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"} \
-    "$TARBALL" | tail -1)"
+    "$TARBALL" \
+    | sed -n '/^Public signature:$/{n;p;}' \
+    | tr -d '\r')"
 rm -f "$TARBALL.sig"
 
 if [[ -n "$NOTES_FILE" ]]; then
