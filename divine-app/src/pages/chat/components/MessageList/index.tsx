@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { MessageItem } from "@/pages/chat/components/MessageItem";
 import type { ChatMessage, PreviewFile } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ConversationMinimap } from "./ConversationMinimap";
 
 interface MessageTimelineProps {
   messages: ChatMessage[];
@@ -38,6 +39,8 @@ export function MessageList({
     scrollTop: number;
     height: number;
   } | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
 
   const virtualizer = useVirtualizer({
     count: messages.length,
@@ -49,10 +52,14 @@ export function MessageList({
 
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
+  const minimapVisible =
+    messages.filter((message) => message.role === "assistant").length > 5;
 
   const handleScroll = () => {
     const container = scrollRef.current;
     if (!container) return;
+    setScrollTop(container.scrollTop);
+    setViewportHeight(container.clientHeight);
     const distance =
       container.scrollHeight - container.scrollTop - container.clientHeight;
     stickToBottom.current = distance < 80;
@@ -60,6 +67,19 @@ export function MessageList({
       onLoadOlder?.();
     }
   };
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const updateViewport = () => {
+      setScrollTop(container.scrollTop);
+      setViewportHeight(container.clientHeight);
+    };
+    updateViewport();
+    const observer = new ResizeObserver(updateViewport);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -113,49 +133,59 @@ export function MessageList({
   }, [messages, streaming, sessionId]);
 
   return (
-    <div className="message-timeline" ref={scrollRef} onScroll={handleScroll}>
-      {loadingOlder && (
-        <div className="message-loading-older">
-          {t("chat.loadingOlder", "加载更早消息...")}
-        </div>
+    <div className="message-stage">
+      {minimapVisible && (
+        <ConversationMinimap
+          virtualizer={virtualizer}
+          messages={messages}
+          scrollTop={scrollTop}
+          viewportHeight={viewportHeight}
+        />
       )}
-      {messages.length === 0 ? (
-        <EmptyState title={t("chat.startNewChat", "开始新的对话")} />
-      ) : (
-        <div
-          className="timeline-inner"
-          style={{ height: totalSize, position: "relative" }}
-        >
-          {virtualItems.map((virtualRow) => {
-            const message = messages[virtualRow.index];
-            return (
-              <div
-                key={message.id}
-                data-index={virtualRow.index}
-                ref={virtualizer.measureElement}
-                className={`virtual-message-item${
-                  virtualRow.index === 0 ? " first-message" : ""
-                }`}
-                style={{ transform: `translateY(${virtualRow.start}px)` }}
-              >
-                <MessageItem
-                  message={message}
-                  sessionId={sessionId}
-                  username={username}
-                  workspacePath={workspacePath}
-                  onPreviewFile={onPreviewFile}
-                  onUserInteract={() => {
-                    stickToBottom.current = false;
-                  }}
-                  streaming={
-                    streaming && virtualRow.index === messages.length - 1
-                  }
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <div className="message-timeline" ref={scrollRef} onScroll={handleScroll}>
+        {loadingOlder && (
+          <div className="message-loading-older">
+            {t("chat.loadingOlder", "加载更早消息...")}
+          </div>
+        )}
+        {messages.length === 0 ? (
+          <EmptyState title={t("chat.startNewChat", "开始新的对话")} />
+        ) : (
+          <div
+            className="timeline-inner"
+            style={{ height: totalSize, position: "relative" }}
+          >
+            {virtualItems.map((virtualRow) => {
+              const message = messages[virtualRow.index];
+              return (
+                <div
+                  key={message.id}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
+                  className={`virtual-message-item${
+                    virtualRow.index === 0 ? " first-message" : ""
+                  }`}
+                  style={{ transform: `translateY(${virtualRow.start}px)` }}
+                >
+                  <MessageItem
+                    message={message}
+                    sessionId={sessionId}
+                    username={username}
+                    workspacePath={workspacePath}
+                    onPreviewFile={onPreviewFile}
+                    onUserInteract={() => {
+                      stickToBottom.current = false;
+                    }}
+                    streaming={
+                      streaming && virtualRow.index === messages.length - 1
+                    }
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
