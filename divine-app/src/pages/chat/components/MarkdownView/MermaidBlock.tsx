@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { toast } from "@/components/ui/Toast";
+import { copyText } from "@/utils";
 
 type MermaidApi = (typeof import("mermaid"))["default"];
 type RenderStatus = "loading" | "ready" | "error";
@@ -199,18 +200,7 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
   }
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(normalizedCode);
-    } catch {
-      const textarea = document.createElement("textarea");
-      textarea.value = normalizedCode;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      textarea.remove();
-    }
+    await copyText(normalizedCode);
     setCopied(true);
     toast.success(t("mermaid.copiedSource", "Mermaid 源码已复制"));
     setTimeout(() => setCopied(false), 1200);

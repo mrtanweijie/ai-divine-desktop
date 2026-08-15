@@ -1,10 +1,12 @@
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  FolderSearch,
-  Ghost,
-  PackageSearch,
-  Cherry,
+  CalendarClock,
+  ChartNetwork,
+  Compass,
+  FileCode2,
+  FolderTree,
+  GraduationCap,
 } from "lucide-react";
 import avatarUrl from "@/assets/divine-ai-avatar-guide.svg";
 import { openFolder } from "@/services/tauri";
@@ -13,8 +15,9 @@ import "./index.less";
 interface GuideCard {
   key: string;
   icon: ReactNode;
-  tone: "blue" | "purple" | "green" | "orange";
+  tone: "blue" | "purple" | "green" | "orange" | "cyan" | "rose";
   title: string;
+  description: string;
   prompt: string;
 }
 
@@ -37,43 +40,69 @@ export function NewChatGuide({
   const cards = useMemo<GuideCard[]>(
     () => [
       {
-        key: "workspace",
-        icon: <FolderSearch size={20} />,
+        key: "analyze",
+        icon: <FolderTree size={20} />,
         tone: "blue",
-        title: t("guide.workspace", "工作空间目录"),
+        title: t("guide.analyze", "分析项目"),
+        description: t("guide.analyzeDescription", "目录、架构、关键文件"),
         prompt: t(
-          "guide.workspacePrompt",
-          "请查看当前项目工作空间目录，并介绍里面的内容和结构。"
-        ),
-      },
-      {
-        key: "architecture",
-        icon: <Ghost size={20} />,
-        tone: "purple",
-        title: t("guide.architecture", "分析项目架构"),
-        prompt: t(
-          "guide.architecturePrompt",
+          "guide.analyzePrompt",
           "请分析当前项目的工作空间目录结构、技术架构和关键文件，并给出总结。"
         ),
       },
       {
-        key: "build",
-        icon: <Cherry size={20} />,
-        tone: "green",
-        title: t("guide.build", "开始构建新项目"),
+        key: "modify",
+        icon: <FileCode2 size={20} />,
+        tone: "purple",
+        title: t("guide.modify", "修改代码"),
+        description: t("guide.modifyDescription", "定位问题并批量修改"),
         prompt: t(
-          "guide.buildPrompt",
-          "请基于当前项目目录开始构建一个新项目，先制定方案和计划，再逐步实现。"
+          "guide.modifyPrompt",
+          "请先查看相关文件，定位问题，再用 edit_files 批量修改并总结改动。"
         ),
       },
       {
-        key: "fix",
-        icon: <PackageSearch size={20} />,
-        tone: "orange",
-        title: t("guide.fix", "修复项目问题"),
+        key: "document",
+        icon: <GraduationCap size={20} />,
+        tone: "green",
+        title: t("guide.document", "生成文档"),
+        description: t("guide.documentDescription", "Word / PDF / PPT / Excel"),
         prompt: t(
-          "guide.fixPrompt",
-          "请检查当前项目目录中的问题，定位错误并给出修复方案，然后执行修复。"
+          "guide.documentPrompt",
+          "请根据我的需求生成一份合适的文档（Word、PDF、PPT、Excel 或 Markdown）。"
+        ),
+      },
+      {
+        key: "research",
+        icon: <Compass size={20} />,
+        tone: "orange",
+        title: t("guide.research", "查资料总结"),
+        description: t("guide.researchDescription", "多来源抓取并汇总"),
+        prompt: t(
+          "guide.researchPrompt",
+          "请帮我批量抓取多个相关来源，整理关键信息并给出带链接的总结。"
+        ),
+      },
+      {
+        key: "visual",
+        icon: <ChartNetwork size={20} />,
+        tone: "cyan",
+        title: t("guide.visual", "图表与原型"),
+        description: t("guide.visualDescription", "图表、SVG、交互页面"),
+        prompt: t(
+          "guide.visualPrompt",
+          "请根据主题生成图表、示意图或可交互的产品原型。"
+        ),
+      },
+      {
+        key: "automate",
+        icon: <CalendarClock size={20} />,
+        tone: "rose",
+        title: t("guide.automate", "提醒与技能"),
+        description: t("guide.automateDescription", "提醒、日程、技能迁移"),
+        prompt: t(
+          "guide.automatePrompt",
+          "请帮我设置定时提醒或日程，或扫描可迁移的 AI 工具技能。"
         ),
       },
     ],
@@ -144,7 +173,12 @@ export function NewChatGuide({
             <span className={`new-chat-guide-card-icon ${card.tone}`}>
               {card.icon}
             </span>
-            <span className="new-chat-guide-card-title">{card.title}</span>
+            <span className="new-chat-guide-card-copy">
+              <span className="new-chat-guide-card-title">{card.title}</span>
+              <span className="new-chat-guide-card-description">
+                {card.description}
+              </span>
+            </span>
           </div>
         ))}
       </div>

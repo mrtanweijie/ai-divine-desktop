@@ -49,7 +49,11 @@ class MockChatModel(SimpleChatModel):
 
 class ChatDeepSeekProvider:
     def __init__(self) -> None:
-        from langchain_core.messages import AIMessage, convert_to_messages
+        from langchain_core.messages import (
+            AIMessage,
+            ToolMessage,
+            convert_to_messages,
+        )
         from langchain_deepseek import ChatDeepSeek
 
         class ReasoningChatDeepSeek(ChatDeepSeek):
@@ -65,6 +69,11 @@ class ChatDeepSeekProvider:
                 )
                 try:
                     originals = convert_to_messages(input_)
+                    tool_result_ids = {
+                        getattr(original, "tool_call_id", "") or ""
+                        for original in originals
+                        if isinstance(original, ToolMessage)
+                    }
                     for item, original in zip(
                         payload.get("messages", []), originals
                     ):
@@ -74,6 +83,19 @@ class ChatDeepSeekProvider:
                             )
                             if reasoning:
                                 item["reasoning_content"] = reasoning
+                        if isinstance(original, AIMessage) and item.get(
+                            "tool_calls"
+                        ):
+                            valid_calls = [
+                                call
+                                for call in item["tool_calls"]
+                                if isinstance(call, dict)
+                                and call.get("id") in tool_result_ids
+                            ]
+                            if valid_calls:
+                                item["tool_calls"] = valid_calls
+                            else:
+                                item.pop("tool_calls", None)
                 except Exception:
                     pass
                 return payload

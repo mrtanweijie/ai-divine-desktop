@@ -46,7 +46,7 @@ import { request } from "@/services/request";
 import { isTauri, openFileLocation } from "@/services/tauri";
 import { toWorkspaceRelative } from "@/services/workspace";
 import type { PreviewFile, ToolEvent } from "@/types";
-import { formatSize } from "@/utils";
+import { copyText, formatSize } from "@/utils";
 import {
   chartOptionFromResult,
   chartTypeIcon,
@@ -168,7 +168,7 @@ export function ToolStatusCard({
 
   const copyJson = async () => {
     if (!tool.result) return;
-    await navigator.clipboard.writeText(JSON.stringify(tool.result, null, 2));
+    await copyText(JSON.stringify(tool.result, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
   };
@@ -230,7 +230,13 @@ export function ToolStatusCard({
         </span>
         <div className="tool-copy">
           <span className="tool-name">{tool.tool}</span>
-          <span className="tool-message">{statusMessage}</span>
+          <span
+            className={`tool-message${
+              tool.status === "running" && tool.currentUrl ? " nowrap" : ""
+            }`}
+          >
+            {statusMessage}
+          </span>
         </div>
         {hasUrls && (
           <>

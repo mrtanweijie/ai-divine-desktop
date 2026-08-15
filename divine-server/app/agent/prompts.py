@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from langchain.agents.middleware import ModelRequest, dynamic_prompt
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from .. import db
 from ..config import settings_store

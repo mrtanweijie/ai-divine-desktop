@@ -3,16 +3,18 @@ import {
   AlertCircle,
   Check,
   ChevronDown,
+  Copy,
   Eye,
   FileText,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DivineAvatar } from "@/components/DivineAvatar";
+import { toast } from "@/components/ui/Toast";
 import { Flex } from "@/components/ui/Flex";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
 import type { ChatMessage, PreviewFile, TodoItem } from "@/types";
-import { formatSize, formatTime } from "@/utils";
+import { copyText, formatSize, formatTime } from "@/utils";
 import { ToolStatusCard } from "./ToolStatusCard";
 import { groupToolCards } from "./MessageHelpers";
 
@@ -52,9 +54,16 @@ export function MessageItem({
           {isUser ? username || t("common.user", "用户") : "Divine"}
         </span>
         <time className="message-time">{formatTime(message.created_at)}</time>
+        {!isUser && message.content && (
+          <MessageCopyButton text={message.content} />
+        )}
       </Flex>
       {isUser ? (
-        <div className="user-content">
+        <div
+          className="user-content"
+          onDoubleClick={() => void copyUserContent(message.content, t)}
+          title={t("message.doubleClickCopy", "双击复制")}
+        >
           <div className="user-text">{message.content}</div>
           {message.files && message.files.length > 0 && (
             <div className="user-files">
@@ -158,6 +167,34 @@ export function MessageItem({
       )}
     </article>
   );
+}
+
+function MessageCopyButton({ text }: { text: string }) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await copyText(text);
+    setCopied(true);
+    toast.success(t("message.copied", "内容已复制"));
+    setTimeout(() => setCopied(false), 1200);
+  };
+  return (
+    <button
+      type="button"
+      className="message-copy"
+      onClick={() => void copy()}
+      aria-label={t("message.copyContent", "复制内容")}
+      title={t("message.copyContent", "复制内容")}
+    >
+      {copied ? <Check size={13} /> : <Copy size={13} />}
+    </button>
+  );
+}
+
+async function copyUserContent(content: string, t: (key: string) => string) {
+  if (!content) return;
+  await copyText(content);
+  toast.success(t("message.copied"));
 }
 
 function ThinkBlock({

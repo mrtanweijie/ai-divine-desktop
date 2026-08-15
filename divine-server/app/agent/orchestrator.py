@@ -14,15 +14,16 @@ from langgraph.types import Command
 
 from .. import db
 from ..api.terminal import create_terminal_decision, remove_terminal_decision
-from ..localization import normalize_locale
+from ..localization import default_session_title, normalize_locale
 from ..sse import error_event, sse_event
 from .context import AgentRunContext
-from .llm import _build_llm
+from .llm import _build_llm, generate_session_title
 from .persistence import (
     _extract_final_content,
     _persist_new_messages,
     _sync_todos_from_state,
 )
+from .schema import _content_text
 from .sse import _interrupt_sse, _stream_agent_run
 from .tools import _build_agent, _build_tools, reset_agent_thread
 
@@ -130,6 +131,22 @@ async def run_agent(
         input_messages = convert_to_messages([last_user])
     else:
         input_messages = convert_to_messages(history)
+    question_text = _content_text(input_messages[-1].content) if input_messages else ""
+    existing_messages = db.list_messages(session_id)
+    has_assistant_content = any(
+        message["role"] == "assistant"
+        and str(message.get("content") or "").strip()
+        for message in existing_messages
+    )
+    needs_title_summary = (
+        not has_assistant_content
+        and session is not None
+        and session.get("title")
+        in {
+            default_session_title(ctx.locale),
+            question_text[:24],
+        }
+    )
     logger.info(
         "agent start session=%s history=%d thread=%s",
         session_id,
@@ -286,6 +303,16 @@ async def run_agent(
     _sync_todos_from_state(session_id, final_state)
     _persist_new_messages(session_id, input_messages, messages, think_by_id)
     final_content = _extract_final_content(messages)
+    if needs_title_summary:
+        title = await generate_session_title(
+            llm,
+            question_text,
+            final_content,
+            ctx.locale,
+        )
+        if title:
+            db.update_session(session_id, title=title)
+            logger.info("session title summarized session=%s", session_id)
     yield sse_event(
         "done",
         {

@@ -81,10 +81,10 @@ else
 fi
 mkdir -p "$BIN_DIR"
 mkdir -p "$TAURI_BIN_DIR"
-rm -rf "$BIN_DIR"/*
-rm -f "$TAURI_BIN_DIR/$EXTERNAL_NAME"
-cp "dist/$EXE" "$BIN_DIR/$EXE"
-cp "dist/$EXE" "$TAURI_BIN_DIR/$EXTERNAL_NAME"
+cp "dist/$EXE" "$BIN_DIR/.$EXE.tmp"
+mv -f "$BIN_DIR/.$EXE.tmp" "$BIN_DIR/$EXE"
+cp "dist/$EXE" "$TAURI_BIN_DIR/.$EXTERNAL_NAME.tmp"
+mv -f "$TAURI_BIN_DIR/.$EXTERNAL_NAME.tmp" "$TAURI_BIN_DIR/$EXTERNAL_NAME"
 
 echo "sidecar 已生成: $BIN_DIR/$EXE"
 echo "externalBin 已生成: $TAURI_BIN_DIR/$EXTERNAL_NAME"

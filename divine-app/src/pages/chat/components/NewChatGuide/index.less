@@ -68,10 +68,10 @@
 .new-chat-guide-cards {
   display: grid;
   width: 100%;
-  max-width: 720px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: 860px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 15px;
-  max-height: 104px;
+  max-height: 240px;
   overflow: hidden;
   transition:
     max-height 0.2s ease,
@@ -82,7 +82,7 @@
 .new-chat-guide-card {
   display: flex;
   min-height: 0;
-  height: 96px;
+  height: 112px;
   flex-direction: column;
   align-items: flex-start;
   justify-content: space-between;
@@ -110,6 +110,14 @@
 
 .new-chat-guide-card:nth-child(4) {
   animation-delay: 0.25s;
+}
+
+.new-chat-guide-card:nth-child(5) {
+  animation-delay: 0.3s;
+}
+
+.new-chat-guide-card:nth-child(6) {
+  animation-delay: 0.35s;
 }
 
 .new-chat-guide-card:hover:not(.disabled) {
@@ -142,15 +150,37 @@
   color: #fb923c;
 }
 
+.new-chat-guide-card-icon.cyan {
+  color: #22d3ee;
+}
+
+.new-chat-guide-card-icon.rose {
+  color: #fb7185;
+}
+
 .new-chat-guide-card-icon svg {
   width: 14px;
   height: 14px;
+}
+
+.new-chat-guide-card-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .new-chat-guide-card-title {
   max-width: 100%;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.new-chat-guide-card-description {
+  max-width: 100%;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
 }
 
 .new-chat-guide-cards.is-hidden {
@@ -180,6 +210,14 @@
   animation-delay: 0s;
 }
 
+.new-chat-guide-cards.is-hidden .new-chat-guide-card:nth-child(5) {
+  animation-delay: 0.06s;
+}
+
+.new-chat-guide-cards.is-hidden .new-chat-guide-card:nth-child(6) {
+  animation-delay: 0.09s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .new-chat-guide-icon,
   .new-chat-guide-title,
@@ -201,6 +239,6 @@
 @media (max-width: 720px) {
   .new-chat-guide-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-height: 224px;
+    max-height: 380px;
   }
 }

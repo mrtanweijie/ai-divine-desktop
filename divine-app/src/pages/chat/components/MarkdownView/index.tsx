@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/Toast";
 import { isTauri, openUrl } from "@/services/tauri";
+import { copyText } from "@/utils";
 import { HighlightedCode } from "./HighlightedCode";
 import { languageLabel } from "./language";
 import { MermaidBlock } from "./MermaidBlock";
@@ -51,18 +52,7 @@ function CodeBlock({
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-    } catch {
-      const textarea = document.createElement("textarea");
-      textarea.value = code;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      textarea.remove();
-    }
+    await copyText(code);
     setCopied(true);
     toast.success(t("markdown.copied", "代码已复制"));
     setTimeout(() => setCopied(false), 1200);

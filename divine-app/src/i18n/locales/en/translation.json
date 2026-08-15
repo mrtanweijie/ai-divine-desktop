@@ -67,17 +67,27 @@
     "title": "Files"
   },
   "guide": {
-    "architecture": "Analyze project architecture",
-    "architecturePrompt": "Analyze the workspace structure, technical architecture, and key files of the current project, then summarize.",
-    "build": "Build a new project",
-    "buildPrompt": "Build a new project based on the current project directory. Start with a plan, then implement it step by step.",
-    "fix": "Fix project issues",
-    "fixPrompt": "Check the current project for issues, locate errors, propose fixes, then apply them.",
-    "whatToBuild": "What should we build?",
+    "analyze": "Analyze project",
+    "analyzeDescription": "Directory, architecture, key files",
+    "analyzePrompt": "Analyze the current project workspace structure, technical architecture, and key files, then summarize.",
+    "automate": "Reminders & skills",
+    "automateDescription": "Reminders, calendar, skill migration",
+    "automatePrompt": "Set up a scheduled reminder or calendar event, or scan for AI tool skills that can be migrated.",
+    "document": "Create documents",
+    "documentDescription": "Word / PDF / PPT / Excel",
+    "documentPrompt": "Create a suitable document from my request (Word, PDF, PPT, Excel, or Markdown).",
+    "modify": "Edit code",
+    "modifyDescription": "Find issues and edit in batch",
+    "modifyPrompt": "Review the relevant files, locate the issue, then use edit_files to apply changes in batch and summarize.",
+    "research": "Research & summarize",
+    "researchDescription": "Fetch multiple sources and summarize",
+    "researchPrompt": "Fetch multiple relevant sources, organize the key information, and provide a summary with links.",
+    "visual": "Charts & prototypes",
+    "visualDescription": "Charts, SVG, interactive pages",
+    "visualPrompt": "Create a chart, diagram, or interactive product prototype based on the topic.",
+    "whatToBuild": "What can I help you with today?",
     "whatToDoInPrefix": "What would you like to do in ",
-    "whatToDoInSuffix": "?",
-    "workspace": "Workspace overview",
-    "workspacePrompt": "Review the current project workspace and explain its contents and structure."
+    "whatToDoInSuffix": "?"
   },
   "markdown": {
     "copied": "Code copied",
@@ -92,6 +102,9 @@
     "rendering": "Rendering"
   },
   "message": {
+    "copied": "Content copied",
+    "copyContent": "Copy content",
+    "doubleClickCopy": "Double-click to copy",
     "generating": "Generating",
     "plan": "Execution plan",
     "thinking": "Thinking",

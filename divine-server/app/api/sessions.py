@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
@@ -17,6 +19,18 @@ from ..schemas import SessionCreate, SessionUpdate
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 logger = logging.getLogger("divine.sessions")
+
+
+def _export_filename(title: str, extension: str) -> str:
+    safe_title = re.sub(r'[\\/:*?"<>|]+', "-", title).strip().strip(".")
+    safe_title = safe_title or "chat"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return f"{safe_title}_{timestamp}.{extension}"
+
+
+def _download_disposition(filename: str, fallback: str) -> str:
+    encoded = quote(filename, safe="")
+    return f'attachment; filename="{fallback}"; filename*=UTF-8\'\'{encoded}'
 
 
 @router.get("")
@@ -124,7 +138,11 @@ def export_session(
         return Response(
             text,
             media_type="text/plain",
-            headers={"Content-Disposition": 'attachment; filename="chat.txt"'},
+            headers={
+                "Content-Disposition": _download_disposition(
+                    _export_filename(session["title"], "txt"), "chat.txt"
+                )
+            },
         )
     if format == "pdf":
         payload = render_markdown_pdf(
@@ -134,12 +152,18 @@ def export_session(
             payload,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": 'attachment; filename="chat.pdf"'
+                "Content-Disposition": _download_disposition(
+                    _export_filename(session["title"], "pdf"), "chat.pdf"
+                )
             },
         )
     text = "\n".join(lines)
     return Response(
         text,
         media_type="text/markdown",
-        headers={"Content-Disposition": 'attachment; filename="chat.md"'},
+        headers={
+            "Content-Disposition": _download_disposition(
+                _export_filename(session["title"], "md"), "chat.md"
+            )
+        },
     )

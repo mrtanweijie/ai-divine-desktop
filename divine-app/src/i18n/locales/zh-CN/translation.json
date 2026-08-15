@@ -66,17 +66,27 @@
     "title": "文件"
   },
   "guide": {
-    "architecture": "分析项目架构",
-    "architecturePrompt": "请分析当前项目的工作空间目录结构、技术架构和关键文件，并给出总结。",
-    "build": "开始构建新项目",
-    "buildPrompt": "请基于当前项目目录开始构建一个新项目，先制定方案和计划，再逐步实现。",
-    "fix": "修复项目问题",
-    "fixPrompt": "请检查当前项目目录中的问题，定位错误并给出修复方案，然后执行修复。",
-    "whatToBuild": "我们该构建什么",
+    "analyze": "分析项目",
+    "analyzeDescription": "目录、架构、关键文件",
+    "analyzePrompt": "请分析当前项目的工作空间目录结构、技术架构和关键文件，并给出总结。",
+    "automate": "提醒与技能",
+    "automateDescription": "提醒、日程、技能迁移",
+    "automatePrompt": "请帮我设置定时提醒或日程，或扫描可迁移的 AI 工具技能。",
+    "document": "生成文档",
+    "documentDescription": "Word / PDF / PPT / Excel",
+    "documentPrompt": "请根据我的需求生成一份合适的文档（Word、PDF、PPT、Excel 或 Markdown）。",
+    "modify": "修改代码",
+    "modifyDescription": "定位问题并批量修改",
+    "modifyPrompt": "请先查看相关文件，定位问题，再用 edit_files 批量修改并总结改动。",
+    "research": "查资料总结",
+    "researchDescription": "多来源抓取并汇总",
+    "researchPrompt": "请帮我批量抓取多个相关来源，整理关键信息并给出带链接的总结。",
+    "visual": "图表与原型",
+    "visualDescription": "图表、SVG、交互页面",
+    "visualPrompt": "请根据主题生成图表、示意图或可交互的产品原型。",
+    "whatToBuild": "今天想让我帮你做什么",
     "whatToDoInPrefix": "要在",
-    "whatToDoInSuffix": " 下做什么",
-    "workspace": "工作空间目录",
-    "workspacePrompt": "请查看当前项目工作空间目录，并介绍里面的内容和结构。"
+    "whatToDoInSuffix": " 下做什么"
   },
   "markdown": {
     "copied": "代码已复制",
@@ -91,6 +101,9 @@
     "rendering": "渲染中"
   },
   "message": {
+    "copied": "内容已复制",
+    "copyContent": "复制内容",
+    "doubleClickCopy": "双击复制",
     "generating": "正在生成",
     "plan": "执行计划",
     "thinking": "思考过程",

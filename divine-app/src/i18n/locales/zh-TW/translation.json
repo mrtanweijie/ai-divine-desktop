@@ -67,17 +67,27 @@
     "title": "檔案"
   },
   "guide": {
-    "architecture": "分析專案架構",
-    "architecturePrompt": "請分析當前專案的工作空間目錄結構、技術架構和關鍵檔案，並給出總結。",
-    "build": "開始構建新專案",
-    "buildPrompt": "請基於當前專案目錄開始構建一個新專案，先制定方案和計畫，再逐步實現。",
-    "fix": "修復專案問題",
-    "fixPrompt": "請檢查當前專案目錄中的問題，定位錯誤並給出修復方案，然後執行修復。",
-    "whatToBuild": "我們該構建什麼",
+    "analyze": "分析專案",
+    "analyzeDescription": "目錄、架構、關鍵檔案",
+    "analyzePrompt": "請分析當前專案的工作空間目錄結構、技術架構和關鍵檔案，並給出總結。",
+    "automate": "提醒與技能",
+    "automateDescription": "提醒、行程、技能遷移",
+    "automatePrompt": "請幫我設定定時提醒或行程，或掃描可遷移的 AI 工具技能。",
+    "document": "產生文件",
+    "documentDescription": "Word / PDF / PPT / Excel",
+    "documentPrompt": "請根據我的需求產生一份合適的文件（Word、PDF、PPT、Excel 或 Markdown）。",
+    "modify": "修改程式碼",
+    "modifyDescription": "定位問題並批次修改",
+    "modifyPrompt": "請先檢視相關檔案，定位問題，再用 edit_files 批次修改並總結變更。",
+    "research": "查資料總結",
+    "researchDescription": "多來源擷取並彙整",
+    "researchPrompt": "請幫我批次擷取多個相關來源，整理關鍵資訊並給出帶連結的總結。",
+    "visual": "圖表與原型",
+    "visualDescription": "圖表、SVG、互動頁面",
+    "visualPrompt": "請根據主題產生圖表、示意圖或可互動的產品原型。",
+    "whatToBuild": "今天想讓我幫你做什麼",
     "whatToDoInPrefix": "要在",
-    "whatToDoInSuffix": " 下做什麼",
-    "workspace": "工作空間目錄",
-    "workspacePrompt": "請檢視當前專案工作空間目錄，並介紹裡面的內容和結構。"
+    "whatToDoInSuffix": " 下做什麼"
   },
   "markdown": {
     "copied": "程式碼已複製",
@@ -92,6 +102,9 @@
     "rendering": "渲染中"
   },
   "message": {
+    "copied": "內容已複製",
+    "copyContent": "複製內容",
+    "doubleClickCopy": "雙擊複製",
     "generating": "正在產生",
     "plan": "執行計畫",
     "thinking": "思考過程",
