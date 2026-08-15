@@ -95,6 +95,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     file_name = str(params.get("file_name") or "").strip() or title
+    file_name = re.sub(r"\.md$", "", file_name, flags=re.IGNORECASE)
     output_path = unique_output_path(output_dir, file_name, "PDF文档", ".pdf")
     try:
         theme = str(params.get("theme") or params.get("style") or "universal")
@@ -104,6 +105,7 @@ def main() -> None:
         ):
             theme = "travel"
         if theme == "travel":
+            from app.pdf_theme_manager import travel_color_overrides
             from app.pdf_tool.travel_html import (
                 looks_like_travel_html,
                 travel_markdown_to_html,
@@ -113,6 +115,10 @@ def main() -> None:
                 content = travel_markdown_to_html(content)
             cover_data = dict(params.get("cover_data") or {})
             cover_data.setdefault("title", title)
+            overrides = travel_color_overrides(
+                str(params.get("color_scheme") or "teal"),
+                params.get("theme_colors") or None,
+            )
             meta = render_html_to_pdf(
                 content,
                 output_path,
@@ -122,6 +128,7 @@ def main() -> None:
                 cover_data=cover_data,
                 base_dir=base_dir,
                 theme="travel",
+                overrides=overrides,
             )
         else:
             meta = render_markdown_to_pdf(

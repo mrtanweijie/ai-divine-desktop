@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   FolderOpen,
+  LoaderCircle,
   MessageSquare,
   MoreHorizontal,
   Pencil,
@@ -28,6 +29,7 @@ interface ProjectListProps {
   sessions: Session[];
   selectedProjectId: string | null;
   selectedId: string | null;
+  workingSessionId: string | null;
   selectionActive: boolean;
   onSelectProject: (id: string) => void;
   onNewProject: () => void;
@@ -44,6 +46,7 @@ export function ProjectList({
   sessions,
   selectedProjectId,
   selectedId,
+  workingSessionId,
   selectionActive,
   onSelectProject,
   onNewProject,
@@ -82,6 +85,7 @@ export function ProjectList({
             project={project}
             active={selectionActive && project.id === selectedProjectId}
             selectedId={selectedId}
+            workingSessionId={workingSessionId}
             selectionActive={selectionActive}
             projectSessions={sessions.filter(
               (session) => session.project_id === project.id
@@ -104,6 +108,7 @@ interface ProjectBranchProps {
   project: Project;
   active: boolean;
   selectedId: string | null;
+  workingSessionId: string | null;
   selectionActive: boolean;
   projectSessions: Session[];
   onSelectProject: (id: string) => void;
@@ -119,6 +124,7 @@ function ProjectBranch({
   project,
   active,
   selectedId,
+  workingSessionId,
   selectionActive,
   projectSessions,
   onSelectProject,
@@ -160,6 +166,7 @@ function ProjectBranch({
                 key={session.id}
                 session={session}
                 active={selectionActive && session.id === selectedId}
+                working={workingSessionId === session.id}
                 onSelect={onSelectSession}
                 onRename={onRenameSession}
                 onDelete={onDeleteSession}
@@ -432,6 +439,7 @@ function ProjectActionMenu({
 interface ProjectSessionItemProps {
   session: Session;
   active: boolean;
+  working: boolean;
   onSelect: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
@@ -440,6 +448,7 @@ interface ProjectSessionItemProps {
 function ProjectSessionItem({
   session,
   active,
+  working,
   onSelect,
   onRename,
   onDelete,
@@ -497,6 +506,14 @@ function ProjectSessionItem({
               {formatTime(session.updated_at)}
             </span>
           </div>
+          {working && (
+            <LoaderCircle
+              className="project-session-loading spin"
+              size={16}
+              role="status"
+              aria-label={t("message.working", "Working...")}
+            />
+          )}
           <div className="project-session-actions">
             <Button
               variant="icon"

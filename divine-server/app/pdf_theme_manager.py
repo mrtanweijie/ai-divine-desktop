@@ -98,24 +98,21 @@ THEMES: dict[str, dict[str, Any]] = {
     "travel": {
         "file": "travel_template.html",
         "display_name": "旅行手册",
-        "description": "米白纸感 + 暖橙 + 青蓝，适合旅行攻略、路线手册、目的地指南",
+        "description": "深青绿 + 米色重点块，严格复刻旅行手册 PDF",
         "variables": {
-            "--color-primary": "#b8743a",
-            "--color-primary-light": "#d49556",
-            "--color-primary-dark": "#8b5a2b",
-            "--color-accent": "#2c6e7f",
-            "--bg-page": "#faf6f0",
+            "--color-primary": "#2a5a5b",
+            "--color-accent": "#3a8a8b",
+            "--color-accent-light": "#5ba3a4",
+            "--bg-page": "#ffffff",
             "--bg-card": "#ffffff",
-            "--bg-section": "#f3ede3",
-            "--bg-highlight": "#fff8ee",
-            "--text-primary": "#2c2420",
-            "--text-secondary": "#6b5d52",
-            "--text-muted": "#9a8b7e",
-            "--color-morning": "#c98b3a",
-            "--color-afternoon": "#b06a2c",
-            "--color-evening": "#5b4e6e",
-            "--color-warning": "#c0392b",
-            "--border-color": "#e0d5c7",
+            "--bg-highlight": "#f5f1e8",
+            "--bg-cover": "#2a3e3e",
+            "--text-primary": "#2c3333",
+            "--text-secondary": "#5a6a6a",
+            "--text-muted": "#8a9a9a",
+            "--text-inverse": "#ffffff",
+            "--border-light": "#e5e5e5",
+            "--border-table": "#dde5e5",
         },
     },
     "roadmap": {
@@ -179,30 +176,28 @@ _TRAVEL_PRINT_CSS = """
 .cover {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   page: cover;
   height: 297mm;
   min-height: 297mm;
-  padding: 80pt 30pt 60pt;
+  padding: 0;
   position: relative;
   overflow: hidden;
   page-break-after: always;
 }
 
-.cover-bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 0;
+.cover-band {
+  background: var(--bg-cover);
+  color: var(--text-inverse);
+  padding: var(--spacing-lg) var(--spacing-2xl);
+  text-align: center;
 }
 
-.cover-content {
-  position: relative;
-  z-index: 1;
-  color: var(--text-inverse);
+.cover-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--spacing-xl) var(--spacing-2xl);
 }
 
 .page.day-block {
@@ -211,7 +206,15 @@ _TRAVEL_PRINT_CSS = """
 }
 
 .page.day-block + .page.day-block {
-  border-top: 1pt solid var(--border-color);
+  border-top: 1pt solid var(--border-light);
+}
+
+.page {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+  padding: 2.2cm 1.8cm 2.5cm;
+  box-shadow: none;
 }
 
 .header {
@@ -336,14 +339,14 @@ COVER_TEMPLATES: dict[str, str] = {
     <div style="page-break-after:always;"></div>
     """,
     "travel": """
-    <div class="cover">
-      <div class="cover-bg"></div>
-      <div class="cover-content">
+    <div class="page cover">
+      <div class="cover-band">
         <div class="cover-countries">{countries}</div>
         <h1 class="cover-title">{title}</h1>
         <div class="cover-meta">{meta_line}</div>
-        <div class="cover-meta" style="font-size:14px;">{meta_secondary}</div>
-        <div class="cover-route-tags">{route_tags}</div>
+      </div>
+      <div class="cover-body">
+        <div class="cover-tagline">{meta_secondary}</div>
         <p class="cover-summary">{summary}</p>
       </div>
     </div>
@@ -437,7 +440,8 @@ class ThemeManager:
         if overrides:
             variables.update(overrides)
         root_vars = "\n".join(f"  {key}: {value};" for key, value in variables.items())
-        css = css.replace(":root {", f":root {{\n{root_vars}")
+        if variables:
+            css += f"\n:root {{\n{root_vars}\n}}\n"
         css = re.sub(
             r"size:\s*A4\s*;",
             f"size: {paper_size};",
@@ -479,6 +483,63 @@ def load_theme_css(
 
 def list_available_themes() -> list[dict[str, str]]:
     return get_theme_manager().list_themes()
+
+
+TRAVEL_COLOR_PRESETS: dict[str, dict[str, str]] = {
+    "teal": {
+        "--color-primary": "#2a5a5b",
+        "--color-accent": "#3a8a8b",
+        "--color-accent-light": "#5ba3a4",
+        "--bg-highlight": "#f5f1e8",
+        "--bg-cover": "#2a3e3e",
+    },
+    "warm": {
+        "--color-primary": "#b8743a",
+        "--color-accent": "#d49556",
+        "--color-accent-light": "#e5b37c",
+        "--bg-highlight": "#fff3e6",
+        "--bg-cover": "#5c3a24",
+    },
+    "blue": {
+        "--color-primary": "#2f5b9e",
+        "--color-accent": "#3d7bd6",
+        "--color-accent-light": "#6fa8e8",
+        "--bg-highlight": "#edf4fc",
+        "--bg-cover": "#263a5c",
+    },
+    "green": {
+        "--color-primary": "#2e6b4f",
+        "--color-accent": "#3e9a6f",
+        "--color-accent-light": "#72bd98",
+        "--bg-highlight": "#edf7f1",
+        "--bg-cover": "#243f35",
+    },
+    "purple": {
+        "--color-primary": "#5b4b8a",
+        "--color-accent": "#7a6bc2",
+        "--color-accent-light": "#a99ce0",
+        "--bg-highlight": "#f2effa",
+        "--bg-cover": "#332b4a",
+    },
+    "monochrome": {
+        "--color-primary": "#333333",
+        "--color-accent": "#666666",
+        "--color-accent-light": "#999999",
+        "--bg-highlight": "#f5f5f5",
+        "--bg-cover": "#222222",
+    },
+}
+
+
+def travel_color_overrides(
+    color_scheme: str = "teal",
+    custom: dict[str, str] | None = None,
+) -> dict[str, str]:
+    key = (color_scheme or "teal").strip().lower()
+    overrides = dict(TRAVEL_COLOR_PRESETS.get(key, TRAVEL_COLOR_PRESETS["teal"]))
+    if custom:
+        overrides.update(custom)
+    return overrides
 
 
 def build_cover_html(
@@ -557,8 +618,9 @@ def build_travel_html_document(
     subtitle: str = "AI Divine 生成文档",
     cover_data: dict[str, Any] | None = None,
     include_cover: bool = True,
+    overrides: dict[str, str] | None = None,
 ) -> str:
-    css = load_theme_css("travel")
+    css = load_theme_css("travel", overrides=overrides)
     cover_html = (
         build_cover_html("travel", html_lib.escape(title), subtitle, cover_data)
         if include_cover

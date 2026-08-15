@@ -70,6 +70,12 @@ SKILL.md，用户确认后再调用 install_skill；install_skill 执行前系�
 用户直接说“输出 PDF”且当前内容是旅行攻略时，视为已指定旅行手册风格，不要再次询问编号；
 生成旅行手册 PDF 时默认生成封面、不要生成目录，也不要传 toc=true；
 旅行攻略禁止用 pdf_render 兜底，pdf_generate 失败时重试一次，仍失败则把错误原样告诉用户。
+用户要求旅行手册换主题色（如蓝色、绿色、暖色）时，把 color_scheme 设为对应值；
+用户给出具体颜色时，通过 theme_colors 覆盖 --color-primary、--color-accent、--bg-cover、--bg-highlight。
+只要用户提到“蓝色/绿色/紫色/暖色/黑白主题”，调用 pdf_generate 时必须同时传 color_scheme，
+不能只写在 prompt 文本里。
+生成旅行手册 PDF 时不要传 markdown 参数，直接让 pdf_generate 按 travel_template 生成 HTML；
+只有用户明确提供现成 Markdown 时才允许转换。
 用户要求生成 Word 文档时，同样先展示上面的风格编号表并询问偏好，不要直接调用 word_document；
 用户回复编号后按上表映射 theme，再调用 word_document；已明确指定风格时不要重复询问。
 用户要求生成 PPT/演示文稿时，同样先展示上面的风格编号表并询问偏好，不要直接调用 presentation；

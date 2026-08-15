@@ -14,6 +14,7 @@ interface SessionListProps {
   projects: Project[];
   selectedId: string | null;
   selectedProjectId: string | null;
+  workingSessionId: string | null;
   collapsed: boolean;
   onSelect: (id: string) => void;
   onNew: () => void;
@@ -36,6 +37,7 @@ export function SessionList({
   projects,
   selectedId,
   selectedProjectId,
+  workingSessionId,
   collapsed,
   onSelect,
   onNew,
@@ -123,6 +125,7 @@ export function SessionList({
           sessions={sessions}
           selectedProjectId={selectedProjectId}
           selectedId={selectedId}
+          workingSessionId={workingSessionId}
           selectionActive={activeView === "chat"}
           onSelectProject={onSelectProject}
           onNewProject={onNewProject}

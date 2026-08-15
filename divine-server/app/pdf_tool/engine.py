@@ -7,10 +7,11 @@ from typing import Any
 from ..config import settings_store
 from ..llm import DeepSeekLLM, MockLLM
 from ..pdf_renderer import render_html_to_pdf, render_markdown_to_pdf
+from .base import PDFIntent
 from .content import generate_content
 from .intent import parse_intent
 from .recipes import detect_recipe, get_recipe
-from .travel_html import looks_like_travel_html, travel_markdown_to_html
+from .travel_html import looks_like_travel_html, travel_prompt_to_html
 
 
 def _title_from_markdown(content: str) -> str:
@@ -19,6 +20,48 @@ def _title_from_markdown(content: str) -> str:
         if stripped.startswith("#"):
             return re.sub(r"^#+\s*", "", stripped).strip()
     return ""
+
+
+def _summary_from_markdown(content: str) -> str:
+    seen_title = False
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            seen_title = True
+            continue
+        if (
+            seen_title
+            and len(stripped) > 12
+            and not stripped.startswith(("|", "-", "*", ">"))
+        ):
+            return re.sub(r"[*_`]", "", stripped)[:150]
+    return ""
+
+
+def _route_from_markdown(content: str) -> list[str]:
+    for line in content.splitlines():
+        if "→" in line or "->" in line:
+            clean = re.sub(r"\*\*", "", line)
+            clean = re.split(r"[：:]\s*", clean)[-1]
+            return [
+                part.strip().rstrip("，。、")
+                for part in re.split(r"→|->|,|、|·|/", clean)
+                if part.strip()
+            ]
+    return []
+
+
+def _looks_like_generic_travel_fallback(content: str) -> bool:
+    return any(
+        token in content
+        for token in (
+            "围绕用户需求生成的一份完整旅行攻略",
+            "待补充",
+            "D1｜第 1 天",
+        )
+    )
 
 
 def _suggest_resume_theme(prompt: str, resume_data: dict[str, Any]) -> str:
@@ -99,6 +142,7 @@ class PDFTool:
         llm: Any | None = None,
         content: str | None = None,
         resume_data: dict[str, Any] | None = None,
+        color_overrides: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         recipe_name = kind or detect_recipe(prompt)
         recipe = get_recipe(recipe_name)
@@ -130,18 +174,45 @@ class PDFTool:
                 "renderer": "weasyprint",
             }
 
-        if content:
+        use_content = bool(content)
+        if use_content:
             intent = recipe.fallback_intent(prompt)
             markdown = content
             content_title = _title_from_markdown(markdown)
             if content_title:
                 intent.title = content_title
+            summary = _summary_from_markdown(markdown)
+            if summary:
+                intent.meta["summary"] = summary
+            route = _route_from_markdown(markdown)
+            if route:
+                intent.meta["route"] = route
+                intent.meta["destination"] = route[0]
+            if recipe_name == "travel":
+                source = markdown
+                intent = PDFIntent(
+                    title=intent.title,
+                    topic=source,
+                    style=recipe.css_template,
+                    color_scheme=recipe.color_scheme,
+                    sections=[
+                        {
+                            "title": "现有内容",
+                            "key_points": [source],
+                        }
+                    ],
+                    meta=intent.meta,
+                )
+                markdown = await generate_content(intent, recipe, llm)
         else:
             intent = await parse_intent(prompt, recipe, llm)
             markdown = await generate_content(intent, recipe, llm)
 
-        if recipe_name == "travel" and not looks_like_travel_html(markdown):
-            markdown = travel_markdown_to_html(markdown)
+        if recipe_name == "travel" and (
+            not looks_like_travel_html(markdown)
+            or _looks_like_generic_travel_fallback(markdown)
+        ):
+            markdown = travel_prompt_to_html(prompt) or markdown
 
         final_style = style or recipe.css_template
         final_theme = theme or recipe.css_template
@@ -150,6 +221,9 @@ class PDFTool:
             cover = True
             toc = False
         if recipe_name == "travel" and final_theme == "travel":
+            from ..pdf_theme_manager import travel_color_overrides
+
+            overrides = travel_color_overrides(final_color, color_overrides)
             meta = render_html_to_pdf(
                 markdown,
                 output,
@@ -159,6 +233,7 @@ class PDFTool:
                 cover_data=intent.meta,
                 base_dir=base_dir,
                 theme="travel",
+                overrides=overrides,
             )
         else:
             meta = render_markdown_to_pdf(

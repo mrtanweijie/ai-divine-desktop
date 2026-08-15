@@ -501,6 +501,17 @@ a:focus-visible {
   white-space: nowrap;
 }
 
+.project-session-loading {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+}
+
+.project-session-item:hover .project-session-loading {
+  display: none;
+}
+
 .project-session-item.active .project-session-title {
   color: var(--color-accent);
   font-weight: 500;

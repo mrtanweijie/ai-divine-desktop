@@ -54,6 +54,7 @@ async def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     file_name = str(params.get("file_name") or "").strip() or prompt[:40]
+    file_name = re.sub(r"\.md$", "", file_name, flags=re.IGNORECASE)
     output_path = unique_output_path(output_dir, file_name, "PDF文档", ".pdf")
     try:
         meta = await PDFTool().run(
@@ -69,6 +70,7 @@ async def main() -> None:
             base_dir=workspace,
             content=str(params.get("markdown") or "").strip() or None,
             resume_data=params.get("resume_data") or None,
+            color_overrides=params.get("theme_colors") or None,
         )
     except Exception as exc:
         print(

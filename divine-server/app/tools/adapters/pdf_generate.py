@@ -43,8 +43,12 @@ from ..registry import register_tool
             },
             "color_scheme": {
                 "type": "string",
-                "enum": ["blue", "green", "warm", "monochrome", "purple"],
+                "enum": ["teal", "blue", "green", "warm", "monochrome", "purple"],
                 "description": "配色方案",
+            },
+            "theme_colors": {
+                "type": "object",
+                "description": "可选，自定义主题色变量：--color-primary、--color-accent、--bg-cover、--bg-highlight 等",
             },
             "paper_size": {
                 "type": "string",
@@ -87,6 +91,7 @@ class PdfGenerateAdapter(ToolAdapter):
             "style": str(arguments.get("style") or "").strip(),
             "theme": str(arguments.get("theme") or "").strip(),
             "color_scheme": str(arguments.get("color_scheme") or "").strip(),
+            "theme_colors": arguments.get("theme_colors") or {},
             "paper_size": str(arguments.get("paper_size") or "A4").strip(),
             "cover": bool(arguments.get("cover")),
             "toc": bool(arguments.get("toc")),

@@ -29,7 +29,7 @@ class TravelRecipe(PDFRecipe):
     display_name = "旅行手册"
     content_format = "html"
     css_template = "travel"
-    color_scheme = "warm"
+    color_scheme = "teal"
     illustration_plan = {
         "mermaid": False,
         "svg": False,
@@ -55,20 +55,20 @@ class TravelRecipe(PDFRecipe):
             "必须按以下顺序输出完整结构：\n"
             "1. `<div class=\"page\">` 内写 `路线总览`：天数/晚数/国家数/交通原则，一张逐日行程摘要表，"
             "3-5 条路线逻辑，每个住宿城市的区域建议；\n"
-            "2. 每日行程：每个 `<div class=\"page\">` 放一天，跨境日或紧凑日可两天同页但必须用 "
-            "`<hr class=\"day-divider\">` 分隔；每天用 `<h2 class=\"day-title\">` + "
-            "`<span class=\"day-badge\">D1</span>`，再用 `<div class=\"time-row morning\">`、"
-            "`<div class=\"time-row afternoon\">`、`<div class=\"time-row evening\">` 写三段，"
-            "最后用 `<div class=\"day-info\">` 写“吃什么/交通与预订/替代方案”三段；\n"
+            "2. 每日行程：每个 `<div class=\"page\">` 放一天，跨境日或紧凑日可两天同页并用分隔线分开；"
+            "每天用 `<h2 class=\"day-title\">`，"
+            "再用 `<table class=\"time-table\">` 的 "
+            "`time-label/time-content` 写早/午/晚，最后用 `<div class=\"day-section\">` "
+            "写“吃什么/交通与预订/替代方案”三段；\n"
             "3. 专题页（可选 2-4 页）：用 `<div class=\"feature-header\">`、"
             "`<div class=\"feature-section\">`，关键日深读用 `<div class=\"milestone\">` 时间线；\n"
-            "4. 城市读本：用 `<div class=\"city-header\">`、`<p class=\"city-intro\">`、"
-            "`<div class=\"sight-name\">`、`<div class=\"sight-desc\">`、"
-            "`<div class=\"field-notes\">`、`<div class=\"viewing-order\">`；\n"
+            "4. 城市读本：用 `<h3 class=\"city-title\">`、`<p class=\"city-tagline\">`、"
+            "`<div class=\"sight\">` 里的 `sight-name/sight-desc`，"
+            "重点信息用 `<div class=\"highlight-box\">` + `<ul class=\"check-list\">`；\n"
             "5. 收尾：预算页用 `<table class=\"budget-table\">` + "
-            "`<div class=\"booking-timeline-item\">` + `<div class=\"payment-strategy\">`；"
-            "行李页用 `<ul class=\"plain-list\">` + `<table class=\"risk-table\">` + "
-            "`<div class=\"checklist\">`；链接页用 `<div class=\"links-group\">` + "
+            "`<div class=\"booking-step\">` + `<div class=\"payment-note\">`；"
+            "行李页用 `<ul class=\"check-list\">` + `<table class=\"risk-table\">`；"
+            "链接页用 `<div class=\"links-group\">` + `<div class=\"links-group-title\">` + "
             "`<ul class=\"links-list\">` + `<div class=\"disclaimer\">`。\n"
             "排版要求：每个大板块用一个 `<div class=\"page\">`；正文纵向堆叠，不用卡片网格；"
             "传说与史实分开表述；"
@@ -119,13 +119,13 @@ class TravelRecipe(PDFRecipe):
             ],
             meta={
                 "recipe": self.name,
-                "destination": user_input,
+                "destination": "",
                 "days": day_count,
                 "duration": f"{day_count}天{day_count - 1}晚",
-                "travelers": 1,
+                "travelers": "",
                 "countries": "",
                 "route": [],
-                "summary": "围绕用户需求生成的一份完整旅行攻略。",
+                "summary": "",
                 "style": "深度旅行",
             },
         )
@@ -153,13 +153,24 @@ class TravelRecipe(PDFRecipe):
         duration = esc(
             str(meta.get("duration") or f"{day_count}天{day_count - 1}晚")
         )
+        route_stops = "".join(
+            f'<div class="route-stop {"above" if index % 2 == 0 else "below"}">'
+            f'<span class="stop-name">{city}</span></div>'
+            for index, city in enumerate(route_items)
+        )
+        route_map_block = (
+            f'<div class="route-map"><div class="route-line"></div>'
+            f'<div class="route-stops">{route_stops}</div></div>'
+            if route_items
+            else ""
+        )
 
         pages = [
             f"""<div class="page">
   <h2 class="section-title">路线总览</h2>
   <p class="section-subtitle">{duration}｜{countries}｜尽量全程陆路</p>
-  <div class="route-cities">{route_cities}</div>
-  <p class="route-distance">{destination}｜全程信息以官方为准</p>
+  {route_map_block}
+  <p class="route-meta">{route_cities}｜全程信息以官方为准</p>
   <table class="route-table">
     <thead>
       <tr>
@@ -183,15 +194,17 @@ class TravelRecipe(PDFRecipe):
         pages.append(
             """    </tbody>
   </table>
-  <h3 class="subsection-title">路线逻辑</h3>
-  <ul class="plain-list">
-    <li><strong>自然：</strong>沿途地理与气候主线。</li>
-    <li><strong>历史：</strong>丝路城市的历史层次。</li>
-    <li><strong>文化：</strong>当地生活与少数族群观察。</li>
-    <li><strong>节奏：</strong>每天保留替代方案，避免被天气或班次打乱。</li>
-  </ul>
+  <div class="highlight-box">
+    <div class="box-title">路线逻辑</div>
+    <ul class="check-list">
+      <li><strong>自然：</strong>沿途地理与气候主线。</li>
+      <li><strong>历史：</strong>丝路城市的历史层次。</li>
+      <li><strong>文化：</strong>当地生活与少数族群观察。</li>
+      <li><strong>节奏：</strong>每天保留替代方案，避免被天气或班次打乱。</li>
+    </ul>
+  </div>
   <h3 class="subsection-title">住宿区域建议</h3>
-  <ul class="plain-list">
+  <ul class="check-list">
     <li><strong>各城市：</strong>优先住在步行可达旧城或车站的区域，预留班次波动缓冲。</li>
   </ul>
 </div>"""
@@ -200,62 +213,36 @@ class TravelRecipe(PDFRecipe):
         for index in range(1, day_count + 1):
             pages.append(
                 f"""<div class="page">
-  <h2 class="day-title"><span class="day-badge">D{index}</span>第 {index} 天</h2>
-  <p class="day-subtitle">当日核心目标与节奏建议。</p>
-  <div class="time-row morning">
-    <div class="time-row-label">早上</div>
-    <div class="time-row-text">抵达或出发后的第一段安排。</div>
-  </div>
-  <div class="time-row afternoon">
-    <div class="time-row-label">下午</div>
-    <div class="time-row-text">当天的核心游览与交通衔接。</div>
-  </div>
-  <div class="time-row evening">
-    <div class="time-row-label">晚上</div>
-    <div class="time-row-text">住宿、晚餐与第二天准备。</div>
-  </div>
-  <div class="day-info">
-    <div class="day-info-item">
-      <div class="day-info-label">吃什么</div>
-      <div class="day-info-text">当地特色餐食与点餐建议。</div>
-    </div>
-    <div class="day-info-item">
-      <div class="day-info-label">交通与预订</div>
-      <div class="day-info-text">车次/门票/入住时间，以官方为准。</div>
-    </div>
-    <div class="day-info-item alternative">
-      <div class="day-info-label">替代方案</div>
-      <div class="day-info-text">天气或班次变化时删什么、保什么、移到哪里。</div>
-    </div>
-  </div>
+  <h2 class="day-title">D{index}｜第 {index} 天</h2>
+  <p class="day-subtitle"><span class="subtitle-key">当日核心目标</span></p>
+  <table class="time-table">
+    <tr><td class="time-label">早上</td><td class="time-content">抵达或出发后的第一段安排。</td></tr>
+    <tr><td class="time-label">下午</td><td class="time-content">当天的核心游览与交通衔接。</td></tr>
+    <tr><td class="time-label">晚上</td><td class="time-content">住宿、晚餐与第二天准备。</td></tr>
+  </table>
+  <div class="day-section"><div class="day-section-title">吃什么</div><div class="day-section-text">当地特色餐食与点餐建议。</div></div>
+  <div class="day-section"><div class="day-section-title">交通与预订</div><div class="day-section-text">车次/门票/入住时间，以官方为准。</div></div>
+  <div class="day-section"><div class="day-section-title">替代方案</div><div class="day-section-text">天气或班次变化时删什么、保什么、移到哪里。</div></div>
 </div>"""
             )
 
         pages.append(
             """<div class="page">
-  <div class="city-header">
-    <h3 class="city-title"><span class="city-name">目的地</span>｜沿途城市读本</h3>
-    <p class="city-tagline">知道眼前的风景从哪里来，旅行会多出一层。</p>
-  </div>
-  <p class="city-intro">从历史层叠理解城市今天的面貌，传说与史实分开表述。</p>
+  <h3 class="city-title">目的地｜沿途城市读本</h3>
+  <p class="city-tagline">知道眼前的风景从哪里来，旅行会多出一层。</p>
+  <p class="body-text">从历史层叠理解城市今天的面貌，传说与史实分开表述。</p>
   <h4 class="subsection-title">值得慢看的地方</h4>
-  <div class="sight-name">城市核心区</div>
-  <div class="sight-desc">按顺序列出主要景点，说明历史背景与常见误解。</div>
-  <div class="field-notes">
-    <div class="field-notes-title">站在现场，留意这些细节</div>
-    <ul>
+  <div class="sight">
+    <div class="sight-name">城市核心区</div>
+    <div class="sight-desc">按顺序列出主要景点，说明历史背景与常见误解。</div>
+  </div>
+  <div class="highlight-box">
+    <div class="box-title">站在现场，留意这些细节</div>
+    <ul class="check-list">
       <li>光线、材料、结构与方向感。</li>
       <li>使用者和日常生活的痕迹。</li>
       <li>修复外观与原貌的区别。</li>
     </ul>
-  </div>
-  <div class="viewing-order">
-    <div class="viewing-order-title">建议观看顺序</div>
-    <ol>
-      <li>抵达后先看总体格局。</li>
-      <li>再进入具体建筑与街区。</li>
-      <li>最后回到交通节点。</li>
-    </ol>
   </div>
 </div>"""
         )
@@ -281,19 +268,19 @@ class TravelRecipe(PDFRecipe):
     </tbody>
   </table>
   <h3 class="subsection-title">什么时候订</h3>
-  <div class="booking-timeline-item">
-    <div class="booking-timeline-marker">现在</div>
-    <div class="booking-timeline-content">确认护照、签证与边境开放状态。</div>
+  <div class="booking-step">
+    <div class="booking-step-marker">现在</div>
+    <div class="booking-step-content">确认护照、签证与边境开放状态。</div>
   </div>
-  <div class="booking-timeline-item">
-    <div class="booking-timeline-marker">出发前 4-6 周</div>
-    <div class="booking-timeline-content">预订核心车票与住宿。</div>
+  <div class="booking-step">
+    <div class="booking-step-marker">出发前 4-6 周</div>
+    <div class="booking-step-content">预订核心车票与住宿。</div>
   </div>
-  <div class="booking-timeline-item">
-    <div class="booking-timeline-marker">出发前 48 小时</div>
-    <div class="booking-timeline-content">离线备份车票、地图与证件扫描件。</div>
+  <div class="booking-step">
+    <div class="booking-step-marker">出发前 48 小时</div>
+    <div class="booking-step-content">离线备份车票、地图与证件扫描件。</div>
   </div>
-  <div class="payment-strategy">
+  <div class="payment-note">
     <strong>付款策略：</strong>卡片/现金/换汇建议，汇率波动以官方为准。
   </div>
 </div>"""
@@ -304,7 +291,7 @@ class TravelRecipe(PDFRecipe):
   <h2 class="section-title">行李、天气与风险控制</h2>
   <p class="section-subtitle">按季节分层穿衣，出发前复核天气</p>
   <h3 class="subsection-title">分层穿衣</h3>
-  <ul class="plain-list">
+  <ul class="check-list">
     <li>贴身层：排汗速干。</li>
     <li>保暖层：抓绒/轻薄羽绒。</li>
     <li>鞋类：适合城市步行与短途徒步。</li>
@@ -321,9 +308,9 @@ class TravelRecipe(PDFRecipe):
       <tr><td class="risk-situation">证件问题</td><td class="risk-action">随身复印件 + 离线电子版。</td></tr>
     </tbody>
   </table>
-  <div class="checklist">
+  <div class="highlight-box">
     <h3 class="subsection-title">旅行前核对清单</h3>
-    <ul>
+    <ul class="check-list">
       <li>证件与入境要求</li>
       <li>关键车票核对</li>
       <li>口岸与班次状态</li>
@@ -337,13 +324,13 @@ class TravelRecipe(PDFRecipe):
             """<div class="page">
   <h2 class="section-title">实用链接与资料来源</h2>
   <div class="links-group">
-    <h4>交通与预订</h4>
+    <div class="links-group-title">交通与预订</div>
     <ul class="links-list">
       <li>铁路/巴士/住宿预订入口：以官方渠道为准。</li>
     </ul>
   </div>
   <div class="links-group">
-    <h4>历史与目的地背景</h4>
+    <div class="links-group-title">历史与目的地背景</div>
     <ul class="links-list">
       <li>目的地官方旅游网站与历史资料。</li>
     </ul>

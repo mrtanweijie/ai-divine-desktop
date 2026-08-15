@@ -848,6 +848,7 @@ export default function ChatPage() {
           projects={projects}
           selectedId={selectedId}
           selectedProjectId={selectedProjectId}
+          workingSessionId={streaming ? selectedId : null}
           collapsed={!sidebarOpen}
           onSelect={handleSelectSession}
           onNew={handleNewSession}

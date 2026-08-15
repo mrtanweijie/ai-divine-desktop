@@ -6,14 +6,20 @@ import re
 import markdown as markdown_lib
 from bs4 import BeautifulSoup
 
-_DAY_RE = re.compile(r"^(?:Day|D)\s*(\d+)\s*[·：:\-—\s]*(.*)$", re.IGNORECASE)
+_DAY_RE = re.compile(
+    r"^(?:(?:Day|D)\s*(\d+)|第\s*(\d+)\s*天)\s*[·：:\-—\s]*(.*)$",
+    re.IGNORECASE,
+)
 _EMOJI_BULLET_RE = re.compile(r"^[✦•▪○◇]\s*")
 _ICON_BULLET_RE = re.compile(
     r"^(?:🏠|💡|⚠️|🛏|🚗|📌|✈|🏝)\s*"
 )
-_DAY_LINE_RE = re.compile(r"^\*{0,2}\s*(?:Day|D)\s*\d+", re.IGNORECASE)
+_DAY_LINE_RE = re.compile(
+    r"^\*{0,2}\s*(?:(?:Day|D)\s*\d+|第\s*\d+\s*天)",
+    re.IGNORECASE,
+)
 _SECTION_LINE_RE = re.compile(
-    r"^(?:路线总览|预算清单|酒店推荐|行前提醒|美食清单|交通小结|"
+    r"^(?:路线总览|路线概览|行程概览|预算清单|酒店推荐|行前提醒|美食清单|交通小结|"
     r"行李、天气与风险控制|实用链接与资料来源|关键风险)"
 )
 _INFO_LINE_RE = re.compile(
@@ -98,30 +104,56 @@ def _day_heading(text: str) -> str:
     match = _DAY_RE.match(text.strip())
     if not match:
         return html_lib.escape(text)
-    number = match.group(1)
-    rest = match.group(2).strip() or text
+    number = match.group(1) or match.group(2)
+    rest = match.group(3).strip() or text
+    suffix = f"｜{html_lib.escape(rest)}" if rest and rest != text else ""
+    return f"D{number}{suffix}"
+
+
+def _day_page_open(text: str) -> str:
     return (
-        f'<span class="day-badge">D{number}</span>'
-        f"{html_lib.escape(rest)}"
+        f'<div class="page day-block"><h2 class="day-title">'
+        f"{_day_heading(text)}</h2>"
+    )
+
+
+def _route_map_html(text: str) -> str:
+    parts = [
+        part.strip()
+        for part in re.split(r"→|->|,|、|·|/", text)
+        if part.strip()
+    ]
+    if len(parts) < 2:
+        return ""
+    stops = "".join(
+        f'<div class="route-stop {"above" if index % 2 == 0 else "below"}">'
+        f'<span class="stop-name">{html_lib.escape(part)}</span></div>'
+        for index, part in enumerate(parts)
+    )
+    return (
+        '<div class="route-map"><div class="route-line"></div>'
+        f'<div class="route-stops">{stops}</div></div>'
     )
 
 
 def _match_time_text(text: str) -> tuple[str, str, str] | None:
+    compact = text.replace(" ", "")
     for label, kind in _TIME_LABELS:
-        if text == label:
+        if compact == label:
             return label, kind, ""
-        if text.startswith(label + "：") or text.startswith(label + ":"):
-            rest = text[len(label):].lstrip("：: ")
+        if compact.startswith(label + "：") or compact.startswith(label + ":"):
+            rest = compact[len(label):].lstrip("：: ")
             return label, kind, rest
     return None
 
 
 def _match_info_text(text: str) -> tuple[str, str, str] | None:
+    compact = text.replace(" ", "")
     for label, kind in _INFO_LABELS:
-        if text == label:
+        if compact == label:
             return label, kind, ""
-        if text.startswith(label + "：") or text.startswith(label + ":"):
-            rest = text[len(label):].lstrip("：: ")
+        if compact.startswith(label + "：") or compact.startswith(label + ":"):
+            rest = compact[len(label):].lstrip("：: ")
             return label, kind, rest
     return None
 
@@ -129,7 +161,7 @@ def _match_info_text(text: str) -> tuple[str, str, str] | None:
 def _list_html(node) -> str:
     if node.name == "ol":
         return str(node)
-    return str(node).replace("<ul>", '<ul class="plain-list">', 1)
+    return str(node).replace("<ul>", '<ul class="check-list">', 1)
 
 
 def _table_html(node, page_kind: str) -> str:
@@ -155,6 +187,7 @@ def travel_markdown_to_html(markdown: str) -> str:
     blocks: list[str] = []
     page_kind = "section"
     time_row: dict[str, str | list[str]] | None = None
+    time_rows: list[str] = []
     info_item: dict[str, str | list[str]] | None = None
 
     def close_time_row() -> None:
@@ -163,11 +196,10 @@ def travel_markdown_to_html(markdown: str) -> str:
             return
         content = " ".join(time_row["texts"]) if time_row["texts"] else ""
         if content:
-            blocks.append(
-                '<div class="time-row %s">'
-                '<div class="time-row-label">%s</div>'
-                '<div class="time-row-text">%s</div></div>'
-                % (time_row["kind"], time_row["label"], content)
+            time_rows.append(
+                '<tr><td class="time-label">%s</td>'
+                '<td class="time-content">%s</td></tr>'
+                % (time_row["label"], content)
             )
         time_row = None
 
@@ -177,19 +209,24 @@ def travel_markdown_to_html(markdown: str) -> str:
             return
         content = " ".join(info_item["texts"]) if info_item["texts"] else ""
         if content:
-            extra = " alternative" if info_item["kind"] == "alternative" else ""
             blocks.append(
-                '<div class="day-info-item%s">'
-                '<div class="day-info-label">%s</div>'
-                '<div class="day-info-text">%s</div></div>'
-                % (extra, info_item["label"], content)
+                '<div class="day-section">'
+                '<div class="day-section-title">%s</div>'
+                '<div class="day-section-text">%s</div></div>'
+                % (info_item["label"], content)
             )
         info_item = None
 
     def flush_page() -> None:
-        nonlocal page_kind, time_row, info_item
+        nonlocal page_kind, time_row, time_rows, info_item
         close_time_row()
         close_info_item()
+        if time_rows:
+            blocks.append(
+                '<table class="time-table">%s</table>'
+                % "".join(time_rows)
+            )
+            time_rows = []
         if blocks:
             blocks.append("</div>")
             pages.append("\n".join(blocks))
@@ -204,27 +241,34 @@ def travel_markdown_to_html(markdown: str) -> str:
             flush_page()
             text = node.get_text(" ", strip=True)
             plan_match = re.match(r"^方案\s*[A-Za-z0-9]", text)
-            route_match = re.match(r"^路线总览[：:]\s*(.*)$", text)
+            route_match = re.match(
+                r"^(?:路线总览|路线概览|行程概览)(?:[：:]\s*(.*))?$",
+                text,
+            )
             if plan_match or route_match:
                 page_kind = "overview"
                 blocks.append(
                     '<div class="page"><h2 class="section-title">路线总览</h2>'
                 )
-                subtitle = (
-                    route_match.group(1).strip() if route_match else text
-                )
+                if plan_match:
+                    subtitle = text
+                else:
+                    subtitle = (
+                        route_match.group(1).strip()
+                        if route_match and route_match.group(1)
+                        else ""
+                    )
                 if subtitle:
                     blocks.append(
                         f'<p class="section-subtitle">'
                         f"{html_lib.escape(subtitle)}</p>"
                     )
+                if route_match and subtitle:
+                    blocks.append(_route_map_html(subtitle))
                 continue
             page_kind = _page_kind(text)
             if page_kind == "day":
-                blocks.append(
-                    f'<div class="page day-block"><h2 class="day-title">'
-                    f"{_day_heading(text)}</h2>"
-                )
+                blocks.append(_day_page_open(text))
             else:
                 blocks.append(
                     f'<div class="page"><h2 class="section-title">'
@@ -240,10 +284,7 @@ def travel_markdown_to_html(markdown: str) -> str:
             if _DAY_RE.match(text):
                 flush_page()
                 page_kind = "day"
-                blocks.append(
-                    f'<div class="page day-block"><h2 class="day-title">'
-                    f"{_day_heading(text)}</h2>"
-                )
+                blocks.append(_day_page_open(text))
             elif page_kind == "day" and time_match:
                 time_row = {
                     "kind": time_match[1],
@@ -268,10 +309,10 @@ def travel_markdown_to_html(markdown: str) -> str:
             if day_match:
                 flush_page()
                 page_kind = "day"
-                blocks.append(
-                    f'<div class="page day-block"><h2 class="day-title">'
-                    f"{_day_heading(text)}</h2>"
-                )
+                blocks.append(_day_page_open(text))
+                continue
+            if page_kind == "overview" and re.search(r"→|->", text):
+                blocks.append(_route_map_html(text))
                 continue
             time_match = _match_time_text(text)
             if page_kind == "day" and time_match:
@@ -299,6 +340,24 @@ def travel_markdown_to_html(markdown: str) -> str:
                 blocks.append(str(node))
             continue
         if name in ("ul", "ol"):
+            if page_kind == "day" and name == "ul":
+                others: list[str] = []
+                for item in node.find_all("li", recursive=False):
+                    item_text = item.get_text(" ", strip=True)
+                    time_match = _match_time_text(item_text)
+                    if time_match and time_match[2]:
+                        time_rows.append(
+                            '<tr><td class="time-label">%s</td>'
+                            '<td class="time-content">%s</td></tr>'
+                            % (time_match[0], time_match[2])
+                        )
+                    else:
+                        others.append(str(item))
+                if others:
+                    blocks.append(
+                        '<ul class="check-list">%s</ul>' % "".join(others)
+                    )
+                continue
             items = [
                 item.get_text(" ", strip=True)
                 for item in node.find_all("li", recursive=False)
@@ -314,6 +373,27 @@ def travel_markdown_to_html(markdown: str) -> str:
         if name == "table":
             blocks.append(_table_html(node, page_kind))
             continue
+        if name == "pre":
+            pre_lines = [
+                line.strip()
+                for line in (node.get_text("\n", strip=True) or "").splitlines()
+                if line.strip()
+            ]
+            if (
+                len(pre_lines) >= 2
+                and "D1" in pre_lines[0]
+                and re.search(r"[─—-]+", pre_lines[1])
+            ):
+                parts = [
+                    part.strip()
+                    for part in re.split(r"[─—-]+", pre_lines[1])
+                    if part.strip()
+                ]
+                if parts:
+                    blocks.append(_route_map_html(" → ".join(parts)))
+                    continue
+            blocks.append(str(node))
+            continue
         if name == "blockquote":
             blocks.append(f'<div class="disclaimer">{node}</div>')
             continue
@@ -326,3 +406,150 @@ def travel_markdown_to_html(markdown: str) -> str:
     if not pages:
         return f'<div class="page">{html_doc}</div>'
     return "\n".join(pages).strip()
+
+
+_DAY_PROMPT_RE = re.compile(
+    r"^\s*[-*]?\s*(?:Day|D)\s*(\d+)\s*[·：:\-—\s]*(.*)$",
+    re.IGNORECASE,
+)
+_SECTION_PROMPT_RE = re.compile(r"^\s*【([^】]+)】")
+
+
+def _prompt_route_map(prompt: str) -> str:
+    cities: list[str] = []
+    for line in prompt.splitlines():
+        match = _DAY_PROMPT_RE.match(line.strip())
+        if not match:
+            continue
+        rest = match.group(2) or ""
+        title = re.split(r"[：:]", rest, maxsplit=1)[0].strip()
+        first = re.split(r"[·→\-]", title)[0].strip()
+        if first and first not in cities:
+            cities.append(first)
+    if len(cities) >= 2:
+        return _route_map_html(" → ".join(cities[:8]))
+    return ""
+
+
+def _build_prompt_day_html(
+    day: tuple[str, str, str], lines: list[str]
+) -> str:
+    number, title, rest = day
+    time_rows: list[str] = []
+    food_lines: list[str] = []
+    detail_lines: list[str] = []
+    for raw in lines:
+        line = re.sub(r"^\s*[-*]\s+", "", raw).strip()
+        if not line:
+            continue
+        time_match = _match_time_text(line)
+        if time_match and time_match[2]:
+            time_rows.append(
+                '<tr><td class="time-label">%s</td>'
+                '<td class="time-content">%s</td></tr>'
+                % (time_match[0], html_lib.escape(time_match[2]))
+            )
+        elif "午餐" in line or "晚餐" in line:
+            food_lines.append(html_lib.escape(line))
+        else:
+            detail_lines.append(html_lib.escape(line))
+    if rest:
+        detail_lines.insert(0, html_lib.escape(rest))
+
+    body = [
+        f'<div class="page day-block"><h2 class="day-title">D{number}｜'
+        f"{html_lib.escape(title or f'第 {number} 天')}</h2>"
+    ]
+    if time_rows:
+        body.append(
+            '<table class="time-table">%s</table>' % "".join(time_rows)
+        )
+    if detail_lines:
+        body.append(
+            '<div class="day-section"><div class="day-section-title">行程安排</div>'
+            '<div class="day-section-text">%s</div></div>'
+            % "；".join(detail_lines)
+        )
+    if food_lines:
+        body.append(
+            '<div class="day-section"><div class="day-section-title">吃什么</div>'
+            '<div class="day-section-text">%s</div></div>'
+            % "；".join(food_lines)
+        )
+    body.append("</div>")
+    return "\n".join(body)
+
+
+def travel_prompt_to_html(prompt: str) -> str:
+    lines = prompt.splitlines()
+    day_pages: list[str] = []
+    current_day: tuple[str, str, str] | None = None
+    current_lines: list[str] = []
+    section_title = ""
+    section_lines: list[str] = []
+    section_pages: list[str] = []
+
+    def flush_day() -> None:
+        nonlocal current_day, current_lines
+        if current_day:
+            day_pages.append(_build_prompt_day_html(current_day, current_lines))
+        current_day = None
+        current_lines = []
+
+    def flush_section() -> None:
+        nonlocal section_title, section_lines
+        if section_title and section_lines:
+            items = "".join(
+                f"<li>{html_lib.escape(line)}</li>"
+                for line in section_lines
+                if line.strip()
+            )
+            section_pages.append(
+                f'<div class="page"><h2 class="section-title">'
+                f"{html_lib.escape(section_title)}</h2>"
+                f'<ul class="check-list">{items}</ul></div>'
+            )
+        section_title = ""
+        section_lines = []
+
+    for raw in lines:
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        day_match = _DAY_PROMPT_RE.match(stripped)
+        section_match = _SECTION_PROMPT_RE.match(stripped)
+        if day_match:
+            flush_section()
+            flush_day()
+            rest = day_match.group(2) or ""
+            title = rest
+            content = ""
+            if "：" in rest or ":" in rest:
+                title, content = re.split(r"[：:]", rest, maxsplit=1)
+            current_day = (
+                day_match.group(1),
+                title.strip(),
+                content.strip(),
+            )
+        elif section_match:
+            flush_section()
+            flush_day()
+            section_title = section_match.group(1).strip()
+        elif current_day is not None:
+            current_lines.append(stripped)
+        elif section_title:
+            section_lines.append(
+                re.sub(r"^\s*[-*]\s+", "", stripped)
+            )
+    flush_day()
+    flush_section()
+
+    route_map = _prompt_route_map(prompt)
+    overview = [
+        '<div class="page"><h2 class="section-title">路线总览</h2>',
+        '<p class="section-subtitle">完整旅行手册</p>',
+    ]
+    if route_map:
+        overview.append(route_map)
+    overview.append("</div>")
+    return "\n".join([*overview, *day_pages, *section_pages]).strip()
