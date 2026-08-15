@@ -232,6 +232,14 @@ pnpm tauri:build:debug   # 调试包，开启 devtools
 完整签名需要安装 Developer ID Application 证书；公证需要设置 `APPLE_ID`、`APPLE_PASSWORD`、`APPLE_TEAM_ID`，或使用 App Store Connect API Key（`APPLE_API_ISSUER`、`APPLE_API_KEY`、`APPLE_API_KEY_PATH`）。
 也可以先用 `xcrun notarytool store-credentials <profile> --apple-id ... --team-id ...` 保存凭据，再用 `--keychain-profile` 公证。
 
+签名证书不要写进 `tauri.conf.json`。在项目根目录创建 `.env`（参考 `.env.example`）填入：
+
+```bash
+APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+```
+
+`release-macos.sh` 打包时会读取 `.env`，用临时配置覆盖 `signingIdentity`；`.env` 已被 gitignore，不会提交到远程仓库。
+
 ### 自动更新与发布
 
 首次为 updater 生成独立签名密钥，公钥会写入 `tauri.conf.json`，私钥不要提交到仓库：
@@ -261,6 +269,8 @@ export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/divine.key"
 ```
 
 脚本会构建签名包、生成 `.app.tar.gz` 和 `release-assets/latest.json`，并上传到 GitHub Release。客户端启动后自动检查该清单，发现新版本后可在设置页或右下角提示中下载并重启。
+
+更新说明默认读取仓库根目录 `release-notes.md` 中 `## v<version>` 区块（例如 `## v0.1.1`）；也可以用 `--notes` 或 `--notes-file` 覆盖。
 
 ## GitHub Actions
 

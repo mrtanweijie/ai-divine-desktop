@@ -54,7 +54,7 @@ export function UpdateBanner() {
   return (
     <div className="update-banner update-banner--available" role="status">
       <Download className="update-banner-icon" size={15} />
-      <span className="update-banner-text">
+      <span className="update-banner-text" title={updater.body || undefined}>
         {t("updater.available", "发现新版本 v{{version}}", {
           version: updater.version,
         })}

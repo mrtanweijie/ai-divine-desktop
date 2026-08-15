@@ -20,6 +20,7 @@ export type UpdaterStatus =
 export interface UpdaterState {
   status: UpdaterStatus;
   version: string;
+  body: string;
   progress: number;
   message: string;
   update: Update | null;
@@ -30,6 +31,7 @@ export interface UpdaterState {
 const initialState: UpdaterState = {
   status: "idle",
   version: "",
+  body: "",
   progress: 0,
   message: "",
   update: null,
@@ -104,6 +106,7 @@ export async function checkForUpdates(): Promise<void> {
       setState({
         status: "available",
         version: found.version,
+        body: found.body ?? "",
         progress: 0,
         message: "",
         update: found,
@@ -114,6 +117,7 @@ export async function checkForUpdates(): Promise<void> {
       setState({
         status: "uptodate",
         version: "",
+        body: "",
         progress: 0,
         message: "",
         update: null,
@@ -126,6 +130,7 @@ export async function checkForUpdates(): Promise<void> {
     setState({
       status: "error",
       version: "",
+      body: "",
       progress: 0,
       message: errorMessage(error),
       update: null,

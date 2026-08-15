@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_DIR="$ROOT/divine-app"
+RELEASE_NOTES_FILE="$ROOT/release-notes.md"
 
 VERSION=""
 TAG=""
@@ -25,7 +26,7 @@ usage() {
   --updater-key <path>     必填，更新签名私钥，例如 ~/.tauri/divine.key
   --repo <owner/repo>      可选，自动从 git remote 推断；--upload 时建议指定
   --notes "<text>"         更新说明
-  --notes-file <path>      从文件读取更新说明
+  --notes-file <path>      从文件读取更新说明；默认读取 release-notes.md 中对应版本区块
   --arch arm64|x64         目标架构，默认当前机器架构
   --bundles <list>         传给 tauri build 的 bundle，默认 app,dmg
   --upload                 构建后调用 gh release create/upload
@@ -34,6 +35,17 @@ usage() {
   --skip-sidecar           跳过 PyInstaller，使用已有 sidecar
   -h, --help               显示帮助
 EOF
+}
+
+extract_release_notes() {
+  local file="$1"
+  local version="$2"
+  awk -v target="v${version}" '
+    BEGIN { found = 0 }
+    $0 ~ "^#{1,2}[[:space:]]+" target "[[:space:]]*$" { found = 1; next }
+    found && $0 ~ /^#{1,2}[[:space:]]/ { exit }
+    found { print }
+  ' "$file" | sed '/./,$!d'
 }
 
 while [[ $# -gt 0 ]]; do
@@ -97,6 +109,10 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -z "$NOTES" && -z "$NOTES_FILE" && -f "$RELEASE_NOTES_FILE" ]]; then
+  NOTES_FILE="$RELEASE_NOTES_FILE"
+fi
 
 if [[ -z "$VERSION" ]]; then
   echo "错误: --version 必填" >&2
@@ -177,7 +193,14 @@ SIGNATURE="$(cd "$APP_DIR" \
 rm -f "$TARBALL.sig"
 
 if [[ -n "$NOTES_FILE" ]]; then
-  NOTES="$(cat "$NOTES_FILE")"
+  if [[ "$NOTES_FILE" == "$RELEASE_NOTES_FILE" ]]; then
+    NOTES="$(extract_release_notes "$NOTES_FILE" "$VERSION")"
+    if [[ -z "$NOTES" ]]; then
+      echo "警告: release-notes.md 中未找到 \"## v$VERSION\" 区块，将使用默认更新说明" >&2
+    fi
+  else
+    NOTES="$(cat "$NOTES_FILE")"
+  fi
 fi
 if [[ -z "$NOTES" ]]; then
   NOTES="$TAG 更新"
