@@ -29,15 +29,19 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
     task?.frequency ?? "once"
   );
   const [runAt, setRunAt] = useState(toLocalInputValue(task?.run_at));
-  const [intervalMinutes, setIntervalMinutes] = useState(
+  const [intervalMinutes, setIntervalMinutes] = useState<number | null>(
     task?.interval_minutes ?? 60
   );
-  const [runHour, setRunHour] = useState(task?.run_hour ?? 8);
-  const [runMinute, setRunMinute] = useState(task?.run_minute ?? 0);
+  const [runHour, setRunHour] = useState<number | null>(task?.run_hour ?? 8);
+  const [runMinute, setRunMinute] = useState<number | null>(
+    task?.run_minute ?? 0
+  );
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>(
     task?.days_of_week ?? []
   );
-  const [dayOfMonth, setDayOfMonth] = useState(task?.day_of_month ?? 1);
+  const [dayOfMonth, setDayOfMonth] = useState<number | null>(
+    task?.day_of_month ?? 1
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +60,10 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
       setError(t("tasks.onceTimeRequired", "请选择一次性任务的时间"));
       return;
     }
-    if (frequency === "interval" && (!intervalMinutes || intervalMinutes < 1)) {
+    if (
+      frequency === "interval" &&
+      (intervalMinutes === null || intervalMinutes < 1)
+    ) {
       setError(t("tasks.intervalRequired", "请填写有效的间隔分钟数"));
       return;
     }
@@ -79,11 +86,11 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
       } else if (frequency === "weekly") {
         payload.days_of_week = daysOfWeek;
       } else if (frequency === "monthly") {
-        payload.day_of_month = dayOfMonth;
+        payload.day_of_month = dayOfMonth ?? 1;
       }
       if (frequency !== "once") {
-        payload.run_hour = runHour;
-        payload.run_minute = runMinute;
+        payload.run_hour = runHour ?? 8;
+        payload.run_minute = runMinute ?? 0;
       }
       if (task) {
         await updateScheduledTask(task.id, payload);
@@ -169,10 +176,10 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
             label={t("tasks.intervalLabel", "间隔（分钟）")}
             type="text"
             inputMode="numeric"
-            value={intervalMinutes}
+            value={intervalMinutes ?? ""}
             onChange={(event) => {
               const digits = event.target.value.replace(/\D/g, "");
-              setIntervalMinutes(digits === "" ? 1 : Number(digits));
+              setIntervalMinutes(digits === "" ? null : Number(digits));
             }}
           />
         )}
@@ -182,20 +189,22 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
               label={t("tasks.hourLabel", "小时（每天的几点）")}
               type="text"
               inputMode="numeric"
-              value={runHour}
+              value={runHour ?? ""}
               onChange={(event) => {
                 const digits = event.target.value.replace(/\D/g, "");
-                setRunHour(digits === "" ? 0 : Math.min(23, Number(digits)));
+                setRunHour(digits === "" ? null : Math.min(23, Number(digits)));
               }}
             />
             <Input
               label={t("tasks.minuteLabel", "分钟（几点几分）")}
               type="text"
               inputMode="numeric"
-              value={runMinute}
+              value={runMinute ?? ""}
               onChange={(event) => {
                 const digits = event.target.value.replace(/\D/g, "");
-                setRunMinute(digits === "" ? 0 : Math.min(59, Number(digits)));
+                setRunMinute(
+                  digits === "" ? null : Math.min(59, Number(digits))
+                );
               }}
             />
           </>
@@ -224,11 +233,11 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
             label={t("tasks.monthlyDate", "每月日期")}
             type="text"
             inputMode="numeric"
-            value={dayOfMonth}
+            value={dayOfMonth ?? ""}
             onChange={(event) => {
               const digits = event.target.value.replace(/\D/g, "");
               setDayOfMonth(
-                digits === "" ? 1 : Math.min(31, Number(digits))
+                digits === "" ? null : Math.min(31, Number(digits))
               );
             }}
           />
