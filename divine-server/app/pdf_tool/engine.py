@@ -1,14 +1,24 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
 from ..config import settings_store
 from ..llm import DeepSeekLLM, MockLLM
-from ..pdf_renderer import render_markdown_to_pdf
+from ..pdf_renderer import render_html_to_pdf, render_markdown_to_pdf
 from .content import generate_content
 from .intent import parse_intent
 from .recipes import detect_recipe, get_recipe
+from .travel_html import looks_like_travel_html, travel_markdown_to_html
+
+
+def _title_from_markdown(content: str) -> str:
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            return re.sub(r"^#+\s*", "", stripped).strip()
+    return ""
 
 
 def _suggest_resume_theme(prompt: str, resume_data: dict[str, Any]) -> str:
@@ -123,25 +133,47 @@ class PDFTool:
         if content:
             intent = recipe.fallback_intent(prompt)
             markdown = content
+            content_title = _title_from_markdown(markdown)
+            if content_title:
+                intent.title = content_title
         else:
             intent = await parse_intent(prompt, recipe, llm)
             markdown = await generate_content(intent, recipe, llm)
 
+        if recipe_name == "travel" and not looks_like_travel_html(markdown):
+            markdown = travel_markdown_to_html(markdown)
+
         final_style = style or recipe.css_template
         final_theme = theme or recipe.css_template
         final_color = color_scheme or recipe.color_scheme
-        meta = render_markdown_to_pdf(
-            markdown,
-            output,
-            title=intent.title,
-            style=final_style,
-            color_scheme=final_color,
-            paper_size=paper_size,
-            cover=cover,
-            toc=toc,
-            base_dir=base_dir,
-            theme=final_theme,
-        )
+        if recipe_name == "travel" or final_theme == "travel":
+            cover = True
+            toc = False
+        if recipe_name == "travel" and final_theme == "travel":
+            meta = render_html_to_pdf(
+                markdown,
+                output,
+                title=intent.title,
+                paper_size=paper_size,
+                cover=True,
+                cover_data=intent.meta,
+                base_dir=base_dir,
+                theme="travel",
+            )
+        else:
+            meta = render_markdown_to_pdf(
+                markdown,
+                output,
+                title=intent.title,
+                style=final_style,
+                color_scheme=final_color,
+                paper_size=paper_size,
+                cover=cover,
+                toc=toc,
+                base_dir=base_dir,
+                theme=final_theme,
+                cover_data=intent.meta,
+            )
         return {
             "recipe": recipe.name,
             "display_name": recipe.display_name,

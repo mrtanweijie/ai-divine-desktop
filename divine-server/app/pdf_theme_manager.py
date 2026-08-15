@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html as html_lib
 import json
 import re
 from dataclasses import dataclass, field
@@ -95,16 +96,26 @@ THEMES: dict[str, dict[str, Any]] = {
         },
     },
     "travel": {
-        "file": "travel.css",
-        "display_name": "旅行暖橙",
-        "description": "暖橙 + 自然绿，适合旅游攻略、美食指南",
+        "file": "travel_template.html",
+        "display_name": "旅行手册",
+        "description": "米白纸感 + 暖橙 + 青蓝，适合旅行攻略、路线手册、目的地指南",
         "variables": {
-            "--primary": "#ea580c",
-            "--primary-light": "#fff7ed",
-            "--primary-dark": "#9a3412",
-            "--accent": "#059669",
-            "--text": "#1c1917",
-            "--bg-soft": "#fffbeb",
+            "--color-primary": "#b8743a",
+            "--color-primary-light": "#d49556",
+            "--color-primary-dark": "#8b5a2b",
+            "--color-accent": "#2c6e7f",
+            "--bg-page": "#faf6f0",
+            "--bg-card": "#ffffff",
+            "--bg-section": "#f3ede3",
+            "--bg-highlight": "#fff8ee",
+            "--text-primary": "#2c2420",
+            "--text-secondary": "#6b5d52",
+            "--text-muted": "#9a8b7e",
+            "--color-morning": "#c98b3a",
+            "--color-afternoon": "#b06a2c",
+            "--color-evening": "#5b4e6e",
+            "--color-warning": "#c0392b",
+            "--border-color": "#e0d5c7",
         },
     },
     "roadmap": {
@@ -132,6 +143,106 @@ THEMES: dict[str, dict[str, Any]] = {
         },
     },
 }
+
+_TRAVEL_PRINT_CSS = """
+@page {
+  size: A4;
+  margin: 2.2cm 1.8cm 2.5cm 1.8cm;
+
+  @top-center {
+    content: element(header);
+    border-bottom: 1pt solid #e0d5c7;
+    padding-bottom: 5pt;
+  }
+
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-size: 8.5pt;
+    color: #9a8b7e;
+    font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+  }
+}
+
+@page cover {
+  size: A4;
+  margin: 0;
+
+  @top-center {
+    content: none;
+  }
+
+  @bottom-center {
+    content: none;
+  }
+}
+
+.cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  page: cover;
+  height: 297mm;
+  min-height: 297mm;
+  padding: 80pt 30pt 60pt;
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+}
+
+.cover-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+}
+
+.cover-content {
+  position: relative;
+  z-index: 1;
+  color: var(--text-inverse);
+}
+
+.page.day-block {
+  page-break-after: auto;
+  page-break-inside: avoid;
+}
+
+.page.day-block + .page.day-block {
+  border-top: 1pt solid var(--border-color);
+}
+
+.header {
+  position: running(header);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 8pt;
+  color: var(--text-muted);
+}
+
+.header .doc-title {
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page,
+  .cover {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+"""
 
 COVER_TEMPLATES: dict[str, str] = {
     "resume": """
@@ -226,19 +337,16 @@ COVER_TEMPLATES: dict[str, str] = {
     """,
     "travel": """
     <div class="cover">
+      <div class="cover-bg"></div>
       <div class="cover-content">
-        <div class="badge">旅行攻略</div>
-        <h1>{title}</h1>
-        <div class="subtitle">{subtitle}</div>
-        <div class="trip-meta">
-          <div class="trip-meta-item">目的地：{destination}</div>
-          <div class="trip-meta-item">天数：{duration}</div>
-          <div class="trip-meta-item">人数：{travelers}</div>
-        </div>
+        <div class="cover-countries">{countries}</div>
+        <h1 class="cover-title">{title}</h1>
+        <div class="cover-meta">{meta_line}</div>
+        <div class="cover-meta" style="font-size:14px;">{meta_secondary}</div>
+        <div class="cover-route-tags">{route_tags}</div>
+        <p class="cover-summary">{summary}</p>
       </div>
-      <div class="footer-note">AI Divine · {theme_name}</div>
     </div>
-    <div style="page-break-after:always;"></div>
     """,
     "roadmap": """
     <div class="cover">
@@ -321,7 +429,10 @@ class ThemeManager:
             return cached
 
         theme = self.get_theme(theme_id)
-        css = Path(theme.css_path or "").read_text(encoding="utf-8")
+        if theme_id == "travel":
+            css = self._travel_css()
+        else:
+            css = Path(theme.css_path or "").read_text(encoding="utf-8")
         variables = dict(theme.variables)
         if overrides:
             variables.update(overrides)
@@ -335,6 +446,17 @@ class ThemeManager:
         )
         self._cache[cache_key] = css
         return css
+
+    def _travel_css(self) -> str:
+        template_path = self.themes_dir / "travel_template.html"
+        template = template_path.read_text(encoding="utf-8")
+        match = re.search(
+            r"<style[^>]*>(.*?)</style>",
+            template,
+            re.IGNORECASE | re.DOTALL,
+        )
+        css = match.group(1) if match else template
+        return css + _TRAVEL_PRINT_CSS
 
 
 _default_manager: ThemeManager | None = None
@@ -363,7 +485,7 @@ def build_cover_html(
     theme_id: str,
     title: str,
     subtitle: str = "",
-    cover_data: dict[str, str] | None = None,
+    cover_data: dict[str, Any] | None = None,
 ) -> str:
     theme = get_theme_manager().get_theme(theme_id)
     template = COVER_TEMPLATES.get(theme_id, COVER_TEMPLATES["universal"])
@@ -379,10 +501,74 @@ def build_cover_html(
         "destination": "",
         "duration": "",
         "travelers": "",
+        "dates": "",
+        "countries": "",
+        "meta_line": "",
+        "meta_secondary": "",
+        "route_tags": "",
+        "summary": subtitle,
         "total_weeks": "",
         "total_nodes": "",
         "goal": "",
     }
-    if cover_data:
-        data.update(cover_data)
+    extra = dict(cover_data or {})
+    route = extra.pop("route", None)
+    if isinstance(route, list):
+        tags = [
+            str(item).strip()
+            for item in route
+            if item is not None and str(item).strip()
+        ]
+        extra["route_tags"] = (
+            "".join(
+                f'<span class="cover-tag">{html_lib.escape(tag)}</span>'
+                for tag in tags
+            )
+            if tags
+            else ""
+        )
+        if not extra.get("countries") and tags:
+            extra["countries"] = " × ".join(tags[:2])
+    if not extra.get("meta_line"):
+        meta_parts = [
+            str(extra.get(key) or "").strip()
+            for key in ("destination", "duration", "travelers", "dates")
+        ]
+        extra["meta_line"] = (
+            " · ".join(part for part in meta_parts if part)
+            or subtitle
+            or "AI Divine 生成文档"
+        )
+    extra["summary"] = str(extra.get("summary") or subtitle or "").strip()
+    extra["meta_secondary"] = str(
+        extra.get("meta_secondary") or extra.get("route_constraint") or ""
+    ).strip()
+    for key, value in list(extra.items()):
+        if key == "route_tags" or value is None:
+            continue
+        extra[key] = html_lib.escape(str(value))
+    data.update(extra)
     return template.format(**data)
+
+
+def build_travel_html_document(
+    html_body: str,
+    title: str,
+    subtitle: str = "AI Divine 生成文档",
+    cover_data: dict[str, Any] | None = None,
+    include_cover: bool = True,
+) -> str:
+    css = load_theme_css("travel")
+    cover_html = (
+        build_cover_html("travel", html_lib.escape(title), subtitle, cover_data)
+        if include_cover
+        else ""
+    )
+    return (
+        "<!doctype html><html><head><meta charset=\"utf-8\">"
+        f"<style>{css}</style></head><body>"
+        "<div class=\"header\">"
+        f"<span class=\"doc-title\">{html_lib.escape(title)}</span>"
+        "</div>"
+        f"{cover_html}{html_body}</body></html>"
+    )

@@ -55,20 +55,33 @@ async def main() -> None:
 
     file_name = str(params.get("file_name") or "").strip() or prompt[:40]
     output_path = unique_output_path(output_dir, file_name, "PDF文档", ".pdf")
-    meta = await PDFTool().run(
-        prompt,
-        output_path,
-        kind=str(params.get("kind") or "").strip() or None,
-        style=str(params.get("style") or "").strip() or None,
-        theme=str(params.get("theme") or "").strip() or None,
-        color_scheme=str(params.get("color_scheme") or "").strip() or None,
-        paper_size=str(params.get("paper_size") or "A4").strip(),
-        cover=bool(params.get("cover")),
-        toc=bool(params.get("toc")),
-        base_dir=workspace,
-        content=str(params.get("markdown") or "").strip() or None,
-        resume_data=params.get("resume_data") or None,
-    )
+    try:
+        meta = await PDFTool().run(
+            prompt,
+            output_path,
+            kind=str(params.get("kind") or "").strip() or None,
+            style=str(params.get("style") or "").strip() or None,
+            theme=str(params.get("theme") or "").strip() or None,
+            color_scheme=str(params.get("color_scheme") or "").strip() or None,
+            paper_size=str(params.get("paper_size") or "A4").strip(),
+            cover=bool(params.get("cover")),
+            toc=bool(params.get("toc")),
+            base_dir=workspace,
+            content=str(params.get("markdown") or "").strip() or None,
+            resume_data=params.get("resume_data") or None,
+        )
+    except Exception as exc:
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "message": f"PDF 生成失败: {exc}",
+                    "messageKey": "tool.actionFailed",
+                },
+                ensure_ascii=False,
+            )
+        )
+        return
     print(
         json.dumps(
             {

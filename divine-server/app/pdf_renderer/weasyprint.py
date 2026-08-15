@@ -43,6 +43,7 @@ def _render_with_weasyprint(
     toc: bool,
     base_dir: Path | None = None,
     theme: str = "universal",
+    cover_data: dict[str, Any] | None = None,
 ) -> None:
     from weasyprint import HTML
 
@@ -66,6 +67,7 @@ def _render_with_weasyprint(
             theme,
             html_lib.escape(title),
             "AI Divine 生成文档",
+            cover_data,
         )
     toc_html = _build_toc(markdown) if toc else ""
     document = (

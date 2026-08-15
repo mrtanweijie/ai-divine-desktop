@@ -24,10 +24,14 @@ def render_markdown_to_pdf(
     toc: bool = False,
     base_dir: Path | None = None,
     theme: str = "universal",
+    cover_data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     normalized_style = _normalize(style, STYLE_KEYS, "modern")
     normalized_color = _normalize(color_scheme, COLOR_KEYS, "blue")
     normalized_paper = _normalize(paper_size, PAPER_KEYS, "a4")
+    if theme == "travel":
+        cover = True
+        toc = False
     if _weasyprint_available():
         try:
             _render_with_weasyprint(
@@ -41,6 +45,7 @@ def render_markdown_to_pdf(
                 toc,
                 base_dir,
                 theme,
+                cover_data,
             )
             renderer = "weasyprint"
             return {
@@ -64,4 +69,43 @@ def render_markdown_to_pdf(
         "color_scheme": normalized_color,
         "paper_size": normalized_paper,
         "renderer": renderer,
+    }
+
+
+def render_html_to_pdf(
+    html_body: str,
+    output: Path,
+    title: str = "PDF文档",
+    paper_size: str = "A4",
+    cover: bool = True,
+    cover_data: dict[str, Any] | None = None,
+    base_dir: Path | None = None,
+    theme: str = "travel",
+) -> dict[str, Any]:
+    normalized_paper = _normalize(paper_size, PAPER_KEYS, "a4")
+    if not _weasyprint_available():
+        raise RuntimeError("HTML 转 PDF 需要 WeasyPrint，当前环境不可用")
+    from weasyprint import HTML
+
+    from ..pdf_theme_manager import build_travel_html_document
+
+    document = build_travel_html_document(
+        html_body,
+        title,
+        cover_data=cover_data,
+        include_cover=cover,
+    )
+    kwargs: dict[str, Any] = {"string": document}
+    if base_dir is not None:
+        kwargs["base_url"] = str(base_dir)
+    try:
+        HTML(**kwargs).write_pdf(str(output), presentational_hints=True)
+    except Exception:
+        logger.warning("travel HTML render failed", exc_info=True)
+        raise RuntimeError("旅行 HTML 转 PDF 渲染失败") from None
+    return {
+        "title": title,
+        "theme": theme,
+        "paper_size": normalized_paper,
+        "renderer": "weasyprint",
     }

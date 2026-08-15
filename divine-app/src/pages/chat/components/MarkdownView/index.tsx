@@ -10,6 +10,7 @@ import { copyText } from "@/utils";
 import { HighlightedCode } from "./HighlightedCode";
 import { languageLabel } from "./language";
 import { MermaidBlock } from "./MermaidBlock";
+import { WebPreviewBlock } from "./WebPreviewBlock";
 
 interface MarkdownViewProps {
   content: string;
@@ -89,7 +90,9 @@ function buildComponents(streaming: boolean): Components {
   return {
     code(props: any) {
       const { className, children, ...rest } = props;
-      const language = /language-([^\s]+)/.exec(className || "")?.[1];
+      const language = /language-([^\s]+)/i
+        .exec(className || "")?.[1]
+        ?.toLowerCase();
       const code = extractText(children).replace(/\n$/, "");
       if (!language && !code.includes("\n")) {
         return (
@@ -100,6 +103,17 @@ function buildComponents(streaming: boolean): Components {
       }
       if (language === "mermaid" || language === "mmd") {
         return <MermaidBlock code={code} streaming={streaming} />;
+      }
+      if (
+        (language === "html" || language === "htm" || language === "svg") &&
+        !streaming
+      ) {
+        return (
+          <WebPreviewBlock
+            code={code}
+            language={language === "svg" ? "svg" : "html"}
+          />
+        );
       }
       return (
         <CodeBlock code={code} language={language} streaming={streaming} />

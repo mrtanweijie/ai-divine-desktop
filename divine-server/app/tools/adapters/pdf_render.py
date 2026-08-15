@@ -49,7 +49,7 @@ from ..registry import register_tool
             },
             "cover": {
                 "type": "boolean",
-                "description": "是否生成封面页，默认 false",
+                "description": "是否生成封面页，默认 false；travel 主题固定生成封面",
             },
             "toc": {
                 "type": "boolean",

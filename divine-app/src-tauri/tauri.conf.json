@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src http://127.0.0.1:8019 https://api.deepseek.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src http://127.0.0.1:8019 https://api.deepseek.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'"
     }
   },
   "plugins": {

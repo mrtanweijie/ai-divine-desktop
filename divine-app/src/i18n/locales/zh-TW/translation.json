@@ -105,7 +105,12 @@
   "markdown": {
     "copied": "程式碼已複製",
     "copy": "複製",
-    "copyCode": "複製程式碼"
+    "copyCode": "複製程式碼",
+    "htmlPreview": "HTML 預覽",
+    "svgPreview": "SVG",
+    "viewSource": "檢視原始碼",
+    "viewPreview": "檢視預覽",
+    "webSourceCopied": "原始碼已複製"
   },
   "mermaid": {
     "copiedSource": "Mermaid 原始碼已複製",

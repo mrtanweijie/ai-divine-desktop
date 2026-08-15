@@ -86,6 +86,10 @@ async def generate_content(
         )
     except Exception:
         markdown = ""
+    if recipe.content_format == "html":
+        if not markdown:
+            return recipe.fallback_content(intent)
+        return _strip_non_icon_svg(markdown)
     if not markdown or not re.search(r"^#{1,6}\s", markdown, re.MULTILINE):
         return recipe.fallback_content(intent)
     return _strip_non_icon_svg(markdown)

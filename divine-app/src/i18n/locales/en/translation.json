@@ -105,7 +105,12 @@
   "markdown": {
     "copied": "Code copied",
     "copy": "Copy",
-    "copyCode": "Copy code"
+    "copyCode": "Copy code",
+    "htmlPreview": "HTML preview",
+    "svgPreview": "SVG",
+    "viewSource": "View source",
+    "viewPreview": "View preview",
+    "webSourceCopied": "Source copied"
   },
   "mermaid": {
     "copiedSource": "Mermaid source copied",

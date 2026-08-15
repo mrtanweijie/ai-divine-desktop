@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
-from app.pdf_renderer import render_markdown_to_pdf  # noqa: E402
+from app.pdf_renderer import render_html_to_pdf, render_markdown_to_pdf  # noqa: E402
 
 
 def safe_name(name: str, fallback: str) -> str:
@@ -96,18 +96,59 @@ def main() -> None:
 
     file_name = str(params.get("file_name") or "").strip() or title
     output_path = unique_output_path(output_dir, file_name, "PDF文档", ".pdf")
-    meta = render_markdown_to_pdf(
-        content,
-        output_path,
-        title=title,
-        style=str(params.get("style") or "modern"),
-        color_scheme=str(params.get("color_scheme") or "blue"),
-        paper_size=str(params.get("paper_size") or "A4"),
-        cover=bool(params.get("cover")),
-        toc=bool(params.get("toc")),
-        base_dir=base_dir,
-        theme=str(params.get("theme") or params.get("style") or "universal"),
-    )
+    try:
+        theme = str(params.get("theme") or params.get("style") or "universal")
+        if theme in ("universal", "modern") and any(
+            keyword in f"{title}\n{content}"
+            for keyword in ("旅行", "旅游", "攻略", "行程", "目的地")
+        ):
+            theme = "travel"
+        if theme == "travel":
+            from app.pdf_tool.travel_html import (
+                looks_like_travel_html,
+                travel_markdown_to_html,
+            )
+
+            if not looks_like_travel_html(content):
+                content = travel_markdown_to_html(content)
+            cover_data = dict(params.get("cover_data") or {})
+            cover_data.setdefault("title", title)
+            meta = render_html_to_pdf(
+                content,
+                output_path,
+                title=title,
+                paper_size=str(params.get("paper_size") or "A4"),
+                cover=bool(params.get("cover")),
+                cover_data=cover_data,
+                base_dir=base_dir,
+                theme="travel",
+            )
+        else:
+            meta = render_markdown_to_pdf(
+                content,
+                output_path,
+                title=title,
+                style=str(params.get("style") or "modern"),
+                color_scheme=str(params.get("color_scheme") or "blue"),
+                paper_size=str(params.get("paper_size") or "A4"),
+                cover=bool(params.get("cover")),
+                toc=bool(params.get("toc")),
+                base_dir=base_dir,
+                theme=theme,
+                cover_data=params.get("cover_data"),
+            )
+    except Exception as exc:
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "message": f"PDF 渲染失败: {exc}",
+                    "messageKey": "tool.actionFailed",
+                },
+                ensure_ascii=False,
+            )
+        )
+        return
     print(
         json.dumps(
             {

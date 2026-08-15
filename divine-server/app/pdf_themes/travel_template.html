@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{旅行手册标题}} - HTML 模板</title>
+<!--
+  ═══════════════════════════════════════════════════════════════
+  旅行攻略 HTML 模板 · 逐页对应《2026中亚陆路旅行手册》PDF（27页）
+  ═══════════════════════════════════════════════════════════════
+
+  【模板用途】
+  供 AI Agent 参考此结构，生成同等质量的旅行攻略 HTML。
+  所有 {{双花括号}} 为占位变量，Agent 生成时替换为实际内容。
+
+  【页面映射总表 — 严格按 PDF 页序，勿调整顺序】
+  ┌────────┬─────────────────────────────────────────┐
+  │ PDF 页 │ 内容                                     │
+  ├────────┼─────────────────────────────────────────┤
+  │  P1    │ 封面                                     │
+  │  P2    │ 路线总览（摘要表+路线逻辑+住宿建议）      │
+  │  P3    │ D1 每日行程                              │
+  │  P4    │ D2 每日行程                              │
+  │  P5    │ D3 每日行程                              │
+  │  P6    │ D4 每日行程                              │
+  │  P7    │ D5 + D6（两天同页，跨境/紧凑日用）        │
+  │  P8    │ D7 每日行程                              │
+  │  P9    │ D8 每日行程                              │
+  │  P10   │ D9 每日行程                              │
+  │  P11   │ D10 每日行程                             │
+  │  P12   │ D11 + D12（两天同页，收尾日用）           │
+  │  P13   │ 专题·小众观察（文化侧窗型）               │
+  │  P14   │ 专题·主题二（历史叙事型）                 │
+  │  P15   │ 专题·关键日深读（时间线型）               │
+  │  P16   │ 城市读本·引导页                          │
+  │  P17   │ 城市读本·城市1（阿拉木图）                │
+  │  P18   │ 城市读本·城市1周边（阿拉木图周边）        │
+  │  P19   │ 城市读本·城市2（希瓦）                    │
+  │  P20   │ 城市读本·城市3（布哈拉）                  │
+  │  P21   │ 城市读本·城市4（塔什干）                  │
+  │  P22   │ 城市读本·城市5之一（撒马尔罕·雷吉斯坦）   │
+  │  P23   │ 城市读本·城市5之二（撒马尔罕·陵墓群）     │
+  │  P24   │ 体验专页（游牧文化）— 注意：在城市读本之后 │
+  │  P25   │ 预算与预订节奏                           │
+  │  P26   │ 行李、天气与风险控制                      │
+  │  P27   │ 实用链接与资料来源                        │
+  └────────┴─────────────────────────────────────────┘
+
+  【四类专题页的区别 — Agent 生成时选对模板】
+  A. 小众观察页（P13）：背景 + 顺路入口 + 不纳入的点 + 参观原则
+  B. 主题叙事页（P14）：核心论点 + 角色对比列表 + 一路观察什么
+  C. 关键日深读页（P15）：时间节点纵览（07:00/车窗/15:30/晚上）
+     + 最重要预订提示 — 用于全程最关键的一天
+  D. 体验专页（P24）：主方案 + 背景理解 + 观察点 + 安全底线 + 等价替代
+
+  【分页规则】
+  - 常规一天 = 一页
+  - 跨境日/紧凑日可两天同页（PDF P7: D5+D6；P12: D11+D12）
+  - 同页双日仍各保留完整的「早/午/晚 + 吃什么/交通/替代方案」
+
+  【设计原则】
+  - 每日页固定结构：早/午/晚时段 → 吃什么 → 交通与预订 → 替代方案
+  - 吃什么/交通/替代方案为纵向堆叠文本段（与 PDF 一致），非卡片网格
+  - 传说与史实分开表述；所有时间/价格标注「以官方为准」
+-->
+<style>
+/* ============================================================
+   CSS 变量 — Agent 修改变量即可切换主题色系
+   ============================================================ */
+:root {
+  /* 主色系 */
+  --color-primary: #B8743A;
+  --color-primary-light: #D49556;
+  --color-primary-dark: #8B5A2B;
+  --color-accent: #2C6E7F;
+
+  /* 背景与文字 */
+  --bg-page: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-section: #F3EDE3;
+  --bg-highlight: #FFF8EE;
+  --text-primary: #2C2420;
+  --text-secondary: #6B5D52;
+  --text-muted: #9A8B7E;
+  --text-inverse: #FAF6F0;
+
+  /* 功能色 */
+  --color-morning: #C98B3A;
+  --color-afternoon: #B06A2C;
+  --color-evening: #5B4E6E;
+  --color-warning: #C0392B;
+
+  /* 边框 */
+  --border-color: #E0D5C7;
+  --border-radius: 8px;
+  --border-radius-lg: 16px;
+
+  /* 字体 */
+  --font-heading: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 40px;
+  --spacing-2xl: 64px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-page);
+  color: var(--text-primary);
+  line-height: 1.8;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 页面容器 — 一页 = PDF 一页 */
+.page {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: var(--spacing-xl) var(--spacing-lg);
+  background: var(--bg-page);
+  position: relative;
+  page-break-after: always;
+}
+
+.page + .page {
+  border-top: 1px dashed var(--border-color);
+}
+
+/* 页脚 — 与 PDF 页脚格式一致 */
+.page-footer {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+  letter-spacing: 0.05em;
+}
+
+/* 同页双日分隔线 */
+.day-divider {
+  border: none;
+  border-top: 1px solid var(--color-primary);
+  margin: var(--spacing-xl) 0;
+  opacity: 0.4;
+}
+
+/* ============================================================
+   P1 封面
+   ============================================================ */
+.cover {
+  min-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  padding: var(--spacing-2xl) var(--spacing-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.cover-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 40%, var(--color-primary-light) 100%);
+  z-index: 0;
+}
+
+.cover-content {
+  position: relative;
+  z-index: 1;
+  color: var(--text-inverse);
+}
+
+.cover-countries {
+  font-size: 18px;
+  letter-spacing: 0.3em;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.9;
+}
+
+.cover-title {
+  font-family: var(--font-heading);
+  font-size: 48px;
+  font-weight: 700;
+  margin-bottom: var(--spacing-lg);
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+}
+
+.cover-meta {
+  font-size: 16px;
+  opacity: 0.85;
+  margin-bottom: var(--spacing-xl);
+  letter-spacing: 0.05em;
+}
+
+.cover-route-tags {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xl);
+}
+
+.cover-tag {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+}
+
+.cover-summary {
+  max-width: 600px;
+  margin: 0 auto;
+  font-size: 15px;
+  line-height: 2;
+  text-align: justify;
+  opacity: 0.9;
+}
+
+/* ============================================================
+   P2 路线总览
+   ============================================================ */
+.section-title {
+  font-family: var(--font-heading);
+  font-size: 26px;
+  color: var(--color-primary-dark);
+  margin-bottom: var(--spacing-sm);
+}
+
+.section-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* 路线城市横条 */
+.route-cities {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
+.route-cities .arrow { color: var(--color-primary); font-weight: 400; }
+
+.route-distance {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-lg);
+}
+
+.route-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--spacing-lg);
+  font-size: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.route-table thead { background: var(--color-primary); color: var(--text-inverse); }
+
+.route-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.route-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: top;
+}
+
+.route-table .col-date {
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-inverse);
+}
+
+.route-table .col-transport { color: var(--text-inverse); }
+.route-table .col-stay { color: var(--text-inverse); }
+
+/* 总览页小节标题（路线逻辑 / 住宿区域建议） */
+.subsection-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  margin: var(--spacing-lg) 0 var(--spacing-sm);
+}
+
+.plain-list { list-style: none; padding-left: 0; }
+
+.plain-list li {
+  font-size: 14px;
+  padding: 4px 0 4px 16px;
+  position: relative;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.plain-list li::before {
+  content: "▪";
+  position: absolute;
+  left: 0;
+  color: var(--color-primary);
+}
+
+.plain-list li strong { color: var(--text-primary); }
+
+/* ============================================================
+   P3-P12 每日行程页
+   ============================================================ */
+.day-title {
+  font-family: var(--font-heading);
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.day-title .day-badge {
+  display: inline-block;
+  background: var(--color-primary);
+  color: var(--text-inverse);
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: var(--font-body);
+  vertical-align: middle;
+  margin-right: var(--spacing-sm);
+}
+
+.day-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* 早/午/晚时段 — 行内标签 + 文本（对应 PDF 排版） */
+.time-row {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+}
+
+.time-row-label {
+  flex-shrink: 0;
+  width: 3em;
+  font-weight: 700;
+  font-size: 14px;
+  padding-top: 1px;
+}
+
+.time-row.morning .time-row-label { color: var(--color-morning); }
+.time-row.afternoon .time-row-label { color: var(--color-afternoon); }
+.time-row.evening .time-row-label { color: var(--color-evening); }
+
+.time-row-text {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+
+/* 吃什么 / 交通与预订 / 替代方案 — 纵向堆叠文本段 */
+.day-info {
+  margin-top: var(--spacing-lg);
+}
+
+.day-info-item {
+  padding: var(--spacing-sm) 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.day-info-item:first-child { border-top: 2px solid var(--color-primary); }
+
+.day-info-label {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-primary-dark);
+  margin-bottom: var(--spacing-xs);
+}
+
+.day-info-item.alternative .day-info-label { color: var(--color-warning); }
+
+.day-info-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+/* ============================================================
+   P13-P15 专题页（三类） + P24 体验专页
+   ============================================================ */
+.feature-header { margin-bottom: var(--spacing-lg); }
+
+.feature-kicker {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-accent);
+  letter-spacing: 0.15em;
+  margin-bottom: var(--spacing-xs);
+}
+
+.feature-title {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.feature-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.feature-section { margin-bottom: var(--spacing-lg); }
+
+.feature-section h4 {
+  font-size: 15px;
+  color: var(--color-accent);
+  margin-bottom: var(--spacing-sm);
+  font-weight: 600;
+}
+
+.feature-section p {
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+/* P15 关键日时间线 */
+.milestone {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.milestone-time {
+  flex-shrink: 0;
+  width: 90px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-primary-dark);
+  padding-top: 1px;
+}
+
+.milestone-body {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-primary);
+  border-left: 2px solid var(--border-color);
+  padding-left: var(--spacing-md);
+}
+
+.milestone-body strong {
+  display: block;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+/* 关键预订强调框 */
+.key-booking {
+  background: var(--bg-highlight);
+  border: 1px solid var(--color-primary-light);
+  border-left: 4px solid var(--color-primary);
+  padding: var(--spacing-md);
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+}
+
+.key-booking h4 {
+  font-size: 14px;
+  color: var(--color-primary-dark);
+  margin-bottom: var(--spacing-xs);
+}
+
+.key-booking p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* ============================================================
+   P16-P23 城市读本
+   ============================================================ */
+.city-header { margin-bottom: var(--spacing-lg); }
+
+.city-title {
+  font-family: var(--font-heading);
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.city-title .city-name {
+  color: var(--color-primary-dark);
+}
+
+.city-tagline {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.city-intro {
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-lg);
+  text-align: justify;
+}
+
+.sight-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.sight-desc {
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-md);
+  padding-left: var(--spacing-sm);
+  border-left: 2px solid var(--border-color);
+}
+
+.field-notes {
+  background: var(--bg-highlight);
+  border-left: 4px solid var(--color-accent);
+  padding: var(--spacing-md);
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+  margin: var(--spacing-lg) 0;
+}
+
+.field-notes-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-accent);
+  margin-bottom: var(--spacing-sm);
+}
+
+.field-notes ul { list-style: none; padding-left: 0; }
+
+.field-notes li {
+  font-size: 14px;
+  padding: 4px 0 4px 18px;
+  position: relative;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.field-notes li::before {
+  content: "▪";
+  position: absolute;
+  left: 0;
+  color: var(--color-accent);
+}
+
+.viewing-order {
+  background: var(--bg-section);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+}
+
+.viewing-order-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  margin-bottom: var(--spacing-sm);
+}
+
+.viewing-order ol {
+  padding-left: 20px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+/* ============================================================
+   P25 预算与预订
+   ============================================================ */
+.budget-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--spacing-lg);
+  font-size: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.budget-table thead { background: var(--color-accent); color: var(--text-inverse); }
+
+.budget-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.budget-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.budget-table .total-row {
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  background: var(--bg-highlight);
+}
+
+.booking-timeline-item {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+}
+
+.booking-timeline-marker {
+  flex-shrink: 0;
+  width: 110px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-primary-dark);
+}
+
+.booking-timeline-content {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.payment-strategy {
+  background: var(--bg-highlight);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  margin-top: var(--spacing-lg);
+}
+
+/* ============================================================
+   P26 行李与风险
+   ============================================================ */
+.risk-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--spacing-sm) 0 var(--spacing-lg);
+  font-size: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.risk-table thead { background: var(--color-warning); color: var(--text-inverse); }
+
+.risk-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.risk-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: top;
+}
+
+.risk-table .risk-situation { font-weight: 600; width: 35%; }
+
+.risk-table .risk-action { color: var(--text-secondary); }
+
+.checklist ul { list-style: none; padding-left: 0; }
+
+.checklist li {
+  font-size: 14px;
+  padding: 4px 0 4px 22px;
+  position: relative;
+  color: var(--text-secondary);
+}
+
+.checklist li::before {
+  content: "☐";
+  position: absolute;
+  left: 0;
+  color: var(--color-primary);
+}
+
+/* ============================================================
+   P27 实用链接
+   ============================================================ */
+.links-group { margin-bottom: var(--spacing-lg); }
+
+.links-group h4 {
+  font-size: 15px;
+  color: var(--color-primary-dark);
+  margin-bottom: var(--spacing-sm);
+  padding-bottom: var(--spacing-xs);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.links-list { list-style: none; padding-left: 0; }
+
+.links-list li {
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px dotted var(--border-color);
+  line-height: 1.6;
+}
+
+.links-list a {
+  color: var(--color-accent);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.disclaimer {
+  background: var(--bg-section);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  margin-bottom: var(--spacing-lg);
+}
+
+.image-credits {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.image-credits p { margin-bottom: var(--spacing-xs); }
+
+/* ============================================================
+   响应式 & 打印
+   ============================================================ */
+@media (max-width: 768px) {
+  .cover-title { font-size: 32px; }
+  .page { padding: var(--spacing-lg) var(--spacing-md); }
+  .route-table, .budget-table, .risk-table { font-size: 12px; }
+  .time-row, .milestone, .booking-timeline-item { flex-direction: column; gap: 2px; }
+  .time-row-label, .milestone-time, .booking-timeline-marker { width: auto; }
+}
+
+@media print {
+  .page { page-break-after: always; max-width: 100%; }
+  .cover { min-height: 100vh; }
+  body { font-size: 12pt; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P1 / 封面
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page cover">
+  <div class="cover-bg"></div>
+  <div class="cover-content">
+    <div class="cover-countries">{{国家A}} × {{国家B}}</div>
+    <h1 class="cover-title">{{旅行手册标题}}</h1>
+    <div class="cover-meta">
+      {{主题标签1}} × {{主题标签2}} × {{主题标签3}}｜{{出发日期}} - {{结束日期}}
+    </div>
+    <!-- 路线说明行：交代路线约束（如"一条不经过XX的完整陆路路线"） -->
+    <div class="cover-meta" style="font-size:14px;">{{路线约束说明}}</div>
+    <div class="cover-route-tags">
+      <span class="cover-tag">{{城市1}}</span>
+      <span class="cover-tag">{{城市2}}</span>
+      <span class="cover-tag">{{城市3}}</span>
+      <span class="cover-tag">{{城市4}}</span>
+      <span class="cover-tag">{{城市5}}</span>
+    </div>
+    <p class="cover-summary">
+      {{路线概述（100-150字）：地理走向、关键节点、核心体验（自然/文化/历史）、
+      设计逻辑，结尾点明已为天气/铁路/预约变化准备替代方案。}}
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P2 / 路线总览
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="section-title">路线总览</h2>
+  <p class="section-subtitle">{{天数}}天{{晚数}}晚｜{{国家数}}国｜{{交通原则（如：尽量全程陆路）}}</p>
+
+  <!-- 路线城市条 -->
+  <div class="route-cities">
+    <span>{{城市1}}</span><span class="arrow">→</span>
+    <span>{{城市2}}</span><span class="arrow">→</span>
+    <span>{{城市3}}</span><span class="arrow">→</span>
+    <span>{{城市4}}</span><span class="arrow">→</span>
+    <span>{{城市5}}</span>
+  </div>
+  <p class="route-distance">全程约 {{总里程}} 公里｜{{体验关键词列举}}</p>
+
+  <!-- 行程摘要表：每天一行 -->
+  <table class="route-table">
+    <thead>
+      <tr>
+        <th >日期</th>
+        <th>地点与主题</th>
+        <th>主要交通</th>
+        <th>住宿</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Agent 生成时：逐天一行，共 {{天数}} 行 -->
+      <tr>
+        <td >{{M/D}}</td>
+        <td>{{城市}}：{{当日主题}}</td>
+        <td>{{交通方式}}</td>
+        <td>{{住宿地}}</td>
+      </tr>
+      <tr><td >{{M/D}}</td><td>{{...}}</td><td>{{...}}</td><td>{{...}}</td></tr>
+      <!-- ... 直到最后一天 -->
+    </tbody>
+  </table>
+
+  <!-- 路线逻辑：3-5 条主线 -->
+  <h3 class="subsection-title">路线逻辑</h3>
+  <ul class="plain-list">
+    <li><strong>{{主线1（如：自然）}}：</strong>{{主线1描述}}</li>
+    <li><strong>{{主线2（如：游牧文化）}}：</strong>{{主线2描述}}</li>
+    <li><strong>{{主线3（如：丝路）}}：</strong>{{主线3描述}}</li>
+    <li><strong>{{主线4（如：小众观察）}}：</strong>{{主线4描述}}</li>
+  </ul>
+
+  <!-- 住宿区域建议：每个住宿城市一条 -->
+  <h3 class="subsection-title">住宿区域建议</h3>
+  <ul class="plain-list">
+    <li><strong>{{城市1}}：</strong>{{区域与理由}}</li>
+    <li><strong>{{城市2}}：</strong>{{区域与理由}}</li>
+    <li><strong>{{城市3}}：</strong>{{区域与理由}}</li>
+    <li><strong>{{城市4}}：</strong>{{区域与理由}}</li>
+    <li><strong>{{城市5}}：</strong>{{区域与理由}}</li>
+  </ul>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} 2</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P3 / D1 每日行程（标准单日页模板）
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="day-title"><span class="day-badge">D{{n}}</span>{{M月D日}} {{当日主题标题}}</h2>
+  <p class="day-subtitle">{{关键时间或副标题｜当日核心目标}}</p>
+
+  <div class="time-row morning">
+    <div class="time-row-label">早上</div>
+    <div class="time-row-text">{{上午安排：具体地点、活动、节奏建议与原因}}</div>
+  </div>
+  <div class="time-row afternoon">
+    <div class="time-row-label">下午</div>
+    <div class="time-row-text">{{下午安排}}</div>
+  </div>
+  <div class="time-row evening">
+    <div class="time-row-label">晚上</div>
+    <div class="time-row-text">{{晚上安排}}</div>
+  </div>
+
+  <!-- 固定三段信息（纵向堆叠，非网格） -->
+  <div class="day-info">
+    <div class="day-info-item">
+      <div class="day-info-label">吃什么</div>
+      <div class="day-info-text">{{当日美食：菜品、点餐策略}}</div>
+    </div>
+    <div class="day-info-item">
+      <div class="day-info-label">交通与预订</div>
+      <div class="day-info-text">{{当日交通、预订要点与提醒}}</div>
+    </div>
+    <div class="day-info-item alternative">
+      <div class="day-info-label">替代方案</div>
+      <div class="day-info-text">{{天气/晚点/体力不支时：删什么、保什么、移到哪里}}</div>
+    </div>
+  </div>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} {{页码}}</div>
+</div>
+
+<!-- Agent 注意：P4(D2)、P5(D3)、P6(D4) 复制上方单日模板，逐天替换内容 -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     P7 / D5 + D6 双日同页（跨境日/紧凑日模式）
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <!-- ── 上半日：D5 ── -->
+  <h2 class="day-title"><span class="day-badge">D{{n}}</span>{{M月D日}} {{当日主题标题}}</h2>
+  <p class="day-subtitle">{{副标题}}</p>
+
+  <div class="time-row morning">
+    <div class="time-row-label">早上</div>
+    <div class="time-row-text">{{...}}</div>
+  </div>
+  <div class="time-row afternoon">
+    <div class="time-row-label">下午</div>
+    <div class="time-row-text">{{...}}</div>
+  </div>
+  <div class="time-row evening">
+    <div class="time-row-label">晚上</div>
+    <div class="time-row-text">{{...}}</div>
+  </div>
+
+  <div class="day-info">
+    <div class="day-info-item">
+      <div class="day-info-label">吃什么</div>
+      <div class="day-info-text">{{...}}</div>
+    </div>
+    <div class="day-info-item">
+      <div class="day-info-label">交通与预订</div>
+      <div class="day-info-text">{{...}}</div>
+    </div>
+    <div class="day-info-item alternative">
+      <div class="day-info-label">替代方案</div>
+      <div class="day-info-text">{{...}}</div>
+    </div>
+  </div>
+
+  <hr class="day-divider">
+
+  <!-- ── 下半日：D6（完整保留自己的三段信息） ── -->
+  <h2 class="day-title"><span class="day-badge">D{{n+1}}</span>{{M月D日}} {{当日主题标题}}</h2>
+  <p class="day-subtitle">{{副标题}}</p>
+
+  <div class="time-row morning">
+    <div class="time-row-label">早上</div>
+    <div class="time-row-text">{{...}}</div>
+  </div>
+  <div class="time-row afternoon">
+    <div class="time-row-label">下午</div>
+    <div class="time-row-text">{{...}}</div>
+  </div>
+  <div class="time-row evening">
+    <div class="time-row-label">晚上</div>
+    <div class="time-row-text">{{...}}</div>
+  </div>
+
+  <div class="day-info">
+    <div class="day-info-item">
+      <div class="day-info-label">吃什么</div>
+      <div class="day-info-text">{{...}}</div>
+    </div>
+    <div class="day-info-item">
+      <div class="day-info-label">交通与预订</div>
+      <div class="day-info-text">{{...}}</div>
+    </div>
+    <div class="day-info-item alternative">
+      <div class="day-info-label">替代方案</div>
+      <div class="day-info-text">{{...}}</div>
+    </div>
+  </div>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} {{页码}}</div>
+</div>
+
+<!-- Agent 注意：P8(D7)、P9(D8)、P10(D9)、P11(D10) 复制单日模板 -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     P12 / D11 + D12 双日同页（收尾日模式，结构同 P7）
+     ══════════════════════════════════════════════════════════════ -->
+<!-- 复制 P7 双日模板：D11 完整块 + day-divider + D12 完整块 -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     P13 / 专题 A · 小众观察（文化侧窗型）
+     结构：背景 → 顺路入口 → 不纳入的点 → 参观原则
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="feature-header">
+    <div class="feature-kicker">{{专题类型（如：小众观察）}}</div>
+    <h3 class="feature-title">{{专题标题｜如：中亚高丽人}}</h3>
+    <p class="feature-subtitle">{{一句话定位：如"一页背景、两个顺路入口，不占用核心旅行时间"}}</p>
+  </div>
+
+  <div class="feature-section">
+    <h4>{{为什么值得知道}}</h4>
+    <p>{{背景段落：历史脉络（迁徙/事件）、今天的存在形态，
+      说明这是理解当地社会的"侧窗"而非旅行主轴。}}</p>
+  </div>
+
+  <div class="feature-section">
+    <h4>{{N}}个不绕路的入口</h4>
+    <ul class="plain-list">
+      <li><strong>{{入口1（日期+场合）}}：</strong>{{条件性安排说明——只在合适时才去}}</li>
+      <li><strong>{{入口2（日期+场合）}}：</strong>{{顺路体验说明}}</li>
+    </ul>
+  </div>
+
+  <div class="feature-section">
+    <h4>哪些点不纳入固定行程</h4>
+    <p>{{列出被排除的深挖点及取舍逻辑：保留为资料线索，不牺牲核心行程。}}</p>
+  </div>
+
+  <div class="feature-section">
+    <h4>参观原则</h4>
+    <ul class="plain-list">
+      <li>{{伦理原则1（如：不把少数族群生活当猎奇景观）}}</li>
+      <li>{{伦理原则2（如：拍摄前征得同意）}}</li>
+      <li>{{伦理原则3}}</li>
+    </ul>
+  </div>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} {{页码}}</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P14 / 专题 B · 主题叙事（历史概念型）
+     结构：核心论点 → 角色对比列表 → 一路观察什么
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="feature-header">
+    <div class="feature-kicker">{{专题类型（如：主题二）}}</div>
+    <h3 class="feature-title">{{专题标题｜如：三座古城，三种丝绸之路}}</h3>
+    <p class="feature-subtitle">{{副标题：点出对比对象}}</p>
+  </div>
+
+  <div class="feature-section">
+    <h4>{{纠偏论点标题（如：不要把丝绸之路理解成…）}}</h4>
+    <p>{{重新框架化段落：纠正常见误解，给出更准确的理解模型。}}</p>
+  </div>
+
+  <div class="feature-section">
+    <h4>{{对比框架标题（如：三种城市角色）}}</h4>
+    <ul class="plain-list">
+      <li><strong>{{对象1（如：希瓦）}}：</strong>{{角色定位 + 参观策略提示}}</li>
+      <li><strong>{{对象2（如：布哈拉）}}：</strong>{{角色定位 + 参观策略提示}}</li>
+      <li><strong>{{对象3（如：撒马尔罕）}}：</strong>{{角色定位 + 参观策略提示}}</li>
+    </ul>
+  </div>
+
+  <div class="feature-section">
+    <h4>一路观察什么</h4>
+    <ul class="plain-list">
+      <li>{{观察点1}}</li>
+      <li>{{观察点2}}</li>
+      <li>{{观察点3}}</li>
+      <li>{{观察点4}}</li>
+    </ul>
+  </div>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} {{页码}}</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P15 / 专题 C · 关键日深读（时间线型）
+     用于全程最关键、最不可替代的一天
+     结构：时间节点纵览 → 最重要预订提示
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="feature-header">
+    <div class="feature-kicker">{{专题类型（如：快车核心日）}}｜{{日期}}</div>
+    <h3 class="feature-title">{{关键日标题｜如：塔什干-希瓦：一天穿过地理尺度}}</h3>
+    <p class="feature-subtitle">{{副标题}}</p>
+  </div>
+
+  <!-- 时间节点纵览 -->
+  <div class="milestone">
+    <div class="milestone-time">{{时刻1（如：07:00）}}</div>
+    <div class="milestone-body"><strong>{{节点标题1}}</strong>{{节点1内容：班次信息、运行说明、官方确认提醒}}</div>
+  </div>
+  <div class="milestone">
+    <div class="milestone-time">{{节点2（如：车窗）}}</div>
+    <div class="milestone-body"><strong>{{节点标题2}}</strong>{{节点2内容：沿途观察什么、与飞行的对比}}</div>
+  </div>
+  <div class="milestone">
+    <div class="milestone-time">{{时刻3（如：15:30以后）}}</div>
+    <div class="milestone-body"><strong>{{节点标题3}}</strong>{{节点3内容：抵达后的首步安排}}</div>
+  </div>
+  <div class="milestone">
+    <div class="milestone-time">{{节点4（如：晚上）}}</div>
+    <div class="milestone-body"><strong>{{节点标题4}}</strong>{{节点4内容}}</div>
+  </div>
+
+  <!-- 最重要预订强调框 -->
+  <div class="key-booking">
+    <h4>最重要的预订</h4>
+    <p>{{全程最不可替代的一张票/一项预订：为何关键、开售后优先购买、围绕它锁定什么。}}</p>
+  </div>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} {{页码}}</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P16 / 城市读本 · 引导页
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="section-title">沿途城市与风景读本</h2>
+  <p class="section-subtitle">{{一句话定位：如"知道眼前的风景从哪里来，旅行会多出一层"}}</p>
+
+  <div class="feature-section">
+    <h4>{{定位声明（如：这部分不是景点清单）}}</h4>
+    <p>{{说明本板块性质：随身阅读卡——抵达前理解历史层次，现场把视线从"著名地标"
+      移向材料、空间、使用者和城市生活。传说与史实分开表述。}}</p>
+  </div>
+
+  <div class="feature-section">
+    <h4>{{N}}条阅读线索</h4>
+    <ul class="plain-list">
+      <li><strong>{{线索1（如：山与城）}}：</strong>{{线索1简述}}</li>
+      <li><strong>{{线索2（如：城墙与绿洲）}}：</strong>{{线索2简述}}</li>
+      <li><strong>{{线索3（如：毁坏与重建）}}：</strong>{{线索3简述}}</li>
+      <li><strong>{{线索4（如：权力与知识）}}：</strong>{{线索4简述}}</li>
+    </ul>
+  </div>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} {{页码}}</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P17 / 城市读本 · 城市页模板（标准单城）
+     结构：标题 → 背景叙述 → 值得慢看的地方 → 现场细节 → 观看顺序
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="city-header">
+    <h3 class="city-title"><span class="city-name">{{城市名}}</span>｜{{城市副标题}}</h3>
+    <p class="city-tagline">{{一句话定位：历史变迁脉络浓缩}}</p>
+  </div>
+
+  <p class="city-intro">
+    {{城市背景叙述（150-250字）：历史层叠——古代/帝俄/苏联/独立后的变迁，
+    解释今天面貌如何形成；点出城市魅力的来源。}}
+  </p>
+
+  <h4 class="subsection-title">值得慢看的地方</h4>
+
+  <!-- 每个景点：名称 + 解读段（非卡片，纵向排列） -->
+  <div class="sight-name">{{景点1名称}}</div>
+  <div class="sight-desc">{{景点1解读：历史背景、建筑/自然特点、常见误解的纠正。
+    传说与史实分开表述，修复外观不等同原貌。}}</div>
+
+  <div class="sight-name">{{景点2名称}}</div>
+  <div class="sight-desc">{{景点2解读}}</div>
+
+  <div class="sight-name">{{景点3名称}}</div>
+  <div class="sight-desc">{{景点3解读}}</div>
+
+  <div class="field-notes">
+    <div class="field-notes-title">站在现场，留意这些细节</div>
+    <ul>
+      <li>{{观察细节1：光线/材料/结构/方向感}}</li>
+      <li>{{观察细节2}}</li>
+      <li>{{观察细节3}}</li>
+    </ul>
+  </div>
+
+  <div class="viewing-order">
+    <div class="viewing-order-title">建议观看顺序</div>
+    <ol>
+      <li>{{顺序1：时段+路线}}</li>
+      <li>{{顺序2}}</li>
+      <li>{{顺序3}}</li>
+    </ol>
+  </div>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} {{页码}}</div>
+</div>
+
+<!-- Agent 注意（城市读本分页规则）：
+     · 大城市可占多页：
+       - 阿拉木图 = P17 城市本体 + P18 周边自然（两页均用城市页模板，
+         P18 标题写"{{城市名}}周边｜{{副标题}}"）
+       - 撒马尔罕 = P22 + P23 两页（按主题拆分，如"雷吉斯坦"/"王朝陵墓"）
+     · 其余城市每城一页：P19/P20/P21 -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     P18 / 城市读本 · 城市周边页（复用城市页模板）
+     标题格式："{{城市名}}周边｜{{副标题}}"
+     ══════════════════════════════════════════════════════════════ -->
+<!-- 复制上方城市页模板，标题改为"{{城市名}}周边｜..."，
+     内容聚焦周边自然/近郊，解读逻辑同城市页 -->
+
+<!-- P19 / P20 / P21：每城一页，复制城市页模板 -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     P24 / 专题 D · 体验专页（在城市读本之后！）
+     结构：主方案 → 背景理解 → 观察点 → 安全底线 → 等价替代
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="feature-header">
+    <div class="feature-kicker">{{专题类型（如：游牧文化体验专页）}}</div>
+    <h3 class="feature-title">{{体验主题标题}}</h3>
+    <p class="feature-subtitle">{{态度声明：如"不把游牧文化当作一场换装表演——从马匹、季节和家庭生活进入"}}</p>
+  </div>
+
+  <div class="feature-section">
+    <h4>主方案</h4>
+    <ul class="plain-list">
+      <li><strong>{{安排1（日期+时段）}}：</strong>{{住宿+家庭互动安排}}</li>
+      <li><strong>{{安排2（日期+时段）}}：</strong>{{体验活动安排+强度边界}}</li>
+      <li><strong>{{安排3}}：</strong>{{后续衔接安排}}</li>
+    </ul>
+  </div>
+
+  <div class="feature-section">
+    <h4>{{背景理解标题（如：读懂眼前的生活）}}</h4>
+    <p>{{文化背景段落：传统生活方式的组织逻辑（如季节牧场）、今天的变化、
+      体验能提供什么窗口、不能代表什么。}}</p>
+  </div>
+
+  <div class="feature-section">
+    <h4>{{N}}个观察点</h4>
+    <ul class="plain-list">
+      <li><strong>{{观察点1（如：马具）}}：</strong>{{观察什么}}</li>
+      <li><strong>{{观察点2（如：毡房）}}：</strong>{{观察什么}}</li>
+      <li><strong>{{观察点3（如：餐桌）}}：</strong>{{观察什么}}</li>
+      <li><strong>{{观察点4（如：季节）}}：</strong>{{观察什么}}</li>
+    </ul>
+  </div>
+
+  <div class="feature-section">
+    <h4>安全底线</h4>
+    <ul class="plain-list">
+      <li>{{安全要求1}}</li>
+      <li>{{安全要求2}}</li>
+      <li>{{安全要求3}}</li>
+      <li>{{安全要求4}}</li>
+      <li>{{取消条件}}</li>
+    </ul>
+  </div>
+
+  <div class="feature-section">
+    <h4>{{等价替代标题（如：不骑马的等价版本）}}</h4>
+    <p>{{替代体验安排：选择主人本来就会做、愿意分享的内容；
+      以及更系统但更舞台化的备选方案及其代价。}}</p>
+  </div>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} {{页码}}</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P25 / 预算与预订节奏
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="section-title">预算与预订节奏</h2>
+  <p class="section-subtitle">{{预算口径：每人粗估、含/不含项、几人同行假设}}</p>
+
+  <table class="budget-table">
+    <thead>
+      <tr>
+        <th>项目</th>
+        <th>经济舒适型</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>{{项目1}}</td><td>{{价格范围}}</td><td>{{包含内容}}</td></tr>
+      <tr><td>{{项目2}}</td><td>{{价格范围}}</td><td>{{包含内容}}</td></tr>
+      <tr><td>{{项目3}}</td><td>{{价格范围}}</td><td>{{包含内容}}</td></tr>
+      <tr><td>{{项目4}}</td><td>{{价格范围}}</td><td>{{包含内容}}</td></tr>
+      <tr><td>{{项目5}}</td><td>{{价格范围}}</td><td>{{包含内容}}</td></tr>
+      <tr><td>{{项目6}}</td><td>{{价格范围}}</td><td>{{包含内容}}</td></tr>
+      <tr><td>{{项目7}}</td><td>{{价格范围}}</td><td>{{包含内容}}</td></tr>
+      <tr class="total-row"><td>合计</td><td>{{总价范围}}</td><td>{{机动金建议}}</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="subsection-title">什么时候订</h3>
+  <div class="booking-timeline-item">
+    <div class="booking-timeline-marker">{{节点1（如：现在）}}</div>
+    <div class="booking-timeline-content">{{预订优先级1}}</div>
+  </div>
+  <div class="booking-timeline-item">
+    <div class="booking-timeline-marker">{{节点2}}</div>
+    <div class="booking-timeline-content">{{预订优先级2}}</div>
+  </div>
+  <div class="booking-timeline-item">
+    <div class="booking-timeline-marker">{{节点3（如：出发前4-6周）}}</div>
+    <div class="booking-timeline-content">{{预订优先级3}}</div>
+  </div>
+  <div class="booking-timeline-item">
+    <div class="booking-timeline-marker">{{节点4（如：出发前10天）}}</div>
+    <div class="booking-timeline-content">{{复核事项}}</div>
+  </div>
+  <div class="booking-timeline-item">
+    <div class="booking-timeline-marker">{{节点5（如：出发前48小时）}}</div>
+    <div class="booking-timeline-content">{{离线备份事项}}</div>
+  </div>
+
+  <div class="payment-strategy">
+    <strong>付款策略：</strong>{{卡片/现金/换汇建议 + 价格波动免责说明}}
+  </div>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} {{页码}}</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P26 / 行李、天气与风险控制
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="section-title">行李、天气与风险控制</h2>
+  <p class="section-subtitle">{{季节气候一句话：如"城市是秋天，山区可能已接近初冬"}}</p>
+
+  <h3 class="subsection-title">分层穿衣</h3>
+  <ul class="plain-list">
+    <li>{{穿衣层1：贴身层}}</li>
+    <li>{{穿衣层2：保暖层}}</li>
+    <li>{{鞋类建议}}</li>
+    <li>{{配件（帽子/手套/墨镜/防晒）}}</li>
+    <li>{{随身包与证件携带原则}}</li>
+  </ul>
+
+  <h3 class="subsection-title">关键风险</h3>
+  <table class="risk-table">
+    <thead>
+      <tr><th>情况</th><th>处理原则</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="risk-situation">{{风险1}}</td><td class="risk-action">{{处理原则1}}</td></tr>
+      <tr><td class="risk-situation">{{风险2}}</td><td class="risk-action">{{处理原则2}}</td></tr>
+      <tr><td class="risk-situation">{{风险3}}</td><td class="risk-action">{{处理原则3}}</td></tr>
+      <tr><td class="risk-situation">{{风险4}}</td><td class="risk-action">{{处理原则4}}</td></tr>
+      <tr><td class="risk-situation">{{风险5}}</td><td class="risk-action">{{处理原则5}}</td></tr>
+      <tr><td class="risk-situation">{{风险6}}</td><td class="risk-action">{{处理原则6}}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="checklist">
+    <h3 class="subsection-title">旅行前核对清单</h3>
+    <ul>
+      <li>{{证件与入境要求}}</li>
+      <li>{{关键车票核对}}</li>
+      <li>{{口岸状态}}</li>
+      <li>{{体验项目安全条件}}</li>
+      <li>{{航班衔接}}</li>
+      <li>{{其他}}</li>
+    </ul>
+  </div>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} {{页码}}</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P27 / 实用链接与资料来源
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="section-title">实用链接与资料来源</h2>
+
+  <div class="links-group">
+    <h4>交通与预订</h4>
+    <ul class="links-list">
+      <li>{{描述1}}：<a href="{{URL1}}">{{URL1}}</a></li>
+      <li>{{描述2}}：<a href="{{URL2}}">{{URL2}}</a></li>
+      <li>{{描述3}}：<a href="{{URL3}}">{{URL3}}</a></li>
+      <li>{{描述4}}：<a href="{{URL4}}">{{URL4}}</a></li>
+      <!-- Agent：按实际引用补充 -->
+    </ul>
+  </div>
+
+  <div class="links-group">
+    <h4>历史与目的地背景</h4>
+    <ul class="links-list">
+      <li>{{描述5}}：<a href="{{URL5}}">{{URL5}}</a></li>
+      <li>{{描述6}}：<a href="{{URL6}}">{{URL6}}</a></li>
+    </ul>
+  </div>
+
+  <div class="disclaimer">
+    <strong>说明：</strong>{{制作时间、信息时效声明（铁路/巴士/边境/门票/汇率可能变化，
+    出发前通过官方渠道复核）、图片用途说明。}}
+  </div>
+
+  <div class="image-credits">
+    <p><strong>图片授权</strong></p>
+    <p>{{图片文件名1}}｜作者：{{作者}}｜许可：{{许可}}｜{{来源URL}}</p>
+    <p>{{图片文件名2}}｜作者：{{作者}}｜许可：{{许可}}｜{{来源URL}}</p>
+    <p>{{图片文件名3}}｜作者：{{作者}}｜许可：{{许可}}｜{{来源URL}}</p>
+  </div>
+
+  <div class="page-footer">{{手册标题}}｜{{路线简称}} {{页码}}</div>
+</div>
+
+</body>
+</html>

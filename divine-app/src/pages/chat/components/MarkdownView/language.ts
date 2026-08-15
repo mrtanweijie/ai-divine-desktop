@@ -52,6 +52,7 @@ const LANGUAGE_ALIASES: Record<string, string> = {
   yml: "yaml",
   md: "markdown",
   mmd: "mermaid",
+  svg: "xml",
   htm: "html",
   sass: "scss",
   golang: "go",
@@ -80,6 +81,7 @@ const LANGUAGE_LABELS: Record<string, string> = {
   tsx: "TSX",
   json: "JSON",
   markdown: "Markdown",
+  svg: "SVG",
   python: "Python",
   bash: "Shell",
   yaml: "YAML",
@@ -120,5 +122,10 @@ export function normalizeLanguage(language?: string): string {
 }
 
 export function languageLabel(language?: string): string {
-  return LANGUAGE_LABELS[normalizeLanguage(language)] ?? "Text";
+  const raw = (language || "text").trim().toLowerCase();
+  return (
+    LANGUAGE_LABELS[raw] ??
+    LANGUAGE_LABELS[normalizeLanguage(raw)] ??
+    "Text"
+  );
 }

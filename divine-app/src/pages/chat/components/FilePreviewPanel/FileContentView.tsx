@@ -12,6 +12,7 @@ import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import type { FileDiff } from "@/types";
 import { useTheme } from "@/services/theme";
 import { normalizeLanguage } from "@/pages/chat/components/MarkdownView/language";
+import { WebPreviewBlock } from "@/pages/chat/components/MarkdownView/WebPreviewBlock";
 
 interface FileContentViewProps {
   preview: FileDiff;
@@ -26,6 +27,14 @@ function languageFromPath(filePath: string): string | undefined {
   if (name === "Dockerfile") return "dockerfile";
   if (name === "Makefile") return "makefile";
   return name.split(".").pop() || undefined;
+}
+
+function webPreviewLanguage(filePath: string): "html" | "svg" | null {
+  const name = filePath.split("/").pop() ?? filePath;
+  const ext = name.toLowerCase().split(".").pop() || "";
+  if (ext === "html" || ext === "htm") return "html";
+  if (ext === "svg") return "svg";
+  return null;
 }
 
 function tokenStyle(token: ThemedToken): CSSProperties {
@@ -131,6 +140,7 @@ export function FileContentView({
 }: FileContentViewProps) {
   const { t } = useTranslation();
   const content = preview.newContent || preview.oldContent || "";
+  const webLanguage = webPreviewLanguage(relPath);
   return (
     <div className="diff-view file-content-view">
       <div className="diff-view-head">
@@ -163,6 +173,12 @@ export function FileContentView({
             {t("file.binaryPreviewUnsupported", "二进制文件不支持内容预览")}
           </span>
         </div>
+      ) : webLanguage && !preview.contentTruncated ? (
+        <WebPreviewBlock
+          code={content}
+          language={webLanguage}
+          variant="panel"
+        />
       ) : (
         <CodePreview code={content} relPath={relPath} />
       )}

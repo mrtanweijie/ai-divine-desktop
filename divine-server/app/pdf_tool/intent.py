@@ -66,6 +66,13 @@ async def parse_intent(
                 "key_points": [data.get("topic") or user_input],
             }
         ]
+    route_value = data.get("route")
+    if isinstance(route_value, str):
+        route_value = [
+            part.strip()
+            for part in re.split(r"→|->|,|、", route_value)
+            if part.strip()
+        ]
     return PDFIntent(
         title=str(data.get("title") or user_input[:40] or "文档"),
         topic=str(data.get("topic") or user_input),
@@ -78,6 +85,12 @@ async def parse_intent(
             "recipe": recipe.name,
             "destination": data.get("destination"),
             "days": data.get("days"),
+            "duration": data.get("duration"),
+            "travelers": data.get("travelers"),
+            "countries": data.get("countries"),
+            "route": route_value,
+            "dates": data.get("dates"),
+            "summary": data.get("summary"),
             "style": data.get("style"),
         },
     )

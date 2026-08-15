@@ -17,6 +17,7 @@ class PDFIntent:
 class PDFRecipe:
     name: str = "simple"
     display_name: str = "文档"
+    content_format: str = "markdown"
     css_template: str = "universal"
     color_scheme: str = "blue"
     illustration_plan: dict[str, bool] = {
