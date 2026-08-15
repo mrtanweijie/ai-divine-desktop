@@ -232,6 +232,36 @@ pnpm tauri:build:debug   # 调试包，开启 devtools
 完整签名需要安装 Developer ID Application 证书；公证需要设置 `APPLE_ID`、`APPLE_PASSWORD`、`APPLE_TEAM_ID`，或使用 App Store Connect API Key（`APPLE_API_ISSUER`、`APPLE_API_KEY`、`APPLE_API_KEY_PATH`）。
 也可以先用 `xcrun notarytool store-credentials <profile> --apple-id ... --team-id ...` 保存凭据，再用 `--keychain-profile` 公证。
 
+### 自动更新与发布
+
+首次为 updater 生成独立签名密钥，公钥会写入 `tauri.conf.json`，私钥不要提交到仓库：
+
+```bash
+cd divine-app
+pnpm tauri signer generate -w ~/.tauri/divine.key
+```
+
+如果本机 shell 里遗留了其他项目的 `TAURI_SIGNING_PRIVATE_KEY` 环境变量，发布前需要取消，避免用错密钥：
+
+```bash
+unset TAURI_SIGNING_PRIVATE_KEY
+export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/divine.key"
+```
+
+本地打包并上传 GitHub Release：
+
+```bash
+./scripts/publish-macos.sh \
+  --version 0.2.0 \
+  --updater-key ~/.tauri/divine.key \
+  --repo mrtanweijie/ai-divine-desktop \
+  --notes "更新说明" \
+  --keychain-profile <profile> \
+  --upload
+```
+
+脚本会构建签名包、生成 `.app.tar.gz` 和 `release-assets/latest.json`，并上传到 GitHub Release。客户端启动后自动检查该清单，发现新版本后可在设置页或右下角提示中下载并重启。
+
 ## GitHub Actions
 
 仓库内置 `Build Desktop Apps` 工作流，可手动触发或推送 `v*` tag 触发，自动构建：

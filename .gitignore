@@ -15,6 +15,7 @@ divine-app/src-tauri/gen/
 divine-app/src-tauri/binaries/
 
 # Runtime data
+release-assets/
 divine-server/workspace/
 divine-server/data/
 divine-server/build/

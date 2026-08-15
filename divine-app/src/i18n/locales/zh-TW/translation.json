@@ -1,4 +1,17 @@
 {
+  "about": {
+    "contactText": "問題回饋或合作請聯繫：",
+    "contactTitle": "聯繫方式",
+    "disclaimerAiContent": "AI 產生的內容僅供參考，可能包含錯誤、過時資訊或偏差；重要資訊請自行核實，涉及法律、醫療、財務等專業決策請諮詢專業人士。",
+    "disclaimerAsIs": "本專案以「現況」提供，不承諾特定結果，也不保證運作無錯誤；因使用本軟體造成的任何直接或間接損失，由使用者自行承擔。",
+    "disclaimerPrivacy": "對話、檔案與設定預設儲存在本機；呼叫模型服務時，必要的對話上下文會傳送給對應服務商。",
+    "disclaimerRisk": "使用本軟體處理重要檔案或執行高風險操作前，請先備份資料並自行評估風險。",
+    "disclaimerThirdParty": "呼叫第三方模型服務時，費用、資料流轉、隱私與服務可用性遵循對應服務商的規則。",
+    "disclaimerTitle": "免責聲明",
+    "licenseText": "本專案採用 MIT License。",
+    "sourceLicenseTitle": "開源協議",
+    "title": "關於"
+  },
   "chat": {
     "aiDisclaimer": "內容由 AI 產生，請核實重要資訊",
     "analyzeAttachment": "請分析附件",
@@ -458,5 +471,18 @@
     "writeCalendar": "寫入行程",
     "writtenFiles": "已寫入 {{count}} 個檔案",
     "writtenFiles_other": "已寫入 {{count}} 個檔案"
+  },
+  "updater": {
+    "available": "發現新版本 v{{version}}",
+    "check": "檢查更新",
+    "checkFailed": "檢查更新失敗，請稍後重試",
+    "checking": "檢查中...",
+    "disabled": "目前環境不支援自動更新",
+    "downloadAndRestart": "下載並重新啟動",
+    "downloading": "正在下載 v{{version}} {{progress}}%",
+    "restarting": "更新完成，正在重新啟動...",
+    "retry": "重試",
+    "title": "軟體更新",
+    "uptodate": "已是最新版本"
   }
 }

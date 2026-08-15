@@ -1,4 +1,17 @@
 {
+  "about": {
+    "contactText": "问题反馈或合作请联系：",
+    "contactTitle": "联系方式",
+    "disclaimerAiContent": "AI 生成的内容仅供参考，可能包含错误、过时信息或偏差；重要信息请自行核实，涉及法律、医疗、财务等专业决策请咨询专业人士。",
+    "disclaimerAsIs": "本项目按“现状”提供，不承诺特定结果，也不保证运行无错误；因使用本软件造成的任何直接或间接损失，由使用者自行承担。",
+    "disclaimerPrivacy": "对话、文件和设置默认保存在本机；调用模型服务时，必要的对话上下文会发送给对应服务商。",
+    "disclaimerRisk": "使用本软件处理重要文件或执行高风险操作前，请先备份数据并自行评估风险。",
+    "disclaimerThirdParty": "调用第三方模型服务时，费用、数据流转、隐私与服务可用性遵循对应服务商的规则。",
+    "disclaimerTitle": "免责声明",
+    "licenseText": "本项目采用 MIT License。",
+    "sourceLicenseTitle": "开源协议",
+    "title": "关于"
+  },
   "chat": {
     "aiDisclaimer": "内容由 AI 生成，请核实重要信息",
     "analyzeAttachment": "请分析附件",
@@ -437,5 +450,18 @@
     "wordCreated": "Word 文档生成完成",
     "writeCalendar": "写入日程",
     "writtenFiles": "已写入 {{count}} 个文件"
+  },
+  "updater": {
+    "available": "发现新版本 v{{version}}",
+    "check": "检查更新",
+    "checkFailed": "检查更新失败，请稍后重试",
+    "checking": "检查中...",
+    "disabled": "当前环境不支持自动更新",
+    "downloadAndRestart": "下载并重启",
+    "downloading": "正在下载 v{{version}} {{progress}}%",
+    "restarting": "更新完成，正在重启...",
+    "retry": "重试",
+    "title": "软件更新",
+    "uptodate": "已是最新版本"
   }
 }

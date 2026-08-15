@@ -1,0 +1,39 @@
+.update-banner {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  min-height: 44px;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.update-banner--available {
+  border-color: var(--color-accent);
+}
+
+.update-banner-icon {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.update-banner--downloading .update-banner-icon {
+  animation: ui-spin 0.8s linear infinite;
+}
+
+.update-banner-text {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
