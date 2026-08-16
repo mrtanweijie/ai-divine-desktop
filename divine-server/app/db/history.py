@@ -101,6 +101,9 @@ def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
                 except json.JSONDecodeError:
                     tool_calls = []
                 if not tool_calls:
+                    if not content:
+                        # 空回复（无内容且无工具调用）跳过，避免 API 400
+                        continue
                     result.append(
                         {
                             "role": "assistant",
@@ -120,6 +123,9 @@ def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
                 pending_tool_call_ids = {
                     call.get("id", "") for call in tool_calls if call.get("id")
                 }
+                continue
+            if not content:
+                # 无内容、无工具调用的空 assistant 消息跳过
                 continue
             entry: dict[str, Any] = {
                 "role": "assistant",

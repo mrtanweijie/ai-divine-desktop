@@ -259,16 +259,17 @@ export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/divine.key"
 本地打包并上传 GitHub Release：
 
 ```bash
-./scripts/publish-macos.sh \
-  --version 0.2.0 \
+bash scripts/publish-macos.sh \
+  --version 0.1.1 \
+  --arch arm64 \
   --updater-key ~/.tauri/divine.key \
-  --repo mrtanweijie/ai-divine-desktop \
-  --notes "更新说明" \
   --keychain-profile <profile> \
   --upload
 ```
 
 脚本会构建签名包、生成 `.app.tar.gz` 和 `release-assets/latest.json`，并上传到 GitHub Release。客户端启动后自动检查该清单，发现新版本后可在设置页或右下角提示中下载并重启。
+
+`--arch` 指定目标架构（`arm64` / `x86_64`，默认取当前机器架构），`--keychain-profile` 使用已保存的 notarytool 凭据；`--repo` 默认从 git remote 推断，`--notes` 默认读取 `release-notes.md`。
 
 更新说明默认读取仓库根目录 `release-notes.md` 中 `## v<version>` 区块（例如 `## v0.1.1`）；也可以用 `--notes` 或 `--notes-file` 覆盖。
 

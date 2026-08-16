@@ -1,6 +1,6 @@
 [package]
 name = "ai-divine-desktop"
-version = "0.1.0"
+version = "0.1.2"
 description = "AI Divine Desktop"
 edition = "2021"
 

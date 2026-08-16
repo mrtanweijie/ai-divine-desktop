@@ -80,18 +80,19 @@ class ChatDeepSeekProvider:
                         for original in originals
                         if isinstance(original, ToolMessage)
                     }
-                    for item, original in zip(
-                        payload.get("messages", []), originals
+                    messages = payload.get("messages", [])
+                    drop_indices: set[int] = set()
+                    for index, (item, original) in enumerate(
+                        zip(messages, originals)
                     ):
-                        if isinstance(original, AIMessage):
-                            reasoning = original.additional_kwargs.get(
-                                "reasoning_content"
-                            )
-                            if reasoning:
-                                item["reasoning_content"] = reasoning
-                        if isinstance(original, AIMessage) and item.get(
-                            "tool_calls"
-                        ):
+                        if not isinstance(original, AIMessage):
+                            continue
+                        reasoning = original.additional_kwargs.get(
+                            "reasoning_content"
+                        )
+                        if reasoning:
+                            item["reasoning_content"] = reasoning
+                        if item.get("tool_calls"):
                             valid_calls = [
                                 call
                                 for call in item["tool_calls"]
@@ -102,6 +103,20 @@ class ChatDeepSeekProvider:
                                 item["tool_calls"] = valid_calls
                             else:
                                 item.pop("tool_calls", None)
+                        # 丢弃既无 content 也无 tool_calls 的 assistant 消息
+                        # （例如模型偶发的空回复，或工具调用被过滤后残留），
+                        # DeepSeek 会以 400 拒绝这类消息。
+                        if not (
+                            (item.get("content") or "").strip()
+                            or item.get("tool_calls")
+                        ):
+                            drop_indices.add(index)
+                    if drop_indices:
+                        payload["messages"] = [
+                            message
+                            for index, message in enumerate(messages)
+                            if index not in drop_indices
+                        ]
                 except Exception:
                     pass
                 return payload
