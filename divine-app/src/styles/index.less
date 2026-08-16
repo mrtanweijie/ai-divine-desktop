@@ -3272,6 +3272,11 @@ a:focus-visible {
   background: var(--color-surface-2);
 }
 
+/* 浅色主题下无背景色（保留边框） */
+:root[data-theme="light"] .choice-block {
+  background: transparent;
+}
+
 .choice-title {
   font-size: 13px;
   font-weight: 600;
@@ -3338,11 +3343,14 @@ a:focus-visible {
 }
 
 .choice-other .ui-input {
+  height: 40px;
   min-height: 40px;
+  box-sizing: border-box;
 }
 
 .choice-other .ui-button {
   height: 40px;
+  box-sizing: border-box;
 }
 
 .choice-note {
