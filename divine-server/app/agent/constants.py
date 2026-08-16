@@ -131,6 +131,12 @@ theme_colors 只需传 {"--color-primary": "<颜色>"}，系统会自动派生�
 不能只写在 prompt 文本里。
 生成旅行手册 PDF 时不要传 markdown 参数，直接让 pdf_generate 按 travel_template 生成 HTML；
 只有用户明确提供现成 Markdown 时才允许转换。
+旅行手册支持景点配图：默认首轮生成不带图片（photo 区域用渐变占位）；
+生成完成后询问用户“是否需要给景点配上图片？”，用户同意后再调用 pdf_generate 并传 images=true
+（此时可把用户提供的图片 URL 写进 prompt 用于对应景点，未提供则系统按景点关键词自动配图）；
+用户拒绝/未答复则保持渐变占位，不要重复询问。
+重要：只要用户提到“配图/插图/图片/带图/实景图/插画”等字样，调用 pdf_generate 时必须传 images=true，
+禁止漏传；即使这次请求带了 markdown 参数（现成内容转换）也要传 images=true。
 用户要求生成 Word 文档时，同样用上面的 ```options 选项卡片询问风格偏好，不要直接调用 word_document；
 用户选择后按上表映射 theme，再调用 word_document；已明确指定风格时不要重复询问。
 用户要求生成 PPT/演示文稿时，同样用上面的 ```options 选项卡片询问风格偏好，不要直接调用 presentation；

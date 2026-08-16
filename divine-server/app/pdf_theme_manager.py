@@ -1463,6 +1463,173 @@ def build_cover_html(
     return template.format(**data)
 
 
+_IMG_SRC_RE = re.compile(
+    r'<img\b[^>]*?\bsrc=(["\'])(.*?)\1[^>]*>',
+    re.IGNORECASE | re.DOTALL,
+)
+
+_PLACEHOLDER_RE = re.compile(
+    r'<div class="photo-placeholder">(.*?)</div>',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _fetch_image_data(src: str) -> tuple[bytes, str] | None:
+    """下载图片，返回 (data, content_type)；失败/非图片/超限返回 None。"""
+    try:
+        import base64
+        import urllib.request
+
+        request = urllib.request.Request(
+            src,
+            headers={"User-Agent": "Mozilla/5.0 (Divine PDF Renderer)"},
+        )
+        with urllib.request.urlopen(request, timeout=6) as response:
+            data = response.read(2 * 1024 * 1024 + 1)  # 上限 2MB
+            if len(data) > 2 * 1024 * 1024:
+                return None
+            ctype = response.headers.get("Content-Type", "") or ""
+            if not ctype.startswith("image/"):
+                return None
+        return data, ctype
+    except Exception:
+        return None
+
+
+def _image_data_uri(src: str) -> str | None:
+    fetched = _fetch_image_data(src)
+    if not fetched:
+        return None
+    import base64
+
+    data, ctype = fetched
+    return f"data:{ctype};base64,{base64.b64encode(data).decode('ascii')}"
+
+
+def _keyword_to_image_url(keyword: str) -> str:
+    """把景点关键词转成稳定的图片 URL。
+
+    优先 Unsplash（若关键词本身是 unsplash photo 链接则直接用）；
+    否则用 picsum.photos 的 seed 模式（按关键词生成固定图，无需 API key），
+    seed 用 URL 编码的中文+英文关键词，保证同景点多次生成图片一致。
+    """
+    from urllib.parse import quote
+
+    keyword = (keyword or "").strip()
+    if keyword.startswith(("http://", "https://")):
+        return keyword
+    seed = quote(keyword or "travel", safe="")
+    return f"https://picsum.photos/seed/{seed}/900/600"
+
+
+def _ensure_placeholder_blocks(html_body: str) -> str:
+    """LLM 有时会省略 photo-placeholder（即使提示词要求）。
+
+    对每个 day-title，若其所在 page 内没有 photo-placeholder，
+    在 day-title 闭合后自动插入一个渐变占位（含 photo-note），
+    保证配图逻辑有占位可处理。
+    """
+    if 'class="day-title"' not in html_body:
+        return html_body
+
+    # 一次性收集所有 (day 标题, 插入位置)，从后往前插入避免位置漂移
+    insertions: list[tuple[int, str]] = []
+    for m in re.finditer(
+        r'<h2[^>]*class="day-title"[^>]*>(.*?)</h2>',
+        html_body,
+        re.DOTALL,
+    ):
+        insert_at = m.end()
+        # 当前 page 范围（到下一个 page 开头）：判断该页是否已有 placeholder
+        page_end = html_body.find('<div class="page">', insert_at)
+        if page_end == -1:
+            page_end = len(html_body)
+        if "photo-placeholder" in html_body[insert_at:page_end]:
+            continue
+        title = re.sub(r"<[^>]+>", "", m.group(1))
+        title = html_lib.unescape(title).strip()
+        title = re.sub(r"\s+", " ", title)
+        placeholder = (
+            '<div class="photo-placeholder">'
+            f'<span class="photo-note">Photo · {title or "当日看点"}</span>'
+            "</div>"
+        )
+        insertions.append((insert_at, "\n  " + placeholder))
+
+    for insert_at, block in sorted(insertions, reverse=True):
+        html_body = html_body[:insert_at] + block + html_body[insert_at:]
+    return html_body
+
+
+def _inline_placeholder_images(html_body: str, auto_fill: bool = True) -> str:
+    """处理 photo-placeholder 的图片：
+
+    1. 已有 <img>：下载外链转 base64 内嵌（成功 → PDF 离线可用；失败 → 移除 img）；
+    2. 无 <img> 且 auto_fill=True（用户要求配图）：默认从 photo-note 提取关键词，
+       生成图片 URL 下载内嵌（成功 → 有图；失败 → 保留渐变占位）。
+       auto_fill=False（默认首轮）：保持渐变占位，不自动下载。
+    CSS 无法检测 <img> 加载失败（坏链会渲染成白块盖住渐变），必须在渲染前处理。
+    """
+    # 先兜底：LLM 省略 placeholder 时自动插入（确保配图有占位可处理）
+    html_body = _ensure_placeholder_blocks(html_body)
+    if "photo-placeholder" not in html_body:
+        return html_body
+
+    def _inline_existing(match: re.Match[str]) -> str:
+        tag = match.group(0)
+        src = (match.group(2) or "").strip()
+        if not src:
+            return ""
+        if src.startswith("data:") or src.startswith("file:"):
+            return tag
+        if not src.startswith(("http://", "https://")):
+            # 本地相对路径：交给 WeasyPrint base_url 解析
+            return tag
+        uri = _image_data_uri(src)
+        if not uri:
+            return ""
+        return re.sub(
+            r'\bsrc=(["\'])(.*?)\1',
+            f'src="{uri}"',
+            tag,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+
+    # 先处理已有 img（下载或移除）
+    if "<img" in html_body:
+        html_body = _IMG_SRC_RE.sub(_inline_existing, html_body)
+
+    # 再给没有 img 的 placeholder 自动补图（仅用户要求配图时）
+    if not auto_fill:
+        return html_body
+
+    def _fill_placeholder(match: re.Match[str]) -> str:
+        inner = match.group(1)
+        if "<img" in inner:
+            return match.group(0)
+        note = re.search(
+            r'photo-note[^>]*>(.*?)<',
+            inner,
+            re.IGNORECASE | re.DOTALL,
+        )
+        keyword = note.group(1).strip() if note else ""
+        # 去 HTML 实体与装饰符，保留景点关键词
+        keyword = html_lib.unescape(keyword)
+        keyword = re.sub(r"[·｜|×•—\-–\s]+", " ", keyword).strip()
+        url = _keyword_to_image_url(keyword)
+        uri = _image_data_uri(url)
+        if not uri:
+            return match.group(0)  # 下载失败：保留渐变占位
+        return (
+            '<div class="photo-placeholder">'
+            f'<img src="{uri}" alt=""/>'
+            f"{inner}</div>"
+        )
+
+    return _PLACEHOLDER_RE.sub(_fill_placeholder, html_body)
+
+
 def build_travel_html_document(
     html_body: str,
     title: str,
@@ -1471,12 +1638,31 @@ def build_travel_html_document(
     include_cover: bool = True,
     overrides: dict[str, str] | None = None,
     theme: str = "travel",
+    images: bool = False,
 ) -> str:
     css = load_theme_css(theme, overrides=overrides)
     cover_html = (
         build_cover_html(theme, html_lib.escape(title), subtitle, cover_data)
         if include_cover
         else ""
+    )
+    # 外链图片转 base64 内嵌（失败移除，保留渐变兜底）；
+    # images=False 时不自动补图（photo 区域保持渐变占位）
+    import logging
+    _log = logging.getLogger("divine.pdf")
+    _log.warning(
+        "[placeholder-debug] images=%s day_title=%d placeholder=%d img=%d",
+        images,
+        html_body.count('class="day-title"'),
+        html_body.count("photo-placeholder"),
+        html_body.count("<img"),
+    )
+    html_body = _inline_placeholder_images(html_body, auto_fill=images)
+    _log.warning(
+        "[placeholder-debug] after: placeholder=%d img=%d base64=%d",
+        html_body.count("photo-placeholder"),
+        html_body.count("<img"),
+        html_body.count("data:image"),
     )
     return (
         "<!doctype html><html><head><meta charset=\"utf-8\">"

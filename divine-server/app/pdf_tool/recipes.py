@@ -85,6 +85,13 @@ class TravelRecipe(PDFRecipe):
                 if theme == "travel_mag"
                 else "，用三个 `<div class=\"day-section\">`（day-section-title/day-section-text）。\n"
             )
+            + (
+                "4.0 每天必须输出一个 `<div class=\"photo-placeholder\">`（放在 day-title 之后），"
+                "内含 `<span class=\"photo-note\">当日代表景点 · 看点</span>`，"
+                "不要省略这个区块。\n"
+                if theme == "travel_mag"
+                else ""
+            )
             + "4.1 全程内容必须精简紧凑：每日 time-table 每个时段只写 1 句话（40 字内），"
             "每日整页控制在紧凑篇幅；总原则是输出必须完整覆盖所有规定页面（"
             "路线总览、每天行程、预算、行李天气风险），宁可每页内容精炼，"
@@ -108,6 +115,10 @@ class TravelRecipe(PDFRecipe):
             "9. 封面水印 hero-watermark（封面大图上的超大字背景文字）："
             "按真实情况填 2-6 个字符的目的地简称（如“斯里兰卡”“英伦”“云南”），"
             "不要填完整标题、不要填“{{旅行手册标题简称}}”占位符。\n"
+            "10. photo-placeholder 默认只放 photo-note 文字（系统用渐变占位），不要主动放 <img>；"
+            "只有用户明确要求配图（或你收到 images=true 提示）时才放 "
+            "`<img src=\"图片URL\">`（支持任意图片来源：Unsplash/Pexels/自建图床/用户给的地址），"
+            "系统会自动下载内嵌、失败自动保留渐变占位。\n"
             f"目的地：{meta.get('destination', intent.topic)}，"
             f"天数：{meta.get('days', '未指定')}，"
             f"路线：{meta.get('route', '未指定')}，"

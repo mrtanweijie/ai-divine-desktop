@@ -308,6 +308,14 @@ body {
     radial-gradient(circle at 78% 70%, rgba(255,255,255,0.10) 0%, transparent 30%),
     repeating-linear-gradient(45deg, transparent 0 26px, rgba(255,255,255,0.05) 26px 27px);
 }
+.photo-placeholder img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
 .photo-placeholder .photo-note {
   position: relative;
   z-index: 1;

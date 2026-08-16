@@ -19,6 +19,17 @@ def safe_name(name: str, fallback: str) -> str:
     return cleaned
 
 
+def _wants_images(prompt: str) -> bool:
+    """LLM 漏传 images 时兜底：prompt 提到配图/插图/图片等字样即开启配图。"""
+    text = prompt or ""
+    return bool(
+        re.search(
+            r"配图|插图|实景图|插画|图片|带图|景点图|照片",
+            text,
+        )
+    )
+
+
 async def main() -> None:
     data = json.load(sys.stdin)
     workspace = Path(data["workspace"]).resolve()
@@ -71,6 +82,8 @@ async def main() -> None:
             paper_size=str(params.get("paper_size") or "A4").strip(),
             cover=bool(params.get("cover")),
             toc=bool(params.get("toc")),
+            # LLM 漏传 images 时，按 prompt 是否含配图字样兜底开启
+            images=bool(params.get("images")) or _wants_images(prompt),
             base_dir=workspace,
             content=str(params.get("markdown") or "").strip() or None,
             resume_data=params.get("resume_data") or None,

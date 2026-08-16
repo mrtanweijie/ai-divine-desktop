@@ -82,6 +82,7 @@ def render_html_to_pdf(
     base_dir: Path | None = None,
     theme: str = "travel",
     overrides: dict[str, str] | None = None,
+    images: bool = False,
 ) -> dict[str, Any]:
     normalized_paper = _normalize(paper_size, PAPER_KEYS, "a4")
     if not _weasyprint_available():
@@ -97,6 +98,7 @@ def render_html_to_pdf(
         include_cover=cover,
         overrides=overrides,
         theme=theme,
+        images=images,
     )
     kwargs: dict[str, Any] = {"string": document}
     if base_dir is not None:

@@ -138,6 +138,7 @@ class PDFTool:
         paper_size: str = "A4",
         cover: bool = False,
         toc: bool = False,
+        images: bool = False,
         base_dir: Path | None = None,
         llm: Any | None = None,
         content: str | None = None,
@@ -241,6 +242,7 @@ class PDFTool:
                 base_dir=base_dir,
                 theme=final_theme,
                 overrides=overrides,
+                images=images,
             )
         else:
             meta = render_markdown_to_pdf(

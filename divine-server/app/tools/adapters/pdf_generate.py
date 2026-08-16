@@ -72,6 +72,10 @@ from ..registry import register_tool
                 "type": "boolean",
                 "description": "是否生成目录，默认 false",
             },
+            "images": {
+                "type": "boolean",
+                "description": "是否自动为旅行手册景点配图（从图片源下载内嵌）。默认 false：photo 区域用渐变占位；用户要求配图时传 true",
+            },
             "file_name": {
                 "type": "string",
                 "description": "可选，PDF 文件名；默认由 prompt 生成",
