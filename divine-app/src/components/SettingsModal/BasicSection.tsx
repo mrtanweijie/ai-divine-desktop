@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import type { AppLocale } from "@/i18n";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { Switch } from "@/components/ui/Switch";
 import type { ThemePreference } from "@/services/theme";
 import { UpdaterSection } from "./UpdaterSection";
 
@@ -15,10 +14,8 @@ interface SettingsBasicSectionProps {
   onUsernameChange: (value: string) => void;
   contextLimit: number;
   onContextLimitChange: (value: number) => void;
-  thinkDefault: boolean;
-  onThinkDefaultChange: (value: boolean) => void;
-  reasoningEffort: string;
-  onReasoningEffortChange: (value: string) => void;
+  effort: string;
+  onEffortChange: (value: string) => void;
 }
 
 export function BasicSection({
@@ -30,10 +27,8 @@ export function BasicSection({
   onUsernameChange,
   contextLimit,
   onContextLimitChange,
-  thinkDefault,
-  onThinkDefaultChange,
-  reasoningEffort,
-  onReasoningEffortChange,
+  effort,
+  onEffortChange,
 }: SettingsBasicSectionProps) {
   const { t } = useTranslation();
 
@@ -77,28 +72,27 @@ export function BasicSection({
           );
         }}
       />
-      <div className="ui-field">
-        <span className="ui-field-label">
-          {t("settings.thinkDefault", "默认深度思考")}
-        </span>
-        <Switch checked={thinkDefault} onChange={onThinkDefaultChange} />
-      </div>
       <Select
-        label={t("settings.reasoningEffort", "思考强度")}
-        value={reasoningEffort}
-        onChange={onReasoningEffortChange}
+        label={
+          <span className="settings-field-label-row">
+            <span>{t("settings.thinkEffort", "深度思考")}</span>
+            <span className="settings-field-hint-inline">
+              {t(
+                "settings.thinkEffortHint",
+                "选择关闭则不进行深度思考；档位越高，思考越深入、响应越慢、消耗越多。"
+              )}
+            </span>
+          </span>
+        }
+        value={effort}
+        onChange={onEffortChange}
         options={[
+          { value: "off", label: t("settings.effortOff", "关闭") },
           { value: "low", label: t("settings.effortLow", "低") },
           { value: "high", label: t("settings.effortHigh", "高") },
           { value: "max", label: t("settings.effortMax", "最高") },
         ]}
       />
-      <p className="settings-field-hint">
-        {t(
-          "settings.reasoningEffortHint",
-          "思考强度仅在开启深度思考时生效；档位越高，思考越深入、响应越慢、消耗越多。"
-        )}
-      </p>
       <UpdaterSection />
     </div>
   );

@@ -1,7 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import "./index.less";
 
@@ -14,7 +14,7 @@ interface SelectProps {
   value: string;
   onChange: (value: string) => void;
   options: SelectOption[];
-  label?: string;
+  label?: ReactNode;
   placeholder?: string;
   editable?: boolean;
 }

@@ -1,10 +1,10 @@
 import {
   ArrowUp,
-  Brain,
   ChevronDown,
   FileText,
   Plus,
   ShieldCheck,
+  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -22,7 +22,6 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
-import { Switch } from "@/components/ui/Switch";
 import { TextArea } from "@/components/ui/TextArea";
 import type { ApprovalMode, ChatFile, PreviewFile } from "@/types";
 import { isTauri, savePasteText } from "@/services/tauri";
@@ -39,10 +38,8 @@ interface ComposerProps {
   onValueChange?: (hasValue: boolean) => void;
   approvalMode: ApprovalMode;
   onApprovalModeChange: (mode: ApprovalMode) => void;
-  think: boolean;
-  onThinkChange: (value: boolean) => void;
-  reasoningEffort: string;
-  onReasoningEffortChange: (value: string) => void;
+  effort: string;
+  onEffortChange: (value: string) => void;
   prefill?: { text: string; nonce: number } | null;
   onPrefillConsumed: () => void;
   projectPicker?: ReactNode;
@@ -58,10 +55,8 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
       onValueChange,
       approvalMode,
       onApprovalModeChange,
-      think,
-      onThinkChange,
-      reasoningEffort,
-      onReasoningEffortChange,
+      effort,
+      onEffortChange,
       prefill,
       onPrefillConsumed,
       projectPicker,
@@ -75,11 +70,17 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
       full: t("chat.approvalFull", "完全访问权限"),
     };
     const effortLabels: Record<string, string> = {
+      off: t("chat.effortOff", "关闭"),
       low: t("settings.effortLow", "低"),
       high: t("settings.effortHigh", "高"),
       max: t("settings.effortMax", "最高"),
     };
     const effortItems = [
+      {
+        key: "off",
+        label: t("chat.effortOff", "关闭"),
+        description: t("chat.effortOffDescription", "不进行深度思考，响应最快"),
+      },
       {
         key: "low",
         label: t("settings.effortLow", "低"),
@@ -377,47 +378,36 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
               />
             </Flex>
             <Flex align="center" gap={8}>
-              {think && (
-                <Dropdown
-                  align="end"
-                  direction="above"
-                  label={t("chat.reasoningEffort", "思考强度")}
-                  openOn="click"
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      className="approval-mode-trigger composer-effort-trigger"
-                      disabled={disabled}
-                      title={t(
-                        "chat.reasoningEffortTooltip",
-                        "本条消息的思考强度"
-                      )}
-                    >
-                      <Brain size={14} />
-                      <span>{effortLabels[reasoningEffort] ?? "高"}</span>
-                      <ChevronDown size={12} />
-                    </Button>
-                  }
-                  items={effortItems.map((item) => ({
-                    key: item.key,
-                    label: item.label,
-                    description: item.description,
-                    onClick: () => onReasoningEffortChange(item.key),
-                  }))}
-                />
-              )}
-              <div
-                className="composer-toggle"
-                title={t("chat.thinkTooltip", "发送时启用深度思考")}
-              >
-                <Switch
-                  checked={think}
-                  onChange={onThinkChange}
-                  disabled={disabled}
-                  label={t("chat.think", "深度思考")}
-                />
-              </div>
+              <Dropdown
+                align="end"
+                direction="above"
+                label={t("chat.thinkEffort", "深度思考")}
+                openOn="click"
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    className={`approval-mode-trigger composer-effort-trigger${
+                      effort !== "off" ? " composer-effort-trigger--on" : ""
+                    }`}
+                    disabled={disabled}
+                    title={t(
+                      "chat.thinkEffortTooltip",
+                      "选择关闭则不进行深度思考"
+                    )}
+                  >
+                    <Sparkles size={12} />
+                    <span>{effortLabels[effort] ?? "关闭"}</span>
+                    <ChevronDown size={12} />
+                  </Button>
+                }
+                items={effortItems.map((item) => ({
+                  key: item.key,
+                  label: item.label,
+                  description: item.description,
+                  onClick: () => onEffortChange(item.key),
+                }))}
+              />
               {disabled && onStop ? (
                 <Button
                   variant="secondary"

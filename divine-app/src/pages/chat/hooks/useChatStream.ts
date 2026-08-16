@@ -81,9 +81,11 @@ export function useChatStream(options: UseChatStreamOptions) {
     async (
       question: string,
       files: ChatFile[],
-      think: boolean,
-      reasoningEffort?: string | null
+      effort: string
     ) => {
+      // "off" disables deep thinking; any other value enables it at that
+      // reasoning effort level.
+      const think = effort !== "off";
       // Optimistically append user/assistant messages, then stream SSE events
       // into the assistant message and finally restore server-persisted state.
       const trimmed = question.trim();
@@ -133,9 +135,7 @@ export function useChatStream(options: UseChatStreamOptions) {
             session_id: sessionId,
             approval_mode: approvalMode,
             think,
-            ...(think && reasoningEffort
-              ? { reasoning_effort: reasoningEffort }
-              : {}),
+            ...(think ? { reasoning_effort: effort } : {}),
             locale: i18next.language || "zh-CN",
             attachments: files.map((file) => ({
               name: file.name,

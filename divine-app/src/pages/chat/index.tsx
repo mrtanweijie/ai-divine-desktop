@@ -98,8 +98,7 @@ export default function ChatPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [composerKey, setComposerKey] = useState(0);
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>("ask");
-  const [thinkEnabled, setThinkEnabled] = useState(false);
-  const [reasoningEffort, setReasoningEffort] = useState("high");
+  const [composerEffort, setComposerEffort] = useState("off");
   const [guideCardsVisible, setGuideCardsVisible] = useState(true);
   const [prefill, setPrefill] = useState<{
     text: string;
@@ -264,8 +263,11 @@ export default function ChatPage() {
       .then(async ([projectList, currentSettings]) => {
         if (cancelled) return;
         setSettings(currentSettings);
-        setThinkEnabled(Boolean(currentSettings.think_default));
-        setReasoningEffort(currentSettings.reasoning_effort ?? "high");
+        setComposerEffort(
+          currentSettings.think_default
+            ? currentSettings.reasoning_effort ?? "high"
+            : "off"
+        );
         const sessionList = await refreshSessions();
         if (cancelled) return;
         const savedSession =
@@ -377,9 +379,17 @@ export default function ChatPage() {
       if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "t") {
         event.preventDefault();
         if (settings) {
-          const next = !thinkEnabled;
-          setThinkEnabled(next);
-          setSettings({ ...settings, think_default: next });
+          const defaultEffort = settings.think_default
+            ? settings.reasoning_effort ?? "high"
+            : "off";
+          const next =
+            composerEffort === "off"
+              ? defaultEffort === "off"
+                ? "high"
+                : defaultEffort
+              : "off";
+          setComposerEffort(next);
+          setSettings({ ...settings, think_default: next !== "off" });
         }
       }
     };
@@ -414,8 +424,11 @@ export default function ChatPage() {
       setGuideCardsVisible(true);
       setComposerKey((value) => value + 1);
       setApprovalMode("ask");
-      setThinkEnabled(settings?.think_default ?? false);
-      setReasoningEffort(settings?.reasoning_effort ?? "high");
+      setComposerEffort(
+        settings?.think_default
+          ? settings?.reasoning_effort ?? "high"
+          : "off"
+      );
       setSelectedId(null);
       setMessages([]);
       closeSidebarForNarrow();
@@ -598,6 +611,10 @@ export default function ChatPage() {
     ) => {
       const updated = await updateSettings(body);
       setSettings(updated);
+      // 设置里的默认思考档位变更后立即同步到输入框，无需新建会话。
+      setComposerEffort(
+        updated.think_default ? updated.reasoning_effort ?? "high" : "off"
+      );
       setSettingsOpen(false);
       await refreshWorkspace();
     },
@@ -927,10 +944,8 @@ export default function ChatPage() {
               disabled={streaming || !selectedProjectId}
               approvalMode={approvalMode}
               onApprovalModeChange={handleApprovalModeChange}
-              think={thinkEnabled}
-              onThinkChange={setThinkEnabled}
-              reasoningEffort={reasoningEffort}
-              onReasoningEffortChange={setReasoningEffort}
+              effort={composerEffort}
+              onEffortChange={setComposerEffort}
               onValueChange={handleGuideValueChange}
               prefill={prefill}
               onPrefillConsumed={() => setPrefill(null)}
@@ -950,12 +965,7 @@ export default function ChatPage() {
                 ) : undefined
               }
               onSend={(question, files) =>
-                void sendMessage(
-                  question,
-                  files,
-                  thinkEnabled,
-                  reasoningEffort
-                )
+                void sendMessage(question, files, composerEffort)
               }
               onStop={handleStopStreaming}
               onPreviewFile={handlePreviewFile}

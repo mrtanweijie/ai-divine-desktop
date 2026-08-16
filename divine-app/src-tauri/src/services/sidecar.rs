@@ -168,7 +168,9 @@ pub fn spawn_and_monitor(app: AppHandle) -> Result<(), String> {
 
     std::thread::spawn(move || {
         let data_dir = app.path().app_data_dir().ok();
-        let deadline = Instant::now() + Duration::from_secs(20);
+        // PyInstaller onefile 解压 + langchain/weasyprint 等重依赖导入需要
+        // 30s+，首次健康检查给足启动宽限，避免把正常的慢启动误判为掉线。
+        let deadline = Instant::now() + Duration::from_secs(120);
         while Instant::now() < deadline {
             if port_open() {
                 log_line(data_dir.as_deref(), "sidecar 健康检查通过");
@@ -195,6 +197,15 @@ pub fn spawn_and_monitor(app: AppHandle) -> Result<(), String> {
                         &format!("sidecar 重启失败: {err}"),
                     );
                 }
+            }
+            // 重启后给足启动宽限：sidecar 需要 30s+ 才能绑定端口，宽限期内
+            // 不再判死，避免「启动慢 -> 5 秒判死 -> 再拉」的死循环。
+            let grace = Instant::now() + Duration::from_secs(120);
+            while Instant::now() < grace {
+                if port_open() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(500));
             }
         }
     });

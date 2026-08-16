@@ -2890,15 +2890,19 @@ a:focus-visible {
 }
 
 .composer-effort-trigger {
-  color: var(--color-accent);
+  color: var(--color-text-secondary);
 }
 
 .composer-effort-trigger:hover {
+  color: var(--color-text);
+}
+
+.composer-effort-trigger--on {
   color: var(--color-accent);
 }
 
-.composer-toggle .think-label {
-  font-size: 12px;
+.composer-effort-trigger--on:hover {
+  color: var(--color-accent);
 }
 
 .send-button {
@@ -3200,16 +3204,8 @@ a:focus-visible {
     display: none;
   }
 
-  .think-label {
-    display: none;
-  }
-
   .composer-wrap {
     padding: 10px 10px 12px;
-  }
-
-  .composer-toggle {
-    margin-left: 4px;
   }
 }
 
