@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
-  cancelSessionGeneration,
   createProject,
   deleteProject,
   deleteSession,
@@ -78,6 +77,7 @@ export default function ChatPage() {
     clearSessionMessages,
     streamingSessions,
     setSessionStreaming,
+    getCachedSessionMessages,
   } = useMessageState();
   // 当前视图的会话消息与流状态由 selectedId 派生，支持多会话并行流式。
   const messages = selectedId ? (messagesBySession[selectedId] ?? []) : [];
@@ -138,6 +138,8 @@ export default function ChatPage() {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const projectPathsRef = useRef<Record<string, string>>({});
+  // 会话切换序号：快速连点时丢弃过期的 loadSession fetch 结果
+  const loadSessionSeqRef = useRef(0);
   const workspacePanelOpenRef = useRef(workspacePanelOpen);
 
   useEffect(() => {
@@ -174,7 +176,14 @@ export default function ChatPage() {
   }, []);
 
   const loadSession = useCallback(async (id: string) => {
-    const data = await getSession(id, { limit: 80 });
+    const cached = getCachedSessionMessages(id);
+    const hasCache = !!cached && cached.length > 0;
+    // 有缓存：立即切换视图（消息即时显示），元信息由下方 fetch 补齐；
+    // 无缓存：等 fetch 完成再切换（保持原有行为）。
+    const seq = ++loadSessionSeqRef.current;
+    if (hasCache) {
+      setSelectedId(id);
+    }
     let savedExpanded = false;
     try {
       savedExpanded =
@@ -184,24 +193,27 @@ export default function ChatPage() {
     }
     setWorkspaceExpanded(savedExpanded);
     setWorkspaceExpandedLayout(savedExpanded);
-    setSelectedId(id);
+
+    const data = await getSession(id, { limit: 80 });
+    // 已被更新的点击取代时丢弃本次结果，避免旧请求覆盖新会话的元信息。
+    if (seq !== loadSessionSeqRef.current) return;
     setSelectedProjectId(data.session.project_id);
     setApprovalMode(data.session.approval_mode ?? "ask");
-    const restored = messagesToChatMessages(
-      data.messages,
-      data.tool_runs ?? [],
-      data.todos
-    );
-    // 本地已有该会话缓存（可能正在流式更新）时保留缓存优先，
-    // 仅用服务器数据补齐元信息；否则用服务器消息初始化。
-    const cached = messagesBySession[id];
-    if (!cached || cached.length === 0) {
-      setSessionMessages(id, restored);
+    if (!hasCache) {
+      setSessionMessages(
+        id,
+        messagesToChatMessages(
+          data.messages,
+          data.tool_runs ?? [],
+          data.todos
+        )
+      );
+      setSelectedId(id);
     }
     setHasMoreOlder(Boolean(data.has_more));
     setOldestMessageId(data.messages.length > 0 ? data.messages[0].id : null);
     setLoadingOlder(false);
-  }, [messagesBySession, setSessionMessages]);
+  }, [getCachedSessionMessages, setSessionMessages]);
 
   const loadOlderMessages = useCallback(async () => {
     if (
@@ -697,17 +709,7 @@ export default function ChatPage() {
     }
   }, []);
 
-  const handleStopStreaming = useCallback(async () => {
-    if (!selectedId) return;
-    try {
-      await cancelSessionGeneration(selectedId);
-    } catch {
-      // sidecar may already be gone; the stream will fail on its own
-    }
-  }, [selectedId]);
-
-
-  const { sendMessage } = useChatStream({
+  const { sendMessage, stopStreaming } = useChatStream({
     selectedId,
     selectedProjectId,
     projects,
@@ -727,6 +729,14 @@ export default function ChatPage() {
     loadChangedFiles,
     t,
   });
+
+  const handleStopStreaming = useCallback(() => {
+    if (!selectedId) return;
+    // 立即清除当前会话的流状态（按钮/光标即时恢复），
+    // stopStreaming 中止该会话的 SSE 连接并通知后端取消。
+    setSessionStreaming(selectedId, false);
+    stopStreaming(selectedId);
+  }, [selectedId, setSessionStreaming, stopStreaming]);
 
   const currentSession = useMemo(
     () => sessions.find((session) => session.id === selectedId) ?? null,

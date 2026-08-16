@@ -1,5 +1,5 @@
 // Owns the POST /stream_chat SSE flow for a chat page instance.
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import type {
   Dispatch,
   MutableRefObject,
@@ -8,6 +8,7 @@ import type {
 import type { TFunction } from "i18next";
 import i18next from "@/i18n";
 import {
+  cancelSessionGeneration,
   createSession,
   getSession,
   messagesToChatMessages,
@@ -81,6 +82,10 @@ export function useChatStream(options: UseChatStreamOptions) {
     t,
   } = options;
 
+  // 各会话正在进行的流的 AbortController（多会话并发时按会话区分）；
+  // 停止时中止对应会话的连接实现即时反馈。
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+
   const sendMessage = useCallback(
     async (
       question: string,
@@ -135,10 +140,14 @@ export function useChatStream(options: UseChatStreamOptions) {
       );
       setSessionStreaming(sessionId, true);
 
+      // 支持立即停止：中止 SSE 连接（前端即时反应）+ 后端取消接口善后
+      const controller = new AbortController();
+      abortControllersRef.current.set(sessionId, controller);
       try {
         const response = await requestRaw("/stream_chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             question: effectiveQuestion,
             session_id: sessionId,
@@ -305,24 +314,38 @@ export function useChatStream(options: UseChatStreamOptions) {
           },
         });
       } catch (error) {
-        setSessionMessages(sessionId, (prev) =>
-          prev.map((item) =>
-            item.id === assistantMessage.id
-              ? {
-                  ...item,
-                  streaming: false,
-                  thinking: false,
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : t("chat.requestFailed", "请求失败，请稍后重试"),
-                }
-              : item
-          )
-        );
+        if (controller.signal.aborted) {
+          // 主动点击停止：中止连接，不显示错误，只结束流式态
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((item) =>
+              item.id === assistantMessage.id
+                ? { ...item, streaming: false, thinking: false }
+                : item
+            )
+          );
+        } else {
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((item) =>
+              item.id === assistantMessage.id
+                ? {
+                    ...item,
+                    streaming: false,
+                    thinking: false,
+                    error:
+                      error instanceof Error
+                        ? error.message
+                        : t("chat.requestFailed", "请求失败，请稍后重试"),
+                  }
+                : item
+            )
+          );
+        }
       } finally {
         // 多会话并发：每个流的收尾只清理它自己的会话标记，
         // 与其它会话是否在流式无关。
+        if (abortControllersRef.current.get(sessionId) === controller) {
+          abortControllersRef.current.delete(sessionId);
+        }
         setSessionStreaming(sessionId, false);
       }
     },
@@ -348,5 +371,17 @@ export function useChatStream(options: UseChatStreamOptions) {
     ]
   );
 
-  return { sendMessage };
+  // 立即停止指定会话的流：前端中止该会话的 SSE 连接（即时反应），
+  // 同时调用后端取消接口，让 agent 尽早停下并持久化部分内容。
+  const stopStreaming = useCallback(
+    (sessionId?: string | null) => {
+      const target = sessionId ?? selectedId;
+      if (!target) return;
+      abortControllersRef.current.get(target)?.abort();
+      void cancelSessionGeneration(target).catch(() => undefined);
+    },
+    [selectedId]
+  );
+
+  return { sendMessage, stopStreaming };
 }

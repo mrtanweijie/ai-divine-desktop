@@ -62,7 +62,7 @@ export function MessageList({
     setViewportHeight(container.clientHeight);
     const distance =
       container.scrollHeight - container.scrollTop - container.clientHeight;
-    stickToBottom.current = distance < 80;
+    stickToBottom.current = distance < 24;
     if (container.scrollTop < 40 && hasMoreOlder && !loadingOlder) {
       onLoadOlder?.();
     }
@@ -115,20 +115,45 @@ export function MessageList({
     if (userChanged) {
       lastUserMessageId.current = lastUser.id;
     }
-    const scrollToBottom = () => {
+    const scrollToBottom = (force = false) => {
+      // 在 rAF 回调里按「执行那一刻」的真实位置再校验：
+      // 1) stickToBottom 被用户滚动事件置 false 时放弃；
+      // 2) 用户已离开底部（哪怕几像素）时不回底——否则流式分片排队的
+      //    回底会把触控板/滚轮的每次小步滚动都拽回去（需要滑多次才生效）。
+      if (!stickToBottom.current) return;
+      const currentDistance =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (!force && currentDistance > 4) return;
       container.scrollTop = container.scrollHeight;
     };
-    if (sessionChanged || userChanged) {
+    const distance =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (sessionChanged) {
+      // 切换会话：强制回到底部
       stickToBottom.current = true;
-      requestAnimationFrame(scrollToBottom);
-      requestAnimationFrame(scrollToBottom);
+      requestAnimationFrame(() => scrollToBottom(true));
+      requestAnimationFrame(() => scrollToBottom(true));
+      return;
+    }
+    if (userChanged) {
+      if (String(lastUser.id).startsWith("local-user-")) {
+        // 真正的发送（本地乐观消息）：强制回到底部查看新消息与回复
+        stickToBottom.current = true;
+        requestAnimationFrame(() => scrollToBottom(true));
+        requestAnimationFrame(() => scrollToBottom(true));
+      } else {
+        // 流结束后服务器恢复导致消息 id 变化：尊重用户位置，不强制拉回
+        stickToBottom.current = distance < 200;
+        if (stickToBottom.current) {
+          requestAnimationFrame(() => scrollToBottom(false));
+          requestAnimationFrame(() => scrollToBottom(false));
+        }
+      }
       return;
     }
     if (!stickToBottom.current) return;
-    const distance =
-      container.scrollHeight - container.scrollTop - container.clientHeight;
     if (distance < 200) {
-      requestAnimationFrame(scrollToBottom);
+      requestAnimationFrame(() => scrollToBottom(false));
     }
   }, [messages, streaming, sessionId]);
 
