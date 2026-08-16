@@ -34,6 +34,7 @@ export function MessageList({
   const previousSessionId = useRef<string | null | undefined>(undefined);
   const lastUserMessageId = useRef<string | null>(null);
   const stickToBottom = useRef(true);
+  const lastScrollTopRef = useRef(0);
   const previousLoadingOlder = useRef(false);
   const olderScrollAnchor = useRef<{
     scrollTop: number;
@@ -58,11 +59,20 @@ export function MessageList({
   const handleScroll = () => {
     const container = scrollRef.current;
     if (!container) return;
-    setScrollTop(container.scrollTop);
-    setViewportHeight(container.clientHeight);
+    const newTop = container.scrollTop;
     const distance =
-      container.scrollHeight - container.scrollTop - container.clientHeight;
-    stickToBottom.current = distance < 24;
+      container.scrollHeight - newTop - container.clientHeight;
+    // 用滚动方向判断用户意图：
+    // - 向上滚动（查看历史）→ 立即解除自动跟随（哪怕只滚了几像素）；
+    // - 滚回/位于底部 → 恢复自动跟随。
+    if (newTop < lastScrollTopRef.current) {
+      stickToBottom.current = false;
+    } else if (distance < 4) {
+      stickToBottom.current = true;
+    }
+    lastScrollTopRef.current = newTop;
+    setScrollTop(newTop);
+    setViewportHeight(container.clientHeight);
     if (container.scrollTop < 40 && hasMoreOlder && !loadingOlder) {
       onLoadOlder?.();
     }
@@ -71,6 +81,7 @@ export function MessageList({
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
+    lastScrollTopRef.current = container.scrollTop;
     const updateViewport = () => {
       setScrollTop(container.scrollTop);
       setViewportHeight(container.clientHeight);
@@ -115,15 +126,11 @@ export function MessageList({
     if (userChanged) {
       lastUserMessageId.current = lastUser.id;
     }
-    const scrollToBottom = (force = false) => {
-      // 在 rAF 回调里按「执行那一刻」的真实位置再校验：
-      // 1) stickToBottom 被用户滚动事件置 false 时放弃；
-      // 2) 用户已离开底部（哪怕几像素）时不回底——否则流式分片排队的
-      //    回底会把触控板/滚轮的每次小步滚动都拽回去（需要滑多次才生效）。
+    const scrollToBottom = () => {
+      // 只信任 stickToBottom（由滚动方向维护的用户意图）：
+      // 在底部时内容增长会让「距离」变大，不能再按距离判断，
+      // 否则会同时掐死正常的流式跟随。
       if (!stickToBottom.current) return;
-      const currentDistance =
-        container.scrollHeight - container.scrollTop - container.clientHeight;
-      if (!force && currentDistance > 4) return;
       container.scrollTop = container.scrollHeight;
     };
     const distance =
@@ -131,30 +138,32 @@ export function MessageList({
     if (sessionChanged) {
       // 切换会话：强制回到底部
       stickToBottom.current = true;
-      requestAnimationFrame(() => scrollToBottom(true));
-      requestAnimationFrame(() => scrollToBottom(true));
+      // 重置方向哨兵，避免程序化回底被误判为「向上滚动」而解除跟随
+      lastScrollTopRef.current = -1;
+      requestAnimationFrame(scrollToBottom);
+      requestAnimationFrame(scrollToBottom);
       return;
     }
     if (userChanged) {
       if (String(lastUser.id).startsWith("local-user-")) {
         // 真正的发送（本地乐观消息）：强制回到底部查看新消息与回复
         stickToBottom.current = true;
-        requestAnimationFrame(() => scrollToBottom(true));
-        requestAnimationFrame(() => scrollToBottom(true));
+        lastScrollTopRef.current = -1;
+        requestAnimationFrame(scrollToBottom);
+        requestAnimationFrame(scrollToBottom);
       } else {
         // 流结束后服务器恢复导致消息 id 变化：尊重用户位置，不强制拉回
         stickToBottom.current = distance < 200;
         if (stickToBottom.current) {
-          requestAnimationFrame(() => scrollToBottom(false));
-          requestAnimationFrame(() => scrollToBottom(false));
+          requestAnimationFrame(scrollToBottom);
+          requestAnimationFrame(scrollToBottom);
         }
       }
       return;
     }
+    // 自动跟随：stickToBottom 为 true 时跟随流式输出（滚动方向负责解除）
     if (!stickToBottom.current) return;
-    if (distance < 200) {
-      requestAnimationFrame(() => scrollToBottom(false));
-    }
+    requestAnimationFrame(scrollToBottom);
   }, [messages, streaming, sessionId]);
 
   return (
