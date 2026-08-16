@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 from app.pdf_theme_manager import (
     build_cover_html,
@@ -30,6 +31,96 @@ def test_travel_theme_css_uses_handbook_style():
     assert "--color-primary: #2A5A5B" in css
 
 
+def test_travel_template_skeleton_matches_handbook_pages():
+    from app.pdf_theme_manager import travel_template_skeleton
+
+    skeleton = travel_template_skeleton()
+    # 不含样式、注释、页脚
+    assert "<style" not in skeleton
+    assert "page-footer" not in skeleton
+    assert "<!--" not in skeleton
+    # 保留页面映射总表
+    assert "页面映射总表" in skeleton
+    # 每种核心页面类型的代表结构都在
+    for token in (
+        "cover-band",
+        "cover-title",
+        "route-map",
+        "route-table",
+        "route-stop",
+        "day-title",
+        "time-table",
+        "day-section",
+        "feature-title",
+        "risk-table",
+        "highlight-box",
+    ):
+        assert token in skeleton, token
+    # 每日行程只保留 1 个示例页（P3 单日页，其余重复日页已从模板删除）
+    assert skeleton.count('class="day-title"') == 1
+    page_blocks = re.split(r'(?=<div class="page)', skeleton)
+    assert sum(
+        'class="day-title"' in block for block in page_blocks
+    ) == 1
+    # 可选特色页只保留游牧文化体验专页 1 个（专题/城市读本/预算/链接已从模板删除）
+    assert skeleton.count('class="feature-title"') == 1
+    assert "游牧文化" in skeleton
+    assert "小众观察" not in skeleton
+    assert "快车核心日" not in skeleton
+    assert "city-title" not in skeleton
+    assert "budget-table" not in skeleton
+    assert "links-group" not in skeleton
+    # 骨架里没有任何模板外的类名
+    assert "feature-header" not in skeleton
+    assert "feature-section" not in skeleton
+    assert 'class="arrow"' not in skeleton
+
+
+def test_travel_system_prompt_embeds_template_skeleton():
+    recipe = TravelRecipe()
+    intent = PDFIntent(
+        title="测试攻略",
+        topic="中亚",
+        style="travel",
+        color_scheme="teal",
+        meta={"destination": "中亚", "days": 5, "route": ["阿拉木图", "希瓦"]},
+    )
+    prompt = recipe.content_system_prompt(intent)
+    # 骨架被嵌入 prompt
+    assert "travel_template.html" in prompt
+    assert 'class="day-title"' in prompt
+    assert 'class="risk-table"' in prompt
+    assert "页面映射总表" in prompt
+    # 明确要求只用模板中的类名、禁止自创类名
+    assert "不要自创类名" in prompt
+    assert "不要用 feature-header" in prompt
+    # 正确的特色页类名在 prompt 中
+    assert "feature-title" in prompt
+    # 可选扩展类名作为规则说明存在（不再有骨架示例）
+    assert "budget-table" in prompt
+    assert "links-group" in prompt
+    # 元信息注入
+    assert "阿拉木图" in prompt
+
+
+def test_travel_prompt_fallback_appends_risk_page():
+    prompt = """生成一份攻略
+- Day1 上海：外滩与老城厢
+  - 上午：豫园
+- Day2 杭州：西湖
+【美食清单】
+- 生煎
+"""
+    html = travel_prompt_to_html(prompt)
+    assert 'class="risk-table"' in html
+    assert 'class="highlight-box"' in html
+    assert 'class="route-map"' in html
+    # 核心收尾页只有行李/风险页，预算/链接不再强制补全
+    assert 'class="budget-table"' not in html
+    assert 'class="links-group"' not in html
+    assert html.count('class="risk-table"') == 1
+
+
 def test_travel_color_overrides_switch_palette():
     blue_css = load_theme_css(
         "travel", overrides=travel_color_overrides("blue")
@@ -42,6 +133,57 @@ def test_travel_color_overrides_switch_palette():
         ),
     )
     assert "--color-primary: #123456" in custom_css
+
+
+def test_travel_derive_palette_from_primary_color():
+    from app.pdf_theme_manager import derive_travel_palette
+
+    palette = derive_travel_palette("#E74C3C")
+    assert palette is not None
+    # 5 个核心变量齐全
+    for var in (
+        "--color-primary",
+        "--color-accent",
+        "--color-accent-light",
+        "--bg-highlight",
+        "--bg-cover",
+    ):
+        assert var in palette
+    # 主色压深到可放白字的深度，且配套色有序
+    assert palette["--color-accent"] != palette["--color-primary"]
+    assert palette["--bg-cover"] != palette["--color-primary"]
+    # 颜色名、色值、rgb() 三种写法解析一致
+    assert derive_travel_palette("红色") == derive_travel_palette("#E74C3C")
+    assert derive_travel_palette("rgb(42, 90, 91)") == derive_travel_palette(
+        "#2A5A5B"
+    )
+    assert derive_travel_palette("青绿") == derive_travel_palette("#2A5A5B")
+    assert derive_travel_palette("不存在的颜色") is None
+
+
+def test_travel_color_overrides_single_primary_color():
+    # 只传主色，配套色自动派生（不再残留 teal 默认值）
+    overrides = travel_color_overrides(
+        "teal", {"--color-primary": "#E74C3C"}
+    )
+    assert overrides["--color-primary"] == "#E74C3C"
+    assert overrides["--color-accent"] != "#3a8a8b"
+    assert overrides["--bg-cover"] != "#2a3e3e"
+    # 显式传入的配套色优先级最高
+    explicit = travel_color_overrides(
+        "teal",
+        {"--color-primary": "#E74C3C", "--color-accent": "#123456"},
+    )
+    assert explicit["--color-accent"] == "#123456"
+
+
+def test_travel_color_overrides_color_name_scheme():
+    # color_scheme 直接传颜色名/色值也能派生整套色调
+    assert travel_color_overrides("红色") == travel_color_overrides("#E74C3C")
+    # 无效颜色名兜底回 teal
+    assert travel_color_overrides("not-a-color") == travel_color_overrides(
+        "teal"
+    )
 
 
 def test_travel_cover_builds_route_tags_and_meta():
@@ -81,8 +223,9 @@ def test_travel_fallback_content_keeps_handbook_structure():
     assert 'class="time-table"' in content
     assert 'class="day-section"' in content
     assert 'class="check-list"' in content
-    assert 'class="budget-table"' in content
     assert 'class="risk-table"' in content
+    # 模板已精简：预算/链接不再作为兜底页输出
+    assert 'class="budget-table"' not in content
 
 
 def test_travel_render_forces_cover_on_and_toc_off(monkeypatch, tmp_path):

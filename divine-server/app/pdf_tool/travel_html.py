@@ -131,8 +131,8 @@ def _route_map_html(text: str) -> str:
         for index, part in enumerate(parts)
     )
     return (
-        '<div class="route-map"><div class="route-line"></div>'
-        f'<div class="route-stops">{stops}</div></div>'
+        '<div class="route-map"><div class="route-stops">'
+        f'{stops}</div></div>'
     )
 
 
@@ -480,6 +480,46 @@ def _build_prompt_day_html(
     return "\n".join(body)
 
 
+def _risk_page_html() -> str:
+    """P5 行李、天气与风险控制（兜底页）。"""
+    return """<div class="page">
+  <h2 class="section-title">行李、天气与风险控制</h2>
+  <p class="section-subtitle">按季节分层穿衣，出发前复核天气</p>
+  <h3 class="subsection-title">分层穿衣</h3>
+  <ul class="check-list">
+    <li>贴身层：排汗速干。</li>
+    <li>保暖层：抓绒/轻薄羽绒。</li>
+    <li>鞋类：适合城市步行与短途徒步。</li>
+    <li>随身包：证件、现金、充电与离线地图。</li>
+  </ul>
+  <h3 class="subsection-title">关键风险</h3>
+  <table class="risk-table">
+    <thead>
+      <tr><th>情况</th><th>处理原则</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="risk-situation">车次晚点或取消</td><td class="risk-action">保留缓冲时间，准备替代交通。</td></tr>
+      <tr><td class="risk-situation">天气突变</td><td class="risk-action">优先删室外长距离段。</td></tr>
+      <tr><td class="risk-situation">证件问题</td><td class="risk-action">随身复印件 + 离线电子版。</td></tr>
+    </tbody>
+  </table>
+  <div class="highlight-box">
+    <div class="box-title">旅行前核对清单</div>
+    <ul class="check-list">
+      <li>证件与入境要求</li>
+      <li>关键车票核对</li>
+      <li>口岸与班次状态</li>
+      <li>体验项目安全条件</li>
+    </ul>
+  </div>
+</div>"""
+
+
+def closing_pages_html() -> str:
+    """核心收尾页：行李、天气与风险控制（模板 P5），供兜底输出补全结构。"""
+    return _risk_page_html()
+
+
 def travel_prompt_to_html(prompt: str) -> str:
     lines = prompt.splitlines()
     day_pages: list[str] = []
@@ -547,9 +587,23 @@ def travel_prompt_to_html(prompt: str) -> str:
     route_map = _prompt_route_map(prompt)
     overview = [
         '<div class="page"><h2 class="section-title">路线总览</h2>',
-        '<p class="section-subtitle">完整旅行手册</p>',
+        '<p class="section-subtitle">完整旅行手册｜全程信息以官方为准</p>',
     ]
     if route_map:
         overview.append(route_map)
+    overview.append(
+        '<div class="highlight-box"><div class="box-title">路线逻辑</div>'
+        '<ul class="check-list">'
+        "<li><strong>自然：</strong>沿途地理与气候主线。</li>"
+        "<li><strong>历史：</strong>丝路城市的历史层次。</li>"
+        "<li><strong>文化：</strong>当地生活与少数族群观察。</li>"
+        "<li><strong>节奏：</strong>每天保留替代方案，避免被天气或班次打乱。</li>"
+        "</ul></div>"
+    )
     overview.append("</div>")
-    return "\n".join([*overview, *day_pages, *section_pages]).strip()
+
+    pages = "\n".join([*overview, *day_pages, *section_pages]).strip()
+    # 补全核心收尾页：行李、天气与风险控制（prompt 已生成则跳过，避免重复）
+    if "行李" not in pages and "风险" not in pages:
+        pages += "\n" + _risk_page_html()
+    return pages

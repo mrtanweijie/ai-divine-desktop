@@ -48,7 +48,11 @@ from ..registry import register_tool
             },
             "theme_colors": {
                 "type": "object",
-                "description": "可选，自定义主题色变量：--color-primary、--color-accent、--bg-cover、--bg-highlight 等",
+                "description": (
+                    "可选，自定义主题色。只需传 --color-primary（颜色名或色值，"
+                    "如红色/#E74C3C/rgb(...)）即可自动派生整套配色；"
+                    "也可显式覆盖 --color-accent/--color-accent-light/--bg-highlight/--bg-cover"
+                ),
             },
             "paper_size": {
                 "type": "string",

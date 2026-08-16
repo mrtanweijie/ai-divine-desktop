@@ -21,7 +21,9 @@ divine-server/data/
 divine-server/build/
 divine-server/dist/
 divine-server/.vscode/
+divine-server/.pyinstaller-cache/
 __pycache__/
+.pytest_cache
 
 bin/
 

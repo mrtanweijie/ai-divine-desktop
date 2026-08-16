@@ -3,6 +3,7 @@ from __future__ import annotations
 import html as html_lib
 
 from .base import PDFIntent, PDFRecipe
+from .travel_html import closing_pages_html
 
 
 class ReportRecipe(PDFRecipe):
@@ -40,40 +41,46 @@ class TravelRecipe(PDFRecipe):
     intent_json_hint = (
         '{"title": "攻略标题", "destination": "目的地", "days": 12, '
         '"duration": "12天11晚", "travelers": 2, "countries": "中国 × 哈萨克斯坦", '
+        '"tags": ["本地生活", "丝绸之路", "山地自然"], '
         '"route": ["阿拉木图", "希瓦", "布哈拉", "塔什干", "撒马尔罕"], '
         '"summary": "100-150字路线概述", '
         '"sections": [{"title": "Day 1", "key_points": ["行程", "美食", "交通"]}]}'
     )
 
     def content_system_prompt(self, intent: PDFIntent) -> str:
+        from ..pdf_theme_manager import travel_template_skeleton
+
         meta = intent.meta or {}
+        skeleton = travel_template_skeleton()
         return (
-            "你是资深旅行手册作者。根据行程结构输出一份可直接打印为 PDF 的完整旅行攻略 HTML body，"
-            "版式 100% 参考旅行手册 HTML 模板：米白纸感、暖橙 + 青蓝、衬线标题。\n"
-            "只输出 HTML body 片段：不要输出 ```html 围栏，不要包含 <html>、<head>、<style>、"
-            "<body>、页面页脚，也不要输出解释文字；不要自创 class，不要输出 Markdown。\n"
-            "必须按以下顺序输出完整结构：\n"
-            "1. `<div class=\"page\">` 内写 `路线总览`：天数/晚数/国家数/交通原则，一张逐日行程摘要表，"
-            "3-5 条路线逻辑，每个住宿城市的区域建议；\n"
-            "2. 每日行程：每个 `<div class=\"page\">` 放一天，跨境日或紧凑日可两天同页并用分隔线分开；"
-            "每天用 `<h2 class=\"day-title\">`，"
-            "再用 `<table class=\"time-table\">` 的 "
-            "`time-label/time-content` 写早/午/晚，最后用 `<div class=\"day-section\">` "
-            "写“吃什么/交通与预订/替代方案”三段；\n"
-            "3. 专题页（可选 2-4 页）：用 `<div class=\"feature-header\">`、"
-            "`<div class=\"feature-section\">`，关键日深读用 `<div class=\"milestone\">` 时间线；\n"
-            "4. 城市读本：用 `<h3 class=\"city-title\">`、`<p class=\"city-tagline\">`、"
-            "`<div class=\"sight\">` 里的 `sight-name/sight-desc`，"
-            "重点信息用 `<div class=\"highlight-box\">` + `<ul class=\"check-list\">`；\n"
-            "5. 收尾：预算页用 `<table class=\"budget-table\">` + "
-            "`<div class=\"booking-step\">` + `<div class=\"payment-note\">`；"
-            "行李页用 `<ul class=\"check-list\">` + `<table class=\"risk-table\">`；"
-            "链接页用 `<div class=\"links-group\">` + `<div class=\"links-group-title\">` + "
-            "`<ul class=\"links-list\">` + `<div class=\"disclaimer\">`。\n"
-            "排版要求：每个大板块用一个 `<div class=\"page\">`；正文纵向堆叠，不用卡片网格；"
-            "传说与史实分开表述；"
-            "所有时间、价格和班次标注“以官方为准”；不要输出完整 HTML 文件，"
-            "只输出可直接嵌入页面的 HTML body。\n"
+            "你是资深旅行手册作者。严格按下述【模板骨架】的页面结构与 CSS 类名，"
+            "输出一份可直接打印为 PDF 的完整旅行攻略 HTML body。\n"
+            "══════════════ 模板骨架（travel_template.html） ══════════════\n"
+            + skeleton
+            + "\n══════════════ 输出规则 ══════════════\n"
+            "1. 只输出 HTML body：以 `<div class=\"page\">` 开头的一串页面片段，"
+            "不要输出 ```html 围栏，不要包含 <html>、<head>、<style>、<body>、"
+            "<div class=\"page-footer\">，也不要输出解释文字。\n"
+            "2. 封面由系统自动生成（国家×国家、标题、主题标签、日期、路线概述来自元信息），"
+            "你不要输出封面页。\n"
+            "3. 页面顺序必须与骨架一致：路线总览 → 每日行程 → 行李、天气与风险控制；"
+            "游牧文化/体验专页为可选特色页，按用户需求插入。\n"
+            "4. 每日行程：每天一个 `<div class=\"page\">`；安排紧凑或跨境的一天可两天同页，"
+            "页面加 class=\"day-block\"，两天之间用 `<hr class=\"day-divider\">` 分隔。"
+            "每天必须包含：`<h2 class=\"day-title\">` 标题、`<p class=\"day-subtitle\">` "
+            "（subtitle-key/subtitle-rest）、`<table class=\"time-table\">` 的 "
+            "time-label/time-content 写早上/下午/晚上（可加上午/中午/傍晚/夜晚），"
+            "以及三个 `<div class=\"day-section\">`：吃什么、交通与预订、替代方案。\n"
+            "5. 行李、天气与风险控制页用 check-list + risk-table（risk-situation/risk-action）"
+            "+ highlight-box。\n"
+            "6. 如需扩展板块（专题页/城市读本/预算/链接），使用模板 CSS 中已有的类名："
+            "feature-title/feature-subtitle/milestone、city-title/city-tagline/sight/"
+            "sight-name/sight-desc、budget-table/booking-step/payment-note、"
+            "links-group/links-list/disclaimer。\n"
+            "7. 只使用骨架中出现过或规则 6 列出的 CSS 类名，不要自创类名"
+            "（尤其不要用 feature-header、feature-section、arrow 等模板里没有的类）。\n"
+            "8. 正文纵向堆叠，不用卡片网格；传说与史实分开表述；修复后的外观不等同原貌；"
+            "所有时间、价格和班次标注“以官方为准”。\n"
             f"目的地：{meta.get('destination', intent.topic)}，"
             f"天数：{meta.get('days', '未指定')}，"
             f"路线：{meta.get('route', '未指定')}，"
@@ -124,6 +131,7 @@ class TravelRecipe(PDFRecipe):
                 "duration": f"{day_count}天{day_count - 1}晚",
                 "travelers": "",
                 "countries": "",
+                "tags": [],
                 "route": [],
                 "summary": "",
                 "style": "深度旅行",
@@ -159,8 +167,7 @@ class TravelRecipe(PDFRecipe):
             for index, city in enumerate(route_items)
         )
         route_map_block = (
-            f'<div class="route-map"><div class="route-line"></div>'
-            f'<div class="route-stops">{route_stops}</div></div>'
+            f'<div class="route-map"><div class="route-stops">{route_stops}</div></div>'
             if route_items
             else ""
         )
@@ -226,120 +233,7 @@ class TravelRecipe(PDFRecipe):
 </div>"""
             )
 
-        pages.append(
-            """<div class="page">
-  <h3 class="city-title">目的地｜沿途城市读本</h3>
-  <p class="city-tagline">知道眼前的风景从哪里来，旅行会多出一层。</p>
-  <p class="body-text">从历史层叠理解城市今天的面貌，传说与史实分开表述。</p>
-  <h4 class="subsection-title">值得慢看的地方</h4>
-  <div class="sight">
-    <div class="sight-name">城市核心区</div>
-    <div class="sight-desc">按顺序列出主要景点，说明历史背景与常见误解。</div>
-  </div>
-  <div class="highlight-box">
-    <div class="box-title">站在现场，留意这些细节</div>
-    <ul class="check-list">
-      <li>光线、材料、结构与方向感。</li>
-      <li>使用者和日常生活的痕迹。</li>
-      <li>修复外观与原貌的区别。</li>
-    </ul>
-  </div>
-</div>"""
-        )
-
-        pages.append(
-            """<div class="page">
-  <h2 class="section-title">预算与预订节奏</h2>
-  <p class="section-subtitle">每人粗估，具体价格以官方为准</p>
-  <table class="budget-table">
-    <thead>
-      <tr>
-        <th>项目</th>
-        <th>经济舒适型</th>
-        <th>说明</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td>交通</td><td>待补充</td><td>铁路/巴士/市内交通</td></tr>
-      <tr><td>住宿</td><td>待补充</td><td>各城市住宿</td></tr>
-      <tr><td>餐饮</td><td>待补充</td><td>每日餐食</td></tr>
-      <tr><td>门票与体验</td><td>待补充</td><td>景点与体验项目</td></tr>
-      <tr class="total-row"><td>合计</td><td>待补充</td><td>含机动金建议</td></tr>
-    </tbody>
-  </table>
-  <h3 class="subsection-title">什么时候订</h3>
-  <div class="booking-step">
-    <div class="booking-step-marker">现在</div>
-    <div class="booking-step-content">确认护照、签证与边境开放状态。</div>
-  </div>
-  <div class="booking-step">
-    <div class="booking-step-marker">出发前 4-6 周</div>
-    <div class="booking-step-content">预订核心车票与住宿。</div>
-  </div>
-  <div class="booking-step">
-    <div class="booking-step-marker">出发前 48 小时</div>
-    <div class="booking-step-content">离线备份车票、地图与证件扫描件。</div>
-  </div>
-  <div class="payment-note">
-    <strong>付款策略：</strong>卡片/现金/换汇建议，汇率波动以官方为准。
-  </div>
-</div>"""
-        )
-
-        pages.append(
-            """<div class="page">
-  <h2 class="section-title">行李、天气与风险控制</h2>
-  <p class="section-subtitle">按季节分层穿衣，出发前复核天气</p>
-  <h3 class="subsection-title">分层穿衣</h3>
-  <ul class="check-list">
-    <li>贴身层：排汗速干。</li>
-    <li>保暖层：抓绒/轻薄羽绒。</li>
-    <li>鞋类：适合城市步行与短途徒步。</li>
-    <li>随身包：证件、现金、充电与离线地图。</li>
-  </ul>
-  <h3 class="subsection-title">关键风险</h3>
-  <table class="risk-table">
-    <thead>
-      <tr><th>情况</th><th>处理原则</th></tr>
-    </thead>
-    <tbody>
-      <tr><td class="risk-situation">车次晚点或取消</td><td class="risk-action">保留缓冲时间，准备替代交通。</td></tr>
-      <tr><td class="risk-situation">天气突变</td><td class="risk-action">优先删室外长距离段。</td></tr>
-      <tr><td class="risk-situation">证件问题</td><td class="risk-action">随身复印件 + 离线电子版。</td></tr>
-    </tbody>
-  </table>
-  <div class="highlight-box">
-    <h3 class="subsection-title">旅行前核对清单</h3>
-    <ul class="check-list">
-      <li>证件与入境要求</li>
-      <li>关键车票核对</li>
-      <li>口岸与班次状态</li>
-      <li>体验项目安全条件</li>
-    </ul>
-  </div>
-</div>"""
-        )
-
-        pages.append(
-            """<div class="page">
-  <h2 class="section-title">实用链接与资料来源</h2>
-  <div class="links-group">
-    <div class="links-group-title">交通与预订</div>
-    <ul class="links-list">
-      <li>铁路/巴士/住宿预订入口：以官方渠道为准。</li>
-    </ul>
-  </div>
-  <div class="links-group">
-    <div class="links-group-title">历史与目的地背景</div>
-    <ul class="links-list">
-      <li>目的地官方旅游网站与历史资料。</li>
-    </ul>
-  </div>
-  <div class="disclaimer">
-    <strong>说明：</strong>本攻略中的时间、价格与班次可能变化，出发前请通过官方渠道复核。
-  </div>
-</div>"""
-        )
+        pages.append(closing_pages_html())
         return "\n".join(pages).strip()
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import colorsys
 import html as html_lib
 import json
 import re
@@ -144,19 +145,33 @@ THEMES: dict[str, dict[str, Any]] = {
 _TRAVEL_PRINT_CSS = """
 @page {
   size: A4;
-  margin: 2.2cm 1.8cm 2.5cm 1.8cm;
+  margin: 1.2cm 1.5cm 1.0cm 1.5cm;
 
-  @top-center {
-    content: element(header);
-    border-bottom: 1pt solid #e0d5c7;
-    padding-bottom: 5pt;
-  }
-
-  @bottom-center {
-    content: counter(page) " / " counter(pages);
+  @bottom-left {
+    content: string(doc-title);
     font-size: 8.5pt;
     color: #9a8b7e;
     font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+    border-top: 0.5pt solid #d8c9b8;
+    padding-top: 4pt;
+    width: 50%;
+    text-align: left;
+    vertical-align: top;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  @bottom-right {
+    content: counter(page);
+    font-size: 8.5pt;
+    color: #9a8b7e;
+    font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+    border-top: 0.5pt solid #d8c9b8;
+    padding-top: 4pt;
+    width: 50%;
+    text-align: right;
+    vertical-align: top;
   }
 }
 
@@ -164,16 +179,16 @@ _TRAVEL_PRINT_CSS = """
   size: A4;
   margin: 0;
 
-  @top-center {
+  @bottom-left {
     content: none;
   }
 
-  @bottom-center {
+  @bottom-right {
     content: none;
   }
 }
 
-.cover {
+.page.cover {
   display: flex;
   flex-direction: column;
   page: cover;
@@ -189,7 +204,7 @@ _TRAVEL_PRINT_CSS = """
   background: var(--bg-cover);
   color: var(--text-inverse);
   padding: var(--spacing-lg) var(--spacing-2xl);
-  text-align: center;
+  text-align: left;
 }
 
 .cover-body {
@@ -213,20 +228,19 @@ _TRAVEL_PRINT_CSS = """
   width: auto;
   min-height: auto;
   margin: 0;
-  padding: 2.2cm 1.8cm 2.5cm;
+  padding: 1.2cm 0 1.2cm;
   box-shadow: none;
+  box-decoration-break: clone;
 }
 
 .header {
-  position: running(header);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 8pt;
-  color: var(--text-muted);
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
 }
 
 .header .doc-title {
+  string-set: doc-title content();
   font-weight: 600;
   color: var(--color-primary-dark);
 }
@@ -463,6 +477,98 @@ class ThemeManager:
         return css + _TRAVEL_PRINT_CSS
 
 
+_TRAVEL_SKELETON_CACHE: dict[str, str] = {}
+
+
+def travel_template_skeleton() -> str:
+    """从 travel_template.html 提取紧凑的页面结构骨架（供 LLM 生成旅行攻略时参考）。
+
+    保留文件头部的【页面映射总表】注释 + 每种页面的代表性示例（去样式、去注释、
+    去重复页、去页脚），保证 AI 生成的内容与模板的 27 页结构一一对应。
+    骨架随模板文件自动更新，无需手工维护。
+    """
+    cached = _TRAVEL_SKELETON_CACHE.get("skeleton")
+    if cached:
+        return cached
+    template_path = (
+        Path(__file__).resolve().parent / "pdf_themes" / "travel_template.html"
+    )
+    template = template_path.read_text(encoding="utf-8")
+
+    first_comment_match = re.search(r"<!--(.*?)-->", template, re.DOTALL)
+    first_comment = (
+        first_comment_match.group(1).strip() if first_comment_match else ""
+    )
+
+    no_style = re.sub(
+        r"<style[^>]*>.*?</style>",
+        "",
+        template,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    no_comments = re.sub(r"<!--.*?-->", "", no_style, flags=re.DOTALL)
+    chunks = re.split(r'(?=<div class="page)', no_comments)
+    pages = [
+        chunk
+        for chunk in chunks
+        if chunk.lstrip().startswith('<div class="page')
+    ]
+
+    # 每种页面保留的代表性示例数量（顺序与模板页序一致）
+    keep_counts = {
+        "cover": 1,        # P1 封面
+        "overview": 1,     # P2 路线总览
+        "day": 1,          # P3 每日行程（示例，其余天数同构重复）
+        "culture": 1,      # P4 游牧文化体验专页（可选特色页）
+        "risk": 1,         # P5 行李天气与风险控制
+    }
+
+    def classify(page: str) -> str:
+        if "cover-band" in page:
+            return "cover"
+        if ">路线总览<" in page:
+            return "overview"
+        if 'class="day-title"' in page:
+            return "day"
+        if 'class="feature-title"' in page and "体验专页" in page:
+            return "culture"
+        if ">行李、天气与风险控制<" in page:
+            return "risk"
+        return "other"  # 其他页面/碎片（不保留）
+
+    seen: dict[str, int] = {}
+    kept: list[str] = []
+    for page in pages:
+        kind = classify(page)
+        if kind == "other":
+            continue
+        if seen.get(kind, 0) >= keep_counts.get(kind, 0):
+            continue
+        seen[kind] = seen.get(kind, 0) + 1
+        page = re.sub(
+            r'\s*<div class="page-footer">.*?</div>\s*',
+            "",
+            page,
+            flags=re.DOTALL,
+        )
+        page = re.sub(r"\n{3,}", "\n\n", page).strip()
+        kept.append(page)
+
+    header_lines = [
+        "以下是旅行手册 HTML 模板的页面结构骨架（来自 travel_template.html）。",
+        "其中 {{双花括号}} 是内容占位符：输出时必须替换为实际内容，不要保留 {{ }}。",
+        "页面顺序必须与【页面映射总表】一致：",
+        "路线总览 → 每日行程 → 行李、天气与风险控制（游牧文化/体验专页为可选特色页）。",
+    ]
+    parts = ["\n".join(header_lines)]
+    if first_comment:
+        parts.append(first_comment)
+    parts.extend(kept)
+    result = "\n\n".join(parts)
+    _TRAVEL_SKELETON_CACHE["skeleton"] = result
+    return result
+
+
 _default_manager: ThemeManager | None = None
 
 
@@ -530,15 +636,143 @@ TRAVEL_COLOR_PRESETS: dict[str, dict[str, str]] = {
     },
 }
 
+# 常用颜色名 → 基准色值（未收录的颜色名可走 derive_travel_palette 的 HSL 派生）
+COLOR_NAMES: dict[str, str] = {
+    "red": "#E74C3C",
+    "红色": "#E74C3C",
+    "orange": "#E67E22",
+    "橙色": "#E67E22",
+    "yellow": "#D4A017",
+    "黄色": "#D4A017",
+    "green": "#27AE60",
+    "绿色": "#27AE60",
+    "cyan": "#1FA8A0",
+    "青色": "#1FA8A0",
+    "blue": "#2F5B9E",
+    "蓝色": "#2F5B9E",
+    "purple": "#5B4B8A",
+    "紫色": "#5B4B8A",
+    "pink": "#C94F7C",
+    "粉色": "#C94F7C",
+    "brown": "#8B5E3C",
+    "棕色": "#8B5E3C",
+    "teal": "#2A5A5B",
+    "青绿": "#2A5A5B",
+    "gray": "#555555",
+    "灰色": "#555555",
+    "black": "#222222",
+    "黑色": "#222222",
+}
+
+_HEX_COLOR_RE = re.compile(r"^#?([0-9a-fA-F]{6})$")
+_RGB_COLOR_RE = re.compile(
+    r"^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$",
+    re.IGNORECASE,
+)
+
+
+def _hex_to_rgb(value: str) -> tuple[int, int, int] | None:
+    match = _HEX_COLOR_RE.match((value or "").strip())
+    if not match:
+        return None
+    digits = match.group(1)
+    return (
+        int(digits[0:2], 16),
+        int(digits[2:4], 16),
+        int(digits[4:6], 16),
+    )
+
+
+def _rgb_to_hex(rgb: tuple[int, int, int]) -> str:
+    return "#%02X%02X%02X" % tuple(rgb)
+
+
+def _shift_lightness(
+    rgb: tuple[int, int, int], delta: float
+) -> tuple[int, int, int]:
+    r, g, b = (channel / 255.0 for channel in rgb)
+    hue, lightness, saturation = colorsys.rgb_to_hls(r, g, b)
+    lightness = max(0.0, min(1.0, lightness + delta))
+    r2, g2, b2 = colorsys.hls_to_rgb(hue, lightness, saturation)
+    return (round(r2 * 255), round(g2 * 255), round(b2 * 255))
+
+
+def _resolve_color(value: str) -> tuple[int, int, int] | None:
+    """把 #hex / rgb() / 颜色名 统一解析为 RGB；无法解析返回 None。"""
+    text = (value or "").strip()
+    rgb = _hex_to_rgb(text)
+    if rgb:
+        return rgb
+    match = _RGB_COLOR_RE.match(text)
+    if match:
+        r, g, b = (int(part) for part in match.groups())
+        if all(0 <= channel <= 255 for channel in (r, g, b)):
+            return (r, g, b)
+    named = COLOR_NAMES.get(text.lower())
+    if named:
+        return _hex_to_rgb(named)
+    return None
+
+
+def derive_travel_palette(primary_color: str) -> dict[str, str] | None:
+    """从单一主色派生整套旅行手册色调；无法解析时返回 None。
+
+    派生规则（与预设 teal 的视觉关系一致）：
+    - --color-primary：主色压深到 ≤35% 亮度（保证表头/封面条带白字可读）；
+    - --color-accent / --color-accent-light：主色逐级提亮；
+    - --bg-highlight：主色极浅的米色系背景块；
+    - --bg-cover：主色加深的封面深色条带。
+    """
+    rgb = _resolve_color(primary_color)
+    if not rgb:
+        return None
+    r, g, b = (channel / 255.0 for channel in rgb)
+    hue, lightness, saturation = colorsys.rgb_to_hls(r, g, b)
+    primary_l = min(lightness, 0.35)
+    primary = colorsys.hls_to_rgb(hue, primary_l, saturation)
+    primary_rgb = (
+        round(primary[0] * 255),
+        round(primary[1] * 255),
+        round(primary[2] * 255),
+    )
+    return {
+        "--color-primary": _rgb_to_hex(primary_rgb),
+        "--color-accent": _rgb_to_hex(_shift_lightness(primary_rgb, 0.10)),
+        "--color-accent-light": _rgb_to_hex(
+            _shift_lightness(primary_rgb, 0.22)
+        ),
+        "--bg-highlight": _rgb_to_hex(_shift_lightness(primary_rgb, 0.42)),
+        "--bg-cover": _rgb_to_hex(_shift_lightness(primary_rgb, -0.12)),
+    }
+
 
 def travel_color_overrides(
     color_scheme: str = "teal",
     custom: dict[str, str] | None = None,
 ) -> dict[str, str]:
+    """计算旅行手册的 CSS 变量覆盖。
+
+    color_scheme 支持预设名（teal/blue/green/warm/purple/monochrome），
+    也支持直接传颜色名或色值（如 "红色"、"#E74C3C"）自动派生整套色调；
+    custom 里只需给 {"--color-primary": "<颜色>"} 即可派生配套色，
+    显式传入的其他变量（--color-accent/--bg-cover/--bg-highlight 等）优先级最高。
+    """
     key = (color_scheme or "teal").strip().lower()
-    overrides = dict(TRAVEL_COLOR_PRESETS.get(key, TRAVEL_COLOR_PRESETS["teal"]))
-    if custom:
-        overrides.update(custom)
+    if key in TRAVEL_COLOR_PRESETS:
+        overrides = dict(TRAVEL_COLOR_PRESETS[key])
+    else:
+        derived = derive_travel_palette(key)
+        overrides = (
+            derived if derived else dict(TRAVEL_COLOR_PRESETS["teal"])
+        )
+    custom = dict(custom or {})
+    primary = custom.get("--color-primary")
+    if primary:
+        derived = derive_travel_palette(str(primary))
+        if derived:
+            overrides.update(derived)
+    overrides.update(custom)
+    overrides.pop("--primary", None)
     return overrides
 
 
@@ -591,15 +825,30 @@ def build_cover_html(
         if not extra.get("countries") and tags:
             extra["countries"] = " × ".join(tags[:2])
     if not extra.get("meta_line"):
-        meta_parts = [
-            str(extra.get(key) or "").strip()
-            for key in ("destination", "duration", "travelers", "dates")
-        ]
-        extra["meta_line"] = (
-            " · ".join(part for part in meta_parts if part)
-            or subtitle
-            or "AI Divine 生成文档"
-        )
+        dates = str(extra.get("dates") or "").strip()
+        tags = extra.get("tags")
+        if isinstance(tags, list):
+            tags = [str(t).strip() for t in tags if str(t).strip()]
+        elif isinstance(tags, str):
+            tags = [
+                part.strip()
+                for part in re.split(r"[,、×xX/]", tags)
+                if part.strip()
+            ]
+        else:
+            tags = []
+        tag_line = " × ".join(tags)
+        if tag_line and dates:
+            extra["meta_line"] = f"{tag_line}｜{dates}"
+        elif tag_line:
+            extra["meta_line"] = tag_line
+        elif dates:
+            extra["meta_line"] = dates
+        else:
+            dest = str(extra.get("destination") or "").strip()
+            dur = str(extra.get("duration") or "").strip()
+            joined = " · ".join(part for part in (dest, dur) if part)
+            extra["meta_line"] = joined or subtitle or "AI Divine 生成文档"
     extra["summary"] = str(extra.get("summary") or subtitle or "").strip()
     extra["meta_secondary"] = str(
         extra.get("meta_secondary") or extra.get("route_constraint") or ""
@@ -629,8 +878,9 @@ def build_travel_html_document(
     return (
         "<!doctype html><html><head><meta charset=\"utf-8\">"
         f"<style>{css}</style></head><body>"
+        f"{cover_html}"
         "<div class=\"header\">"
         f"<span class=\"doc-title\">{html_lib.escape(title)}</span>"
         "</div>"
-        f"{cover_html}{html_body}</body></html>"
+        f"{html_body}</body></html>"
     )

@@ -51,35 +51,48 @@ SKILL.md，用户确认后再调用 install_skill；install_skill 执行前系�
 查找或列出工作区文件使用 search_files；搜索完文件后，读取具体内容再使用 read_file。
 查看目录结构使用 directory_tree；缩放图片使用 image_resize；拆分合并 PDF 使用 pdf_split_merge；
 用户要求生成 PDF 文档时，如果内容是旅行攻略/行程/路线手册，且用户没有指定风格，
-不要询问，直接默认 theme=travel 调用 pdf_generate；其他文档先展示下面的风格编号表并询问偏好，不要直接调用 pdf_generate；
-| 编号 | 风格 | theme |
+不要询问，直接默认 theme=travel 调用 pdf_generate；
+个人简历是文档类型而非视觉风格，不经过下面的风格表：按下方简历规则整理
+resume_data 后直接调用 pdf_generate（kind=resume）；
+其他文档不要直接调用 pdf_generate：先根据用户内容，从下面的风格表中挑选 3 个最匹配的风格作为推荐，
+在正文末尾输出可点击的 ```options 选项卡片（前端会渲染为按钮，用户点击选择或输入其他风格），不要输出完整风格表：
+选项卡片格式：JSON 放在 ```options 代码块内，如
+```options
+{"title": "请选择 PDF 风格", "options": [{"label": "现代科技", "theme": "modern", "desc": "蓝灰配色，适合技术报告"}, {"label": "通用现代", "theme": "universal", "desc": "中性蓝灰，通用场景"}, {"label": "学术典雅", "theme": "academic", "desc": "衬线字体，适合研究报告"}], "other": true}
+```
+3 个推荐的 label/theme 必须从下表选取（theme 用表中的值），desc 写一句话适用场景；
+| 风格 | theme | 适用场景 |
 | --- | --- | --- |
-| 1 | 通用现代 | universal |
-| 2 | Notion 极简 | notion |
-| 3 | Linear 紧凑 | linear |
-| 4 | Apple 舒适 | apple |
-| 5 | 现代科技 | modern |
-| 6 | 学术典雅 | academic |
-| 7 | 旅行手册 | travel |
-| 8 | 知识图谱 | roadmap |
-| 9 | 极简黑白 | minimal |
-| 10 | 个人简历 | resume |
-用户回复编号即可，例如回复“1”；Agent 收到编号后按上表映射 theme，再调用 pdf_generate；
-用户说“随便/默认/你来定”时使用 universal；
-用户已明确指定编号或风格时不要重复询问。
-用户直接说“输出 PDF”且当前内容是旅行攻略时，视为已指定旅行手册风格，不要再次询问编号；
+| 通用现代 | universal | 中性蓝灰，报告/攻略/讲义等通用 |
+| Notion 极简 | notion | 留白多，适合阅读型文档 |
+| Linear 紧凑 | linear | 高信息密度，适合研发协作 |
+| Apple 舒适 | apple | 大圆角柔和，视觉舒适 |
+| 现代科技 | modern | 蓝灰配色，技术报告/商业文档 |
+| 学术典雅 | academic | 衬线字体，论文/研究报告 |
+| 知识图谱 | roadmap | 深紫渐变，学习路线/技能树 |
+| 极简黑白 | minimal | 留白为主，笔记/简洁报告 |
+用户点击选项、回复选项名称、或在"其他"输入框输入自定义风格时，均视为风格选择；
+Agent 按上表把选项映射为 theme 再调用 pdf_generate；自定义风格按用户描述映射最接近的 theme 或用 theme_colors 定制；
+用户回复孤立的数字时，按当前展示的选项卡片顺序（第 1/2/3 个推荐）理解，不要套用固定编号表；
+拿不准用户数字含义时向用户确认；
+用户说"随便/默认/你来定"时使用 universal；
+用户已明确指定风格时不要重复询问。
+用户直接说"输出 PDF"且当前内容是旅行攻略时，视为已指定旅行手册风格，不要再次询问；
 生成旅行手册 PDF 时默认生成封面、不要生成目录，也不要传 toc=true；
 旅行攻略禁止用 pdf_render 兜底，pdf_generate 失败时重试一次，仍失败则把错误原样告诉用户。
-用户要求旅行手册换主题色（如蓝色、绿色、暖色）时，把 color_scheme 设为对应值；
-用户给出具体颜色时，通过 theme_colors 覆盖 --color-primary、--color-accent、--bg-cover、--bg-highlight。
+用户要求旅行手册换主题色时，把 color_scheme 设为预设（teal/blue/green/warm/purple/monochrome）；
+用户给出具体颜色（颜色名或色值，如“红色”“#E74C3C”“rgb(...)”）时，
+theme_colors 只需传 {"--color-primary": "<颜色>"}，系统会自动派生整套配套色
+（--color-accent/--color-accent-light/--bg-highlight/--bg-cover），不要逐一手写所有变量；
+只有用户额外指定某个配套色时才显式传对应变量。
 只要用户提到“蓝色/绿色/紫色/暖色/黑白主题”，调用 pdf_generate 时必须同时传 color_scheme，
 不能只写在 prompt 文本里。
 生成旅行手册 PDF 时不要传 markdown 参数，直接让 pdf_generate 按 travel_template 生成 HTML；
 只有用户明确提供现成 Markdown 时才允许转换。
-用户要求生成 Word 文档时，同样先展示上面的风格编号表并询问偏好，不要直接调用 word_document；
-用户回复编号后按上表映射 theme，再调用 word_document；已明确指定风格时不要重复询问。
-用户要求生成 PPT/演示文稿时，同样先展示上面的风格编号表并询问偏好，不要直接调用 presentation；
-用户回复编号后按上表映射 theme，再调用 presentation；已明确指定风格时不要重复询问。
+用户要求生成 Word 文档时，同样用上面的 ```options 选项卡片询问风格偏好，不要直接调用 word_document；
+用户选择后按上表映射 theme，再调用 word_document；已明确指定风格时不要重复询问。
+用户要求生成 PPT/演示文稿时，同样用上面的 ```options 选项卡片询问风格偏好，不要直接调用 presentation；
+用户选择后按上表映射 theme，再调用 presentation；已明确指定风格时不要重复询问。
 PPT 内容页可用 layout=cards/timeline/columns 指定版式，不传时工具会自动判断；
 阶段/路线类标题优先时间轴，要点较多时用卡片，少量要点时分栏。
 kind 按报告/旅行手册/学习路线/电子书手册/讲义/简历自动识别或显式指定；
