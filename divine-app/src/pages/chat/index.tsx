@@ -43,6 +43,10 @@ import {
   useSessionState,
   writeLastSessionSelection,
 } from "@/pages/chat/state/sessionStore";
+import {
+  getSessionEffort,
+  setSessionEffort,
+} from "@/pages/chat/state/sessionEffort";
 import { Flex } from "@/components/ui/Flex";
 import { TitleBar } from "@/components/TitleBar";
 import { SessionSearchModal } from "@/pages/chat/components/SessionList/SessionSearchModal";
@@ -99,6 +103,7 @@ export default function ChatPage() {
   const [composerKey, setComposerKey] = useState(0);
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>("ask");
   const [composerEffort, setComposerEffort] = useState("off");
+  const prevEffortSessionRef = useRef<string | null>(null);
   const [guideCardsVisible, setGuideCardsVisible] = useState(true);
   const [prefill, setPrefill] = useState<{
     text: string;
@@ -329,6 +334,25 @@ export default function ChatPage() {
     };
   }, [loadSession, refreshProjects, refreshSessions, t]);
 
+  // 切换会话时恢复该会话单独记住的深度思考档位；
+  // 没有记忆的会话回落到全局默认。
+  useEffect(() => {
+    if (selectedId === prevEffortSessionRef.current) return;
+    prevEffortSessionRef.current = selectedId;
+    if (!selectedId) return;
+    const saved = getSessionEffort(selectedId);
+    const valid =
+      saved === "off" || saved === "low" || saved === "high" || saved === "max";
+    setComposerEffort(
+      valid
+        ? saved
+        : settings?.think_default
+          ? settings?.reasoning_effort ?? "high"
+          : "off"
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, settings]);
+
   useEffect(() => {
     if (!selectionReady) return;
     writeLastSessionSelection(selectedProjectId, selectedId);
@@ -389,6 +413,7 @@ export default function ChatPage() {
                 : defaultEffort
               : "off";
           setComposerEffort(next);
+          setSessionEffort(selectedId, next);
           setSettings({ ...settings, think_default: next !== "off" });
         }
       }
@@ -945,7 +970,10 @@ export default function ChatPage() {
               approvalMode={approvalMode}
               onApprovalModeChange={handleApprovalModeChange}
               effort={composerEffort}
-              onEffortChange={setComposerEffort}
+              onEffortChange={(value) => {
+                setComposerEffort(value);
+                setSessionEffort(selectedId, value);
+              }}
               onValueChange={handleGuideValueChange}
               prefill={prefill}
               onPrefillConsumed={() => setPrefill(null)}

@@ -14,6 +14,7 @@ import {
 } from "@/services/api";
 import { requestRaw } from "@/services/request";
 import { consumeSSE } from "@/services/sse";
+import { setSessionEffort } from "@/pages/chat/state/sessionEffort";
 import {
   emitEventsChanged,
   emitTasksChanged,
@@ -105,6 +106,8 @@ export function useChatStream(options: UseChatStreamOptions) {
         sessionId = session.id;
         setSessions((prev) => [session, ...prev]);
         setSelectedId(session.id);
+        // 新会话首次发送即记住本条消息使用的深度思考档位。
+        setSessionEffort(session.id, effort);
       }
 
       const userMessage: ChatMessage = {
