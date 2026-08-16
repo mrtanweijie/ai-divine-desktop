@@ -51,11 +51,13 @@ class TravelRecipe(PDFRecipe):
         from ..pdf_theme_manager import travel_template_skeleton
 
         meta = intent.meta or {}
-        skeleton = travel_template_skeleton()
+        theme = str(meta.get("theme") or "travel")
+        skeleton = travel_template_skeleton(theme)
+        skeleton_name = "travel_optimized.html" if theme == "travel_mag" else "travel_template.html"
         return (
             "你是资深旅行手册作者。严格按下述【模板骨架】的页面结构与 CSS 类名，"
             "输出一份可直接打印为 PDF 的完整旅行攻略 HTML body。\n"
-            "══════════════ 模板骨架（travel_template.html） ══════════════\n"
+            f"══════════════ 模板骨架（{skeleton_name}） ══════════════\n"
             + skeleton
             + "\n══════════════ 输出规则 ══════════════\n"
             "1. 只输出 HTML body：以 `<div class=\"page\">` 开头的一串页面片段，"
@@ -63,17 +65,38 @@ class TravelRecipe(PDFRecipe):
             "<div class=\"page-footer\">，也不要输出解释文字。\n"
             "2. 封面由系统自动生成（国家×国家、标题、主题标签、日期、路线概述来自元信息），"
             "你不要输出封面页。\n"
-            "3. 页面顺序必须与骨架一致：路线总览 → 每日行程 → 行李、天气与风险控制；"
-            "游牧文化/体验专页为可选特色页，按用户需求插入。\n"
-            "4. 每日行程：每天一个 `<div class=\"page\">`；安排紧凑或跨境的一天可两天同页，"
-            "页面加 class=\"day-block\"，两天之间用 `<hr class=\"day-divider\">` 分隔。"
-            "每天必须包含：`<h2 class=\"day-title\">` 标题、`<p class=\"day-subtitle\">` "
-            "（subtitle-key/subtitle-rest）、`<table class=\"time-table\">` 的 "
-            "time-label/time-content 写早上/下午/晚上（可加上午/中午/傍晚/夜晚），"
-            "以及三个 `<div class=\"day-section\">`：吃什么、交通与预订、替代方案。\n"
-            "5. 行李、天气与风险控制页用 check-list + risk-table（risk-situation/risk-action）"
-            "+ highlight-box。\n"
-            "6. 如需扩展板块（专题页/城市读本/预算/链接），使用模板 CSS 中已有的类名："
+            "3. 页面顺序：路线总览 → 每日行程 → 预算与预订 → 行李、天气与风险控制 → 其他扩展页。"
+            "预算页（budget-table/booking-step/payment-note）默认必输出，除非用户明确不要；"
+            "行李、天气与风险控制页默认必输出；"
+            "用户明确要求某类扩展页（预算/特殊体验/城市读本/实用链接）时，必须输出对应页面，"
+            "禁止因“可选”而省略：用户提到预算/花费/费用/省钱 → 预算页；"
+            "用户提到行李/天气/风险/安全/清单 → 行李天气与风险控制页；"
+            "用户提到特殊体验/深度体验/游牧文化/美食专题 → 对应体验专页。\n"
+            "4. 每日行程：每天一个独立的 `<div class=\"page\">`（不要合并两天、"
+            "不要用 day-block 类）。每天必须包含：`<h2 class=\"day-title\">` 标题、"
+            "`<p class=\"day-subtitle\">` （subtitle-key/subtitle-rest）、"
+            "`<table class=\"time-table\">` 的 time-label/time-content 写早上/下午/晚上"
+            "（可加上午/中午/傍晚/夜晚），以及三个信息块：吃什么、交通与预订、替代方案"
+            + (
+                "，用 `<div class=\"day-cards\">` 里的三个 `<div class=\"day-card\">`"
+                "（day-card-title/day-card-text）。每张卡片文字控制在 1-2 句、"
+                "40 字以内，务必精炼。\n"
+                if theme == "travel_mag"
+                else "，用三个 `<div class=\"day-section\">`（day-section-title/day-section-text）。\n"
+            )
+            + "4.1 全程内容必须精简紧凑：每日 time-table 每个时段只写 1 句话（40 字内），"
+            "每日整页控制在紧凑篇幅；总原则是输出必须完整覆盖所有规定页面（"
+            "路线总览、每天行程、预算、行李天气风险），宁可每页内容精炼，"
+            "也不要因内容过长而漏掉后续页面。\n"
+            + "5. 行李、天气与风险控制页用 check-list + risk-table（risk-situation/risk-action）"
+            "+ highlight-box"
+            + (
+                "；分层穿衣用 `<div class=\"layers\">` 的 layer-card（layer-no/layer-name/layer-desc），"
+                "核对清单用 `<ul class=\"todo-list\">`。\n"
+                if theme == "travel_mag"
+                else "；分层穿衣和核对清单用 check-list。\n"
+            )
+            + "6. 如需扩展板块（专题页/城市读本/预算/链接），使用模板 CSS 中已有的类名："
             "feature-title/feature-subtitle/milestone、city-title/city-tagline/sight/"
             "sight-name/sight-desc、budget-table/booking-step/payment-note、"
             "links-group/links-list/disclaimer。\n"

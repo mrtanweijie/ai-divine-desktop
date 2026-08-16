@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{旅行手册标题}} - HTML 模板（杂志版）</title>
+<!--
+  ═══════════════════════════════════════════════════════════════
+  旅行攻略 HTML 模板 · 杂志版（travel_mag）
+  ═══════════════════════════════════════════════════════════════
+
+  【设计要点】
+  1. 色彩系统：teal 主色完整阶梯（50→900）+ 琥珀暖色点缀
+  2. 字体：标题衬线（Noto Serif SC）+ 正文无衬线，杂志化对比
+  3. 封面：渐变模拟大图 + 深色条带 + 关键数据胶囊行
+  4. 组件精修：时间轴圆点白芯、表格斑马纹、信息卡圆角阴影
+  5. 扩展组件样式保留：城市读本 / 预算 / 链接 / 里程碑 / 分层穿衣
+
+  【页面映射总表 — 5 页核心结构（专题页/城市读本/预算/链接按需扩展）】
+  ┌────────┬─────────────────────────────────────────┐
+  │  P1    │ 封面                                     │
+  │  P2    │ 路线总览（时间轴+摘要表+路线逻辑+住宿建议） │
+  │  P3    │ 每日行程（示例：D1，其余天数同构重复生成）  │
+  │  P4    │ 游牧文化体验专页（可选）                  │
+  │  P5    │ 行李、天气与风险控制                      │
+  └────────┴─────────────────────────────────────────┘
+-->
+<style>
+/* ═══════════════════════════════════════════════
+   设计令牌 Design Tokens
+   ═══════════════════════════════════════════════ */
+:root {
+  /* teal 主色阶梯 */
+  --teal-50:  #EFF6F6;
+  --teal-100: #DCECEC;
+  --teal-200: #B8D9D9;
+  --teal-300: #8CC0C1;
+  --teal-400: #5BA3A4;
+  --teal-500: #3A8A8B;
+  --teal-600: #2A5A5B;
+  --teal-700: #23494A;
+  --teal-800: #1C3A3B;
+  --teal-900: #162E2F;
+
+  /* 琥珀暖点缀（沙漠/落日） */
+  --amber-100: #F7EAD8;
+  --amber-300: #E0BC8C;
+  --amber-500: #C08552;
+  --amber-700: #9A6536;
+
+  /* 中性色 */
+  --bg-page: #FFFFFF;
+  --bg-highlight: #F6F2E9;      /* 米色重点块 */
+  --bg-cover: #162E2F;          /* 封面深色条带 */
+  --bg-soft: #F4F7F7;           /* 浅色卡片底 */
+
+  --text-primary: #22302F;
+  --text-secondary: #556563;
+  --text-muted: #8A9A97;
+  --text-inverse: #FFFFFF;
+
+  --border-light: #E3E9E8;
+  --border-table: #D8E2E1;
+
+  --font-serif: "Noto Serif SC", "Songti SC", "SimSun", Georgia, serif;
+  --font-sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --shadow-card: 0 1px 3px rgba(22,46,47,0.06), 0 6px 18px rgba(22,46,47,0.05);
+  --shadow-lift: 0 2px 6px rgba(22,46,47,0.08), 0 10px 28px rgba(22,46,47,0.08);
+
+  --sp-xs: 4px; --sp-sm: 8px; --sp-md: 16px;
+  --sp-lg: 24px; --sp-xl: 36px; --sp-2xl: 52px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: #fff;
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══════════════════════════════════════════════
+   页面容器 — A4 竖版，一页对应 PDF 一页
+   ═══════════════════════════════════════════════ */
+.page {
+  min-height: 297mm;
+  padding: 12mm 15mm 14mm;
+  background: var(--bg-page);
+  position: relative;
+  box-decoration-break: clone;
+}
+
+/* 页脚 */
+.page-footer {
+  position: absolute;
+  bottom: 9mm;
+  left: 15mm;
+  right: 15mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-light);
+  padding-top: 7px;
+  letter-spacing: 0.03em;
+}
+.page-footer .footer-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--teal-100);
+  color: var(--teal-700);
+  font-weight: 700;
+  font-size: 11px;
+}
+
+/* ═══════════════════════════════════════════════
+   通用组件
+   ═══════════════════════════════════════════════ */
+
+/* 页面主标题 */
+.section-title {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+  position: relative;
+  padding-bottom: 12px;
+}
+.section-title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 46px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--teal-600), var(--teal-300));
+}
+
+/* 页面副标题 */
+.section-subtitle {
+  font-size: 13.5px;
+  color: var(--teal-500);
+  margin-bottom: var(--sp-lg);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* 章节小标题 */
+.subsection-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--teal-600);
+  margin: var(--sp-lg) 0 var(--sp-sm);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.subsection-title::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--amber-500);
+  flex-shrink: 0;
+}
+
+/* 米色重点块 + 左侧 teal 边框 */
+.highlight-box {
+  background: linear-gradient(180deg, var(--bg-highlight), #F3EEE2);
+  border-left: 5px solid var(--teal-600);
+  padding: 18px 22px;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  margin: var(--sp-lg) 0;
+  box-shadow: var(--shadow-card);
+}
+.highlight-box .box-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.highlight-box .box-title::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber-500);
+}
+
+/* 勾选列表 — 圆点 */
+.check-list { list-style: none; }
+.check-list li {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 7px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-primary);
+}
+.check-list li::before {
+  content: "";
+  display: inline-block;
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--teal-500);
+  border: 3px solid var(--teal-100);
+}
+.check-list li strong { color: var(--teal-700); font-weight: 700; }
+
+/* 正文段落 */
+.body-text {
+  font-size: 14px;
+  line-height: 1.85;
+  margin-bottom: 10px;
+  text-align: justify;
+  color: var(--text-primary);
+}
+.body-text strong { color: var(--teal-700); }
+
+/* 关键数据胶囊行（封面/总览用） */
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 20px;
+}
+.stat-pill {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  padding: 7px 15px 7px 27px;
+  background: var(--bg-soft);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.stat-pill b {
+  color: var(--teal-700);
+  font-size: 14px;
+  font-weight: 800;
+}
+.stat-pill .dot {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--amber-500);
+}
+
+/* 图片占位（渐变模拟，替换为真实 <img>） */
+.photo-placeholder {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--teal-700) 0%, var(--teal-500) 45%, var(--amber-300) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  margin: 14px 0 20px;
+}
+.photo-placeholder::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 25%, rgba(255,255,255,0.14) 0%, transparent 34%),
+    radial-gradient(circle at 78% 70%, rgba(255,255,255,0.10) 0%, transparent 30%),
+    repeating-linear-gradient(45deg, transparent 0 26px, rgba(255,255,255,0.05) 26px 27px);
+}
+.photo-placeholder .photo-note {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  color: rgba(255,255,255,0.92);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  background: var(--teal-800);
+  padding: 8px 18px;
+  border-radius: 999px;
+}
+.photo-placeholder small {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  z-index: 1;
+  font-size: 10px;
+  color: rgba(255,255,255,0.65);
+}
+
+/* ═══════════════════════════════════════════════
+   P1 封面
+   ═══════════════════════════════════════════════ */
+.cover { padding: 0; display: flex; flex-direction: column; }
+
+/* 封面大图 — 渐变模拟，替换为真实图片 */
+.cover-hero {
+  position: relative;
+  height: 118mm;
+  background:
+    radial-gradient(ellipse at 72% 18%, rgba(192,133,82,0.55) 0%, transparent 42%),
+    radial-gradient(ellipse at 18% 85%, rgba(91,163,164,0.5) 0%, transparent 46%),
+    linear-gradient(160deg, #1C3A3B 0%, #2A5A5B 42%, #3A6E6F 68%, #4A7E70 100%);
+  overflow: hidden;
+}
+.cover-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(112deg, transparent 40%, rgba(255,255,255,0.10) 40.4%, rgba(255,255,255,0.10) 41.2%, transparent 41.6%),
+    linear-gradient(68deg, transparent 56%, rgba(255,255,255,0.07) 56.4%, rgba(255,255,255,0.07) 57.2%, transparent 57.6%),
+    repeating-linear-gradient(100deg, transparent 0 90px, rgba(255,255,255,0.045) 90px 92px);
+}
+.cover-hero .hero-kicker {
+  position: absolute;
+  top: 34px;
+  left: 40px;
+  color: rgba(255,255,255,0.82);
+  font-size: 12.5px;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+}
+.cover-hero .hero-watermark {
+  position: absolute;
+  bottom: -18px;
+  right: 14px;
+  font-family: var(--font-serif);
+  font-size: 170px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.06);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+  user-select: none;
+}
+.cover-hero small {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 0.04em;
+}
+
+/* 深色信息条带 */
+.cover-band {
+  background: var(--bg-cover);
+  color: var(--text-inverse);
+  padding: 26px 40px 30px;
+  position: relative;
+}
+.cover-band::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--amber-500), var(--amber-300), transparent 70%);
+}
+.cover-countries {
+  font-size: 13px;
+  letter-spacing: 0.24em;
+  margin-bottom: 10px;
+  color: rgba(255,255,255,0.92);
+}
+.cover-title {
+  font-family: var(--font-serif);
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1.28;
+  letter-spacing: 0.02em;
+  margin-bottom: 12px;
+}
+.cover-meta {
+  font-size: 13.5px;
+  color: rgba(255,255,255,0.92);
+  letter-spacing: 0.03em;
+}
+.cover-meta .tag {
+  display: inline-block;
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
+  padding: 2px 10px;
+  margin-right: 6px;
+  font-size: 12px;
+}
+
+/* 封面正文区 */
+.cover-body {
+  padding: 34px 40px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.cover-tagline {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--teal-600);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.cover-summary {
+  font-size: 14px;
+  line-height: 1.9;
+  text-align: justify;
+  color: var(--text-primary);
+}
+.cover-summary strong { color: var(--teal-700); }
+
+/* ═══════════════════════════════════════════════
+   P2 路线总览
+   ═══════════════════════════════════════════════ */
+
+/* 时间轴地图 */
+.route-map {
+  margin: 22px 0 8px;
+  padding: 0 6px;
+}
+.route-stops {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+}
+/* 轴线：画在 stops 上，top:50% 与圆点（route-stop 的 50%）共用参照系 */
+.route-stops::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3%;
+  right: 3%;
+  height: 3px;
+  border-radius: 2px;
+  transform: translateY(-50%);
+  background: var(--teal-300);
+}
+/* 端部装饰点 */
+.route-stops::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0.6%;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: var(--amber-500);
+  border: 3px solid var(--amber-100);
+}
+.route-stop {
+  position: relative;
+  flex: 1;
+  min-height: 92px;
+  text-align: center;
+}
+/* 圆点：白芯 teal 圈，绝对定位在垂直中心，与轴线对齐 */
+.route-stop::before {
+  content: "";
+  display: inline-block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--teal-600);
+  border: 3px solid var(--bg-page);
+  z-index: 1;
+}
+.route-stop.above .stop-name {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+.route-stop.below .stop-name {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+.route-stop .stop-zone {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.route-stop.above .stop-zone {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.route-stop.below .stop-zone {
+  position: absolute;
+  top: 77px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.route-meta {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 16px 0 22px;
+  letter-spacing: 0.02em;
+}
+.route-meta b { color: var(--teal-600); }
+
+/* 阶段摘要表 */
+.route-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 20px;
+  font-size: 13px;
+  border: 1px solid var(--border-table);
+}
+.route-table thead {
+  background: linear-gradient(180deg, var(--teal-600), var(--teal-700));
+  color: var(--text-inverse);
+}
+.route-table th {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-size: 12.5px;
+}
+.route-table th,
+.route-table td {
+  padding: 10px 13px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-table);
+  vertical-align: top;
+}
+.route-table tbody tr:nth-child(even) { background: var(--teal-50); }
+.route-table tr:last-child td { border-bottom: none; }
+.route-table td:first-child {
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--teal-700);
+  font-family: var(--font-serif);
+}
+.route-table .stage-tag {
+  display: inline-block;
+  background: var(--amber-100);
+  color: var(--amber-700);
+  font-size: 11px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+/* ═══════════════════════════════════════════════
+   P3 每日行程
+   ═══════════════════════════════════════════════ */
+.day-title {
+  font-family: var(--font-serif);
+  font-size: 25px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.day-title .day-no {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-inverse);
+  background: var(--teal-600);
+  border-radius: var(--radius-sm);
+  padding: 4px 11px;
+  letter-spacing: 0.02em;
+  align-self: center;
+  flex-shrink: 0;
+}
+.day-subtitle {
+  font-size: 13.5px;
+  margin-bottom: 6px;
+}
+.day-subtitle .subtitle-key {
+  color: var(--amber-700);
+  font-weight: 700;
+}
+.day-subtitle .subtitle-rest {
+  color: var(--text-secondary);
+}
+
+/* 时间表 */
+.time-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 18px 0 22px;
+}
+.time-table tr { border-bottom: none; }
+.time-table td {
+  border-bottom: 1px solid var(--border-light);
+  padding: 13px 0;
+  vertical-align: top;
+}
+.time-table tr:last-child td { border-bottom: none; }
+.time-table .time-label {
+  width: 78px;
+  padding-right: 18px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  position: relative;
+}
+.time-table .time-label::after {
+  content: "";
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--amber-500);
+  margin-left: 8px;
+  vertical-align: 1px;
+}
+.time-table .time-content {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.8;
+}
+.time-table .time-content b { color: var(--teal-700); }
+
+/* 每日三卡片 */
+.day-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 20px;
+}
+.day-card {
+  width: 100%;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 16px 16px 14px;
+}
+.day-card-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--teal-700);
+  margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.day-card-title .ic {
+  width: 20px; height: 20px;
+  border-radius: 6px;
+  background: var(--teal-100);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--teal-700);
+}
+.day-card-text {
+  width: 100%;
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════
+   P4 体验专页 / 专题页
+   ═══════════════════════════════════════════════ */
+.feature-title {
+  font-family: var(--font-serif);
+  font-size: 27px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+.feature-subtitle {
+  font-size: 13.5px;
+  color: var(--teal-500);
+  font-weight: 500;
+  margin-bottom: 14px;
+}
+
+/* 关键节点时间线 */
+.milestone {
+  position: relative;
+  padding-left: 30px;
+  padding-bottom: 20px;
+}
+.milestone:has(+ .milestone)::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 14px;
+  bottom: -14px;
+  width: 2px;
+  background: var(--teal-200);
+}
+.milestone::after {
+  content: "";
+  display: inline-block;
+  position: absolute;
+  left: 2px;
+  top: 5px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--teal-600);
+  border: 3px solid var(--teal-100);
+}
+.milestone-title {
+  font-size: 16.5px;
+  font-weight: 700;
+  color: var(--teal-700);
+  margin-bottom: 3px;
+}
+.milestone-title .milestone-time {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--amber-700);
+  background: var(--amber-100);
+  border-radius: 999px;
+  padding: 1px 10px;
+  margin-right: 8px;
+  font-family: var(--font-sans);
+}
+.milestone-body {
+  font-size: 13.5px;
+  color: var(--text-primary);
+  line-height: 1.75;
+}
+
+/* ═══════════════════════════════════════════════
+   城市读本（可选扩展）
+   ═══════════════════════════════════════════════ */
+.city-title {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.city-tagline {
+  font-size: 13.5px;
+  color: var(--teal-500);
+  margin-bottom: 14px;
+}
+.sight {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  background: var(--bg-soft);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--teal-400);
+}
+.sight-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.sight-name::after {
+  content: "→";
+  color: var(--amber-500);
+  margin-left: 8px;
+  font-weight: 400;
+}
+.sight-desc {
+  font-size: 13.5px;
+  color: var(--text-primary);
+  line-height: 1.75;
+}
+
+/* ═══════════════════════════════════════════════
+   预算与预订（可选扩展）
+   ═══════════════════════════════════════════════ */
+.budget-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 22px;
+  font-size: 13px;
+  border: 1px solid var(--border-table);
+}
+.budget-table thead {
+  background: linear-gradient(180deg, var(--teal-600), var(--teal-700));
+  color: var(--text-inverse);
+}
+.budget-table th,
+.budget-table td {
+  padding: 10px 13px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-table);
+  vertical-align: top;
+}
+.budget-table th { font-weight: 600; font-size: 12.5px; letter-spacing: 0.04em; }
+.budget-table tbody tr:nth-child(even) { background: var(--teal-50); }
+.budget-table tr:last-child td { border-bottom: none; }
+.budget-table .total-row {
+  font-weight: 800;
+  color: var(--teal-700);
+  background: var(--bg-highlight) !important;
+}
+.booking-step {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--border-light);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+.booking-step:last-child { border-bottom: none; }
+.booking-step-marker {
+  flex-shrink: 0;
+  width: 118px;
+  font-weight: 700;
+  color: var(--teal-700);
+  font-size: 13px;
+}
+.booking-step-marker::before {
+  content: "";
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--amber-500);
+  margin-right: 8px;
+}
+.booking-step-content { flex: 1; color: var(--text-primary); }
+.payment-note {
+  font-size: 13.5px;
+  line-height: 1.75;
+  margin-top: 18px;
+  padding: 14px 18px;
+  background: var(--amber-100);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════════
+   P5 行李与风险
+   ═══════════════════════════════════════════════ */
+.risk-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 22px;
+  font-size: 13px;
+  border: 1px solid var(--border-table);
+}
+.risk-table thead {
+  background: linear-gradient(180deg, var(--teal-600), var(--teal-700));
+  color: var(--text-inverse);
+}
+.risk-table th,
+.risk-table td {
+  padding: 10px 13px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-table);
+  vertical-align: top;
+}
+.risk-table th { font-weight: 600; font-size: 12.5px; letter-spacing: 0.04em; }
+.risk-table tbody tr:nth-child(even) { background: var(--teal-50); }
+.risk-table tr:last-child td { border-bottom: none; }
+.risk-table .risk-situation {
+  font-weight: 700;
+  width: 30%;
+  color: var(--teal-700);
+}
+.risk-table .risk-action {
+  color: var(--text-primary);
+  line-height: 1.65;
+}
+
+/* 分层穿衣 — 四层梯度 */
+.layers {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 16px 0 22px;
+}
+.layer-card {
+  border-radius: var(--radius-md);
+  padding: 14px;
+  text-align: center;
+  border: 1px solid var(--border-light);
+  background: var(--bg-soft);
+  box-shadow: var(--shadow-card);
+}
+.layer-card .layer-no {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--teal-400);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.layer-card .layer-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal-700);
+  margin-bottom: 4px;
+}
+.layer-card .layer-desc {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 核对清单 — 带序号 */
+.todo-list {
+  list-style: none;
+  counter-reset: todo;
+}
+.todo-list li {
+  counter-increment: todo;
+  position: relative;
+  padding: 9px 0 9px 42px;
+  border-bottom: 1px dashed var(--border-light);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+.todo-list li:last-child { border-bottom: none; }
+.todo-list li::before {
+  content: counter(todo, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: var(--teal-100);
+  color: var(--teal-700);
+  font-weight: 800;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+}
+.todo-list li b { color: var(--teal-700); }
+
+/* 实用链接（可选扩展） */
+.links-group { margin-bottom: 20px; }
+.links-group-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--teal-700);
+  margin-bottom: 8px;
+}
+.links-list { list-style: none; }
+.links-list li {
+  font-size: 12.5px;
+  line-height: 1.7;
+  padding: 4px 0;
+  border-bottom: 1px dotted var(--border-light);
+  word-break: break-all;
+}
+.links-list a {
+  color: var(--teal-600);
+  text-decoration: none;
+}
+.links-list a:hover { text-decoration: underline; }
+.disclaimer {
+  background: var(--bg-highlight);
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+  color: var(--text-primary);
+  line-height: 1.75;
+  margin: 18px 0;
+  border: 1px solid var(--amber-100);
+}
+.disclaimer strong { color: var(--amber-700); }
+
+@page {
+  size: A4;
+  margin: 1.2cm 1.5cm 1.0cm 1.5cm;
+
+  @bottom-left {
+    content: string(doc-title);
+    font-size: 8.5pt;
+    color: #9a8b7e;
+    font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+    border-top: 0.5pt solid #d8c9b8;
+    padding-top: 4pt;
+    width: 50%;
+    text-align: left;
+    vertical-align: top;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  @bottom-right {
+    content: counter(page);
+    font-size: 8.5pt;
+    color: #9a8b7e;
+    font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+    border-top: 0.5pt solid #d8c9b8;
+    padding-top: 4pt;
+    width: 50%;
+    text-align: right;
+    vertical-align: top;
+  }
+}
+
+.page.day-block {
+  page-break-after: always;
+  page-break-inside: auto;
+}
+
+.page {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+  padding: 1.2cm 0 1.2cm;
+  box-shadow: none;
+  box-decoration-break: clone;
+  page-break-after: always;
+}
+
+.page:last-child {
+  page-break-after: auto;
+}
+
+.header {
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+}
+
+.header .doc-title {
+  string-set: doc-title content();
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page,
+  .cover {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+@page cover {
+  size: A4;
+  margin: 0;
+
+  @bottom-left {
+    content: none;
+  }
+
+  @bottom-right {
+    content: none;
+  }
+}
+
+.page.cover {
+  display: flex;
+  flex-direction: column;
+  page: cover;
+  height: 297mm;
+  min-height: 297mm;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+}
+
+/* 杂志版正文页左右留白统一由 @page margin 提供，此处仅去掉模板自带的 15mm 双份边距 */
+.page:not(.cover) {
+  padding: 1.2cm 0 1.2cm;
+}
+
+</style>
+</head>
+<body>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     P1 / 封面
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page cover">
+  <!-- 封面大图：渐变占位，替换为真实图片（建议目的地代表性景观） -->
+  <div class="cover-hero">
+    <div class="hero-kicker">Travel Handbook · 2026</div>
+    <div class="hero-watermark">{{旅行手册标题简称}}</div>
+  </div>
+
+  <div class="cover-band">
+    <div class="cover-countries">{{国家A}} × {{国家B}}</div>
+    <h1 class="cover-title">{{旅行手册标题}}</h1>
+    <div class="cover-meta">
+      <span class="tag">{{主题标签1}}</span><span class="tag">{{主题标签2}}</span><span class="tag">{{主题标签3}}</span>
+      ｜ {{出发日期}} - {{结束日期}}
+    </div>
+  </div>
+
+  <div class="cover-body">
+    <div class="cover-tagline">{{路线约束说明，如：一条不经过XX的完整陆路路线}}</div>
+    <p class="cover-summary">
+      {{路线概述（100-150字）：地理走向、关键节点、核心体验（自然/文化/历史）、
+      设计逻辑，结尾点明已为天气/铁路/预约变化准备替代方案。}}
+    </p>
+    <div class="stat-row">
+      <span class="stat-pill"><span class="dot"></span>全程 <b>{{总天数}}</b> 天</span>
+      <span class="stat-pill"><span class="dot"></span><b>{{国家数}}</b> 国 · {{口岸数}} 段陆路口岸</span>
+      <span class="stat-pill"><span class="dot"></span>约 <b>{{总里程}}</b> km</span>
+      <span class="stat-pill"><span class="dot"></span><b>{{城市数}}</b> 座城市</span>
+      <span class="stat-pill"><span class="dot"></span>交通 <b>{{交通方式}}</b></span>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>{{手册标题}}｜{{路线简称}}</span>
+    <span class="footer-page">1</span>
+  </div>
+</div>
+
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     P2 / 路线总览
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="section-title">路线总览</h2>
+  <p class="section-subtitle">{{天数}}天{{晚数}}晚｜{{国家数}}国｜{{交通原则（如：全程陆路）}}</p>
+
+  <!-- 时间轴：城市名上下交错，可加副标签 -->
+  <div class="route-map">
+    <div class="route-stops">
+      <div class="route-stop above"><span class="stop-name">{{城市1}}</span><span class="stop-zone">{{副标签1}}</span></div>
+      <div class="route-stop below"><span class="stop-name">{{城市2}}</span><span class="stop-zone">{{副标签2}}</span></div>
+      <div class="route-stop above"><span class="stop-name">{{城市3}}</span><span class="stop-zone">{{副标签3}}</span></div>
+      <div class="route-stop below"><span class="stop-name">{{城市4}}</span><span class="stop-zone">{{副标签4}}</span></div>
+      <div class="route-stop above"><span class="stop-name">{{城市5}}</span><span class="stop-zone">{{副标签5}}</span></div>
+    </div>
+  </div>
+  <p class="route-meta">全程约 <b>{{总里程}}</b> 公里 ｜ {{体验关键词列举}}</p>
+
+  <!-- 行程摘要表 -->
+  <table class="route-table">
+    <thead>
+      <tr>
+        <th style="width:92px;">日期</th>
+        <th>阶段与主题</th>
+        <th style="width:120px;">主要交通</th>
+        <th style="width:110px;">住宿</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>{{M/D}}</td><td><span class="stage-tag">{{阶段标签}}</span>{{地点与主题}}</td><td>{{交通方式}}</td><td>{{住宿地}}</td></tr>
+      <tr><td>{{M/D}}</td><td><span class="stage-tag">{{...}}</span>{{...}}</td><td>{{...}}</td><td>{{...}}</td></tr>
+      <!-- Agent：逐天一行，共 {{天数}} 行 -->
+    </tbody>
+  </table>
+
+  <!-- 路线逻辑：米色重点块 -->
+  <div class="highlight-box">
+    <div class="box-title">路线逻辑</div>
+    <ul class="check-list">
+      <li><strong>{{主线1（如：自然）}}：</strong>{{主线1描述}}</li>
+      <li><strong>{{主线2（如：游牧文化）}}：</strong>{{主线2描述}}</li>
+      <li><strong>{{主线3（如：丝路）}}：</strong>{{主线3描述}}</li>
+      <li><strong>{{主线4（如：民俗）}}：</strong>{{主线4描述}}</li>
+    </ul>
+  </div>
+
+  <!-- 住宿区域建议 -->
+  <h3 class="subsection-title">住宿区域建议</h3>
+  <ul class="check-list">
+    <li><strong>{{城市1}}：</strong>{{区域与理由}}</li>
+    <li><strong>{{城市2}}：</strong>{{区域与理由}}</li>
+    <li><strong>{{城市3}}：</strong>{{区域与理由}}</li>
+    <li><strong>{{城市4}}：</strong>{{区域与理由}}</li>
+    <li><strong>{{城市5}}：</strong>{{区域与理由}}</li>
+  </ul>
+
+  <div class="page-footer">
+    <span>{{手册标题}}｜路线总览</span>
+    <span class="footer-page">2</span>
+  </div>
+</div>
+
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     P3 / 每日行程（示例：D1，其余天数按此结构重复）
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="day-title"><span class="day-no">D{{n}}</span>{{M月D日}} · {{当日主题标题}}</h2>
+  <p class="day-subtitle">
+    <span class="subtitle-key">{{关键信息（如：08:00抵达）}}</span>
+    <span class="subtitle-rest">｜{{当日核心目标}}</span>
+  </p>
+
+  <div class="photo-placeholder">
+    <span class="photo-note">{{当日地点 · 看点}}</span>
+  </div>
+
+  <table class="time-table">
+    <tr>
+      <td class="time-label">早上</td>
+      <td class="time-content">{{上午安排：具体地点、活动、节奏建议与原因}}</td>
+    </tr>
+    <tr>
+      <td class="time-label">下午</td>
+      <td class="time-content">{{下午安排}}</td>
+    </tr>
+    <tr>
+      <td class="time-label">晚上</td>
+      <td class="time-content">{{晚上安排}}</td>
+    </tr>
+  </table>
+
+  <div class="day-cards">
+    <div class="day-card">
+      <div class="day-card-title"><span class="ic">食</span>吃什么</div>
+      <div class="day-card-text">{{当日美食：菜品、点餐策略}}</div>
+    </div>
+    <div class="day-card">
+      <div class="day-card-title"><span class="ic">行</span>交通与预订</div>
+      <div class="day-card-text">{{当日交通、预订要点与提醒}}</div>
+    </div>
+    <div class="day-card">
+      <div class="day-card-title"><span class="ic">备</span>替代方案</div>
+      <div class="day-card-text">{{天气/晚点/体力不支时：删什么、保什么、移到哪里}}</div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>{{手册标题}}｜D{{n}} {{路线简称}}</span>
+    <span class="footer-page">3</span>
+  </div>
+</div>
+
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     P4 / 游牧文化体验专页（可选）
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="feature-title">{{体验专页标题}}</h2>
+  <p class="feature-subtitle">{{态度声明：如"不把游牧文化当作一场换装表演——从马匹、季节和家庭生活进入"}}</p>
+
+  <div class="milestone">
+    <div class="milestone-title"><span class="milestone-time">{{D2 · 09:00}}</span>{{安排1标题}}</div>
+    <div class="milestone-body">{{安排1详情}}</div>
+  </div>
+  <div class="milestone">
+    <div class="milestone-title"><span class="milestone-time">{{D2 · 15:00}}</span>{{安排2标题}}</div>
+    <div class="milestone-body">{{安排2详情}}</div>
+  </div>
+  <div class="milestone">
+    <div class="milestone-title"><span class="milestone-time">{{D3 · 08:00}}</span>{{安排3标题}}</div>
+    <div class="milestone-body">{{安排3详情}}</div>
+  </div>
+  <div class="milestone">
+    <div class="milestone-title"><span class="milestone-time">{{D3 · 14:00}}</span>{{安排4标题}}</div>
+    <div class="milestone-body">{{安排4详情}}</div>
+  </div>
+
+  <h3 class="subsection-title">{{背景理解标题（如：读懂眼前的生活）}}</h3>
+  <p class="body-text">
+    {{文化背景段落：传统生活方式的组织逻辑（如季节牧场）、今天的变化、
+    体验能提供什么窗口、不能代表什么。}}
+  </p>
+
+  <h3 class="subsection-title">{{N}}个观察点</h3>
+  <ul class="check-list">
+    <li><strong>{{观察点1（如：马具）}}：</strong>{{观察什么}}</li>
+    <li><strong>{{观察点2（如：毡房）}}：</strong>{{观察什么}}</li>
+    <li><strong>{{观察点3（如：餐桌）}}：</strong>{{观察什么}}</li>
+    <li><strong>{{观察点4（如：季节）}}：</strong>{{观察什么}}</li>
+  </ul>
+
+  <div class="highlight-box">
+    <div class="box-title">安全底线</div>
+    <ul class="check-list">
+      <li>{{安全要求1}}</li>
+      <li>{{安全要求2}}</li>
+      <li>{{安全要求3}}</li>
+      <li>{{安全要求4}}</li>
+      <li>{{取消条件}}</li>
+    </ul>
+  </div>
+
+  <h3 class="subsection-title">{{等价替代标题（如：不骑马的等价版本）}}</h3>
+  <p class="body-text">
+    {{替代体验安排：选择主人本来就会做、愿意分享的内容；
+    以及更系统但更舞台化的备选方案及其代价。}}
+  </p>
+
+  <div class="page-footer"><span>{{手册标题}}｜{{路线简称}}</span><span class="footer-page">4</span></div>
+</div>
+
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     P5 / 行李、天气与风险控制
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="section-title">行李、天气与风险控制</h2>
+  <p class="section-subtitle">{{季节气候一句话}}</p>
+
+  <h3 class="subsection-title">分层穿衣</h3>
+  <div class="layers">
+    <div class="layer-card">
+      <div class="layer-no">01</div>
+      <div class="layer-name">贴身层</div>
+      <div class="layer-desc">{{贴身层建议}}</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-no">02</div>
+      <div class="layer-name">保暖层</div>
+      <div class="layer-desc">{{保暖层建议}}</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-no">03</div>
+      <div class="layer-name">外层</div>
+      <div class="layer-desc">{{外层建议}}</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-no">04</div>
+      <div class="layer-name">配件</div>
+      <div class="layer-desc">{{配件建议}}</div>
+    </div>
+  </div>
+
+  <h3 class="subsection-title">关键风险</h3>
+  <table class="risk-table">
+    <thead>
+      <tr><th>情况</th><th>处理原则</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="risk-situation">{{风险1}}</td><td class="risk-action">{{处理原则1}}</td></tr>
+      <tr><td class="risk-situation">{{风险2}}</td><td class="risk-action">{{处理原则2}}</td></tr>
+      <tr><td class="risk-situation">{{风险3}}</td><td class="risk-action">{{处理原则3}}</td></tr>
+      <tr><td class="risk-situation">{{风险4}}</td><td class="risk-action">{{处理原则4}}</td></tr>
+      <tr><td class="risk-situation">{{风险5}}</td><td class="risk-action">{{处理原则5}}</td></tr>
+      <tr><td class="risk-situation">{{风险6}}</td><td class="risk-action">{{处理原则6}}</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="subsection-title">旅行前核对清单</h3>
+  <ul class="todo-list">
+    <li><b>{{核对项1}}</b>{{详情}}</li>
+    <li><b>{{核对项2}}</b>{{详情}}</li>
+    <li><b>{{核对项3}}</b>{{详情}}</li>
+    <li><b>{{核对项4}}</b>{{详情}}</li>
+    <li><b>{{核对项5}}</b>{{详情}}</li>
+    <li><b>{{核对项6}}</b>{{详情}}</li>
+  </ul>
+
+  <div class="page-footer"><span>{{手册标题}}｜{{路线简称}}</span><span class="footer-page">5</span></div>
+</div>
+
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     P6 / 预算与预订节奏（可选扩展页：用户提到预算/花费/费用时生成）
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="section-title">预算与预订节奏</h2>
+  <p class="section-subtitle">{{预算概览一句话：总预算、人均、货币}}</p>
+
+  <!-- 预算表 -->
+  <table class="budget-table">
+    <thead>
+      <tr><th style="width:30%;">项目</th><th>说明</th><th style="width:18%;">预算</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>{{项目1（如：交通）}}</td><td>{{说明}}</td><td>{{金额}}</td></tr>
+      <tr><td>{{项目2（如：住宿）}}</td><td>{{说明}}</td><td>{{金额}}</td></tr>
+      <tr><td>{{项目3（如：餐饮）}}</td><td>{{说明}}</td><td>{{金额}}</td></tr>
+      <tr><td>{{项目4（如：门票/体验）}}</td><td>{{说明}}</td><td>{{金额}}</td></tr>
+      <tr class="total-row"><td>合计</td><td>{{备注}}</td><td>{{总金额}}</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 预订节奏时间线 -->
+  <h3 class="subsection-title">什么时候订</h3>
+  <div class="booking-step">
+    <div class="booking-step-marker">{{提前X月}}</div>
+    <div class="booking-step-content">{{预订内容与理由}}</div>
+  </div>
+  <div class="booking-step">
+    <div class="booking-step-marker">{{提前X周}}</div>
+    <div class="booking-step-content">{{预订内容与理由}}</div>
+  </div>
+  <div class="booking-step">
+    <div class="booking-step-marker">{{临行前}}</div>
+    <div class="booking-step-content">{{预订内容与理由}}</div>
+  </div>
+
+  <!-- 付款策略 -->
+  <div class="payment-note">{{付款策略：现金/刷卡/换汇建议、预留弹性}}</div>
+
+  <div class="page-footer"><span>{{手册标题}}｜预算与预订</span><span class="footer-page">6</span></div>
+</div>
+
+</body>
+</html>

@@ -197,12 +197,24 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* 封面顶部色条 */
+.cover::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  background: var(--color-primary);
 }
 
 .cover-band {
-  background: var(--bg-cover);
-  color: var(--text-inverse);
-  padding: var(--spacing-lg) var(--spacing-2xl);
+  margin-top: 100px;
+  color: #2C3333;
+  padding: 0 var(--spacing-2xl);
   text-align: left;
 }
 
@@ -226,34 +238,14 @@ body {
   opacity: 0.85;
 }
 
-.cover-body {
-  padding: var(--spacing-xl) var(--spacing-2xl);
-  flex: 1;
-}
-
-.cover-tagline {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--color-accent);
-  margin-bottom: var(--spacing-md);
-}
-
-.cover-summary {
-  font-size: 15px;
-  color: var(--text-primary);
-  line-height: 1.85;
-  text-align: justify;
-}
-
 /* ============================================================
    P2 路线总览
    ============================================================ */
 
 /* 路线时间轴地图 */
-/* flex 布局和轴线都放在 .route-map 上（route-map 一定存在）：
-   - 支持两种生成结构：route-map > route-stops > stop*（骨架标准结构）
-     或 route-map > stop*（无 route-stops 包裹），都能精确对齐；
-   - 线画在 .route-map::before，top:50% 与圆点（route-stop::before 的 50%）同参照；
+/* 轴线画在 .route-stops::before 上，与圆点（route-stop::before 的 50%）共用同一参照系：
+   - 即使 .route-map 里混入了 route-meta 等其他内容，只要 stops 存在，轴线与圆点始终对齐；
+   - 兼容无 route-stops 包裹的生成结构：用 :has() 让 .route-map::before 兜底；
    - 旧 .route-line 元素一律隐藏，不参与绘制。 */
 .route-map {
   position: relative;
@@ -264,7 +256,8 @@ body {
   padding: 0;
 }
 
-.route-map::before {
+/* 无 route-stops 包裹时的兜底轴线（相对 route-map 高度） */
+.route-map:not(:has(.route-stops))::before {
   content: "";
   position: absolute;
   top: 50%;
@@ -287,6 +280,18 @@ body {
   align-items: center;
   flex: 1;
   min-width: 0;
+}
+
+/* 轴线：画在 stops 上，与圆点同参照，map 内其他内容不影响对齐 */
+.route-stops::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--color-accent-light);
+  transform: translateY(-50%);
 }
 
 .route-stop {
@@ -452,7 +457,6 @@ body {
   line-height: 1.7;
 }
 
-/* 双日同页中间大图分隔 */
 /* ============================================================
    P4 游牧文化体验专页（可选）
    ============================================================ */
@@ -675,6 +679,123 @@ body {
   margin: var(--spacing-lg) 0;
 }
 
+
+@page {
+  size: A4;
+  margin: 1.2cm 1.5cm 1.0cm 1.5cm;
+
+  @bottom-left {
+    content: string(doc-title);
+    font-size: 8.5pt;
+    color: #9a8b7e;
+    font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+    border-top: 0.5pt solid #d8c9b8;
+    padding-top: 4pt;
+    width: 50%;
+    text-align: left;
+    vertical-align: top;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  @bottom-right {
+    content: counter(page);
+    font-size: 8.5pt;
+    color: #9a8b7e;
+    font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+    border-top: 0.5pt solid #d8c9b8;
+    padding-top: 4pt;
+    width: 50%;
+    text-align: right;
+    vertical-align: top;
+  }
+}
+
+.page.day-block {
+  page-break-after: always;
+  page-break-inside: auto;
+}
+
+.page {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+  padding: 1.2cm 0 1.2cm;
+  box-shadow: none;
+  box-decoration-break: clone;
+}
+
+.header {
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+}
+
+.header .doc-title {
+  string-set: doc-title content();
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page,
+  .cover {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+@page cover {
+  size: A4;
+  margin: 0;
+
+  @bottom-left {
+    content: none;
+  }
+
+  @bottom-right {
+    content: none;
+  }
+}
+
+.page.cover {
+  display: flex;
+  flex-direction: column;
+  page: cover;
+  height: 297mm;
+  min-height: 297mm;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+}
+
+/* 封面顶部色条 */
+.page.cover::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  background: var(--color-primary);
+}
+
+.cover-band {
+  margin-top: 100px;
+  color: #2C3333;
+  padding: 0 var(--spacing-2xl);
+  text-align: left;
+}
+
 </style>
 </head>
 <body>
@@ -689,13 +810,6 @@ body {
     <div class="cover-countries">{{国家A}} × {{国家B}}</div>
     <h1 class="cover-title">{{旅行手册标题}}</h1>
     <div class="cover-meta">{{主题标签1}} × {{主题标签2}} × {{主题标签3}}｜{{出发日期}} - {{结束日期}}</div>
-  </div>
-  <div class="cover-body">
-    <div class="cover-tagline">{{路线约束说明，如：一条不经过XX的完整陆路路线}}</div>
-    <p class="cover-summary">
-      {{路线概述（100-150字）：地理走向、关键节点、核心体验（自然/文化/历史）、
-      设计逻辑，结尾点明已为天气/铁路/预约变化准备替代方案。}}
-    </p>
   </div>
   <div class="page-footer">
     <span>{{手册标题}}｜{{路线简称}}</span>

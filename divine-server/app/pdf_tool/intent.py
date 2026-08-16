@@ -19,6 +19,30 @@ async def _llm_text(
     return "".join(chunks).strip()
 
 
+def _clean_title(raw: str) -> str:
+    """把 LLM 返回的标题压缩成简洁文件名友好的标题。
+
+    若标题是完整需求句（含“为…生成/请…/帮我…”等 prompt 特征，或带句号/超长），
+    去掉语气词、取“手册/攻略/指南/路线/行程”前的核心片段。
+    """
+    title = raw.strip()
+    if not title:
+        return ""
+    # 去掉 prompt 式前缀：“为游客生成一份 …” / “请帮我生成 …” 等
+    title = re.sub(
+        r"^(?:请|帮我|麻烦|为|给|为游客|帮我).{0,8}(?:生成|制作|写|输出|做|设计|打造|推荐|规划)一份?",
+        "",
+        title,
+    )
+    title = re.sub(r"^[。，、：:；;\s]+", "", title)
+    # 若仍是长句（含句号/逗号或超 30 字），取第一个标点前
+    if len(title) > 30 or re.search(r"[。！？!?]", title):
+        cut = re.split(r"[。！？!?，,]", title)[0]
+        title = cut.strip()
+    title = re.sub(r"[\s]+", "", title)
+    return title[:30]
+
+
 def _extract_json(raw: str) -> dict[str, Any] | None:
     text = raw.strip()
     if text.startswith("```"):
@@ -80,8 +104,12 @@ async def parse_intent(
             for part in re.split(r"[,、×xX/]", tags_value)
             if part.strip()
         ]
+    raw_title = str(data.get("title") or "").strip()
+    if not raw_title:
+        raw_title = user_input[:40]
+    title = _clean_title(raw_title)
     return PDFIntent(
-        title=str(data.get("title") or user_input[:40] or "文档"),
+        title=title or "旅行攻略",
         topic=str(data.get("topic") or user_input),
         style=str(data.get("style") or recipe.css_template),
         color_scheme=str(

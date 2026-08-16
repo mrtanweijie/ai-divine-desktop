@@ -96,6 +96,7 @@ def render_html_to_pdf(
         cover_data=cover_data,
         include_cover=cover,
         overrides=overrides,
+        theme=theme,
     )
     kwargs: dict[str, Any] = {"string": document}
     if base_dir is not None:

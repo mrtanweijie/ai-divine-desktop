@@ -116,6 +116,25 @@ THEMES: dict[str, dict[str, Any]] = {
             "--border-table": "#dde5e5",
         },
     },
+    "travel_mag": {
+        "file": "travel_optimized.html",
+        "display_name": "旅行杂志",
+        "description": "衬线标题 + teal/琥珀杂志风，渐变大图封面，适合精品旅行手册",
+        "variables": {
+            "--color-primary": "#2a5a5b",
+            "--color-accent": "#3a8a8b",
+            "--color-accent-light": "#5ba3a4",
+            "--bg-page": "#ffffff",
+            "--bg-highlight": "#f6f2e9",
+            "--bg-cover": "#162e2f",
+            "--text-primary": "#22302f",
+            "--text-secondary": "#556563",
+            "--text-muted": "#8a9a97",
+            "--text-inverse": "#ffffff",
+            "--border-light": "#e3e9e8",
+            "--border-table": "#d8e2e1",
+        },
+    },
     "roadmap": {
         "file": "roadmap.css",
         "display_name": "知识图谱",
@@ -142,7 +161,7 @@ THEMES: dict[str, dict[str, Any]] = {
     },
 }
 
-_TRAVEL_PRINT_CSS = """
+_TRAVEL_BASE_PRINT_CSS = """
 @page {
   size: A4;
   margin: 1.2cm 1.5cm 1.0cm 1.5cm;
@@ -175,53 +194,9 @@ _TRAVEL_PRINT_CSS = """
   }
 }
 
-@page cover {
-  size: A4;
-  margin: 0;
-
-  @bottom-left {
-    content: none;
-  }
-
-  @bottom-right {
-    content: none;
-  }
-}
-
-.page.cover {
-  display: flex;
-  flex-direction: column;
-  page: cover;
-  height: 297mm;
-  min-height: 297mm;
-  padding: 0;
-  position: relative;
-  overflow: hidden;
-  page-break-after: always;
-}
-
-.cover-band {
-  background: var(--bg-cover);
-  color: var(--text-inverse);
-  padding: var(--spacing-lg) var(--spacing-2xl);
-  text-align: left;
-}
-
-.cover-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  justify-content: center;
-  padding: var(--spacing-xl) var(--spacing-2xl);
-}
-
 .page.day-block {
-  page-break-after: auto;
-  page-break-inside: avoid;
-}
-
-.page.day-block + .page.day-block {
-  border-top: 1pt solid var(--border-light);
+  page-break-after: always;
+  page-break-inside: auto;
 }
 
 .page {
@@ -260,6 +235,88 @@ _TRAVEL_PRINT_CSS = """
   }
 }
 """
+
+# 经典版 travel 封面专属打印规则
+_TRAVEL_COVER_PRINT_CSS = """
+@page cover {
+  size: A4;
+  margin: 0;
+
+  @bottom-left {
+    content: none;
+  }
+
+  @bottom-right {
+    content: none;
+  }
+}
+
+.page.cover {
+  display: flex;
+  flex-direction: column;
+  page: cover;
+  height: 297mm;
+  min-height: 297mm;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+}
+
+/* 封面顶部色条 */
+.page.cover::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  background: var(--color-primary);
+}
+
+.cover-band {
+  margin-top: 100px;
+  color: #2C3333;
+  padding: 0 var(--spacing-2xl);
+  text-align: left;
+}
+"""
+
+# 杂志版 travel_mag 封面专属打印规则：全出血无页边距，封面样式由模板自带
+_TRAVEL_MAG_COVER_PRINT_CSS = """
+@page cover {
+  size: A4;
+  margin: 0;
+
+  @bottom-left {
+    content: none;
+  }
+
+  @bottom-right {
+    content: none;
+  }
+}
+
+.page.cover {
+  display: flex;
+  flex-direction: column;
+  page: cover;
+  height: 297mm;
+  min-height: 297mm;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+}
+
+/* 杂志版正文页左右留白统一由 @page margin 提供，此处仅去掉模板自带的 15mm 双份边距 */
+.page:not(.cover) {
+  padding: 1.2cm 0 1.2cm;
+}
+"""
+
+_TRAVEL_PRINT_CSS = _TRAVEL_BASE_PRINT_CSS + _TRAVEL_COVER_PRINT_CSS
+_TRAVEL_MAG_PRINT_CSS = _TRAVEL_BASE_PRINT_CSS + _TRAVEL_MAG_COVER_PRINT_CSS
 
 COVER_TEMPLATES: dict[str, str] = {
     "resume": """
@@ -359,9 +416,23 @@ COVER_TEMPLATES: dict[str, str] = {
         <h1 class="cover-title">{title}</h1>
         <div class="cover-meta">{meta_line}</div>
       </div>
+    </div>
+    """,
+    "travel_mag": """
+    <div class="page cover">
+      <div class="cover-hero">
+        <div class="hero-kicker">Travel Handbook · 2026</div>
+        <div class="hero-watermark">{watermark}</div>
+      </div>
+      <div class="cover-band">
+        <div class="cover-countries">{countries}</div>
+        <h1 class="cover-title">{title}</h1>
+        <div class="cover-meta">{meta_line}</div>
+      </div>
       <div class="cover-body">
         <div class="cover-tagline">{meta_secondary}</div>
         <p class="cover-summary">{summary}</p>
+        <div class="stat-row">{stat_pills}</div>
       </div>
     </div>
     """,
@@ -446,8 +517,8 @@ class ThemeManager:
             return cached
 
         theme = self.get_theme(theme_id)
-        if theme_id == "travel":
-            css = self._travel_css()
+        if theme_id in ("travel", "travel_mag"):
+            css = self._travel_css(theme_id)
         else:
             css = Path(theme.css_path or "").read_text(encoding="utf-8")
         variables = dict(theme.variables)
@@ -465,8 +536,13 @@ class ThemeManager:
         self._cache[cache_key] = css
         return css
 
-    def _travel_css(self) -> str:
-        template_path = self.themes_dir / "travel_template.html"
+    def _travel_css(self, theme_id: str = "travel") -> str:
+        filename = (
+            "travel_optimized.html"
+            if theme_id == "travel_mag"
+            else "travel_template.html"
+        )
+        template_path = self.themes_dir / filename
         template = template_path.read_text(encoding="utf-8")
         match = re.search(
             r"<style[^>]*>(.*?)</style>",
@@ -474,24 +550,27 @@ class ThemeManager:
             re.IGNORECASE | re.DOTALL,
         )
         css = match.group(1) if match else template
-        return css + _TRAVEL_PRINT_CSS
+        return css
 
 
 _TRAVEL_SKELETON_CACHE: dict[str, str] = {}
 
 
-def travel_template_skeleton() -> str:
-    """从 travel_template.html 提取紧凑的页面结构骨架（供 LLM 生成旅行攻略时参考）。
+def travel_template_skeleton(theme: str = "travel") -> str:
+    """从 travel 模板提取紧凑的页面结构骨架（供 LLM 生成旅行攻略时参考）。
 
     保留文件头部的【页面映射总表】注释 + 每种页面的代表性示例（去样式、去注释、
-    去重复页、去页脚），保证 AI 生成的内容与模板的 27 页结构一一对应。
+    去重复页、去页脚），保证 AI 生成的内容与模板的页面结构一一对应。
     骨架随模板文件自动更新，无需手工维护。
     """
-    cached = _TRAVEL_SKELETON_CACHE.get("skeleton")
+    cached = _TRAVEL_SKELETON_CACHE.get(theme)
     if cached:
         return cached
+    filename = (
+        "travel_optimized.html" if theme == "travel_mag" else "travel_template.html"
+    )
     template_path = (
-        Path(__file__).resolve().parent / "pdf_themes" / "travel_template.html"
+        Path(__file__).resolve().parent / "pdf_themes" / filename
     )
     template = template_path.read_text(encoding="utf-8")
 
@@ -521,6 +600,7 @@ def travel_template_skeleton() -> str:
         "day": 1,          # P3 每日行程（示例，其余天数同构重复）
         "culture": 1,      # P4 游牧文化体验专页（可选特色页）
         "risk": 1,         # P5 行李天气与风险控制
+        "budget": 1,       # P6 预算与预订节奏（可选扩展页）
     }
 
     def classify(page: str) -> str:
@@ -534,6 +614,8 @@ def travel_template_skeleton() -> str:
             return "culture"
         if ">行李、天气与风险控制<" in page:
             return "risk"
+        if "预算与预订节奏" in page:
+            return "budget"
         return "other"  # 其他页面/碎片（不保留）
 
     seen: dict[str, int] = {}
@@ -555,7 +637,7 @@ def travel_template_skeleton() -> str:
         kept.append(page)
 
     header_lines = [
-        "以下是旅行手册 HTML 模板的页面结构骨架（来自 travel_template.html）。",
+        "以下是旅行手册 HTML 模板的页面结构骨架（来自 %s）。" % filename,
         "其中 {{双花括号}} 是内容占位符：输出时必须替换为实际内容，不要保留 {{ }}。",
         "页面顺序必须与【页面映射总表】一致：",
         "路线总览 → 每日行程 → 行李、天气与风险控制（游牧文化/体验专页为可选特色页）。",
@@ -565,7 +647,7 @@ def travel_template_skeleton() -> str:
         parts.append(first_comment)
     parts.extend(kept)
     result = "\n\n".join(parts)
-    _TRAVEL_SKELETON_CACHE["skeleton"] = result
+    _TRAVEL_SKELETON_CACHE[theme] = result
     return result
 
 
@@ -746,9 +828,50 @@ def derive_travel_palette(primary_color: str) -> dict[str, str] | None:
     }
 
 
+def derive_teal_scale(primary_color: str) -> dict[str, str] | None:
+    """从单一主色派生 travel_mag（杂志版）使用的 teal 阶梯变量。
+
+    原模板 --teal-50..900 以 #2A5A5B 为基准：越浅越接近白、越深越接近黑。
+    这里以主色为 600 档，按同比例向浅色（50-500）和深色（700-900）扩展。
+    """
+    rgb = _resolve_color(primary_color)
+    if not rgb:
+        return None
+    r, g, b = (channel / 255.0 for channel in rgb)
+    hue, lightness, saturation = colorsys.rgb_to_hls(r, g, b)
+    # 600 档亮度 = min(主色亮度, 0.30)（深青绿基准 #2A5A5B 亮度≈0.27）
+    base_l = min(lightness, 0.30)
+    scale = {
+        "--teal-600": _rgb_to_hex(
+            (round(c * 255) for c in colorsys.hls_to_rgb(hue, base_l, saturation))
+        ),
+    }
+    # 浅色档：50→500 逐步接近白（亮度递增）
+    for idx, l in enumerate(
+        [min(base_l + 0.62, 0.97), min(base_l + 0.50, 0.93),
+         min(base_l + 0.38, 0.87), min(base_l + 0.27, 0.80),
+         min(base_l + 0.15, 0.72), base_l + 0.05]
+    ):
+        key = "--teal-50" if idx == 0 else f"--teal-{idx * 100}"
+        scale[key] = _rgb_to_hex(
+            (round(c * 255) for c in colorsys.hls_to_rgb(hue, l, saturation))
+        )
+    # 深色档：700→900 逐步接近黑
+    for idx, l in enumerate(
+        [max(base_l - 0.06, 0.06), max(base_l - 0.12, 0.04),
+         max(base_l - 0.18, 0.02)]
+    ):
+        key = f"--teal-{700 + idx * 100}"
+        scale[key] = _rgb_to_hex(
+            (round(c * 255) for c in colorsys.hls_to_rgb(hue, l, saturation))
+        )
+    return scale
+
+
 def travel_color_overrides(
     color_scheme: str = "teal",
     custom: dict[str, str] | None = None,
+    theme: str = "travel",
 ) -> dict[str, str]:
     """计算旅行手册的 CSS 变量覆盖。
 
@@ -756,21 +879,29 @@ def travel_color_overrides(
     也支持直接传颜色名或色值（如 "红色"、"#E74C3C"）自动派生整套色调；
     custom 里只需给 {"--color-primary": "<颜色>"} 即可派生配套色，
     显式传入的其他变量（--color-accent/--bg-cover/--bg-highlight 等）优先级最高。
+    theme=travel_mag 时额外派生 --teal-50..900 阶梯变量。
     """
     key = (color_scheme or "teal").strip().lower()
     if key in TRAVEL_COLOR_PRESETS:
         overrides = dict(TRAVEL_COLOR_PRESETS[key])
+        primary_source = overrides.get("--color-primary")
     else:
         derived = derive_travel_palette(key)
         overrides = (
             derived if derived else dict(TRAVEL_COLOR_PRESETS["teal"])
         )
+        primary_source = overrides.get("--color-primary")
     custom = dict(custom or {})
     primary = custom.get("--color-primary")
     if primary:
         derived = derive_travel_palette(str(primary))
         if derived:
             overrides.update(derived)
+        primary_source = str(primary)
+    if theme == "travel_mag" and primary_source:
+        scale = derive_teal_scale(primary_source)
+        if scale:
+            overrides.update(scale)
     overrides.update(custom)
     overrides.pop("--primary", None)
     return overrides
@@ -858,6 +989,54 @@ def build_cover_html(
             continue
         extra[key] = html_lib.escape(str(value))
     data.update(extra)
+    if theme_id == "travel_mag":
+        data["watermark"] = data.get("title", "")[:2] or "旅行"
+        # meta_line 的标签部分转成 .tag 胶囊：`标签1 × 标签2｜日期` → tag spans + ｜日期
+        meta_line = data.get("meta_line") or ""
+        if "｜" in meta_line:
+            tag_part, _, date_part = meta_line.partition("｜")
+            tags_html = "".join(
+                f'<span class="tag">{t.strip()}</span>'
+                for t in re.split(r"×|x|X", tag_part)
+                if t.strip()
+            )
+            if tags_html:
+                data["meta_line"] = f"{tags_html}｜{date_part}"
+        pills: list[str] = []
+        days = str(data.get("days") or "").strip()
+        countries = str(data.get("countries") or "").strip()
+        duration = str(data.get("duration") or "").strip()
+        distance = str(data.get("distance") or "").strip()
+        cities = str(data.get("city_count") or "").strip()
+        transport = str(data.get("transport") or "").strip()
+        if days:
+            pills.append(
+                f'<span class="stat-pill"><span class="dot"></span>全程 <b>{days}</b> 天</span>'
+            )
+        if countries:
+            country_count = len(
+                [p for p in re.split(r"[×xX×,]", countries) if p.strip()]
+            )
+            pills.append(
+                f'<span class="stat-pill"><span class="dot"></span><b>{country_count}</b> 国</span>'
+            )
+        if duration:
+            pills.append(
+                f'<span class="stat-pill"><span class="dot"></span>{duration}</span>'
+            )
+        if distance:
+            pills.append(
+                f'<span class="stat-pill"><span class="dot"></span>约 <b>{distance}</b> km</span>'
+            )
+        if cities:
+            pills.append(
+                f'<span class="stat-pill"><span class="dot"></span><b>{cities}</b> 座城市</span>'
+            )
+        if transport:
+            pills.append(
+                f'<span class="stat-pill"><span class="dot"></span>交通 <b>{transport}</b></span>'
+            )
+        data["stat_pills"] = "\n      ".join(pills)
     return template.format(**data)
 
 
@@ -868,10 +1047,11 @@ def build_travel_html_document(
     cover_data: dict[str, Any] | None = None,
     include_cover: bool = True,
     overrides: dict[str, str] | None = None,
+    theme: str = "travel",
 ) -> str:
-    css = load_theme_css("travel", overrides=overrides)
+    css = load_theme_css(theme, overrides=overrides)
     cover_html = (
-        build_cover_html("travel", html_lib.escape(title), subtitle, cover_data)
+        build_cover_html(theme, html_lib.escape(title), subtitle, cover_data)
         if include_cover
         else ""
     )

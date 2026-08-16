@@ -96,6 +96,13 @@ def main() -> None:
 
     file_name = str(params.get("file_name") or "").strip() or title
     file_name = re.sub(r"\.md$", "", file_name, flags=re.IGNORECASE)
+    # 若 file_name 是完整需求句（超长或含 prompt 特征），退回用 title 并截断
+    if (
+        len(file_name) > 40
+        or re.search(r"(为|请|帮我).{0,6}(生成|制作|写|输出)|\.pdf$", file_name)
+    ) and title:
+        file_name = title
+    file_name = file_name[:40]
     output_path = unique_output_path(output_dir, file_name, "PDF文档", ".pdf")
     try:
         theme = str(params.get("theme") or params.get("style") or "universal")
@@ -104,7 +111,7 @@ def main() -> None:
             for keyword in ("旅行", "旅游", "攻略", "行程", "目的地")
         ):
             theme = "travel"
-        if theme == "travel":
+        if theme in ("travel", "travel_mag"):
             from app.pdf_theme_manager import travel_color_overrides
             from app.pdf_tool.travel_html import (
                 looks_like_travel_html,
@@ -118,6 +125,7 @@ def main() -> None:
             overrides = travel_color_overrides(
                 str(params.get("color_scheme") or "teal"),
                 params.get("theme_colors") or None,
+                theme=theme,
             )
             meta = render_html_to_pdf(
                 content,
@@ -127,7 +135,7 @@ def main() -> None:
                 cover=bool(params.get("cover")),
                 cover_data=cover_data,
                 base_dir=base_dir,
-                theme="travel",
+                theme=theme,
                 overrides=overrides,
             )
         else:

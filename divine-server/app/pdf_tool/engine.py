@@ -190,6 +190,9 @@ class PDFTool:
                 intent.meta["destination"] = route[0]
             if recipe_name == "travel":
                 source = markdown
+                meta = dict(intent.meta)
+                if theme in ("travel", "travel_mag"):
+                    meta["theme"] = theme
                 intent = PDFIntent(
                     title=intent.title,
                     topic=source,
@@ -201,11 +204,13 @@ class PDFTool:
                             "key_points": [source],
                         }
                     ],
-                    meta=intent.meta,
+                    meta=meta,
                 )
                 markdown = await generate_content(intent, recipe, llm)
         else:
             intent = await parse_intent(prompt, recipe, llm)
+            if recipe_name == "travel" and theme in ("travel", "travel_mag"):
+                intent.meta["theme"] = theme
             markdown = await generate_content(intent, recipe, llm)
 
         if recipe_name == "travel" and (
@@ -217,13 +222,15 @@ class PDFTool:
         final_style = style or recipe.css_template
         final_theme = theme or recipe.css_template
         final_color = color_scheme or recipe.color_scheme
-        if recipe_name == "travel" or final_theme == "travel":
+        if recipe_name == "travel" or final_theme in ("travel", "travel_mag"):
             cover = True
             toc = False
-        if recipe_name == "travel" and final_theme == "travel":
+        if recipe_name == "travel" and final_theme in ("travel", "travel_mag"):
             from ..pdf_theme_manager import travel_color_overrides
 
-            overrides = travel_color_overrides(final_color, color_overrides)
+            overrides = travel_color_overrides(
+                final_color, color_overrides, theme=final_theme
+            )
             meta = render_html_to_pdf(
                 markdown,
                 output,
@@ -232,7 +239,7 @@ class PDFTool:
                 cover=True,
                 cover_data=intent.meta,
                 base_dir=base_dir,
-                theme="travel",
+                theme=final_theme,
                 overrides=overrides,
             )
         else:

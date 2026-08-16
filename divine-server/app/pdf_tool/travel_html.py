@@ -112,7 +112,7 @@ def _day_heading(text: str) -> str:
 
 def _day_page_open(text: str) -> str:
     return (
-        f'<div class="page day-block"><h2 class="day-title">'
+        f'<div class="page"><h2 class="day-title">'
         f"{_day_heading(text)}</h2>"
     )
 
@@ -457,7 +457,7 @@ def _build_prompt_day_html(
         detail_lines.insert(0, html_lib.escape(rest))
 
     body = [
-        f'<div class="page day-block"><h2 class="day-title">D{number}｜'
+        f'<div class="page"><h2 class="day-title">D{number}｜'
         f"{html_lib.escape(title or f'第 {number} 天')}</h2>"
     ]
     if time_rows:

@@ -28,6 +28,7 @@ class DeepSeekLLM:
             "model": self.settings.get("model") or "deepseek-v4-flash",
             "messages": messages,
             "stream": True,
+            "max_tokens": 8192,
         }
         # Explicit thinking-mode toggle. DeepSeek thinking mode ignores
         # sampling params (temperature/top_p/penalties), so temperature is

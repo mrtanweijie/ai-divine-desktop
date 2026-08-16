@@ -200,7 +200,7 @@ def test_travel_cover_builds_route_tags_and_meta():
     )
     assert "class=\"cover-title\"" in html
     assert "class=\"cover-band\"" in html
-    assert "class=\"cover-body\"" in html
+    assert "cover-body" not in html
     assert "cover-hero" not in html
     assert "12天11晚" in html
 
@@ -370,7 +370,8 @@ def test_travel_converts_every_day_heading_to_own_page():
 """
     html = travel_markdown_to_html(markdown)
     assert html.count('class="day-title">D') == 3
-    assert html.count('<div class="page day-block"><h2 class="day-title">') == 3
+    assert html.count('<div class="page"><h2 class="day-title">') == 3
+    assert "day-block" not in html
     assert "D1" in html
     assert "D2" in html
     assert "D3" in html
