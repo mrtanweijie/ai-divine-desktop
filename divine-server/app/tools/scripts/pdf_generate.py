@@ -53,7 +53,11 @@ async def main() -> None:
             return
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    file_name = str(params.get("file_name") or "").strip() or prompt[:40]
+    from app.pdf_tool.intent import _clean_title
+
+    file_name = str(params.get("file_name") or "").strip()
+    if not file_name:
+        file_name = _clean_title(prompt) or prompt[:40]
     file_name = re.sub(r"\.md$", "", file_name, flags=re.IGNORECASE)
     output_path = unique_output_path(output_dir, file_name, "PDF文档", ".pdf")
     try:
