@@ -3290,6 +3290,85 @@ a:focus-visible {
   gap: 8px;
 }
 
+/* 主题色卡网格（选项带 color_scheme 时使用） */
+.choice-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.choice-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+  text-align: left;
+  position: relative;
+}
+
+.choice-swatch:hover:not(.disabled) {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.choice-swatch.selected,
+.choice-swatch.selected:hover {
+  border-color: var(--swatch, #ccc);
+  box-shadow: 0 0 0 1.5px var(--swatch, #ccc) inset;
+}
+
+.choice-swatch.selected.disabled {
+  opacity: 1;
+}
+
+.choice-swatch.disabled {
+  cursor: default;
+}
+
+.choice-swatch-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.choice-swatch-desc {
+  font-size: 9px;
+  color: var(--color-text-secondary);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.choice-swatch-palette {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.choice-swatch-chip {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
 /* 选项按钮：覆盖 ui-button 默认横向布局为卡片式 */
 .choice-option.ui-button {
   display: flex;

@@ -74,6 +74,18 @@
 
   --sp-xs: 4px; --sp-sm: 8px; --sp-md: 16px;
   --sp-lg: 24px; --sp-xl: 36px; --sp-2xl: 52px;
+
+  /* ── 主题扩展点 ──────────────────────────────
+     封面大图 hero 渐变与光晕：换主题色时由
+     TRAVEL_MAG_THEMES（pdf_theme_manager.py）覆盖，
+     默认值与上方 teal/amber 一致。
+     新增主题：在 TRAVEL_MAG_THEMES 加一项即可，
+     每项需包含 --teal-* / --amber-* / --bg-* /
+     --text-* / --border-* / --hero-* / --hero-glow-*。 */
+  --hero-1: #162E2F; --hero-2: #23494A;
+  --hero-3: #2A5A5B; --hero-4: #3A8A8B;
+  --hero-glow-1: rgba(192,133,82,0.45);
+  --hero-glow-2: rgba(91,163,164,0.35);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -326,9 +338,9 @@ body {
   position: relative;
   height: 118mm;
   background:
-    radial-gradient(ellipse at 72% 18%, rgba(192,133,82,0.45) 0%, transparent 42%),
-    radial-gradient(ellipse at 18% 85%, rgba(91,163,164,0.35) 0%, transparent 46%),
-    linear-gradient(160deg, var(--teal-900) 0%, var(--teal-700) 42%, var(--teal-600) 68%, var(--teal-500) 100%);
+    radial-gradient(ellipse at 72% 18%, var(--hero-glow-1) 0%, transparent 42%),
+    radial-gradient(ellipse at 18% 85%, var(--hero-glow-2) 0%, transparent 46%),
+    linear-gradient(160deg, var(--hero-1) 0%, var(--hero-2) 42%, var(--hero-3) 68%, var(--hero-4) 100%);
   overflow: hidden;
 }
 .cover-hero::before {

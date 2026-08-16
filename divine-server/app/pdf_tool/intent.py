@@ -131,5 +131,6 @@ async def parse_intent(
             "dates": data.get("dates"),
             "summary": data.get("summary"),
             "style": data.get("style"),
+            "watermark": data.get("watermark"),
         },
     )

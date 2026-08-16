@@ -44,6 +44,7 @@ class TravelRecipe(PDFRecipe):
         '"tags": ["本地生活", "丝绸之路", "山地自然"], '
         '"route": ["阿拉木图", "希瓦", "布哈拉", "塔什干", "撒马尔罕"], '
         '"summary": "100-150字路线概述", '
+        '"watermark": "2-6字目的地简称（如“英伦”“云南”，封面水印用）", '
         '"sections": [{"title": "Day 1", "key_points": ["行程", "美食", "交通"]}]}'
     )
 
@@ -104,6 +105,9 @@ class TravelRecipe(PDFRecipe):
             "（尤其不要用 feature-header、feature-section、arrow 等模板里没有的类）。\n"
             "8. 正文纵向堆叠，不用卡片网格；传说与史实分开表述；修复后的外观不等同原貌；"
             "所有时间、价格和班次标注“以官方为准”。\n"
+            "9. 封面水印 hero-watermark（封面大图上的超大字背景文字）："
+            "按真实情况填 2-6 个字符的目的地简称（如“斯里兰卡”“英伦”“云南”），"
+            "不要填完整标题、不要填“{{旅行手册标题简称}}”占位符。\n"
             f"目的地：{meta.get('destination', intent.topic)}，"
             f"天数：{meta.get('days', '未指定')}，"
             f"路线：{meta.get('route', '未指定')}，"
