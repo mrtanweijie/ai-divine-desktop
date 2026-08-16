@@ -11,6 +11,10 @@ import { HighlightedCode } from "./HighlightedCode";
 import { languageLabel } from "./language";
 import { MermaidBlock } from "./MermaidBlock";
 import { WebPreviewBlock } from "./WebPreviewBlock";
+import {
+  ChoiceBlock,
+  parseOptionsBlock,
+} from "@/pages/chat/components/ChoiceBlock";
 
 interface MarkdownViewProps {
   content: string;
@@ -103,6 +107,18 @@ function buildComponents(streaming: boolean): Components {
       }
       if (language === "mermaid" || language === "mmd") {
         return <MermaidBlock code={code} streaming={streaming} />;
+      }
+      // 可点击选项卡片（如 PDF 风格选择）：流式时先显示源码，流结束后渲染按钮
+      if (language === "options") {
+        if (streaming) {
+          return <CodeBlock code={code} language={language} streaming={streaming} />;
+        }
+        const data = parseOptionsBlock(code);
+        return data ? (
+          <ChoiceBlock data={data} />
+        ) : (
+          <CodeBlock code={code} language={language} streaming={streaming} />
+        );
       }
       if (
         (language === "html" || language === "htm" || language === "svg") &&

@@ -32,7 +32,13 @@ import {
   unwatchWorkspace,
   watchWorkspace,
 } from "@/services/tauri";
-import type { ApprovalMode, PreviewFile, Project, Settings } from "@/types";
+import type {
+  ApprovalMode,
+  ChatFile,
+  PreviewFile,
+  Project,
+  Settings,
+} from "@/types";
 import { useConfigState } from "@/pages/chat/state/configStore";
 import { useFullscreen } from "@/pages/chat/state/fullscreenStore";
 import { useInputState } from "@/pages/chat/state/inputStore";
@@ -52,6 +58,7 @@ import { SessionSearchModal } from "@/pages/chat/components/SessionList/SessionS
 import { ProjectModal } from "@/pages/chat/components/ProjectModal";
 import { ProjectPicker } from "@/pages/chat/components/ProjectPicker";
 import { useChatStream } from "@/pages/chat/hooks/useChatStream";
+import { ChatStreamContext } from "@/pages/chat/hooks/ChatStreamContext";
 import {
   acceptedFilesKey,
   changedFilePathsFromResult,
@@ -738,6 +745,21 @@ export default function ChatPage() {
     stopStreaming(selectedId);
   }, [selectedId, setSessionStreaming, stopStreaming]);
 
+  // 供消息渲染层的可点击组件（如风格选择卡片）发送消息。
+  const chatStreamValue = useMemo(
+    () => ({
+      sendMessage: (
+        question: string,
+        files: ChatFile[] = [],
+        effort?: string
+      ) => {
+        void sendMessage(question, files, effort ?? composerEffort);
+      },
+      effort: composerEffort,
+    }),
+    [sendMessage, composerEffort]
+  );
+
   const currentSession = useMemo(
     () => sessions.find((session) => session.id === selectedId) ?? null,
     [selectedId, sessions]
@@ -969,7 +991,7 @@ export default function ChatPage() {
             onOpenSidebar={() => setSidebarOpen(true)}
           />
         ) : (
-          <>
+          <ChatStreamContext.Provider value={chatStreamValue}>
             <ChatHeader
               session={currentSession}
               project={currentProject}
@@ -1036,7 +1058,7 @@ export default function ChatPage() {
               onStop={handleStopStreaming}
               onPreviewFile={handlePreviewFile}
             />
-          </>
+          </ChatStreamContext.Provider>
         )}
       </Flex>
       <FilePreviewPanel
