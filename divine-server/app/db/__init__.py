@@ -30,6 +30,7 @@ from .messages import (
     clear_messages,
     get_message,
     list_messages,
+    update_choice_state,
 )
 from .migrations import SCHEMA, init_db
 from .projects import (

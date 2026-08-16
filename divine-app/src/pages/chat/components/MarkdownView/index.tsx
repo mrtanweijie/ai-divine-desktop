@@ -19,14 +19,21 @@ import {
 interface MarkdownViewProps {
   content: string;
   streaming: boolean;
+  messageId?: string;
+  choiceState?: Record<string, unknown> | null;
 }
 
-export function MarkdownView({ content, streaming }: MarkdownViewProps) {
+export function MarkdownView({
+  content,
+  streaming,
+  messageId,
+  choiceState,
+}: MarkdownViewProps) {
   return (
     <div className={`markdown-body ${streaming ? "streaming" : ""}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        components={buildComponents(streaming)}
+        components={buildComponents(streaming, messageId, choiceState)}
       >
         {content}
       </ReactMarkdown>
@@ -90,7 +97,11 @@ function CodeBlock({
   );
 }
 
-function buildComponents(streaming: boolean): Components {
+function buildComponents(
+  streaming: boolean,
+  messageId?: string,
+  choiceState?: Record<string, unknown> | null
+): Components {
   return {
     code(props: any) {
       const { className, children, ...rest } = props;
@@ -108,17 +119,24 @@ function buildComponents(streaming: boolean): Components {
       if (language === "mermaid" || language === "mmd") {
         return <MermaidBlock code={code} streaming={streaming} />;
       }
-      // 可点击选项卡片（如 PDF 风格选择）：流式时先显示源码，流结束后渲染按钮
+      // 可点击选项卡片（如 PDF 风格选择）：流式时不显示 JSON 源码；
+      // options 块一旦闭合（JSON 可解析）就立即渲染成卡片，不必等整条消息流结束；
+      // 未闭合（流式中途）时隐藏，避免闪出源码文本
       if (language === "options") {
-        if (streaming) {
-          return <CodeBlock code={code} language={language} streaming={streaming} />;
-        }
         const data = parseOptionsBlock(code);
-        return data ? (
-          <ChoiceBlock data={data} />
-        ) : (
-          <CodeBlock code={code} language={language} streaming={streaming} />
-        );
+        if (data) {
+          return (
+            <ChoiceBlock
+              data={data}
+              messageId={messageId}
+              persistedChoice={choiceState}
+            />
+          );
+        }
+        if (streaming) {
+          return null;
+        }
+        return <CodeBlock code={code} language={language} streaming={streaming} />;
       }
       if (
         (language === "html" || language === "htm" || language === "svg") &&

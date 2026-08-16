@@ -89,23 +89,35 @@ Agent 按上表把选项映射为 theme 再调用 pdf_generate；自定义风格
 生成旅行手册 PDF 时默认生成封面、不要生成目录，也不要传 toc=true；
 旅行攻略禁止用 pdf_render 兜底，pdf_generate 失败时重试一次，仍失败则把错误原样告诉用户。
 用户要求旅行手册换主题色时，把 color_scheme 设为预设（teal/blue/green/warm/purple/monochrome）；
-旅行攻略选完风格后，若用户未指定主题色，再弹一张主题色选项卡片（```options）让用户选择，
-选项的 theme 字段省略、color_scheme 字段填下表 key，如
+只有风格为旅行杂志风（travel_mag）时，选完风格后若用户未指定主题色，才弹一张主题色选项卡片
+（```options）让用户选择；经典旅行手册（travel）和通用现代（universal）不弹主题色卡片，
+直接使用默认 teal，除非用户主动要求换色；
+弹主题色卡片时，必须根据用户的目的地/旅行内容，从下表 12 个主题中挑选最贴合场景的 4 个，
+每次恰好输出 4 个选项（不要多也不要少，也不要每次固定输出同一组）：
+- 深青绿 teal：经典青绿，万能百搭
+- 极地冰蓝 iceblue：冰川、极光、雪山、海洋
+- 沙漠落日 desert：沙漠、戈壁、落日、异域
+- 雾凇青 mistsage：森林、山野、雾凇、清冷自然
+- 晨雾灰蓝 mistblue：湖泊、晨雾、海滨、宁静
+- 暮山紫 duskmauve：暮色、远山、紫色晚霞
+- 初秋藕粉 lotuspink：秋景、花田、温柔暖意
+- 沙丘米 dunesand：沙丘、米色、质朴大地
+- 烟雨灰 smokegray：烟雨、江南、阴天、克制
+- 复古胶片 vintage：古城、人文、怀旧、胶片感
+- 午夜墨黑 midnight：星空、夜景、都市、深邃
+- 纯黑 pureblack：极简、黑白、高级感
+选项的 theme 字段省略、color_scheme 字段填下表 key，如（海岛行程示例）：
 ```options
 {"title": "请选择主题色", "options": [
-  {"label": "深青绿", "color_scheme": "teal", "desc": "青绿 + 琥珀暖，经典雅致"},
-  {"label": "沙漠落日", "color_scheme": "desert", "desc": "暖沙 + 落日金，辽阔热烈"},
-  {"label": "雾凇青", "color_scheme": "mistsage", "desc": "雾灰青 + 灰白，清冷淡雅"},
   {"label": "晨雾灰蓝", "color_scheme": "mistblue", "desc": "灰蓝 + 浅雾蓝，宁静柔和"},
-  {"label": "复古胶片", "color_scheme": "vintage", "desc": "暖灰 + 古铜棕，怀旧胶片"},
-  {"label": "午夜墨黑", "color_scheme": "midnight", "desc": "墨蓝 + 夜紫，深邃静谧"},
-  {"label": "沙丘米", "color_scheme": "dunesand", "desc": "暖米沙 + 浅卡其，自然质朴"},
-  {"label": "烟雨灰", "color_scheme": "smokegray", "desc": "暖灰 + 银灰，极简克制"}
+  {"label": "极地冰蓝", "color_scheme": "iceblue", "desc": "冰川质感"},
+  {"label": "雾凇青", "color_scheme": "mistsage", "desc": "雾灰青 + 灰白，清冷淡雅"},
+  {"label": "沙丘米", "color_scheme": "dunesand", "desc": "暖米沙 + 浅卡其，自然质朴"}
 ], "other": true}
 ```
-主题色选项 label 与 color_scheme 映射：深青绿=teal、沙漠落日=desert、
-复古胶片=vintage、午夜墨黑=midnight、雾凇青=mistsage、晨雾灰蓝=mistblue、
-沙丘米=dunesand、烟雨灰=smokegray；
+主题色选项 label 与 color_scheme 映射：深青绿=teal、极地冰蓝=iceblue、沙漠落日=desert、
+雾凇青=mistsage、晨雾灰蓝=mistblue、暮山紫=duskmauve、初秋藕粉=lotuspink、
+沙丘米=dunesand、烟雨灰=smokegray、复古胶片=vintage、午夜墨黑=midnight、纯黑=pureblack；
 用户点击主题色选项或输入其他颜色后，调用 pdf_generate 时传对应 color_scheme；
 注意：color_scheme 必须传英文 key（如 mistsage），禁止传中文名（如“雾凇青”）；
 用户未选择主题色时默认 teal；用户已指定颜色时不要重复询问。
@@ -113,6 +125,8 @@ Agent 按上表把选项映射为 theme 再调用 pdf_generate；自定义风格
 theme_colors 只需传 {"--color-primary": "<颜色>"}，系统会自动派生整套配套色
 （--color-accent/--color-accent-light/--bg-highlight/--bg-cover），不要逐一手写所有变量；
 只有用户额外指定某个配套色时才显式传对应变量。
+注意：--bg-cover 是封面深色条带背景（上面是白色文字），必须保持深色，
+禁止传浅色/米色/白色（如 #F2E9DC）；如需自定义颜色只传 --color-primary。
 只要用户提到“蓝色/绿色/紫色/暖色/黑白主题”，调用 pdf_generate 时必须同时传 color_scheme，
 不能只写在 prompt 文本里。
 生成旅行手册 PDF 时不要传 markdown 参数，直接让 pdf_generate 按 travel_template 生成 HTML；

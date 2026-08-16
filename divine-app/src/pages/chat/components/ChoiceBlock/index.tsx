@@ -1,9 +1,10 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useChatStreamContext } from "@/pages/chat/hooks/ChatStreamContext";
+import { saveMessageChoiceState } from "@/services/api";
 
 export interface ChoiceOption {
   label: string;
@@ -55,50 +56,94 @@ export function parseOptionsBlock(code: string): ChoiceBlockData | null {
   }
 }
 
-export function ChoiceBlock({ data }: { data: ChoiceBlockData }) {
+// 主题色副标题（前端兜底覆盖：卡片 desc 由 LLM 自由生成，
+// 常从历史复现旧文案，已知主题一律用内置文案替换）
+const THEME_DESCS: Record<string, string> = {
+  teal: "青绿 + 琥珀暖，经典雅致",
+  iceblue: "冰川质感",
+  desert: "暖沙 + 落日金，辽阔热烈",
+  vintage: "暖灰 + 古铜棕，怀旧胶片",
+  midnight: "墨蓝 + 夜紫，深邃静谧",
+  pureblack: "极简纯黑",
+  mistsage: "雾灰青 + 灰白，清冷淡雅",
+  mistblue: "灰蓝 + 浅雾蓝，宁静柔和",
+  duskmauve: "灰紫 + 淡藕色，温柔雅致",
+  lotuspink: "藕粉 + 暖灰，温暖不甜腻",
+  dunesand: "暖米沙 + 浅卡其，自然质朴",
+  smokegray: "暖灰 + 银灰，极简克制",
+};
+
+/** 模块级选择记录：key = 消息id|标题|选项label列表。
+ * 选择状态跟随消息（不跨会话污染：不同消息即使标题/选项相同也独立），
+ * 组件卸载/重挂载后仍保持置灰。 */
+interface ChoiceState {
+  selected: string | null;
+  sentCustom: boolean;
+  /** 机器可读主题 key（如 mistblue），便于后续统计/复用 */
+  color_scheme?: string | null;
+}
+const choiceStateStore = new Map<string, ChoiceState>();
+
+function choiceStoreKey(data: ChoiceBlockData, messageId?: string): string {
+  const base = `${data.title ?? ""}|${(data.options || [])
+    .map((o) => o.label)
+    .join(",")}`;
+  return messageId ? `${messageId}|${base}` : base;
+}
+
+export function ChoiceBlock({
+  data,
+  messageId,
+  persistedChoice,
+}: {
+  data: ChoiceBlockData;
+  messageId?: string;
+  /** 从消息 choice_state 读到的已选状态（DB 持久化，刷新/重开会话后保持） */
+  persistedChoice?: Record<string, unknown> | null;
+}) {
   const { t } = useTranslation();
   const { sendMessage, effort } = useChatStreamContext();
-  const [selected, setSelected] = useState<string | null>(null);
-  const [custom, setCustom] = useState("");
-  const [sentCustom, setSentCustom] = useState(false);
-
-  // 隐藏的主题色（前端兜底过滤，无论 LLM 输出什么都不展示）
-  const HIDDEN_THEME_KEYS: ReadonlySet<string> = new Set([
-    "iceblue",
-    "duskmauve",
-    "lotuspink",
-    "pureblack",
+  const storeKey = useMemo(() => choiceStoreKey(data, messageId), [
+    data,
+    messageId,
   ]);
+  const [selected, setSelected] = useState<string | null>(
+    () =>
+      (persistedChoice?.selected as string | undefined) ??
+      choiceStateStore.get(storeKey)?.selected ??
+      null
+  );
+  const [custom, setCustom] = useState("");
+  const [sentCustom, setSentCustom] = useState(
+    () =>
+      (persistedChoice?.sentCustom as boolean | undefined) ??
+      choiceStateStore.get(storeKey)?.sentCustom ??
+      false
+  );
 
-  // 主题色副标题（前端兜底覆盖：卡片 desc 由 LLM 自由生成，
-  // 常从历史复现旧文案，已知主题一律用内置文案替换）
-  const THEME_DESCS: Record<string, string> = {
-    teal: "青绿 + 琥珀暖，经典雅致",
-    iceblue: "冰川质感",
-    desert: "暖沙 + 落日金，辽阔热烈",
-    vintage: "暖灰 + 古铜棕，怀旧胶片",
-    midnight: "墨蓝 + 夜紫，深邃静谧",
-    pureblack: "极简纯黑",
-    mistsage: "雾灰青 + 灰白，清冷淡雅",
-    mistblue: "灰蓝 + 浅雾蓝，宁静柔和",
-    duskmauve: "灰紫 + 淡藕色，温柔雅致",
-    lotuspink: "藕粉 + 暖灰，温暖不甜腻",
-    dunesand: "暖米沙 + 浅卡其，自然质朴",
-    smokegray: "暖灰 + 银灰，极简克制",
-  };
+  // 消息是异步加载的：首次渲染时 persistedChoice 可能还是空，
+  // 加载完成后用它同步已选状态（覆盖初始 null），并写入模块级 store。
+  useEffect(() => {
+    const persistedSelected = persistedChoice?.selected as string | undefined;
+    const persistedSent = persistedChoice?.sentCustom as boolean | undefined;
+    if (persistedSelected != null || persistedSent) {
+      setSelected(persistedSelected ?? null);
+      setSentCustom(Boolean(persistedSent));
+      choiceStateStore.set(storeKey, {
+        selected: persistedSelected ?? null,
+        sentCustom: Boolean(persistedSent),
+        color_scheme: (persistedChoice?.color_scheme as string | undefined) ?? null,
+      });
+    }
+  }, [persistedChoice, storeKey]);
 
   const options = useMemo(
     () =>
-      (Array.isArray(data?.options) ? data.options : [])
-        .filter(
-          (opt) =>
-            !opt.color_scheme || !HIDDEN_THEME_KEYS.has(opt.color_scheme)
-        )
-        .map((opt) =>
-          opt.color_scheme && THEME_DESCS[opt.color_scheme]
-            ? { ...opt, desc: THEME_DESCS[opt.color_scheme] }
-            : opt
-        ),
+      (Array.isArray(data?.options) ? data.options : []).map((opt) =>
+        opt.color_scheme && THEME_DESCS[opt.color_scheme]
+          ? { ...opt, desc: THEME_DESCS[opt.color_scheme] }
+          : opt
+      ),
     [data]
   );
   if (options.length === 0) return null;
@@ -130,7 +175,7 @@ export function ChoiceBlock({ data }: { data: ChoiceBlockData }) {
     desert: ["#3D2510", "#8B4513", "#DDB56A", "#D49142"],
     vintage: ["#2C2C2A", "#5F5E5A", "#B4B2A9", "#A6772E"],
     midnight: ["#16161E", "#3A3A5C", "#5A5A7E", "#807CA8"],
-    pureblack: ["#0A0A0A", "#242424", "#3A3A3A", "#707070"],
+    pureblack: ["#000000", "#1A1A1A", "#9E9E9E", "#EBEBEB"],
     mistsage: ["#2A4540", "#8AB5B0", "#C8DDD9", "#3A5A56"],
     mistblue: ["#2A4858", "#8AA8C0", "#C8D8E4", "#3A5870"],
     duskmauve: ["#382A48", "#9A8AAB", "#CCC4D6", "#4A3A5C"],
@@ -141,8 +186,27 @@ export function ChoiceBlock({ data }: { data: ChoiceBlockData }) {
 
   const finished = selected !== null || sentCustom;
 
+  const persistChoice = (state: ChoiceState) => {
+    choiceStateStore.set(storeKey, state);
+    if (messageId) {
+      void saveMessageChoiceState(messageId, {
+        selected: state.selected,
+        sentCustom: state.sentCustom,
+        color_scheme: state.color_scheme ?? null,
+      }).catch(() => {
+        // 保存失败不阻塞交互；下次加载仍以模块级 store 为准
+      });
+    }
+  };
+
   const pick = (opt: ChoiceOption) => {
+    if (finished) return;
     setSelected(opt.label);
+    persistChoice({
+      selected: opt.label,
+      sentCustom: false,
+      color_scheme: opt.color_scheme ?? null,
+    });
     // 带 color_scheme 的选项（主题色卡片）：发送「label（color_scheme）」让 Agent 明确传配色
     const msg = opt.color_scheme
       ? `${opt.label}（${opt.color_scheme}）`
@@ -154,6 +218,7 @@ export function ChoiceBlock({ data }: { data: ChoiceBlockData }) {
     const text = custom.trim();
     if (!text || finished) return;
     setSentCustom(true);
+    persistChoice({ selected: null, sentCustom: true, color_scheme: null });
     sendMessage(text, [], effort);
   };
 
@@ -246,11 +311,6 @@ export function ChoiceBlock({ data }: { data: ChoiceBlockData }) {
             <Send size={13} />
             <span>{t("chat.choiceOtherSend", "选择")}</span>
           </Button>
-        </div>
-      )}
-      {finished && (
-        <div className="choice-note">
-          {t("chat.choiceSelected", "已选择，正在生成…")}
         </div>
       )}
     </div>

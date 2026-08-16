@@ -15,7 +15,7 @@ from ..localization import (
     normalize_locale,
 )
 from ..pdf_export import render_markdown_pdf
-from ..schemas import SessionCreate, SessionUpdate
+from ..schemas import ChoiceStateUpdate, SessionCreate, SessionUpdate
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 logger = logging.getLogger("divine.sessions")
@@ -97,6 +97,17 @@ def delete_session(session_id: str):
     db.pause_tasks_for_session(session_id)
     db.delete_session(session_id)
     logger.info("session deleted id=%s", session_id)
+
+
+@router.post("/messages/{message_id}/choice_state")
+def update_message_choice_state(message_id: str, payload: ChoiceStateUpdate):
+    """保存选项卡片的已选状态（选择后置灰，刷新/重开会话后保持）。"""
+    message = db.get_message(message_id)
+    if not message:
+        raise HTTPException(status_code=404, detail="消息不存在")
+    state = db.update_choice_state(message_id, payload.state or {})
+    logger.info("choice_state updated message=%s", message_id)
+    return {"message": state}
 
 
 @router.post("/{session_id}/clear")

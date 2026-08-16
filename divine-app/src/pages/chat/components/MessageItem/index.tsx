@@ -138,7 +138,12 @@ export function MessageItem({
             />
           ))}
           {message.content ? (
-            <MarkdownView content={message.content} streaming={streaming} />
+            <MarkdownView
+              content={message.content}
+              streaming={streaming}
+              messageId={message.id}
+              choiceState={message.choice_state}
+            />
           ) : (
             !message.error && (
               <Flex

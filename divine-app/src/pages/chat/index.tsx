@@ -216,6 +216,19 @@ export default function ChatPage() {
         )
       );
       setSelectedId(id);
+    } else {
+      // 有缓存：保留缓存消息（含流式），但把 API 返回的 choice_state 合并进去，
+      // 使选项卡片的已选状态（DB 持久化）在刷新/重开会话后仍能恢复。
+      const fresh = new Map(
+        messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos)
+          .map((m) => [m.id, m])
+      );
+      setSessionMessages(id, (prev) =>
+        (prev || []).map((m) => {
+          const apiMsg = fresh.get(m.id);
+          return apiMsg?.choice_state ? { ...m, choice_state: apiMsg.choice_state } : m;
+        })
+      );
     }
     setHasMoreOlder(Boolean(data.has_more));
     setOldestMessageId(data.messages.length > 0 ? data.messages[0].id : null);

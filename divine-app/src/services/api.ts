@@ -67,6 +67,17 @@ export function clearSession(id: string): Promise<unknown> {
   return request(`/sessions/${id}/clear`, { method: "POST" });
 }
 
+/** 保存选项卡片的已选状态（选择后置灰，刷新/重开会话后保持） */
+export function saveMessageChoiceState(
+  messageId: string,
+  state: Record<string, unknown>
+): Promise<{ message: ChatMessage }> {
+  return request(`/sessions/messages/${messageId}/choice_state`, {
+    method: "POST",
+    body: JSON.stringify({ state }),
+  });
+}
+
 export function cancelSessionGeneration(id: string): Promise<{ ok: boolean }> {
   return request(`/sessions/${id}/cancel`, { method: "POST" });
 }
@@ -307,6 +318,7 @@ export function messagesToChatMessages(
           }
         }),
       tools,
+      choice_state: message.choice_state,
     });
   });
   return chatMessages;

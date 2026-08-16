@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -37,6 +37,10 @@ class SessionCreate(BaseModel):
 class SessionUpdate(BaseModel):
     title: str | None = None
     approval_mode: str | None = None
+
+
+class ChoiceStateUpdate(BaseModel):
+    state: dict[str, Any] | None = None
 
 
 class ProjectCreate(BaseModel):

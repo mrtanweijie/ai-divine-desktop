@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS messages (
     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     role TEXT NOT NULL,
     content TEXT NOT NULL DEFAULT '',
+    choice_state TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL
 );
 
@@ -133,6 +134,14 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE sessions ADD COLUMN locale TEXT "
                 "NOT NULL DEFAULT 'zh-CN'"
+            )
+        message_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(messages)")
+        }
+        if "choice_state" not in message_columns:
+            conn.execute(
+                "ALTER TABLE messages ADD COLUMN choice_state TEXT "
+                "NOT NULL DEFAULT '{}'"
             )
         project_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(projects)")

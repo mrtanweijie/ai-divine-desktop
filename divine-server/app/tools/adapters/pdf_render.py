@@ -39,8 +39,13 @@ from ..registry import register_tool
             },
             "color_scheme": {
                 "type": "string",
-                "enum": ["teal", "blue", "green", "warm", "monochrome", "purple"],
-                "description": "配色方案",
+                "enum": [
+                    "teal", "blue", "green", "warm", "monochrome", "purple",
+                    "iceblue", "desert", "vintage", "midnight", "pureblack",
+                    "mistsage", "mistblue", "duskmauve", "lotuspink",
+                    "dunesand", "smokegray",
+                ],
+                "description": "配色方案：经典预设（teal/blue/green/warm/monochrome/purple）或旅行杂志主题（iceblue/desert/vintage/midnight/pureblack/mistsage/mistblue/duskmauve/lotuspink/dunesand/smokegray）",
             },
             "theme_colors": {
                 "type": "object",

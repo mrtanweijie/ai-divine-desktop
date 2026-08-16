@@ -3286,7 +3286,7 @@ a:focus-visible {
 
 .choice-options {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
 }
 
@@ -3329,6 +3329,10 @@ a:focus-visible {
 
 .choice-swatch.disabled {
   cursor: default;
+  opacity: 0.55;
+  pointer-events: none;
+  box-shadow: none !important;
+  border-color: var(--color-border) !important;
 }
 
 .choice-swatch-title {
@@ -3369,13 +3373,15 @@ a:focus-visible {
   flex-shrink: 0;
 }
 
-/* 选项按钮：覆盖 ui-button 默认横向布局为卡片式 */
+/* 选项按钮：覆盖 ui-button 默认横向布局为卡片式（一行等宽） */
 .choice-option.ui-button {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
-  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
   height: auto;
   min-height: 40px;
   padding: 9px 12px;
@@ -3399,14 +3405,17 @@ a:focus-visible {
 }
 
 .choice-option-label {
-  font-size: 13.5px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .choice-option-desc {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+  margin-top: 2px;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .choice-other {

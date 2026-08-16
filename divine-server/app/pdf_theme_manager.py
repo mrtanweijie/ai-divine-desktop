@@ -816,11 +816,13 @@ TRAVEL_MAG_THEMES: dict[str, dict[str, str]] = {
 
     # 纯黑主题（提取自 travel-guide-optimized.html）：极简纯黑
     "pureblack": {
-        "--teal-50": "#1A1A1A", "--teal-100": "#161616",
-        "--teal-200": "#121212", "--teal-300": "#0E0E0E",
-        "--teal-400": "#3A3A3A", "--teal-500": "#2E2E2E",
-        "--teal-600": "#242424", "--teal-700": "#1A1A1A",
-        "--teal-800": "#121212", "--teal-900": "#0A0A0A",
+        # 纯黑主题：teal 阶梯改为正常浅→深灰阶（浅色档做背景如 .ic/todo-list，
+        # 深色档做文字如 teal-700），避免黑底黑字；hero/cover 保持深色。
+        "--teal-50": "#F7F7F7", "--teal-100": "#EBEBEB",
+        "--teal-200": "#DCDCDC", "--teal-300": "#C9C9C9",
+        "--teal-400": "#9E9E9E", "--teal-500": "#757575",
+        "--teal-600": "#333333", "--teal-700": "#1A1A1A",
+        "--teal-800": "#111111", "--teal-900": "#000000",
         "--amber-100": "#E0E0E0", "--amber-300": "#A0A0A0",
         "--amber-500": "#707070", "--amber-700": "#404040",
         "--bg-page": "#FFFFFF", "--bg-highlight": "#F5F5F5",
@@ -1179,6 +1181,29 @@ _TRAVEL_MAG_LABELS: dict[str, str] = {
 }
 
 
+def _ensure_dark_cover(overrides: dict[str, str]) -> None:
+    """--bg-cover 是封面深色条带（cover-band 背景，其上为白字），
+    LLM 有时会传浅色（如 #F2E9DC/#E9F2F7）导致白字看不清：
+    亮度超过阈值时压深为派生阶梯最深色（teal-900）。"""
+    cover = overrides.get("--bg-cover")
+    if not cover:
+        return
+    rgb = _hex_to_rgb(str(cover).strip().lstrip("#"))
+    if not rgb:
+        return
+    luminance = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
+    if luminance > 150:
+        scale = derive_teal_scale(
+            overrides.get("--color-primary") or str(cover)
+        )
+        deep = (
+            (scale or {}).get("--teal-900")
+            or overrides.get("--teal-900")
+            or "#2C2C2A"
+        )
+        overrides["--bg-cover"] = deep
+
+
 def travel_color_overrides(
     color_scheme: str = "teal",
     custom: dict[str, str] | None = None,
@@ -1209,16 +1234,22 @@ def travel_color_overrides(
         primary = custom.get("--color-primary") if custom else None
         if primary:
             # 用户自定义主色（如通过“其他”输入）：
-            # 从主色派生整套 teal 阶梯 + hero 封面渐变 + amber 点缀，
+            # 从主色派生整套 teal 阶梯 + hero 封面渐变 + amber 点缀 + cover 深色，
             # 覆盖预设主题色，避免只改 --color-primary 一个变量（mag 模板不用它）。
             scale = derive_teal_scale(str(primary))
             if scale:
                 overrides.update(scale)
                 overrides.update(_derive_hero_vars(scale))
                 overrides.update(_derive_amber_vars(scale))
+                # cover-band 背景：取派生阶梯最深色（teal-900），与预设主题一致。
+                # 直接覆盖（custom 显式给的 --bg-cover 会在 update(custom) 时覆盖回来）
+                overrides["--bg-cover"] = (
+                    scale.get("--teal-900") or scale.get("--teal-800")
+                )
             overrides["--color-primary"] = str(primary)
         overrides.update(custom or {})
         overrides.pop("--primary", None)
+        _ensure_dark_cover(overrides)
         return overrides
     if key in TRAVEL_COLOR_PRESETS:
         overrides = dict(TRAVEL_COLOR_PRESETS[key])
@@ -1258,8 +1289,15 @@ def travel_color_overrides(
             overrides.update(_derive_hero_vars(scale))
             # 派生 amber 点缀色，避免 photo-placeholder 等渐变残留默认琥珀色
             overrides.update(_derive_amber_vars(scale))
+            # cover-band 背景：取派生阶梯最深色（teal-900），与预设主题一致。
+            # 直接覆盖（custom 显式给的 --bg-cover 会在 update(custom) 时覆盖回来）
+            overrides["--bg-cover"] = (
+                scale.get("--teal-900") or scale.get("--teal-800")
+            )
     overrides.update(custom)
     overrides.pop("--primary", None)
+    # --bg-cover 亮度兜底：LLM 传浅色时压深（cover-band 白字可读）
+    _ensure_dark_cover(overrides)
     return overrides
 
 

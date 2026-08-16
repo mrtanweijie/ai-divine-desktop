@@ -37,6 +37,8 @@ export interface Message {
   created_at: string;
   parts: MessagePart[];
   todos?: TodoItem[];
+  /** 选项卡片的已选状态（{selected, sentCustom}），选择后置灰持久化 */
+  choice_state?: Record<string, unknown>;
 }
 
 export interface ToolEvent {
@@ -168,6 +170,8 @@ export interface ChatMessage {
   files?: ChatFile[];
   streaming?: boolean;
   error?: string;
+  /** 选项卡片的已选状态（选择后置灰持久化） */
+  choice_state?: Record<string, unknown>;
 }
 
 export interface ChatFile {

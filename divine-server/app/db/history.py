@@ -9,7 +9,7 @@ from typing import Any
 
 from ..file_types import is_image_path
 from .connection import _connect
-from .messages import list_messages
+from .messages import _decode_choice_state, list_messages
 from .sessions import get_session
 from .todos import list_todos
 from .tool_runs import list_message_parts, list_tool_runs
@@ -216,7 +216,7 @@ def load_session_page(
             item.pop("rowid", None)
             messages.append(
                 {
-                    **item,
+                    **_decode_choice_state(item),
                     "parts": list_message_parts(item["id"]),
                 }
             )
