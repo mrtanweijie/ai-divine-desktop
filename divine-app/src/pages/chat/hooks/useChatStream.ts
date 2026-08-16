@@ -44,8 +44,11 @@ interface UseChatStreamOptions {
   workspacePanelOpenRef: MutableRefObject<boolean>;
   setSessions: Dispatch<SetStateAction<Session[]>>;
   setSelectedId: (id: string | null) => void;
-  setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
-  setStreaming: (value: boolean) => void;
+  setSessionMessages: (
+    sessionId: string | null,
+    messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])
+  ) => void;
+  setSessionStreaming: (sessionId: string | null, value: boolean) => void;
   setAgentChangedFiles: Dispatch<SetStateAction<Set<string>>>;
   setHasMoreOlder: Dispatch<SetStateAction<boolean>>;
   setOldestMessageId: Dispatch<SetStateAction<string | null>>;
@@ -66,8 +69,8 @@ export function useChatStream(options: UseChatStreamOptions) {
     workspacePanelOpenRef,
     setSessions,
     setSelectedId,
-    setMessages,
-    setStreaming,
+    setSessionMessages,
+    setSessionStreaming,
     setAgentChangedFiles,
     setHasMoreOlder,
     setOldestMessageId,
@@ -126,8 +129,11 @@ export function useChatStream(options: UseChatStreamOptions) {
         tools: [],
         streaming: true,
       };
-      setMessages((prev) => [...prev, userMessage, assistantMessage]);
-      setStreaming(true);
+      setSessionMessages(
+        sessionId,
+        (prev) => [...prev, userMessage, assistantMessage]
+      );
+      setSessionStreaming(sessionId, true);
 
       try {
         const response = await requestRaw("/stream_chat", {
@@ -151,7 +157,7 @@ export function useChatStream(options: UseChatStreamOptions) {
         });
         await consumeSSE(response, {
           think: ({ content }) => {
-            setMessages((prev) =>
+            setSessionMessages(sessionId, (prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
                   ? {
@@ -164,7 +170,7 @@ export function useChatStream(options: UseChatStreamOptions) {
             );
           },
           think_done: () => {
-            setMessages((prev) =>
+            setSessionMessages(sessionId, (prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
                   ? { ...message, thinking: false }
@@ -173,7 +179,7 @@ export function useChatStream(options: UseChatStreamOptions) {
             );
           },
           message: ({ content }) => {
-            setMessages((prev) =>
+            setSessionMessages(sessionId, (prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
                   ? {
@@ -187,7 +193,7 @@ export function useChatStream(options: UseChatStreamOptions) {
           },
           plan: (data) => {
             const items = (data.items ?? []) as unknown as TodoItem[];
-            setMessages((prev) =>
+            setSessionMessages(sessionId, (prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
                   ? { ...message, todos: items }
@@ -201,7 +207,7 @@ export function useChatStream(options: UseChatStreamOptions) {
               status: TodoItem["status"];
               result?: string;
             };
-            setMessages((prev) =>
+            setSessionMessages(sessionId, (prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
                   ? {
@@ -233,7 +239,7 @@ export function useChatStream(options: UseChatStreamOptions) {
                 }
               }
             }
-            setMessages((prev) =>
+            setSessionMessages(sessionId, (prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
                   ? {
@@ -251,7 +257,7 @@ export function useChatStream(options: UseChatStreamOptions) {
             emitEventsChanged();
           },
           done: async () => {
-            setMessages((prev) =>
+            setSessionMessages(sessionId, (prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
                   ? { ...message, streaming: false, thinking: false }
@@ -265,7 +271,7 @@ export function useChatStream(options: UseChatStreamOptions) {
                 data.tool_runs ?? [],
                 data.todos
               );
-              setMessages((prev) => mergeLocalTools(prev, restored));
+              setSessionMessages(sessionId, (prev) => mergeLocalTools(prev, restored));
               setHasMoreOlder(false);
               setOldestMessageId(null);
             }
@@ -279,7 +285,7 @@ export function useChatStream(options: UseChatStreamOptions) {
             }
           },
           error: ({ message, messageKey, messageParams }) => {
-            setMessages((prev) =>
+            setSessionMessages(sessionId, (prev) =>
               prev.map((item) =>
                 item.id === assistantMessage.id
                   ? {
@@ -299,7 +305,7 @@ export function useChatStream(options: UseChatStreamOptions) {
           },
         });
       } catch (error) {
-        setMessages((prev) =>
+        setSessionMessages(sessionId, (prev) =>
           prev.map((item) =>
             item.id === assistantMessage.id
               ? {
@@ -315,7 +321,9 @@ export function useChatStream(options: UseChatStreamOptions) {
           )
         );
       } finally {
-        setStreaming(false);
+        // 多会话并发：每个流的收尾只清理它自己的会话标记，
+        // 与其它会话是否在流式无关。
+        setSessionStreaming(sessionId, false);
       }
     },
     [
@@ -328,11 +336,11 @@ export function useChatStream(options: UseChatStreamOptions) {
       selectedId,
       selectedProjectId,
       setAgentChangedFiles,
-      setMessages,
+      setSessionMessages,
       setSelectedId,
       setSessions,
       setHasMoreOlder,
-      setStreaming,
+      setSessionStreaming,
       setOldestMessageId,
       streaming,
       t,

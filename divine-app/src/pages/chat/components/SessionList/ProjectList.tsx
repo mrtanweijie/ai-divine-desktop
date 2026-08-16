@@ -29,7 +29,7 @@ interface ProjectListProps {
   sessions: Session[];
   selectedProjectId: string | null;
   selectedId: string | null;
-  workingSessionId: string | null;
+  workingSessionIds: Set<string>;
   selectionActive: boolean;
   onSelectProject: (id: string) => void;
   onNewProject: () => void;
@@ -46,7 +46,7 @@ export function ProjectList({
   sessions,
   selectedProjectId,
   selectedId,
-  workingSessionId,
+  workingSessionIds,
   selectionActive,
   onSelectProject,
   onNewProject,
@@ -85,7 +85,7 @@ export function ProjectList({
             project={project}
             active={selectionActive && project.id === selectedProjectId}
             selectedId={selectedId}
-            workingSessionId={workingSessionId}
+            workingSessionIds={workingSessionIds}
             selectionActive={selectionActive}
             projectSessions={sessions.filter(
               (session) => session.project_id === project.id
@@ -108,7 +108,7 @@ interface ProjectBranchProps {
   project: Project;
   active: boolean;
   selectedId: string | null;
-  workingSessionId: string | null;
+  workingSessionIds: Set<string>;
   selectionActive: boolean;
   projectSessions: Session[];
   onSelectProject: (id: string) => void;
@@ -124,7 +124,7 @@ function ProjectBranch({
   project,
   active,
   selectedId,
-  workingSessionId,
+  workingSessionIds,
   selectionActive,
   projectSessions,
   onSelectProject,
@@ -166,7 +166,7 @@ function ProjectBranch({
                 key={session.id}
                 session={session}
                 active={selectionActive && session.id === selectedId}
-                working={workingSessionId === session.id}
+                working={workingSessionIds.has(session.id)}
                 onSelect={onSelectSession}
                 onRename={onRenameSession}
                 onDelete={onDeleteSession}

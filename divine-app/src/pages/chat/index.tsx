@@ -72,8 +72,16 @@ export default function ChatPage() {
     selectedProjectId,
     setSelectedProjectId,
   } = useSessionState();
-  const { messages, setMessages, streaming, setStreaming } =
-    useMessageState();
+  const {
+    messagesBySession,
+    setSessionMessages,
+    clearSessionMessages,
+    streamingSessions,
+    setSessionStreaming,
+  } = useMessageState();
+  // 当前视图的会话消息与流状态由 selectedId 派生，支持多会话并行流式。
+  const messages = selectedId ? (messagesBySession[selectedId] ?? []) : [];
+  const streaming = selectedId ? streamingSessions.has(selectedId) : false;
   const { settings, setSettings, setWorkspace } = useConfigState();
   const {
     sidebarOpen,
@@ -179,13 +187,21 @@ export default function ChatPage() {
     setSelectedId(id);
     setSelectedProjectId(data.session.project_id);
     setApprovalMode(data.session.approval_mode ?? "ask");
-    setMessages(
-      messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos)
+    const restored = messagesToChatMessages(
+      data.messages,
+      data.tool_runs ?? [],
+      data.todos
     );
+    // 本地已有该会话缓存（可能正在流式更新）时保留缓存优先，
+    // 仅用服务器数据补齐元信息；否则用服务器消息初始化。
+    const cached = messagesBySession[id];
+    if (!cached || cached.length === 0) {
+      setSessionMessages(id, restored);
+    }
     setHasMoreOlder(Boolean(data.has_more));
     setOldestMessageId(data.messages.length > 0 ? data.messages[0].id : null);
     setLoadingOlder(false);
-  }, []);
+  }, [messagesBySession, setSessionMessages]);
 
   const loadOlderMessages = useCallback(async () => {
     if (
@@ -207,7 +223,10 @@ export default function ChatPage() {
         data.tool_runs ?? [],
         data.todos
       );
-      setMessages((prev) => [...older, ...prev]);
+      setSessionMessages(
+        selectedId,
+        (prev) => [...older, ...prev]
+      );
       setHasMoreOlder(Boolean(data.has_more));
       if (data.messages.length > 0) {
         setOldestMessageId(data.messages[0].id);
@@ -308,7 +327,6 @@ export default function ChatPage() {
           await loadSession(initialSession.id);
         } else {
           setSelectedId(null);
-          setMessages([]);
         }
         setSelectionReady(true);
       })
@@ -430,6 +448,8 @@ export default function ChatPage() {
 
   const handleNewSession = useCallback(
     (projectId?: string) => {
+      // 多会话并发：点「新对话」不打断任何正在进行的流，
+      // 只重置当前视图（messages 由 selectedId 派生，自动为空）。
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete("view");
@@ -455,7 +475,6 @@ export default function ChatPage() {
           : "off"
       );
       setSelectedId(null);
-      setMessages([]);
       closeSidebarForNarrow();
       setTimeout(() => composerRef.current?.focus(), 0);
     },
@@ -473,7 +492,7 @@ export default function ChatPage() {
 
   const handleSelectProject = useCallback(
     async (id: string) => {
-      if (streaming) return;
+      // 多会话并发：切换项目不打断任何正在进行的流。
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete("view");
@@ -486,7 +505,6 @@ export default function ChatPage() {
       } else {
         setGuideCardsVisible(true);
         setSelectedId(null);
-        setMessages([]);
       }
       closeSidebarForNarrow();
     },
@@ -495,7 +513,6 @@ export default function ChatPage() {
       loadSession,
       refreshSessions,
       setSearchParams,
-      streaming,
     ]
   );
 
@@ -521,7 +538,6 @@ export default function ChatPage() {
       void refreshSessions(project.id).catch(() => undefined);
       setGuideCardsVisible(true);
       setSelectedId(null);
-      setMessages([]);
       setProjectOpen(false);
       closeSidebarForNarrow();
       setTimeout(() => composerRef.current?.focus(), 0);
@@ -558,12 +574,10 @@ export default function ChatPage() {
               } else {
                 setGuideCardsVisible(true);
                 setSelectedId(null);
-                setMessages([]);
               }
             } else {
               setGuideCardsVisible(true);
               setSelectedId(null);
-              setMessages([]);
             }
           }
           setConfirmState(null);
@@ -582,16 +596,23 @@ export default function ChatPage() {
 
   const handleSelectSession = useCallback(
     async (id: string) => {
-      if (streaming) return;
+      const isCurrent = id === selectedId;
+      // 多会话并发：切换会话不取消任何正在进行的流。
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete("view");
         return next;
       });
+      if (streaming && isCurrent) {
+        // 点回「正在进行的会话」：保留本地 live 消息（SSE 还在写），
+        // 只切回对话视图；重载会把流式消息顶掉，导致看不到输出。
+        closeSidebarForNarrow();
+        return;
+      }
       await loadSession(id);
       closeSidebarForNarrow();
     },
-    [closeSidebarForNarrow, loadSession, setSearchParams, streaming]
+    [closeSidebarForNarrow, loadSession, selectedId, setSearchParams, streaming]
   );
 
   const handleRename = useCallback(
@@ -613,6 +634,7 @@ export default function ChatPage() {
         ),
         action: async () => {
           await deleteSession(id);
+          clearSessionMessages(id);
           const remaining = await refreshSessions(selectedProjectId);
           if (id === selectedId) {
             if (remaining.length > 0) {
@@ -620,14 +642,20 @@ export default function ChatPage() {
             } else {
               setGuideCardsVisible(true);
               setSelectedId(null);
-              setMessages([]);
             }
           }
           setConfirmState(null);
         },
       });
     },
-    [loadSession, refreshSessions, selectedId, selectedProjectId, t]
+    [
+      clearSessionMessages,
+      loadSession,
+      refreshSessions,
+      selectedId,
+      selectedProjectId,
+      t,
+    ]
   );
 
   const handleSettingsSave = useCallback(
@@ -688,8 +716,8 @@ export default function ChatPage() {
     workspacePanelOpenRef,
     setSessions,
     setSelectedId,
-    setMessages,
-    setStreaming,
+    setSessionMessages,
+    setSessionStreaming,
     setAgentChangedFiles,
     setHasMoreOlder,
     setOldestMessageId,
@@ -900,7 +928,7 @@ export default function ChatPage() {
           projects={projects}
           selectedId={selectedId}
           selectedProjectId={selectedProjectId}
-          workingSessionId={streaming ? selectedId : null}
+          workingSessionIds={streamingSessions}
           collapsed={!sidebarOpen}
           onSelect={handleSelectSession}
           onNew={handleNewSession}
