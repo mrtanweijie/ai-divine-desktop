@@ -17,6 +17,8 @@ export interface ChoiceBlockData {
   title?: string;
   options: ChoiceOption[];
   other?: boolean;
+  /** 多选模式：true 时选项可多选，确认后发回逗号分隔的 label 列表 */
+  multiple?: boolean;
 }
 
 /** 从 ```options 代码块中解析选项数据；解析失败返回 null。 */
@@ -50,6 +52,7 @@ export function parseOptionsBlock(code: string): ChoiceBlockData | null {
       title: data.title ? String(data.title) : undefined,
       options,
       other: Boolean(data.other),
+      multiple: Boolean(data.multiple),
     };
   } catch {
     return null;
@@ -113,6 +116,12 @@ export function ChoiceBlock({
       choiceStateStore.get(storeKey)?.selected ??
       null
   );
+  const [selectedMulti, setSelectedMulti] = useState<string[]>(() => {
+    const persisted = persistedChoice?.selected as string | undefined;
+    if (persisted) return persisted.split(",").map((s) => s.trim()).filter(Boolean);
+    const stored = choiceStateStore.get(storeKey)?.selected;
+    return stored ? stored.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  });
   const [custom, setCustom] = useState("");
   const [sentCustom, setSentCustom] = useState(
     () =>
@@ -120,6 +129,7 @@ export function ChoiceBlock({
       choiceStateStore.get(storeKey)?.sentCustom ??
       false
   );
+  const [multiConfirmed, setMultiConfirmed] = useState(false);
 
   // 消息是异步加载的：首次渲染时 persistedChoice 可能还是空，
   // 加载完成后用它同步已选状态（覆盖初始 null），并写入模块级 store。
@@ -129,6 +139,12 @@ export function ChoiceBlock({
     if (persistedSelected != null || persistedSent) {
       setSelected(persistedSelected ?? null);
       setSentCustom(Boolean(persistedSent));
+      if (persistedSelected) {
+        setSelectedMulti(
+          String(persistedSelected).split(",").map((s) => s.trim()).filter(Boolean)
+        );
+        setMultiConfirmed(true);
+      }
       choiceStateStore.set(storeKey, {
         selected: persistedSelected ?? null,
         sentCustom: Boolean(persistedSent),
@@ -184,7 +200,11 @@ export function ChoiceBlock({
     smokegray: ["#343430", "#A8A7A0", "#D2D0CC", "#4A4945"],
   };
 
-  const finished = selected !== null || sentCustom;
+  const multiple = Boolean(data.multiple);
+
+  const finished = multiple
+    ? multiConfirmed
+    : selected !== null || sentCustom;
 
   const persistChoice = (state: ChoiceState) => {
     choiceStateStore.set(storeKey, state);
@@ -199,6 +219,7 @@ export function ChoiceBlock({
     }
   };
 
+  // 单选：点击即发送选项 label
   const pick = (opt: ChoiceOption) => {
     if (finished) return;
     setSelected(opt.label);
@@ -214,9 +235,41 @@ export function ChoiceBlock({
     sendMessage(msg, [], effort);
   };
 
+  // 多选：点击切换选中；确认后发送逗号分隔的 label 列表
+  const toggleMulti = (label: string) => {
+    if (finished) return;
+    setSelectedMulti((prev) =>
+      prev.includes(label)
+        ? prev.filter((item) => item !== label)
+        : [...prev, label]
+    );
+  };
+
+  const confirmMulti = () => {
+    if (finished || selectedMulti.length === 0) return;
+    const msg = selectedMulti.join("、");
+    setMultiConfirmed(true);
+    persistChoice({
+      selected: msg,
+      sentCustom: false,
+      color_scheme: null,
+    });
+    sendMessage(msg, [], effort);
+  };
+
   const sendCustom = () => {
     const text = custom.trim();
     if (!text || finished) return;
+    if (multiple) {
+      // 多选模式下自定义输入追加到已选列表后一起发送
+      const merged = [...selectedMulti, text];
+      const msg = merged.join("、");
+      setSelectedMulti(merged);
+      persistChoice({ selected: msg, sentCustom: false, color_scheme: null });
+      sendMessage(msg, [], effort);
+      setCustom("");
+      return;
+    }
     setSentCustom(true);
     persistChoice({ selected: null, sentCustom: true, color_scheme: null });
     sendMessage(text, [], effort);
@@ -267,23 +320,50 @@ export function ChoiceBlock({
         </div>
       ) : (
         <div className="choice-options">
-          {options.map((opt) => (
-            <Button
-              key={opt.label}
-              variant="secondary"
-              size="medium"
-              className={`choice-option${
-                selected === opt.label ? " selected" : ""
-              }`}
-              onClick={() => pick(opt)}
-              disabled={finished}
-            >
-              <span className="choice-option-label">{opt.label}</span>
-              {opt.desc && (
-                <span className="choice-option-desc">{opt.desc}</span>
-              )}
-            </Button>
-          ))}
+          {options.map((opt) => {
+            const active = multiple
+              ? selectedMulti.includes(opt.label)
+              : selected === opt.label;
+            return (
+              <Button
+                key={opt.label}
+                variant="secondary"
+                size="medium"
+                className={`choice-option${active ? " selected" : ""}`}
+                onClick={() =>
+                  multiple ? toggleMulti(opt.label) : pick(opt)
+                }
+                disabled={finished}
+              >
+                {multiple && (
+                  <span className="choice-option-check">
+                    {active ? "✓" : ""}
+                  </span>
+                )}
+                <span className="choice-option-label">{opt.label}</span>
+                {opt.desc && (
+                  <span className="choice-option-desc">{opt.desc}</span>
+                )}
+              </Button>
+            );
+          })}
+        </div>
+      )}
+      {multiple && (
+        <div className="choice-confirm">
+          <Button
+            variant="primary"
+            size="medium"
+            className="choice-confirm-btn"
+            onClick={confirmMulti}
+            disabled={finished || selectedMulti.length === 0}
+          >
+            <Send size={13} />
+            <span>
+              {t("chat.choiceConfirm", "确认选择")}
+              {selectedMulti.length > 0 ? `（${selectedMulti.length}）` : ""}
+            </span>
+          </Button>
         </div>
       )}
       {data?.other && (
@@ -292,7 +372,7 @@ export function ChoiceBlock({
             className="choice-other-input"
             placeholder={t(
               "chat.choiceOtherPlaceholder",
-              "其他风格，直接输入…"
+              "其他选项，直接输入…"
             )}
             value={custom}
             onChange={(event) => setCustom(event.target.value)}
