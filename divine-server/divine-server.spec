@@ -90,6 +90,8 @@ a = Analysis(
         "app.pdf_tool",
         "app.pdf_tool.base",
         "app.pdf_tool.content",
+        "app.pdf_tool.design_enforcer",
+        "app.pdf_tool.design_rules",
         "app.pdf_tool.engine",
         "app.pdf_tool.intent",
         "app.pdf_tool.recipes",
