@@ -14,17 +14,32 @@ default_platform(:mac)
 # divine-server 子进程，与 App Store 沙盒不兼容）。
 #
 #   mac dmg : tauri build --no-sign 出 arm64 + x86_64 两套 .app，
-#             lipo 合并成 universal → codesign Developer ID Application
-#             (Hardened Runtime) + notarytool 公证 + staple，产出可直装
-#             universal DMG（一份包同时支持 Apple Silicon 与 Intel Mac）。
+#             各自打 DMG → codesign Developer ID Application
+#             (Hardened Runtime) + notarytool 公证 + staple，产出两个
+#             独立 DMG：Divine-arm64.dmg（Apple Silicon）与
+#             Divine-x64.dmg（Intel）。
+#
+# 为什么不再 lipo 合并 universal 包：
+#   sidecar（divine-server）是 PyInstaller onefile，Python 运行时归档
+#   内嵌在可执行文件末尾；把两个 onefile 用 lipo 拼成 fat 后，bootloader
+#   只能发现 fat 文件"末尾那一个 slice"的归档，另一个 slice 解压到的是
+#   错误架构的 Python，启动即崩（PyInstaller 官方明确不支持，issue #9288；
+#   且 lipo 会把 slice 按架构排序，x86_64 永远排前面、arm64 排后面，
+#   文件末尾是 arm64 —— 结果 Intel 上必崩）。
+#   所以 Intel/Apple Silicon 各出一个独立 DMG，sidecar 与主二进制都保持
+#   单架构，最稳。Tauri 主二进制本身 lipo 没问题，但既然要分两包，
+#   就不需要 lipo 了。
 #
 # 签名素材存放在 ios-sign 仓库（与其它项目共用），CI 通过 MATCH_* secrets 拉取解密：
 #   certs/developer_id/*.p12   Developer ID Application（DMG 直装分发签名）
 #
 # 与 gitea-runner-manager-macos 的 Fastfile 区别：
 #   - 不用 xcodebuild；改用 pnpm exec tauri build --no-sign 出 .app
-#   - 双架构分别出 .app 后用 `lipo -create` 合并主二进制（与 .app 内的 sidecar）
-#   - lipo 后用 hdiutil 重新打一份 universal DMG（不依赖 Tauri 的 DMG）
+#   - 双架构分别出 .app，sidecar 显式按架构覆盖（Tauri 打 bundle 时
+#     externalBin 按宿主架构拷贝，arm64 runner 上 x64 .app 里嵌的其实
+#     是 arm64 sidecar，必须覆盖成 x86_64）
+#   - 不再 lipo（见上）
+#   - 两个架构各自 codesign + hdiutil 打 DMG + 各自公证
 #   - codesign 顺序：sidecar → .app 内 dylib（深度倒序）→ .app 整体 → .dmg
 #   - killall XCBBuildService / xcodebuild → killall codesign（Tauri 不用 Xcode）
 # ============================================================================
@@ -45,7 +60,6 @@ ENTITLEMENTS = File.join(TAURI_DIR, "src-tauri", "Entitlements.plist")
 
 # Tauri 在 --no-sign 下产物路径约定。
 TAURI_TARGET_DIR    = File.join(TAURI_DIR, "src-tauri", "target", "release", "bundle")
-TAURI_APP_PATH      = File.join(TAURI_TARGET_DIR, "macos",    "#{APP_NAME}.app")
 TAURI_DMG_DIR       = File.join(TAURI_TARGET_DIR, "dmg")
 
 # 从 ios-sign 仓库拉取 Developer ID Application 证书，导入到独立 build keychain。
@@ -132,7 +146,6 @@ def macos_install_developer_id_signing!
 end
 
 # 从 tauri build --target <triple> 推断 PyInstaller sidecar 目标。
-# （保留以便按需单架构构建；universal lane 直接硬编码 darwin-arm64 / darwin-x64。）
 def sidecar_target_from_rust_target(rust_target)
   case rust_target
   when "aarch64-apple-darwin" then "darwin-arm64"
@@ -141,13 +154,101 @@ def sidecar_target_from_rust_target(rust_target)
   end
 end
 
+# 给单个 .app 做完整 codesign：
+#   sidecar → 内部 dylib/framework（深度倒序）→ .app 整体（entitlements + 硬化运行时）
+# 必须在打 DMG 之前完成：DMG 里的 .app 是 staging 的 cp_r 副本，只有先把
+# 源码树里的 .app 签好，拷进 DMG 的才是带 Developer ID + 时间戳 + 硬化运行时
+# 的签名版本。否则 notarization 会报 "not signed with valid Developer ID /
+# no secure timestamp / hardened runtime not enabled"。
+def codesign_app!(app_path, dev_id_sha1, keychain_path)
+  # 5a) .app 内所有 dylib/framework（深度倒序：先叶子再父目录）。
+  inner_dylibs     = Dir.glob(File.join(app_path, "**", "*.dylib")).sort
+  inner_frameworks = Dir.glob(File.join(app_path, "**", "*.framework")).sort
+  (inner_dylibs + inner_frameworks).each do |lib|
+    sh(
+      "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
+      "--timestamp --options runtime --deep '#{lib}'"
+    )
+  end
+
+  # 5b) .app 整体（带 entitlements，硬化运行时）。
+  sh(
+    "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
+    "--timestamp --options runtime --entitlements '#{ENTITLEMENTS}' " \
+    "--deep '#{app_path}'"
+  )
+end
+
+# 用已签名的 .app 打一个 DMG（hdiutil UDZO），并给 .dmg 本身签名。
+def build_and_sign_dmg!(app_path, dmg_path, volname, dev_id_sha1, keychain_path)
+  staging = File.join(BUILD_DIR, "dmg_staging")
+  FileUtils.rm_rf(staging)
+  FileUtils.mkdir_p(staging)
+  FileUtils.cp_r(app_path, staging)
+  FileUtils.ln_s("/Applications", File.join(staging, "Applications"))
+  FileUtils.rm_f(dmg_path)
+
+  # hdiutil create -srcfolder 会先 mount 一个可写 shadow（/Volumes/<volname>），
+  # 把数据拷进去，再 unmount + 转 UDZO。在根卷紧张（91%）的 runner 上，可写
+  # shadow 默认落在 / 下、占源大小，经常把磁盘吃满导致 ENOSPC。
+  # hdiutil create 不接受 -scratch（那是 convert 的选项）；用 SCRATCH_DIR 环境
+  # 变量把 shadow 放到 BUILD_DIR 下、绕开根卷容量限制。创建完即清。
+  hdi_scratch = File.join(BUILD_DIR, "hdi_scratch")
+  FileUtils.rm_rf(hdi_scratch)
+  FileUtils.mkdir_p(hdi_scratch)
+  ENV["SCRATCH_DIR"] = hdi_scratch
+  sh(
+    "hdiutil create -volname '#{volname}' " \
+    "-srcfolder '#{staging}' -ov -format UDZO " \
+    "'#{dmg_path}'"
+  )
+  ENV.delete("SCRATCH_DIR")
+  FileUtils.rm_rf(staging)
+  FileUtils.rm_rf(hdi_scratch)
+
+  # .dmg 本身再签（带时间戳）
+  sh(
+    "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
+    "--timestamp '#{dmg_path}'"
+  )
+end
+
+# 公证单个 DMG（notarytool submit --wait + staple）。
+def notarize_dmg!(dmg_path, p8_path, key_id, issuer_id, notary_dir)
+  UI.message "Submitting #{File.basename(dmg_path)} to Apple notary service (--wait, 可能需要几分钟)..."
+  notary_output = `xcrun notarytool submit '#{dmg_path}' --key '#{p8_path}' --key-id '#{key_id}' --issuer '#{issuer_id}' --wait 2>&1`
+  UI.message(notary_output)
+
+  submission_id = notary_output.match(/id:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/m)&.captures&.first
+  # notarytool --wait 的轮询输出里 "Current status: In Progress..." 会重复多行，
+  # 最后一行才是终态（Accepted / Invalid / Rejected）。必须取最后一个 status
+  # 标记；取第一个会被 "In Progress" 的 "In" 骗到（上一轮就是：明明 Accepted，
+  # 却误判为 status=In 而失败）。
+  status = notary_output.scan(/status:\s*([A-Za-z]+)/).flatten.last
+
+  unless status == "Accepted"
+    if submission_id
+      UI.error "Notarization status=#{status || 'unknown'} - fetching detailed log for #{submission_id}..."
+      log_path = File.join(notary_dir, "notary_#{submission_id}.json")
+      `xcrun notarytool log '#{submission_id}' --key '#{p8_path}' --key-id '#{key_id}' --issuer '#{issuer_id}' --output-format json '#{log_path}' 2>&1`
+      UI.message(File.exist?(log_path) ? File.read(log_path) : "(notarytool log produced no output)")
+    end
+    FileUtils.rm_rf(notary_dir)
+    UI.user_error!("Notarization failed: status=#{status || 'unknown'}")
+  end
+
+  UI.message "Stapling notarization ticket..."
+  sh("xcrun stapler staple '#{dmg_path}'")
+  sh("xcrun stapler validate -v '#{dmg_path}'")
+end
+
 platform :mac do
   before_all do
     ENV["FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT"] = "120"
     ENV["FASTLANE_XCODEBUILD_SETTINGS_RETRIES"] = "10"
   end
 
-  desc "Build Developer ID signed + notarized universal DMG for direct distribution (Tauri, arm64 + x86_64)"
+  desc "Build Developer ID signed + notarized per-arch DMGs for direct distribution (Tauri, arm64 + x86_64 separate)"
   lane :dmg do
     ensure_git_status_clean unless ENV["CI"]
 
@@ -162,7 +263,7 @@ platform :mac do
     # darwin-arm64 用宿主 arm64 Python（默认 brew python@3.11，避免 build-sidecar.sh
     # 退化到 /usr/bin/python3——macOS 自带 3.9，PyInstaller spec 用了 3.10+ 语法）。
     # darwin-x64 必须用真正的 x86_64 Python（CI 在 Rosetta 下跑 python-build-standalone
-    # 的 x86_64 构建），否则编出来的二进制是 arm64，lipo 合并报 same architectures。
+    # 的 x86_64 构建），否则编出来的二进制是 arm64，Intel 上跑不了。
     # build-sidecar.sh 内部现在会按目标传 --target-arch，架构不匹配会直接报错。
     arm64_python = ENV["PYTHON_ARM64"] || ENV["PYTHON"] || "#{`brew --prefix python@3.11 2>/dev/null`.strip}/bin/python3.11"
     arm64_python = "/usr/bin/python3" if arm64_python.nil? || arm64_python.empty?
@@ -185,7 +286,7 @@ platform :mac do
 
     # ---- 2. 双架构 tauri build --no-sign ----
     # 必须分别指定 --target aarch64/x86_64-apple-darwin，让 cargo 编出两个
-    # 独立的 target/release 子目录；之后用 lipo 合并出 universal。
+    # 独立的 target/release 子目录；之后各自打 DMG（不做 lipo，见文件头说明）。
     UI.message "Running: pnpm exec tauri build for aarch64-apple-darwin..."
     sh(
       "cd '#{TAURI_DIR}' && " \
@@ -194,7 +295,7 @@ platform :mac do
       "--target aarch64-apple-darwin " \
       "--config src-tauri/tauri.prod.conf.json " \
       "--bundles app"
-      # 注意：只产 .app，不让 Tauri 提前打 DMG（lipo 后我们要重新打一次）。
+      # 注意：只产 .app，不让 Tauri 提前打 DMG（我们要各自重新打）。
     )
 
     UI.message "Running: pnpm exec tauri build for x86_64-apple-darwin..."
@@ -217,55 +318,34 @@ platform :mac do
     UI.user_error!("arm64 main binary not found") unless File.file?(arm64_main)
     UI.user_error!("x64   main binary not found") unless File.file?(x64_main)
 
-    # Tauri 把 externalBin 拷进 .app/Contents/MacOS/divine-server（与主二进制同级）。
-    # 注意：macOS 打 bundle 时 externalBin 是"按宿主架构"拷贝，而不是 target 架构
+    # ---- 4. sidecar 显式按架构覆盖进各自 .app ----
+    # Tauri 打 macOS bundle 时 externalBin 是"按宿主架构"拷贝，而不是 target 架构
     # —— 在 arm64 runner 上，x64 那个 .app 里嵌的 sidecar 其实也是 arm64（上一轮
-    # lipo 就报了 same architectures (arm64)）。所以 sidecar 不能像主二进制那样用
-    # 两个 .app 内的副本合并，而是直接用 src-tauri/binaries/ 下按 triple 生成的源
-    # 文件（divine-server-aarch64-*/x86_64-* 是 build-sidecar.sh 各编一份的）。
-    arm64_sidecar_app = File.join(arm64_app, "Contents", "MacOS", "divine-server")
+    # lipo 就报了 same architectures (arm64)）。所以这里直接从 src-tauri/binaries/
+    # 下按 triple 生成的源文件（build-sidecar.sh 各编一份）覆盖两个 .app 内的
+    # Contents/MacOS/divine-server，保证架构正确。
     arm64_sidecar_src = File.join(TAURI_DIR, "src-tauri", "binaries", "divine-server-aarch64-apple-darwin")
     x64_sidecar_src   = File.join(TAURI_DIR, "src-tauri", "binaries", "divine-server-x86_64-apple-darwin")
+    UI.user_error!("arm64 sidecar 源缺失: #{arm64_sidecar_src}") unless File.file?(arm64_sidecar_src)
+    UI.user_error!("x64   sidecar 源缺失: #{x64_sidecar_src}")   unless File.file?(x64_sidecar_src)
 
-    # ---- 4. lipo 合并主二进制 + sidecar ----
-    # 4a) 主二进制 Divine
-    UI.message "lipo: combining main binary Divine (arm64 + x86_64)..."
-    FileUtils.mv(arm64_main, "#{arm64_main}.arm64")
-    FileUtils.mv(x64_main,   "#{arm64_main}.x64")
-    sh("/usr/bin/lipo -create -output '#{arm64_main}' '#{arm64_main}.arm64' '#{arm64_main}.x64'")
-    FileUtils.rm_f(["#{arm64_main}.arm64", "#{arm64_main}.x64"])
-    sh("/usr/bin/lipo -info '#{arm64_main}'")
+    arm64_sidecar_app = File.join(arm64_app, "Contents", "MacOS", "divine-server")
+    x64_sidecar_app   = File.join(x64_app,   "Contents", "MacOS", "divine-server")
+    FileUtils.cp(arm64_sidecar_src, arm64_sidecar_app)
+    FileUtils.cp(x64_sidecar_src,   x64_sidecar_app)
+    FileUtils.chmod(0o755, arm64_sidecar_app)
+    FileUtils.chmod(0o755, x64_sidecar_app)
 
-    # x64 .app 的使命到此结束（主二进制已抽出并 lipo）：最终包里只用 arm64 .app +
-    # universal 主二进制 + universal sidecar。整个 x86_64 target 目录 ~2GB，直接删，
-    # 否则后面打 DMG 时磁盘吃紧（上一轮 hdiutil 就 ENOSPC）。
-    x64_target = File.join(TAURI_DIR, "src-tauri", "target", "x86_64-apple-darwin")
-    FileUtils.rm_rf(x64_target) if File.directory?(x64_target)
-    UI.message "Removed x86_64 target dir to free disk"
+    # 校验 sidecar 架构（不再 lipo；lipo 合并 PyInstaller onefile 必崩，见文件头）。
+    arm64_sidecar_archs = `/usr/bin/lipo -archs '#{arm64_sidecar_app}'`.strip
+    x64_sidecar_archs   = `/usr/bin/lipo -archs '#{x64_sidecar_app}'`.strip
+    UI.user_error!("arm64 sidecar 架构异常: #{arm64_sidecar_archs}") unless arm64_sidecar_archs == "arm64"
+    UI.user_error!("x64   sidecar 架构异常: #{x64_sidecar_archs}")   unless x64_sidecar_archs == "x86_64"
+    UI.message "arm64 sidecar arch: #{arm64_sidecar_archs}; x64 sidecar arch: #{x64_sidecar_archs}"
 
-    # 4b) sidecar 用两个源二进制 lipo 成 universal，写到 arm64 .app 内的
-    #     Contents/MacOS/divine-server（这就是最终打进 DMG 的那份）。先 rm 掉 .app
-    #     内旧副本（可能与 src 是硬链接，避免 lipo 覆盖时反过来污染源文件）。
-    #     若某个 triple 的 sidecar 没生成（外部依赖缺失），直接失败而不是发
-    #     一个 Intel 上跑不起来的"universal"包。
-    if File.file?(arm64_sidecar_src) && File.file?(x64_sidecar_src)
-      UI.message "lipo: combining sidecar into universal (source binaries)..."
-      FileUtils.rm_f(arm64_sidecar_app)
-      sh("/usr/bin/lipo -create -output '#{arm64_sidecar_app}' '#{arm64_sidecar_src}' '#{x64_sidecar_src}'")
-      sh("/usr/bin/lipo -info '#{arm64_sidecar_app}'")
-    else
-      UI.user_error!("sidecar source binaries missing (arm64_src=#{arm64_sidecar_src} x64_src=#{x64_sidecar_src})")
-    end
-
-    # ---- 5. 完整 codesign 链路（顺序：sidecar → 内部 dylib → .app） ----
-    # 必须在打 DMG 之前完成：DMG 里的 .app 是 staging 的 cp_r 副本，只有先把
-    # 源码树里的 .app 签好，拷进 DMG 的才是带 Developer ID + 时间戳 + 硬化运行时
-    # 的签名版本。否则 notarization 会报 "not signed with valid Developer ID /
-    # no secure timestamp / hardened runtime not enabled"（上一轮就是：DMG 先打、
-    # .app 后签，导致 DMG 内嵌的是 linker 的 ad-hoc 签名）。
-    # 5a) src-tauri/binaries/ 下的 externalBin 源（每个 triple 一份）。
-    #     Tauri 在 macOS universal .app 里运行时实际不会用它们（它用 _internal/ 那份），
-    #     但仍按规范签名以免 spctl/Gatekeeper 误报。
+    # ---- 5. 完整 codesign 链路（两个 .app 各自：sidecar → dylib → .app）----
+    # src-tauri/binaries/ 下的 externalBin 源（每个 triple 一份）也按规范签名，
+    # 以免 spctl/Gatekeeper 误报。
     Dir.glob(File.join(TAURI_DIR, "src-tauri", "binaries", "divine-server*"))
        .reject { |p| p.end_with?(".pdb") || File.directory?(p) }
        .each do |bin|
@@ -275,85 +355,57 @@ platform :mac do
         "--timestamp --options runtime '#{bin}'"
       )
     end
+    # .app 内嵌 sidecar 各自签
+    sh("/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' --timestamp --options runtime '#{arm64_sidecar_app}'")
+    sh("/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' --timestamp --options runtime '#{x64_sidecar_app}'")
+    # .app 整体
+    codesign_app!(arm64_app, dev_id_sha1, keychain_path)
+    codesign_app!(x64_app, dev_id_sha1, keychain_path)
 
-    # 5b) .app 内所有 dylib/framework（深度倒序：先叶子再父目录）。
-    inner_dylibs     = Dir.glob(File.join(arm64_app, "**", "*.dylib")).sort
-    inner_frameworks = Dir.glob(File.join(arm64_app, "**", "*.framework")).sort
-    (inner_dylibs + inner_frameworks).each do |lib|
-      sh(
-        "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
-        "--timestamp --options runtime --deep '#{lib}'"
-      )
-    end
-
-    # 5c) .app 整体（带 entitlements，硬化运行时）。
-    sh(
-      "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
-      "--timestamp --options runtime --entitlements '#{ENTITLEMENTS}' " \
-      "--deep '#{arm64_app}'"
-    )
-
-    # ---- 5.5 把签好的 .app 挪出 target 目录，删掉整个 src-tauri/target（省 ~2GB） ----
+    # ---- 5.5 把签好的 .app 挪出 target 目录，删掉整个 src-tauri/target（省 ~2GB）----
     # .app 是自包含 bundle，后续 staging / verify 只需要它本身。挪到 build/ 下后，
     # target 里几十 GB 的 Rust 中间产物 + 另一份 .app 即可清空。
-    app_final = File.join(BUILD_DIR, "#{APP_NAME}.app")
-    FileUtils.rm_rf(app_final)
-    FileUtils.mv(arm64_app, app_final)
-    arm64_app = app_final
-    # .app 整体挪动后，之前基于旧路径算出的 sidecar / 主二进制路径要重算
-    # （step 8 的 lipo 兜底会再查它们；否则会指向已删除的 target 目录）。
+    app_final_arm64 = File.join(BUILD_DIR, "#{APP_NAME}-arm64.app")
+    app_final_x64   = File.join(BUILD_DIR, "#{APP_NAME}-x64.app")
+    FileUtils.rm_rf([app_final_arm64, app_final_x64])
+    FileUtils.mv(arm64_app, app_final_arm64)
+    FileUtils.mv(x64_app, app_final_x64)
+    arm64_app = app_final_arm64
+    x64_app   = app_final_x64
+    # .app 整体挪动后，之前基于旧路径算出的 sidecar / 主二进制路径要重算。
     arm64_sidecar_app = File.join(arm64_app, "Contents", "MacOS", "divine-server")
+    x64_sidecar_app   = File.join(x64_app,   "Contents", "MacOS", "divine-server")
     arm64_main = File.join(arm64_app, "Contents", "MacOS", APP_NAME)
+    x64_main   = File.join(x64_app,   "Contents", "MacOS", APP_NAME)
     FileUtils.rm_rf(File.join(TAURI_DIR, "src-tauri", "target"))
-    UI.message "Moved signed .app to #{app_final}; removed src-tauri/target"
+    UI.message "Moved signed .apps to #{BUILD_DIR}; removed src-tauri/target"
 
-    # ---- 6. 用已签名的 .app 重新打 DMG（不依赖 Tauri 自动打的版本） ----
-    # 清掉 Tauri 自己出的 arm64-only DMG（如果有的话）。
+    # ---- 6. 用已签名的 .app 各打各的 DMG（不依赖 Tauri 自动打的版本）----
+    # 清掉 Tauri 自己出的 DMG（如果有的话）。
     FileUtils.rm_rf(TAURI_DMG_DIR)
 
-    staging = File.join(BUILD_DIR, "dmg_staging")
-    FileUtils.rm_rf(staging)
-    FileUtils.mkdir_p(staging)
-    FileUtils.cp_r(arm64_app, staging)
-    FileUtils.ln_s("/Applications", File.join(staging, "Applications"))
-    staged_dmg = File.join(BUILD_DIR, "#{APP_DISPLAY_NAME}.dmg")
-    FileUtils.rm_f(staged_dmg)
+    arm64_dmg = File.join(BUILD_DIR, "#{APP_DISPLAY_NAME}-arm64.dmg")
+    x64_dmg   = File.join(BUILD_DIR, "#{APP_DISPLAY_NAME}-x64.dmg")
+    build_and_sign_dmg!(arm64_app, arm64_dmg, "#{APP_DISPLAY_NAME}-arm64", dev_id_sha1, keychain_path)
+    build_and_sign_dmg!(x64_app, x64_dmg, "#{APP_DISPLAY_NAME}-x64", dev_id_sha1, keychain_path)
 
-    # hdiutil create -srcfolder 会先 mount 一个可写 shadow（/Volumes/<volname>），
-    # 把数据拷进去，再 unmount + 转 UDZO。在根卷紧张（91%）的 runner 上，可写
-    # shadow 默认落在 / 下、占源大小，universal .app 经常把磁盘吃满导致 ENOSPC。
-    # hdiutil create 不接受 -scratch（那是 convert 的选项）；用 SCRATCH_DIR 环境
-    # 变量把 shadow 放到 BUILD_DIR 下、绕开根卷容量限制。创建完即清。
-    hdi_scratch = File.join(BUILD_DIR, "hdi_scratch")
-    FileUtils.rm_rf(hdi_scratch)
-    FileUtils.mkdir_p(hdi_scratch)
-    ENV["SCRATCH_DIR"] = hdi_scratch
-    sh(
-      "hdiutil create -volname '#{APP_DISPLAY_NAME}' " \
-      "-srcfolder '#{staging}' -ov -format UDZO " \
-      "'#{staged_dmg}'"
-    )
-    ENV.delete("SCRATCH_DIR")
-    FileUtils.rm_rf(staging)
-    FileUtils.rm_rf(hdi_scratch)
-
-    # ---- 7. .dmg 本身再签（带时间戳） ----
-    sh(
-      "/usr/bin/codesign --force --sign '#{dev_id_sha1}' --keychain '#{keychain_path}' " \
-      "--timestamp '#{staged_dmg}'"
-    )
-
-    # ---- 8. 验证（早失败） ----
+    # ---- 7. 验证（早失败）----
     sh("/usr/bin/codesign --verify --deep --strict --verbose=2 '#{arm64_app}'")
-    sh("hdiutil verify '#{staged_dmg}'")
-    sh("/usr/bin/lipo -info '#{arm64_main}'")  # 再次确认 universal
-    # sidecar 必须同时含 x86_64 + arm64 两个 slice（4b 已负责 lipo，这里兜底）。
-    sidecar_archs = `/usr/bin/lipo -archs '#{arm64_sidecar_app}'`.strip
+    sh("/usr/bin/codesign --verify --deep --strict --verbose=2 '#{x64_app}'")
+    sh("hdiutil verify '#{arm64_dmg}'")
+    sh("hdiutil verify '#{x64_dmg}'")
+    # 两个 .app 的主二进制与 sidecar 架构（各自必须是单架构，禁止 lipo 产物）
+    sh("/usr/bin/lipo -info '#{arm64_main}'")
+    sh("/usr/bin/lipo -info '#{x64_main}'")
+    arm64_sidecar_archs = `/usr/bin/lipo -archs '#{arm64_sidecar_app}'`.strip
+    x64_sidecar_archs   = `/usr/bin/lipo -archs '#{x64_sidecar_app}'`.strip
     UI.user_error!("sidecar missing / unreadable: #{$?}") unless $?.success?
-    UI.message "sidecar architectures: #{sidecar_archs}"
-    UI.user_error!("sidecar not universal: #{sidecar_archs}") unless sidecar_archs.include?("x86_64") && sidecar_archs.include?("arm64")
+    UI.message "arm64 sidecar architectures: #{arm64_sidecar_archs}"
+    UI.message "x64   sidecar architectures: #{x64_sidecar_archs}"
+    UI.user_error!("arm64 sidecar 不是纯 arm64: #{arm64_sidecar_archs}") unless arm64_sidecar_archs == "arm64"
+    UI.user_error!("x64   sidecar 不是纯 x86_64: #{x64_sidecar_archs}")   unless x64_sidecar_archs == "x86_64"
 
-    # ---- 9. 公证：App Store Connect API Key ----
+    # ---- 8. 公证：App Store Connect API Key ----
     key_id      = ENV["APP_STORE_CONNECT_API_KEY_ID"]
     issuer_id   = ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"]
     key_content = ENV["APP_STORE_CONNECT_API_KEY_CONTENT"]
@@ -365,33 +417,10 @@ platform :mac do
     p8_path = File.join(notary_dir, "AuthKey_#{key_id}.p8")
     File.write(p8_path, key_content)
 
-    UI.message "Submitting DMG to Apple notary service (--wait, 可能需要几分钟)..."
-    notary_output = `xcrun notarytool submit '#{staged_dmg}' --key '#{p8_path}' --key-id '#{key_id}' --issuer '#{issuer_id}' --wait 2>&1`
-    UI.message(notary_output)
-
-    submission_id = notary_output.match(/id:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/m)&.captures&.first
-    # notarytool --wait 的轮询输出里 "Current status: In Progress..." 会重复多行，
-    # 最后一行才是终态（Accepted / Invalid / Rejected）。必须取最后一个 status
-    # 标记；取第一个会被 "In Progress" 的 "In" 骗到（上一轮就是：明明 Accepted，
-    # 却误判为 status=In 而失败）。
-    status = notary_output.scan(/status:\s*([A-Za-z]+)/).flatten.last
-
-    unless status == "Accepted"
-      if submission_id
-        UI.error "Notarization status=#{status || 'unknown'} - fetching detailed log for #{submission_id}..."
-        log_path = File.join(notary_dir, "notary_#{submission_id}.json")
-        `xcrun notarytool log '#{submission_id}' --key '#{p8_path}' --key-id '#{key_id}' --issuer '#{issuer_id}' --output-format json '#{log_path}' 2>&1`
-        UI.message(File.exist?(log_path) ? File.read(log_path) : "(notarytool log produced no output)")
-      end
-      FileUtils.rm_rf(notary_dir)
-      UI.user_error!("Notarization failed: status=#{status || 'unknown'}")
-    end
-
-    UI.message "Stapling notarization ticket..."
-    sh("xcrun stapler staple '#{staged_dmg}'")
-    sh("xcrun stapler validate -v '#{staged_dmg}'")
+    notarize_dmg!(arm64_dmg, p8_path, key_id, issuer_id, notary_dir)
+    notarize_dmg!(x64_dmg, p8_path, key_id, issuer_id, notary_dir)
     FileUtils.rm_rf(notary_dir)
 
-    UI.success "Notarized universal DMG ready: #{staged_dmg}"
+    UI.success "Notarized DMGs ready: #{arm64_dmg} / #{x64_dmg}"
   end
 end

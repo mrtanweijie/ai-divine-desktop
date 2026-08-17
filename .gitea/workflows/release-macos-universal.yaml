@@ -1,4 +1,4 @@
-name: macOS Universal DMG Release
+name: macOS DMG Release (arm64 + x64)
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 jobs:
-  build-macos-universal:
-    name: Build, sign, notarize and publish macOS Universal DMG (arm64 + x64)
+  build-macos-per-arch:
+    name: Build, sign, notarize and publish macOS DMGs (arm64 + x64 separate)
     # 跑在任意 macOS self-hosted runner 上（Apple Silicon 或 Intel 都可）。
     # 双 rust target 都在同一台机器上交叉编译：Apple Silicon 上编 x86_64
     # 会自动用 Rosetta 2；Intel 上编 arm64 用 lipo 等价处理。
@@ -55,7 +55,7 @@ jobs:
           echo "Project ready at: $(pwd)"
 
       # ---------------------------------------------------------------------
-      # 2. 从 tag 解析版本号（universal 一份包，构建号 YYYYMMDD01）。
+      # 2. 从 tag 解析版本号（两个架构各一份包，构建号 YYYYMMDD01）。
       # ---------------------------------------------------------------------
       - name: Extract version
         id: version
@@ -199,7 +199,7 @@ jobs:
           "$PY311_BIN" -m pip install --upgrade pip
 
       - name: Setup Rosetta + x86_64 Python
-        # universal 包里的 sidecar 需要真 x86_64 切片。PyInstaller 在 arm64 宿主上
+        # x64 包里的 sidecar 需要真 x86_64 切片。PyInstaller 在 arm64 宿主上
         # 不能 cross-arch 编 x86_64（报错，除非宿主 Python 是 universal2），所以
         # darwin-x64 必须用"真正在 x86_64 模式下运行"的 Python：
         #   - arm64 宿主机需要 Rosetta（纯 x86_64 二进制只能经 Rosetta 跑）；
@@ -260,7 +260,7 @@ jobs:
           arch -x86_64 "$X64_PY_BIN" -m pip install -r requirements.txt pyinstaller
 
       - name: Check & free disk space
-        # 上一轮（run #6664）hdiutil 打 DMG 时报"设备上无剩余空间"。universal 包
+        # 上一轮（run #6664）hdiutil 打 DMG 时报"设备上无剩余空间"。双架构两包
         # 比单架构大一倍，DMG 阶段峰值占用 ~6GB+。runner 根卷 ~228Gi，已用 91%，
         # 可用仅 ~19Gi。这里先报当前磁盘用量，再清掉可安全重建的缓存。
         run: |
@@ -285,10 +285,10 @@ jobs:
           df -h /System/Volumes/Data 2>/dev/null || df -h / || true
 
       # ---------------------------------------------------------------------
-      # 6. Fastlane mac dmg：双架构 tauri build + lipo + codesign + notarize。
+      # 6. Fastlane mac dmg：双架构 tauri build + 各自 codesign + notarize（不再 lipo）。
       #    通过 SSH localhost 登录会话绕开 keychain 弹窗（与参考项目一致）。
       # ---------------------------------------------------------------------
-      - name: Build signed & notarized macOS Universal DMG (Fastlane)
+      - name: Build signed & notarized macOS DMGs (Fastlane, arm64 + x64)
         env:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
@@ -314,7 +314,7 @@ jobs:
           cat "${SSH_KEY}.pub" >> "$REAL_HOME/.ssh/authorized_keys"
           chmod 600 "$REAL_HOME/.ssh/authorized_keys"
 
-          ENV_FILE="/tmp/ci_env_universal_$$"
+          ENV_FILE="/tmp/ci_env_per_arch_$$"
           cat > "$ENV_FILE" <<'ENVEOF'
           export CI=true
           export FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT=120
@@ -365,30 +365,40 @@ jobs:
           fi
 
       # ---------------------------------------------------------------------
-      # 7. 定位 notarized DMG 路径。
+      # 7. 定位两个 notarized DMG 路径（arm64 + x64 各自独立打包，不再 lipo）。
+      #    lipo 合并 PyInstaller onefile 必崩（bootloader 只能发现 fat 文件末尾
+      #    那一个 slice 的归档），所以 Fastfile 产出两个单架构 DMG。
       # ---------------------------------------------------------------------
-      - name: Resolve notarized DMG path
+      - name: Resolve notarized DMG paths
         id: dmg
         run: |
           set -euo pipefail
-          DMG="$(ls -1 "$PROJECT_DIR/build/"*.dmg 2>/dev/null | head -1 || true)"
-          if [[ -z "$DMG" || ! -f "$DMG" ]]; then
-            echo "::error::Notarized DMG not found under $PROJECT_DIR/build/"
+          ARM64_DMG="$PROJECT_DIR/build/Divine-arm64.dmg"
+          X64_DMG="$PROJECT_DIR/build/Divine-x64.dmg"
+          if [[ ! -f "$ARM64_DMG" ]]; then
+            echo "::error::arm64 DMG not found at $ARM64_DMG"
             ls -la "$PROJECT_DIR/build" 2>/dev/null || true
             exit 1
           fi
-          echo "path=$DMG" >> $GITEA_OUTPUT
-          echo "Resolved notarized DMG: $DMG"
-          ls -la "$DMG"
+          if [[ ! -f "$X64_DMG" ]]; then
+            echo "::error::x64 DMG not found at $X64_DMG"
+            ls -la "$PROJECT_DIR/build" 2>/dev/null || true
+            exit 1
+          fi
+          echo "arm64_path=$ARM64_DMG" >> $GITEA_OUTPUT
+          echo "x64_path=$X64_DMG" >> $GITEA_OUTPUT
+          echo "Resolved arm64 DMG: $ARM64_DMG"
+          echo "Resolved x64 DMG: $X64_DMG"
+          ls -la "$ARM64_DMG" "$X64_DMG"
 
       # ---------------------------------------------------------------------
-      # 8. 上传为 Gitea Release asset（仅 tag 触发）。
+      # 8. 上传两个 DMG 为 Gitea Release asset（仅 tag 触发）。
       # ---------------------------------------------------------------------
-      - name: Publish DMG to Gitea Release
+      - name: Publish DMGs to Gitea Release
         if: startsWith(github.ref, 'refs/tags/')
         env:
-          DMG_PATH: ${{ steps.dmg.outputs.path }}
-          ASSET_NAME: Divine-macos-universal-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build-number }}.dmg
+          ARM64_DMG: ${{ steps.dmg.outputs.arm64_path }}
+          X64_DMG: ${{ steps.dmg.outputs.x64_path }}
           TAG_NAME: ${{ github.ref_name }}
           # 复用 MATCH_GIT_BASIC_AUTHORIZATION（base64 of user:token），Gitea Release
           # API 也吃 PAT token。这里解 base64 取出纯 token 走 "Authorization: token <PAT>"。
@@ -449,7 +459,7 @@ jobs:
             HTTP_CODE="$(curl -sS -o /tmp/release.json -w '%{http_code}' \
               -H "$AUTH_HEADER" -H 'Content-Type: application/json' \
               -X POST "$API/releases" \
-              --data "$(ruby -rjson -e 'puts({tag_name: ARGV[0], name: ARGV[0], body: "Automated macOS universal release", draft: false, prerelease: false}.to_json)' "$TAG_NAME")")"
+              --data "$(ruby -rjson -e 'puts({tag_name: ARGV[0], name: ARGV[0], body: "Automated macOS per-arch release (arm64 + x64)", draft: false, prerelease: false}.to_json)' "$TAG_NAME")")"
             if [[ "$HTTP_CODE" != "201" && "$HTTP_CODE" != "200" ]]; then
               echo "::error::Failed to create release (HTTP $HTTP_CODE):"
               cat /tmp/release.json || true
@@ -463,58 +473,68 @@ jobs:
             exit 1
           fi
 
-          echo "Removing same-named asset (if any) so the upload is idempotent..."
-          curl -sS -H "$AUTH_HEADER" "$API/releases/${RELEASE_ID}/assets" -o /tmp/assets.json
-          ruby -rjson -e 'JSON.parse(File.binread("/tmp/assets.json").force_encoding("UTF-8")).each { |a| puts a["id"] if a["name"] == ARGV[0] }' "$ASSET_NAME" \
-            | while read -r ASSET_ID; do
-                [[ -z "$ASSET_ID" ]] && continue
-                echo "  Deleting old asset id=${ASSET_ID}"
-                curl -sS -H "$AUTH_HEADER" -X DELETE \
-                  "$API/releases/${RELEASE_ID}/assets/${ASSET_ID}" -o /dev/null
-              done
+          upload_asset () {
+            local DMG_PATH="$1"
+            local ASSET_NAME="$2"
+            echo "=== Uploading ${ASSET_NAME} ==="
+            echo "Removing same-named asset (if any) so the upload is idempotent..."
+            curl -sS -H "$AUTH_HEADER" "$API/releases/${RELEASE_ID}/assets" -o /tmp/assets.json
+            ruby -rjson -e 'JSON.parse(File.binread("/tmp/assets.json").force_encoding("UTF-8")).each { |a| puts a["id"] if a["name"] == ARGV[0] }' "$ASSET_NAME" \
+              | while read -r ASSET_ID; do
+                  [[ -z "$ASSET_ID" ]] && continue
+                  echo "  Deleting old asset id=${ASSET_ID}"
+                  curl -sS -H "$AUTH_HEADER" -X DELETE \
+                    "$API/releases/${RELEASE_ID}/assets/${ASSET_ID}" -o /dev/null
+                done
 
-          echo "Uploading ${ASSET_NAME}..."
-          HTTP_CODE="$(curl -sS -o /tmp/asset.json -w '%{http_code}' \
-            -H "$AUTH_HEADER" \
-            -X POST "$API/releases/${RELEASE_ID}/assets?name=${ASSET_NAME}" \
-            -F "attachment=@${DMG_PATH};type=application/octet-stream")"
-          if [[ "$HTTP_CODE" != "201" && "$HTTP_CODE" != "200" ]]; then
-            echo "::error::Asset upload failed (HTTP $HTTP_CODE):"
-            cat /tmp/asset.json || true
-            exit 1
-          fi
+            echo "Uploading ${ASSET_NAME}..."
+            HTTP_CODE="$(curl -sS -o /tmp/asset.json -w '%{http_code}' \
+              -H "$AUTH_HEADER" \
+              -X POST "$API/releases/${RELEASE_ID}/assets?name=${ASSET_NAME}" \
+              -F "attachment=@${DMG_PATH};type=application/octet-stream")"
+            if [[ "$HTTP_CODE" != "201" && "$HTTP_CODE" != "200" ]]; then
+              echo "::error::Asset upload failed (HTTP $HTTP_CODE):"
+              cat /tmp/asset.json || true
+              exit 1
+            fi
 
-          ASSET_URL="$(ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/asset.json").force_encoding("UTF-8"))["browser_download_url"]')"
-          echo "Uploaded (API says): $ASSET_URL"
+            ASSET_URL="$(ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/asset.json").force_encoding("UTF-8"))["browser_download_url"]')"
+            echo "Uploaded (API says): $ASSET_URL"
 
-          # 校验：run #6671 的 Uploaded: URL 指向 /attachments/<uuid>，而 GET
-          # /releases/tags/v0.2.0 返回的 assets 列表是空 —— Gitea 把这次上传当作
-          # 孤儿 attachment 而不是 release asset。release/download/<tag>/<name>
-          # 因此 404。重新 GET release，确认资产在列表里 + URL 可下载。
-          echo "Verifying asset is attached to release..."
-          curl -sS -H "$AUTH_HEADER" "$API/releases/${RELEASE_ID}" -o /tmp/release_final.json
-          ASSET_COUNT="$(ruby -rjson -e 'd=JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8")); puts (d["assets"] || []).length')"
-          echo "Release now lists ${ASSET_COUNT} asset(s)"
-          if [[ "${ASSET_COUNT}" == "0" ]]; then
-            echo "::error::Asset upload returned a browser_download_url but the release has 0 assets. Likely an orphan attachment; failing so the DMG can be re-uploaded correctly."
-            cat /tmp/asset.json
-            exit 1
-          fi
-          ACTUAL_URL="$(ruby -rjson -e 'a=JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8"))["assets"]; m=a.find { |x| x["name"]==ARGV[0] }; puts(m ? m["browser_download_url"] : "")' "$ASSET_NAME")"
-          if [[ -z "${ACTUAL_URL}" ]]; then
-            echo "::error::Release has ${ASSET_COUNT} asset(s) but none named ${ASSET_NAME}; failing."
-            ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8"))["assets"].map { |x| x["name"] }'
-            exit 1
-          fi
-          echo "Actual release asset URL: ${ACTUAL_URL}"
-          # HEAD 该 URL，确认可下载（不是孤儿 attachment）
-          HTTP_CODE="$(curl -sS -o /dev/null -I -w '%{http_code}' -H "$AUTH_HEADER" "${ACTUAL_URL}")"
-          echo "HEAD ${ACTUAL_URL} -> ${HTTP_CODE}"
-          if [[ "${HTTP_CODE}" != "200" && "${HTTP_CODE}" != "302" ]]; then
-            echo "::error::Release asset URL returned ${HTTP_CODE}; not downloadable."
-            exit 1
-          fi
-          echo "OK: asset ${ASSET_NAME} is attached and downloadable at ${ACTUAL_URL}"
+            # 校验：run #6671 的 Uploaded: URL 指向 /attachments/<uuid>，而 GET
+            # /releases/tags/v0.2.0 返回的 assets 列表是空 —— Gitea 把这次上传当作
+            # 孤儿 attachment 而不是 release asset。release/download/<tag>/<name>
+            # 因此 404。重新 GET release，确认资产在列表里 + URL 可下载。
+            echo "Verifying asset is attached to release..."
+            curl -sS -H "$AUTH_HEADER" "$API/releases/${RELEASE_ID}" -o /tmp/release_final.json
+            ASSET_COUNT="$(ruby -rjson -e 'd=JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8")); puts (d["assets"] || []).length')"
+            echo "Release now lists ${ASSET_COUNT} asset(s)"
+            if [[ "${ASSET_COUNT}" == "0" ]]; then
+              echo "::error::Asset upload returned a browser_download_url but the release has 0 assets. Likely an orphan attachment; failing so the DMG can be re-uploaded correctly."
+              cat /tmp/asset.json
+              exit 1
+            fi
+            ACTUAL_URL="$(ruby -rjson -e 'a=JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8"))["assets"]; m=a.find { |x| x["name"]==ARGV[0] }; puts(m ? m["browser_download_url"] : "")' "$ASSET_NAME")"
+            if [[ -z "${ACTUAL_URL}" ]]; then
+              echo "::error::Release has ${ASSET_COUNT} asset(s) but none named ${ASSET_NAME}; failing."
+              ruby -rjson -e 'puts JSON.parse(File.binread("/tmp/release_final.json").force_encoding("UTF-8"))["assets"].map { |x| x["name"] }'
+              exit 1
+            fi
+            echo "Actual release asset URL: ${ACTUAL_URL}"
+            # HEAD 该 URL，确认可下载（不是孤儿 attachment）
+            HTTP_CODE="$(curl -sS -o /dev/null -I -w '%{http_code}' -H "$AUTH_HEADER" "${ACTUAL_URL}")"
+            echo "HEAD ${ACTUAL_URL} -> ${HTTP_CODE}"
+            if [[ "${HTTP_CODE}" != "200" && "${HTTP_CODE}" != "302" ]]; then
+              echo "::error::Release asset URL returned ${HTTP_CODE}; not downloadable."
+              exit 1
+            fi
+            echo "OK: asset ${ASSET_NAME} is attached and downloadable at ${ACTUAL_URL}"
+          }
+
+          VERSION="${{ steps.version.outputs.version }}"
+          BUILD_NUMBER="${{ steps.version.outputs.build-number }}"
+          upload_asset "$ARM64_DMG" "Divine-macos-arm64-${VERSION}-${BUILD_NUMBER}.dmg"
+          upload_asset "$X64_DMG" "Divine-macos-x64-${VERSION}-${BUILD_NUMBER}.dmg"
 
       - name: Show build log on failure
         if: failure()
