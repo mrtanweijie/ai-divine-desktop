@@ -365,9 +365,15 @@ platform :mac do
     # ---- 5.5 把签好的 .app 挪出 target 目录，删掉整个 src-tauri/target（省 ~2GB）----
     # .app 是自包含 bundle，后续 staging / verify 只需要它本身。挪到 build/ 下后，
     # target 里几十 GB 的 Rust 中间产物 + 另一份 .app 即可清空。
-    app_final_arm64 = File.join(BUILD_DIR, "#{APP_NAME}-arm64.app")
-    app_final_x64   = File.join(BUILD_DIR, "#{APP_NAME}-x64.app")
-    FileUtils.rm_rf([app_final_arm64, app_final_x64])
+    # 注意：.app 文件名必须保持 "Divine.app"（这是安装后显示的名字），架构差异
+    # 只体现在外层目录（build/arm64、build/x64）与 DMG 文件名上。
+    app_final_arm64 = File.join(BUILD_DIR, "arm64", "#{APP_NAME}.app")
+    app_final_x64   = File.join(BUILD_DIR, "x64",   "#{APP_NAME}.app")
+    FileUtils.mkdir_p(File.dirname(app_final_arm64))
+    FileUtils.mkdir_p(File.dirname(app_final_x64))
+    FileUtils.rm_rf([File.dirname(app_final_arm64), File.dirname(app_final_x64)])
+    FileUtils.mkdir_p(File.dirname(app_final_arm64))
+    FileUtils.mkdir_p(File.dirname(app_final_x64))
     FileUtils.mv(arm64_app, app_final_arm64)
     FileUtils.mv(x64_app, app_final_x64)
     arm64_app = app_final_arm64
@@ -378,7 +384,7 @@ platform :mac do
     arm64_main = File.join(arm64_app, "Contents", "MacOS", APP_NAME)
     x64_main   = File.join(x64_app,   "Contents", "MacOS", APP_NAME)
     FileUtils.rm_rf(File.join(TAURI_DIR, "src-tauri", "target"))
-    UI.message "Moved signed .apps to #{BUILD_DIR}; removed src-tauri/target"
+    UI.message "Moved signed .apps to #{BUILD_DIR}/arm64 + #{BUILD_DIR}/x64; removed src-tauri/target"
 
     # ---- 6. 用已签名的 .app 各打各的 DMG（不依赖 Tauri 自动打的版本）----
     # 清掉 Tauri 自己出的 DMG（如果有的话）。
@@ -386,8 +392,10 @@ platform :mac do
 
     arm64_dmg = File.join(BUILD_DIR, "#{APP_DISPLAY_NAME}-arm64.dmg")
     x64_dmg   = File.join(BUILD_DIR, "#{APP_DISPLAY_NAME}-x64.dmg")
-    build_and_sign_dmg!(arm64_app, arm64_dmg, "#{APP_DISPLAY_NAME}-arm64", dev_id_sha1, keychain_path)
-    build_and_sign_dmg!(x64_app, x64_dmg, "#{APP_DISPLAY_NAME}-x64", dev_id_sha1, keychain_path)
+    # DMG 卷名不带架构后缀：挂载后卷名是 "Divine"，拖进 Applications 的也是
+    # 原名的 Divine.app；架构只在 DMG 下载文件名里区分。
+    build_and_sign_dmg!(arm64_app, arm64_dmg, APP_DISPLAY_NAME, dev_id_sha1, keychain_path)
+    build_and_sign_dmg!(x64_app, x64_dmg, APP_DISPLAY_NAME, dev_id_sha1, keychain_path)
 
     # ---- 7. 验证（早失败）----
     sh("/usr/bin/codesign --verify --deep --strict --verbose=2 '#{arm64_app}'")
