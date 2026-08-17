@@ -1,0 +1,520 @@
+/* ============================================================================
+   PDF 布局模块库 — 10 个可复用模块样式
+   ----------------------------------------------------------------------------
+   设计原则：模块样式全部使用语义 CSS 变量（--primary/--bg-surface/...），
+   与主题解耦 —— 换主题只换变量值，模块代码零改动。
+   主题：tech / corporate / editorial / bold / minimal / forest / sunset /
+         lavender / mono / ocean / terminal
+   用法：把本文件内容追加进任何 PDF 主题 CSS（如 divine-server/app/pdf_themes/*.css）
+       即可获得全部模块能力。
+   ========================================================================== */
+
+/* ===========================
+   Design Tokens
+   =========================== */
+:root {
+  --radius: 8px;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --font-sans: 'Inter', 'PingFang SC', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Georgia', 'Notion Serif', serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --fs-h1: 32px; --fs-h2: 24px; --fs-h3: 18px;
+  --fs-body: 14px; --fs-small: 12px;
+  --lh-tight: 1.25; --lh-normal: 1.7;
+
+  /* TECH (default) */
+  --primary: #2563EB; --primary-light: #EFF6FF; --accent: #06B6D4;
+  --text-main: #111827; --text-muted: #6B7280; --text-light: #9CA3AF;
+  --bg-page: #FFFFFF; --bg-surface: #F9FAFB; --bg-dark: #1F2937;
+  --border: #E5E7EB;
+}
+
+[data-theme="tech"] {
+  --primary: #2563EB; --primary-light: #EFF6FF; --accent: #06B6D4;
+  --text-main: #111827; --text-muted: #6B7280; --text-light: #9CA3AF;
+  --bg-page: #FFFFFF; --bg-surface: #F9FAFB; --bg-dark: #1F2937;
+  --border: #E5E7EB;
+}
+[data-theme="corporate"] {
+  --primary: #1E40AF; --primary-light: #EEF2FF; --accent: #3B82F6;
+  --text-main: #0F172A; --text-muted: #475569; --text-light: #94A3B8;
+  --bg-page: #FFFFFF; --bg-surface: #F8FAFC; --bg-dark: #1E293B;
+  --border: #CBD5E1;
+}
+[data-theme="editorial"] {
+  --primary: #7C2D12; --primary-light: #FEF3E2; --accent: #D97706;
+  --text-main: #292524; --text-muted: #78716C; --text-light: #A8A29E;
+  --bg-page: #FFFFFF; --bg-surface: #FEF9F3; --bg-dark: #44403C;
+  --border: #E7E5E4; --font-sans: var(--font-serif);
+}
+[data-theme="bold"] {
+  --primary: #0F172A; --primary-light: #1E293B; --accent: #F43F5E;
+  --text-main: #F8FAFC; --text-muted: #CBD5E1; --text-light: #94A3B8;
+  --bg-page: #020617; --bg-surface: #1E293B; --bg-dark: #0F172A;
+  --border: #334155;
+}
+[data-theme="minimal"] {
+  --primary: #18181B; --primary-light: #F4F4F5; --accent: #71717A;
+  --text-main: #18181B; --text-muted: #52525B; --text-light: #A1A1AA;
+  --bg-page: #FFFFFF; --bg-surface: #FAFAFA; --bg-dark: #27272A;
+  --border: #E4E4E7;
+}
+[data-theme="forest"] {
+  --primary: #166534; --primary-light: #DCFCE7; --accent: #84CC16;
+  --text-main: #14532D; --text-muted: #4D7C0F; --text-light: #86EFAC;
+  --bg-page: #FEFEFE; --bg-surface: #F0FDF4; --bg-dark: #052E16;
+  --border: #BBF7D0;
+}
+[data-theme="sunset"] {
+  --primary: #EA580C; --primary-light: #FFF7ED; --accent: #F59E0B;
+  --text-main: #7C2D12; --text-muted: #9A3412; --text-light: #FDBA74;
+  --bg-page: #FFFFFF; --bg-surface: #FFF7ED; --bg-dark: #431407;
+  --border: #FED7AA;
+}
+[data-theme="lavender"] {
+  --primary: #7C3AED; --primary-light: #F5F3FF; --accent: #EC4899;
+  --text-main: #312E81; --text-muted: #5B21B6; --text-light: #C4B5FD;
+  --bg-page: #FFFFFF; --bg-surface: #F5F3FF; --bg-dark: #1E1B4B;
+  --border: #DDD6FE;
+}
+[data-theme="mono"] {
+  --primary: #000; --primary-light: #F5F5F5; --accent: #525252;
+  --text-main: #000; --text-muted: #404040; --text-light: #A3A3A3;
+  --bg-page: #FFF; --bg-surface: #FAFAFA; --bg-dark: #171717;
+  --border: #E5E5E5; --font-sans: 'Times New Roman', 'Noto Serif SC', serif;
+}
+[data-theme="ocean"] {
+  --primary: #0C4A6E; --primary-light: #F0F9FF; --accent: #0891B2;
+  --text-main: #082F49; --text-muted: #0E7490; --text-light: #7DD3FC;
+  --bg-page: #FFF; --bg-surface: #F0F9FF; --bg-dark: #082F49;
+  --border: #BAE6FD;
+}
+[data-theme="terminal"] {
+  --primary: #22C55E; --primary-light: #052E16; --accent: #06B6D4;
+  --text-main: #22C55E; --text-muted: #16A34A; --text-light: #4ADE80;
+  --bg-page: #0A0A0A; --bg-surface: #111; --bg-dark: #000;
+  --border: #22C55E40; --font-sans: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* ===========================
+   Module Base
+   =========================== */
+.module {
+  margin: 20px 0;
+  page-break-inside: avoid;   /* PDF：模块不跨页断行 */
+}
+.module-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 12px;
+}
+.module-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+/* ===========================
+   Module 1: Hero Stat · 核心指标冲击
+   =========================== */
+.hero-stat {
+  padding: 28px 32px;
+  margin: 24px 0;
+  border-radius: var(--radius);
+}
+.hero-stat[data-emphasis="high"] { background: var(--primary); color: #fff; }
+.hero-stat[data-emphasis="high"] .stat-value { color: #fff; }
+.hero-stat[data-emphasis="high"] .stat-label { color: rgba(255, 255, 255, 0.75); }
+.hero-stat[data-emphasis="high"] .stat-trend.up { color: #4ADE80; }
+.hero-stat[data-emphasis="high"] .stat-trend.down { color: #F87171; }
+.hero-stat[data-emphasis="medium"] { background: var(--bg-surface); border: 1px solid var(--border); }
+.hero-stat[data-emphasis="low"] { background: transparent; padding: 16px 0; }
+.stat-grid { display: grid; gap: 24px; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.stat-item { display: flex; flex-direction: column; }
+.stat-value {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+}
+.stat-unit { font-size: 18px; font-weight: 500; margin-left: 2px; opacity: 0.6; }
+.stat-label { font-size: 13px; color: var(--text-muted); margin-top: 6px; font-weight: 400; }
+.stat-trend { font-size: 12px; font-weight: 600; margin-top: 4px; }
+.stat-trend.up { color: #16A34A; }
+.stat-trend.down { color: #DC2626; }
+
+/* ===========================
+   Module 2: Pull Quote · 杂志金句
+   =========================== */
+.pull-quote {
+  position: relative;
+  padding: 32px 36px;
+  margin: 24px 0;
+  border-radius: 0 var(--radius) var(--radius) 0;  /* 左侧色块直角，右侧圆角 */
+
+}
+.pull-quote[data-emphasis="high"] { background: var(--primary); color: #fff; }
+.pull-quote[data-emphasis="high"] .quote-mark { color: rgba(255, 255, 255, 0.3); }
+.pull-quote[data-emphasis="high"] .attribution { color: rgba(255, 255, 255, 0.7); }
+.pull-quote[data-emphasis="medium"] {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  border-left: 4px solid var(--primary);
+}
+.pull-quote[data-emphasis="low"] {
+  background: transparent;
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.pull-quote blockquote {
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+/* 重置主题对 blockquote 的默认装饰，避免与外层模块叠加成两层框 */
+.pull-quote blockquote {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  font-style: normal;
+  page-break-inside: auto;
+}
+
+.pull-quote .quote-mark {
+  font-size: 64px;
+  font-family: Georgia, serif;
+  line-height: 0;
+  vertical-align: bottom;
+  opacity: 0.2;
+}
+.pull-quote .quote-mark.opening { margin-right: 4px; }
+.pull-quote .quote-mark.closing { margin-left: 2px; }
+.pull-quote .attribution {
+  margin-top: 16px;
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* ===========================
+   Module 3: Two Col Compare · 左右对比
+   =========================== */
+.two-col-compare { margin: 24px 0; }
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 48px 1fr;
+  gap: 0;
+  align-items: stretch;
+}
+.compare-panel { padding: 24px; border-radius: var(--radius); }
+.compare-panel.before { background: var(--bg-surface); border: 1px solid var(--border); }
+.compare-panel.after { background: var(--primary-light); border: 1px solid var(--primary); }
+.compare-header { margin-bottom: 16px; }
+.compare-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  border-radius: 100px;
+  background: var(--border);
+  color: var(--text-muted);
+}
+.compare-badge.highlight { background: var(--primary); color: #fff; }
+.compare-body p { font-size: 14px; line-height: 1.7; color: var(--text-muted); margin: 0; }
+.compare-list { list-style: none; padding: 0; margin: 0; }
+.compare-list li {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-muted);
+  padding-left: 18px;
+  position: relative;
+}
+.compare-list li::before {
+  content: '•';
+  position: absolute;
+  left: 4px;
+  color: var(--primary);
+  font-weight: 700;
+}
+.compare-divider { display: flex; align-items: center; justify-content: center; }
+.divider-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-light);
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===========================
+   Module 4: Timeline · 时间线
+   =========================== */
+.timeline { padding: 24px 0; margin: 20px 0; }
+.timeline-track { position: relative; padding-left: 28px; }
+/* 分段竖线：每段从圆点底部下方开始画，圆点处天然断开，
+   不依赖 z-index（兼容 WeasyPrint），线与圆点几何上不重叠 */
+.timeline-node { position: relative; padding-bottom: 28px; }
+.timeline-node::before {
+  content: '';
+  position: absolute;
+  left: -18px;       /* 线左边缘 x = 28-18 = 10px，中心 11px，与圆点中心水平对齐 */
+  top: 20px;         /* 圆点（top 3 + 高 14 = 底 17）下方 3px 起画 */
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+.timeline-node:last-child::before { display: none; }
+.timeline-node:last-child { padding-bottom: 0; }
+.timeline-dot {
+  position: absolute;
+  left: -24px;       /* 圆点中心 x = 28-24+7 = 11px，与线中心对齐 */
+  top: 3px;          /* 圆点范围 3-17px，中心 10px，与断开区域（0-20px）中心对齐 */
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-page);
+  border: 2.5px solid var(--primary);
+  z-index: 1;
+}
+.timeline-node.highlight .timeline-dot {
+  background: var(--primary);
+  box-shadow: 0 0 0 4px var(--primary-light);
+}
+.timeline-date {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.timeline-event { font-size: 14px; font-weight: 500; color: var(--text-main); line-height: 1.5; }
+.timeline-detail { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.6; }
+
+/* ===========================
+   Module 5: Feature Grid · 特性网格
+   =========================== */
+.feature-grid { margin: 24px 0; }
+.feature-grid-container { display: grid; gap: 16px; }
+.feature-grid-container.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.feature-item {
+  padding: 18px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+.feature-icon { font-size: 22px; margin-bottom: 8px; }
+.feature-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.feature-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+/* ===========================
+   Module 6: Callout Box · 提示/警告
+   =========================== */
+.callout-box {
+  display: flex;
+  gap: 14px;
+  padding: 16px 20px;
+  margin: 20px 0;
+  border-radius: 0 var(--radius) var(--radius) 0;  /* 左侧色块直角，右侧圆角 */
+
+  border-left: 4px solid;
+  align-items: flex-start;
+}
+.callout-box.info { background: var(--primary-light); border-color: var(--primary); }
+.callout-box.info .ci { color: var(--primary); }
+.callout-box.warning { background: #FFFBEB; border-color: #F59E0B; }
+.callout-box.warning .ci { color: #F59E0B; }
+.callout-box.success { background: #F0FDF4; border-color: #22C55E; }
+.callout-box.success .ci { color: #22C55E; }
+.callout-box.error { background: #FEF2F2; border-color: #EF4444; }
+.callout-box.error .ci { color: #EF4444; }
+.ci { font-size: 18px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+.callout-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.callout-body { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+/* ===========================
+   Module 7: Metric Row · 进度指标条
+   =========================== */
+.metric-row { margin: 24px 0; }
+.metric-item { margin-bottom: 14px; }
+.metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.metric-label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+.metric-value { font-size: 14px; font-weight: 700; }
+.metric-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 100px;
+  overflow: hidden;
+}
+.metric-fill { height: 100%; background: var(--primary); border-radius: 100px; }
+
+/* ===========================
+   Module 8: Bio Card · 人物介绍
+   =========================== */
+.bio-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  margin: 20px 0;
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+}
+.bio-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.bio-name { font-size: 15px; font-weight: 600; }
+.bio-title { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.bio-text {
+  width: 100%;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  line-height: 1.6;
+}
+
+/* ===========================
+   Module 9: Tag Cloud · 标签云
+   =========================== */
+.tag-cloud { margin: 20px 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.tag.hl {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+  font-weight: 600;
+}
+
+/* ===========================
+   Module 10: Conclusion Box · 总结 / CTA
+   =========================== */
+.conclusion-box {
+  padding: 28px 32px;
+  margin: 28px 0;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: #fff;
+}
+.conclusion-box.medium {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+}
+.conclusion-box.low {
+  background: transparent;
+  color: var(--text-main);
+  border: 2px dashed var(--border);
+}
+.conclusion-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  margin-bottom: 10px;
+  opacity: 0.7;
+}
+.conclusion-text { font-size: 18px; font-weight: 500; line-height: 1.5; }
+.conclusion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.action-item {
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.2);
+  background-clip: padding-box;  /* 背景不画到边框区域，避免半透明背景+边框叠加成双线 */
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+.conclusion-box.medium .action-item,
+.conclusion-box.low .action-item {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* ===========================
+   TOC · 目录（提取自 design_preview）
+   =========================== */
+.toc-item {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.toc-item .num {
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 600;
+  margin-right: 12px;
+  min-width: 20px;
+}
+.toc-item .title {
+  flex: 1;
+  color: var(--text-main);
+  text-decoration: none;
+  border-bottom: none;
+}
+/* 页码：target-counter 自动取目标页（WeasyPrint Paged Media 特性） */
+.toc-item .title::after {
+  content: target-counter(attr(href), page);
+  position: absolute;
+  right: 0;
+  font-size: 12px;
+  color: var(--text-light);
+}
+.toc-item.toc-level-2 .title { padding-left: 1.5em; font-weight: 400; }
+.toc-item.toc-level-3 .title { padding-left: 3em; font-weight: 400; font-size: 12px; }
+.toc-item.toc-level-3 .title::after { font-size: 11px; }

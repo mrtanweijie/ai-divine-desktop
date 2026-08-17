@@ -325,7 +325,6 @@ COVER_TEMPLATES: dict[str, str] = {
       <div class="subtitle">{subtitle}</div>
       <div class="meta">{theme_name}</div>
     </div>
-    <div style="page-break-after:always;"></div>
     """,
     "universal": """
     <div class="cover">
@@ -343,7 +342,6 @@ COVER_TEMPLATES: dict[str, str] = {
       </div>
       <div class="footer-note">AI Divine · {theme_name}</div>
     </div>
-    <div style="page-break-after:always;"></div>
     """,
     "modern": """
     <div class="cover">
@@ -361,7 +359,6 @@ COVER_TEMPLATES: dict[str, str] = {
       </div>
       <div class="footer-note">AI Divine · {theme_name}</div>
     </div>
-    <div style="page-break-after:always;"></div>
     """,
     "notion": """
     <div class="cover">
@@ -369,7 +366,6 @@ COVER_TEMPLATES: dict[str, str] = {
       <div class="subtitle">{subtitle}</div>
       <div class="meta">{date}</div>
     </div>
-    <div style="page-break-after:always;"></div>
     """,
     "linear": """
     <div class="cover">
@@ -378,7 +374,6 @@ COVER_TEMPLATES: dict[str, str] = {
       <div class="subtitle">{subtitle}</div>
       <div class="meta">{theme_name} · AI Divine</div>
     </div>
-    <div style="page-break-after:always;"></div>
     """,
     "apple": """
     <div class="cover">
@@ -394,7 +389,6 @@ COVER_TEMPLATES: dict[str, str] = {
       </div>
       <div class="footer-note">AI Divine · {theme_name}</div>
     </div>
-    <div style="page-break-after:always;"></div>
     """,
     "academic": """
     <div class="cover">
@@ -407,7 +401,6 @@ COVER_TEMPLATES: dict[str, str] = {
       </div>
       <div class="date">{date}</div>
     </div>
-    <div style="page-break-after:always;"></div>
     """,
     "travel": """
     <div class="page cover">
@@ -450,7 +443,6 @@ COVER_TEMPLATES: dict[str, str] = {
       </div>
       <div class="footer-note">AI Divine · {theme_name}</div>
     </div>
-    <div style="page-break-after:always;"></div>
     """,
     "minimal": """
     <div class="cover">
@@ -458,7 +450,6 @@ COVER_TEMPLATES: dict[str, str] = {
       <div class="subtitle">{subtitle}</div>
       <div class="meta">{date}</div>
     </div>
-    <div style="page-break-after:always;"></div>
     """,
 }
 
@@ -522,6 +513,11 @@ class ThemeManager:
         else:
             css = Path(theme.css_path or "").read_text(encoding="utf-8")
         variables = dict(theme.variables)
+        # 模块标准变量：确保 --primary/--text-main/--bg-surface 等存在（按主题别名映射）
+        variables.update(_module_standard_vars(variables))
+        # 语义色 token：主题未定义时按深浅自动注入（模块 callout/trend 使用）
+        if "--success" not in variables:
+            variables.update(_semantic_colors(theme_id))
         if overrides:
             variables.update(overrides)
         root_vars = "\n".join(f"  {key}: {value};" for key, value in variables.items())
@@ -661,12 +657,85 @@ def get_theme_manager() -> ThemeManager:
     return _default_manager
 
 
+# 语义色 token（P0-1）：浅色/深色主题两套，模块 callout-box / stat-trend 等引用
+_SEMANTIC_LIGHT = {
+    "--success": "#16A34A",
+    "--success-bg": "#F0FDF4",
+    "--success-soft": "#BBF7D0",
+    "--warning": "#D97706",
+    "--warning-bg": "#FFFBEB",
+    "--error": "#DC2626",
+    "--error-bg": "#FEF2F2",
+    "--error-soft": "#FECACA",
+}
+_SEMANTIC_DARK = {
+    "--success": "#4ADE80",
+    "--success-bg": "#052E16",
+    "--success-soft": "#86EFAC",
+    "--warning": "#FBBF24",
+    "--warning-bg": "#451A03",
+    "--error": "#F87171",
+    "--error-bg": "#450A0A",
+    "--error-soft": "#FCA5A5",
+}
+_DARK_THEMES = frozenset({"bold", "terminal"})
+
+
+def _semantic_colors(theme_id: str) -> dict[str, str]:
+    """按主题明暗返回语义色变量表（浅色主题深色语义，深色主题反转为亮色）。"""
+    return dict(_SEMANTIC_DARK if theme_id in _DARK_THEMES else _SEMANTIC_LIGHT)
+
+
+# 模块标准变量：各主题变量命名不统一（--text vs --text-main、--bg-soft vs --bg-surface 等），
+# 模块样式统一引用以下标准变量。按别名映射取主题值，缺失用默认值。
+_MODULE_STANDARD_ALIASES: dict[str, tuple[str, ...]] = {
+    "--primary": ("--primary", "--color-primary", "--text", "#2563eb"),
+    "--primary-light": ("--primary-light", "--color-accent-light", "#eff6ff"),
+    "--accent": ("--accent", "--color-accent", "--text-light", "#0ea5e9"),
+    "--text-main": ("--text-main", "--text", "#111827"),
+    "--text-muted": ("--text-muted", "--text-secondary", "#4b5563"),
+    "--text-light": ("--text-light", "#9ca3af"),
+    "--bg-page": ("--bg-page", "#ffffff"),
+    "--bg-surface": ("--bg-surface", "--bg-soft", "#f9fafb"),
+    "--bg-dark": ("--bg-dark", "#1f2937"),
+    "--border": ("--border", "#e5e7eb"),
+}
+
+
+def _module_standard_vars(variables: dict[str, str]) -> dict[str, str]:
+    """从主题变量映射出模块标准变量（缺失项用默认值补齐）。"""
+    out: dict[str, str] = {}
+    for key, aliases in _MODULE_STANDARD_ALIASES.items():
+        value = aliases[-1]  # 默认值（# 开头）
+        for alias in aliases:
+            if alias in variables:
+                value = variables[alias]
+                break
+        out[key] = value
+    return out
+
+
+_MODULES_CSS: str | None = None
+
+
+def _modules_css() -> str:
+    """10 个布局模块样式（追加在所有主题 CSS 之后，主题变量由 :root 注入）。"""
+    global _MODULES_CSS
+    if _MODULES_CSS is None:
+        path = Path(__file__).resolve().parent / "pdf_themes" / "modules.css"
+        _MODULES_CSS = path.read_text(encoding="utf-8")
+    return _MODULES_CSS
+
+
 def load_theme_css(
     theme_id: str = "universal",
     overrides: dict[str, str] | None = None,
     paper_size: str = "A4",
 ) -> str:
-    return get_theme_manager().load_css(theme_id, overrides, paper_size)
+    css = get_theme_manager().load_css(theme_id, overrides, paper_size)
+    if "travel" not in theme_id:
+        css += _modules_css()
+    return css
 
 
 def list_available_themes() -> list[dict[str, str]]:
@@ -1325,12 +1394,206 @@ def _watermark_from_title(title: str) -> str:
     return text[:4] or "旅行"
 
 
+_COVER_STYLES: tuple[str, ...] = (
+    "left-aligned",
+    "centered",
+    "split",
+    "minimal",
+    "hero-graphic",
+    "terminal",
+)
+
+
+def _esc_cover(value: Any) -> str:
+    return html_lib.escape(str(value or ""))
+
+
+def _build_style_cover(
+    style: str,
+    title: str,
+    subtitle: str,
+    data: dict[str, Any],
+) -> str:
+    """按 cover.style 渲染通用文档封面（非旅行/简历）。"""
+    esc = _esc_cover
+    # title/subtitle 由调用方（weasyprint.py）预先转义，此处不重复转义；
+    # cover_data 内字段（badge/meta/highlight 等）由本函数转义。
+    title_s = title
+    subtitle_s = subtitle
+    badge = esc(data.get("badge") or "PDF")
+
+    if style == "left-aligned":
+        meta = data.get("meta") or data.get("cover_meta") or {}
+        meta_items = ""
+        if isinstance(meta, dict):
+            meta_items = "".join(
+                f'<div class="meta-item"><span class="meta-label">{esc(k)}</span>'
+                f'<span class="meta-value">{esc(v)}</span></div>'
+                for k, v in meta.items()
+            )
+        footer = esc(data.get("footer") or "")
+        footer_html = f'<div class="bottom-mark">{footer}</div>' if footer else ""
+        return (
+            '<div class="cover-left">'
+            '<div class="accent-bar"></div>'
+            f'<span class="badge">{badge}</span>'
+            f"<h1>{title_s}</h1>"
+            f'<p class="subtitle">{subtitle_s}</p>'
+            f"{f'<div class=\"meta\">{meta_items}</div>' if meta_items else ''}"
+            f"{footer_html}</div>"
+        )
+
+    if style == "centered":
+        issue = esc(data.get("issue_no") or "")
+        author = esc(data.get("author") or "AI Divine")
+        avatar = esc(data.get("avatar") or (author[:1] or "A"))
+        date = esc(data.get("date") or "")
+        return (
+            '<div class="cover-centered">'
+            f"{f'<div class=\"issue-no\">{issue}</div>' if issue else ''}"
+            f"<h1>{title_s}</h1>"
+            '<div class="divider-line"></div>'
+            f'<p class="subtitle">{subtitle_s}</p>'
+            f'<div class="author-block"><div class="author-avatar">{avatar}</div>'
+            f'<span class="author-name">{author}</span></div>'
+            f"{f'<div class=\"date\">{date}</div>' if date else ''}"
+            "</div>"
+        )
+
+    if style == "split":
+        meta = data.get("meta") or {}
+        meta_rows = ""
+        if isinstance(meta, dict):
+            meta_rows = "".join(
+                f'<div class="meta-row"><span class="lbl">{esc(k)}</span>'
+                f'<span class="val">{esc(v)}</span></div>'
+                for k, v in meta.items()
+            )
+        hl = data.get("highlight") or {}
+        stat_rows = ""
+        stats = hl.get("stats") if isinstance(hl, dict) else None
+        if isinstance(stats, list):
+            stat_rows = "".join(
+                f'<div class="stat-mini"><span class="lbl">{esc(s.get("label", ""))}</span>'
+                f'<span class="val">{esc(s.get("value", ""))}</span></div>'
+                for s in stats
+                if isinstance(s, dict)
+            )
+        right = ""
+        if isinstance(hl, dict) and hl.get("value"):
+            right = (
+                '<div class="right-panel">'
+                f'<div class="highlight-num">{esc(hl.get("value"))}</div>'
+                f'<div class="highlight-label">{esc(hl.get("label") or "")}</div>'
+                f"{stat_rows}</div>"
+            )
+        else:
+            # 无 highlight 数据：右侧主色面板兜底展示 徽标/作者/日期，避免空白
+            fallback_stats = []
+            for lbl, key in (("文档", "badge"), ("作者", "author"), ("日期", "date")):
+                value = data.get(key)
+                if value:
+                    fallback_stats.append((lbl, str(value)))
+            if fallback_stats:
+                stat_minis = "".join(
+                    f'<div class="stat-mini"><span class="lbl">{esc(lbl)}</span>'
+                    f'<span class="val">{esc(val)}</span></div>'
+                    for lbl, val in fallback_stats
+                )
+                right = (
+                    '<div class="right-panel">'
+                    f'<div class="highlight-num">{badge}</div>'
+                    f'<div class="highlight-label">{esc(data.get("author") or "")}</div>'
+                    f"{stat_minis}</div>"
+                )
+        return (
+            '<div class="cover-split"><div class="left-panel">'
+            f'<span class="badge">{badge}</span>'
+            f"<h1>{title_s}</h1>"
+            f'<p class="subtitle">{subtitle_s}</p>'
+            f"{f'<div class=\"meta-stack\">{meta_rows}</div>' if meta_rows else ''}"
+            f"</div>{right}</div>"
+        )
+
+    if style == "minimal":
+        doc_type = esc(data.get("doc_type") or "")
+        info = data.get("info") or {}
+        info_items = ""
+        if isinstance(info, dict):
+            info_items = "".join(
+                f'<div class="info-item"><span class="info-label">{esc(k)}</span>'
+                f'<span class="info-value">{esc(v)}</span></div>'
+                for k, v in info.items()
+            )
+        return (
+            '<div class="cover-minimal">'
+            f"{f'<div class=\"doc-type\">{doc_type}</div>' if doc_type else ''}"
+            f"<h1>{title_s}</h1>"
+            f'<p class="subtitle">{subtitle_s}</p>'
+            f"{f'<div class=\"info-row\">{info_items}</div>' if info_items else ''}"
+            "</div>"
+        )
+
+    if style == "hero-graphic":
+        cta = esc(data.get("cta_text") or "")
+        dots = "".join("<span></span>" for _ in range(36))
+        return (
+            '<div class="cover-hero">'
+            '<div class="deco-circle"></div><div class="deco-circle-2"></div>'
+            f'<div class="deco-dots">{dots}</div>'
+            f'<span class="badge">{esc(data.get("badge") or "LAUNCH")}</span>'
+            f"<h1>{title_s}</h1>"
+            f'<p class="subtitle">{subtitle_s}</p>'
+            f"{f'<div class=\"hero-cta\"><span class=\"cta-text\">{cta}</span></div>' if cta else ''}"
+            '<div class="scroll-hint"><span>SCROLL</span><div class="scroll-line"></div></div>'
+            "</div>"
+        )
+
+    # terminal
+    tt = esc(data.get("terminal_title") or "~/projects/docs — zsh")
+    prompt = esc(data.get("prompt") or "cat ./README.md")
+    outputs = data.get("output_lines") or []
+    output_html = ""
+    if isinstance(outputs, list):
+        output_html = "".join(
+            f'<span class="{esc(o.get("type", "info"))}">{esc(o.get("text", ""))}</span><br>'
+            for o in outputs
+            if isinstance(o, dict)
+        )
+    meta = data.get("meta") or {}
+    meta_items = ""
+    if isinstance(meta, dict):
+        meta_items = "".join(
+            f'<div class="item"><span class="lbl">{esc(k)}</span>'
+            f'<span class="val">{esc(v)}</span></div>'
+            for k, v in meta.items()
+        )
+    return (
+        '<div class="cover-terminal"><div class="terminal-bar">'
+        '<div class="terminal-dot r"></div><div class="terminal-dot y"></div>'
+        '<div class="terminal-dot g"></div>'
+        f'<span class="terminal-title">{tt}</span></div>'
+        '<div class="terminal-body">'
+        f'<div class="prompt-line"><span class="ps1">$</span> {prompt}</div>'
+        f"<h1>{title_s}</h1>"
+        f"{f'<div class=\"output\">{output_html}</div>' if output_html else ''}"
+        f"{f'<div class=\"meta-grid\">{meta_items}</div>' if meta_items else ''}"
+        "</div></div>"
+    )
+
+
 def build_cover_html(
     theme_id: str,
     title: str,
     subtitle: str = "",
     cover_data: dict[str, Any] | None = None,
 ) -> str:
+    # 通用文档封面风格（非旅行/简历）：cover_data.cover_style 指定
+    style = ""
+    if cover_data and theme_id not in ("travel", "travel_mag", "resume"):
+        style = str(cover_data.get("cover_style") or "").strip()
+    if style in _COVER_STYLES:
+        return _build_style_cover(style, title, subtitle, cover_data or {})
     theme = get_theme_manager().get_theme(theme_id)
     template = COVER_TEMPLATES.get(theme_id, COVER_TEMPLATES["universal"])
     data = {
@@ -1646,24 +1909,10 @@ def build_travel_html_document(
         if include_cover
         else ""
     )
-    # 外链图片转 base64 内嵌（失败移除，保留渐变兜底）；
-    # images=False 时不自动补图（photo 区域保持渐变占位）
-    import logging
-    _log = logging.getLogger("divine.pdf")
-    _log.warning(
-        "[placeholder-debug] images=%s day_title=%d placeholder=%d img=%d",
-        images,
-        html_body.count('class="day-title"'),
-        html_body.count("photo-placeholder"),
-        html_body.count("<img"),
-    )
-    html_body = _inline_placeholder_images(html_body, auto_fill=images)
-    _log.warning(
-        "[placeholder-debug] after: placeholder=%d img=%d base64=%d",
-        html_body.count("photo-placeholder"),
-        html_body.count("<img"),
-        html_body.count("data:image"),
-    )
+    # 图片占位/配图仅旅行杂志风（travel_mag）使用：
+    # 经典模板（travel）没有 photo-placeholder 样式，插入会显示原始文本。
+    if theme == "travel_mag":
+        html_body = _inline_placeholder_images(html_body, auto_fill=images)
     return (
         "<!doctype html><html><head><meta charset=\"utf-8\">"
         f"<style>{css}</style></head><body>"

@@ -14,6 +14,10 @@ from ..registry import register_tool
     "prompt 传用户需求；kind 可选 report/travel/roadmap/book/slide；"
     "style 支持 modern/academic/corporate/minimal/playful，"
     "color_scheme 支持 blue/green/warm/monochrome/purple；"
+    "未传 theme/style 时，系统会根据 prompt 自动识别场景选择主题"
+    "（周报→minimal、季度汇报→universal、客户提案→modern、PRD→linear、"
+    "行业洞察→academic、学习路线→roadmap 等），用户输入中的风格词"
+    "（商务/极简/科技/学术/Notion/Linear/Apple 等）优先于场景分类；"
     "默认保存到应用输出目录 pdf，用户指定项目内目录时传 path。",
     {
         "type": "object",
@@ -39,7 +43,7 @@ from ..registry import register_tool
             "theme": {
                 "type": "string",
                 "enum": ["universal", "resume", "professional", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "kami", "kami_white", "modern", "academic", "travel", "travel_mag", "roadmap", "notion", "linear", "apple"],
-                "description": "主题 ID，优先于 style；report 默认 modern，travel 默认 travel，roadmap 默认 roadmap；travel_mag 为杂志版旅行手册（衬线标题+渐变大图封面）",
+                "description": "主题 ID，优先于 style；report 默认 modern，travel 默认 travel，roadmap 默认 roadmap；travel_mag 为杂志版旅行手册（衬线标题+渐变大图封面）；不传时系统按 prompt 场景自动选择（周报→minimal、季度汇报→universal、客户提案→modern、PRD→linear、行业洞察→academic）",
             },
             "color_scheme": {
                 "type": "string",
@@ -66,11 +70,11 @@ from ..registry import register_tool
             },
             "cover": {
                 "type": "boolean",
-                "description": "是否生成封面页，默认 false；travel 主题固定生成封面",
+                "description": "是否生成封面页；未传时系统按场景自动决定（季度汇报/客户提案/行业洞察/作品集默认生成，周报/PRD 默认不生成）；travel 主题固定生成封面",
             },
             "toc": {
                 "type": "boolean",
-                "description": "是否生成目录，默认 false",
+                "description": "是否生成目录；未传时系统按场景自动决定（季度汇报/客户提案/行业洞察/PRD 默认生成）；travel 主题固定不生成",
             },
             "images": {
                 "type": "boolean",
@@ -98,7 +102,7 @@ class PdfGenerateAdapter(ToolAdapter):
     timeout = 300
 
     def build_params(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        return {
+        params = {
             "prompt": str(arguments.get("prompt") or "").strip(),
             "kind": str(arguments.get("kind") or "").strip(),
             "style": str(arguments.get("style") or "").strip(),
@@ -106,10 +110,15 @@ class PdfGenerateAdapter(ToolAdapter):
             "color_scheme": str(arguments.get("color_scheme") or "").strip(),
             "theme_colors": arguments.get("theme_colors") or {},
             "paper_size": str(arguments.get("paper_size") or "A4").strip(),
-            "cover": bool(arguments.get("cover")),
-            "toc": bool(arguments.get("toc")),
             "file_name": str(arguments.get("file_name") or "").strip(),
             "resume_data": arguments.get("resume_data") or {},
             "path": str(arguments.get("path") or "").strip(),
             "markdown": str(arguments.get("markdown") or "").strip(),
         }
+        # cover/toc 仅在显式传入时透传（False 表示用户明确不要）；
+        # 未传时由引擎设计层按场景自动决定（如季度汇报默认封面+目录）。
+        if "cover" in arguments:
+            params["cover"] = bool(arguments.get("cover"))
+        if "toc" in arguments:
+            params["toc"] = bool(arguments.get("toc"))
+        return params

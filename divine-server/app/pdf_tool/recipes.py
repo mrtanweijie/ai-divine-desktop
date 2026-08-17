@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import html as html_lib
 
-from .base import PDFIntent, PDFRecipe
+from .base import MODULE_GUIDE, PDFIntent, PDFRecipe
 from .travel_html import closing_pages_html
 
 
@@ -22,6 +22,7 @@ class ReportRecipe(PDFRecipe):
             "要求：包含摘要、背景、分析、结论；关键数据用表格或要点；"
             "不要自动生成复杂 SVG 插图，仅允许简单图标。\n"
             f"报告主题：{intent.topic}"
+            + MODULE_GUIDE
         )
 
 
@@ -298,6 +299,7 @@ class RoadmapRecipe(PDFRecipe):
             "要求：每个阶段一节；节点用卡片格式；资源用列表；"
             "不要自动生成复杂 SVG 插图，仅允许简单图标。\n"
             f"学习主题：{intent.topic}"
+            + MODULE_GUIDE
         )
 
 
@@ -316,6 +318,7 @@ class BookRecipe(PDFRecipe):
             "你是书籍/手册作者。根据章节结构撰写可读性强、结构完整的 Markdown 内容。\n"
             "要求：每章一节；包含引言、正文、小结；不要自动生成复杂 SVG 插图，仅允许简单图标。\n"
             f"主题：{intent.topic}"
+            + MODULE_GUIDE
         )
 
 
@@ -342,6 +345,7 @@ class SlideRecipe(PDFRecipe):
             "要求：每个小节一节；每节先给结论再展开；控制信息密度；"
             "不要自动生成复杂 SVG 插图，仅允许简单图标。\n"
             f"课程主题：{intent.topic}"
+            + MODULE_GUIDE
         )
 
 

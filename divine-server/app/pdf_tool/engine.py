@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -9,17 +11,72 @@ from ..llm import DeepSeekLLM, MockLLM
 from ..pdf_renderer import render_html_to_pdf, render_markdown_to_pdf
 from .base import PDFIntent
 from .content import generate_content
-from .intent import parse_intent
+from .design_enforcer import enforce_design
+from .design_rules import resolve_design
+from .intent import _clean_title, parse_intent
 from .recipes import detect_recipe, get_recipe
 from .travel_html import looks_like_travel_html, travel_prompt_to_html
 
 
 def _title_from_markdown(content: str) -> str:
+    """提取一级标题（# 标题）；## 章节名不会被误认为文档标题。"""
     for line in content.splitlines():
         stripped = line.strip()
-        if stripped.startswith("#"):
+        if re.match(r"^#\s", stripped):
             return re.sub(r"^#+\s*", "", stripped).strip()
     return ""
+
+
+_COVER_META_RE = re.compile(
+    r"<!--\s*cover-meta:\s*(\{.*?\})\s*-->", re.DOTALL | re.IGNORECASE
+)
+
+
+def _extract_cover_meta(markdown: str) -> dict[str, Any] | None:
+    """从正文解析 Agent 输出的封面元数据注释（<!-- cover-meta: {...} -->）。"""
+    match = _COVER_META_RE.search(markdown or "")
+    if not match:
+        return None
+    try:
+        data = json.loads(match.group(1))
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _this_week_range() -> str:
+    """本周日期范围（周一 – 周日），供周报类封面默认周期。"""
+    today = datetime.now()
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
+    return f"{monday.strftime('%m.%d')} – {sunday.strftime('%m.%d')}"
+
+
+def _hero_stat_from_markdown(markdown: str) -> dict[str, Any] | None:
+    """提取正文中第一个 hero-stat 表格，供 split 封面右侧面板使用。"""
+    match = re.search(
+        r"(?m)((?:\|[^\n]*\|\s*\n){1,})\s*\{\:\s*\.hero-stat\s*\}", markdown
+    )
+    if not match:
+        return None
+    from ..pdf_renderer.markdown import _parse_table_rows
+
+    rows = _parse_table_rows(match.group(1))
+    if not rows:
+        return None
+    stats = [
+        {
+            "label": str(row[0]).strip(),
+            "value": str(row[1]).strip() if len(row) > 1 else "",
+        }
+        for row in rows[:4]
+    ]
+    first = stats[0]
+    return {
+        "value": first.get("value") or first.get("label", ""),
+        "label": first.get("label", ""),
+        "stats": stats[1:],
+    }
 
 
 def _summary_from_markdown(content: str) -> str:
@@ -34,7 +91,7 @@ def _summary_from_markdown(content: str) -> str:
         if (
             seen_title
             and len(stripped) > 12
-            and not stripped.startswith(("|", "-", "*", ">"))
+            and not stripped.startswith(("|", "-", "*", ">", "{:"))
         ):
             return re.sub(r"[*_`]", "", stripped)[:150]
     return ""
@@ -136,8 +193,8 @@ class PDFTool:
         theme: str | None = None,
         color_scheme: str | None = None,
         paper_size: str = "A4",
-        cover: bool = False,
-        toc: bool = False,
+        cover: bool | None = None,
+        toc: bool | None = None,
         images: bool = False,
         base_dir: Path | None = None,
         llm: Any | None = None,
@@ -182,6 +239,9 @@ class PDFTool:
             content_title = _title_from_markdown(markdown)
             if content_title:
                 intent.title = content_title
+            else:
+                # 无一级标题时用清洗后的用户需求作标题，避免封面显示章节名
+                intent.title = _clean_title(prompt) or intent.title
             summary = _summary_from_markdown(markdown)
             if summary:
                 intent.meta["summary"] = summary
@@ -220,9 +280,71 @@ class PDFTool:
         ):
             markdown = travel_prompt_to_html(prompt) or markdown
 
+        # 设计决策层：显式参数 > prompt 风格词 > 场景分类 > 配方默认。
+        # 旅行（travel）走独立主题体系，resolve_design 内直接透传，不影响其流程。
+        design = resolve_design(
+            prompt,
+            recipe_name=recipe_name,
+            theme=theme,
+            style=style,
+            color_scheme=color_scheme,
+            cover=cover,
+            toc=toc,
+            recipe_theme=recipe.css_template,
+            recipe_color=recipe.color_scheme,
+        )
+        design = enforce_design(design, recipe)
         final_style = style or recipe.css_template
-        final_theme = theme or recipe.css_template
-        final_color = color_scheme or recipe.color_scheme
+        final_theme = design.theme
+        final_color = design.color_scheme
+        cover = design.cover
+        toc = design.toc
+        # 封面风格注入：场景 → cover_style + 封面辅助数据（badge/作者/日期/特色字段）
+        if cover and intent.meta is not None:
+            # 无场景时默认通用左对齐封面
+            cover_style = design.cover_style or "left-aligned"
+            intent.meta["cover_style"] = cover_style
+            # Agent 输出的封面元数据（<!-- cover-meta: {...} -->）优先
+            cover_meta = _extract_cover_meta(markdown)
+            if cover_meta:
+                for key, value in cover_meta.items():
+                    if value is not None and value != "":
+                        intent.meta.setdefault(key, value)
+            intent.meta.setdefault("badge", design.scene_label or "PDF")
+            intent.meta.setdefault("author", "AI Divine")
+            intent.meta.setdefault("date", datetime.now().strftime("%Y-%m-%d"))
+            week_range = _this_week_range()
+            # 各封面风格的特色字段默认值（Agent/用户显式提供时优先）
+            if cover_style == "minimal":
+                intent.meta.setdefault(
+                    "doc_type",
+                    f"{design.scene_label or 'DOC'} · {week_range}",
+                )
+                intent.meta.setdefault(
+                    "info", {"周期": week_range, "来源": "AI Divine"}
+                )
+            elif cover_style == "split":
+                intent.meta.setdefault(
+                    "meta",
+                    {
+                        "汇报对象": "管理层",
+                        "周期": intent.meta["date"],
+                        "来源": "AI Divine",
+                    },
+                )
+                if not intent.meta.get("highlight") and markdown:
+                    highlight = _hero_stat_from_markdown(markdown)
+                    if highlight:
+                        intent.meta["highlight"] = highlight
+            elif cover_style == "centered":
+                intent.meta.setdefault("issue_no", intent.meta["date"])
+            elif cover_style == "left-aligned":
+                intent.meta.setdefault(
+                    "meta",
+                    {"作者": intent.meta["author"], "日期": intent.meta["date"]},
+                )
+            elif cover_style == "hero-graphic":
+                intent.meta.setdefault("cta_text", "→ 详见正文")
         if recipe_name == "travel" or final_theme in ("travel", "travel_mag"):
             cover = True
             toc = False
@@ -262,6 +384,7 @@ class PDFTool:
             "recipe": recipe.name,
             "display_name": recipe.display_name,
             "theme": final_theme,
+            "design": design.as_dict(),
             "intent": {
                 "title": intent.title,
                 "topic": intent.topic,

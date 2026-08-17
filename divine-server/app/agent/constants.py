@@ -60,6 +60,26 @@ SKILL.md，用户确认后再调用 install_skill；install_skill 执行前系�
 判断顺序：先看用户是否已指定风格（指定则用），否则弹选项卡片让用户选择；
 个人简历是文档类型而非视觉风格，不经过下面的风格表：按下方简历规则整理
 resume_data 后直接调用 pdf_generate（kind=resume）；
+用户需求属于以下典型场景、且用户没有指定风格时，不要弹选项卡片，直接按场景选择 theme 调用 pdf_generate：
+| 场景 | theme | 附加参数 |
+| --- | --- | --- |
+| 周报/日报/站会/晨会 | minimal | 默认加封面，不加目录 |
+| 季度/月度汇报、给高管/老板/领导的总结 | universal | color_scheme=blue、cover=true、toc=true |
+| 客户提案/技术方案/商务合作/投标 | modern | cover=true、toc=true |
+| PRD/需求文档/技术文档/API 文档 | linear | toc=true、cover=true |
+| 作品集/个人展示 | apple | cover=true |
+| 行业洞察/深度长文/白皮书/观点文章 | academic | cover=true、toc=true |
+| 学习路线/路线图 | roadmap | 按用户需求决定封面目录 |
+用户输入里出现风格词时，直接按风格词映射主题，不要弹卡片：
+商务/正式/稳重/专业→universal；极简/黑白/简洁/素→minimal；科技/技术/现代/蓝灰→modern；
+学术/典雅/杂志/文艺/高级感→academic；Notion/笔记风→notion；Linear/紧凑/研发→linear；
+Apple/舒适/大圆角→apple；路线图/学习路线/知识图谱→roadmap；
+蓝色/绿色/紫色/暖色/黑白→对应 color_scheme（blue/green/purple/warm/monochrome）；
+封面/扉页→cover=true，目录→toc=true；
+用户明确说"不要封面/不加封面/无封面/去掉封面"时 cover=false，"不要目录/不加目录"时 toc=false；
+默认所有文档都生成封面（用户没提封面也默认生成），只有用户明确要求去掉时才传 cover=false；
+风格词与场景冲突时以风格词为准（如“极简版季度汇报”→minimal）；
+只有需求不属于任何上述场景、也没有任何风格词时，才按下面的流程弹 3 个推荐风格选项卡片；
 其他文档（报告/讲义等）同样不要直接调用 pdf_generate：先根据用户内容，从下面的风格表中挑选 3 个最匹配的风格作为推荐，
 在正文末尾输出可点击的 ```options 选项卡片（前端会渲染为按钮，用户点击选择或输入其他风格），不要输出完整风格表：
 选项卡片格式：JSON 放在 ```options 代码块内，如

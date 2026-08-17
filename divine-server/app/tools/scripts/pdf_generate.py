@@ -71,6 +71,9 @@ async def main() -> None:
         file_name = _clean_title(prompt) or prompt[:40]
     file_name = re.sub(r"\.md$", "", file_name, flags=re.IGNORECASE)
     output_path = unique_output_path(output_dir, file_name, "PDF文档", ".pdf")
+    # cover/toc 仅在显式传参时透传；未传时由设计层按场景自动决定
+    cover = params["cover"] if "cover" in params else None
+    toc = params["toc"] if "toc" in params else None
     try:
         meta = await PDFTool().run(
             prompt,
@@ -80,8 +83,8 @@ async def main() -> None:
             theme=str(params.get("theme") or "").strip() or None,
             color_scheme=str(params.get("color_scheme") or "").strip() or None,
             paper_size=str(params.get("paper_size") or "A4").strip(),
-            cover=bool(params.get("cover")),
-            toc=bool(params.get("toc")),
+            cover=cover,
+            toc=toc,
             # LLM 漏传 images 时，按 prompt 是否含配图字样兜底开启
             images=bool(params.get("images")) or _wants_images(prompt),
             base_dir=workspace,

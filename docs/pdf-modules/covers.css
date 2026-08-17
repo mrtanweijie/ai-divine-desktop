@@ -1,0 +1,432 @@
+
+/* ===========================
+   封面页全屏 + 文字颜色继承
+   =========================== */
+@page cover-page { margin: 0; }
+.cover-left, .cover-centered, .cover-split, .cover-minimal,
+.cover-hero, .cover-terminal {
+  page: cover-page;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+}
+/* 封面内文字颜色继承容器（避免主题 h1/p 颜色干扰深色底封面）；
+   各子元素的 class 颜色（badge/meta 等）特异性更高，不受影响 */
+.cover-left h1, .cover-left p, .cover-left span,
+.cover-centered h1, .cover-centered p, .cover-centered span,
+.cover-split h1, .cover-split p, .cover-split span,
+.cover-minimal h1, .cover-minimal p, .cover-minimal span,
+.cover-hero h1, .cover-hero p, .cover-hero span,
+.cover-terminal h1, .cover-terminal p, .cover-terminal span {
+  color: inherit;
+}
+/* 标题强制单行：规避 WeasyPrint 负 letter-spacing 在空格处错误断行；
+   超长标题仍受 max-width 约束（罕见情况溢出由页面裁剪） */
+.cover-left h1, .cover-centered h1, .cover-split h1,
+.cover-minimal h1, .cover-hero h1, .cover-terminal h1 {
+  white-space: nowrap;
+}
+/* 封面标题对齐：覆盖主题 h1 的 text-align（如 minimal 主题 h1 居中）；
+   centered 封面保持居中，其余左对齐（与模板一致） */
+.cover-left h1, .cover-split h1, .cover-minimal h1,
+.cover-hero h1, .cover-terminal h1 {
+  text-align: left;
+}
+.cover-centered h1 {
+  text-align: center;
+}
+
+/* 圆形头像禁止 flex 收缩，避免被压成椭圆 */
+.cover-centered .author-avatar {
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   PDF 封面模板库 — 6 种风格
+   ----------------------------------------------------------------------------
+   全部使用语义 CSS 变量（--primary/--bg-page/--text-main/...），主题无关。
+   风格：left-aligned / centered / split / minimal / hero-graphic / terminal
+   用法：追加进 PDF 主题 CSS（与 modules.css 相同挂载方式）。
+   每个封面类自带 height:100vh + page-break-after:always（占满一页后分页）。
+   ========================================================================== */
+
+/* ===========================
+   Cover 1: Left-Aligned Classic
+   左对齐经典 — 技术报告/商务文档
+   =========================== */
+.cover-left {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 72px;
+  background: var(--bg-page);
+  position: relative; /* bottom-mark 定位基准 */
+}
+.cover-left .accent-bar {
+  width: 48px; height: 4px;
+  background: var(--primary);
+  border-radius: 2px;
+  margin-bottom: 32px;
+}
+.cover-left .badge {
+  display: inline-block;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 11px; font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 100px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.cover-left h1 {
+  font-size: 42px; font-weight: 700;
+  line-height: 1.15; letter-spacing: -.02em;
+  color: var(--text-main);
+  margin-bottom: 16px;
+  max-width: 560px;
+}
+.cover-left .subtitle {
+  font-size: 18px; color: var(--text-muted);
+  line-height: 1.5; max-width: 520px;
+  margin-bottom: 48px;
+}
+.cover-left .meta {
+  display: flex; gap: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  max-width: 520px;
+}
+.cover-left .meta-item {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.cover-left .meta-label {
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--text-light);
+  font-weight: 600;
+}
+.cover-left .meta-value {
+  font-size: 13px; color: var(--text-main); font-weight: 500;
+}
+.cover-left .bottom-mark {
+  position: absolute; bottom: 40px; left: 72px;
+  font-size: 11px; color: var(--text-light);
+}
+
+/* ===========================
+   Cover 2: Centered Editorial
+   居中杂志 — 深度长文/行业洞察
+   =========================== */
+.cover-centered {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 80px 72px;
+  background: var(--bg-page);
+}
+.cover-centered .issue-no {
+  font-size: 11px; text-transform: uppercase;
+  letter-spacing: .2em; color: var(--primary);
+  font-weight: 600; margin-bottom: 40px;
+}
+.cover-centered h1 {
+  font-size: 48px; font-weight: 700;
+  line-height: 1.1; letter-spacing: -.025em;
+  color: var(--text-main);
+  margin-bottom: 20px;
+  max-width: 580px;
+}
+.cover-centered .divider-line {
+  width: 60px; height: 2px;
+  background: var(--primary);
+  margin: 0 auto 20px;
+}
+.cover-centered .subtitle {
+  font-size: 17px; color: var(--text-muted);
+  line-height: 1.6; max-width: 500px;
+  margin-bottom: 48px;
+}
+.cover-centered .author-block {
+  display: flex; align-items: center; gap: 12px;
+}
+.cover-centered .author-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+}
+.cover-centered .author-name {
+  font-size: 13px; color: var(--text-muted); font-weight: 500;
+}
+.cover-centered .date {
+  font-size: 12px; color: var(--text-light);
+  margin-top: 32px;
+}
+
+/* ===========================
+   Cover 3: Split Panel
+   左右分屏 — 提案/季度汇报
+   =========================== */
+.cover-split {
+  box-sizing: border-box;
+  display: flex;
+}
+.cover-split .left-panel {
+  flex: 1;
+  display: flex; flex-direction: column;
+  justify-content: center;
+  padding: 72px;
+  background: var(--bg-page);
+}
+.cover-split .right-panel {
+  width: 38%;
+  display: flex; flex-direction: column;
+  justify-content: center;
+  padding: 48px;
+  background: var(--primary);
+  color: #fff;
+}
+.cover-split .badge {
+  display: inline-block;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 10px; font-weight: 600;
+  padding: 4px 12px; border-radius: 100px;
+  text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: 20px;
+}
+.cover-split h1 {
+  font-size: 38px; font-weight: 700;
+  line-height: 1.15; letter-spacing: -.02em;
+  color: var(--text-main);
+  margin-bottom: 14px;
+}
+.cover-split .subtitle {
+  font-size: 16px; color: var(--text-muted);
+  line-height: 1.5; margin-bottom: 32px;
+}
+.cover-split .meta-stack {
+  display: flex; flex-direction: column; gap: 16px;
+}
+.cover-split .meta-row {
+  display: flex; justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.cover-split .meta-row .lbl { color: var(--text-light); text-transform: uppercase; letter-spacing: .05em; }
+.cover-split .meta-row .val { color: var(--text-main); font-weight: 500; }
+.cover-split .right-panel .highlight-num {
+  font-size: 56px; font-weight: 700;
+  line-height: 1; margin-bottom: 8px;
+}
+.cover-split .right-panel .highlight-label {
+  font-size: 13px; opacity: .8;
+  margin-bottom: 32px;
+}
+.cover-split .right-panel .stat-mini {
+  display: flex; justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,.2);
+  font-size: 13px;
+}
+.cover-split .right-panel .stat-mini:last-child { border-bottom: none; }
+.cover-split .right-panel .stat-mini .lbl { opacity: .7; }
+.cover-split .right-panel .stat-mini .val { font-weight: 600; }
+
+/* ===========================
+   Cover 4: Minimal Text-Only
+   极简文字 — 周报/内部备忘
+   =========================== */
+.cover-minimal {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 100px 80px;
+  background: var(--bg-page);
+}
+.cover-minimal .doc-type {
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: .15em; color: var(--text-light);
+  font-weight: 600; margin-bottom: 60px;
+}
+.cover-minimal h1 {
+  font-size: 52px; font-weight: 700;
+  line-height: 1.1; letter-spacing: -.03em;
+  color: var(--text-main);
+  margin-bottom: 24px;
+}
+.cover-minimal .subtitle {
+  font-size: 16px; color: var(--text-muted);
+  line-height: 1.5; margin-bottom: 80px;
+  max-width: 480px;
+}
+.cover-minimal .info-row {
+  display: flex; gap: 48px;
+}
+.cover-minimal .info-item {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.cover-minimal .info-label {
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--text-light);
+  font-weight: 600;
+}
+.cover-minimal .info-value {
+  font-size: 14px; color: var(--text-main); font-weight: 500;
+}
+
+/* ===========================
+   Cover 5: Hero Graphic
+   大色块 + 装饰图形 — 营销/活动/Launch
+   =========================== */
+.cover-hero {
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 72px;
+}
+.cover-hero .deco-circle {
+  position: absolute; top: -80px; right: -60px;
+  width: 320px; height: 320px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.12);
+}
+.cover-hero .deco-circle-2 {
+  position: absolute; bottom: -120px; left: -80px;
+  width: 260px; height: 260px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.08);
+}
+.cover-hero .deco-dots {
+  position: absolute; top: 60px; right: 80px;
+  display: grid; grid-template-columns: repeat(6, 8px); gap: 8px;
+  opacity: .2;
+}
+.cover-hero .deco-dots span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255,255,255,.6);
+}
+.cover-hero .badge {
+  display: inline-block;
+  background: rgba(255,255,255,.15);
+  color: #fff;
+  font-size: 11px; font-weight: 600;
+  padding: 5px 16px; border-radius: 100px;
+  letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 24px;
+  border: 1px solid rgba(255,255,255,.2);
+  align-self: flex-start;
+}
+.cover-hero h1 {
+  font-size: 46px; font-weight: 700;
+  line-height: 1.12; letter-spacing: -.02em;
+  margin-bottom: 16px;
+  max-width: 560px;
+  position: relative; z-index: 1;
+}
+.cover-hero .subtitle {
+  font-size: 18px; opacity: .85;
+  line-height: 1.5; max-width: 500px;
+  margin-bottom: 48px;
+  position: relative; z-index: 1;
+}
+.cover-hero .hero-cta {
+  display: flex; gap: 16px; align-items: center;
+  position: relative; z-index: 1;
+}
+.cover-hero .cta-text {
+  font-size: 13px; opacity: .7;
+}
+.cover-hero .scroll-hint {
+  position: absolute; bottom: 32px; left: 72px;
+  font-size: 11px; opacity: .5;
+  display: flex; align-items: center; gap: 8px;
+}
+.cover-hero .scroll-line {
+  width: 40px; height: 1px; background: rgba(255,255,255,.4);
+}
+
+/* ===========================
+   Cover 6: Terminal Typewriter
+   终端风格 — 技术文档/CLI 工具/开源
+   =========================== */
+.cover-terminal {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-page);
+  padding: 0;
+  font-family: var(--font-mono, 'JetBrains Mono', 'Courier New', monospace);
+}
+.cover-terminal .terminal-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 20px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+}
+.cover-terminal .terminal-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+}
+.cover-terminal .terminal-dot.r { background: #FF5F56; }
+.cover-terminal .terminal-dot.y { background: #FFBD2E; }
+.cover-terminal .terminal-dot.g { background: #27C93F; }
+.cover-terminal .terminal-title {
+  margin-left: 12px;
+  font-size: 12px; color: var(--text-light);
+}
+.cover-terminal .terminal-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px 64px;
+}
+.cover-terminal .prompt-line {
+  font-size: 14px; color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.cover-terminal .prompt-line .ps1 { color: var(--primary); font-weight: 700; }
+.cover-terminal .prompt-line .ps2 { color: var(--accent); }
+.cover-terminal h1 {
+  font-family: inherit;
+  font-size: 36px; font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-main);
+  margin: 12px 0 20px;
+  white-space: pre-wrap;
+}
+.cover-terminal h1 .cursor {
+  display: inline-block;
+  width: 10px; height: 1em;
+  background: var(--primary);
+  vertical-align: middle;
+}
+.cover-terminal .output {
+  font-size: 13px; color: var(--text-muted);
+  line-height: 1.8;
+  margin-bottom: 32px;
+}
+.cover-terminal .output .ok { color: #22C55E; }
+.cover-terminal .output .info { color: var(--accent); }
+.cover-terminal .meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 32px;
+  max-width: 420px;
+}
+.cover-terminal .meta-grid .item {
+  display: flex; justify-content: space-between;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--border);
+  font-size: 12px;
+}
+.cover-terminal .meta-grid .lbl { color: var(--text-light); }
+.cover-terminal .meta-grid .val { color: var(--text-main); font-weight: 500; }

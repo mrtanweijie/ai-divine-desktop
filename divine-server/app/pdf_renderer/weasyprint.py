@@ -6,10 +6,11 @@ import contextlib
 import html as html_lib
 import importlib.util
 import io
+import re
 from pathlib import Path
 from typing import Any
 
-from .markdown import _build_toc, _prepare_markdown
+from .markdown import _add_heading_ids, _build_toc, _prepare_markdown
 
 _WEASYPRINT_OK: bool | None = None
 
@@ -55,19 +56,37 @@ def _render_with_weasyprint(
     css += (
         "\nimg { max-width: 100%; height: auto; }\n"
         "figure, .illustration { text-align: center; }\n"
+        # .header 必须为 running，否则普通 div 占流会把封面挤到第 2 页产生空白页
+        ".header { position: running(header); }\n"
     )
     prepared = _prepare_markdown(markdown)
     body = markdown_lib.markdown(
         prepared,
         extensions=["extra", "tables", "fenced_code", "sane_lists"],
     )
+    # 给 h2/h3 注入 id，供目录 target-counter 页码与锚点跳转使用
+    body = _add_heading_ids(body)
     cover_html = ""
     if cover:
+        # 有封面时正文不再重复渲染一级标题（封面已展示文档标题）
+        body = re.sub(
+            r"<h1[^>]*>.*?</h1>", "", body, count=1, flags=re.DOTALL
+        )
+        # 副标题优先取文档摘要（summary），否则兜底文案
+        subtitle = "AI Divine 生成文档"
+        if cover_data and cover_data.get("summary"):
+            subtitle = str(cover_data["summary"])
         cover_html = build_cover_html(
             theme,
             html_lib.escape(title),
-            "AI Divine 生成文档",
+            subtitle,
             cover_data,
+        )
+        # 封面 absolute 定位不占流：占位元素（page: cover-page）决定第 1 页为
+        # 零边距封面页，page-break-after 把正文推到第 2 页（默认页）
+        cover_html += (
+            '<div style="page: cover-page; height: 0; '
+            'page-break-after: always;"></div>'
         )
     toc_html = _build_toc(markdown) if toc else ""
     document = (

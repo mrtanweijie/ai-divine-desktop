@@ -1,0 +1,103 @@
+{
+  "source": "PDF 封面模板预览（6 种风格）",
+  "extracted_at": "2026-08-17",
+  "version": "1.0",
+  "cover_styles": [
+    {
+      "id": "left-aligned",
+      "name": "Left-Aligned Classic · 左对齐经典",
+      "scene": "技术报告、商务文档、提案",
+      "html_root": ".cover-left > .accent-bar + .badge + h1 + .subtitle + .meta(.meta-item) + .bottom-mark",
+      "fields": [
+        {"name": "style", "type": "enum", "values": ["left-aligned"], "desc": "封面风格"},
+        {"name": "title", "type": "string", "desc": "大标题，42px"},
+        {"name": "subtitle", "type": "string", "desc": "副标题，18px"},
+        {"name": "badge", "type": "string", "optional": true, "desc": "胶囊标签，如 Q2 2026 Report"},
+        {"name": "meta", "type": "object", "optional": true, "desc": "键值对，如 {作者, 日期, 版本}，上边框分隔"},
+        {"name": "footer", "type": "string", "optional": true, "desc": "底部角标，如 CONFIDENTIAL"}
+      ]
+    },
+    {
+      "id": "centered",
+      "name": "Centered Editorial · 居中杂志",
+      "scene": "行业洞察、深度长文、白皮书",
+      "html_root": ".cover-centered > .issue-no + h1 + .divider-line + .subtitle + .author-block(.author-avatar+.author-name) + .date",
+      "fields": [
+        {"name": "style", "type": "enum", "values": ["centered"], "desc": "封面风格"},
+        {"name": "title", "type": "string", "desc": "居中大标题，48px"},
+        {"name": "subtitle", "type": "string", "desc": "副标题，17px"},
+        {"name": "issue_no", "type": "string", "optional": true, "desc": "期号，如 Vol. 03 · Issue 08"},
+        {"name": "author", "type": "string", "desc": "作者/机构"},
+        {"name": "avatar", "type": "string", "optional": true, "desc": "头像缩写 1 字"},
+        {"name": "date", "type": "string", "optional": true, "desc": "日期/阅读时长"}
+      ]
+    },
+    {
+      "id": "split",
+      "name": "Split Panel · 左右分屏",
+      "scene": "季度汇报、提案（有核心指标时最佳）",
+      "html_root": ".cover-split > .left-panel(.badge+h1+.subtitle+.meta-stack>.meta-row) + .right-panel(.highlight-num+.highlight-label+.stat-mini)",
+      "fields": [
+        {"name": "style", "type": "enum", "values": ["split"], "desc": "封面风格"},
+        {"name": "title", "type": "string", "desc": "标题，38px"},
+        {"name": "subtitle", "type": "string", "desc": "副标题"},
+        {"name": "badge", "type": "string", "optional": true, "desc": "胶囊标签"},
+        {"name": "meta", "type": "object", "desc": "键值对列表，如 {汇报人, 汇报对象, 周期}"},
+        {"name": "highlight", "type": "object", "optional": true, "desc": "右侧主色面板", "fields": [
+          {"name": "value", "type": "string", "desc": "大数字，56px"},
+          {"name": "label", "type": "string", "desc": "数字说明"},
+          {"name": "stats", "type": "array", "desc": "[{label, value}] 指标小行"}
+        ]}
+      ]
+    },
+    {
+      "id": "minimal",
+      "name": "Minimal Text-Only · 极简文字",
+      "scene": "周报、会议纪要、内部备忘",
+      "html_root": ".cover-minimal > .doc-type + h1 + .subtitle + .info-row(.info-item>.info-label+.info-value)",
+      "fields": [
+        {"name": "style", "type": "enum", "values": ["minimal"], "desc": "封面风格"},
+        {"name": "title", "type": "string", "desc": "超大标题，52px"},
+        {"name": "subtitle", "type": "string", "desc": "副标题"},
+        {"name": "doc_type", "type": "string", "optional": true, "desc": "文档类型，如 Weekly Report · Week 33"},
+        {"name": "info", "type": "object", "optional": true, "desc": "键值对，如 {团队, 周期, 下周重点}"}
+      ]
+    },
+    {
+      "id": "hero-graphic",
+      "name": "Hero Graphic · 大色块装饰",
+      "scene": "营销、活动、产品 Launch",
+      "html_root": ".cover-hero > .deco-circle(.deco-circle-2,.deco-dots) + .badge + h1 + .subtitle + .hero-cta + .scroll-hint",
+      "fields": [
+        {"name": "style", "type": "enum", "values": ["hero-graphic"], "desc": "封面风格"},
+        {"name": "title", "type": "string", "desc": "标题，46px，主色底白字"},
+        {"name": "subtitle", "type": "string", "desc": "副标题"},
+        {"name": "badge", "type": "string", "optional": true, "desc": "半透明玻璃胶囊"},
+        {"name": "cta_text", "type": "string", "optional": true, "desc": "行动文案"},
+        {"name": "decoration", "type": "enum", "values": ["circle", "dots", "grid", "wave"], "optional": true, "desc": "装饰图形"}
+      ]
+    },
+    {
+      "id": "terminal",
+      "name": "Terminal Typewriter · 终端风格",
+      "scene": "技术文档、CLI 工具、开源项目",
+      "html_root": ".cover-terminal > .terminal-bar(.terminal-dot.r/y/g+.terminal-title) + .terminal-body(.prompt-line+h1+.output+.meta-grid)",
+      "fields": [
+        {"name": "style", "type": "enum", "values": ["terminal"], "desc": "封面风格"},
+        {"name": "title", "type": "string", "desc": "标题，等宽字体 36px"},
+        {"name": "terminal_title", "type": "string", "optional": true, "desc": "窗口标题，如 ~/projects/infra-docs — zsh"},
+        {"name": "prompt", "type": "string", "optional": true, "desc": "命令行，如 cat ./README.md"},
+        {"name": "output_lines", "type": "array", "optional": true, "desc": "[{type: ok|info, text}] 输出行"},
+        {"name": "meta", "type": "object", "optional": true, "desc": "键值对，如 {Project, Version, Author}"}
+      ]
+    }
+  ],
+  "scene_mapping": {
+    "weekly": "minimal",
+    "quarterly": "split",
+    "proposal": "left-aligned",
+    "portfolio": "hero-graphic",
+    "prd": "left-aligned",
+    "editorial": "centered"
+  }
+}

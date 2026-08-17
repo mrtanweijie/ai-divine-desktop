@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html data-theme="tech" lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>PDF 布局模块 — 10 个模块 HTML 骨架</title>
+<link rel="stylesheet" href="modules.css">
+<style>
+  /* 预览专用（非模块样式）：分节标题与页面容器 */
+  body { font-family: var(--font-sans); color: var(--text-main); background: var(--bg-page); padding: 40px 32px 80px; max-width: 860px; margin: 0 auto; }
+  .sec-title { font-size: 20px; font-weight: 700; margin: 56px 0 8px; padding-bottom: 8px; border-bottom: 2px solid var(--primary); }
+  .sec-note { font-size: 12px; color: var(--text-light); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<h1 style="font-size:28px; margin-bottom:4px;">PDF 布局模块 · HTML 骨架</h1>
+<p style="color:var(--text-muted); font-size:14px;">10 个布局模块 HTML 骨架，配套 modules.css 使用；每个模块展示主要 emphasis 变体。</p>
+
+<!-- ============ ① Hero Stat ============ -->
+<div class="sec-title">① Hero Stat · 核心指标冲击</div>
+<div class="sec-note">emphasis: high（主色底白字）/ medium（浅底+边框）/ low（透明）</div>
+<div class="module hero-stat" data-emphasis="high">
+  <div class="module-label" style="color:rgba(255,255,255,.7);">Q3 核心成果</div>
+  <div class="stat-grid grid-3">
+    <div class="stat-item">
+      <div class="stat-value">2.4<span class="stat-unit">M</span></div>
+      <div class="stat-label">DAU</div>
+      <div class="stat-trend up">▲ 34%</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">42<span class="stat-unit">%</span></div>
+      <div class="stat-label">留存率</div>
+      <div class="stat-trend up">▲ 8%</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">¥380<span class="stat-unit">K</span></div>
+      <div class="stat-label">成本节省</div>
+      <div class="stat-trend up">▲ 22%</div>
+    </div>
+  </div>
+</div>
+<div class="module hero-stat" data-emphasis="medium">
+  <div class="module-label">Q3 资源需求</div>
+  <div class="stat-grid grid-3">
+    <div class="stat-item"><div class="stat-value">12</div><div class="stat-label">新增节点</div></div>
+    <div class="stat-item"><div class="stat-value">¥520<span class="stat-unit">K</span></div><div class="stat-label">预算</div></div>
+    <div class="stat-item"><div class="stat-value">3<span class="stat-unit">人</span></div><div class="stat-label">新增人力</div></div>
+  </div>
+</div>
+
+<!-- ============ ② Pull Quote ============ -->
+<div class="sec-title">② Pull Quote · 杂志金句</div>
+<div class="sec-note">emphasis: medium（浅底+主色左边框）/ high（主色底白字）/ low（上下细线）</div>
+<div class="module pull-quote" data-emphasis="medium">
+  <div class="module-label">关键洞察</div>
+  <blockquote>
+    <span class="quote-mark opening">"</span>
+    双塔模型让召回效率提升了 2.3 倍，用户平均阅读时长从 1.2 分钟跃升到 2.8 分钟。
+    <span class="quote-mark closing">"</span>
+  </blockquote>
+  <div class="attribution">— 算法团队 Leader</div>
+</div>
+
+<!-- ============ ③ Two Col Compare ============ -->
+<div class="sec-title">③ Two Col Compare · 左右对比</div>
+<div class="sec-note">before=浅底普通 / after=主色浅底+主色边框（强调"改后"）</div>
+<div class="module two-col-compare">
+  <div class="module-title">改版前后对比</div>
+  <div class="compare-grid">
+    <div class="compare-panel before">
+      <div class="compare-header"><span class="compare-badge">Before</span></div>
+      <ul class="compare-list">
+        <li>协同过滤算法</li>
+        <li>覆盖率仅 23%</li>
+        <li>平均阅读时长 1.2min</li>
+      </ul>
+    </div>
+    <div class="compare-divider"><span class="divider-label">VS</span></div>
+    <div class="compare-panel after">
+      <div class="compare-header"><span class="compare-badge highlight">After</span></div>
+      <ul class="compare-list">
+        <li>双塔 DSSM 模型</li>
+        <li>覆盖率提升至 41%</li>
+        <li>平均阅读时长 2.8min</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ④ Timeline ============ -->
+<div class="sec-title">④ Timeline · 时间线</div>
+<div class="sec-note">左侧竖线 + 圆点；highlight 节点实心 + 外发光环</div>
+<div class="module timeline">
+  <div class="module-title">迭代里程碑</div>
+  <div class="timeline-track">
+    <div class="timeline-node highlight">
+      <div class="timeline-dot"></div>
+      <div class="timeline-date">2026.04</div>
+      <div class="timeline-event">完成双塔模型离线验证</div>
+      <div class="timeline-detail">HitRate@10 提升 35%</div>
+    </div>
+    <div class="timeline-node">
+      <div class="timeline-dot"></div>
+      <div class="timeline-date">2026.05</div>
+      <div class="timeline-event">A/B 测试上线</div>
+      <div class="timeline-detail">5% 流量，观察 2 周</div>
+    </div>
+    <div class="timeline-node">
+      <div class="timeline-dot"></div>
+      <div class="timeline-date">2026.06</div>
+      <div class="timeline-event">全量上线</div>
+      <div class="timeline-detail">DAU 周环比 +12%</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ⑤ Feature Grid ============ -->
+<div class="sec-title">⑤ Feature Grid · 特性网格</div>
+<div class="sec-note">cols-2 / cols-3 / cols-4 可选</div>
+<div class="module feature-grid">
+  <div class="module-title">平台能力</div>
+  <div class="feature-grid-container cols-3">
+    <div class="feature-item">
+      <div class="feature-icon">🚀</div>
+      <div class="feature-label">秒级部署</div>
+      <div class="feature-desc">从提交到上线 &lt; 30s</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">🔒</div>
+      <div class="feature-label">零信任安全</div>
+      <div class="feature-desc">全链路 mTLS 加密</div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">📊</div>
+      <div class="feature-label">实时可观测</div>
+      <div class="feature-desc">Metrics + Tracing + Logs</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ⑥ Callout Box ============ -->
+<div class="sec-title">⑥ Callout Box · 提示/警告</div>
+<div class="sec-note">info / warning / success / error 四种语义</div>
+<div class="module">
+  <div class="callout-box info"><div class="ci">ℹ</div><div><div class="callout-title">说明</div><div class="callout-body">迁移期间会有 5 分钟只读窗口，请提前通知业务方。</div></div></div>
+  <div class="callout-box warning"><div class="ci">⚠</div><div><div class="callout-title">注意</div><div class="callout-body">Redis 集群扩容需 DBA 审批，预计周三前完成。</div></div></div>
+  <div class="callout-box success"><div class="ci">✓</div><div><div class="callout-title">完成</div><div class="callout-body">灰度验证通过，错误率 &lt; 0.01%，可全量。</div></div></div>
+  <div class="callout-box error"><div class="ci">✕</div><div><div class="callout-title">阻塞</div><div class="callout-body">第三方 API 限流，需联系对方调整配额。</div></div></div>
+</div>
+
+<!-- ============ ⑦ Metric Row ============ -->
+<div class="sec-title">⑦ Metric Row · 进度指标条</div>
+<div class="sec-note">label + value 左右排列 + 6px 圆角进度条</div>
+<div class="module metric-row">
+  <div class="metric-item">
+    <div class="metric-header"><span class="metric-label">DAU 目标</span><span class="metric-value">2.4M / 3M</span></div>
+    <div class="metric-bar"><div class="metric-fill" style="width:80%"></div></div>
+  </div>
+  <div class="metric-item">
+    <div class="metric-header"><span class="metric-label">留存目标</span><span class="metric-value">42% / 45%</span></div>
+    <div class="metric-bar"><div class="metric-fill" style="width:93%"></div></div>
+  </div>
+</div>
+
+<!-- ============ ⑧ Bio Card ============ -->
+<div class="sec-title">⑧ Bio Card · 人物介绍</div>
+<div class="sec-note">圆形主色底头像（姓名缩写）+ 姓名/头衔 + 简介</div>
+<div class="module bio-card">
+  <div class="bio-avatar">ZL</div>
+  <div>
+    <div class="bio-name">张三</div>
+    <div class="bio-title">首席架构师</div>
+  </div>
+  <div class="bio-text">10 年后端经验，曾主导 3 次千万级系统重构，擅长高并发与分布式架构。前阿里云 EMR 核心开发。</div>
+</div>
+
+<!-- ============ ⑨ Tag Cloud ============ -->
+<div class="sec-title">⑨ Tag Cloud · 标签云</div>
+<div class="sec-note">.tag 普通胶囊 / .tag.hl 主色高亮</div>
+<div class="module tag-cloud">
+  <div class="module-title">技术栈</div>
+  <div class="tags">
+    <span class="tag hl">Go</span>
+    <span class="tag hl">Kubernetes</span>
+    <span class="tag hl">gRPC</span>
+    <span class="tag">PostgreSQL</span>
+    <span class="tag">Redis</span>
+    <span class="tag">Kafka</span>
+    <span class="tag">React</span>
+    <span class="tag">TypeScript</span>
+  </div>
+</div>
+
+<!-- ============ ⑩ Conclusion Box ============ -->
+<div class="sec-title">⑩ Conclusion Box · 总结 / CTA</div>
+<div class="sec-note">high=主色底白字 / medium=浅底 / low=虚线边框</div>
+<div class="module conclusion-box">
+  <div class="conclusion-label">下一步</div>
+  <div class="conclusion-text">Q3 核心目标是完成多活部署，将故障恢复时间从 15 分钟降到 2 分钟以内。</div>
+  <div class="conclusion-actions">
+    <span class="action-item">评审架构方案</span>
+    <span class="action-item">排期资源</span>
+    <span class="action-item">启动压测</span>
+  </div>
+</div>
+<div class="module conclusion-box medium">
+  <div class="conclusion-label">备选风格</div>
+  <div class="conclusion-text">medium 变体：浅底 + 主色按钮。</div>
+</div>
+
+<!-- ============ TOC ============ -->
+<div class="sec-title">TOC · 目录（design_preview 风格）</div>
+<div class="sec-note">编号 + 标题 + 自动页码；页码用 target-counter 由 WeasyPrint 生成</div>
+<div class="toc">
+  <h2>目录</h2>
+  <div class="toc-item toc-level-1"><span class="num">01</span><a class="title" href="#sec1">核心指标</a></div>
+  <div class="toc-item toc-level-2"><span class="num">02</span><a class="title" href="#sec2">关键洞察</a></div>
+  <div class="toc-item toc-level-2"><span class="num">03</span><a class="title" href="#sec3">改版前后对比</a></div>
+  <div class="toc-item toc-level-3"><span class="num">04</span><a class="title" href="#sec4">迭代里程碑</a></div>
+  <div class="toc-item toc-level-1"><span class="num">05</span><a class="title" href="#sec5">下一步计划</a></div>
+</div>
+<p style="color:var(--text-muted); font-size:12px;">页码在 PDF 渲染时由 target-counter(attr(href), page) 自动填充；浏览器预览中显示为空。</p>
+
+</body>
+</html>

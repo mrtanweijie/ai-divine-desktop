@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html data-theme="tech" lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>PDF 封面模板 — 6 种风格 HTML 骨架</title>
+<link rel="stylesheet" href="modules.css">
+<link rel="stylesheet" href="covers.css">
+<style>
+  /* 预览专用：A4 页面模拟（非封面样式） */
+  body { font-family: var(--font-sans); color: var(--text-main); background: #E8E8E8; padding: 40px 0; }
+  .page-wrap { width: 794px; margin: 0 auto 60px; }
+  .page-label { text-align: center; font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
+  .a4-page { width: 794px; height: 1123px; background: var(--bg-page); box-shadow: 0 8px 30px rgba(0,0,0,.12); overflow: hidden; position: relative; }
+  /* PDF 里封面是全页；预览时在固定 A4 框内模拟 100vh */
+  .a4-page .cover-left, .a4-page .cover-centered, .a4-page .cover-split,
+  .a4-page .cover-minimal, .a4-page .cover-hero, .a4-page .cover-terminal {
+    height: 100%; page-break-after: auto;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ Cover 1: Left-Aligned Classic ============ -->
+<div class="page-wrap">
+  <div class="page-label">Cover 1 · Left-Aligned Classic（技术报告/商务文档）</div>
+  <div class="a4-page">
+    <div class="cover-left">
+      <div class="accent-bar"></div>
+      <span class="badge">Q2 2026 Report</span>
+      <h1>推荐系统架构改版技术报告</h1>
+      <p class="subtitle">从协同过滤到双塔 DSSM 模型，DAU 突破 240 万，留存率创历史新高</p>
+      <div class="meta">
+        <div class="meta-item"><span class="meta-label">作者</span><span class="meta-value">算法团队</span></div>
+        <div class="meta-item"><span class="meta-label">日期</span><span class="meta-value">2026-08-16</span></div>
+        <div class="meta-item"><span class="meta-label">版本</span><span class="meta-value">v2.1</span></div>
+      </div>
+      <div class="bottom-mark">CONFIDENTIAL · INTERNAL USE ONLY</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Cover 2: Centered Editorial ============ -->
+<div class="page-wrap">
+  <div class="page-label">Cover 2 · Centered Editorial（深度长文/行业洞察）</div>
+  <div class="a4-page">
+    <div class="cover-centered">
+      <div class="issue-no">Vol. 03 · Issue 08 · 2026</div>
+      <h1>AI Agent 的下一个拐点</h1>
+      <div class="divider-line"></div>
+      <p class="subtitle">从「工具调用」到「任务自主」——未来 12 个月，最大的赢家不是模型公司，而是把 Agent 嵌进工作流的应用层公司。</p>
+      <div class="author-block">
+        <div class="author-avatar">研</div>
+        <span class="author-name">研究院 · 深度洞察组</span>
+      </div>
+      <div class="date">2026 年 8 月 16 日 · 阅读时间 8 分钟</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Cover 3: Split Panel ============ -->
+<div class="page-wrap">
+  <div class="page-label">Cover 3 · Split Panel（提案/季度汇报）</div>
+  <div class="a4-page">
+    <div class="cover-split">
+      <div class="left-panel">
+        <span class="badge">Q2 2026 · 季度汇报</span>
+        <h1>技术基础设施季度汇报</h1>
+        <p class="subtitle">稳定性提升与成本优化——可用性达 99.99%，P99 延迟降低 31%</p>
+        <div class="meta-stack">
+          <div class="meta-row"><span class="lbl">汇报人</span><span class="val">基础架构组</span></div>
+          <div class="meta-row"><span class="lbl">汇报对象</span><span class="val">CTO / VP Engineering</span></div>
+          <div class="meta-row"><span class="lbl">周期</span><span class="val">2026 Q2 (Apr – Jun)</span></div>
+          <div class="meta-row"><span class="lbl">下季重点</span><span class="val">多活部署 + 混沌工程</span></div>
+        </div>
+      </div>
+      <div class="right-panel">
+        <div class="highlight-num">99.99%</div>
+        <div class="highlight-label">季度可用性 SLA</div>
+        <div class="stat-mini"><span class="lbl">P99 延迟</span><span class="val">42ms ↓31%</span></div>
+        <div class="stat-mini"><span class="lbl">成本节省</span><span class="val">¥380K</span></div>
+        <div class="stat-mini"><span class="lbl">故障数</span><span class="val">2 次 (↓60%)</span></div>
+        <div class="stat-mini"><span class="lbl">MTTR</span><span class="val">8min ↓45%</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Cover 4: Minimal Text-Only ============ -->
+<div class="page-wrap">
+  <div class="page-label">Cover 4 · Minimal Text-Only（周报/内部备忘）</div>
+  <div class="a4-page">
+    <div class="cover-minimal">
+      <div class="doc-type">Weekly Report · Week 33</div>
+      <h1>本周工程进展汇总</h1>
+      <p class="subtitle">7 个需求上线，14 个 Bug 修复，1 个阻塞项待 DBA 审批</p>
+      <div class="info-row">
+        <div class="info-item"><span class="info-label">团队</span><span class="info-value">后端组</span></div>
+        <div class="info-item"><span class="info-label">周期</span><span class="info-value">8.11 – 8.17</span></div>
+        <div class="info-item"><span class="info-label">下周重点</span><span class="info-value">消息推送重构</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Cover 5: Hero Graphic ============ -->
+<div class="page-wrap">
+  <div class="page-label">Cover 5 · Hero Graphic（营销/活动/Launch）</div>
+  <div class="a4-page">
+    <div class="cover-hero">
+      <div class="deco-circle"></div>
+      <div class="deco-circle-2"></div>
+      <div class="deco-dots">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <span class="badge">🚀 Now Live · v3.0</span>
+      <h1>数据平台迁移正式上线</h1>
+      <p class="subtitle">从 Hadoop 到云原生数据湖，全量迁移零数据丢失，查询性能提升 5 倍</p>
+      <div class="hero-cta"><span class="cta-text">→ 详见第 3 页实施路线图</span></div>
+      <div class="scroll-hint"><span>SCROLL</span><div class="scroll-line"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Cover 6: Terminal Typewriter ============ -->
+<div class="page-wrap">
+  <div class="page-label">Cover 6 · Terminal Typewriter（技术文档/CLI/开源）</div>
+  <div class="a4-page">
+    <div class="cover-terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+        <span class="terminal-title">~/projects/infra-docs — zsh</span>
+      </div>
+      <div class="terminal-body">
+        <div class="prompt-line"><span class="ps1">$</span> cat ./README.md</div>
+        <h1># Infrastructure Documentation</h1>
+        <div class="output">
+          <span class="ok">✓</span> Cluster status: HEALTHY<br>
+          <span class="ok">✓</span> All services running<br>
+          <span class="info">→</span> Last deploy: 2026-08-15 14:32 UTC
+        </div>
+        <div class="meta-grid">
+          <div class="item"><span class="lbl">Project</span><span class="val">infra-docs</span></div>
+          <div class="item"><span class="lbl">Version</span><span class="val">v4.2.0</span></div>
+          <div class="item"><span class="lbl">Author</span><span class="val">@zhangsan</span></div>
+          <div class="item"><span class="lbl">License</span><span class="val">MIT</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

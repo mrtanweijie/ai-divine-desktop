@@ -4,6 +4,47 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+# 布局模块规范：追加到各 markdown 类 recipe 的内容生成 prompt，
+# 让 Agent 知道可以用模块约定语法输出带设计感的正文。
+MODULE_GUIDE = """
+【可选·布局模块】你可以在正文中使用以下布局模块增强设计感
+（不要堆砌，建议全篇 2-4 个，且尽量错开类型）：
+
+1. 大数字指标（hero-stat）：表格 + 紧随其后的标记行 {: .hero-stat}，
+   每行三列：指标 | 数值 | 变化（变化带 +/- 号）
+   | 指标 | 数值 | 变化 |
+   | --- | --- | --- |
+   | DAU | 2.4M | +34% |
+   {: .hero-stat}
+2. 金句（pull-quote）：以引用块开头
+   > [!quote] 关键洞察
+   > 金句正文
+   > — 来源
+3. 提示框（callout）：> [!note] / [!info] / [!warning] / [!success] / [!error] + 标题 + 正文
+4. 左右对比（two-col-compare）：两列表格 + {: .compare}，左列现状、右列目标
+5. 时间线（timeline）：表格（时间|事件|说明|高亮可选填 yes）+ {: .timeline}
+6. 特性网格（feature-grid）：表格（图标|特性|描述）+ {: .features}
+7. 进度条（metric-row）：表格（指标|当前/目标|百分比如 80%）+ {: .metrics}
+8. 标签云（tag-cloud）：表格（标签|是否高亮 yes）+ {: .tags}
+9. 总结框（conclusion-box）：
+   > [!conclusion] 下一步
+   > 总结文字
+10. 人物卡（bio-card）：
+   > [!bio] 姓名 | 头衔
+   > 简介文字
+
+规则：表格标记行 {: .xxx} 必须紧跟表格最后一行；引用块必须以 > [!类型] 开头；
+模块内容里的竖线 | 只在表格中使用，正文中不要使用 |。
+
+【封面元数据（可选）】如果文档有封面需要展示的信息（团队、周期、负责人、
+版本、关键词等），在正文最前面输出一行 HTML 注释，系统会自动读取并填充封面：
+<!-- cover-meta: {"团队": "后端组", "周期": "8.11 – 8.17", "下周重点": "消息推送重构"} -->
+支持字段：doc_type（文档类型）、info/meta（键值对字典）、badge、author、date、
+issue_no、cta_text、footer、highlight.value/label/stats（split 封面大数字）。
+"""
+
+
+
 @dataclass
 class PDFIntent:
     title: str

@@ -1,0 +1,202 @@
+{
+  "source": "布局模块设计系统（10 个模块 × 11 主题预览）",
+  "extracted_at": "2026-08-17",
+  "version": "1.0",
+  "design_tokens": {
+    "colors": [
+      "--primary", "--primary-light", "--accent",
+      "--text-main", "--text-muted", "--text-light",
+      "--bg-page", "--bg-surface", "--bg-dark", "--border"
+    ],
+    "typography": {
+      "scale": {"h1": "32px", "h2": "24px", "h3": "18px", "body": "14px", "small": "12px"},
+      "line_height": {"tight": 1.25, "normal": 1.7},
+      "fonts": ["--font-sans", "--font-serif", "--font-mono"]
+    },
+    "spacing": {"radius": "8px", "gap": "24px", "module_margin": "20-28px"}
+  },
+  "themes": [
+    {"id": "tech",       "primary": "#2563EB", "mode": "light", "tone": "科技冷静",   "scene": "技术报告、数据分析"},
+    {"id": "corporate",  "primary": "#1E40AF", "mode": "light", "tone": "稳重权威",   "scene": "商业提案、高管汇报"},
+    {"id": "editorial",  "primary": "#7C2D12", "mode": "light", "tone": "杂志阅读",   "scene": "行业洞察、深度长文", "font": "serif"},
+    {"id": "bold",       "primary": "#0F172A", "mode": "dark",  "tone": "暗黑冲击",   "scene": "作品集、创意提案"},
+    {"id": "minimal",    "primary": "#18181B", "mode": "light", "tone": "极简克制",   "scene": "周报、会议纪要"},
+    {"id": "forest",     "primary": "#166534", "mode": "light", "tone": "森林自然",   "scene": "自然、户外类"},
+    {"id": "sunset",     "primary": "#EA580C", "mode": "light", "tone": "落日暖调",   "scene": "生活方式、餐饮"},
+    {"id": "lavender",   "primary": "#7C3AED", "mode": "light", "tone": "薰衣草柔和", "scene": "品牌、女性向"},
+    {"id": "mono",       "primary": "#000000", "mode": "light", "tone": "黑白印刷",   "scene": "出版、文档", "font": "serif"},
+    {"id": "ocean",      "primary": "#0C4A6E", "mode": "light", "tone": "海洋清冷",   "scene": "旅行、科技"},
+    {"id": "terminal",   "primary": "#22C55E", "mode": "dark",  "tone": "黑客终端",   "scene": "开发者文档", "font": "mono"}
+  ],
+  "emphasis_levels": {
+    "high":   "主色底 + 白字，视觉锚点，一页最多 1-2 个",
+    "medium": "浅色底（--bg-surface）+ 主色元素（边框/标签）",
+    "low":    "透明背景 + 细线（--border），弱化补充"
+  },
+  "modules": [
+    {
+      "id": "hero-stat",
+      "name": "Hero Stat · 核心指标冲击",
+      "purpose": "突出 1-4 个核心数字，开篇/总结时制造视觉锚点",
+      "html_root": ".module.hero-stat[data-emphasis] > .stat-grid.grid-2/3/4 > .stat-item",
+      "fields": [
+        {"name": "value", "type": "string", "desc": "大数字，44px 粗体"},
+        {"name": "unit", "type": "string", "optional": true, "desc": "数字单位，18px 半透明"},
+        {"name": "label", "type": "string", "desc": "指标名，13px 弱化"},
+        {"name": "trend", "type": "number", "optional": true, "desc": "环比变化，正数绿色▲ 负数红色▼"}
+      ],
+      "emphasis_variants": ["high", "medium", "low"],
+      "scene": "核心 KPI、资源需求、目标达成"
+    },
+    {
+      "id": "pull-quote",
+      "name": "Pull Quote · 杂志金句",
+      "purpose": "把核心观点/金句单独拎出来，增强记忆点",
+      "html_root": ".module.pull-quote[data-emphasis] > blockquote > .quote-mark.opening/.closing + .attribution",
+      "fields": [
+        {"name": "quote", "type": "string", "desc": "金句正文，22px/500"},
+        {"name": "attribution", "type": "string", "optional": true, "desc": "来源，如“— 算法团队 Leader”"}
+      ],
+      "emphasis_variants": ["high", "medium", "low"],
+      "scene": "开篇破题、关键洞察、收尾总结"
+    },
+    {
+      "id": "two-col-compare",
+      "name": "Two Col Compare · 左右对比",
+      "purpose": "前后/优劣/方案对比，After 侧自动强化",
+      "html_root": ".module.two-col-compare > .compare-grid（1fr 48px 1fr）> .compare-panel.before/.after + .compare-divider",
+      "fields": [
+        {"name": "title", "type": "string", "optional": true, "desc": "模块标题"},
+        {"name": "left_label", "type": "string", "default": "Before", "desc": "左侧面板徽标"},
+        {"name": "right_label", "type": "string", "default": "After", "desc": "右侧面板徽标（主色高亮）"},
+        {"name": "left_items", "type": "array", "desc": "左侧列表项"},
+        {"name": "right_items", "type": "array", "desc": "右侧列表项"}
+      ],
+      "emphasis_variants": [],
+      "scene": "改版对比、方案 A/B、优缺点"
+    },
+    {
+      "id": "timeline",
+      "name": "Timeline · 时间线",
+      "purpose": "展示里程碑、步骤、演进过程",
+      "html_root": ".module.timeline > .timeline-track > .timeline-node[.highlight]（.timeline-dot + .timeline-date + .timeline-event + .timeline-detail）",
+      "fields": [
+        {"name": "title", "type": "string", "optional": true, "desc": "模块标题"},
+        {"name": "items", "type": "array", "desc": "节点数组", "items": [
+          {"name": "date", "type": "string", "desc": "日期/阶段，主色小字大写"},
+          {"name": "event", "type": "string", "desc": "事件名"},
+          {"name": "detail", "type": "string", "optional": true, "desc": "补充说明"},
+          {"name": "highlight", "type": "boolean", "optional": true, "desc": "节点实心高亮+发光环"}
+        ]}
+      ],
+      "emphasis_variants": [],
+      "scene": "项目里程碑、实施路线图、职业路径"
+    },
+    {
+      "id": "feature-grid",
+      "name": "Feature Grid · 特性网格",
+      "purpose": "并列展示功能/能力/优势卡片",
+      "html_root": ".module.feature-grid > .feature-grid-container.cols-2/3/4 > .feature-item（.feature-icon + .feature-label + .feature-desc）",
+      "fields": [
+        {"name": "title", "type": "string", "optional": true, "desc": "模块标题"},
+        {"name": "columns", "type": "number", "default": 3, "desc": "列数 2/3/4"},
+        {"name": "items", "type": "array", "desc": "卡片数组", "items": [
+          {"name": "icon", "type": "string", "optional": true, "desc": "emoji 或图标"},
+          {"name": "label", "type": "string", "desc": "特性名"},
+          {"name": "desc", "type": "string", "desc": "一句话描述"}
+        ]}
+      ],
+      "emphasis_variants": [],
+      "scene": "平台能力、方案亮点、功能清单"
+    },
+    {
+      "id": "callout-box",
+      "name": "Callout Box · 提示/警告",
+      "purpose": "信息/警告/成功/阻塞等状态提醒",
+      "html_root": ".callout-box.info|warning|success|error > .ci + (.callout-title + .callout-body)",
+      "fields": [
+        {"name": "level", "type": "enum", "values": ["info", "warning", "success", "error"], "desc": "语义等级"},
+        {"name": "title", "type": "string", "optional": true, "desc": "标题"},
+        {"name": "body", "type": "string", "desc": "正文"}
+      ],
+      "emphasis_variants": [],
+      "scene": "注意事项、风险提示、验收通过、阻塞项"
+    },
+    {
+      "id": "metric-row",
+      "name": "Metric Row · 进度指标条",
+      "purpose": "展示目标完成度/进度占比",
+      "html_root": ".module.metric-row > .metric-item（.metric-header：.metric-label + .metric-value；.metric-bar > .metric-fill[width]）",
+      "fields": [
+        {"name": "items", "type": "array", "desc": "指标数组", "items": [
+          {"name": "label", "type": "string", "desc": "指标名"},
+          {"name": "value", "type": "string", "desc": "当前值"},
+          {"name": "target", "type": "string", "optional": true, "desc": "目标值"},
+          {"name": "percent", "type": "number", "desc": "0-100 进度百分比"}
+        ]}
+      ],
+      "emphasis_variants": [],
+      "scene": "KPI 达成进度、预算消耗、里程碑完成度"
+    },
+    {
+      "id": "bio-card",
+      "name": "Bio Card · 人物介绍",
+      "purpose": "介绍人物：头像缩写 + 姓名/头衔 + 简介",
+      "html_root": ".module.bio-card > .bio-avatar + (.bio-name + .bio-title) + .bio-text",
+      "fields": [
+        {"name": "initials", "type": "string", "desc": "头像缩写 1-2 字"},
+        {"name": "name", "type": "string", "desc": "姓名"},
+        {"name": "title", "type": "string", "optional": true, "desc": "头衔/职位"},
+        {"name": "bio", "type": "string", "desc": "简介文字"}
+      ],
+      "emphasis_variants": [],
+      "scene": "作者介绍、团队成员、讲师简介"
+    },
+    {
+      "id": "tag-cloud",
+      "name": "Tag Cloud · 标签云",
+      "purpose": "展示技能/关键词集合，重点标签高亮",
+      "html_root": ".module.tag-cloud > .tags > .tag[.hl]",
+      "fields": [
+        {"name": "title", "type": "string", "optional": true, "desc": "模块标题"},
+        {"name": "tags", "type": "array", "desc": "标签数组", "items": [
+          {"name": "text", "type": "string", "desc": "标签文字"},
+          {"name": "highlight", "type": "boolean", "optional": true, "desc": "是否主色高亮"}
+        ]}
+      ],
+      "emphasis_variants": [],
+      "scene": "技术栈、关键词、技能清单"
+    },
+    {
+      "id": "conclusion-box",
+      "name": "Conclusion Box · 总结 / CTA",
+      "purpose": "收尾总结 + 下一步行动项",
+      "html_root": ".module.conclusion-box[.medium|.low] > .conclusion-label + .conclusion-text + .conclusion-actions > .action-item",
+      "fields": [
+        {"name": "label", "type": "string", "desc": "区块标签，如“下一步”"},
+        {"name": "text", "type": "string", "desc": "总结文字，18px/500"},
+        {"name": "actions", "type": "array", "optional": true, "desc": "行动项胶囊按钮"}
+      ],
+      "emphasis_variants": ["high", "medium", "low"],
+      "scene": "文档收尾、资源请求、决策号召"
+    },
+    {
+      "id": "toc",
+      "name": "TOC · 目录",
+      "purpose": "编号 + 标题 + 自动页码的目录页",
+      "html_root": ".toc > .toc-item.toc-level-2/3 > .num + a.title",
+      "fields": [
+        {"name": "title", "type": "string", "desc": "目录标题，用 <h2>目录</h2>"},
+        {"name": "items", "type": "array", "desc": "条目数组", "items": [
+          {"name": "num", "type": "string", "desc": "两位编号 01/02…"},
+          {"name": "text", "type": "string", "desc": "章节标题"},
+          {"name": "href", "type": "string", "desc": "锚点 #slug"},
+          {"name": "level", "type": "number", "default": 2, "desc": "层级 2/3，决定缩进"}
+        ]},
+        {"name": "page_num", "type": "note", "desc": "页码由 CSS target-counter(attr(href), page) 自动生成，无需手写"}
+      ],
+      "emphasis_variants": [],
+      "scene": "目录页；由 _build_toc 根据 ## / ### 标题自动生成"
+    }
+  ]
+}
