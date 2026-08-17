@@ -23,7 +23,7 @@
     "approvalFullDescription": "可不受限制地存取網際網路和您電腦上的任何檔案",
     "approvalMode": "審批模式",
     "attachFile": "附加檔案",
-    "choiceOtherPlaceholder": "其他風格，直接輸入…",
+    "choiceOtherPlaceholder": "其他選項，直接輸入…",
     "choiceOtherSend": "選擇",
     "choiceSelected": "已選擇，正在產生…",
     "chooseProject": "選擇專案",
@@ -54,7 +54,8 @@
     "stop": "停止生成",
     "text": "文字",
     "thinkEffort": "深度思考",
-    "thinkEffortTooltip": "選擇關閉則不進行深度思考"
+    "thinkEffortTooltip": "選擇關閉則不進行深度思考",
+    "choiceConfirm": "確認選擇"
   },
   "common": {
     "accept": "接受",

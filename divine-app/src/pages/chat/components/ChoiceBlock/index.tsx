@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { useChatStreamContext } from "@/pages/chat/hooks/ChatStreamContext";
 import { saveMessageChoiceState } from "@/services/api";
@@ -118,9 +119,9 @@ export function ChoiceBlock({
   );
   const [selectedMulti, setSelectedMulti] = useState<string[]>(() => {
     const persisted = persistedChoice?.selected as string | undefined;
-    if (persisted) return persisted.split(",").map((s) => s.trim()).filter(Boolean);
+    if (persisted) return persisted.split(/[,、]/).map((s) => s.trim()).filter(Boolean);
     const stored = choiceStateStore.get(storeKey)?.selected;
-    return stored ? stored.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    return stored ? stored.split(/[,、]/).map((s) => s.trim()).filter(Boolean) : [];
   });
   const [custom, setCustom] = useState("");
   const [sentCustom, setSentCustom] = useState(
@@ -133,21 +134,29 @@ export function ChoiceBlock({
 
   // 消息是异步加载的：首次渲染时 persistedChoice 可能还是空，
   // 加载完成后用它同步已选状态（覆盖初始 null），并写入模块级 store。
+  // 用函数式 setState + 值守卫：persistedChoice 引用变化（如滚动引发的
+  // 父组件重渲染）时，仅在实际值变化才触发重渲染，避免选项卡闪动。
   useEffect(() => {
     const persistedSelected = persistedChoice?.selected as string | undefined;
     const persistedSent = persistedChoice?.sentCustom as boolean | undefined;
     if (persistedSelected != null || persistedSent) {
-      setSelected(persistedSelected ?? null);
-      setSentCustom(Boolean(persistedSent));
-      if (persistedSelected) {
-        setSelectedMulti(
-          String(persistedSelected).split(",").map((s) => s.trim()).filter(Boolean)
-        );
-        setMultiConfirmed(true);
-      }
+      const nextSelected = persistedSelected ?? null;
+      const nextSent = Boolean(persistedSent);
+      const nextMulti = persistedSelected
+        ? String(persistedSelected).split(/[,、]/).map((s) => s.trim()).filter(Boolean)
+        : [];
+      setSelected((prev) => (prev === nextSelected ? prev : nextSelected));
+      setSentCustom((prev) => (prev === nextSent ? prev : nextSent));
+      setSelectedMulti((prev) => {
+        if (prev.length === nextMulti.length && prev.every((v, i) => v === nextMulti[i])) {
+          return prev;
+        }
+        return nextMulti;
+      });
+      setMultiConfirmed((prev) => prev || nextMulti.length > 0);
       choiceStateStore.set(storeKey, {
-        selected: persistedSelected ?? null,
-        sentCustom: Boolean(persistedSent),
+        selected: nextSelected,
+        sentCustom: nextSent,
         color_scheme: (persistedChoice?.color_scheme as string | undefined) ?? null,
       });
     }
@@ -261,12 +270,10 @@ export function ChoiceBlock({
     const text = custom.trim();
     if (!text || finished) return;
     if (multiple) {
-      // 多选模式下自定义输入追加到已选列表后一起发送
-      const merged = [...selectedMulti, text];
-      const msg = merged.join("、");
-      setSelectedMulti(merged);
-      persistChoice({ selected: msg, sentCustom: false, color_scheme: null });
-      sendMessage(msg, [], effort);
+      // 多选：自定义项加入已选列表，由「确认选择」按钮统一发送（避免双按钮）
+      setSelectedMulti((prev) =>
+        prev.includes(text) ? prev : [...prev, text]
+      );
       setCustom("");
       return;
     }
@@ -329,18 +336,26 @@ export function ChoiceBlock({
                 key={opt.label}
                 variant="secondary"
                 size="medium"
-                className={`choice-option${active ? " selected" : ""}`}
+                className={`choice-option${active ? " selected" : ""}${
+                  multiple ? " multi" : ""
+                }`}
                 onClick={() =>
                   multiple ? toggleMulti(opt.label) : pick(opt)
                 }
                 disabled={finished}
               >
-                {multiple && (
-                  <span className="choice-option-check">
-                    {active ? "✓" : ""}
-                  </span>
-                )}
-                <span className="choice-option-label">{opt.label}</span>
+                <span className="choice-option-label">
+                  {multiple && (
+                    <Checkbox
+                      checked={active}
+                      onChange={() => toggleMulti(opt.label)}
+                      size={14}
+                      ariaLabel={opt.label}
+                      className="choice-option-check"
+                    />
+                  )}
+                  {opt.label}
+                </span>
                 {opt.desc && (
                   <span className="choice-option-desc">{opt.desc}</span>
                 )}
@@ -366,7 +381,7 @@ export function ChoiceBlock({
           </Button>
         </div>
       )}
-      {data?.other && (
+      {!multiple && data?.other && (
         <div className="choice-other">
           <Input
             className="choice-other-input"

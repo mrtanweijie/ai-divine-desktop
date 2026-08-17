@@ -893,3 +893,12 @@ html, body { height: 100%; margin: 0; }
 }
 .cover-terminal .meta-grid .lbl { color: var(--text-light); }
 .cover-terminal .meta-grid .val { color: var(--text-main); font-weight: 500; }
+
+/* 表格不圆角：覆盖主题 CSS 中 thead 首行 / tbody 末行单元格的圆角 */
+table td, table th,
+thead th:first-child,
+thead th:last-child,
+tbody tr:last-child td:first-child,
+tbody tr:last-child td:last-child {
+  border-radius: 0;
+}

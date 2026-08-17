@@ -3394,9 +3394,10 @@ a:focus-visible {
   background: var(--color-hover-soft);
 }
 
+/* 选中态：半透明强调边框 + 柔和背景，避免深色主题下纯白边框/字体突兀 */
 .choice-option.selected,
 .choice-option.selected:hover {
-  border-color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
   background: var(--color-accent-soft);
 }
 
@@ -3416,6 +3417,11 @@ a:focus-visible {
   margin-top: 2px;
   white-space: normal;
   overflow-wrap: break-word;
+}
+
+/* 多选模式：desc 与 label 文本左对齐（勾选框宽 14 + margin 6 = 20px 缩进） */
+.choice-option.multi .choice-option-desc {
+  padding-left: 20px;
 }
 
 .choice-other {
@@ -3441,25 +3447,9 @@ a:focus-visible {
   box-sizing: border-box;
 }
 
-/* 多选模式：选项勾选指示 + 确认按钮 */
+/* 多选模式：勾选框与 label 文本间距（勾选框样式由 Checkbox 组件自带） */
 .choice-option-check {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  border: 1px solid var(--color-border-strong);
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  background: transparent;
-  flex-shrink: 0;
   margin-right: 6px;
-}
-.choice-option.selected .choice-option-check {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
 }
 .choice-options .choice-option-label {
   display: inline-flex;
@@ -3468,12 +3458,15 @@ a:focus-visible {
 }
 .choice-confirm {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
   margin-top: 10px;
 }
 .choice-confirm .ui-button {
   height: 34px;
   padding: 0 16px;
+  flex-shrink: 0;
 }
 
 .choice-note {

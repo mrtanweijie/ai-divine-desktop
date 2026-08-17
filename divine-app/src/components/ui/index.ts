@@ -1,4 +1,5 @@
 export { Button } from "@/components/ui/Button";
+export { Checkbox } from "@/components/ui/Checkbox";
 export { Dropdown } from "@/components/ui/Dropdown";
 export { EmptyState } from "@/components/ui/EmptyState";
 export { Flex } from "@/components/ui/Flex";

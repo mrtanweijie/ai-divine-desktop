@@ -23,7 +23,7 @@
     "approvalFullDescription": "Unrestricted access to the internet and any file on your computer",
     "approvalMode": "Approval mode",
     "attachFile": "Attach file",
-    "choiceOtherPlaceholder": "Other style, type here…",
+    "choiceOtherPlaceholder": "Other option, type here…",
     "choiceOtherSend": "Choose",
     "choiceSelected": "Selected, generating…",
     "chooseProject": "Choose a project",
@@ -54,7 +54,8 @@
     "stop": "Stop generating",
     "text": "Text",
     "thinkEffort": "Deep thinking",
-    "thinkEffortTooltip": "Select Off to disable deep thinking"
+    "thinkEffortTooltip": "Select Off to disable deep thinking",
+    "choiceConfirm": "Confirm"
   },
   "common": {
     "accept": "Accept",

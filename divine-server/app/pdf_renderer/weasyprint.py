@@ -11,6 +11,26 @@ from pathlib import Path
 from typing import Any
 
 from .markdown import _add_heading_ids, _build_toc, _prepare_markdown
+from .styles import COLOR_MAP
+
+
+def _color_scheme_overrides(color_scheme: str) -> dict[str, str]:
+    """把预设配色（blue/green/warm/monochrome/purple）映射为 CSS 变量覆盖。
+
+    WeasyPrint 渲染路径此前忽略 color_scheme，主题色恒为默认蓝；
+    这里用 COLOR_MAP 的主色覆盖 --primary/--primary-light/--accent，
+    使 hero-stat、标题、表格、封面等模块配色随 color_scheme 变化。
+    """
+    colors = COLOR_MAP.get(color_scheme or "")
+    if not colors:
+        return {}
+    accent = colors["accent"]
+    return {
+        "--primary": accent,
+        "--primary-light": colors["light"],
+        "--primary-dark": colors.get("dark", accent),
+        "--accent": accent,
+    }
 
 _WEASYPRINT_OK: bool | None = None
 
@@ -52,7 +72,11 @@ def _render_with_weasyprint(
 
     from ..pdf_theme_manager import build_cover_html, load_theme_css
 
-    css = load_theme_css(theme, paper_size=paper_size)
+    css = load_theme_css(
+        theme,
+        overrides=_color_scheme_overrides(color_scheme),
+        paper_size=paper_size,
+    )
     css += (
         "\nimg { max-width: 100%; height: auto; }\n"
         "figure, .illustration { text-align: center; }\n"

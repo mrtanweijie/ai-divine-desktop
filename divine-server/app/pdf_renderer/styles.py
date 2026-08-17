@@ -11,11 +11,11 @@ COLOR_KEYS = ("blue", "green", "warm", "monochrome", "purple")
 PAPER_KEYS = ("a4", "letter", "legal")
 
 COLOR_MAP = {
-    "blue": {"accent": "#2563eb", "light": "#eaf1fe"},
-    "green": {"accent": "#15803d", "light": "#ecfdf3"},
-    "warm": {"accent": "#c2570a", "light": "#fff4e5"},
-    "monochrome": {"accent": "#111827", "light": "#f3f4f6"},
-    "purple": {"accent": "#6d28d9", "light": "#f3e8ff"},
+    "blue": {"accent": "#2563eb", "light": "#eaf1fe", "dark": "#1e40af"},
+    "green": {"accent": "#15803d", "light": "#ecfdf3", "dark": "#14532d"},
+    "warm": {"accent": "#c2570a", "light": "#fff4e5", "dark": "#9a3412"},
+    "monochrome": {"accent": "#111827", "light": "#f3f4f6", "dark": "#111827"},
+    "purple": {"accent": "#6d28d9", "light": "#f3e8ff", "dark": "#5b21b6"},
 }
 
 _STYLE_FONT = {

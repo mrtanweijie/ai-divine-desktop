@@ -78,6 +78,7 @@
   letter-spacing: .06em;
   text-transform: uppercase;
   margin-bottom: 20px;
+  align-self: flex-start;  /* flex column 容器内不被 stretch 占满整行 */
 }
 .cover-left h1 {
   font-size: 42px; font-weight: 700;
@@ -197,6 +198,7 @@
   padding: 4px 12px; border-radius: 100px;
   text-transform: uppercase; letter-spacing: .06em;
   margin-bottom: 20px;
+  align-self: flex-start;  /* flex column 容器内不被 stretch 占满整行 */
 }
 .cover-split h1 {
   font-size: 38px; font-weight: 700;
@@ -430,3 +432,15 @@
 }
 .cover-terminal .meta-grid .lbl { color: var(--text-light); }
 .cover-terminal .meta-grid .val { color: var(--text-main); font-weight: 500; }
+
+/* 封面短文本防换行：作者/来源/元信息等含空格文本不被压缩断行 */
+.cover-centered .author-name {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.cover-left .meta-value,
+.cover-minimal .info-value,
+.cover-split .meta-row .val,
+.cover-split .right-panel .stat-mini .val {
+  white-space: nowrap;
+}
