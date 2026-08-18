@@ -26,7 +26,6 @@ export function ChartBlock({ option }: ChartBlockProps) {
       chart = echarts.init(container);
       frame = requestAnimationFrame(() => {
         chart?.setOption(buildChartOption(option, theme), { notMerge: true });
-        chart?.resize();
       });
       observer = new ResizeObserver(() => chart?.resize());
       observer.observe(container);

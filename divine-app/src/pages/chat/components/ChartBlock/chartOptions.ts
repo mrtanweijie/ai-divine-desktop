@@ -653,6 +653,22 @@ function decorateCandlestick(
   }
 }
 
+// ECharts 6.x 的 globalBackwardCompat 递归遍历 option 子属性时，会对
+// series[].data 里的原始值（number/string）调用 prop in value —— 对非 Object
+// 值使用 in 运算符会 TypeError: "option is not an Object"。
+// 修复：把原始值包装成 {value: N}（ECharts 推荐格式，行为等价）。
+function normalizeSeriesData(option: Record<string, unknown>): void {
+  if (!Array.isArray(option.series)) return;
+  for (const s of option.series) {
+    if (!isRecord(s) || !Array.isArray(s.data)) continue;
+    s.data = s.data.map((d: unknown) =>
+      typeof d === "number" || typeof d === "string" || typeof d === "boolean"
+        ? { value: d }
+        : d
+    );
+  }
+}
+
 function sanitizeFormatters(value: unknown): void {
   if (Array.isArray(value)) {
     for (const item of value) sanitizeFormatters(item);
@@ -765,6 +781,14 @@ export function buildChartOption(
     },
   };
 
+  // LLM 常把 title 写成字符串而非 {text:"..."} 对象，ECharts 6.x 的
+  // globalBackwardCompat 会遍历 COMPATITABLE_COMPONENTS（含 title）对每个
+  // 组件调用 compatLayoutProperties(option) → `prop in option` 对非对象崩溃。
+  // 这里把字符串/数字 title 规范化为 {text:...} 对象，覆盖到 themeBase 之前。
+  if (typeof option.title === "string" || typeof option.title === "number") {
+    option = { ...option, title: { text: String(option.title) } };
+  }
+
   const merged = mergeRecord(themeBase, option);
   decorateReadableText(merged, palette);
   const usesCartesianAxis =
@@ -859,6 +883,7 @@ export function buildChartOption(
     }
   }
   sanitizeFormatters(merged);
+  normalizeSeriesData(merged);
   decorateSeries(merged, palette);
   return merged as unknown as EChartsOption;
 }

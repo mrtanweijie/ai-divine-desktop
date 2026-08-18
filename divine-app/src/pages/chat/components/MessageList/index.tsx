@@ -49,6 +49,11 @@ export function MessageList({
     estimateSize: () => 140,
     overscan: 12,
     getItemKey: (index) => messages[index].id,
+    // 默认 useFlushSync=true，measureElement 的 ref 绑定在 layout effect
+    // commit 阶段触发 onChange → flushSync → React 报错
+    // "flushSync was called from inside a lifecycle method"
+    // 关闭后用普通 rerender()，避免在 React commit 期间同步刷新。
+    useFlushSync: false,
   });
 
   const virtualItems = virtualizer.getVirtualItems();
