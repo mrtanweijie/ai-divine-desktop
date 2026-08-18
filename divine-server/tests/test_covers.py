@@ -117,6 +117,8 @@ def test_theme_css_contains_cover_styles():
     css = load_theme_css("universal")
     for token in (".cover-left", ".cover-centered", ".cover-split", ".cover-hero", ".cover-terminal"):
         assert token in css, token
+    assert "h1 + .subtitle" in css
+    assert ".cover-centered h1 + .subtitle" in css
 
 
 def test_scene_maps_to_cover_style():

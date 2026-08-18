@@ -72,6 +72,11 @@ from ..registry import register_tool
                 "type": "boolean",
                 "description": "是否生成封面页；未传时系统按场景自动决定（季度汇报/客户提案/行业洞察/作品集默认生成，周报/PRD 默认不生成）；travel 主题固定生成封面",
             },
+            "cover_style": {
+                "type": "string",
+                "enum": ["left-aligned", "centered", "split", "minimal", "hero-graphic", "terminal"],
+                "description": "封面布局风格：left-aligned（左对齐经典）、centered（居中杂志）、split（左右分屏）、minimal（极简文字）、hero-graphic（大色块图形）、terminal（终端风格）；未传时按场景自动选择",
+            },
             "toc": {
                 "type": "boolean",
                 "description": "是否生成目录；未传时系统按场景自动决定（季度汇报/客户提案/行业洞察/PRD 默认生成）；travel 主题固定不生成",
@@ -114,6 +119,7 @@ class PdfGenerateAdapter(ToolAdapter):
             "resume_data": arguments.get("resume_data") or {},
             "path": str(arguments.get("path") or "").strip(),
             "markdown": str(arguments.get("markdown") or "").strip(),
+            "cover_style": str(arguments.get("cover_style") or "").strip(),
         }
         # cover/toc 仅在显式传入时透传（False 表示用户明确不要）；
         # 未传时由引擎设计层按场景自动决定（如季度汇报默认封面+目录）。

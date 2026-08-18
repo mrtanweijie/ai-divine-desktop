@@ -38,6 +38,15 @@ html, body { height: 100%; margin: 0; }
   word-break: break-word;
   white-space: normal;
 }
+/* 副标题跟随封面布局：主题里的 h1 + .subtitle 默认居中，非居中封面需覆盖 */
+.cover-left h1 + .subtitle, .cover-split h1 + .subtitle,
+.cover-minimal h1 + .subtitle, .cover-hero h1 + .subtitle,
+.cover-terminal h1 + .subtitle {
+  text-align: left;
+}
+.cover-centered h1 + .subtitle {
+  text-align: center;
+}
 /* 圆形头像禁止 flex 收缩，避免被压成椭圆 */
 .cover-centered .author-avatar {
   flex-shrink: 0;

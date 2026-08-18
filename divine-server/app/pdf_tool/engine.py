@@ -201,6 +201,7 @@ class PDFTool:
         content: str | None = None,
         resume_data: dict[str, Any] | None = None,
         color_overrides: dict[str, str] | None = None,
+        cover_style: str | None = None,
     ) -> dict[str, Any]:
         recipe_name = kind or detect_recipe(prompt)
         recipe = get_recipe(recipe_name)
@@ -290,6 +291,7 @@ class PDFTool:
             color_scheme=color_scheme,
             cover=cover,
             toc=toc,
+            cover_style=cover_style,
             recipe_theme=recipe.css_template,
             recipe_color=recipe.color_scheme,
         )
@@ -299,11 +301,11 @@ class PDFTool:
         final_color = design.color_scheme
         cover = design.cover
         toc = design.toc
-        # 封面风格注入：场景 → cover_style + 封面辅助数据（badge/作者/日期/特色字段）
+        # 封面风格注入：显式 cover_style > 场景 → cover_style + 封面辅助数据
         if cover and intent.meta is not None:
-            # 无场景时默认通用左对齐封面
-            cover_style = design.cover_style or "left-aligned"
-            intent.meta["cover_style"] = cover_style
+            # 显式传入的 cover_style 优先于场景自动选择
+            effective_cover_style = design.cover_style or "left-aligned"
+            intent.meta["cover_style"] = effective_cover_style
             # Agent 输出的封面元数据（<!-- cover-meta: {...} -->）优先
             cover_meta = _extract_cover_meta(markdown)
             if cover_meta:
@@ -315,7 +317,7 @@ class PDFTool:
             intent.meta.setdefault("date", datetime.now().strftime("%Y-%m-%d"))
             week_range = _this_week_range()
             # 各封面风格的特色字段默认值（Agent/用户显式提供时优先）
-            if cover_style == "minimal":
+            if effective_cover_style == "minimal":
                 intent.meta.setdefault(
                     "doc_type",
                     f"{design.scene_label or 'DOC'} · {week_range}",
@@ -323,7 +325,7 @@ class PDFTool:
                 intent.meta.setdefault(
                     "info", {"周期": week_range, "来源": "AI Divine"}
                 )
-            elif cover_style == "split":
+            elif effective_cover_style == "split":
                 intent.meta.setdefault(
                     "meta",
                     {
@@ -336,14 +338,14 @@ class PDFTool:
                     highlight = _hero_stat_from_markdown(markdown)
                     if highlight:
                         intent.meta["highlight"] = highlight
-            elif cover_style == "centered":
+            elif effective_cover_style == "centered":
                 intent.meta.setdefault("issue_no", intent.meta["date"])
-            elif cover_style == "left-aligned":
+            elif effective_cover_style == "left-aligned":
                 intent.meta.setdefault(
                     "meta",
                     {"作者": intent.meta["author"], "日期": intent.meta["date"]},
                 )
-            elif cover_style == "hero-graphic":
+            elif effective_cover_style == "hero-graphic":
                 intent.meta.setdefault("cta_text", "→ 详见正文")
         if recipe_name == "travel" or final_theme in ("travel", "travel_mag"):
             cover = True

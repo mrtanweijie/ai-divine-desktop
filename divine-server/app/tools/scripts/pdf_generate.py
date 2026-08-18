@@ -91,6 +91,7 @@ async def main() -> None:
             content=str(params.get("markdown") or "").strip() or None,
             resume_data=params.get("resume_data") or None,
             color_overrides=params.get("theme_colors") or None,
+            cover_style=str(params.get("cover_style") or "").strip() or None,
         )
     except Exception as exc:
         print(

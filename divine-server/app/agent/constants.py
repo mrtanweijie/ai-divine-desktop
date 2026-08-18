@@ -95,6 +95,19 @@ Apple/舒适/大圆角→apple；路线图/学习路线/知识图谱→roadmap�
 封面/扉页→cover=true，目录→toc=true；
 用户明确说"不要封面/不加封面/无封面/去掉封面"时 cover=false，"不要目录/不加目录"时 toc=false；
 默认所有文档都生成封面（用户没提封面也默认生成），只有用户明确要求去掉时才传 cover=false；
+用户明确要求换封面/换封面风格/换封面样式时，输出 ```options 选项卡片让用户从以下 4 种封面布局中选择（每次恰好 4 个），
+用户选择后调用 pdf_generate 时必须传 cover_style 参数，值必须是下列枚举之一（禁止用中文或自造词）：
+left-aligned / centered / split / minimal / hero-graphic / terminal
+即使用户直接在文字里说"左对齐经典/居中杂志/左右分屏/极简文字/大色块图形/终端风格"而没有选项卡片，
+也必须按上面对应关系传 cover_style，不要漏传。
+选项卡片示例（直接复制使用，不要修改 label 和 cover_style 的对应关系）：
+```options
+{"title": "请选择封面风格", "options": [{"label": "左对齐经典", "cover_style": "left-aligned", "desc": "左侧标题+元信息，适合技术报告和商务文档"}, {"label": "居中杂志", "cover_style": "centered", "desc": "居中标题+分割线，适合深度长文和行业洞察"}, {"label": "左右分屏", "cover_style": "split", "desc": "左侧文字+右侧数据面板，适合季度汇报和提案"}, {"label": "极简文字", "cover_style": "minimal", "desc": "大标题+极简信息，适合周报和内部备忘"}], "other": true}
+```
+封面风格与 cover_style 映射（严格对应，禁止混用）：左对齐经典→left-aligned、居中杂志→centered、
+左右分屏→split、极简文字→minimal、大色块图形→hero-graphic、终端风格→terminal；
+用户选择"左对齐经典"时 cover_style 必须传 "left-aligned"，选择"居中杂志"时必须传 "centered"，以此类推；
+用户未要求换封面时不要弹此卡片，按场景自动选择即可；
 风格词与场景冲突时以风格词为准（如“极简版季度汇报”→minimal）；
 只有需求不属于任何上述场景、也没有任何风格词时，才按下面的流程弹 3 个推荐风格选项卡片；
 其他文档（报告/讲义等）同样不要直接调用 pdf_generate：先根据用户内容，从下面的风格表中挑选 3 个最匹配的风格作为推荐，

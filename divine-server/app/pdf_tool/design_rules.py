@@ -227,6 +227,15 @@ COLOR_ALIASES: list[tuple[str, tuple[str, ...]]] = [
     ("purple", ("紫色", "紫")),
 ]
 
+COVER_STYLE_ALIASES: list[tuple[str, tuple[str, ...]]] = [
+    ("left-aligned", ("左对齐", "左对齐经典", "左侧标题", "left-aligned", "left aligned")),
+    ("centered", ("居中", "居中杂志", "居中标题", "centered")),
+    ("split", ("左右分屏", "左右分栏", "分屏", "split")),
+    ("minimal", ("极简文字", "极简封面", "纯文字封面", "minimal")),
+    ("hero-graphic", ("大色块", "图形封面", "hero-graphic", "hero graphic")),
+    ("terminal", ("终端", "终端风格", "terminal")),
+]
+
 COVER_WORDS: tuple[str, ...] = ("封面", "扉页", "加个封面", "要封面", "带封面")
 # 否定词优先于肯定词（"不要封面" 含 "封面"）
 NO_COVER_WORDS: tuple[str, ...] = (
@@ -295,6 +304,15 @@ def parse_override(
     return theme, color, cover, toc
 
 
+def parse_cover_style(text: str) -> str | None:
+    """从自然语言提取显式封面风格，未指定时返回 None。"""
+    lowered = (text or "").lower()
+    for style, keywords in COVER_STYLE_ALIASES:
+        if any(kw.lower() in lowered for kw in keywords):
+            return style
+    return None
+
+
 @dataclass
 class DesignDecision:
     """一次设计决策的完整结果（含来源标记，便于日志/调试）。"""
@@ -337,6 +355,7 @@ def resolve_design(
     color_scheme: str | None = None,
     cover: bool | None = None,
     toc: bool | None = None,
+    cover_style: str | None = None,
     recipe_theme: str = "universal",
     recipe_color: str = "blue",
 ) -> DesignDecision:
@@ -367,6 +386,7 @@ def resolve_design(
         override_cover,
         override_toc,
     ) = parse_override(text)
+    override_cover_style = parse_cover_style(text)
 
     # ---- theme ----
     if theme:
@@ -417,7 +437,9 @@ def resolve_design(
         toc=resolved_toc,
         scene=scene,
         cover_style=(
-            SCENES[scene]["cover_style"] if scene else "left-aligned"
+            cover_style
+            or override_cover_style
+            or (SCENES[scene]["cover_style"] if scene else "left-aligned")
         ),
         scene_label=SCENE_LABELS.get(scene) if scene else None,
         theme_source=theme_source,

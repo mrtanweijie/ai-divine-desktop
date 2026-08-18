@@ -7,6 +7,7 @@ from app.pdf_tool.design_enforcer import enforce_design
 from app.pdf_tool.design_rules import (
     DesignDecision,
     classify_scene,
+    parse_cover_style,
     parse_override,
     resolve_design,
 )
@@ -62,12 +63,41 @@ def test_parse_override_no_cover():
     assert toc is False
 
 
+def test_parse_cover_style_aliases():
+    assert parse_cover_style("左对齐经典") == "left-aligned"
+    assert parse_cover_style("居中杂志") == "centered"
+    assert parse_cover_style("左右分屏") == "split"
+    assert parse_cover_style("极简文字") == "minimal"
+    assert parse_cover_style("大色块图形") == "hero-graphic"
+    assert parse_cover_style("终端风格") == "terminal"
+    assert parse_cover_style("普通报告") is None
+
+
 def test_resolve_no_cover_word_beats_scene():
     # 用户明确"不要封面"优先于场景默认封面
     d = resolve_design("不要封面的季度汇报", recipe_name="report")
     assert d.cover is False
     assert d.scene == "quarterly"
     assert d.cover_source == "override"
+
+
+def test_resolve_cover_style_beats_scene():
+    # 用户明确"左对齐经典"优先于行业洞察场景默认的居中封面
+    d = resolve_design(
+        "摄影摄像类商户画像数据分析报告，左对齐经典",
+        recipe_name="report",
+    )
+    assert d.scene == "editorial"
+    assert d.cover_style == "left-aligned"
+
+
+def test_resolve_explicit_cover_style_param_wins():
+    d = resolve_design(
+        "行业洞察报告，居中杂志",
+        recipe_name="report",
+        cover_style="left-aligned",
+    )
+    assert d.cover_style == "left-aligned"
 
 
 # ---------------------------------------------------------------------------
