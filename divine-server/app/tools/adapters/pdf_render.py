@@ -21,7 +21,7 @@ from ..registry import register_tool
             "title": {"type": "string", "description": "PDF 标题；默认取 Markdown 首个标题"},
             "content": {
                 "type": "string",
-                "description": "Markdown 正文，不包含下载链接或文件路径说明",
+                "description": "Markdown 正文；若开头是整页 HTML 封面（width/height 100% + page-break-after），工具会自动识别为封面页；不要包含下载链接或文件路径说明",
             },
             "file_path": {
                 "type": "string",

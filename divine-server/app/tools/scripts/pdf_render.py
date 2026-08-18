@@ -1,4 +1,5 @@
 import json
+import html as html_lib
 import re
 import sys
 from pathlib import Path
@@ -7,6 +8,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
 from app.pdf_renderer import render_html_to_pdf, render_markdown_to_pdf  # noqa: E402
+
+
+_COVER_START_RE = re.compile(r"^\s*(<div\b[^>]*>)", re.IGNORECASE)
+_DIV_TAG_RE = re.compile(r"<(/?)div\b[^>]*>", re.IGNORECASE)
+_FULL_WIDTH_RE = re.compile(r"width\s*:\s*100%", re.IGNORECASE)
+_FULL_HEIGHT_RE = re.compile(r"height\s*:\s*100%", re.IGNORECASE)
+_PAGE_BREAK_RE = re.compile(r"page-break-after\s*:\s*always", re.IGNORECASE)
+_TITLE_FONT_RE = re.compile(
+    r"font-size\s*:\s*(?:3[6-9]|4\d|5[0-2])px[^>]*>(.*?)</div>",
+    re.IGNORECASE | re.DOTALL,
+)
+_OWN_TOC_RE = re.compile(r"(?ms)^#\s*目录\s*$.*?(?=^#\s|\Z)")
 
 
 def safe_name(name: str, fallback: str) -> str:
@@ -18,16 +31,73 @@ def safe_name(name: str, fallback: str) -> str:
     return cleaned
 
 
+def _plain_text(value: str) -> str:
+    text = re.sub(r"<br\s*/?>", " ", value)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = html_lib.unescape(text)
+    return " ".join(text.split())
+
+
+def _extract_leading_cover(content: str) -> tuple[str, str]:
+    """识别正文开头的整页 HTML 封面，返回 (cover_html, 剩余正文)。"""
+    text = content or ""
+    start = _COVER_START_RE.search(text)
+    if not start:
+        return "", text
+    start_pos = start.start(1)
+    depth = 0
+    for tag in _DIV_TAG_RE.finditer(text, start_pos):
+        if tag.group(1):
+            depth -= 1
+        else:
+            depth += 1
+        if depth == 0:
+            cover = text[start_pos : tag.end()]
+            style = start.group(1).lower()
+            if (
+                _FULL_WIDTH_RE.search(style)
+                and _FULL_HEIGHT_RE.search(style)
+                and _PAGE_BREAK_RE.search(style)
+            ):
+                rest = text[tag.end() :].lstrip("\n")
+                return cover, rest
+            return "", text
+    return "", text
+
+
+def _title_from_cover(cover: str) -> str:
+    match = _TITLE_FONT_RE.search(cover or "")
+    raw = match.group(1) if match else cover or ""
+    return _plain_text(raw)[:60]
+
+
+def _strip_own_toc(markdown: str) -> str:
+    """有自动目录时移除正文里重复的“# 目录”小节。"""
+    return _OWN_TOC_RE.sub("", markdown or "").lstrip("\n")
+
+
 def derive_title(title: str, content: str) -> str:
     candidate = (title or "").strip()
     if candidate:
+        if "<" in candidate:
+            candidate = _plain_text(candidate)
         return candidate
+    cover, rest = _extract_leading_cover(content)
+    if cover:
+        candidate = _title_from_cover(cover)
+        if candidate:
+            return candidate
     for line in content.splitlines():
         stripped = line.strip()
         if not stripped:
             continue
         if stripped.startswith("#"):
             stripped = stripped.lstrip("#").strip()
+        if "<" in stripped:
+            plain = _plain_text(stripped)
+            if plain:
+                return plain[:60]
+            continue
         if stripped:
             return stripped[:60]
     return "PDF文档"
@@ -66,7 +136,8 @@ def main() -> None:
         )
         return
 
-    title = derive_title(str(params.get("title") or ""), content)
+    cover_html, content = _extract_leading_cover(content)
+    title = derive_title(str(params.get("title") or ""), cover_html + "\n" + content)
     output_dir = output_root / "pdf"
     raw_path = str(params.get("path") or "").strip()
     if raw_path:
@@ -104,6 +175,13 @@ def main() -> None:
         file_name = title
     file_name = file_name[:40]
     output_path = unique_output_path(output_dir, file_name, "PDF文档", ".pdf")
+    cover_data = dict(params.get("cover_data") or {})
+    if cover_html:
+        cover_data["cover_html"] = cover_html
+    cover = bool(params.get("cover")) or bool(cover_html)
+    toc = bool(params.get("toc"))
+    if toc and cover_html:
+        content = _strip_own_toc(content)
     try:
         theme = str(params.get("theme") or params.get("style") or "universal")
         if theme in ("universal", "modern") and any(
@@ -132,7 +210,7 @@ def main() -> None:
                 output_path,
                 title=title,
                 paper_size=str(params.get("paper_size") or "A4"),
-                cover=bool(params.get("cover")),
+                cover=cover,
                 cover_data=cover_data,
                 base_dir=base_dir,
                 theme=theme,
@@ -146,11 +224,11 @@ def main() -> None:
                 style=str(params.get("style") or "modern"),
                 color_scheme=str(params.get("color_scheme") or "blue"),
                 paper_size=str(params.get("paper_size") or "A4"),
-                cover=bool(params.get("cover")),
-                toc=bool(params.get("toc")),
+                cover=cover,
+                toc=toc,
                 base_dir=base_dir,
                 theme=theme,
-                cover_data=params.get("cover_data"),
+                cover_data=cover_data,
             )
     except Exception as exc:
         print(

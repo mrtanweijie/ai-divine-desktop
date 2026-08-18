@@ -92,26 +92,37 @@ def _render_with_weasyprint(
     body = _add_heading_ids(body)
     cover_html = ""
     if cover:
-        # 有封面时正文不再重复渲染一级标题（封面已展示文档标题）
-        body = re.sub(
-            r"<h1[^>]*>.*?</h1>", "", body, count=1, flags=re.DOTALL
-        )
-        # 副标题优先取文档摘要（summary），否则兜底文案
-        subtitle = "AI Divine 生成文档"
-        if cover_data and cover_data.get("summary"):
-            subtitle = str(cover_data["summary"])
-        cover_html = build_cover_html(
-            theme,
-            html_lib.escape(title),
-            subtitle,
-            cover_data,
-        )
+        custom_cover = ""
+        if cover_data and cover_data.get("cover_html"):
+            custom_cover = str(cover_data["cover_html"]).strip()
+        if custom_cover:
+            cover_html = (
+                '<div style="page: cover-page; width:100%; height:100%; margin:0;">'
+                f"{custom_cover}</div>"
+            )
+        else:
+            # 有封面时正文不再重复渲染一级标题（封面已展示文档标题）
+            body = re.sub(
+                r"<h1[^>]*>.*?</h1>", "", body, count=1, flags=re.DOTALL
+            )
+            # 副标题优先取文档摘要（summary），否则兜底文案
+            subtitle = "AI Divine 生成文档"
+            if cover_data and cover_data.get("summary"):
+                subtitle = str(cover_data["summary"])
+            cover_html = build_cover_html(
+                theme,
+                html_lib.escape(title),
+                subtitle,
+                cover_data,
+            )
         # 封面 absolute 定位不占流：占位元素（page: cover-page）决定第 1 页为
-        # 零边距封面页，page-break-after 把正文推到第 2 页（默认页）
-        cover_html += (
-            '<div style="page: cover-page; height: 0; '
-            'page-break-after: always;"></div>'
-        )
+        # 零边距封面页，page-break-after 把正文推到第 2 页（默认页）。
+        # 自定义封面已自带 page-break-after 时不再重复分页，避免空白页。
+        if not custom_cover or "page-break-after" not in custom_cover.lower():
+            cover_html += (
+                '<div style="page: cover-page; height: 0; '
+                'page-break-after: always;"></div>'
+            )
     toc_html = _build_toc(markdown) if toc else ""
     document = (
         "<!doctype html><html><head><meta charset=\"utf-8\">"
