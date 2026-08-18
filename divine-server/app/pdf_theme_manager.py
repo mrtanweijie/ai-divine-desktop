@@ -1421,6 +1421,15 @@ def _build_style_cover(
     title_s = title
     subtitle_s = subtitle
     badge = esc(data.get("badge") or "PDF")
+    # inline style 强制覆盖主题 h1 的负 letter-spacing 与 nowrap（WeasyPrint 会在
+    # 空格处错误断行）；white-space:normal 保证长标题在封面宽度内换行不越界。
+    _h1_style = (
+        ' style="letter-spacing:0;white-space:normal;max-width:100%;'
+        'overflow-wrap:break-word;word-break:break-word"'
+    )
+    _sub_style = (
+        ' style="white-space:normal;overflow-wrap:break-word;word-break:break-word"'
+    )
 
     if style == "left-aligned":
         meta = data.get("meta") or data.get("cover_meta") or {}
@@ -1437,8 +1446,8 @@ def _build_style_cover(
             '<div class="cover-left">'
             '<div class="accent-bar"></div>'
             f'<span class="badge">{badge}</span>'
-            f"<h1>{title_s}</h1>"
-            f'<p class="subtitle">{subtitle_s}</p>'
+            f"<h1{_h1_style}>{title_s}</h1>"
+            f'<p class="subtitle"{_sub_style}>{subtitle_s}</p>'
             f"{f'<div class=\"meta\">{meta_items}</div>' if meta_items else ''}"
             f"{footer_html}</div>"
         )
@@ -1451,9 +1460,9 @@ def _build_style_cover(
         return (
             '<div class="cover-centered">'
             f"{f'<div class=\"issue-no\">{issue}</div>' if issue else ''}"
-            f"<h1>{title_s}</h1>"
+            f"<h1{_h1_style}>{title_s}</h1>"
             '<div class="divider-line"></div>'
-            f'<p class="subtitle">{subtitle_s}</p>'
+            f'<p class="subtitle"{_sub_style}>{subtitle_s}</p>'
             f'<div class="author-block"><div class="author-avatar">{avatar}</div>'
             f'<span class="author-name">{author}</span></div>'
             f"{f'<div class=\"date\">{date}</div>' if date else ''}"
@@ -1509,8 +1518,8 @@ def _build_style_cover(
         return (
             '<div class="cover-split"><div class="left-panel">'
             f'<span class="badge">{badge}</span>'
-            f"<h1>{title_s}</h1>"
-            f'<p class="subtitle">{subtitle_s}</p>'
+            f"<h1{_h1_style}>{title_s}</h1>"
+            f'<p class="subtitle"{_sub_style}>{subtitle_s}</p>'
             f"{f'<div class=\"meta-stack\">{meta_rows}</div>' if meta_rows else ''}"
             f"</div>{right}</div>"
         )
@@ -1528,8 +1537,8 @@ def _build_style_cover(
         return (
             '<div class="cover-minimal">'
             f"{f'<div class=\"doc-type\">{doc_type}</div>' if doc_type else ''}"
-            f"<h1>{title_s}</h1>"
-            f'<p class="subtitle">{subtitle_s}</p>'
+            f"<h1{_h1_style}>{title_s}</h1>"
+            f'<p class="subtitle"{_sub_style}>{subtitle_s}</p>'
             f"{f'<div class=\"info-row\">{info_items}</div>' if info_items else ''}"
             "</div>"
         )
@@ -1542,8 +1551,8 @@ def _build_style_cover(
             '<div class="deco-circle"></div><div class="deco-circle-2"></div>'
             f'<div class="deco-dots">{dots}</div>'
             f'<span class="badge">{esc(data.get("badge") or "LAUNCH")}</span>'
-            f"<h1>{title_s}</h1>"
-            f'<p class="subtitle">{subtitle_s}</p>'
+            f"<h1{_h1_style}>{title_s}</h1>"
+            f'<p class="subtitle"{_sub_style}>{subtitle_s}</p>'
             f"{f'<div class=\"hero-cta\"><span class=\"cta-text\">{cta}</span></div>' if cta else ''}"
             '<div class="scroll-hint"><span>SCROLL</span><div class="scroll-line"></div></div>'
             "</div>"
@@ -1575,7 +1584,7 @@ def _build_style_cover(
         f'<span class="terminal-title">{tt}</span></div>'
         '<div class="terminal-body">'
         f'<div class="prompt-line"><span class="ps1">$</span> {prompt}</div>'
-        f"<h1>{title_s}</h1>"
+        f"<h1{_h1_style}>{title_s}</h1>"
         f"{f'<div class=\"output\">{output_html}</div>' if output_html else ''}"
         f"{f'<div class=\"meta-grid\">{meta_items}</div>' if meta_items else ''}"
         "</div></div>"

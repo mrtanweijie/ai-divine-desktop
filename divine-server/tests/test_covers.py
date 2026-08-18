@@ -47,6 +47,27 @@ def test_all_cover_styles_render():
         assert "报告标题" in html, style
 
 
+def test_long_cover_title_is_forced_to_wrap_inside_page():
+    title = "摄影/摄像类商户画像数据分析报告"
+    for style in (
+        "left-aligned",
+        "centered",
+        "split",
+        "minimal",
+        "hero-graphic",
+        "terminal",
+    ):
+        html = build_cover_html(
+            "universal",
+            title,
+            "副标题",
+            {"cover_style": style},
+        )
+        assert "white-space:normal" in html, style
+        assert "max-width:100%" in html, style
+        assert "overflow-wrap:break-word;word-break:break-word" in html, style
+
+
 def test_cover_data_escaped():
     # title/subtitle 由调用方预先转义；cover_data 内字段由模板函数转义
     html = build_cover_html(

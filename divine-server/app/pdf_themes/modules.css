@@ -19,11 +19,25 @@
 .cover-terminal h1, .cover-terminal p, .cover-terminal span {
   color: inherit;
 }
-/* 标题强制单行：规避 WeasyPrint 负 letter-spacing 在空格处错误断行；
-   超长标题仍受 max-width 约束（罕见情况溢出由页面裁剪） */
+/* 封面标题：支持中文长标题自然换行；
+   用 overflow-wrap 保证超长单词/URL 也能折行不溢出。
+   letter-spacing: 0 覆盖主题负值（WeasyPrint 负 letter-spacing 在空格处错误断行） */
 .cover-left h1, .cover-centered h1, .cover-split h1,
 .cover-minimal h1, .cover-hero h1, .cover-terminal h1 {
-  white-space: nowrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+  letter-spacing: 0;
+}
+/* 封面 subtitle / p 统一防溢出 */
+.cover-left .subtitle, .cover-centered .subtitle,
+.cover-split .subtitle, .cover-minimal .subtitle,
+.cover-hero .subtitle, .cover-terminal .subtitle {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
 }
 /* 封面标题对齐：覆盖主题 h1 的 text-align（如 minimal 主题 h1 居中）；
    centered 封面保持居中，其余左对齐（与模板一致） */
@@ -544,7 +558,7 @@
 }
 .cover-left h1 {
   font-size: 42px; font-weight: 700;
-  line-height: 1.15; letter-spacing: -.02em;
+  line-height: 1.15;
   color: var(--text-main);
   margin-bottom: 16px;
   max-width: 560px;
@@ -597,7 +611,7 @@
 }
 .cover-centered h1 {
   font-size: 48px; font-weight: 700;
-  line-height: 1.1; letter-spacing: -.025em;
+  line-height: 1.1;
   color: var(--text-main);
   margin-bottom: 20px;
   max-width: 580px;
@@ -664,7 +678,7 @@
 }
 .cover-split h1 {
   font-size: 38px; font-weight: 700;
-  line-height: 1.15; letter-spacing: -.02em;
+  line-height: 1.15;
   color: var(--text-main);
   margin-bottom: 14px;
 }
@@ -720,7 +734,7 @@
 }
 .cover-minimal h1 {
   font-size: 52px; font-weight: 700;
-  line-height: 1.1; letter-spacing: -.03em;
+  line-height: 1.1;
   color: var(--text-main);
   margin-bottom: 24px;
 }
@@ -791,7 +805,7 @@
 }
 .cover-hero h1 {
   font-size: 46px; font-weight: 700;
-  line-height: 1.12; letter-spacing: -.02em;
+  line-height: 1.12;
   margin-bottom: 16px;
   max-width: 560px;
   position: relative; z-index: 1;
@@ -866,6 +880,8 @@
   color: var(--text-main);
   margin: 12px 0 20px;
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 .cover-terminal h1 .cursor {
   display: inline-block;
