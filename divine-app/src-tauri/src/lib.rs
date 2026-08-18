@@ -37,12 +37,10 @@ fn observe_fullscreen_notifications(app: &tauri::AppHandle) {
     // 观察者 token（ProtocolObject）用 mem::forget 常驻，与应用同生命周期。
     let enter_handle = app.clone();
     let enter_block = block2::RcBlock::new(move |_notification: core::ptr::NonNull<objc2_foundation::NSNotification>| {
-        eprintln!("[fullscreen] WILL_ENTER notification fired");
         let _ = enter_handle.emit("window-fullscreen-changed", true);
     });
     let exit_handle = app.clone();
     let exit_block = block2::RcBlock::new(move |_notification: core::ptr::NonNull<objc2_foundation::NSNotification>| {
-        eprintln!("[fullscreen] WILL_EXIT notification fired");
         let _ = exit_handle.emit("window-fullscreen-changed", false);
     });
 

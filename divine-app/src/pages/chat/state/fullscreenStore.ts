@@ -21,7 +21,6 @@ export function useFullscreen() {
 
     if (isTauri() && isMacosDesktop()) {
       void listen<boolean>("window-fullscreen-changed", (event) => {
-        console.log("[fullscreen] event received:", event.payload, "at", Date.now());
         apply(event.payload);
       }).then((fn) => {
         unlisten = fn;
