@@ -186,7 +186,9 @@
     "sessionCount_other": "{{count}} 個對話",
     "settings": "設定",
     "skills": "技能",
-    "titleLabel": "對話標題"
+    "titleLabel": "對話標題",
+    "session.expandMore": "展開其餘 {{count}} 個對話",
+    "session.collapse": "收起"
   },
   "settings": {
     "apiKeyLabel": "API Key{{saved}}",

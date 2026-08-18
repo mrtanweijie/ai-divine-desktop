@@ -4,13 +4,66 @@ mod services;
 use commands::workspace::WorkspaceWatchState;
 use services::sidecar::SidecarState;
 use std::thread;
-use tauri::{Manager, RunEvent, WindowEvent};
+use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 fn show_main_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
+    }
+}
+
+// macOS 原生全屏通知监听：
+// 监听 NSWindowWillEnterFullScreenNotification / NSWindowWillExitFullScreenNotification。
+// 注意必须用 Will（动画【开始前】触发）而不是 Did（动画结束后才触发）——
+// 退出全屏时红绿灯在动画开始时就会出现，Did 通知太慢，会导致左侧 actions
+// 先被红绿灯遮住；Will 通知在红绿灯出现前触发，前端收到事件时立即切换布局。
+#[cfg(target_os = "macos")]
+fn observe_fullscreen_notifications(app: &tauri::AppHandle) {
+    use objc2::runtime::AnyObject;
+    use objc2_app_kit::{NSWindowWillEnterFullScreenNotification, NSWindowWillExitFullScreenNotification};
+    use objc2_foundation::NSNotificationCenter;
+
+    let Some(window) = app.get_webview_window("main") else { return; };
+    let ns_window = match window.ns_window() {
+        Ok(ptr) => ptr as *mut AnyObject,
+        Err(_) => return,
+    };
+    let center = NSNotificationCenter::defaultCenter();
+
+    // 进入全屏 → 事件 payload = true；退出全屏 → payload = false。
+    // RcBlock 使 block 持有 AppHandle 克隆并在通知回调里 emit；
+    // 观察者 token（ProtocolObject）用 mem::forget 常驻，与应用同生命周期。
+    let enter_handle = app.clone();
+    let enter_block = block2::RcBlock::new(move |_notification: core::ptr::NonNull<objc2_foundation::NSNotification>| {
+        eprintln!("[fullscreen] WILL_ENTER notification fired");
+        let _ = enter_handle.emit("window-fullscreen-changed", true);
+    });
+    let exit_handle = app.clone();
+    let exit_block = block2::RcBlock::new(move |_notification: core::ptr::NonNull<objc2_foundation::NSNotification>| {
+        eprintln!("[fullscreen] WILL_EXIT notification fired");
+        let _ = exit_handle.emit("window-fullscreen-changed", false);
+    });
+
+    unsafe {
+        let enter_name: &objc2_foundation::NSNotificationName = NSWindowWillEnterFullScreenNotification;
+        let enter_obs = center.addObserverForName_object_queue_usingBlock(
+            Some(enter_name),
+            Some(&*ns_window),
+            None,
+            &enter_block,
+        );
+        std::mem::forget(enter_obs);
+
+        let exit_name: &objc2_foundation::NSNotificationName = NSWindowWillExitFullScreenNotification;
+        let exit_obs = center.addObserverForName_object_queue_usingBlock(
+            Some(exit_name),
+            Some(&*ns_window),
+            None,
+            &exit_block,
+        );
+        std::mem::forget(exit_obs);
     }
 }
 
@@ -111,6 +164,8 @@ pub fn run() {
             if let Err(err) = setup_tray(app) {
                 eprintln!("[tray] 初始化失败: {err}");
             }
+            #[cfg(target_os = "macos")]
+            observe_fullscreen_notifications(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

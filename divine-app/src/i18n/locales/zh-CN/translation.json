@@ -183,7 +183,9 @@
     "sessionCount": "{{count}} 个对话",
     "settings": "设置",
     "skills": "技能",
-    "titleLabel": "会话标题"
+    "titleLabel": "会话标题",
+    "session.expandMore": "展开其余 {{count}} 个对话",
+    "session.collapse": "收起"
   },
   "settings": {
     "apiKeyLabel": "API Key{{saved}}",

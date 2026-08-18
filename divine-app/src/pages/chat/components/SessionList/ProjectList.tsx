@@ -185,7 +185,27 @@ function ProjectBranch({
                   }
                 }}
               >
-                <span>{t("session.expand", "展开显示")}</span>
+                <span>
+                  {t("session.expandMore", "展开其余 {{count}} 个对话", {
+                    count: projectSessions.length - 5,
+                  })}
+                </span>
+              </div>
+            )}
+            {expanded && projectSessions.length > 5 && (
+              <div
+                className="project-sessions-expand"
+                role="button"
+                tabIndex={0}
+                onClick={() => setExpanded(false)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    setExpanded(false);
+                    event.currentTarget.blur();
+                  }
+                }}
+              >
+                <span>{t("session.collapse", "收起")}</span>
               </div>
             )}
           </>

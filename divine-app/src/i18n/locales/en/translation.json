@@ -186,7 +186,10 @@
     "sessionCount_other": "{{count}} conversations",
     "settings": "Settings",
     "skills": "Skills",
-    "titleLabel": "Session title"
+    "titleLabel": "Session title",
+    "session.collapse": "Collapse",
+    "session.expandMore_one": "Expand {{count}} more conversation",
+    "session.expandMore_other": "Expand {{count}} more conversations"
   },
   "settings": {
     "apiKeyLabel": "API Key{{saved}}",
