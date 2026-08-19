@@ -5,6 +5,7 @@ import type {
   Project,
   Session,
   Settings,
+  SettingsSaveBody,
   TodoItem,
   ToolEvent,
   ToolRun,
@@ -161,13 +162,24 @@ export function getSettings(): Promise<Settings> {
   return request("/settings");
 }
 
-export function updateSettings(
-  body: Partial<Settings> & { api_key?: string }
-): Promise<Settings> {
+export function updateSettings(body: SettingsSaveBody): Promise<Settings> {
   return request("/settings", {
     method: "PUT",
     body: JSON.stringify(body),
   });
+}
+
+export interface BalanceInfo {
+  available: boolean;
+  balance?: string;
+  currency?: string;
+  reason?: string;
+  error?: string;
+}
+
+export function getBalance(modelId?: string): Promise<BalanceInfo> {
+  const query = modelId ? `?model_id=${encodeURIComponent(modelId)}` : "";
+  return request(`/settings/balance${query}`);
 }
 
 export function getWorkspace(): Promise<{

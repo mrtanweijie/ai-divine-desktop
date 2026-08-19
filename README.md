@@ -115,6 +115,30 @@ pnpm tauri:dev
 | `DIVINE_PROJECTS_DIR` | 空 | 预留的项目根目录变量，当前代码未使用 |
 | `DB_PATH` | `<data_dir>/ai_workspace.db` | SQLite 数据库路径 |
 
+#### 多模型配置
+
+`settings.json` 支持配置多个模型（在设置 → 模型里维护，也可手改文件）：
+
+```json
+{
+  "models": [
+    {
+      "id": "default",
+      "name": "DeepSeek V4 Flash",
+      "provider": "auto",
+      "model": "deepseek-v4-flash",
+      "base_url": "https://api.deepseek.com",
+      "api_key": "sk-...",
+      "active": true
+    }
+  ]
+}
+```
+
+- `active` 为 `true` 的条目是默认模型，同时会镜像到顶层 `provider` / `model` / `base_url` / `api_key` 字段，保持与旧配置兼容。
+- 对话时可在输入框发送按钮左侧的模型选择器中按会话切换模型（每个会话记住各自的模型选择，未选择时用默认模型）。
+- `provider`：`auto`（有 Key 用 DeepSeek，否则本地演示）、`langchain`（LangChain DeepSeek）、`mock`（本地演示）。
+
 桌面端启动 sidecar 时会注入 `DIVINE_DATA_DIR` 和 `DIVINE_WORKSPACE_DIR`，指向系统应用数据目录，因此打包后不会依赖仓库内的 `data/` 和 `workspace/`。
 
 普通字段优先读取 `data/settings.json`，未保存时回退到环境变量或默认值；`HOST` 和 `PORT` 始终以环境变量为准。UI 中的设置会写入 `settings.json`，`DIVINE_WORKSPACE_DIR` 只在设置中未指定工作区时生效。

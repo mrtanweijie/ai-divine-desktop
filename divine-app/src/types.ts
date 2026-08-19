@@ -181,6 +181,38 @@ export interface ChatFile {
   path?: string;
 }
 
+export type ModelProvider = "auto" | "langchain" | "mock";
+
+/** A configured model entry as returned by the server (api keys never leave
+ * the server; only `has_api_key` is exposed). */
+export interface ModelConfig {
+  id: string;
+  name: string;
+  provider: ModelProvider;
+  model: string;
+  base_url: string;
+  has_api_key: boolean;
+  active: boolean;
+}
+
+/** A model entry as submitted to the server when saving settings. `api_key`
+ * is only included when the user typed a new value; empty keeps the stored key. */
+export interface ModelConfigPayload {
+  id?: string;
+  name: string;
+  provider: ModelProvider;
+  model: string;
+  base_url?: string;
+  api_key?: string;
+  active: boolean;
+}
+
+export type SettingsSaveBody = Partial<Omit<Settings, "models">> & {
+  api_key?: string;
+  glm_api_key?: string;
+  models?: ModelConfigPayload[];
+};
+
 export interface Settings {
   provider: string;
   base_url: string;
@@ -193,6 +225,7 @@ export interface Settings {
   reasoning_effort: string;
   context_limit: number;
   tools: ToolDefinition[];
+  models: ModelConfig[];
 }
 
 export interface ToolDefinition {

@@ -157,13 +157,14 @@ async def stream_chat(request: StreamChatRequest):
     history = db.history_for_model(session_id, limit=context_limit)
     logger.info(
         "chat request session=%s question_len=%d attachments=%d think=%s "
-        "effort=%s history=%d",
+        "effort=%s history=%d model_id=%s",
         session_id,
         len(question),
         len(request.attachments),
         request.think,
         request.reasoning_effort,
         len(history),
+        request.model_id,
     )
 
     async def generate():
@@ -181,6 +182,7 @@ async def stream_chat(request: StreamChatRequest):
                 effort=request.reasoning_effort,
                 context_limit=context_limit,
                 cancel_event=cancel_event,
+                model_id=request.model_id,
             ):
                 yield event
         except Exception as exc:  # noqa: BLE001

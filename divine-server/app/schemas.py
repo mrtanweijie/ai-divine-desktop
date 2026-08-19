@@ -25,6 +25,7 @@ class StreamChatRequest(BaseModel):
     reasoning_effort: ReasoningEffort | None = None
     locale: str | None = None
     attachments: list[Attachment] = []
+    model_id: str | None = None
 
 
 class SessionCreate(BaseModel):
@@ -55,7 +56,24 @@ class ProjectUpdate(BaseModel):
     icon: str | None = None
 
 
+class ModelConfigUpdate(BaseModel):
+    """One editable model entry as submitted by the settings UI.
+
+    ``api_key`` is only meaningful when the user typed a new value; an empty
+    or missing key means "keep the previously saved key".
+    """
+
+    id: str | None = None
+    name: str = ""
+    provider: str = "langchain"
+    model: str = ""
+    base_url: str | None = None
+    api_key: str | None = None
+    active: bool = False
+
+
 class SettingsUpdate(BaseModel):
+    provider: str | None = None
     model: str | None = None
     base_url: str | None = None
     api_key: str | None = None
@@ -65,6 +83,7 @@ class SettingsUpdate(BaseModel):
     think_default: bool | None = None
     reasoning_effort: ReasoningEffort | None = None
     context_limit: int | None = Field(default=None, ge=1, le=200)
+    models: list[ModelConfigUpdate] | None = None
 
 
 class ScheduledTaskCreate(BaseModel):

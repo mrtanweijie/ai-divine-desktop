@@ -1,0 +1,177 @@
+.composer-wrap {
+  flex-shrink: 0;
+  padding: 12px 18px 16px;
+  background: rgba(11, 13, 15, 0.72);
+  backdrop-filter: blur(10px);
+}
+.composer-hint {
+  max-width: 860px;
+  margin: 8px auto 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+.composer {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 24px;
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.composer:focus-within {
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1), 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+.composer .ui-field {
+  gap: 0;
+}
+.composer .ui-textarea {
+  width: 100%;
+  min-height: 64px;
+  max-height: 240px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.composer .ui-textarea:focus {
+  border-color: transparent;
+  background: transparent;
+}
+.attachment-chips {
+  align-self: flex-start;
+  width: 100%;
+}
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 7px;
+  height: 28px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 6px 0 9px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 14px;
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.attachment-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachment-size {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.attachment-name-preview {
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.attachment-name-preview:hover {
+  color: var(--color-accent);
+}
+.attachment-name-preview:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+.attachment-chip button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 0;
+}
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.attachment-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.attachment-trigger:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.approval-mode-trigger {
+  height: 28px;
+  padding: 0 8px;
+  gap: 5px;
+  color: var(--color-text-secondary);
+}
+.approval-mode-trigger:hover {
+  color: var(--color-text);
+}
+.composer-effort-trigger {
+  color: var(--color-text-secondary);
+}
+.composer-effort-trigger:hover {
+  color: var(--color-text);
+}
+.composer-effort-trigger--on {
+  color: var(--color-accent);
+}
+.composer-effort-trigger--on:hover {
+  color: var(--color-accent);
+}
+.send-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  cursor: pointer;
+}
+.send-button.ui-button,
+.send-button.ui-button--primary,
+.send-button.ui-button--medium {
+  width: 32px;
+  height: 32px;
+  min-width: 0;
+  padding: 0;
+  border-radius: 50%;
+}
+.send-button:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+.send-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+  .composer-wrap {
+    padding: 10px 10px 12px;
+  }

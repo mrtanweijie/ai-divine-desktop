@@ -37,7 +37,7 @@ import type {
   ChatFile,
   PreviewFile,
   Project,
-  Settings,
+  SettingsSaveBody,
 } from "@/types";
 import { useConfigState } from "@/pages/chat/state/configStore";
 import { useFullscreen } from "@/pages/chat/state/fullscreenStore";
@@ -52,6 +52,10 @@ import {
   getSessionEffort,
   setSessionEffort,
 } from "@/pages/chat/state/sessionEffort";
+import {
+  getSessionModelId,
+  setSessionModelId,
+} from "@/pages/chat/state/sessionModel";
 import { Flex } from "@/components/ui/Flex";
 import { TitleBar } from "@/components/TitleBar";
 import { SessionSearchModal } from "@/pages/chat/components/SessionList/SessionSearchModal";
@@ -59,6 +63,7 @@ import { ProjectModal } from "@/pages/chat/components/ProjectModal";
 import { ProjectPicker } from "@/pages/chat/components/ProjectPicker";
 import { useChatStream } from "@/pages/chat/hooks/useChatStream";
 import { ChatStreamContext } from "@/pages/chat/hooks/ChatStreamContext";
+import "./index.less";
 import {
   acceptedFilesKey,
   changedFilePathsFromResult,
@@ -119,6 +124,8 @@ export default function ChatPage() {
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>("ask");
   const [composerEffort, setComposerEffort] = useState("off");
   const prevEffortSessionRef = useRef<string | null>(null);
+  const [composerModelId, setComposerModelId] = useState<string | null>(null);
+  const prevModelSessionRef = useRef<string | null>(null);
   const [guideCardsVisible, setGuideCardsVisible] = useState(true);
   const [prefill, setPrefill] = useState<{
     text: string;
@@ -376,6 +383,17 @@ export default function ChatPage() {
           reasoning_effort: "high",
           context_limit: 20,
           tools: [],
+          models: [
+            {
+              id: "default",
+              name: "DeepSeek V4 Flash",
+              provider: "mock",
+              model: "deepseek-v4-flash",
+              base_url: "",
+              has_api_key: false,
+              active: true,
+            },
+          ],
         });
         setSelectionReady(true);
       });
@@ -400,6 +418,17 @@ export default function ChatPage() {
           ? settings?.reasoning_effort ?? "high"
           : "off"
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, settings]);
+
+  // 切换会话时恢复该会话记住的模型；没有记忆的会话回落到设置里的默认模型。
+  useEffect(() => {
+    if (selectedId === prevModelSessionRef.current) return;
+    prevModelSessionRef.current = selectedId;
+    const activeId =
+      settings?.models?.find((entry) => entry.active)?.id ?? null;
+    const savedId = selectedId ? getSessionModelId(selectedId) : null;
+    setComposerModelId(savedId ?? activeId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, settings]);
 
@@ -691,19 +720,29 @@ export default function ChatPage() {
   );
 
   const handleSettingsSave = useCallback(
-    async (
-      body: Partial<Settings> & { api_key?: string; glm_api_key?: string }
-    ) => {
+    async (body: SettingsSaveBody) => {
       const updated = await updateSettings(body);
       setSettings(updated);
       // 设置里的默认思考档位变更后立即同步到输入框，无需新建会话。
       setComposerEffort(
         updated.think_default ? updated.reasoning_effort ?? "high" : "off"
       );
+      // 默认模型变更后，若当前会话没有单独记忆的模型，立即跟随。
+      const activeId = updated.models?.find((entry) => entry.active)?.id ?? null;
+      const remembered = selectedId ? getSessionModelId(selectedId) : null;
+      setComposerModelId(remembered ?? activeId);
       setSettingsOpen(false);
       await refreshWorkspace();
     },
-    [refreshWorkspace]
+    [refreshWorkspace, selectedId]
+  );
+
+  const handleModelChange = useCallback(
+    (modelId: string) => {
+      setComposerModelId(modelId);
+      setSessionModelId(selectedId, modelId);
+    },
+    [selectedId]
   );
 
   const handleApprovalModeChange = useCallback(
@@ -735,6 +774,7 @@ export default function ChatPage() {
     projects,
     approvalMode,
     streaming,
+    modelId: composerModelId,
     workspacePanelOpenRef,
     setSessions,
     setSelectedId,
@@ -991,7 +1031,6 @@ export default function ChatPage() {
           onOpenTasks={() => openView("tasks")}
           onOpenSkills={() => openView("skills")}
           activeView={tasksOpen ? "tasks" : skillsOpen ? "skills" : "chat"}
-          model={settings?.model ?? ""}
         />
       </Flex>
       <Flex direction="column" className="main-area">
@@ -1047,6 +1086,9 @@ export default function ChatPage() {
                 setComposerEffort(value);
                 setSessionEffort(selectedId, value);
               }}
+              models={settings?.models ?? []}
+              modelId={composerModelId}
+              onModelChange={handleModelChange}
               onValueChange={handleGuideValueChange}
               prefill={prefill}
               onPrefillConsumed={() => setPrefill(null)}
@@ -1111,13 +1153,20 @@ export default function ChatPage() {
           settings={settings}
           onClose={() => setSettingsOpen(false)}
           onSave={(body) => void handleSettingsSave(body)}
+          onConfirm={(title, description, action) =>
+            setConfirmState({ title, description, action })
+          }
         />
       )}
       {confirmState && (
         <ConfirmDialog
           title={confirmState.title}
           description={confirmState.description}
-          onConfirm={() => void confirmState.action()}
+          onConfirm={() => {
+            // 先关闭确认弹窗再执行动作；动作内部的 setConfirmState(null) 是幂等空操作
+            setConfirmState(null);
+            void confirmState.action();
+          }}
           onCancel={() => setConfirmState(null)}
         />
       )}

@@ -54,6 +54,7 @@ class ChatDeepSeekProvider:
         self,
         think: bool = False,
         effort: str | None = None,
+        entry: dict[str, Any] | None = None,
     ) -> None:
         from langchain_core.messages import (
             AIMessage,
@@ -122,7 +123,10 @@ class ChatDeepSeekProvider:
                 return payload
 
         self.settings = settings_store.load()
-        model = self.settings.get("model") or "deepseek-v4-flash"
+        # `entry` is a resolved model configuration (from the multi-model
+        # settings list); when absent, fall back to the legacy top-level fields.
+        entry = entry if entry is not None else self.settings
+        model = entry.get("model") or "deepseek-v4-flash"
         if model in ("", "local", "mock"):
             model = "deepseek-v4-flash"
         # DeepSeek thinking mode ignores sampling params (temperature, top_p,
@@ -132,14 +136,18 @@ class ChatDeepSeekProvider:
             effort if effort is not None
             else self.settings.get("reasoning_effort")
         )
-        self.llm = ReasoningChatDeepSeek(
-            model=model,
-            api_key=self.settings.get("api_key"),
-            temperature=0.7 if not think else None,
-            reasoning_effort=self.effort if think else None,
-            streaming=True,
-            extra_body=thinking_extra_body(think),
-        )
+        llm_kwargs: dict[str, Any] = {
+            "model": model,
+            "api_key": entry.get("api_key"),
+            "temperature": 0.7 if not think else None,
+            "reasoning_effort": self.effort if think else None,
+            "streaming": True,
+            "extra_body": thinking_extra_body(think),
+        }
+        base_url = str(entry.get("base_url") or "").strip()
+        if base_url:
+            llm_kwargs["base_url"] = base_url
+        self.llm = ReasoningChatDeepSeek(**llm_kwargs)
 
     async def stream(
         self,
@@ -249,3 +257,31 @@ class ChatDeepSeekProvider:
                 "name": call["name"],
                 "arguments": call["arguments"],
             }
+
+
+class OpenAIChatProvider:
+    """LangChain adapter for OpenAI-compatible endpoints (mimo, etc.).
+    Uses langchain_openai.ChatOpenAI directly — no DeepSeek-specific
+    reasoning/thinking extensions."""
+
+    def __init__(
+        self,
+        entry: dict[str, Any] | None = None,
+    ) -> None:
+        from langchain_openai import ChatOpenAI
+
+        settings = settings_store.load()
+        entry = entry if entry is not None else settings
+        model = entry.get("model") or "gpt-4o-mini"
+        if model in ("", "local", "mock"):
+            model = "gpt-4o-mini"
+        base_url = str(entry.get("base_url") or "").strip()
+        llm_kwargs: dict[str, Any] = {
+            "model": model,
+            "api_key": entry.get("api_key"),
+            "streaming": True,
+            "temperature": 0.7,
+        }
+        if base_url:
+            llm_kwargs["base_url"] = base_url
+        self.llm = ChatOpenAI(**llm_kwargs)

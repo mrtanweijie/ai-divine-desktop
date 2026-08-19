@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .dsml import DsmlStreamProcessor
 from .legacy import DeepSeekLLM, MockLLM
-from .langchain import ChatDeepSeekProvider, MockChatModel
+from .langchain import ChatDeepSeekProvider, MockChatModel, OpenAIChatProvider
 
 __all__ = [
     "ChatDeepSeekProvider",
@@ -12,4 +12,5 @@ __all__ = [
     "DsmlStreamProcessor",
     "MockChatModel",
     "MockLLM",
+    "OpenAIChatProvider",
 ]

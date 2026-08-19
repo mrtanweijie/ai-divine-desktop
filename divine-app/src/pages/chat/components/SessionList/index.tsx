@@ -9,6 +9,7 @@ import { Flex } from "@/components/ui/Flex";
 import type { Project, Session } from "@/types";
 import { ProjectList } from "./ProjectList";
 
+import "./index.less";
 interface SessionListProps {
   sessions: Session[];
   projects: Project[];
@@ -29,7 +30,6 @@ interface SessionListProps {
   onOpenTasks: () => void;
   onOpenSkills: () => void;
   activeView: "chat" | "tasks" | "skills";
-  model: string;
 }
 
 export function SessionList({
@@ -52,7 +52,6 @@ export function SessionList({
   onOpenTasks,
   onOpenSkills,
   activeView,
-  model,
 }: SessionListProps) {
   const { t } = useTranslation();
   return (
@@ -152,7 +151,7 @@ export function SessionList({
             }}
           >
             <Settings size={15} />
-            <span>{model || t("settings.providerMock", "本地演示")}</span>
+            <span>{t("session.settings", "设置")}</span>
           </div>
         </div>
       </div>

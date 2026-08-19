@@ -111,6 +111,7 @@ async def run_agent(
     effort: str | None = None,
     context_limit: int | None = None,
     cancel_event: asyncio.Event | None = None,
+    model_id: str | None = None,
 ) -> AsyncIterator[str]:
     """Stream one agent turn as SSE strings, handling interrupts and persistence."""
     workspace_path = workspace if isinstance(workspace, Path) else Path(workspace)
@@ -130,7 +131,7 @@ async def run_agent(
     elif plan_mode == "plan_first":
         ctx.plan_choice_resolved = True
         ctx.plan_first_pending = True
-    llm = _build_llm(think=think, effort=effort)
+    llm = _build_llm(think=think, effort=effort, model_id=model_id)
     tools = _build_tools(ctx)
     agent = _build_agent(llm, tools, ctx)
     config = {

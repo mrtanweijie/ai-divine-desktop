@@ -15,8 +15,12 @@
 .ui-menu {
   position: absolute;
   top: calc(100% + 6px);
-  z-index: 50;
+  /* 高于 Modal 遮罩(z-index:90)与 Select 菜单(120)，确保在弹窗内也能浮出 */
+  z-index: 200;
   min-width: 140px;
+  /* 宽度随内容自适应；避免 left/right 同时生效时被拉伸到视口边缘 */
+  width: max-content;
+  max-width: 320px;
   padding: 6px;
   border: 1px solid var(--color-border-strong);
   border-radius: 8px;
@@ -26,10 +30,6 @@
 
 .ui-menu--start {
   left: 0;
-}
-
-.ui-menu--end {
-  right: 0;
 }
 
 .ui-menu--center {

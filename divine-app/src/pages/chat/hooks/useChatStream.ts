@@ -16,6 +16,7 @@ import {
 import { requestRaw } from "@/services/request";
 import { consumeSSE } from "@/services/sse";
 import { setSessionEffort } from "@/pages/chat/state/sessionEffort";
+import { setSessionModelId } from "@/pages/chat/state/sessionModel";
 import {
   emitEventsChanged,
   emitTasksChanged,
@@ -42,6 +43,7 @@ interface UseChatStreamOptions {
   projects: Project[];
   approvalMode: ApprovalMode;
   streaming: boolean;
+  modelId: string | null;
   workspacePanelOpenRef: MutableRefObject<boolean>;
   setSessions: Dispatch<SetStateAction<Session[]>>;
   setSelectedId: (id: string | null) => void;
@@ -67,6 +69,7 @@ export function useChatStream(options: UseChatStreamOptions) {
     projects,
     approvalMode,
     streaming,
+    modelId,
     workspacePanelOpenRef,
     setSessions,
     setSelectedId,
@@ -114,8 +117,9 @@ export function useChatStream(options: UseChatStreamOptions) {
         sessionId = session.id;
         setSessions((prev) => [session, ...prev]);
         setSelectedId(session.id);
-        // 新会话首次发送即记住本条消息使用的深度思考档位。
+        // 新会话首次发送即记住本条消息使用的深度思考档位与模型。
         setSessionEffort(session.id, effort);
+        if (modelId) setSessionModelId(session.id, modelId);
       }
 
       const userMessage: ChatMessage = {
@@ -154,6 +158,7 @@ export function useChatStream(options: UseChatStreamOptions) {
             approval_mode: approvalMode,
             think,
             ...(think ? { reasoning_effort: effort } : {}),
+            ...(modelId ? { model_id: modelId } : {}),
             locale: i18next.language || "zh-CN",
             attachments: files.map((file) => ({
               name: file.name,
@@ -352,6 +357,7 @@ export function useChatStream(options: UseChatStreamOptions) {
     [
       approvalMode,
       loadChangedFiles,
+      modelId,
       projects,
       refreshProjects,
       refreshSessions,

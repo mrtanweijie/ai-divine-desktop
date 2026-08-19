@@ -6,6 +6,7 @@ import type { ChatMessage, PreviewFile } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConversationMinimap } from "./ConversationMinimap";
 
+import "./index.less";
 interface MessageTimelineProps {
   messages: ChatMessage[];
   streaming: boolean;

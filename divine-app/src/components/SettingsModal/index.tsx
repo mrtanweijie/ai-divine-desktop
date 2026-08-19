@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Cpu, Info, Save, Settings2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
-import type { Settings } from "@/types";
+import type {
+  ModelConfig,
+  Settings,
+  SettingsSaveBody,
+} from "@/types";
 import {
   readLocalePreference,
   setLocale,
@@ -21,32 +25,57 @@ import { BasicSection } from "./BasicSection";
 import { ModelSection } from "./ModelSection";
 import "./index.less";
 
+/** Build a UI-ready model list from server settings, tolerating servers that
+ * don't return `models` yet (single legacy entry derived from top-level). */
+function modelsFromSettings(settings: Settings): ModelConfig[] {
+  if (Array.isArray(settings.models) && settings.models.length > 0) {
+    return settings.models.map((entry) => ({ ...entry }));
+  }
+  const legacyProvider =
+    settings.provider === "auto" ||
+    settings.provider === "langchain" ||
+    settings.provider === "mock"
+      ? settings.provider
+      : "langchain";
+  return [
+    {
+      id: "default",
+      name: settings.model || "DeepSeek V4 Flash",
+      provider: legacyProvider,
+      model: settings.model || "deepseek-v4-flash",
+      base_url: settings.base_url || "https://api.deepseek.com",
+      has_api_key: settings.has_api_key,
+      active: true,
+    },
+  ];
+}
+
 interface SettingsModalProps {
   settings: Settings;
   onClose: () => void;
-  onSave: (
-    body: Partial<Settings> & { api_key?: string; glm_api_key?: string }
-  ) => Promise<void> | void;
+  onSave: (body: SettingsSaveBody) => Promise<void> | void;
+  onConfirm?: (title: string, description: string, action: () => void) => void;
 }
 
 export function SettingsModal({
   settings,
   onClose,
   onSave,
+  onConfirm,
 }: SettingsModalProps) {
   const { t } = useTranslation();
   const [locale, setLocaleState] = useState<AppLocale>(readLocalePreference);
-  const [model, setModel] = useState(settings.model);
-  const [baseUrl, setBaseUrl] = useState(settings.base_url);
-  const [apiKey, setApiKey] = useState("");
+  const [models, setModels] = useState<ModelConfig[]>(() =>
+    modelsFromSettings(settings)
+  );
+  const [modelKeys, setModelKeys] = useState<Record<string, string>>({});
+  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [glmApiKey, setGlmApiKey] = useState("");
   const [username, setUsername] = useState(settings.username);
   const [effort, setEffort] = useState(
     settings.think_default ? settings.reasoning_effort ?? "high" : "off"
   );
   const [contextLimit, setContextLimit] = useState(settings.context_limit);
-  const [provider, setProvider] = useState(settings.provider);
-  const [showKey, setShowKey] = useState(false);
   const [showGlmKey, setShowGlmKey] = useState(false);
   const [version, setVersion] = useState(`v${tauriConfig.version}`);
   const [themePreference, setThemePreferenceState] = useThemePreference();
@@ -58,14 +87,14 @@ export function SettingsModal({
   }, []);
 
   useEffect(() => {
-    setModel(settings.model);
-    setBaseUrl(settings.base_url);
+    setModels(modelsFromSettings(settings));
+    setModelKeys({});
+    setShowKeys({});
     setUsername(settings.username);
     setEffort(
       settings.think_default ? settings.reasoning_effort ?? "high" : "off"
     );
     setContextLimit(settings.context_limit);
-    setProvider(settings.provider);
   }, [settings]);
 
   useEffect(() => {
@@ -91,16 +120,18 @@ export function SettingsModal({
       return;
     }
     if (section === "model") {
-      const body: Partial<Settings> & {
-        api_key?: string;
-        glm_api_key?: string;
-      } = {
-        provider,
-        model,
-        base_url: baseUrl,
+      const body: SettingsSaveBody = {
+        models: models.map((entry) => ({
+          id: entry.id,
+          name: entry.name,
+          provider: entry.provider,
+          model: entry.model,
+          base_url: entry.base_url,
+          active: entry.active,
+          // 空字符串 = 保持不变，服务端保留已保存的 Key
+          api_key: modelKeys[entry.id] ?? "",
+        })),
       };
-      const trimmedKey = apiKey.trim();
-      if (trimmedKey) body.api_key = trimmedKey;
       const trimmedGlmKey = glmApiKey.trim();
       if (trimmedGlmKey) body.glm_api_key = trimmedGlmKey;
       void onSave(body);
@@ -113,7 +144,7 @@ export function SettingsModal({
       title={t("settings.title", "设置")}
       titleSuffix={version}
       onClose={onClose}
-      width={720}
+      width={760}
       headerAction={
         <Button
           variant="icon"
@@ -192,22 +223,22 @@ export function SettingsModal({
             />
           ) : section === "model" ? (
             <ModelSection
-              provider={provider}
-              onProviderChange={setProvider}
-              model={model}
-              onModelChange={setModel}
-              baseUrl={baseUrl}
-              onBaseUrlChange={setBaseUrl}
-              apiKey={apiKey}
-              onApiKeyChange={setApiKey}
-              showKey={showKey}
-              onToggleShowKey={() => setShowKey((value) => !value)}
+              models={models}
+              onModelsChange={setModels}
+              modelKeys={modelKeys}
+              onModelKeyChange={(id, value) =>
+                setModelKeys((prev) => ({ ...prev, [id]: value }))
+              }
+              showKeys={showKeys}
+              onToggleShowKey={(id) =>
+                setShowKeys((prev) => ({ ...prev, [id]: !prev[id] }))
+              }
               glmApiKey={glmApiKey}
               onGlmApiKeyChange={setGlmApiKey}
               showGlmKey={showGlmKey}
               onToggleShowGlmKey={() => setShowGlmKey((value) => !value)}
-              hasApiKey={settings.has_api_key}
               hasGlmKey={settings.has_glm_key}
+              onConfirm={onConfirm}
             />
           ) : (
             <AboutSection />

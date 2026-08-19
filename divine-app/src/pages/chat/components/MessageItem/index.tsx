@@ -18,6 +18,7 @@ import { copyText, formatSize, formatTime } from "@/utils";
 import { ToolStatusCard } from "./ToolStatusCard";
 import { groupToolCards } from "./MessageHelpers";
 
+import "./index.less";
 interface MessageItemProps {
   message: ChatMessage;
   streaming: boolean;

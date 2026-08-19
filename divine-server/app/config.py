@@ -27,6 +27,168 @@ def workspace_root() -> Path:
     return BACKEND_DIR / "workspace"
 
 
+DEFAULT_MODEL = "deepseek-v4-flash"
+DEFAULT_BASE_URL = "https://api.deepseek.com"
+
+
+def default_model_entry() -> dict[str, Any]:
+    """A single model entry mirroring the environment defaults."""
+    return {
+        "id": "default",
+        "name": "DeepSeek V4 Flash",
+        "provider": os.getenv("AI_PROVIDER", "auto"),
+        "model": os.getenv("DEEPSEEK_MODEL", DEFAULT_MODEL),
+        "base_url": os.getenv("DEEPSEEK_BASE_URL", DEFAULT_BASE_URL),
+        "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
+        "active": True,
+    }
+
+
+def normalize_models(
+    models: Any, legacy: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
+    """Coerce a raw models list into a stable shape with exactly one active entry."""
+    legacy = legacy or {}
+    if not isinstance(models, list) or not models:
+        # First run (or legacy settings.json without a models list): build one
+        # entry from the top-level/env fields so nothing is lost in migration.
+        models = [
+            {
+                "id": "default",
+                "name": str(legacy.get("model") or "") or DEFAULT_MODEL,
+                "provider": legacy.get("provider")
+                or os.getenv("AI_PROVIDER", "auto"),
+                "model": legacy.get("model") or DEFAULT_MODEL,
+                "base_url": legacy.get("base_url") or DEFAULT_BASE_URL,
+                "api_key": legacy.get("api_key") or "",
+                "active": True,
+            }
+        ]
+    normalized: list[dict[str, Any]] = []
+    for index, item in enumerate(models):
+        if not isinstance(item, dict):
+            continue
+        provider = str(item.get("provider") or legacy.get("provider") or "langchain")
+        if provider not in ("auto", "langchain", "mock"):
+            provider = "langchain"
+        model = str(item.get("model") or "").strip() or DEFAULT_MODEL
+        if provider != "mock" and model in ("", "local", "mock"):
+            model = DEFAULT_MODEL
+        entry = {
+            "id": str(item.get("id") or "").strip() or f"model-{index + 1}",
+            "name": str(item.get("name") or "").strip() or model,
+            "provider": provider,
+            "model": model,
+            "base_url": (
+                str(item.get("base_url") or legacy.get("base_url") or "").strip()
+                or DEFAULT_BASE_URL
+            ),
+            "api_key": str(item.get("api_key") or ""),
+            "active": bool(item.get("active", False)),
+        }
+        normalized.append(entry)
+    if not normalized:
+        normalized = [default_model_entry()]
+    active_ids = [entry["id"] for entry in normalized if entry["active"]]
+    if not active_ids:
+        normalized[0]["active"] = True
+    elif len(active_ids) > 1:
+        keep = active_ids[0]
+        for entry in normalized:
+            entry["active"] = entry["id"] == keep
+    return normalized
+
+
+def active_model(settings: dict[str, Any]) -> dict[str, Any]:
+    """Return the active model entry, falling back to the first entry."""
+    models = settings.get("models")
+    if isinstance(models, list):
+        for entry in models:
+            if isinstance(entry, dict) and entry.get("active"):
+                return entry
+        if models and isinstance(models[0], dict):
+            return models[0]
+    return default_model_entry()
+
+
+def mirror_active(settings: dict[str, Any]) -> dict[str, Any]:
+    """Mirror the active model entry onto the legacy top-level fields so all
+    existing consumers (LLM providers, PDF engine, health endpoint) keep
+    working unchanged."""
+    entry = active_model(settings)
+    settings["provider"] = entry.get("provider", "auto")
+    settings["model"] = entry.get("model", DEFAULT_MODEL)
+    settings["base_url"] = entry.get("base_url", DEFAULT_BASE_URL)
+    settings["api_key"] = entry.get("api_key", "")
+    return settings
+
+
+def merge_model_updates(
+    stored: Any, submitted: Any
+) -> list[dict[str, Any]]:
+    """Merge model entries submitted by the settings UI into the stored list.
+
+    Empty (or missing) api_key keeps the previously saved key, matching the
+    legacy single-model behavior where the frontend never echoes keys back.
+    """
+    stored_list = stored if isinstance(stored, list) else []
+    stored_by_id: dict[str, dict[str, Any]] = {}
+    for entry in stored_list:
+        if isinstance(entry, dict) and entry.get("id"):
+            stored_by_id[str(entry["id"])] = entry
+    merged: list[dict[str, Any]] = []
+    for index, item in enumerate(submitted or []):
+        if not isinstance(item, dict):
+            continue
+        entry_id = str(item.get("id") or "").strip() or f"model-{index + 1}"
+        prev = stored_by_id.get(entry_id) or {}
+        api_key = item.get("api_key")
+        if api_key in (None, ""):
+            api_key = prev.get("api_key", "")
+        merged.append(
+            {
+                "id": entry_id,
+                "name": str(item.get("name") or prev.get("name") or "").strip(),
+                "provider": (
+                    item.get("provider") or prev.get("provider") or "langchain"
+                ),
+                "model": str(
+                    item.get("model") or prev.get("model") or ""
+                ).strip(),
+                "base_url": str(
+                    item.get("base_url") or prev.get("base_url") or ""
+                ).strip(),
+                "api_key": str(api_key or ""),
+                "active": bool(item.get("active", False)),
+            }
+        )
+    return normalize_models(merged, {})
+
+
+def apply_legacy_to_active(
+    settings: dict[str, Any], updates: dict[str, Any]
+) -> dict[str, Any]:
+    """Apply legacy single-model updates (provider/model/base_url/api_key)
+    to the active entry so old clients keep working against the new layout."""
+    models = settings.get("models")
+    if not isinstance(models, list) or not models:
+        settings["models"] = normalize_models(None, settings)
+        models = settings["models"]
+    target = next(
+        (entry for entry in models if entry.get("active")), models[0]
+    )
+    for key in ("provider", "model", "base_url"):
+        if key in updates and updates[key] not in (None, ""):
+            if key == "model" and updates[key] in ("local", "mock"):
+                # legacy demo sentinels are not real model names
+                continue
+            target[key] = updates[key]
+    if updates.get("api_key") not in (None, ""):
+        target["api_key"] = updates["api_key"]
+    settings["models"] = normalize_models(models, {})
+    return settings
+
+
 def projects_root() -> Path:
     env_dir = os.getenv("DIVINE_PROJECTS_DIR")
     if env_dir:
@@ -71,8 +233,8 @@ class SettingsStore:
                     data["api_key"] = stored["api_key"]
             except (json.JSONDecodeError, OSError):
                 pass
-        if data.get("model") in ("", "local", "mock"):
-            data["model"] = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+        data["models"] = normalize_models(data.get("models"), data)
+        data = mirror_active(data)
         if not data.get("username"):
             data["username"] = "用户"
         data["host"] = os.getenv("HOST", data.get("host", "127.0.0.1"))
@@ -80,6 +242,9 @@ class SettingsStore:
         return data
 
     def save(self, values: dict[str, Any]) -> dict[str, Any]:
+        if "models" in values:
+            values["models"] = normalize_models(values.get("models"), values)
+            values = mirror_active(values)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(
             json.dumps(values, ensure_ascii=False, indent=2),

@@ -11,7 +11,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..config import settings_store
 from ..localization import normalize_locale
-from ..llm import ChatDeepSeekProvider, MockChatModel
+from ..llm import ChatDeepSeekProvider, MockChatModel, OpenAIChatProvider
 
 logger = logging.getLogger("divine.agent.llm")
 
@@ -24,16 +24,51 @@ def _compact_cjk_spaces(text: str) -> str:
         text,
     )
 
-def _build_llm(think: bool = False, effort: str | None = None) -> Any:
+def _resolve_model_entry(
+    settings: dict[str, Any], model_id: str | None
+) -> dict[str, Any]:
+    """Pick the model entry for this run: explicit per-message model_id wins,
+    otherwise the settings-active (default) model, otherwise the first entry."""
+    models = settings.get("models") or []
+    if model_id:
+        for entry in models:
+            if isinstance(entry, dict) and entry.get("id") == model_id:
+                return entry
+    for entry in models:
+        if isinstance(entry, dict) and entry.get("active"):
+            return entry
+    if models and isinstance(models[0], dict):
+        return models[0]
+    return {
+        "provider": settings.get("provider", "auto"),
+        "model": settings.get("model") or "deepseek-v4-flash",
+        "base_url": settings.get("base_url", ""),
+        "api_key": settings.get("api_key", ""),
+    }
+
+def _is_deepseek_endpoint(base_url: str) -> bool:
+    """Check if the base_url points to a DeepSeek endpoint."""
+    return "deepseek" in base_url.lower()
+
+
+def _build_llm(
+    think: bool = False,
+    effort: str | None = None,
+    model_id: str | None = None,
+) -> Any:
     settings = settings_store.load()
-    provider = settings.get("provider") or "auto"
+    entry = _resolve_model_entry(settings, model_id)
+    provider = entry.get("provider") or "auto"
     if provider == "mock":
         return MockChatModel()
-    if provider == "langchain":
-        return ChatDeepSeekProvider(think=think, effort=effort).llm
-    if provider == "auto" and not settings.get("api_key"):
+    if provider == "auto" and not entry.get("api_key"):
         return MockChatModel()
-    return ChatDeepSeekProvider(think=think, effort=effort).llm
+    base_url = str(entry.get("base_url") or "").strip()
+    # DeepSeek 端点 → ChatDeepSeekProvider（支持 thinking 扩展）
+    # 其它 OpenAI 兼容端点（mimo 等） → OpenAIChatProvider（纯 ChatOpenAI）
+    if _is_deepseek_endpoint(base_url):
+        return ChatDeepSeekProvider(think=think, effort=effort, entry=entry).llm
+    return OpenAIChatProvider(entry=entry).llm
 
 async def generate_session_title(
     llm: Any,

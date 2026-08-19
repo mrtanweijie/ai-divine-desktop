@@ -19,6 +19,7 @@ import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
 import { isTauri } from "@/services/tauri";
 
+import "./index.less";
 interface ChatHeaderProps {
   session: Session | null;
   project: Project | null;

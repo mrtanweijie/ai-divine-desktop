@@ -1,0 +1,195 @@
+.chat-header {
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 18px;
+  background: rgba(11, 13, 15, 0.72);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-border);
+}
+.chat-header-left,
+.chat-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.chat-header-drag {
+  flex: 1;
+  align-self: stretch;
+  min-width: 24px;
+}
+.project-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  max-width: 170px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.project-badge-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.new-chat-project-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  width: 95%;
+  max-width: 800px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+  border-radius: 16px 16px 0 0;
+  flex-shrink: 0;
+  padding: 0 18px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.new-chat-project-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  max-width: 260px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.new-chat-project-picker:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-accent);
+}
+.new-chat-project-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-header-left .ui-field {
+  flex: 1;
+  min-width: 0;
+}
+.chat-header-left .title-input {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 15px;
+}
+.back-icon {
+  color: var(--color-text-muted);
+  display: none;
+}
+.title-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 420px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  padding: 4px 7px;
+  cursor: text;
+  color: var(--color-text);
+}
+.title-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.title-button .title-pencil {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.title-button:hover .title-pencil {
+  opacity: 1;
+}
+.title-input {
+  width: 260px;
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  padding: 4px 8px;
+  outline: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.model-badge {
+  padding: 2px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.think-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.think-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.think-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.toggle-track {
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-border-strong);
+  position: relative;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+}
+.think-toggle input:checked + .toggle-track .toggle-thumb {
+  background: #0b0d0f;
+}
+.think-toggle input:checked + .toggle-track {
+  background: var(--color-accent);
+}
+.think-toggle input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(14px);
+}
+.think-toggle input:focus-visible + .toggle-track {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+  .chat-header {
+    padding: 0 10px;
+  }
+  .model-badge {
+    display: none;
+  }
+  .back-icon {
+    display: none;
+  }

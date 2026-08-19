@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { useChatStreamContext } from "@/pages/chat/hooks/ChatStreamContext";
 import { saveMessageChoiceState } from "@/services/api";
 
+import "./index.less";
 export interface ChoiceOption {
   label: string;
   theme?: string;

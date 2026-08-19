@@ -4,7 +4,6 @@ import {
   FileText,
   Plus,
   ShieldCheck,
-  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -23,10 +22,12 @@ import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
 import { TextArea } from "@/components/ui/TextArea";
-import type { ApprovalMode, ChatFile, PreviewFile } from "@/types";
+import type { ApprovalMode, ChatFile, ModelConfig, PreviewFile } from "@/types";
 import { isTauri, savePasteText } from "@/services/tauri";
 import { formatSize } from "@/utils";
+import { ModelEffortControl } from "./ModelEffortControl";
 
+import "./index.less";
 const PASTE_AS_FILE_CHAR_THRESHOLD = 2000;
 const PASTE_AS_FILE_LINE_THRESHOLD = 500;
 
@@ -40,6 +41,9 @@ interface ComposerProps {
   onApprovalModeChange: (mode: ApprovalMode) => void;
   effort: string;
   onEffortChange: (value: string) => void;
+  models: ModelConfig[];
+  modelId: string | null;
+  onModelChange: (modelId: string) => void;
   prefill?: { text: string; nonce: number } | null;
   onPrefillConsumed: () => void;
   projectPicker?: ReactNode;
@@ -57,6 +61,9 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
       onApprovalModeChange,
       effort,
       onEffortChange,
+      models,
+      modelId,
+      onModelChange,
       prefill,
       onPrefillConsumed,
       projectPicker,
@@ -69,34 +76,14 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
       assist: t("chat.approvalAssist", "帮我批准"),
       full: t("chat.approvalFull", "完全访问权限"),
     };
-    const effortLabels: Record<string, string> = {
-      off: t("chat.effortOff", "关闭"),
-      low: t("settings.effortLow", "低"),
-      high: t("settings.effortHigh", "高"),
-      max: t("settings.effortMax", "最高"),
-    };
-    const effortItems = [
-      {
-        key: "off",
-        label: t("chat.effortOff", "关闭"),
-        description: t("chat.effortOffDescription", "不进行深度思考，响应最快"),
-      },
-      {
-        key: "low",
-        label: t("settings.effortLow", "低"),
-        description: t("chat.effortLowDescription", "更快的回答，思考较少"),
-      },
-      {
-        key: "high",
-        label: t("settings.effortHigh", "高"),
-        description: t("chat.effortHighDescription", "默认档位"),
-      },
-      {
-        key: "max",
-        label: t("settings.effortMax", "最高"),
-        description: t("chat.effortMaxDescription", "最深入的思考"),
-      },
-    ];
+    const [value, setValue] = useState("");
+    const [attached, setAttached] = useState<ChatFile[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const localRef = useRef<HTMLTextAreaElement>(
+      null
+    ) as MutableRefObject<HTMLTextAreaElement | null>;
+    const textareaRef = localRef;
+
     const approvalModeItems = [
       {
         key: "ask" as const,
@@ -123,13 +110,6 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
         ),
       },
     ];
-    const [value, setValue] = useState("");
-    const [attached, setAttached] = useState<ChatFile[]>([]);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const localRef = useRef<HTMLTextAreaElement>(
-      null
-    ) as MutableRefObject<HTMLTextAreaElement | null>;
-    const textareaRef = localRef;
 
     const setRefs = (element: HTMLTextAreaElement | null) => {
       localRef.current = element;
@@ -378,35 +358,13 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
               />
             </Flex>
             <Flex align="center" gap={8}>
-              <Dropdown
-                align="end"
-                direction="above"
-                label={t("chat.thinkEffort", "深度思考")}
-                openOn="click"
-                trigger={
-                  <Button
-                    variant="ghost"
-                    size="small"
-                    className={`approval-mode-trigger composer-effort-trigger${
-                      effort !== "off" ? " composer-effort-trigger--on" : ""
-                    }`}
-                    disabled={disabled}
-                    title={t(
-                      "chat.thinkEffortTooltip",
-                      "选择关闭则不进行深度思考"
-                    )}
-                  >
-                    <Sparkles size={12} />
-                    <span>{effortLabels[effort] ?? "关闭"}</span>
-                    <ChevronDown size={12} />
-                  </Button>
-                }
-                items={effortItems.map((item) => ({
-                  key: item.key,
-                  label: item.label,
-                  description: item.description,
-                  onClick: () => onEffortChange(item.key),
-                }))}
+              <ModelEffortControl
+                disabled={disabled || models.length === 0}
+                models={models}
+                modelId={modelId}
+                onModelChange={onModelChange}
+                effort={effort}
+                onEffortChange={onEffortChange}
               />
               {disabled && onStop ? (
                 <Button
