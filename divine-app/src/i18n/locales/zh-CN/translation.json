@@ -59,7 +59,16 @@
     "switchModel": "切换模型",
     "text": "文本",
     "thinkEffort": "深度思考",
-    "thinkEffortTooltip": "选择关闭则不进行深度思考"
+    "thinkEffortTooltip": "选择关闭则不进行深度思考",
+    "contextUsageTooltip": "上下文已使用 {{percent}}%",
+    "contextUsage": "上下文用量",
+    "contextUsageDetail": "点击查看上下文用量",
+    "contextUsed": "上下文已用",
+    "contextCompacted": "已压缩",
+    "contextSystemPrompt": "系统提示词",
+    "contextTools": "工具",
+    "contextMessages": "对话消息",
+    "compactContext": "压缩上下文"
   },
   "common": {
     "accept": "接受",

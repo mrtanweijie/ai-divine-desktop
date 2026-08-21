@@ -7,11 +7,13 @@ so existing ``from app import db; db.list_projects()`` calls keep working.
 from . import (
     calendar_events,
     history,
+    memories,
     messages,
     migrations,
     projects,
     scheduled_tasks,
     sessions,
+    summaries,
     todos,
     tool_runs,
 )
@@ -31,6 +33,13 @@ from .messages import (
     get_message,
     list_messages,
     update_choice_state,
+)
+from .memories import (
+    forget_memory,
+    forget_memory_by_content,
+    list_active_memories,
+    save_memory,
+    search_memories,
 )
 from .migrations import SCHEMA, init_db
 from .projects import (
@@ -58,6 +67,7 @@ from .sessions import (
     touch_session,
     update_session,
 )
+from .summaries import delete_summary, get_summary, save_summary
 from .todos import list_todos, replace_todos, update_todo_status
 from .tool_runs import (
     add_tool_run,

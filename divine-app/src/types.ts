@@ -302,6 +302,29 @@ export interface FileDiff {
   contentTruncated: boolean;
 }
 
+/** Token usage breakdown for the composer context ring. */
+export interface ContextUsage {
+  usedPercent: number;
+  estimatedTokens: number;
+  contextWindow: number;
+  compactable: boolean;
+  hasSummary: boolean;
+  breakdown: {
+    systemPrompt: number;
+    tools: number;
+    messages: number;
+  };
+}
+
+export interface CompactResult {
+  ok: boolean;
+  compacted: boolean;
+  message?: string;
+  summary?: string;
+  savedTokens?: number;
+  usage: ContextUsage;
+}
+
 export interface PreviewFile {
   repoPath: string;
   relPath: string;

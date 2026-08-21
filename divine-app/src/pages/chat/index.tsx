@@ -94,6 +94,13 @@ export default function ChatPage() {
   // 当前视图的会话消息与流状态由 selectedId 派生，支持多会话并行流式。
   const messages = selectedId ? (messagesBySession[selectedId] ?? []) : [];
   const streaming = selectedId ? streamingSessions.has(selectedId) : false;
+  // After a stream finishes, refresh the composer context ring usage.
+  useEffect(() => {
+    if (lastStreamingRef.current && !streaming) {
+      setContextRefreshKey((key) => key + 1);
+    }
+    lastStreamingRef.current = streaming;
+  }, [streaming]);
   const { settings, setSettings, setWorkspace } = useConfigState();
   const {
     sidebarOpen,
@@ -126,6 +133,9 @@ export default function ChatPage() {
   const prevEffortSessionRef = useRef<string | null>(null);
   const [composerModelId, setComposerModelId] = useState<string | null>(null);
   const prevModelSessionRef = useRef<string | null>(null);
+  // Bumped after each stream settles so the context ring refreshes usage.
+  const [contextRefreshKey, setContextRefreshKey] = useState(0);
+  const lastStreamingRef = useRef(false);
   const [guideCardsVisible, setGuideCardsVisible] = useState(true);
   const [prefill, setPrefill] = useState<{
     text: string;
@@ -1089,6 +1099,8 @@ export default function ChatPage() {
               models={settings?.models ?? []}
               modelId={composerModelId}
               onModelChange={handleModelChange}
+              sessionId={selectedId}
+              contextRefreshKey={contextRefreshKey}
               onValueChange={handleGuideValueChange}
               prefill={prefill}
               onPrefillConsumed={() => setPrefill(null)}

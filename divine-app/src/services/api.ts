@@ -1,6 +1,8 @@
 import type {
   ApprovalMode,
   ChatMessage,
+  CompactResult,
+  ContextUsage,
   Message,
   Project,
   Session,
@@ -81,6 +83,16 @@ export function saveMessageChoiceState(
 
 export function cancelSessionGeneration(id: string): Promise<{ ok: boolean }> {
   return request(`/sessions/${id}/cancel`, { method: "POST" });
+}
+
+/** Token usage breakdown for the composer context ring. */
+export function getContextUsage(id: string): Promise<ContextUsage> {
+  return request(`/sessions/${id}/context-usage`);
+}
+
+/** Manually compact a session's early conversation into a summary. */
+export function compactSession(id: string): Promise<CompactResult> {
+  return request(`/sessions/${id}/compact`, { method: "POST" });
 }
 
 export function getSession(

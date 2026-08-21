@@ -14,8 +14,24 @@ from .sessions import get_session
 from .todos import list_todos
 from .tool_runs import list_message_parts, list_tool_runs
 
+def conn_summary(session_id: str) -> dict[str, Any] | None:
+    """Session summary lookup independent of the caller's connection scope."""
+    from contextlib import closing
+
+    with closing(_connect()) as conn:
+        row = conn.execute(
+            "SELECT summary FROM session_summaries WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
 def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
-    """Model-facing history; file attachments are rehydrated into user turns."""
+    """Model-facing history; file attachments are rehydrated into user turns.
+
+    When a session summary exists (context compaction), it is prepended as a
+    synthetic system message so the model keeps early context without paying
+    full token cost for every old message.
+    """
     with closing(_connect()) as conn:
         rows = conn.execute(
             "SELECT * FROM messages WHERE session_id = ? "
@@ -37,6 +53,8 @@ def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
 
     while messages and messages[0]["role"] == "tool":
         messages.pop(0)
+
+    summary_row = conn_summary(session_id)
 
     result: list[dict[str, Any]] = []
     pending_tool_call_ids: set[str] = set()
@@ -157,6 +175,17 @@ def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
             continue
         if content:
             result.append({"role": message["role"], "content": content})
+    if summary_row and summary_row.get("summary"):
+        result.insert(
+            0,
+            {
+                "role": "system",
+                "content": (
+                    "以下是本次会话早期对话的摘要（已压缩，帮助理解上下文）：\n"
+                    f"{summary_row['summary']}"
+                ),
+            },
+        )
     return result
 
 def load_session(session_id: str) -> dict[str, Any]:

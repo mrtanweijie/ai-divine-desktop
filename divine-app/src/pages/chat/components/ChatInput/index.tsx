@@ -26,6 +26,7 @@ import type { ApprovalMode, ChatFile, ModelConfig, PreviewFile } from "@/types";
 import { isTauri, savePasteText } from "@/services/tauri";
 import { formatSize } from "@/utils";
 import { ModelEffortControl } from "./ModelEffortControl";
+import { ContextRingButton } from "./ContextRingButton";
 
 import "./index.less";
 const PASTE_AS_FILE_CHAR_THRESHOLD = 2000;
@@ -44,6 +45,8 @@ interface ComposerProps {
   models: ModelConfig[];
   modelId: string | null;
   onModelChange: (modelId: string) => void;
+  sessionId?: string | null;
+  contextRefreshKey?: number;
   prefill?: { text: string; nonce: number } | null;
   onPrefillConsumed: () => void;
   projectPicker?: ReactNode;
@@ -64,6 +67,8 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
       models,
       modelId,
       onModelChange,
+      sessionId,
+      contextRefreshKey = 0,
       prefill,
       onPrefillConsumed,
       projectPicker,
@@ -366,6 +371,12 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                 effort={effort}
                 onEffortChange={onEffortChange}
               />
+              {sessionId && (
+                <ContextRingButton
+                  sessionId={sessionId}
+                  refreshKey={contextRefreshKey}
+                />
+              )}
               {disabled && onStop ? (
                 <Button
                   variant="secondary"

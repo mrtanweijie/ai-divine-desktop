@@ -59,7 +59,16 @@
     "switchModel": "Switch model",
     "text": "Text",
     "thinkEffort": "Deep thinking",
-    "thinkEffortTooltip": "Select Off to disable deep thinking"
+    "thinkEffortTooltip": "Select Off to disable deep thinking",
+    "contextUsageTooltip": "Context used {{percent}}%",
+    "contextUsage": "Context usage",
+    "contextUsageDetail": "Click to view context usage",
+    "contextUsed": "Context used",
+    "contextCompacted": "Compacted",
+    "contextSystemPrompt": "System prompt",
+    "contextTools": "Tools",
+    "contextMessages": "Messages",
+    "compactContext": "Compact context"
   },
   "common": {
     "accept": "Accept",

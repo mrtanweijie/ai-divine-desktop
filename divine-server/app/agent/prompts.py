@@ -30,6 +30,51 @@ _PLAN_CONTINUATION_KEYWORDS = (
     "next step",
 )
 
+_MEMORY_CATEGORY_LABELS = {
+    "preference": "偏好",
+    "fact": "事实",
+    "event": "事件",
+}
+
+# Hard cap for the injected memory block (tokens ≈ chars / 1.5 for CJK).
+_MEMORY_BLOCK_CHAR_LIMIT = 2200
+
+def _memory_context(messages: list[Any]) -> str | None:
+    """Build a compact 'known user info' block from long-term memories.
+
+    The last user message drives similarity search; newest memories rank as
+    tie-breakers. Output is bounded so the system prompt never balloons.
+    """
+    last_user_text = ""
+    for message in reversed(messages):
+        if isinstance(message, HumanMessage):
+            last_user_text = _content_text(message.content)
+            break
+    try:
+        hits = db.search_memories(last_user_text, limit=5)
+    except Exception:  # noqa: BLE001 — memory must never break the agent
+        return None
+    if not hits:
+        return None
+    lines: list[str] = []
+    used = 0
+    for memory in hits:
+        label = _MEMORY_CATEGORY_LABELS.get(
+            str(memory.get("category") or ""), "记忆"
+        )
+        content = str(memory.get("content") or "").strip()
+        if not content:
+            continue
+        line = f"- [{label}] {content}"
+        if used + len(line) > _MEMORY_BLOCK_CHAR_LIMIT:
+            break
+        lines.append(line)
+        used += len(line)
+    if not lines:
+        return None
+    header = "## 关于你已知的用户信息（自然运用，不要刻意提及；若与用户当前说法冲突，以用户当前说法为准）"
+    return header + "\n" + "\n".join(lines)
+
 def _auto_rag_context_lc(
     messages: list[Any], workspace: Path
 ) -> str | None:
@@ -231,6 +276,9 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
         )
         if plan_progress:
             parts.append(plan_progress)
+        memory_block = _memory_context(request.state.get("messages") or [])
+        if memory_block:
+            parts.append(memory_block)
         rag_context = _auto_rag_context_lc(
             request.state.get("messages") or [], ctx.workspace
         )

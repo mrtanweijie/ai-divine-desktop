@@ -13,6 +13,7 @@ from .github_skill import (  # noqa: F401
 )
 from .image_resize import ImageResizeAdapter  # noqa: F401
 from .mermaid_export import MermaidExportAdapter  # noqa: F401
+from .memory import ForgetMemoryAdapter, RememberAdapter  # noqa: F401
 from .notes import NotesAdapter  # noqa: F401
 from .pdf_generate import PdfGenerateAdapter  # noqa: F401
 from .pdf_split_merge import PdfSplitMergeAdapter  # noqa: F401

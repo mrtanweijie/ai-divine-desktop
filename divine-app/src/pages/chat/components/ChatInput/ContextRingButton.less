@@ -1,0 +1,158 @@
+.context-ring {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.context-ring-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.context-ring-button:hover {
+  background: var(--color-accent-soft);
+}
+
+.context-ring-svg {
+  display: block;
+}
+
+.context-ring-panel {
+  width: 280px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+.context-ring-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.context-ring-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+}
+
+.context-ring-badge {
+  align-self: center;
+  padding: 1px 7px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+}
+
+.context-ring-percent {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.context-ring-window {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.context-ring-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.context-ring-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+.context-ring-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 10px;
+}
+
+.context-ring-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  color: var(--color-text-secondary);
+}
+
+.context-ring-row-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  opacity: 0.85;
+}
+
+.context-ring-row-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.context-ring-row > span:last-child {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.context-ring-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 7px;
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.context-ring-compact:hover:not(:disabled) {
+  background: var(--color-accent-soft);
+}
+
+.context-ring-compact:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.context-ring-spin {
+  animation: context-ring-spin 0.8s linear infinite;
+}
+
+@keyframes context-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -110,6 +110,31 @@ CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status)
 CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_session ON scheduled_tasks(session_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_task ON calendar_events(task_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_start ON calendar_events(start_at);
+
+CREATE TABLE IF NOT EXISTS user_memories (
+    id TEXT PRIMARY KEY,
+    category TEXT NOT NULL,
+    content TEXT NOT NULL,
+    importance REAL NOT NULL DEFAULT 0.5,
+    confidence REAL NOT NULL DEFAULT 0.8,
+    status TEXT NOT NULL DEFAULT 'active',
+    source_session_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    superseded_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_memories_status ON user_memories(status);
+CREATE INDEX IF NOT EXISTS idx_memories_category ON user_memories(category);
+
+CREATE TABLE IF NOT EXISTS session_summaries (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    summary TEXT NOT NULL DEFAULT '',
+    cutoff_rowid INTEGER NOT NULL DEFAULT 0,
+    saved_tokens INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 def init_db() -> None:

@@ -174,6 +174,21 @@ async def run_agent(
         ]
         last_user = user_messages[-1] if user_messages else history[-1]
         input_messages = convert_to_messages([last_user])
+        # Thread keeps only the recent window; re-inject the compacted
+        # summary (if any) so early context survives the trim.
+        summary = db.get_summary(session_id)
+        if summary and summary.get("summary"):
+            from langchain_core.messages import SystemMessage
+
+            input_messages.insert(
+                0,
+                SystemMessage(
+                    content=(
+                        "以下是本次会话早期对话的摘要（已压缩，帮助理解上下文）：\n"
+                        f"{summary['summary']}"
+                    )
+                ),
+            )
     else:
         input_messages = convert_to_messages(history)
     question_text = _content_text(input_messages[-1].content) if input_messages else ""
@@ -372,3 +387,25 @@ async def run_agent(
         session_id,
         len(final_content),
     )
+    # Compact the session when enough new messages accumulated. Best-effort:
+    # never fail the turn on compaction errors, and keep it off the critical
+    # path by emitting a dedicated SSE event after "done".
+    try:
+        from .compact import compact_session
+
+        saved = await compact_session(session_id, context_limit)
+        if saved and saved.get("summary"):
+            yield sse_event(
+                "compacted",
+                {
+                    "savedTokens": int(saved.get("saved_tokens") or 0),
+                    "summary": saved["summary"],
+                },
+            )
+            logger.info(
+                "session compaction emitted id=%s saved_tokens=%s",
+                session_id,
+                saved.get("saved_tokens", 0),
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("session compaction failed id=%s: %s", session_id, exc)

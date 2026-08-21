@@ -161,6 +161,7 @@ fn count_diff(diff_text: &str) -> (usize, usize) {
 }
 
 const MAX_PREVIEW_BYTES: u64 = 1024 * 1024;
+const MAX_PREVIEW_LINES: usize = 3000;
 const BINARY_SAMPLE_BYTES: usize = 8192;
 
 fn read_preview_bytes(path: &Path) -> Option<(Vec<u8>, bool)> {
@@ -173,9 +174,28 @@ fn read_preview_bytes(path: &Path) -> Option<(Vec<u8>, bool)> {
     file.take(MAX_PREVIEW_BYTES + 1)
         .read_to_end(&mut buffer)
         .ok()?;
-    let truncated = buffer.len() as u64 > MAX_PREVIEW_BYTES;
+    let mut truncated = buffer.len() as u64 > MAX_PREVIEW_BYTES;
     if truncated {
         buffer.truncate(MAX_PREVIEW_BYTES as usize);
+    }
+    // Line-count cap: files with many short lines (e.g. 50k-row CSV-like
+    // lists) stay under the byte cap but would still flood the frontend
+    // with tens of thousands of rendered rows. Cut at a newline boundary
+    // so the returned text is always line-complete.
+    if !truncated && buffer.iter().filter(|byte| **byte == b'\n').count() > MAX_PREVIEW_LINES {
+        let mut cut = buffer.len();
+        let mut newlines = 0;
+        for (index, byte) in buffer.iter().enumerate() {
+            if *byte == b'\n' {
+                newlines += 1;
+                if newlines >= MAX_PREVIEW_LINES {
+                    cut = index + 1;
+                    break;
+                }
+            }
+        }
+        buffer.truncate(cut);
+        truncated = true;
     }
     Some((buffer, truncated))
 }
@@ -466,6 +486,86 @@ mod tests {
             find_git_root(&target),
             Some(nested)
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn caps_preview_line_count() {
+        let dir = std::env::temp_dir().join(format!(
+            "divine-lines-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let file = dir.join("many-lines.txt");
+        let mut content = String::new();
+        for index in 0..(MAX_PREVIEW_LINES + 500) {
+            content.push_str(&format!("line-{index}\n"));
+        }
+        std::fs::write(&file, &content).expect("write temp file");
+        let diff = get_file_diff(
+            dir.to_string_lossy().into_owned(),
+            "many-lines.txt".to_string(),
+        )
+        .expect("diff command");
+        assert!(diff.content_truncated);
+        assert_eq!(
+            diff.new_content.lines().count(),
+            MAX_PREVIEW_LINES,
+            "preview must be cut at the line cap"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn caps_50k_line_file_under_byte_cap() {
+        // Regression: a 50k-row short-line file stays under the 1 MiB byte cap,
+        // so only the line-count cap can stop it from flooding the frontend.
+        let dir = std::env::temp_dir().join(format!(
+            "divine-50k-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let file = dir.join("清单.txt");
+        let mut content = String::new();
+        for index in 0..50_192 {
+            content.push_str(&format!("6000000{:08}\n", index));
+        }
+        std::fs::write(&file, &content).expect("write temp file");
+        let meta = std::fs::metadata(&file).expect("metadata");
+        assert!(
+            meta.len() < MAX_PREVIEW_BYTES,
+            "simulated file must stay under the byte cap to exercise line capping"
+        );
+        let diff = get_file_diff(
+            dir.to_string_lossy().into_owned(),
+            "清单.txt".to_string(),
+        )
+        .expect("diff command");
+        assert!(diff.content_truncated);
+        assert_eq!(
+            diff.new_content.lines().count(),
+            MAX_PREVIEW_LINES,
+            "50k-line preview must be cut to the line cap"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn does_not_cap_few_lines() {
+        let dir = std::env::temp_dir().join(format!(
+            "divine-few-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let file = dir.join("few.txt");
+        std::fs::write(&file, "a\nb\nc\n").expect("write temp file");
+        let diff = get_file_diff(
+            dir.to_string_lossy().into_owned(),
+            "few.txt".to_string(),
+        )
+        .expect("diff command");
+        assert!(!diff.content_truncated);
+        assert_eq!(diff.new_content.lines().count(), 3);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

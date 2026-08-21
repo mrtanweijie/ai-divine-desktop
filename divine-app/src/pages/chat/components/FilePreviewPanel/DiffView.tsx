@@ -1,4 +1,4 @@
-import { Check, FileText, Maximize2, Minimize2 } from "lucide-react";
+import { Check, FileText, Maximize2, Minimize2, Scissors } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import type { FileDiff } from "@/types";
@@ -20,12 +20,16 @@ interface DiffRow {
   newLine: number | null;
 }
 
+/** Rows rendered at most for diff preview; beyond this the diff is cut. */
+const MAX_PREVIEW_ROWS = 3000;
+
 function parseDiffRows(diffText: string): DiffRow[] {
   const rows: DiffRow[] = [];
   let oldLine = 0;
   let newLine = 0;
   let inHunk = false;
   for (const raw of diffText.split("\n")) {
+    if (rows.length >= MAX_PREVIEW_ROWS) break;
     if (raw.startsWith("@@")) {
       const match = raw.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
       oldLine = match ? Number(match[1]) : 0;
@@ -66,22 +70,25 @@ function parseDiffRows(diffText: string): DiffRow[] {
 }
 
 function fallbackRows(content: string, kind: "add" | "del" | "context"): DiffRow[] {
-  return content.split("\n").map((text, index) => ({
-    type: kind,
-    text,
-    oldLine:
-      kind === "add"
-        ? null
-        : kind === "del"
-          ? index + 1
-          : index + 1,
-    newLine:
-      kind === "del"
-        ? null
-        : kind === "add"
-          ? index + 1
-          : index + 1,
-  }));
+  return content
+    .split("\n")
+    .slice(0, MAX_PREVIEW_ROWS)
+    .map((text, index) => ({
+      type: kind,
+      text,
+      oldLine:
+        kind === "add"
+          ? null
+          : kind === "del"
+            ? index + 1
+            : index + 1,
+      newLine:
+        kind === "del"
+          ? null
+          : kind === "add"
+            ? index + 1
+            : index + 1,
+    }));
 }
 
 export function DiffView({
@@ -94,9 +101,13 @@ export function DiffView({
   onToggleExpand,
 }: DiffViewProps) {
   const { t } = useTranslation();
+  const rawDiff = !preview.isBinary ? preview.diffText.trim() : "";
+  const diffExceedsLimit =
+    rawDiff.split("\n").length > MAX_PREVIEW_ROWS ||
+    (!rawDiff && (preview.newContent || preview.oldContent).split("\n").length > MAX_PREVIEW_ROWS);
   const rows =
     !preview.isBinary
-      ? preview.diffText.trim()
+      ? rawDiff
         ? parseDiffRows(preview.diffText)
         : preview.tracked
           ? fallbackRows(preview.newContent, "context")
@@ -156,6 +167,16 @@ export function DiffView({
       {!preview.isBinary && rows.length === 0 && (
         <div className="diff-view-state">
           <span>{t("file.noVisibleChanges", "当前文件没有可见改动")}</span>
+        </div>
+      )}
+      {!preview.isBinary && diffExceedsLimit && (
+        <div className="diff-view-truncated" role="status">
+          <Scissors size={12} className="diff-view-truncated-icon" />
+          <span>
+            {t("file.previewTruncated", "文件过大，仅显示前 {{count}} 行", {
+              count: MAX_PREVIEW_ROWS,
+            })}
+          </span>
         </div>
       )}
       {!preview.isBinary && rows.length > 0 && (

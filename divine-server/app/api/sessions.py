@@ -120,6 +120,51 @@ def clear_session(session_id: str):
     return db.load_session(session_id)
 
 
+@router.get("/{session_id}/context-usage")
+def session_context_usage(session_id: str):
+    """Token usage breakdown for the context ring in the composer."""
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    from ..agent.compact import build_context_breakdown
+
+    return build_context_breakdown(session_id)
+
+
+@router.post("/{session_id}/compact")
+async def compact_session(session_id: str):
+    """Manually compact the session's early conversation into a summary."""
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    from ..agent.compact import compact_session as run_compact
+
+    saved = await run_compact(session_id)
+    if saved is None:
+        from ..agent.compact import build_context_breakdown
+
+        return {
+            "ok": True,
+            "compacted": False,
+            "message": "会话内容还不多，暂无需压缩",
+            "usage": build_context_breakdown(session_id),
+        }
+    logger.info(
+        "session manually compacted id=%s saved_tokens=%s",
+        session_id,
+        saved.get("saved_tokens", 0),
+    )
+    from ..agent.compact import build_context_breakdown
+
+    return {
+        "ok": True,
+        "compacted": True,
+        "summary": saved.get("summary", ""),
+        "savedTokens": int(saved.get("saved_tokens") or 0),
+        "usage": build_context_breakdown(session_id),
+    }
+
+
 @router.get("/{session_id}/export")
 def export_session(
     session_id: str, format: str = "markdown", locale: str = "zh-CN"

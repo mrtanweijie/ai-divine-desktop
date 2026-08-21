@@ -4,7 +4,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { FileText, Maximize2, Minimize2 } from "lucide-react";
+import { FileText, Maximize2, Minimize2, Scissors } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ThemedToken } from "shiki";
 import { Button } from "@/components/ui/Button";
@@ -20,6 +20,16 @@ interface FileContentViewProps {
   fileName?: string;
   expanded: boolean;
   onToggleExpand: () => void;
+}
+
+/** Rows rendered at most for preview; beyond this the content is cut with a notice. */
+const MAX_PREVIEW_ROWS = 3000;
+
+function truncateLines(content: string, maxRows: number): { text: string; truncated: boolean } {
+  if (maxRows <= 0) return { text: "", truncated: false };
+  const lines = content.split("\n");
+  if (lines.length <= maxRows) return { text: content, truncated: false };
+  return { text: lines.slice(0, maxRows).join("\n"), truncated: true };
 }
 
 function languageFromPath(filePath: string): string | undefined {
@@ -51,7 +61,8 @@ function tokenStyle(token: ThemedToken): CSSProperties {
 
 function CodePreview({ code, relPath }: { code: string; relPath: string }) {
   const { t } = useTranslation();
-  const content = code || "";
+  const preview = useMemo(() => truncateLines(code || "", MAX_PREVIEW_ROWS), [code]);
+  const content = preview.text;
   const theme = useTheme();
   const language = useMemo(
     () => normalizeLanguage(languageFromPath(relPath)),
@@ -113,6 +124,16 @@ function CodePreview({ code, relPath }: { code: string; relPath: string }) {
 
   return (
     <div className="diff-view-code code-preview">
+      {preview.truncated && (
+        <div className="diff-view-truncated" role="status">
+          <Scissors size={12} className="diff-view-truncated-icon" />
+          <span>
+            {t("file.previewTruncated", "文件过大，仅显示前 {{count}} 行", {
+              count: MAX_PREVIEW_ROWS,
+            })}
+          </span>
+        </div>
+      )}
       {rendered.map((line, index) => (
         <div key={index} className="file-content-line">
           <span className="file-content-line-num">{index + 1}</span>
