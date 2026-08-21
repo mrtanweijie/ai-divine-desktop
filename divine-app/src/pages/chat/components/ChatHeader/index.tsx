@@ -18,6 +18,7 @@ import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
 import { isTauri } from "@/services/tauri";
+import { formatTokens } from "@/utils";
 
 import "./index.less";
 interface ChatHeaderProps {
@@ -27,6 +28,13 @@ interface ChatHeaderProps {
   onRename: (id: string, title: string) => void;
   workspaceOpen: boolean;
   onToggleWorkspace: () => void;
+  /** 会话累计 token 消耗（来自每条回复的 token_usage 汇总） */
+  tokenUsage?: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    turns: number;
+  };
 }
 
 export function ChatHeader({
@@ -36,6 +44,7 @@ export function ChatHeader({
   onRename,
   workspaceOpen,
   onToggleWorkspace,
+  tokenUsage,
 }: ChatHeaderProps) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
@@ -110,6 +119,25 @@ export function ChatHeader({
       />
 
       <Flex align="center" gap={6} className="chat-header-right">
+        {session && tokenUsage && tokenUsage.total_tokens > 0 && (
+          <span
+            className="chat-header-token-usage"
+            title={t(
+              "session.tokenUsageTotal",
+              "本会话累计消耗 {{total}} tokens（输入 {{input}} · 输出 {{output}} · 共 {{turns}} 轮）",
+              {
+                total: tokenUsage.total_tokens,
+                input: tokenUsage.input_tokens,
+                output: tokenUsage.output_tokens,
+                turns: tokenUsage.turns,
+              }
+            )}
+          >
+            {t("session.tokenUsageShort", "{{count}} tokens", {
+              value: formatTokens(tokenUsage.total_tokens),
+            })}
+          </span>
+        )}
         {session && (
           <Dropdown
             label={t("chat.exportSession", "导出会话")}

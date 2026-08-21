@@ -8,13 +8,14 @@ import {
   FileText,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/Button";
 import { DivineAvatar } from "@/components/DivineAvatar";
 import { toast } from "@/components/ui/Toast";
 import { Flex } from "@/components/ui/Flex";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
 import type { ChatMessage, PreviewFile, TodoItem } from "@/types";
-import { copyText, formatSize, formatTime } from "@/utils";
+import { copyText, formatSize, formatTime, formatTokens } from "@/utils";
 import { ToolStatusCard } from "./ToolStatusCard";
 import { groupToolCards } from "./MessageHelpers";
 
@@ -55,8 +56,40 @@ export function MessageItem({
           {isUser ? username || t("common.user", "用户") : "Divine"}
         </span>
         <time className="message-time">{formatTime(message.created_at)}</time>
-        {!isUser && message.content && (
-          <MessageCopyButton text={message.content} />
+        {!isUser && (message.token_usage || message.content) && (
+          <span className="message-meta-hover">
+            {message.token_usage && (
+              <span
+                className="message-token-usage"
+                title={
+                  message.token_usage.source === "real"
+                    ? t(
+                        "message.tokenUsageDetail",
+                        "输入 {{input}} · 输出 {{output}} · 总计 {{total}} tokens（API 上报）",
+                        {
+                          input: message.token_usage.input_tokens,
+                          output: message.token_usage.output_tokens,
+                          total: message.token_usage.total_tokens,
+                        }
+                      )
+                    : t(
+                        "message.tokenUsageEstimated",
+                        "输入 {{input}} · 输出 {{output}} · 总计 {{total}} tokens（估算）",
+                        {
+                          input: message.token_usage.input_tokens,
+                          output: message.token_usage.output_tokens,
+                          total: message.token_usage.total_tokens,
+                        }
+                      )
+                }
+              >
+                {t("message.tokenTotal", "{{count}} tokens", {
+                  value: formatTokens(message.token_usage.total_tokens),
+                })}
+              </span>
+            )}
+            {message.content && <MessageCopyButton text={message.content} />}
+          </span>
         )}
       </Flex>
       {isUser ? (
@@ -185,15 +218,20 @@ function MessageCopyButton({ text }: { text: string }) {
     setTimeout(() => setCopied(false), 1200);
   };
   return (
-    <button
-      type="button"
+    <Button
+      variant="icon"
+      size="small"
       className="message-copy"
-      onClick={() => void copy()}
+      onClick={(event) => {
+        // 点击后主动失焦，避免原生按钮焦点残留
+        event.currentTarget.blur();
+        void copy();
+      }}
       aria-label={t("message.copyContent", "复制内容")}
       title={t("message.copyContent", "复制内容")}
     >
-      {copied ? <Check size={13} /> : <Copy size={13} />}
-    </button>
+      {copied ? <Check size={12} /> : <Copy size={12} />}
+    </Button>
   );
 }
 

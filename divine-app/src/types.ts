@@ -9,6 +9,8 @@ export interface Project {
   updated_at: string;
   session_count?: number;
   last_activity?: string | null;
+  /** 项目下所有会话累计消耗的 token */
+  token_total?: number;
 }
 
 export interface Session {
@@ -39,6 +41,13 @@ export interface Message {
   todos?: TodoItem[];
   /** 选项卡片的已选状态（{selected, sentCustom}），选择后置灰持久化 */
   choice_state?: Record<string, unknown>;
+  /** 本条回复消耗的 token（服务端 token_usage 表 LEFT JOIN 嵌入） */
+  token_usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    source: "real" | "estimated";
+  };
 }
 
 export interface ToolEvent {
@@ -172,6 +181,13 @@ export interface ChatMessage {
   error?: string;
   /** 选项卡片的已选状态（选择后置灰持久化） */
   choice_state?: Record<string, unknown>;
+  /** 本条回复消耗的 token（real=API 上报，estimated=本地估算） */
+  token_usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    source: "real" | "estimated";
+  };
 }
 
 export interface ChatFile {

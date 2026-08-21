@@ -93,6 +93,23 @@ export default function ChatPage() {
   } = useMessageState();
   // 当前视图的会话消息与流状态由 selectedId 派生，支持多会话并行流式。
   const messages = selectedId ? (messagesBySession[selectedId] ?? []) : [];
+
+  // 会话累计 token 消耗：汇总每条回复的 token_usage。
+  const sessionTokenUsage = useMemo(() => {
+    let input = 0;
+    let output = 0;
+    let total = 0;
+    let turns = 0;
+    for (const message of messages) {
+      const usage = message.token_usage;
+      if (!usage) continue;
+      input += usage.input_tokens;
+      output += usage.output_tokens;
+      total += usage.total_tokens;
+      turns += 1;
+    }
+    return { input_tokens: input, output_tokens: output, total_tokens: total, turns };
+  }, [messages]);
   const streaming = selectedId ? streamingSessions.has(selectedId) : false;
   // After a stream finishes, refresh the composer context ring usage.
   useEffect(() => {
@@ -1063,6 +1080,7 @@ export default function ChatPage() {
               onToggleWorkspace={() =>
                 setWorkspacePanelOpen((open) => !open)
               }
+              tokenUsage={sessionTokenUsage}
             />
             {!selectedId ? (
               <NewChatGuide

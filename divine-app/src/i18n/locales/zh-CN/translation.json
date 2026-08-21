@@ -154,7 +154,10 @@
     "generating": "正在生成",
     "plan": "执行计划",
     "thinking": "思考过程",
-    "working": "Working..."
+    "working": "Working...",
+    "tokenTotal": "{{value}} tokens",
+    "tokenUsageDetail": "输入 {{input}} · 输出 {{output}} · 总计 {{total}} tokens（API 上报）",
+    "tokenUsageEstimated": "输入 {{input}} · 输出 {{output}} · 总计 {{total}} tokens（估算）"
   },
   "project": {
     "addFolder": "添加可读取和编辑的文件夹",
@@ -198,7 +201,10 @@
     "skills": "技能",
     "titleLabel": "会话标题",
     "session.expandMore": "展开其余 {{count}} 个对话",
-    "session.collapse": "收起"
+    "session.collapse": "收起",
+    "tokenUsageTotal": "本会话累计消耗 {{total}} tokens（输入 {{input}} · 输出 {{output}} · 共 {{turns}} 轮）",
+    "tokenUsageShort": "{{value}} tokens",
+    "projectTokenTotal": "累计 {{value}} tokens"
   },
   "settings": {
     "addModel": "添加模型",

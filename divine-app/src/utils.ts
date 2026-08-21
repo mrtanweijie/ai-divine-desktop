@@ -32,6 +32,17 @@ export function formatSize(bytes: number | undefined): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+/** 千/百万级别 token 展示：999 → "999"，2300 → "2.3k"，12.3 万 → "123k"，130 万 → "1.3M"。 */
+export function formatTokens(count: number): string {
+  if (count < 1000) return String(Math.round(count));
+  const unit = count < 1_000_000 ? 1000 : 1_000_000;
+  const suffix = count < 1_000_000 ? "k" : "M";
+  const value = count / unit;
+  const text =
+    value >= 100 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
+  return `${text}${suffix}`;
+}
+
 export function groupLabel(value: string): string {
   const date = new Date(value);
   const now = new Date();

@@ -358,6 +358,7 @@ export function messagesToChatMessages(
         }),
       tools,
       choice_state: message.choice_state,
+      token_usage: message.token_usage,
     });
   });
   return chatMessages;

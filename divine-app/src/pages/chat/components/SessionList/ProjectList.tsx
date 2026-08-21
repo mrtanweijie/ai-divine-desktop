@@ -7,6 +7,7 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
+  Cpu,
   FolderOpen,
   LoaderCircle,
   MessageSquare,
@@ -20,7 +21,7 @@ import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
 import type { Project, Session } from "@/types";
-import { formatTime } from "@/utils";
+import { formatTime, formatTokens } from "@/utils";
 import { openFolder } from "@/services/tauri";
 import { ProjectIcon } from "@/pages/chat/components/ProjectIcon";
 
@@ -409,6 +410,19 @@ function ProjectActionMenu({
                 })}
               </span>
             </div>
+            {project.token_total != null && project.token_total > 0 && (
+              <div
+                className="project-action-item project-action-count"
+                role="presentation"
+              >
+                <Cpu size={13} />
+                <span>
+                  {t("session.projectTokenTotal", "累计 {{value}} tokens", {
+                    value: formatTokens(project.token_total),
+                  })}
+                </span>
+              </div>
+            )}
             <button
               type="button"
               role="menuitem"

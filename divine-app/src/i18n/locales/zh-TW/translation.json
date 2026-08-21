@@ -155,7 +155,10 @@
     "generating": "正在產生",
     "plan": "執行計畫",
     "thinking": "思考過程",
-    "working": "Working..."
+    "working": "Working...",
+    "tokenTotal": "{{value}} tokens",
+    "tokenUsageDetail": "輸入 {{input}} · 輸出 {{output}} · 總計 {{total}} tokens（API 上報）",
+    "tokenUsageEstimated": "輸入 {{input}} · 輸出 {{output}} · 總計 {{total}} tokens（估算）"
   },
   "project": {
     "addFolder": "新增可讀取和編輯的資料夾",
@@ -201,7 +204,10 @@
     "skills": "技能",
     "titleLabel": "對話標題",
     "session.expandMore": "展開其餘 {{count}} 個對話",
-    "session.collapse": "收起"
+    "session.collapse": "收起",
+    "tokenUsageTotal": "本會話累計消耗 {{total}} tokens（輸入 {{input}} · 輸出 {{output}} · 共 {{turns}} 輪）",
+    "tokenUsageShort": "{{value}} tokens",
+    "projectTokenTotal": "累計 {{value}} tokens"
   },
   "settings": {
     "addModel": "新增模型",
