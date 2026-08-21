@@ -23,7 +23,12 @@ import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
 import { TextArea } from "@/components/ui/TextArea";
 import type { ApprovalMode, ChatFile, ModelConfig, PreviewFile } from "@/types";
-import { isTauri, savePasteText } from "@/services/tauri";
+import {
+  isTauri,
+  savePasteFile,
+  savePasteImage,
+  savePasteText,
+} from "@/services/tauri";
 import { formatSize } from "@/utils";
 import { ModelEffortControl } from "./ModelEffortControl";
 import { ContextRingButton } from "./ContextRingButton";
@@ -31,6 +36,16 @@ import { ContextRingButton } from "./ContextRingButton";
 import "./index.less";
 const PASTE_AS_FILE_CHAR_THRESHOLD = 2000;
 const PASTE_AS_FILE_LINE_THRESHOLD = 500;
+
+// Raster image types the vision model accepts; pasted SVG etc. is not a raster
+// image and is saved via the generic file path instead.
+const RASTER_IMAGE_MIMES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/gif",
+  "image/webp",
+]);
 
 interface ComposerProps {
   disabled: boolean;
@@ -183,6 +198,69 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
       };
       if (native.ctrlKey && native.shiftKey) return;
       if (native.metaKey && native.shiftKey) return;
+
+      // Clipboard files (pasted screenshots or files copied from Finder):
+      // 1) file:// URLs in text/uri-list are referenced by path directly;
+      // 2) image items are saved locally and attached by path;
+      // 3) other file items use their native path, or are saved locally.
+      // The vision pipeline (read_image) sends images as base64 to the vision
+      // model when the message goes out.
+      if (isTauri()) {
+        const fileUrls = fileUrlsFromClipboard(event.clipboardData);
+        if (fileUrls.length > 0) {
+          event.preventDefault();
+          setAttached((prev) => {
+            const next = [...prev];
+            for (const path of fileUrls) {
+              if (next.some((file) => file.path === path)) continue;
+              const name = path.split(/[\\/]/).pop() || path;
+              next.push({ name, path });
+            }
+            return next;
+          });
+          return;
+        }
+
+        const fileItem = Array.from(event.clipboardData?.items ?? []).find(
+          (item) => item.kind === "file"
+        );
+        if (fileItem) {
+          event.preventDefault();
+          const file = fileItem.getAsFile();
+          if (file) {
+            const nativePath = (file as File & { path?: string }).path;
+            if (nativePath) {
+              setAttached((prev) => [
+                ...prev,
+                { name: file.name, path: nativePath, size: file.size },
+              ]);
+            } else if (RASTER_IMAGE_MIMES.has(file.type)) {
+              try {
+                const saved = await savePastedImage(file);
+                setAttached((prev) => [
+                  ...prev,
+                  { name: saved.name, path: saved.path, size: saved.size },
+                ]);
+              } catch {
+                // unsupported format or save failure: keep the paste as-is
+              }
+            } else {
+              try {
+                const base64 = await blobToBase64(file);
+                const saved = await savePasteFile(base64, file.name);
+                setAttached((prev) => [
+                  ...prev,
+                  { name: saved.name, path: saved.path, size: saved.size },
+                ]);
+              } catch {
+                // save failure: keep the paste as-is
+              }
+            }
+          }
+          return;
+        }
+      }
+
       const text = event.clipboardData?.getData("text/plain") || "";
       const lineCount = text.split(/\r?\n/).length;
       const tooLarge =
@@ -317,7 +395,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".txt,.md,.json,.csv,.py,.png,.jpg,.jpeg,.webp,.gif,.bmp"
+                accept=".txt,.md,.json,.csv,.py,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg"
                 onChange={(event) => void handleFile(event)}
                 hidden
               />
@@ -408,3 +486,44 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
     );
   }
 );
+
+/** Persist a pasted clipboard image locally and return its saved location. */
+async function savePastedImage(
+  blob: Blob
+): Promise<{ name: string; path: string; size: number }> {
+  const base64 = await blobToBase64(blob);
+  return savePasteImage(base64, blob.type || "image/png");
+}
+
+/** Decode file:// URLs from text/uri-list into local file paths. */
+function fileUrlsFromClipboard(data: DataTransfer | null): string[] {
+  const text = data?.getData("text/uri-list") || "";
+  const paths: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const url = line.trim();
+    if (!url.startsWith("file://")) continue;
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(url.slice("file://".length));
+    } catch {
+      decoded = url.slice("file://".length);
+    }
+    // Windows file:///C:/... -> C:/...
+    if (/^\/[A-Za-z]:/.test(decoded)) decoded = decoded.slice(1);
+    if (decoded && !paths.includes(decoded)) paths.push(decoded);
+  }
+  return paths;
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}

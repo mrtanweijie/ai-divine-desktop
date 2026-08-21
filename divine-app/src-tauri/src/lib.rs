@@ -172,6 +172,8 @@ pub fn run() {
             commands::sidecar::sidecar_health,
             commands::sidecar::get_sidecar_env,
             commands::paste::save_paste_text,
+            commands::paste::save_paste_image,
+            commands::paste::save_paste_file,
             commands::system::open_local_file,
             commands::system::open_file_location,
             commands::system::open_folder,

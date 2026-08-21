@@ -43,6 +43,20 @@ export async function savePasteText(
   return invoke("save_paste_text", { text });
 }
 
+export async function savePasteImage(
+  base64: string,
+  mime: string
+): Promise<{ name: string; path: string; size: number }> {
+  return invoke("save_paste_image", { base64, mime });
+}
+
+export async function savePasteFile(
+  base64: string,
+  name: string
+): Promise<{ name: string; path: string; size: number }> {
+  return invoke("save_paste_file", { base64, name });
+}
+
 export async function getExternalFilePreview(
   path: string
 ): Promise<FileDiff> {
