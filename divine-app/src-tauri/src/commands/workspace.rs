@@ -8,6 +8,9 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, State};
 use walkdir::WalkDir;
 
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
+
 #[derive(Default)]
 pub struct WorkspaceWatchState {
     watchers: Mutex<HashMap<String, RecommendedWatcher>>,
@@ -205,6 +208,50 @@ fn looks_binary(bytes: &[u8]) -> bool {
         .iter()
         .take(BINARY_SAMPLE_BYTES)
         .any(|byte| *byte == 0)
+}
+
+const MAX_BINARY_PREVIEW_BYTES: u64 = 25 * 1024 * 1024;
+
+/// MIME type for binary files that can be previewed inline (images/PDF).
+fn binary_preview_mime(path: &Path) -> Option<&'static str> {
+    let ext = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        "svg" => Some("image/svg+xml"),
+        "bmp" => Some("image/bmp"),
+        "avif" => Some("image/avif"),
+        "pdf" => Some("application/pdf"),
+        _ => None,
+    }
+}
+
+/// Read a binary file (image/PDF) as a base64 data URL for inline preview.
+#[tauri::command]
+pub fn get_binary_preview(path: String) -> Result<serde_json::Value, String> {
+    let file_path = PathBuf::from(&path);
+    if !file_path.is_file() {
+        return Err("文件不存在".to_string());
+    }
+    let mime = binary_preview_mime(&file_path)
+        .ok_or_else(|| "该文件类型不支持预览".to_string())?;
+    let size = std::fs::metadata(&file_path)
+        .map_err(|err| format!("读取文件信息失败: {err}"))?
+        .len();
+    if size > MAX_BINARY_PREVIEW_BYTES {
+        return Err("文件过大，无法预览".to_string());
+    }
+    let bytes = std::fs::read(&file_path).map_err(|err| format!("读取文件失败: {err}"))?;
+    Ok(serde_json::json!({
+        "mime": mime,
+        "dataUrl": format!("data:{mime};base64,{}", STANDARD.encode(&bytes)),
+    }))
 }
 
 #[tauri::command]

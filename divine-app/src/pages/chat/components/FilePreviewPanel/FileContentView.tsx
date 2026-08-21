@@ -13,11 +13,13 @@ import type { FileDiff } from "@/types";
 import { useTheme } from "@/services/theme";
 import { normalizeLanguage } from "@/pages/chat/components/MarkdownView/language";
 import { WebPreviewBlock } from "@/pages/chat/components/MarkdownView/WebPreviewBlock";
+import { BinaryPreview, isPreviewableBinary } from "./BinaryPreview";
 
 interface FileContentViewProps {
   preview: FileDiff;
   relPath: string;
   fileName?: string;
+  path?: string;
   expanded: boolean;
   onToggleExpand: () => void;
 }
@@ -156,17 +158,19 @@ export function FileContentView({
   preview,
   relPath,
   fileName,
+  path,
   expanded,
   onToggleExpand,
 }: FileContentViewProps) {
   const { t } = useTranslation();
   const content = preview.newContent || preview.oldContent || "";
   const webLanguage = webPreviewLanguage(relPath);
+  const displayName = fileName ?? relPath;
   return (
     <div className="diff-view file-content-view">
       <div className="diff-view-head">
         <span className="diff-view-file" title={relPath}>
-          {fileName ?? relPath}
+          {displayName}
         </span>
         <Button
           variant="icon"
@@ -188,12 +192,16 @@ export function FileContentView({
         </Button>
       </div>
       {preview.isBinary ? (
-        <div className="diff-view-state">
-          <FileText size={15} />
-          <span>
-            {t("file.binaryPreviewUnsupported", "二进制文件不支持内容预览")}
-          </span>
-        </div>
+        path && isPreviewableBinary(displayName) ? (
+          <BinaryPreview path={path} fileName={displayName} />
+        ) : (
+          <div className="diff-view-state">
+            <FileText size={15} />
+            <span>
+              {t("file.binaryPreviewUnsupported", "二进制文件不支持内容预览")}
+            </span>
+          </div>
+        )
       ) : webLanguage && !preview.contentTruncated ? (
         <WebPreviewBlock
           code={content}

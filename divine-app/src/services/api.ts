@@ -205,6 +205,21 @@ export function downloadUrl(url: string): string {
   return `${API_BASE}${url.startsWith("/api") ? url.slice(4) : url}`;
 }
 
+export interface PdfPreviewResult {
+  pages: string[];
+  page_count: number;
+  truncated: boolean;
+}
+
+/** Render a local PDF to page images via the backend (avoids the webview's
+ * native PDF viewer, whose zoom controls are not styleable). */
+export async function fetchPdfPreview(path: string): Promise<PdfPreviewResult> {
+  return request<PdfPreviewResult>("/files/pdf-preview", {
+    method: "POST",
+    body: JSON.stringify({ path }),
+  });
+}
+
 function trimToolResult(result: any): any {
   if (!result || typeof result !== "object") return result;
   const copy: any = { ...result };

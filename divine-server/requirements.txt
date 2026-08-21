@@ -14,6 +14,7 @@ langchain-community==0.4.2
 langchain-deepseek==1.1.0
 langgraph>=1.2.10,<2
 pypdf>=4,<6
+pymupdf>=1.24,<2
 firecrawl-anydoc>=0.2.3,<1
 reportlab>=4,<5
 weasyprint>=65,<67

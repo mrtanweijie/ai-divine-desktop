@@ -19,6 +19,7 @@ a = Analysis(
     hiddenimports=[
         "eval_type_backport",
         "anydoc",
+        "pymupdf",
         "docx",
         "pptx",
         "bs4",

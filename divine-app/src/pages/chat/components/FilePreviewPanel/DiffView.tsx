@@ -2,11 +2,13 @@ import { Check, FileText, Maximize2, Minimize2, Scissors } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import type { FileDiff } from "@/types";
+import { BinaryPreview, isPreviewableBinary } from "./BinaryPreview";
 
 interface DiffViewProps {
   preview: FileDiff;
   relPath: string;
   fileName?: string;
+  path?: string;
   changed?: boolean;
   onAcceptFile?: (relPath: string) => void;
   expanded: boolean;
@@ -95,6 +97,7 @@ export function DiffView({
   preview,
   relPath,
   fileName,
+  path,
   changed = false,
   onAcceptFile,
   expanded,
@@ -158,12 +161,15 @@ export function DiffView({
         </Button>
       </div>
 
-      {preview.isBinary && (
-        <div className="diff-view-state">
-          <FileText size={15} />
-          <span>{t("file.binaryDiffUnsupported", "二进制文件不支持逐行 diff")}</span>
-        </div>
-      )}
+      {preview.isBinary &&
+        (path && isPreviewableBinary(fileName ?? relPath) ? (
+          <BinaryPreview path={path} fileName={fileName ?? relPath} />
+        ) : (
+          <div className="diff-view-state">
+            <FileText size={15} />
+            <span>{t("file.binaryDiffUnsupported", "二进制文件不支持逐行 diff")}</span>
+          </div>
+        ))}
       {!preview.isBinary && rows.length === 0 && (
         <div className="diff-view-state">
           <span>{t("file.noVisibleChanges", "当前文件没有可见改动")}</span>

@@ -162,12 +162,16 @@ export function FilePreview({
         (!preview.exists && Boolean(preview.oldContent))))
   );
 
+  // Absolute path used by the binary inline preview (image/PDF).
+  const filePath = absolutePath ?? workspaceJoin(repoPath, relPath);
+
   if (hasChanges) {
     return (
       <DiffView
         preview={preview}
         relPath={relPath}
         fileName={fileName}
+        path={filePath}
         changed={changed}
         onAcceptFile={onAcceptFile}
         expanded={expanded}
@@ -180,6 +184,7 @@ export function FilePreview({
       preview={preview}
       relPath={relPath}
       fileName={fileName}
+      path={filePath}
       expanded={expanded}
       onToggleExpand={onToggleExpand}
     />

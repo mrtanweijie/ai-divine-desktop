@@ -186,6 +186,7 @@ pub fn run() {
             commands::workspace::get_dir_children,
             commands::workspace::get_file_diff,
             commands::workspace::get_external_file_preview,
+            commands::workspace::get_binary_preview,
             commands::workspace::watch_workspace,
             commands::workspace::unwatch_workspace,
         ])

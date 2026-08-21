@@ -63,6 +63,12 @@ export async function getExternalFilePreview(
   return invoke("get_external_file_preview", { path });
 }
 
+export async function getBinaryPreview(
+  path: string
+): Promise<{ mime: string; dataUrl: string }> {
+  return invoke("get_binary_preview", { path });
+}
+
 export async function getFileTree(
   root: string
 ): Promise<WorkspaceFileNode[]> {
