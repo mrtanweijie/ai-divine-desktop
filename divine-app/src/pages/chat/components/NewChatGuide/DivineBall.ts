@@ -57,6 +57,27 @@ const EMOTION_GROUPS = [
  * 从 tycoding/grok-ball 完整引擎抽离，MIT License
  * 眼环池：0/8 平静眼环轮换 + 呼吸 + glance 左右张望 + 待机随机小动作
  * ============================================================ */
+const SHY_EMOTION = {
+  id: '14', name: '害羞', group: 'emotion',
+  desc: '目光躲向一侧，脸颊在一秒多里渐渐泛起粉色',
+  en: { name: 'Shy', desc: 'Gaze slips off to one side as the face slowly blushes pink over a second' },
+  transition: 560,
+  pool: [0, 24, 13], poolMs: [3000, 5500], blinkMs: [3000, 6000],
+  /* base 色 = 序列终态粉，保证静态缩略图与最终观感一致 */
+  body: { rotate: 6, breathe: 0.012, color: '#F4D3D0' },
+  eyes: { both: { y: 4, lookX: 8, lookY: 3 } },
+  anims: [
+    { target: 'eyes', prop: 'lookX', type: 'sine', amp: 2, period: 2600 }
+  ],
+  sequence: {
+    settle: 'hold',
+    frames: [
+      { at: 0,    body: { color: '#F3F0EA' } },
+      { at: 1500, body: { color: '#F4D3D0' } }
+    ]
+  }
+};
+
 const EMOTION_SEED = [
   {
     id: '02', name: '待机放空', group: 'life',
@@ -70,7 +91,10 @@ const EMOTION_SEED = [
       { target: 'eyes', prop: 'lookY', type: 'sine', amp: 2, period: 4100, phase: 1.1 }
     ]
   },
+  SHY_EMOTION,
 ];
+
+export { SHY_EMOTION };
 
 
 /* ============================================================
@@ -1171,8 +1195,8 @@ const EMOTION_SEED = [
 
     /* 注视目标：横向 ±24、纵向 ±15（viewBox 坐标），幅度克制以保持含蓄 */
     setGaze: function (nx, ny) {
-      this._gaze.tx = clamp(nx, -1, 1) * 24;
-      this._gaze.ty = clamp(ny, -1, 1) * 15;
+      this._gaze.tx = clamp(nx, -1, 1) * 34;
+      this._gaze.ty = clamp(ny, -1, 1) * 21;
       return this;
     },
     clearGaze: function () {
@@ -1393,7 +1417,7 @@ const EMOTION_SEED = [
       pose.right.ring = this._ringCur[1];
 
       /* 鼠标注视：帧率无关的指数平滑（60fps 基准下每帧收敛约 9%） */
-      var k = 1 - Math.exp(-5.66 * dt);
+      var k = 1 - Math.exp(-9 * dt);
       var gx = def.gaze !== false ? this._gaze.tx : 0;
       var gy = def.gaze !== false ? this._gaze.ty : 0;
       this._gaze.x += (gx - this._gaze.x) * k;

@@ -111,7 +111,7 @@ export function NewChatGuide({
   return (
     <div className="new-chat-guide">
       <div className="new-chat-guide-icon">
-        <GrokBallIdle size={88} />
+        <GrokBallIdle size={88} blush={false} />
       </div>
       {/* i18next-instrument-ignore */}
       <h2 className="new-chat-guide-title">
