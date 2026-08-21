@@ -127,6 +127,12 @@
 .choice-option-label {
   font-size: 12px;
   font-weight: 600;
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.35;
 }
 .choice-option-desc {
   font-size: 10px;
@@ -164,7 +170,9 @@
 .choice-options .choice-option-label {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   min-width: 0;
+  max-width: 100%;
 }
 .choice-confirm {
   display: flex;
