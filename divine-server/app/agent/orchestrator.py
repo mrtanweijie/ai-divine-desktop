@@ -20,6 +20,7 @@ from .context import AgentRunContext, canonical_path
 from .llm import _build_llm, generate_session_title
 from .persistence import (
     _extract_final_content,
+    _extract_token_usage,
     _persist_new_messages,
     _sync_todos_from_state,
 )
@@ -365,8 +366,24 @@ async def run_agent(
 
     messages = final_state.get("messages") or []
     _sync_todos_from_state(session_id, final_state)
-    _persist_new_messages(session_id, input_messages, messages, think_by_id)
+    assistant_message_id = _persist_new_messages(
+        session_id, input_messages, messages, think_by_id
+    )
     final_content = _extract_final_content(messages)
+    # Record this turn's token consumption (real API usage when available).
+    usage = _extract_token_usage(messages, input_messages, final_content)
+    if assistant_message_id and usage:
+        try:
+            db.save_token_usage(
+                session_id,
+                assistant_message_id,
+                usage["input"],
+                usage["output"],
+                usage["total"],
+                usage["source"],
+            )
+        except Exception:  # noqa: BLE001 - usage tracking must never fail a turn
+            logger.exception("save token usage failed session=%s", session_id)
     if needs_title_summary:
         title = await generate_session_title(
             llm,

@@ -42,13 +42,37 @@ def get_message(message_id: str) -> dict[str, Any]:
         ).fetchone()
     return dict(row)
 
+def _attach_token_usage(message: dict[str, Any], row) -> None:
+    """Attach token_usage (if any) from a LEFT JOIN row onto the message dict."""
+    usage_total = row["usage_total"]
+    for key in ("usage_input", "usage_output", "usage_total", "usage_source"):
+        message.pop(key, None)
+    if usage_total is not None:
+        message["token_usage"] = {
+            "input_tokens": int(row["usage_input"] or 0),
+            "output_tokens": int(row["usage_output"] or 0),
+            "total_tokens": int(usage_total or 0),
+            "source": row["usage_source"] or "real",
+        }
+
+
 def list_messages(session_id: str) -> list[dict[str, Any]]:
     with closing(_connect()) as conn:
         rows = conn.execute(
-            "SELECT * FROM messages WHERE session_id = ? ORDER BY created_at ASC, rowid ASC",
+            "SELECT m.*, u.input_tokens AS usage_input, "
+            "u.output_tokens AS usage_output, u.total_tokens AS usage_total, "
+            "u.source AS usage_source "
+            "FROM messages m "
+            "LEFT JOIN token_usage u ON u.message_id = m.id "
+            "WHERE m.session_id = ? ORDER BY m.created_at ASC, m.rowid ASC",
             (session_id,),
         ).fetchall()
-    return [_decode_choice_state(dict(row)) for row in rows]
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        message = _decode_choice_state(dict(row))
+        _attach_token_usage(message, row)
+        result.append(message)
+    return result
 
 
 def get_message(message_id: str) -> dict[str, Any]:

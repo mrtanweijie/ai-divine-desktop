@@ -33,7 +33,9 @@ def _persist_new_messages(
     input_messages: list[Any],
     messages: list[Any],
     think_by_id: dict[str, str],
-) -> None:
+) -> str | None:
+    """Persist new AI/tool messages; return the id of the final assistant
+    reply (or None when there is nothing to persist)."""
     last_input_index = -1
     if input_messages:
         last_input = input_messages[-1]
@@ -45,6 +47,7 @@ def _persist_new_messages(
     if last_input_index < 0:
         last_input_index = 0
 
+    last_saved_id: str | None = None
     index = last_input_index + 1
     while index < len(messages):
         message = messages[index]
@@ -78,16 +81,59 @@ def _persist_new_messages(
         content = _content_text(message.content)
         if content:
             saved = db.add_message(session_id, "assistant", content)
+            last_saved_id = saved["id"]
             think = think_by_id.get(message.id, "")
             if think:
                 db.add_message_part(saved["id"], "think", think, order=0)
         index += 1
+    return last_saved_id
 
 def _extract_final_content(messages: list[Any]) -> str:
     for message in reversed(messages):
         if isinstance(message, AIMessage) and not message.tool_calls:
             return _content_text(message.content)
     return ""
+
+
+def _extract_token_usage(
+    messages: list[Any],
+    input_messages: list[Any],
+    final_content: str,
+) -> dict[str, Any] | None:
+    """Token consumption of this turn: real API usage when the provider reports
+    it (usage_metadata), otherwise a local estimate."""
+    for message in reversed(messages):
+        if not isinstance(message, AIMessage):
+            continue
+        meta = getattr(message, "usage_metadata", None)
+        if isinstance(meta, dict):
+            inp = int(meta.get("input_tokens") or 0)
+            out = int(meta.get("output_tokens") or 0)
+            total = int(meta.get("total_tokens") or 0) or (inp + out)
+            if total > 0:
+                return {
+                    "input": inp,
+                    "output": out,
+                    "total": total,
+                    "source": "real",
+                }
+        break
+
+    from .compact import estimate_tokens
+
+    input_text = "".join(
+        _content_text(message.content) for message in input_messages
+    )
+    inp = estimate_tokens(input_text)
+    out = estimate_tokens(final_content)
+    if inp + out > 0:
+        return {
+            "input": inp,
+            "output": out,
+            "total": inp + out,
+            "source": "estimated",
+        }
+    return None
 
 def _sync_todos_from_state(
     session_id: str, final_state: dict[str, Any]

@@ -10,7 +10,7 @@ from typing import Any
 
 from ..file_types import VISION_IMAGE_EXTENSIONS, is_image_path
 from .connection import _connect
-from .messages import _decode_choice_state, list_messages
+from .messages import _attach_token_usage, _decode_choice_state, list_messages
 from .sessions import get_session
 from .todos import list_todos
 from .tool_runs import list_message_parts, list_tool_runs
@@ -239,20 +239,28 @@ def load_session_page(
     with closing(_connect()) as conn:
         if before_id:
             rows = conn.execute(
-                "SELECT *, rowid FROM messages "
-                "WHERE session_id = ? AND rowid < "
+                "SELECT m.*, m.rowid, u.input_tokens AS usage_input, "
+                "u.output_tokens AS usage_output, u.total_tokens AS usage_total, "
+                "u.source AS usage_source "
+                "FROM messages m "
+                "LEFT JOIN token_usage u ON u.message_id = m.id "
+                "WHERE m.session_id = ? AND m.rowid < "
                 "(SELECT rowid FROM messages WHERE id = ?) "
-                "ORDER BY rowid DESC LIMIT ?",
+                "ORDER BY m.rowid DESC LIMIT ?",
                 (session_id, before_id, limit),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT *, rowid FROM messages "
-                "WHERE session_id = ? "
-                "ORDER BY rowid DESC LIMIT ?",
+                "SELECT m.*, m.rowid, u.input_tokens AS usage_input, "
+                "u.output_tokens AS usage_output, u.total_tokens AS usage_total, "
+                "u.source AS usage_source "
+                "FROM messages m "
+                "LEFT JOIN token_usage u ON u.message_id = m.id "
+                "WHERE m.session_id = ? "
+                "ORDER BY m.rowid DESC LIMIT ?",
                 (session_id, limit),
             ).fetchall()
-        page = [dict(row) for row in rows][::-1]
+        page = list(rows)[::-1]
         while page and page[0]["role"] != "user":
             page.pop(0)
         has_more = False
@@ -265,11 +273,14 @@ def load_session_page(
             ).fetchone()[0]
             has_more = count > 0
         messages = []
-        for item in page:
+        for row in page:
+            item = dict(row)
             item.pop("rowid", None)
+            message = _decode_choice_state(item)
+            _attach_token_usage(message, row)
             messages.append(
                 {
-                    **_decode_choice_state(item),
+                    **message,
                     "parts": list_message_parts(item["id"]),
                 }
             )

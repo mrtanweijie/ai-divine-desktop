@@ -44,9 +44,12 @@ def get_project(project_id: str) -> dict[str, Any] | None:
 def list_projects() -> list[dict[str, Any]]:
     with closing(_connect()) as conn:
         rows = conn.execute(
-            "SELECT p.*, COUNT(s.id) AS session_count, "
-            "MAX(s.updated_at) AS last_activity "
-            "FROM projects p LEFT JOIN sessions s ON s.project_id = p.id "
+            "SELECT p.*, COUNT(DISTINCT s.id) AS session_count, "
+            "MAX(s.updated_at) AS last_activity, "
+            "COALESCE(SUM(u.total_tokens), 0) AS token_total "
+            "FROM projects p "
+            "LEFT JOIN sessions s ON s.project_id = p.id "
+            "LEFT JOIN token_usage u ON u.session_id = s.id "
             "GROUP BY p.id ORDER BY p.updated_at DESC"
         ).fetchall()
     return [dict(row) for row in rows]
