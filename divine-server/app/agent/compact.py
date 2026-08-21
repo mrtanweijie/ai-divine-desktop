@@ -27,6 +27,7 @@ _NON_CJK_RE = re.compile(r"[^\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff\s]")
 _DEFAULT_CONTEXT_WINDOW = 1_000_000
 _MODEL_CONTEXT_WINDOWS: dict[str, int] = {
     "deepseek-v4-flash": 1_000_000,
+    "deepseek-v4-flash-vision-exp": 1_000_000,
     "deepseek-v3": 128_000,
     "deepseek-reasoner": 128_000,
 }

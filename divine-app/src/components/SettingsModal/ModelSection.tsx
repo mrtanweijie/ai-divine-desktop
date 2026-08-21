@@ -10,6 +10,7 @@ import type { ModelConfig } from "@/types";
 
 const MODEL_OPTIONS = [
   { value: "deepseek-v4-flash", label: "deepseek-v4-flash" },
+  { value: "deepseek-v4-flash-vision-exp", label: "deepseek-v4-flash-vision-exp" },
   { value: "deepseek-v4-pro", label: "deepseek-v4-pro" },
 ];
 
