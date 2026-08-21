@@ -67,18 +67,18 @@ export function MessageItem({
                         "message.tokenUsageDetail",
                         "输入 {{input}} · 输出 {{output}} · 总计 {{total}} tokens（API 上报）",
                         {
-                          input: message.token_usage.input_tokens,
-                          output: message.token_usage.output_tokens,
-                          total: message.token_usage.total_tokens,
+                          input: formatTokens(message.token_usage.input_tokens),
+                          output: formatTokens(message.token_usage.output_tokens),
+                          total: formatTokens(message.token_usage.total_tokens),
                         }
                       )
                     : t(
                         "message.tokenUsageEstimated",
                         "输入 {{input}} · 输出 {{output}} · 总计 {{total}} tokens（估算）",
                         {
-                          input: message.token_usage.input_tokens,
-                          output: message.token_usage.output_tokens,
-                          total: message.token_usage.total_tokens,
+                          input: formatTokens(message.token_usage.input_tokens),
+                          output: formatTokens(message.token_usage.output_tokens),
+                          total: formatTokens(message.token_usage.total_tokens),
                         }
                       )
                 }

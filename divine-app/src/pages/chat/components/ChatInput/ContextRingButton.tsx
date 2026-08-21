@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import {
+  Check,
   Loader2,
   MessageSquare,
   Settings2,
@@ -11,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import type { CompactResult, ContextUsage } from "@/types";
 import { compactSession, getContextUsage } from "@/services/api";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { formatTokens } from "@/utils";
 
 import "./ContextRingButton.less";
 
@@ -18,11 +20,6 @@ interface ContextRingButtonProps {
   sessionId: string;
   /** External signal to refresh usage (e.g. after each stream "done"). */
   refreshKey?: number;
-}
-
-function formatTokens(value: number): string {
-  if (value >= 1000) return `~${Math.round(value / 1000)}K`;
-  return `~${value}`;
 }
 
 function ringColor(percent: number): string {
@@ -160,15 +157,10 @@ export function ContextRingButton({
                 <span className="context-ring-percent" style={{ color }}>
                   {percent}%
                 </span>
-                {usage?.hasSummary && (
-                  <span className="context-ring-badge">
-                    {t("chat.contextCompacted", "已压缩")}
-                  </span>
-                )}
               </span>
               <span className="context-ring-window">
-                {formatTokens(usage?.estimatedTokens ?? 0)} /{" "}
-                {formatTokens(usage?.contextWindow ?? 0)}
+                {`~${formatTokens(usage?.estimatedTokens ?? 0)}`} /{" "}
+                {`~${formatTokens(usage?.contextWindow ?? 0)}`}
               </span>
             </div>
             <div
@@ -192,21 +184,21 @@ export function ContextRingButton({
                 <span className="context-ring-row-label">
                   {t("chat.contextSystemPrompt", "系统提示词")}
                 </span>
-                <span>{formatTokens(usage?.breakdown.systemPrompt ?? 0)}</span>
+                <span>{`~${formatTokens(usage?.breakdown.systemPrompt ?? 0)}`}</span>
               </div>
               <div className="context-ring-row">
                 <Settings2 size={12} className="context-ring-row-icon" />
                 <span className="context-ring-row-label">
                   {t("chat.contextTools", "工具")}
                 </span>
-                <span>{formatTokens(usage?.breakdown.tools ?? 0)}</span>
+                <span>{`~${formatTokens(usage?.breakdown.tools ?? 0)}`}</span>
               </div>
               <div className="context-ring-row">
                 <MessageSquare size={12} className="context-ring-row-icon" />
                 <span className="context-ring-row-label">
                   {t("chat.contextMessages", "对话消息")}
                 </span>
-                <span>{formatTokens(usage?.breakdown.messages ?? 0)}</span>
+                <span>{`~${formatTokens(usage?.breakdown.messages ?? 0)}`}</span>
               </div>
             </div>
             <button
@@ -217,11 +209,15 @@ export function ContextRingButton({
             >
               {compacting ? (
                 <Loader2 size={13} className="context-ring-spin" />
+              ) : usage?.hasSummary ? (
+                <Check size={13} />
               ) : (
                 <Zap size={13} />
               )}
               <span>
-                {t("chat.compactContext", "压缩上下文")}
+                {usage?.hasSummary
+                  ? t("chat.contextCompacted", "已压缩")
+                  : t("chat.compactContext", "压缩上下文")}
               </span>
             </button>
           </div>,
