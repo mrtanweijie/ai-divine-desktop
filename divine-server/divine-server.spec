@@ -18,6 +18,7 @@ a = Analysis(
     ],
     hiddenimports=[
         "eval_type_backport",
+        "anydoc",
         "docx",
         "pptx",
         "bs4",

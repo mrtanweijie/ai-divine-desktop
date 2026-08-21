@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import logging
 from pathlib import Path
 
 from langchain_community.document_loaders import (
@@ -6,8 +9,53 @@ from langchain_community.document_loaders import (
     TextLoader,
 )
 
+logger = logging.getLogger("divine.document_reader")
+
+# Formats anydoc converts to GitHub-Flavored Markdown (tables/headings/lists
+# preserved). Unknown or unsupported extensions keep going to the legacy
+# plain-text readers below.
+ANYDOC_EXTENSIONS = {
+    # Word
+    ".doc", ".docx", ".docm",
+    # PowerPoint
+    ".ppt", ".pps", ".pot", ".pptx", ".pptm", ".ppsx", ".ppsm",
+    # Excel
+    ".xls", ".xlsx", ".xlsm", ".xlsb",
+    # OpenDocument
+    ".odt", ".ods", ".odp",
+    # Rich Text / EPUB / CSV / PDF
+    ".rtf", ".epub", ".csv", ".pdf",
+}
+
 
 def read_file_text(path: Path) -> str:
+    """Return document content as text (GFM Markdown when anydoc handles it).
+
+    anydoc is the preferred reader for its supported formats; on any failure
+    (image-only PDF, encrypted file, missing install, ...) we fall back to the
+    legacy per-format readers so file reading never breaks.
+    """
+    ext = path.suffix.lower()
+    if ext in ANYDOC_EXTENSIONS:
+        try:
+            markdown = _read_anydoc(path)
+        except Exception as exc:  # noqa: BLE001 - anydoc failure must not break reading
+            logger.debug("anydoc conversion failed for %s (%s); falling back", path, type(exc).__name__)
+            markdown = ""
+        if markdown.strip():
+            return markdown
+    return _read_file_text_legacy(path)
+
+
+def _read_anydoc(path: Path) -> str:
+    # Imported lazily: firecrawl-anydoc is a Rust native wheel; a missing or
+    # broken install degrades gracefully to the legacy readers.
+    import anydoc
+
+    return anydoc.to_markdown(str(path))
+
+
+def _read_file_text_legacy(path: Path) -> str:
     ext = path.suffix.lower()
     if ext == ".csv":
         loader = CSVLoader(str(path))
