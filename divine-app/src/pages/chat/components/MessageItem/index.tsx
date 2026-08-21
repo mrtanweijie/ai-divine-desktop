@@ -17,6 +17,7 @@ import { MarkdownView } from "@/pages/chat/components/MarkdownView";
 import type { ChatMessage, PreviewFile, TodoItem } from "@/types";
 import { copyText, formatSize, formatTime, formatTokens } from "@/utils";
 import { ToolStatusCard } from "./ToolStatusCard";
+import { SubAgentPanel } from "./SubAgentPanel";
 import { groupToolCards } from "./MessageHelpers";
 
 import "./index.less";
@@ -161,6 +162,12 @@ export function MessageItem({
           )}
           {message.todos && message.todos.length > 0 && (
             <PlanCard todos={message.todos} />
+          )}
+          {message.subagents && message.subagents.length > 0 && (
+            <SubAgentPanel
+              subagents={message.subagents}
+              streaming={streaming}
+            />
           )}
           {groupToolCards(message.tools).map((tool, index) => (
             <ToolStatusCard

@@ -31,6 +31,7 @@ from .skill_migration import (  # noqa: F401
 )
 from .sqlite_query import SqliteQueryAdapter  # noqa: F401
 from .spreadsheet import SpreadsheetAdapter  # noqa: F401
+from .subagents import RunSubagentsAdapter  # noqa: F401
 from .svg_to_png import SvgToPngAdapter  # noqa: F401
 from .svg_to_png_batch import SvgToPngBatchAdapter  # noqa: F401
 from .terminal import TerminalAdapter  # noqa: F401

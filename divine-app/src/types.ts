@@ -167,6 +167,14 @@ export interface TodoItem {
   result?: string | null;
 }
 
+export interface SubAgentItem {
+  id: string;
+  name: string;
+  status: "running" | "done" | "error";
+  summary?: string;
+  error?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -175,6 +183,8 @@ export interface ChatMessage {
   think?: string;
   thinking?: boolean;
   todos?: TodoItem[];
+  /** 并行子 Agent 执行状态（可折叠进度面板） */
+  subagents?: SubAgentItem[];
   tools: ToolEvent[];
   files?: ChatFile[];
   streaming?: boolean;

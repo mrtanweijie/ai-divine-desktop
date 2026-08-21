@@ -1041,3 +1041,98 @@
 .message-error svg {
   flex: none;
 }
+
+/* Sub-agent parallel progress panel (run_subagents meta tool). */
+.subagent-block {
+  margin: 10px 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+.subagent-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+.subagent-summary::-webkit-details-marker {
+  display: none;
+}
+.subagent-summary svg {
+  transition: transform 0.2s ease;
+}
+.subagent-summary svg.expanded {
+  transform: rotate(180deg);
+}
+.subagent-progress {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.subagent-preview {
+  overflow: hidden;
+  max-width: 45%;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.subagent-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 12px 12px;
+}
+.subagent-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+}
+.subagent-item.error {
+  color: #ef4444;
+}
+.subagent-item-icon {
+  display: flex;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+.subagent-item-icon svg {
+  color: #22c55e;
+}
+.subagent-item.error .subagent-item-icon svg {
+  color: #ef4444;
+}
+.subagent-item-title {
+  flex: none;
+  font-weight: 500;
+}
+.subagent-item-summary,
+.subagent-item-error {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.subagent-item-error {
+  color: #ef4444;
+}
+.subagent-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-text-secondary);
+  border-radius: 50%;
+  animation: plan-spin 0.8s linear infinite;
+}

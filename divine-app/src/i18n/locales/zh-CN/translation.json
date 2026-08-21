@@ -153,6 +153,8 @@
     "doubleClickCopy": "双击复制",
     "generating": "正在生成",
     "plan": "执行计划",
+    "subagents": "子 Agent",
+    "subagentRunning": "运行中…",
     "thinking": "思考过程",
     "working": "Working...",
     "tokenTotal": "{{value}} tokens",
@@ -509,7 +511,10 @@
     "webFetchedBatch": "已抓取 {{success}}/{{total}} 个数据源",
     "wordCreated": "Word 文档生成完成",
     "writeCalendar": "写入日程",
-    "writtenFiles": "已写入 {{count}} 个文件"
+    "writtenFiles": "已写入 {{count}} 个文件",
+    "subagentsRunning": "正在并行执行 {{count}} 个子任务",
+    "subagentsDone": "子任务完成：成功 {{done}}，失败 {{failed}}",
+    "subagentTimeout": "子 Agent 执行超时"
   },
   "updater": {
     "available": "发现新版本 v{{version}}",

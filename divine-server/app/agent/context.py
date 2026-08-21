@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,3 +28,11 @@ class AgentRunContext:
     # Files the user explicitly attached (selected or pasted): tool access to
     # these exact paths is pre-approved and needs no external-file confirm.
     approved_paths: frozenset[str] = frozenset()
+    # Model/thinking settings of the current main run; sub-agents inherit them
+    # so a delegated batch keeps the same provider, model, and thinking mode.
+    think: bool = False
+    effort: str | None = None
+    model_id: str | None = None
+    # Set when the user stops the main stream; sub-agent batches poll it and
+    # abort early instead of finishing work nobody will see.
+    cancel_event: asyncio.Event | None = None

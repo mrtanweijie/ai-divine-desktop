@@ -1,3 +1,12 @@
+export interface SubAgentSSEData {
+  session_id: string;
+  sub_id: string;
+  name: string;
+  status: "running" | "done" | "error";
+  summary?: string;
+  error?: string;
+}
+
 export interface SSEHandlers {
   think?: (data: { content: string }) => void;
   think_done?: () => void;
@@ -9,6 +18,7 @@ export interface SSEHandlers {
     result?: string;
   }) => void;
   tool?: (data: Record<string, unknown>) => void;
+  subagent?: (data: SubAgentSSEData) => void;
   scheduled_tasks_changed?: (data: {
     tasks: Record<string, unknown>[];
   }) => void;

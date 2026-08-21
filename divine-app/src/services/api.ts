@@ -8,6 +8,7 @@ import type {
   Session,
   Settings,
   SettingsSaveBody,
+  SubAgentItem,
   TodoItem,
   ToolEvent,
   ToolRun,
@@ -357,9 +358,41 @@ export function messagesToChatMessages(
           }
         }),
       tools,
+      subagents: subagentsFromToolRuns(tools),
       choice_state: message.choice_state,
       token_usage: message.token_usage,
     });
   });
   return chatMessages;
+}
+
+/** Rebuild the sub-agent panel from a persisted run_subagents tool run. */
+export function subagentsFromToolRuns(tools: ToolEvent[]): SubAgentItem[] {
+  const run = tools.find((tool) => tool.tool === "run_subagents");
+  const result = run?.result as
+    | {
+        data?: { subagents?: SubAgentItem[] };
+        subagents?: SubAgentItem[];
+        results?: SubAgentItem[];
+      }
+    | undefined;
+  const items =
+    result?.data?.subagents ??
+    result?.subagents ??
+    result?.results ??
+    [];
+  if (!Array.isArray(items) || items.length === 0) return [];
+  return items
+    .filter(
+      (item): item is SubAgentItem =>
+        !!item && typeof item.id === "string" && typeof item.name === "string"
+    )
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      // Persisted runs are terminal; never show "running" after reload.
+      status: item.status === "error" ? "error" : "done",
+      summary: item.summary,
+      error: item.error,
+    }));
 }

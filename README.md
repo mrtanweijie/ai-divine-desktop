@@ -180,6 +180,7 @@ pnpm tauri:dev
 | `rag_search` | 检索工作区本地资料 |
 | `read_file` | 读取文本、Office、PDF、表格等文件；支持 start_line/end_line 分段读取 |
 | `read_image` | 用 GLM 视觉模型识别图片 |
+| `run_subagents` | 把大任务拆成多个相互独立的子任务，并行委托给多个只读子 Agent 执行并汇总结果 |
 | `ux_html` | 保存 Agent 按用户选择的风格与需求文档自定义设计的完整 UX 交互 HTML，默认写入项目工作区 `html/`；HTML/SVG 文件可在文件面板直接预览 |
 | `schedule_task` | 创建和管理定时提醒/定时任务 |
 | `search_files` | 按文件名搜索工作区文件 |

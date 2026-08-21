@@ -128,6 +128,10 @@ async def run_agent(
         approved_paths=frozenset(
             canonical_path(path, workspace_path) for path in (approved_paths or [])
         ),
+        think=think,
+        effort=effort,
+        model_id=model_id,
+        cancel_event=cancel_event,
     )
     plan_mode = (session or {}).get("plan_mode") or "ask"
     if plan_mode == "direct":

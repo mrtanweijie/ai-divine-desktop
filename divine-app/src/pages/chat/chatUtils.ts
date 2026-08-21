@@ -1,5 +1,5 @@
 // Pure helpers shared between ChatPage and the chat streaming hook.
-import type { ChatMessage, ToolEvent } from "@/types";
+import type { ChatMessage, SubAgentItem, ToolEvent } from "@/types";
 import { toWorkspaceRelative } from "@/services/workspace";
 
 export function acceptedFilesKey(path: string): string {
@@ -55,6 +55,19 @@ export function upsertTool(tools: ToolEvent[], next: ToolEvent): ToolEvent[] {
     return [...tools, { ...next, status: next.status || "preparing" }];
   }
   const updated = [...tools];
+  updated[index] = { ...updated[index], ...next };
+  return updated;
+}
+
+export function upsertSubAgent(
+  items: SubAgentItem[],
+  next: SubAgentItem
+): SubAgentItem[] {
+  const index = items.findIndex((item) => item.id === next.id);
+  if (index === -1) {
+    return [...items, next];
+  }
+  const updated = [...items];
   updated[index] = { ...updated[index], ...next };
   return updated;
 }

@@ -105,6 +105,11 @@ async def _handle_adapter_call(
             )
 
     try:
+        if name == "run_subagents":
+            from .subagents import _run_subagents
+
+            return await _run_subagents(ctx, runtime, arguments)
+
         if name == "migrate_skill":
             candidate = find_importable_skill(
                 ctx.workspace,

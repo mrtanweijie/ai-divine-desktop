@@ -25,6 +25,7 @@ import {
   changedFilePathsFromResult,
   changedFileRel,
   mergeLocalTools,
+  upsertSubAgent,
   upsertTool,
 } from "@/pages/chat/chatUtils";
 import type {
@@ -33,6 +34,7 @@ import type {
   ChatMessage,
   Project,
   Session,
+  SubAgentItem,
   TodoItem,
   ToolEvent,
 } from "@/types";
@@ -259,6 +261,25 @@ export function useChatStream(options: UseChatStreamOptions) {
                   ? {
                       ...message,
                       tools: upsertTool(message.tools, event),
+                    }
+                  : message
+              )
+            );
+          },
+          subagent: (data) => {
+            const item: SubAgentItem = {
+              id: data.sub_id,
+              name: data.name,
+              status: data.status,
+              summary: data.summary,
+              error: data.error,
+            };
+            setSessionMessages(sessionId, (prev) =>
+              prev.map((message) =>
+                message.id === assistantMessage.id
+                  ? {
+                      ...message,
+                      subagents: upsertSubAgent(message.subagents ?? [], item),
                     }
                   : message
               )

@@ -154,6 +154,8 @@
     "doubleClickCopy": "Double-click to copy",
     "generating": "Generating",
     "plan": "Execution plan",
+    "subagents": "Sub-agents",
+    "subagentRunning": "Running…",
     "thinking": "Thinking",
     "working": "Working...",
     "tokenTotal": "{{value}} tokens",
@@ -539,7 +541,11 @@
     "wordCreated": "Word document created",
     "writeCalendar": "Write to calendar",
     "writtenFiles_one": "Wrote {{count}} file",
-    "writtenFiles_other": "Wrote {{count}} files"
+    "writtenFiles_other": "Wrote {{count}} files",
+    "subagentsRunning_one": "Running {{count}} sub-task in parallel",
+    "subagentsRunning_other": "Running {{count}} sub-tasks in parallel",
+    "subagentsDone": "Sub-tasks done: {{done}} succeeded, {{failed}} failed",
+    "subagentTimeout": "Sub-agent timed out"
   },
   "updater": {
     "available": "New version v{{version}} available",
