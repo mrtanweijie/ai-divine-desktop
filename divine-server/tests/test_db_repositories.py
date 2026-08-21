@@ -20,5 +20,8 @@ def test_project_session_message_roundtrip(monkeypatch, tmp_path):
     loaded = db.load_session(session["id"])
     assert loaded["session"]["id"] == session["id"]
     assert loaded["messages"][0]["content"] == "你好"
-    assert db.list_projects()[0]["name"] == "测试项目"
+    # init_db may auto-create the default project; list order by updated_at is
+    # nondeterministic for same-second rows, so match by name instead of [0].
+    project_names = [entry["name"] for entry in db.list_projects()]
+    assert "测试项目" in project_names
     assert Path(db_path).exists()

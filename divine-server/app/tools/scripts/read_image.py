@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -18,9 +19,21 @@ _IMAGE_MIME = {
     ".bmp": "image/bmp",
 }
 
+# Only URLs that look like images (path ends with a common image suffix) are
+# accepted; arbitrary web links must not be sent to the vision API.
+_IMAGE_URL_EXT_RE = re.compile(
+    r"\.(?:png|jpe?g|gif|webp|bmp|avif)$", re.IGNORECASE
+)
+
 _DEEPSEEK_VISION_MODEL = "deepseek-v4-flash-vision-exp"
 _DEEPSEEK_DEFAULT_BASE = "https://api.deepseek.com"
 _GLM_DEFAULT_MODEL = "glm-4.6v-flash"
+
+
+def _looks_like_image_url(url: str) -> bool:
+    """True when the URL path ends with a common image extension."""
+    path = url.split("?", 1)[0].split("#", 1)[0]
+    return bool(_IMAGE_URL_EXT_RE.search(path))
 
 
 def _call_glm(client, model: str, img_ref: str) -> str:
@@ -218,6 +231,12 @@ def main() -> None:
     if url:
         if not (url.startswith("http://") or url.startswith("https://")):
             _print_err("图片链接必须以 http:// 或 https:// 开头")
+            return
+        if not _looks_like_image_url(url):
+            _print_err(
+                "链接看起来不是图片（URL 不以 .png/.jpg/.jpeg/.gif/.webp/.bmp/.avif 结尾），"
+                "已跳过图片识别；如需分析网页内容请使用其他方式。"
+            )
             return
         try:
             if glm is not None:
