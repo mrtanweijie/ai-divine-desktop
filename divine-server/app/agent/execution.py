@@ -14,7 +14,7 @@ from ..api.terminal import terminal_command_policy
 from ..github_skills import preview_skill_repo
 from ..skills import discover_importable_skills, find_importable_skill
 from .constants import _NO_PLAN_TOOLS, _READ_ONLY_TOOLS
-from .context import AgentRunContext
+from .context import AgentRunContext, canonical_path
 from .interrupts import _ask_interrupt
 from .persistence import _frontend_tool_result
 from .plans import _claim_next_todo, _finish_todo
@@ -299,6 +299,14 @@ async def _handle_adapter_call(
                     )
 
         external_paths = adapter.external_paths(ctx.workspace, arguments)
+        if ctx.approved_paths:
+            # Files the user attached themselves (selected/pasted) are already
+            # authorized; no confirmation is needed for those exact paths.
+            external_paths = [
+                path
+                for path in external_paths
+                if canonical_path(path, ctx.workspace) not in ctx.approved_paths
+            ]
         if external_paths and ctx.approval_mode == "ask":
             logger.info(
                 "external confirm session=%s tool=%s paths=%s",

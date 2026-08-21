@@ -155,6 +155,13 @@ async def stream_chat(request: StreamChatRequest):
     settings = settings_store.load()
     context_limit = int(settings.get("context_limit") or 20)
     history = db.history_for_model(session_id, limit=context_limit)
+    # Files the user selected or pasted as attachments are pre-approved: the
+    # agent may read them without the external-file confirmation.
+    approved_paths = [
+        attachment.file_path
+        for attachment in request.attachments
+        if attachment.file_path
+    ]
     logger.info(
         "chat request session=%s question_len=%d attachments=%d think=%s "
         "effort=%s history=%d model_id=%s",
@@ -183,6 +190,7 @@ async def stream_chat(request: StreamChatRequest):
                 context_limit=context_limit,
                 cancel_event=cancel_event,
                 model_id=request.model_id,
+                approved_paths=approved_paths,
             ):
                 yield event
         except Exception as exc:  # noqa: BLE001

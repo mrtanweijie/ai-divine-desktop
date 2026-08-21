@@ -16,7 +16,7 @@ from .. import db
 from ..api.terminal import create_terminal_decision, remove_terminal_decision
 from ..localization import default_session_title, normalize_locale
 from ..sse import error_event, sse_event
-from .context import AgentRunContext
+from .context import AgentRunContext, canonical_path
 from .llm import _build_llm, generate_session_title
 from .persistence import (
     _extract_final_content,
@@ -112,6 +112,7 @@ async def run_agent(
     context_limit: int | None = None,
     cancel_event: asyncio.Event | None = None,
     model_id: str | None = None,
+    approved_paths: list[str] | None = None,
 ) -> AsyncIterator[str]:
     """Stream one agent turn as SSE strings, handling interrupts and persistence."""
     workspace_path = workspace if isinstance(workspace, Path) else Path(workspace)
@@ -122,6 +123,9 @@ async def run_agent(
         approval_mode=approval_mode,
         locale=normalize_locale(
             locale or (session or {}).get("locale") or "zh-CN"
+        ),
+        approved_paths=frozenset(
+            canonical_path(path, workspace_path) for path in (approved_paths or [])
         ),
     )
     plan_mode = (session or {}).get("plan_mode") or "ask"
