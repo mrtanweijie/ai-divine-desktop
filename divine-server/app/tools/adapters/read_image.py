@@ -9,7 +9,8 @@ from ..registry import register_tool
 
 @register_tool(
     "read_image",
-    "读取本地图片并用 GLM 视觉模型识别图片内容，支持 jpg/png/webp/gif/bmp",
+    "读取本地图片并识别内容，支持 jpg/png/webp/gif/bmp；优先使用免费 GLM 视觉模型，"
+    "未配置 GLM 时回退到 deepseek-v4-flash-vision-exp",
     {
         "type": "object",
         "properties": {
