@@ -978,6 +978,10 @@ export function buildChartOption(
   decorateGraphicCaptions(option);
 
   const merged = mergeRecord(themeBase, option);
+  // LLMs often hardcode `backgroundColor: "#ffffff"`, which paints the canvas
+  // white and breaks the dark theme. Drop it: the canvas stays transparent and
+  // the themed container background (--color-surface) shows through.
+  delete merged.backgroundColor;
   decorateReadableText(merged, palette);
   const usesCartesianAxis =
     primaryType === "" || !NON_CARTESIAN_TYPES.has(primaryType);
