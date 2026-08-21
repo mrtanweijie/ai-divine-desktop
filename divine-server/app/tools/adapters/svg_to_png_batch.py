@@ -9,9 +9,8 @@ from ..registry import register_tool
 
 @register_tool(
     "svg_to_png_batch",
-    "把 SVG 导出为多个不同尺寸的 PNG；用户要 iOS/Android 多尺寸图标或一次导出多个 PNG 尺寸时使用，"
-    "sizes 传尺寸列表（如 [1024, 180, 167, 152, 120, 87, 80, 76, 60, 58, 40, 29, 20]），"
-    "file_path 传当前 SVG 文件路径，prefix 可选用于文件名前缀。",
+    "把 SVG 导出为多个不同尺寸的 PNG（iOS/Android 图标等）；sizes 传尺寸列表，"
+    "file_path 传当前 SVG 文件路径，prefix 可选文件名前缀。",
     {
         "type": "object",
         "properties": {

@@ -8,10 +8,8 @@ from ..registry import register_tool
 
 @register_tool(
     "mermaid_export",
-    "把 Mermaid 流程图/时序图/架构图源码保存为 .mmd 文件；"
-    "仅当用户明确要求保存/导出/下载为 .mmd 文件时使用，"
-    "否则直接在正文输出 ```mermaid 代码块由前端渲染。"
-    "content 传 Mermaid 源码（不要带围栏代码块），path 可指定 workspace 内相对目录，默认保存到 diagrams",
+    "把 Mermaid 源码保存为 .mmd 文件；仅当用户明确要求导出为 .mmd 时使用，"
+    "否则在正文输出 ```mermaid 代码块。content 传源码（不带围栏），path 默认 diagrams",
     {
         "type": "object",
         "properties": {

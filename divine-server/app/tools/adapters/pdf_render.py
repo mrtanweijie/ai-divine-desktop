@@ -9,12 +9,9 @@ from ..registry import register_tool
 
 @register_tool(
     "pdf_render",
-    "把 Markdown 正文渲染为排版美观的 PDF 文档；"
-    "用户要求生成 PDF 报告时，先在正文生成完整 Markdown，再调用本工具。"
-    "content 传 Markdown 正文，也可用 file_path 指向已有 Markdown 文件；"
-    "style 支持 modern/academic/corporate/minimal/playful，"
-    "color_scheme 支持 blue/green/warm/monochrome/purple；"
-    "默认保存到应用输出目录 pdf，用户指定项目内目录时传 path。",
+    "把 Markdown 正文渲染为排版美观的 PDF；生成 PDF 报告时先产出完整 Markdown 再调用本工具。"
+    "content 传 Markdown 正文，或用 file_path 指向已有 Markdown 文件；"
+    "style/theme/color_scheme 可选；默认保存到应用输出目录 pdf，指定项目内目录时传 path。",
     {
         "type": "object",
         "properties": {
@@ -45,7 +42,7 @@ from ..registry import register_tool
                     "mistsage", "mistblue", "duskmauve", "lotuspink",
                     "dunesand", "smokegray",
                 ],
-                "description": "配色方案：经典预设（teal/blue/green/warm/monochrome/purple）或旅行杂志主题（iceblue/desert/vintage/midnight/pureblack/mistsage/mistblue/duskmauve/lotuspink/dunesand/smokegray）",
+                "description": "配色方案（经典/旅行杂志预设）；不传时自动选择",
             },
             "theme_colors": {
                 "type": "object",

@@ -21,7 +21,7 @@ from ..registry import register_tool
         "properties": {
             "repo_url": {
                 "type": "string",
-                "description": "GitHub/Gitee 仓库地址，例如 https://github.com/owner/repo 或 https://gitee.com/owner/repo",
+                "description": "GitHub/Gitee 仓库地址，如 https://github.com/owner/repo",
             },
             "ref": {
                 "type": "string",

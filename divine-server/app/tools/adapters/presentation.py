@@ -9,8 +9,7 @@ from ..registry import register_tool
 @register_tool(
     "presentation",
     "生成 PPT 幻灯片演示文稿，用于汇报、培训、产品介绍等场景；"
-    "theme 可选 universal/notion/linear/apple/modern/academic/travel/roadmap/minimal，"
-    "控制封面、背景色、强调色和字体",
+    "theme 控制封面、背景色、强调色和字体",
     {
         "type": "object",
         "properties": {

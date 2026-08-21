@@ -20,10 +20,10 @@ from ..registry import register_tool
             "option": {
                 "type": "object",
                 "description": (
-                    "完整 ECharts option。series 数组必须存在，每个系列的 type "
-                    "只能是 line/bar/pie/scatter/radar/funnel/gauge/heatmap/"
-                    "boxplot/candlestick/sankey/sunburst/treemap/graph/tree/"
-                    "parallel/effectScatter/pictorialBar/themeRiver/custom 之一"
+                    "完整 ECharts option，series 必须存在且非空；series.type 仅限 "
+                    "line/bar/pie/scatter/radar/funnel/gauge/heatmap/boxplot/candlestick/"
+                    "sankey/sunburst/treemap/graph/tree/parallel/effectScatter/pictorialBar/"
+                    "themeRiver/custom 之一"
                 ),
             },
         },

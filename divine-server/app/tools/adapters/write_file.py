@@ -11,10 +11,8 @@ MAX_WRITE_FILE_CHARS = 1_000_000
 
 @register_tool(
     "write_file",
-    "创建或写入工作区内的文本文件，支持 .rs/.py/.ts/.json/.md 等源码或配置文件。"
-    "自动创建父目录；mode=append 时追加内容。"
-    "创建或修改文件请使用本工具，不要用 terminal heredoc 写文件。"
-    "path 通常是 workspace 内的相对路径；写入已存在文件需要 overwrite=true。",
+    "创建或写入工作区内的文本文件（.rs/.py/.ts/.json/.md 等）。自动创建父目录；"
+    "mode=append 追加内容；写入已存在文件需 overwrite=true；不要用 terminal heredoc 写文件。",
     {
         "type": "object",
         "properties": {

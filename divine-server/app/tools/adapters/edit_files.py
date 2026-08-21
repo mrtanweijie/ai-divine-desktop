@@ -34,11 +34,9 @@ def _display_path(workspace: Path, target: Path) -> str:
 
 @register_tool(
     "edit_files",
-    "批量修改或创建多个文本文件，必须一次调用完成所有改动，不要逐个文件修改。"
-    "files 中每一项是一次 SEARCH/REPLACE：search 必须与文件现有内容完全一致"
-    "（含缩进、空行和结尾换行），replace 是替换后的内容；"
-    "search 传空字符串表示创建新文件。"
-    "修改代码前先在正文中列出将要修改的文件和每个文件的改动点，再调用本工具。",
+    "批量修改或创建多个文本文件，一次调用完成所有改动。files 每项是一次 SEARCH/REPLACE："
+    "search 必须与文件现有内容完全一致（含缩进、空行和结尾换行），空字符串表示创建新文件，"
+    "replace 是替换后的内容。修改前先在正文列出要修改的文件和改动点。",
     {
         "type": "object",
         "properties": {

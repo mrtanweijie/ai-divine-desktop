@@ -8,17 +8,10 @@ from ..registry import register_tool
 
 @register_tool(
     "pdf_generate",
-    "统一 PDF 生成入口：根据用户需求自动选择 Report/Travel/Roadmap/Book/Slide 配方，"
-    "解析结构、生成正文并渲染为美观 PDF。"
-    "生成个人简历时，Agent 应根据用户信息整理 resume_data 结构化 JSON 后传入；"
-    "prompt 传用户需求；kind 可选 report/travel/roadmap/book/slide；"
-    "style 支持 modern/academic/corporate/minimal/playful，"
-    "color_scheme 支持 blue/green/warm/monochrome/purple；"
-    "未传 theme/style 时，系统会根据 prompt 自动识别场景选择主题"
-    "（周报→minimal、季度汇报→universal、客户提案→modern、PRD→linear、"
-    "行业洞察→academic、学习路线→roadmap 等），用户输入中的风格词"
-    "（商务/极简/科技/学术/Notion/Linear/Apple 等）优先于场景分类；"
-    "默认保存到应用输出目录 pdf，用户指定项目内目录时传 path。",
+    "统一 PDF 生成入口：按需求选择 Report/Travel/Roadmap/Book/Slide 配方并渲染。"
+    "简历场景用 resume_data 传结构化 JSON；prompt 传需求；"
+    "kind/style/theme/color_scheme 均可省略（系统按场景自动识别，用户风格词优先）；"
+    "默认保存到应用输出目录 pdf，指定项目内目录时传 path。",
     {
         "type": "object",
         "properties": {
@@ -43,7 +36,7 @@ from ..registry import register_tool
             "theme": {
                 "type": "string",
                 "enum": ["universal", "resume", "professional", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "kami", "kami_white", "modern", "academic", "travel", "travel_mag", "roadmap", "notion", "linear", "apple"],
-                "description": "主题 ID，优先于 style；report 默认 modern，travel 默认 travel，roadmap 默认 roadmap；travel_mag 为杂志版旅行手册（衬线标题+渐变大图封面）；不传时系统按 prompt 场景自动选择（周报→minimal、季度汇报→universal、客户提案→modern、PRD→linear、行业洞察→academic）",
+                "description": "主题 ID，优先于 style；不传时系统按 prompt 场景自动选择（travel_mag 为杂志版旅行手册）",
             },
             "color_scheme": {
                 "type": "string",
@@ -53,7 +46,7 @@ from ..registry import register_tool
                     "mistsage", "mistblue", "duskmauve", "lotuspink",
                     "dunesand", "smokegray",
                 ],
-                "description": "配色方案：经典预设（teal/blue/green/warm/monochrome/purple）或旅行杂志主题（iceblue/desert/vintage/midnight/pureblack/mistsage/mistblue/duskmauve/lotuspink/dunesand/smokegray）",
+                "description": "配色方案（经典/旅行杂志预设）；不传时自动选择",
             },
             "theme_colors": {
                 "type": "object",
@@ -75,7 +68,7 @@ from ..registry import register_tool
             "cover_style": {
                 "type": "string",
                 "enum": ["left-aligned", "centered", "split", "minimal", "hero-graphic", "terminal"],
-                "description": "封面布局风格：left-aligned（左对齐经典）、centered（居中杂志）、split（左右分屏）、minimal（极简文字）、hero-graphic（大色块图形）、terminal（终端风格）；未传时按场景自动选择",
+                "description": "封面布局风格：left-aligned/centered/split/minimal/hero-graphic 等",
             },
             "toc": {
                 "type": "boolean",

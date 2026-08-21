@@ -8,13 +8,9 @@ from ..registry import register_tool
 
 @register_tool(
     "ux_html",
-    "保存 Agent 根据需求文档设计好的完整 UX 交互 HTML 页面；"
-    "当用户要求把需求文档/PRD 实现成交互式产品界面、UX 原型、可点击演示页面时，"
-    "先分析文档并自行设计贴合产品形态的 HTML/CSS/JS，再调用本工具写入文件；"
-    "content 必须传完整 HTML 源码（包含 DOCTYPE 或 <html>），工具只负责校验和保存，不套用统一模板。"
-    "页面视觉必须参考 Apple / Linear / Notion：留白充足、不使用渐变和重阴影、"
-    "正文 #111827、辅助 #6B7280、圆角 10px、间距使用 16 的倍数，主色按风格定义。"
-    "style 必须由用户在 Notion/Linear/Apple/PlainText/Custom 中明确选择后才能调用。",
+    "保存 Agent 设计好的完整 UX 交互 HTML 页面；content 传完整 HTML 源码（含 DOCTYPE 或 <html>），"
+    "工具只负责校验和保存，不套用统一模板；视觉规范见系统提示（Apple/Linear/Notion 风格）。"
+    "style 必须为用户明确选择的 Notion/Linear/Apple/PlainText/Custom 之一。",
     {
         "type": "object",
         "properties": {

@@ -9,8 +9,7 @@ from ..registry import register_tool
 @register_tool(
     "word_document",
     "生成一份 Word 文档，用于周报、合同、会议纪要等场景；"
-    "theme 可选 universal/notion/linear/apple/modern/academic/travel/roadmap/minimal，"
-    "用于控制字体、标题色、行距和页边距",
+    "theme 控制字体、标题色、行距和页边距",
     {
         "type": "object",
         "properties": {
