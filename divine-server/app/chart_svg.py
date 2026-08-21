@@ -129,6 +129,11 @@ def _cartesian_svg(
 ) -> str:
     width = 760
     height = 380
+    # A "数据来源：…" caption gets its own strip appended below the chart, so
+    # the plot layout below stays anchored to the base 380px canvas.
+    caption_lines = _bottom_caption_lines(option)
+    caption_height = sum(_caption_line_height(size) for _, size, _ in caption_lines)
+    canvas_height = height + caption_height + 8 if caption_height else height
     left = 72
     right = 24
     top = 56
@@ -154,7 +159,7 @@ def _cartesian_svg(
     parts = [
         (
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" '
-            f'height="{height}" viewBox="0 0 {width} {height}">'
+            f'height="{canvas_height}" viewBox="0 0 {width} {canvas_height}">'
         ),
         "<g font-family=\"sans-serif\">",
     ]
@@ -246,16 +251,202 @@ def _cartesian_svg(
             )
             legend_x += 15 + len(name) * 7 + 24
 
+    if caption_height:
+        parts.append(_bottom_caption(option, width, canvas_height))
     parts.append("</g></svg>")
+    return "".join(parts)
+
+
+def _percent_radius(value: Any, base: float) -> float:
+    """Resolve an ECharts radius value (percent string or number) to px."""
+    if isinstance(value, str):
+        text = value.strip()
+        if text.endswith("%"):
+            try:
+                return float(text[:-1]) / 100.0 * base
+            except ValueError:
+                return base
+        try:
+            return float(text)
+        except ValueError:
+            return base
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return base
+
+
+def _slice_color(item: dict[str, Any], index: int) -> str:
+    item_style = item.get("itemStyle")
+    if isinstance(item_style, dict):
+        color = item_style.get("color")
+        if isinstance(color, str) and color:
+            return color
+    return COLORS[index % len(COLORS)]
+
+
+def _fmt_percent(value: float) -> str:
+    if abs(value - round(value)) < 0.05:
+        return str(int(round(value)))
+    return f"{value:.1f}"
+
+
+def _annular_path(
+    cx: float, cy: float, r0: float, r1: float, a0: float, a1: float
+) -> str:
+    """SVG path for one donut sector between inner radius r0 and outer r1."""
+    large = 1 if (a1 - a0) > math.pi else 0
+    x0 = cx + r0 * math.cos(a0)
+    y0 = cy + r0 * math.sin(a0)
+    x1 = cx + r1 * math.cos(a0)
+    y1 = cy + r1 * math.sin(a0)
+    x2 = cx + r1 * math.cos(a1)
+    y2 = cy + r1 * math.sin(a1)
+    x3 = cx + r0 * math.cos(a1)
+    y3 = cy + r0 * math.sin(a1)
+    return (
+        f"M {x0:.1f} {y0:.1f} L {x1:.1f} {y1:.1f} "
+        f"A {r1:.1f} {r1:.1f} 0 {large} 1 {x2:.1f} {y2:.1f} "
+        f"L {x3:.1f} {y3:.1f} A {r0:.1f} {r0:.1f} 0 {large} 0 {x0:.1f} {y0:.1f} Z"
+    )
+
+
+def _sector_path(cx: float, cy: float, r: float, a0: float, a1: float) -> str:
+    large = 1 if (a1 - a0) > math.pi else 0
+    x1 = cx + r * math.cos(a0)
+    y1 = cy + r * math.sin(a0)
+    x2 = cx + r * math.cos(a1)
+    y2 = cy + r * math.sin(a1)
+    return (
+        f"M {cx} {cy} L {x1:.1f} {y1:.1f} "
+        f"A {r:.1f} {r:.1f} 0 {large} 1 {x2:.1f} {y2:.1f} Z"
+    )
+
+
+def _pie_legend(option: dict[str, Any], center_y: float) -> str:
+    """Vertical legend on the left, matching the on-page pie legend."""
+    series = _series_list(option)
+    if not series:
+        return ""
+    data = series[0].get("data")
+    if not isinstance(data, list):
+        return ""
+    items = [
+        item for item in data if isinstance(item, dict) and item.get("name")
+    ]
+    if len(items) <= 1:
+        return ""
+    parts: list[str] = []
+    start_y = center_y - (len(items) * 18) / 2
+    for index, item in enumerate(items):
+        color = _slice_color(item, index)
+        name = str(item.get("name") or "")
+        parts.append(
+            f'<rect x="16" y="{start_y + index * 18 - 7:.1f}" width="10" '
+            f'height="10" rx="2" fill="{color}"/>'
+        )
+        parts.append(
+            f'<text x="33" y="{start_y + index * 18:.1f}" font-size="11" '
+            f'fill="#374151">{_escape(name)}</text>'
+        )
+    return "".join(parts)
+
+
+def _bottom_caption_lines(option: dict[str, Any]) -> list[tuple[str, int, str]]:
+    """Collect "数据来源：…" graphic text elements as (line, size, fill)."""
+    graphic = option.get("graphic")
+    items: list[Any] = []
+    if isinstance(graphic, list):
+        items = graphic
+    elif isinstance(graphic, dict):
+        elements = graphic.get("elements")
+        items = elements if isinstance(elements, list) else [graphic]
+    lines: list[tuple[str, int, str]] = []
+    for g in items:
+        if not isinstance(g, dict) or g.get("type") != "text":
+            continue
+        style = g.get("style")
+        if not isinstance(style, dict):
+            continue
+        text = style.get("text")
+        if not isinstance(text, str) or not text.strip():
+            continue
+        size = style.get("fontSize")
+        size = size if isinstance(size, (int, float)) else 12
+        fill = style.get("fill")
+        fill = fill if isinstance(fill, str) else "#999999"
+        for line in text.split("\n"):
+            if line.strip():
+                lines.append((line.strip(), size, fill))
+    return lines
+
+
+def _caption_line_height(size: float) -> int:
+    """Comfortable line height (1.5x font size) for caption text lines."""
+    return int(round(size * 1.5))
+
+
+def _bottom_caption(option: dict[str, Any], width: int, height: int) -> str:
+    """Render "数据来源：…" graphic text elements at the bottom of the chart."""
+    lines = _bottom_caption_lines(option)
+    if not lines:
+        return ""
+    parts: list[str] = []
+    total_height = sum(_caption_line_height(size) for _, size, _ in lines)
+    y = height - 8 - total_height
+    for line, size, fill in lines:
+        parts.append(
+            f'<text x="{width / 2}" y="{y:.1f}" text-anchor="middle" '
+            f'font-size="{size}" fill="{_escape(fill)}">'
+            f"{_escape(line)}</text>"
+        )
+        y += _caption_line_height(size)
     return "".join(parts)
 
 
 def _pie_svg(option: dict[str, Any], title: str) -> str:
     width = 760
     height = 380
-    center_x = 330
-    center_y = 210
-    radius = 130
+    # A "数据来源：…" caption gets its own strip appended below the chart, so
+    # the ring layout below stays anchored to the base 380px canvas.
+    caption_lines = _bottom_caption_lines(option)
+    caption_height = sum(_caption_line_height(size) for _, size, _ in caption_lines)
+    canvas_height = height + caption_height + 8 if caption_height else height
+    center_x = 380
+    center_y = 205
+    radius_base = min(width, height) / 2
+    series = _series_list(option)
+    raw_data: list[Any] = []
+    radius: Any = None
+    if series:
+        raw_data = series[0].get("data")
+        if not isinstance(raw_data, list):
+            raw_data = []
+        radius = series[0].get("radius")
+    inner_r = 0.0
+    outer_r = 130.0
+    # Mirror the on-page radius cap: when a title/caption is present the ring
+    # is capped at 62% of the smaller canvas side so it can't crowd the title.
+    has_content = bool(title) or bool(caption_lines)
+    cap_outer = 0.62 * radius_base if has_content else 135.0
+    if isinstance(radius, (list, tuple)) and len(radius) == 2:
+        outer_raw = _percent_radius(radius[1], radius_base)
+        inner_raw = _percent_radius(radius[0], radius_base)
+        if outer_raw > cap_outer:
+            scale = cap_outer / outer_raw
+            outer_r = cap_outer
+            inner_r = inner_raw * scale
+        else:
+            outer_r = outer_raw
+            inner_r = inner_raw
+    elif isinstance(radius, (int, float, str)):
+        outer_r = min(_percent_radius(radius, radius_base), cap_outer)
+    else:
+        outer_r = min(outer_r, cap_outer)
+    if inner_r > 0:
+        # Plain donut: thin ring (at most ~16% of the smaller side wide).
+        inner_r = max(inner_r, outer_r - 0.16 * radius_base)
+
     items = _pie_items(option)
     total = sum(value for _, value in items if value > 0)
     if total <= 0:
@@ -265,7 +456,7 @@ def _pie_svg(option: dict[str, Any], title: str) -> str:
     parts = [
         (
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" '
-            f'height="{height}" viewBox="0 0 {width} {height}">'
+            f'height="{canvas_height}" viewBox="0 0 {width} {canvas_height}">'
         ),
         "<g font-family=\"sans-serif\">",
     ]
@@ -278,24 +469,29 @@ def _pie_svg(option: dict[str, Any], title: str) -> str:
     start = -math.pi / 2
     visible = items[:12]
     for index, (name, value) in enumerate(visible):
-        color = COLORS[index % len(COLORS)]
+        raw = (
+            raw_data[index]
+            if index < len(raw_data) and isinstance(raw_data[index], dict)
+            else {}
+        )
+        color = _slice_color(raw, index)
         sweep = value / total * 2 * math.pi
         end = start + sweep
-        x1 = center_x + radius * math.cos(start)
-        y1 = center_y + radius * math.sin(start)
-        x2 = center_x + radius * math.cos(end)
-        y2 = center_y + radius * math.sin(end)
-        large = 1 if sweep > math.pi else 0
-        parts.append(
-            f'<path d="M {center_x} {center_y} L {x1:.1f} {y1:.1f} '
-            f'A {radius} {radius} 0 {large} 1 {x2:.1f} {y2:.1f} Z" '
-            f'fill="{color}" stroke="#FFFFFF" stroke-width="2"/>'
-        )
+        if inner_r > 0:
+            path = _annular_path(center_x, center_y, inner_r, outer_r, start, end)
+        else:
+            path = _sector_path(center_x, center_y, outer_r, start, end)
+        parts.append(f'<path d="{path}" fill="{color}"/>')
         mid = start + sweep / 2
-        label_x = center_x + (radius + 34) * math.cos(mid)
-        label_y = center_y + (radius + 22) * math.sin(mid)
         percent = value / total * 100
-        text = f"{name} {percent:.1f}%" if name else f"{percent:.1f}%"
+        # Classic look: name + percent beside the slice (never on the ring).
+        label_x = center_x + (outer_r + 34) * math.cos(mid)
+        label_y = center_y + (outer_r + 22) * math.sin(mid)
+        text = (
+            f"{name} {_fmt_percent(percent)}%"
+            if name
+            else f"{_fmt_percent(percent)}%"
+        )
         anchor = "start" if label_x >= center_x else "end"
         parts.append(
             f'<text x="{label_x:.1f}" y="{label_y:.1f}" text-anchor="{anchor}" '
@@ -303,6 +499,14 @@ def _pie_svg(option: dict[str, Any], title: str) -> str:
         )
         start = end
 
+    # The on-page chart drops the legend when hidden labels are re-enabled as
+    # outside labels; mirror that here so the SVG matches the page.
+    label = series[0].get("label") if series else None
+    labels_hidden = isinstance(label, dict) and label.get("show") is False
+    if not (labels_hidden and len(visible) <= 8):
+        parts.append(_pie_legend(option, center_y))
+    if caption_height:
+        parts.append(_bottom_caption(option, width, canvas_height))
     parts.append("</g></svg>")
     return "".join(parts)
 

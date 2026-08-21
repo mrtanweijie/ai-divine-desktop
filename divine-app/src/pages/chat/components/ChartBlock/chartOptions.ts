@@ -15,6 +15,64 @@ const UI_PALETTE = [
   "#5eead4",
 ];
 
+// Pie charts with more slices than this keep hidden labels (a bare ring is
+// cleaner than a label salad); smaller ones get per-segment indicator text.
+const MAX_PIE_LABEL_SLICES = 8;
+
+// When a pie also has a title and/or bottom caption, cap the ring's outer
+// radius (percent of the smaller canvas side) so the ring doesn't crowd the
+// title — ECharts scales the ring with the canvas height, which otherwise
+// pushes a big donut up into the title area.
+const MAX_PIE_RADIUS_PCT = 62;
+
+// Max thickness of the donut band (percent of the smaller canvas side). A
+// plain donut look means a thin ring, not a thick torus.
+const MAX_PIE_BAND_PCT = 16;
+
+/**
+ * Normalize a pie series to the plain donut look: thin ring, slices that butt
+ * against each other (no white gap, no rounded ends). The outer radius is
+ * capped at MAX_PIE_RADIUS_PCT when a title/caption is present, and the band
+ * is thinned to at most MAX_PIE_BAND_PCT by raising the inner radius.
+ */
+function normalizePieStyle(
+  series: Record<string, unknown>,
+  hasContent: boolean
+): void {
+  const itemStyle = isRecord(series.itemStyle) ? { ...series.itemStyle } : {};
+  itemStyle.borderRadius = 0;
+  itemStyle.borderWidth = 0;
+  itemStyle.borderColor = "transparent";
+  series.itemStyle = itemStyle;
+
+  const radius = series.radius;
+  if (typeof radius === "string") {
+    const percent = Number(radius.replace("%", ""));
+    if (!Number.isNaN(percent) && hasContent && percent > MAX_PIE_RADIUS_PCT) {
+      series.radius = `${MAX_PIE_RADIUS_PCT}%`;
+    }
+    return;
+  }
+  if (!Array.isArray(radius) || radius.length < 2) return;
+  const [innerRaw, outerRaw] = radius;
+  if (typeof innerRaw !== "string" || typeof outerRaw !== "string") return;
+  let innerPercent = Number(innerRaw.replace("%", ""));
+  let outerPercent = Number(outerRaw.replace("%", ""));
+  if (Number.isNaN(innerPercent) || Number.isNaN(outerPercent)) return;
+  if (hasContent && outerPercent > MAX_PIE_RADIUS_PCT) {
+    const scale = MAX_PIE_RADIUS_PCT / outerPercent;
+    outerPercent = MAX_PIE_RADIUS_PCT;
+    innerPercent *= scale;
+  }
+  const minInner = outerPercent - MAX_PIE_BAND_PCT;
+  if (innerPercent < minInner) innerPercent = minInner;
+  const round1 = (value: number) => Math.round(value * 10) / 10;
+  series.radius = [
+    `${round1(innerPercent)}%`,
+    `${round1(outerPercent)}%`,
+  ];
+}
+
 type ChartTheme = "dark" | "light";
 
 interface ChartPalette {
@@ -116,9 +174,12 @@ export function chartHeight(option: Record<string, unknown>): number {
             ? 280
             : 320;
 
-  const showTitle = primaryType !== "pie" && primaryType !== "funnel";
+  // Pie keeps its title now (a pie without its subject title looks bare), so
+  // count the title height for it as well; only funnel drops the title.
+  const showTitle = primaryType !== "funnel";
   const titleExtra = showTitle ? titleHeight(option) : 0;
   const legendExtra = legendHeight(option);
+  const bottomCaption = bottomCaptionHeight(option);
   let height = baseHeight;
   if (primaryType && !NON_CARTESIAN_TYPES.has(primaryType)) {
     if (isHorizontalCartesian(option)) {
@@ -136,7 +197,7 @@ export function chartHeight(option: Record<string, unknown>): number {
   } else {
     height = baseHeight + titleExtra + legendExtra;
   }
-  return Math.min(Math.max(height, 240), 900);
+  return Math.min(Math.max(height + bottomCaption, 240), 900);
 }
 
 function firstAxis(value: unknown): Record<string, unknown> | null {
@@ -177,6 +238,109 @@ function isHorizontalCartesian(option: Record<string, unknown>): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * True when a component (title/graphic) is anchored to the bottom edge:
+ * a concrete `bottom` offset with no overriding `top` offset. LLMs commonly
+ * annotate charts with a "数据来源：…" line at the bottom this way, and ECharts
+ * lays such captions out independently of the grid/series, so they overlap the
+ * plot and look covered by the chart unless space is reserved.
+ */
+function isBottomAnchored(value: Record<string, unknown>): boolean {
+  const bottom = value.bottom;
+  if (bottom === undefined || bottom === null || bottom === "auto") return false;
+  const top = value.top;
+  if (top !== undefined && top !== null && top !== "auto") return false;
+  return true;
+}
+
+function titleHasText(title: Record<string, unknown>): boolean {
+  return (
+    (typeof title.text === "string" && title.text.length > 0) ||
+    (typeof title.subtext === "string" && title.subtext.length > 0)
+  );
+}
+
+/** Height (px) reserved at the canvas bottom by bottom-anchored captions. */
+function bottomCaptionHeight(option: Record<string, unknown>): number {
+  let total = 0;
+  const titles = Array.isArray(option.title)
+    ? option.title
+    : isRecord(option.title)
+      ? [option.title]
+      : [];
+  for (const title of titles) {
+    if (!isRecord(title) || !isBottomAnchored(title) || !titleHasText(title)) {
+      continue;
+    }
+    const hasSubtext =
+      typeof title.subtext === "string" && title.subtext.length > 0;
+    total += hasSubtext ? 36 : 24;
+  }
+  const graphic = option.graphic;
+  const graphics = Array.isArray(graphic)
+    ? graphic
+    : isRecord(graphic)
+      ? Array.isArray(graphic.elements)
+        ? graphic.elements
+        : [graphic]
+      : [];
+  for (const g of graphics) {
+    if (!isRecord(g) || g.type !== "text" || !isBottomAnchored(g)) continue;
+    const style = isRecord(g.style) ? g.style : {};
+    const fontSize = typeof style.fontSize === "number" ? style.fontSize : 12;
+    const text = typeof style.text === "string" ? style.text : "";
+    const lineCount = text.length > 0 ? text.split("\n").length : 1;
+    total += Math.round(fontSize * 1.5) * lineCount;
+  }
+  return total;
+}
+
+/**
+ * Give multi-line graphic captions ("数据来源：…") a comfortable line height
+ * so wrapped lines don't stick together (ECharts' default is tight).
+ */
+function decorateGraphicCaptions(option: Record<string, unknown>): void {
+  const graphic = option.graphic;
+  const items = Array.isArray(graphic)
+    ? graphic
+    : isRecord(graphic)
+      ? Array.isArray(graphic.elements)
+        ? graphic.elements
+        : [graphic]
+      : [];
+  for (const g of items) {
+    if (!isRecord(g) || g.type !== "text") continue;
+    const style = isRecord(g.style) ? { ...g.style } : {};
+    if (style.lineHeight === undefined) {
+      const fontSize = typeof style.fontSize === "number" ? style.fontSize : 12;
+      style.lineHeight = Math.round(fontSize * 1.5);
+    }
+    g.style = style;
+  }
+}
+
+/**
+ * Replace the title with only bottom-anchored caption titles. Used for
+ * pie/funnel where the default theme drops the title, so a bottom
+ * "数据来源：…" caption must be kept instead of thrown away.
+ */
+function keepBottomCaptions(merged: Record<string, unknown>): void {
+  const titles = Array.isArray(merged.title)
+    ? merged.title
+    : isRecord(merged.title)
+      ? [merged.title]
+      : [];
+  const captions = titles.filter(
+    (title): title is Record<string, unknown> =>
+      isRecord(title) && isBottomAnchored(title) && titleHasText(title)
+  );
+  if (captions.length > 0) {
+    merged.title = captions.length === 1 ? captions[0] : captions;
+  } else {
+    delete merged.title;
+  }
 }
 
 function mergeRecord(
@@ -302,9 +466,9 @@ function decorateSeries(
         next.areaStyle = { opacity: 0.12 };
       }
     } else if (type === "pie") {
+      // Slice colors come from the LLM's itemStyle (already normalized to the
+      // plain look — no borders/rounding — in buildChartOption).
       const itemStyle = isRecord(next.itemStyle) ? { ...next.itemStyle } : {};
-      itemStyle.borderColor = "transparent";
-      itemStyle.borderWidth = 0;
       next.itemStyle = itemStyle;
       const label = isRecord(next.label) ? { ...next.label } : {};
       label.color = palette.label;
@@ -451,6 +615,9 @@ function decorateReadableText(
   option: Record<string, unknown>,
   palette: ChartPalette
 ): void {
+  const primaryType = primarySeriesType(option);
+  const nonCartesian =
+    primaryType !== "" && NON_CARTESIAN_TYPES.has(primaryType);
   if (isRecord(option.legend)) {
     const textStyle = isRecord(option.legend.textStyle)
       ? { ...option.legend.textStyle }
@@ -467,9 +634,27 @@ function decorateReadableText(
     textStyle.color = palette.muted;
     textStyle.fontFamily = UI_FONT;
     option.title.textStyle = textStyle;
-    if (isRecord(option.legend) && option.legend.show !== false) {
+    // A bottom-anchored caption must stay at the bottom; do not relocate it
+    // to the top just because a legend is present. Non-cartesian charts
+    // (pie/radar/…) keep the LLM's own title/legend placement.
+    if (
+      !nonCartesian &&
+      isRecord(option.legend) &&
+      option.legend.show !== false &&
+      !isBottomAnchored(option.title)
+    ) {
       option.title = { ...option.title, left: 16, top: 10 };
       option.legend = { ...option.legend, top: 48, right: 12 };
+    }
+  } else if (Array.isArray(option.title)) {
+    for (const title of option.title) {
+      if (!isRecord(title)) continue;
+      const textStyle = isRecord(title.textStyle)
+        ? { ...title.textStyle }
+        : {};
+      textStyle.color = palette.muted;
+      textStyle.fontFamily = UI_FONT;
+      title.textStyle = textStyle;
     }
   }
   if (isRecord(option.tooltip)) {
@@ -705,6 +890,7 @@ export function buildChartOption(
       ? series[0].type
       : "";
   const tooltipTrigger = ITEM_TRIGGER_TYPES.has(primaryType) ? "item" : "axis";
+  const bottomCaption = bottomCaptionHeight(option);
 
   const themeBase: Record<string, unknown> = {
     color: UI_PALETTE,
@@ -789,6 +975,8 @@ export function buildChartOption(
     option = { ...option, title: { text: String(option.title) } };
   }
 
+  decorateGraphicCaptions(option);
+
   const merged = mergeRecord(themeBase, option);
   decorateReadableText(merged, palette);
   const usesCartesianAxis =
@@ -830,7 +1018,6 @@ export function buildChartOption(
     };
   }
   if (primaryType === "pie") {
-    delete merged.title;
     const firstSeries = series[0];
     const radius =
       isRecord(firstSeries) && Array.isArray(firstSeries.radius)
@@ -846,9 +1033,61 @@ export function buildChartOption(
         bottom: "auto",
       };
     }
+    // LLMs often hide pie labels ("label.show: false" plus a legend), leaving
+    // a bare ring. For smaller pies, re-enable classic outside labels with
+    // leader lines (text sits beside each slice, not on the ring) and drop the
+    // legend — the "名称 百分比" labels carry the same info and the legend
+    // would collide with the leader lines.
+    if (
+      isRecord(firstSeries) &&
+      isRecord(firstSeries.label) &&
+      firstSeries.label.show === false
+    ) {
+      const dataCount = Array.isArray(firstSeries.data)
+        ? firstSeries.data.length
+        : 0;
+      if (dataCount > 0 && dataCount <= MAX_PIE_LABEL_SLICES) {
+        const label = { ...firstSeries.label };
+        label.show = true;
+        label.position = "outside";
+        label.formatter = label.formatter ?? "{b} {d}%";
+        firstSeries.label = label;
+        const labelLine = isRecord(firstSeries.labelLine)
+          ? { ...firstSeries.labelLine }
+          : {};
+        labelLine.show = true;
+        firstSeries.labelLine = labelLine;
+        firstSeries.avoidLabelOverlap = true;
+        delete merged.legend;
+      }
+    }
+    // Keep the LLM's own title (a pie without its subject title looks bare)
+    // and shift the ring down slightly so it clears a top title and/or a
+    // bottom "数据来源：…" caption instead of overlapping them.
+    const hasTitle = isRecord(merged.title)
+      ? titleHasText(merged.title)
+      : Array.isArray(merged.title)
+        ? merged.title.some((item) => isRecord(item) && titleHasText(item))
+        : false;
+    if (
+      (bottomCaption > 0 || hasTitle) &&
+      isRecord(firstSeries) &&
+      firstSeries.center === undefined
+    ) {
+      firstSeries.center = ["50%", "49%"];
+    }
+    // Leave a comfortable gap between the title and the ring: hug a top title
+    // to the top edge, cap the outer radius and thin the band so a big thick
+    // donut can't crowd the title.
+    if (isRecord(merged.title) && !isBottomAnchored(merged.title)) {
+      merged.title = { ...merged.title, top: 10 };
+    }
+    if (isRecord(firstSeries)) {
+      normalizePieStyle(firstSeries, bottomCaption > 0 || hasTitle);
+    }
   }
   if (primaryType === "funnel") {
-    delete merged.title;
+    keepBottomCaptions(merged);
   }
   if (primaryType === "funnel" && isRecord(merged.legend)) {
     merged.legend = withDefaults(merged.legend, {
@@ -880,6 +1119,51 @@ export function buildChartOption(
       numericTop < minTop
     ) {
       merged.grid.top = minTop;
+    }
+  }
+  // Keep bottom-anchored captions ("数据来源：…") readable below the plot:
+  // reserve grid space so the chart and its axis labels sit above the caption
+  // instead of overlapping it, and lift any bottom-anchored legend above it.
+  // Percent grid bottoms are resolved against the canvas height, which is
+  // computed the same way as ChartBlock's container (chartHeight).
+  if (usesCartesianAxis && bottomCaption > 0 && isRecord(merged.grid)) {
+    const canvasHeight = chartHeight(option);
+    const currentBottom = merged.grid.bottom;
+    let numericBottom: number | undefined;
+    if (typeof currentBottom === "number") {
+      numericBottom = currentBottom;
+    } else if (typeof currentBottom === "string") {
+      const trimmed = currentBottom.trim();
+      if (trimmed.endsWith("%")) {
+        const percent = Number(trimmed.slice(0, -1));
+        numericBottom = Number.isNaN(percent)
+          ? undefined
+          : (percent / 100) * canvasHeight;
+      } else if (trimmed !== "" && trimmed !== "auto") {
+        numericBottom = Number(trimmed);
+      }
+    }
+    const reservedBottom = 28 + bottomCaption;
+    if (
+      numericBottom === undefined ||
+      Number.isNaN(numericBottom) ||
+      numericBottom < reservedBottom
+    ) {
+      merged.grid = { ...merged.grid, bottom: reservedBottom };
+    }
+    if (isRecord(merged.legend)) {
+      const legendBottom = merged.legend.bottom;
+      const numericLegendBottom =
+        typeof legendBottom === "number"
+          ? legendBottom
+          : Number(legendBottom);
+      if (
+        legendBottom !== undefined &&
+        !Number.isNaN(numericLegendBottom) &&
+        numericLegendBottom < bottomCaption + 20
+      ) {
+        merged.legend = { ...merged.legend, bottom: bottomCaption + 20 };
+      }
     }
   }
   sanitizeFormatters(merged);
