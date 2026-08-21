@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from contextlib import closing
 from typing import Any
@@ -13,6 +14,18 @@ from .messages import _decode_choice_state, list_messages
 from .sessions import get_session
 from .todos import list_todos
 from .tool_runs import list_message_parts, list_tool_runs
+
+# Image links pasted by the user are fed to read_image (url param) so the
+# vision model can analyze them.
+_IMAGE_URL_RE = re.compile(
+    r"https?://[^\s<>\"'()]+?\.(?:png|jpe?g|gif|webp|bmp|avif)"
+    r"(?:[?#][^\s<>\"'()]*)?",
+    re.IGNORECASE,
+)
+
+
+def _image_urls_in(text: str) -> list[str]:
+    return list(dict.fromkeys(_IMAGE_URL_RE.findall(text)))
 
 def conn_summary(session_id: str) -> dict[str, Any] | None:
     """Session summary lookup independent of the caller's connection scope."""
@@ -99,6 +112,13 @@ def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
                     )
                 else:
                     blocks.append(f"[附件：{name}]\n{path_line}".rstrip())
+            image_urls = _image_urls_in(content)
+            for url in image_urls:
+                blocks.append(
+                    f"[图片链接：{url}]\n"
+                    "请调用 read_image 工具（url 参数）识别这张图片并分析内容，"
+                    "再结合分析结果回答用户的问题。"
+                )
             if blocks:
                 suffix = "\n\n".join(blocks)
                 content = f"{content}\n\n{suffix}" if content else suffix

@@ -23,7 +23,7 @@ _DEEPSEEK_DEFAULT_BASE = "https://api.deepseek.com"
 _GLM_DEFAULT_MODEL = "glm-4.6v-flash"
 
 
-def _call_glm(client, model: str, img_base: str) -> str:
+def _call_glm(client, model: str, img_ref: str) -> str:
     last_error: Exception | None = None
     for attempt in range(3):
         try:
@@ -35,7 +35,7 @@ def _call_glm(client, model: str, img_base: str) -> str:
                         "content": [
                             {
                                 "type": "image_url",
-                                "image_url": {"url": img_base},
+                                "image_url": {"url": img_ref},
                             },
                             {
                                 "type": "text",
@@ -60,8 +60,11 @@ def _call_glm(client, model: str, img_base: str) -> str:
     raise last_error
 
 
-def _call_deepseek(client, model: str, data_uri: str) -> str:
-    """Call DeepSeek's vision model (OpenAI-compatible API) with retries."""
+def _call_deepseek(client, model: str, img_ref: str) -> str:
+    """Call DeepSeek's vision model (OpenAI-compatible API) with retries.
+
+    ``img_ref`` is either a remote URL or a ``data:image/...;base64,...`` URI.
+    """
     last_error: Exception | None = None
     for attempt in range(3):
         try:
@@ -73,7 +76,7 @@ def _call_deepseek(client, model: str, data_uri: str) -> str:
                         "content": [
                             {
                                 "type": "image_url",
-                                "image_url": {"url": data_uri},
+                                "image_url": {"url": img_ref},
                             },
                             {
                                 "type": "text",
@@ -166,14 +169,14 @@ def _resolve_deepseek(settings: dict) -> tuple[str, str]:
     return "", _DEEPSEEK_DEFAULT_BASE
 
 
-def _print_ok(path: Path, content: str) -> None:
+def _print_ok(file_name: str, filepath: str, content: str) -> None:
     print(
         json.dumps(
             {
                 "success": True,
                 "message": "图片识别完成",
-                "file_name": path.name,
-                "filepath": str(path),
+                "file_name": file_name,
+                "filepath": filepath,
                 "content": content,
             },
             ensure_ascii=False,
@@ -185,75 +188,105 @@ def _print_err(message: str) -> None:
     print(json.dumps({"success": False, "message": message}, ensure_ascii=False))
 
 
-def _run_glm(settings: dict, api_key: str, base_url: str, model: str, path: Path) -> None:
-    try:
-        from zhipuai import ZhipuAI
+def _run_glm(api_key: str, base_url: str, model: str, img_ref: str) -> str:
+    from zhipuai import ZhipuAI
 
-        client_kwargs: dict[str, str] = {"api_key": api_key}
-        if base_url:
-            client_kwargs["base_url"] = base_url
-        client = ZhipuAI(**client_kwargs)
-        img_base = base64.b64encode(path.read_bytes()).decode("utf-8")
-        content = _call_glm(client, model, img_base)
-        _print_ok(path, content)
-    except Exception as exc:  # noqa: BLE001
-        detail = str(exc)
-        if "429" in detail or "1305" in detail:
-            message = (
-                "GLM 免费模型当前繁忙，已自动重试仍失败，请稍后再试；"
-                "如持续限流，可切换模型 glm-4.6v-flashx"
-            )
-        else:
-            message = f"GLM 调用失败: {detail}"
-        _print_err(message)
+    client_kwargs: dict[str, str] = {"api_key": api_key}
+    if base_url:
+        client_kwargs["base_url"] = base_url
+    client = ZhipuAI(**client_kwargs)
+    return _call_glm(client, model, img_ref)
 
 
-def _run_deepseek(settings: dict, path: Path) -> None:
-    api_key, base_url = _resolve_deepseek(settings)
-    if not api_key:
-        _print_err(
-            "未配置视觉模型 API Key：请在设置中配置 GLM（推荐，免费）"
-            f"或 {_DEEPSEEK_VISION_MODEL} 对应的 API Key"
-        )
-        return
-    try:
-        from openai import OpenAI
+def _run_deepseek(api_key: str, base_url: str, img_ref: str) -> str:
+    from openai import OpenAI
 
-        client = OpenAI(api_key=api_key, base_url=base_url)
-        mime = _IMAGE_MIME.get(path.suffix.lower(), "image/png")
-        b64 = base64.b64encode(path.read_bytes()).decode("utf-8")
-        content = _call_deepseek(client, _DEEPSEEK_VISION_MODEL, f"data:{mime};base64,{b64}")
-        _print_ok(path, content)
-    except Exception as exc:  # noqa: BLE001
-        _print_err(f"DeepSeek 视觉模型调用失败: {exc}")
+    client = OpenAI(api_key=api_key, base_url=base_url)
+    return _call_deepseek(client, _DEEPSEEK_VISION_MODEL, img_ref)
 
 
 def main() -> None:
     data = json.load(sys.stdin)
     workspace = Path(data["workspace"]).resolve()
     params = data.get("params") or {}
-    raw = params.get("file_path") or ""
+    url = str(params.get("url") or "").strip()
+    raw = str(params.get("file_path") or "").strip()
+
+    settings = settings_store.load()
+    glm = _resolve_glm(settings)
+
+    if url:
+        if not (url.startswith("http://") or url.startswith("https://")):
+            _print_err("图片链接必须以 http:// 或 https:// 开头")
+            return
+        try:
+            if glm is not None:
+                content = _run_glm(glm[0], glm[1], glm[2], url)
+            else:
+                api_key, base_url = _resolve_deepseek(settings)
+                if not api_key:
+                    _print_err(
+                        "未配置视觉模型 API Key：请在设置中配置 GLM（推荐，免费）"
+                        f"或 {_DEEPSEEK_VISION_MODEL} 对应的 API Key"
+                    )
+                    return
+                content = _run_deepseek(api_key, base_url, url)
+            _print_ok(url.rsplit("/", 1)[-1] or url, url, content)
+        except Exception as exc:  # noqa: BLE001
+            detail = str(exc)
+            if glm is not None and ("429" in detail or "1305" in detail):
+                _print_err(
+                    "GLM 免费模型当前繁忙，已自动重试仍失败，请稍后再试；"
+                    "如持续限流，可切换模型 glm-4.6v-flashx"
+                )
+            else:
+                provider = "GLM" if glm is not None else "DeepSeek 视觉模型"
+                _print_err(f"{provider} 调用失败: {detail}")
+        return
+
+    if not raw:
+        _print_err("请提供 file_path（本地图片路径）或 url（图片链接）")
+        return
+
     path = Path(raw)
     if not path.is_absolute():
         path = workspace / path
     path = path.resolve()
 
     if not path.is_file():
-        print(json.dumps({"success": False, "message": f"文件不存在: {path}"}))
+        _print_err(f"文件不存在: {path}")
         return
     if path.stat().st_size > 10 * 1024 * 1024:
-        print(json.dumps({"success": False, "message": "图片超过 10MB"}))
+        _print_err("图片超过 10MB")
         return
 
-    settings = settings_store.load()
-    glm = _resolve_glm(settings)
-    if glm is not None:
-        # GLM is the free preferred vision provider when configured.
-        _run_glm(settings, glm[0], glm[1], glm[2], path)
-        return
-
-    # No GLM configured: fall back to DeepSeek's vision model.
-    _run_deepseek(settings, path)
+    try:
+        if glm is not None:
+            img_ref = base64.b64encode(path.read_bytes()).decode("utf-8")
+            content = _run_glm(glm[0], glm[1], glm[2], img_ref)
+        else:
+            api_key, base_url = _resolve_deepseek(settings)
+            if not api_key:
+                _print_err(
+                    "未配置视觉模型 API Key：请在设置中配置 GLM（推荐，免费）"
+                    f"或 {_DEEPSEEK_VISION_MODEL} 对应的 API Key"
+                )
+                return
+            mime = _IMAGE_MIME.get(path.suffix.lower(), "image/png")
+            b64 = base64.b64encode(path.read_bytes()).decode("utf-8")
+            img_ref = f"data:{mime};base64,{b64}"
+            content = _run_deepseek(api_key, base_url, img_ref)
+        _print_ok(path.name, str(path), content)
+    except Exception as exc:  # noqa: BLE001
+        detail = str(exc)
+        if glm is not None and ("429" in detail or "1305" in detail):
+            _print_err(
+                "GLM 免费模型当前繁忙，已自动重试仍失败，请稍后再试；"
+                "如持续限流，可切换模型 glm-4.6v-flashx"
+            )
+        else:
+            provider = "GLM" if glm is not None else "DeepSeek 视觉模型"
+            _print_err(f"{provider} 调用失败: {detail}")
 
 
 if __name__ == "__main__":
