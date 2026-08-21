@@ -9,9 +9,9 @@ from ..registry import register_tool
 
 @register_tool(
     "read_image",
-    "读取图片并识别内容，支持 jpg/png/webp/gif/bmp；优先使用免费 GLM 视觉模型，"
-    "未配置 GLM 时回退到 deepseek-v4-flash-vision-exp；file_path 传本地路径、"
-    "url 传远程图片链接，二选一",
+    "读取图片并识别内容，支持 jpg/png/gif/webp（JPEG/PNG/GIF/WebP）；"
+    "优先使用免费 GLM 视觉模型，未配置 GLM 时回退到 deepseek-v4-flash-vision-exp；"
+    "file_path 传本地路径、url 传远程图片链接，二选一",
     {
         "type": "object",
         "properties": {

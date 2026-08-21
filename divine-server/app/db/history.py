@@ -8,7 +8,7 @@ from collections import defaultdict
 from contextlib import closing
 from typing import Any
 
-from ..file_types import is_image_path
+from ..file_types import VISION_IMAGE_EXTENSIONS, is_image_path
 from .connection import _connect
 from .messages import _decode_choice_state, list_messages
 from .sessions import get_session
@@ -16,9 +16,13 @@ from .todos import list_todos
 from .tool_runs import list_message_parts, list_tool_runs
 
 # Image links pasted by the user are fed to read_image (url param) so the
-# vision model can analyze them.
+# vision model can analyze them. Only the formats the vision model supports
+# (JPEG/PNG/GIF/WebP) are detected.
+_VISION_EXT_ALT = "|".join(
+    sorted(ext.lstrip(".") for ext in VISION_IMAGE_EXTENSIONS)
+)
 _IMAGE_URL_RE = re.compile(
-    r"https?://[^\s<>\"'()]+?\.(?:png|jpe?g|gif|webp|bmp|avif)"
+    rf"https?://[^\s<>\"'()]+?\.(?:{_VISION_EXT_ALT})"
     r"(?:[?#][^\s<>\"'()]*)?",
     re.IGNORECASE,
 )

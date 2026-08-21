@@ -9,6 +9,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from app.config import active_model, settings_store  # noqa: E402
+from app.file_types import VISION_IMAGE_EXTENSIONS  # noqa: E402
+
+_VISION_SUFFIXES = tuple(sorted(VISION_IMAGE_EXTENSIONS))
+_VISION_EXT_ALT = "|".join(
+    sorted(ext.lstrip(".") for ext in VISION_IMAGE_EXTENSIONS)
+)
 
 _IMAGE_MIME = {
     ".jpg": "image/jpeg",
@@ -16,14 +22,11 @@ _IMAGE_MIME = {
     ".png": "image/png",
     ".webp": "image/webp",
     ".gif": "image/gif",
-    ".bmp": "image/bmp",
 }
 
-# Only URLs that look like images (path ends with a common image suffix) are
+# Only URLs that look like images (path ends with a supported suffix) are
 # accepted; arbitrary web links must not be sent to the vision API.
-_IMAGE_URL_EXT_RE = re.compile(
-    r"\.(?:png|jpe?g|gif|webp|bmp|avif)$", re.IGNORECASE
-)
+_IMAGE_URL_EXT_RE = re.compile(rf"\.(?:{_VISION_EXT_ALT})$", re.IGNORECASE)
 
 _DEEPSEEK_VISION_MODEL = "deepseek-v4-flash-vision-exp"
 _DEEPSEEK_DEFAULT_BASE = "https://api.deepseek.com"
@@ -31,7 +34,7 @@ _GLM_DEFAULT_MODEL = "glm-4.6v-flash"
 
 
 def _looks_like_image_url(url: str) -> bool:
-    """True when the URL path ends with a common image extension."""
+    """True when the URL path ends with a supported image extension."""
     path = url.split("?", 1)[0].split("#", 1)[0]
     return bool(_IMAGE_URL_EXT_RE.search(path))
 
@@ -234,8 +237,9 @@ def main() -> None:
             return
         if not _looks_like_image_url(url):
             _print_err(
-                "链接看起来不是图片（URL 不以 .png/.jpg/.jpeg/.gif/.webp/.bmp/.avif 结尾），"
-                "已跳过图片识别；如需分析网页内容请使用其他方式。"
+                "链接看起来不是图片（URL 不以 "
+                + "/".join(ext.lstrip(".") for ext in _VISION_SUFFIXES)
+                + " 结尾），已跳过图片识别；如需分析网页内容请使用其他方式。"
             )
             return
         try:
@@ -277,6 +281,13 @@ def main() -> None:
         return
     if path.stat().st_size > 10 * 1024 * 1024:
         _print_err("图片超过 10MB")
+        return
+    if path.suffix.lower() not in _VISION_SUFFIXES:
+        _print_err(
+            "不支持的图片格式（仅支持 "
+            + "/".join(ext.lstrip(".") for ext in _VISION_SUFFIXES)
+            + "），请先转换格式"
+        )
         return
 
     try:
