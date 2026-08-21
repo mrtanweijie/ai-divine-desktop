@@ -8,8 +8,8 @@ import {
   FolderTree,
   GraduationCap,
 } from "lucide-react";
-import avatarUrl from "@/assets/divine-ai-avatar-guide.svg";
 import { openFolder } from "@/services/tauri";
+import { GrokBallIdle } from "./GrokBallIdle";
 import "./index.less";
 
 interface GuideCard {
@@ -111,7 +111,7 @@ export function NewChatGuide({
   return (
     <div className="new-chat-guide">
       <div className="new-chat-guide-icon">
-        <img src={avatarUrl} alt="" className="new-chat-guide-avatar-img" />
+        <GrokBallIdle size={88} />
       </div>
       {/* i18next-instrument-ignore */}
       <h2 className="new-chat-guide-title">
