@@ -26,3 +26,33 @@
   opacity: 1;
   transform: translate(-50%, 0);
 }
+
+/* 下方展示（贴近窗口顶部时避免向上溢出） */
+.ui-tooltip-wrap.tooltip-bottom .ui-tooltip {
+  top: calc(100% + 6px);
+  bottom: auto;
+  transform: translate(-50%, -4px);
+}
+.ui-tooltip-wrap.tooltip-bottom:hover .ui-tooltip {
+  transform: translate(-50%, 0);
+}
+
+/* 右对齐（贴近窗口右缘时避免向右溢出） */
+.ui-tooltip-wrap.tooltip-right .ui-tooltip {
+  left: auto;
+  right: 0;
+  transform: translate(0, 4px);
+}
+.ui-tooltip-wrap.tooltip-right:hover .ui-tooltip {
+  transform: translate(0, 0);
+}
+
+/* 下方 + 右对齐组合 */
+.ui-tooltip-wrap.tooltip-bottom.tooltip-right .ui-tooltip {
+  top: calc(100% + 6px);
+  bottom: auto;
+  transform: translate(0, -4px);
+}
+.ui-tooltip-wrap.tooltip-bottom.tooltip-right:hover .ui-tooltip {
+  transform: translate(0, 0);
+}

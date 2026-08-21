@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { isTauri } from "@/services/tauri";
 import { formatTokens } from "@/utils";
 
@@ -120,23 +121,26 @@ export function ChatHeader({
 
       <Flex align="center" gap={6} className="chat-header-right">
         {session && tokenUsage && tokenUsage.total_tokens > 0 && (
-          <span
-            className="chat-header-token-usage"
-            title={t(
+          <Tooltip
+            placement="bottom"
+            align="right"
+            content={t(
               "session.tokenUsageTotal",
               "本会话累计消耗 {{total}} tokens（输入 {{input}} · 输出 {{output}} · 共 {{turns}} 轮）",
               {
-                total: tokenUsage.total_tokens,
-                input: tokenUsage.input_tokens,
-                output: tokenUsage.output_tokens,
+                total: formatTokens(tokenUsage.total_tokens),
+                input: formatTokens(tokenUsage.input_tokens),
+                output: formatTokens(tokenUsage.output_tokens),
                 turns: tokenUsage.turns,
               }
             )}
           >
-            {t("session.tokenUsageShort", "{{count}} tokens", {
-              value: formatTokens(tokenUsage.total_tokens),
-            })}
-          </span>
+            <span className="chat-header-token-usage">
+              {t("session.tokenUsageShort", "{{count}} tokens", {
+                value: formatTokens(tokenUsage.total_tokens),
+              })}
+            </span>
+          </Tooltip>
         )}
         {session && (
           <Dropdown

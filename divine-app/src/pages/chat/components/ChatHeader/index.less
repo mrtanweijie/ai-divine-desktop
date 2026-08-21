@@ -9,6 +9,9 @@
   background: rgba(11, 13, 15, 0.72);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--color-border);
+  /* backdrop-filter 会创建层叠上下文；抬高层级让 header 内的 tooltip
+     不被下方消息列表（z-index 4/20）遮挡 */
+  z-index: 30;
 }
 .chat-header-token-usage {
   font-size: 11px;
