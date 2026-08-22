@@ -5,9 +5,14 @@
   align-items: center;
   justify-content: center;
   gap: 16px;
-  background: var(--color-bg);
   color: var(--color-text-secondary);
   font-size: 13px;
+}
+
+// 浅色主题铺跟随主题的底色，保证 orb 对比度稳定；
+// 深色主题保持透明，让窗口底色自然透出
+:root[data-theme="light"] .startup-gate {
+  background: var(--color-bg);
 }
 
 .startup-gate p {
