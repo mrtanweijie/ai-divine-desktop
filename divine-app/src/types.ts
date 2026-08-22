@@ -215,6 +215,11 @@ export interface ChatFile {
 
 export type ModelProvider = "auto" | "langchain" | "mock";
 
+/** Tool-calling paradigm for a model entry. `auto` resolves to native
+ * function calling; `react` uses the ReAct text loop (for endpoints without
+ * function-calling support). */
+export type ToolMode = "auto" | "native" | "react";
+
 /** A configured model entry as returned by the server (api keys never leave
  * the server; only `has_api_key` is exposed). */
 export interface ModelConfig {
@@ -225,6 +230,7 @@ export interface ModelConfig {
   base_url: string;
   has_api_key: boolean;
   active: boolean;
+  tool_mode?: ToolMode;
 }
 
 /** A model entry as submitted to the server when saving settings. `api_key`
@@ -237,6 +243,7 @@ export interface ModelConfigPayload {
   base_url?: string;
   api_key?: string;
   active: boolean;
+  tool_mode?: ToolMode;
 }
 
 export type SettingsSaveBody = Partial<Omit<Settings, "models">> & {

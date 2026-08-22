@@ -164,7 +164,7 @@ async def stream_chat(request: StreamChatRequest):
     ]
     logger.info(
         "chat request session=%s question_len=%d attachments=%d think=%s "
-        "effort=%s history=%d model_id=%s",
+        "effort=%s history=%d model_id=%s tool_mode=%s",
         session_id,
         len(question),
         len(request.attachments),
@@ -172,6 +172,7 @@ async def stream_chat(request: StreamChatRequest):
         request.reasoning_effort,
         len(history),
         request.model_id,
+        request.tool_mode,
     )
 
     async def generate():
@@ -191,6 +192,7 @@ async def stream_chat(request: StreamChatRequest):
                 cancel_event=cancel_event,
                 model_id=request.model_id,
                 approved_paths=approved_paths,
+                tool_mode=request.tool_mode,
             ):
                 yield event
         except Exception as exc:  # noqa: BLE001

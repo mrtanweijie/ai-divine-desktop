@@ -30,6 +30,17 @@ def workspace_root() -> Path:
 DEFAULT_MODEL = "deepseek-v4-flash"
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 
+# Tool-calling paradigm per model entry:
+# - "auto":   resolve to native function calling (current behavior)
+# - "native": force native function calling (bind_tools)
+# - "react":  force ReAct text-mode tool calling (Thought/Action loop)
+TOOL_MODES = ("auto", "native", "react")
+
+
+def _normalize_tool_mode(value: Any) -> str:
+    mode = str(value or "").strip()
+    return mode if mode in TOOL_MODES else "auto"
+
 
 def default_model_entry() -> dict[str, Any]:
     """A single model entry mirroring the environment defaults."""
@@ -41,6 +52,7 @@ def default_model_entry() -> dict[str, Any]:
         "base_url": os.getenv("DEEPSEEK_BASE_URL", DEFAULT_BASE_URL),
         "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
         "active": True,
+        "tool_mode": "auto",
     }
 
 
@@ -62,6 +74,7 @@ def normalize_models(
                 "base_url": legacy.get("base_url") or DEFAULT_BASE_URL,
                 "api_key": legacy.get("api_key") or "",
                 "active": True,
+                "tool_mode": _normalize_tool_mode(legacy.get("tool_mode")),
             }
         ]
     normalized: list[dict[str, Any]] = []
@@ -85,6 +98,9 @@ def normalize_models(
             ),
             "api_key": str(item.get("api_key") or ""),
             "active": bool(item.get("active", False)),
+            "tool_mode": _normalize_tool_mode(
+                item.get("tool_mode") or legacy.get("tool_mode")
+            ),
         }
         normalized.append(entry)
     if not normalized:
@@ -160,6 +176,9 @@ def merge_model_updates(
                 ).strip(),
                 "api_key": str(api_key or ""),
                 "active": bool(item.get("active", False)),
+                "tool_mode": _normalize_tool_mode(
+                    item.get("tool_mode") or prev.get("tool_mode")
+                ),
             }
         )
     return normalize_models(merged, {})

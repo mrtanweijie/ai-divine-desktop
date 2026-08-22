@@ -66,6 +66,7 @@ a = Analysis(
         "app.agent.prompts",
         "app.agent.project_context",
         "app.agent.rag",
+        "app.agent.react",
         "app.agent.schema",
         "app.agent.sse",
         "app.agent.subagents",

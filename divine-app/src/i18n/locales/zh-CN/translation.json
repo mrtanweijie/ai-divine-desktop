@@ -249,6 +249,11 @@
     "thinkEffort": "深度思考",
     "thinkEffortHint": "选择关闭则不进行深度思考；档位越高，思考越深入、响应越慢、消耗越多。",
     "title": "设置",
+    "toolMode": "工具调用方式",
+    "toolModeAuto": "自动",
+    "toolModeHint": "ReAct 文本模式适用于不支持原生函数调用的模型或接口（如部分本地推理服务），以 Thought/Action 文本循环调用工具",
+    "toolModeNative": "原生函数调用",
+    "toolModeReact": "ReAct 文本模式",
     "username": "用户名",
     "usernamePlaceholder": "用户"
   },

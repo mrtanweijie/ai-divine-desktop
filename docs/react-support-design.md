@@ -2,8 +2,8 @@
 
 > 版本：v1.0
 > 日期：2026-08-22
-> 状态：设计方案（待评审）
-> 关联模块：`divine-server/app/agent/react.py`（新增）、`divine-server/app/agent/tools.py`、`divine-server/app/agent/prompts.py`、`divine-server/app/agent/context.py`、`divine-server/app/agent/sse.py`、`divine-server/app/agent/orchestrator.py`、`divine-server/app/config.py`、`divine-server/app/schemas.py`、`divine-server/app/api/chat.py`、`divine-server/app/api/settings.py`、`divine-app/src/components/SettingsModal/ModelSection.tsx`、`divine-app/src/types.ts`、三个 locale 文件
+> 状态：已实现（后端 `agent/react.py` + 配置管线 + SSE 流式过滤 + 前端模型工具模式设置；`tests/test_react.py` 27 项单测覆盖解析器/中间件/流式/配置/端到端链路）
+> 关联模块：`divine-server/app/agent/react.py`（新增）、`divine-server/app/agent/tools.py`、`divine-server/app/agent/prompts.py`、`divine-server/app/agent/context.py`、`divine-server/app/agent/sse.py`、`divine-server/app/agent/orchestrator.py`、`divine-server/app/agent/llm.py`、`divine-server/app/config.py`、`divine-server/app/schemas.py`、`divine-server/app/api/chat.py`、`divine-server/app/api/settings.py`、`divine-server/app/main.py`、`divine-app/src/components/SettingsModal/ModelSection.tsx`、`divine-app/src/components/SettingsModal/index.tsx`、`divine-app/src/types.ts`、三个 locale 文件
 
 ## 1. 背景与目标
 

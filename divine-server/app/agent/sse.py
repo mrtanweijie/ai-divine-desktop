@@ -227,17 +227,49 @@ def _interrupt_prompt(payload: dict[str, Any]) -> str:
     return str(payload.get("message") or "等待用户确认")
 
 async def _consume_message(
-    message: Any, queue: asyncio.Queue[tuple[str, Any]]
+    message: Any,
+    queue: asyncio.Queue[tuple[str, Any]],
+    react: bool = False,
 ) -> tuple[Any, str]:
     text_parts: list[str] = []
     reasoning_parts: list[str] = []
+    react_processor = None
+    if react:
+        from .react import ReActStreamProcessor
+
+        react_processor = ReActStreamProcessor()
 
     async def drain_text() -> None:
+        if react_processor is None:
+            async for delta in message.text:
+                text_parts.append(delta)
+                await queue.put(
+                    ("sse", sse_event("message", {"content": delta}))
+                )
+            return
         async for delta in message.text:
-            text_parts.append(delta)
-            await queue.put(
-                ("sse", sse_event("message", {"content": delta}))
-            )
+            for event in react_processor.push(delta):
+                if event["type"] == "think":
+                    reasoning_parts.append(event["content"])
+                    await queue.put(
+                        ("sse", sse_event("think", {"content": event["content"]}))
+                    )
+                else:
+                    text_parts.append(event["content"])
+                    await queue.put(
+                        ("sse", sse_event("message", {"content": event["content"]}))
+                    )
+        for event in react_processor.flush():
+            if event["type"] == "think":
+                reasoning_parts.append(event["content"])
+                await queue.put(
+                    ("sse", sse_event("think", {"content": event["content"]}))
+                )
+            else:
+                text_parts.append(event["content"])
+                await queue.put(
+                    ("sse", sse_event("message", {"content": event["content"]}))
+                )
 
     async def drain_reasoning() -> None:
         async for delta in message.reasoning:
@@ -257,6 +289,7 @@ async def _stream_agent_run(
     agent: Any,
     graph_input: Any,
     config: dict[str, Any],
+    react: bool = False,
 ) -> AsyncIterator[tuple[str, Any]]:
     run = await agent.astream_events(
         graph_input,
@@ -270,7 +303,9 @@ async def _stream_agent_run(
     async def consume_messages() -> None:
         try:
             async for message in run.messages:
-                output, reasoning = await _consume_message(message, queue)
+                output, reasoning = await _consume_message(
+                    message, queue, react=react
+                )
                 message_id = getattr(output, "id", None)
                 if message_id and reasoning:
                     think_by_id[message_id] = (

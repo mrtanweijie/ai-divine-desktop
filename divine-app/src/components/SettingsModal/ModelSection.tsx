@@ -6,13 +6,21 @@ import { Dropdown } from "@/components/ui/Dropdown";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { getBalance, type BalanceInfo } from "@/services/api";
-import type { ModelConfig } from "@/types";
+import type { ModelConfig, ToolMode } from "@/types";
 
 const MODEL_OPTIONS = [
   { value: "deepseek-v4-flash", label: "deepseek-v4-flash" },
   { value: "deepseek-v4-flash-vision-exp", label: "deepseek-v4-flash-vision-exp" },
   { value: "deepseek-v4-pro", label: "deepseek-v4-pro" },
 ];
+
+function toolModeOptions(t: (key: string, fallback: string) => string) {
+  return [
+    { value: "auto", label: t("settings.toolModeAuto", "自动") },
+    { value: "native", label: t("settings.toolModeNative", "原生函数调用") },
+    { value: "react", label: t("settings.toolModeReact", "ReAct 文本模式") },
+  ];
+}
 
 interface SettingsModelSectionProps {
   models: ModelConfig[];
@@ -104,6 +112,7 @@ export function ModelSection({
       has_api_key: false,
       // 新添加的模型不自动设为默认，保持当前默认模型不变
       active: false,
+      tool_mode: "auto",
     };
     onModelsChange([...models, entry]);
     // 新添加的模型直接展开，方便立即填写
@@ -278,6 +287,20 @@ export function ModelSection({
                   }
                   placeholder="https://api.deepseek.com"
                 />
+                <Select
+                  label={t("settings.toolMode", "工具调用方式")}
+                  value={entry.tool_mode ?? "auto"}
+                  onChange={(value) =>
+                    updateModel(entry.id, { tool_mode: value as ToolMode })
+                  }
+                  options={toolModeOptions(t)}
+                />
+                <p className="settings-field-hint settings-model-tool-mode-hint">
+                  {t(
+                    "settings.toolModeHint",
+                    "ReAct 文本模式适用于不支持原生函数调用的模型或接口（如部分本地推理服务），以 Thought/Action 文本循环调用工具"
+                  )}
+                </p>
                 <Input
                   label={t("settings.apiKeyLabel", "API Key{{saved}}", {
                     saved: entry.has_api_key

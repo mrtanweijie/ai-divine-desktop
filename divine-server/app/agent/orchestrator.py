@@ -17,7 +17,7 @@ from ..api.terminal import create_terminal_decision, remove_terminal_decision
 from ..localization import default_session_title, normalize_locale
 from ..sse import error_event, sse_event
 from .context import AgentRunContext, canonical_path
-from .llm import _build_llm, generate_session_title
+from .llm import _build_llm, _resolve_tool_mode, generate_session_title
 from .persistence import (
     _extract_final_content,
     _extract_token_usage,
@@ -114,10 +114,12 @@ async def run_agent(
     cancel_event: asyncio.Event | None = None,
     model_id: str | None = None,
     approved_paths: list[str] | None = None,
+    tool_mode: str | None = None,
 ) -> AsyncIterator[str]:
     """Stream one agent turn as SSE strings, handling interrupts and persistence."""
     workspace_path = workspace if isinstance(workspace, Path) else Path(workspace)
     session = db.get_session(session_id)
+    resolved_tool_mode = _resolve_tool_mode(tool_mode, model_id)
     ctx = AgentRunContext(
         session_id=session_id,
         workspace=workspace_path,
@@ -132,6 +134,7 @@ async def run_agent(
         effort=effort,
         model_id=model_id,
         cancel_event=cancel_event,
+        tool_mode=resolved_tool_mode,
     )
     plan_mode = (session or {}).get("plan_mode") or "ask"
     if plan_mode == "direct":
@@ -217,10 +220,11 @@ async def run_agent(
         }
     )
     logger.info(
-        "agent start session=%s history=%d thread=%s",
+        "agent start session=%s history=%d thread=%s tool_mode=%s",
         session_id,
         len(history),
         has_thread,
+        resolved_tool_mode,
     )
 
     graph_input: Any = {"messages": input_messages}
@@ -232,7 +236,10 @@ async def run_agent(
         while True:
             interrupted = False
             async for kind, data in _stream_agent_run(
-                agent, graph_input, config
+                agent,
+                graph_input,
+                config,
+                react=(resolved_tool_mode == "react"),
             ):
                 if cancel_event is not None and cancel_event.is_set():
                     _persist_partial_generation(

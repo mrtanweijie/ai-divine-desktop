@@ -253,6 +253,11 @@
     "thinkEffort": "Deep thinking",
     "thinkEffortHint": "Select Off to disable deep thinking. Higher effort means deeper reasoning, slower responses and higher token usage.",
     "title": "Settings",
+    "toolMode": "Tool calling mode",
+    "toolModeAuto": "Auto",
+    "toolModeHint": "ReAct text mode is for models/endpoints without native function calling (e.g. some local inference servers); it calls tools via a Thought/Action text loop",
+    "toolModeNative": "Native function calling",
+    "toolModeReact": "ReAct text mode",
     "username": "Username",
     "usernamePlaceholder": "User"
   },

@@ -699,6 +699,77 @@ function movingAverage(values: number[], dayCount: number): (number | string)[] 
   return result;
 }
 
+/**
+ * Normalize candlestick multi-grid axes: trim spurious xAxis entries that
+ * LLMs commonly mistake for yAxis configs, and ensure yAxis is a 2-element
+ * array when the volume series references yAxisIndex: 1.
+ */
+function fixCandlestickAxes(
+  option: Record<string, unknown>,
+  yAxisDefaults: Record<string, unknown>
+): void {
+  // 1. Trim xAxis: keep only the first 2 real date/category axes.
+  //    LLMs often append yAxis configs (scale, splitArea, gridIndex: 1) to
+  //    xAxis when generating candlestick charts.
+  const series = Array.isArray(option.series) ? option.series : [];
+  const hasVolume = series.some(
+    (item) =>
+      isRecord(item) &&
+      item.type === "bar" &&
+      (item.xAxisIndex === 1 || item.yAxisIndex === 1)
+  );
+  const grids = Array.isArray(option.grid)
+    ? option.grid
+    : isRecord(option.grid)
+      ? [option.grid]
+      : [];
+
+  if (Array.isArray(option.xAxis) && option.xAxis.length > 2) {
+    // Keep only the first 2 xAxis entries (the real category axes for
+    // candlestick and volume). Entries beyond index 1 that lack "data" or
+    // "type: category" are almost certainly misplaced yAxis configs.
+    option.xAxis = option.xAxis.slice(0, 2);
+  }
+
+  // 2. Build a proper yAxis array when the volume series needs yAxisIndex: 1.
+  if (hasVolume && grids.length >= 2) {
+    const raw = option.yAxis;
+    if (!Array.isArray(raw)) {
+      // yAxis is a single object (or undefined/missing after merge): build
+      // the standard 2-element array for a candlestick + volume layout.
+      const priceAxis = isRecord(raw)
+        ? { ...raw, gridIndex: 0 }
+        : { gridIndex: 0 };
+      const volumeAxis: Record<string, unknown> = {
+        gridIndex: 1,
+        splitNumber: 2,
+        axisLabel: { show: false },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
+      };
+      option.yAxis = [
+        mergeRecord(yAxisDefaults, priceAxis),
+        mergeRecord(yAxisDefaults, volumeAxis),
+      ];
+    } else if (raw.length === 1) {
+      // yAxis has one entry but volume needs index 1: append the volume axis.
+      option.yAxis = [
+        raw[0],
+        mergeRecord(yAxisDefaults, {
+          gridIndex: 1,
+          splitNumber: 2,
+          axisLabel: { show: false },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: { show: false },
+        }),
+      ];
+    }
+    // raw.length >= 2: yAxis already correct, leave it untouched.
+  }
+}
+
 function decorateCandlestick(
   option: Record<string, unknown>,
   palette: ChartPalette
@@ -1008,6 +1079,12 @@ export function buildChartOption(
     }
     decorateAxes(merged, palette);
     if (primaryType === "candlestick") {
+      // LLMs sometimes put yAxis configs into xAxis (e.g. 4 xAxis entries
+      // where the last 2 are actually volume/pricing yAxis configs). Trim
+      // xAxis to the 2 real date axes and build a proper 2-element yAxis
+      // array when the volume series references yAxisIndex: 1 but yAxis is
+      // missing or only a single object.
+      fixCandlestickAxes(merged, themeBase.yAxis as Record<string, unknown>);
       decorateCandlestick(merged, palette);
     }
   } else {

@@ -64,6 +64,8 @@ app.include_router(terminal.router)
 
 @app.get("/api/health")
 def health():
+    from .agent.llm import _resolve_tool_mode
+
     current = settings_store.load()
     provider = "mock" if not current.get("api_key") else current.get("provider", "auto")
     return {
@@ -71,4 +73,5 @@ def health():
         "provider": provider,
         "model": current.get("model"),
         "tools": len(registry.list()),
+        "tool_mode": _resolve_tool_mode(None, None, current),
     }

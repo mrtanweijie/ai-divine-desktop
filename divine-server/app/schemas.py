@@ -26,6 +26,9 @@ class StreamChatRequest(BaseModel):
     locale: str | None = None
     attachments: list[Attachment] = []
     model_id: str | None = None
+    # Per-request tool-calling override ("native" / "react"); only for
+    # debugging/A-B comparison. Absent means the model entry decides.
+    tool_mode: str | None = None
 
 
 class SessionCreate(BaseModel):
@@ -70,6 +73,7 @@ class ModelConfigUpdate(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
     active: bool = False
+    tool_mode: str | None = None
 
 
 class SettingsUpdate(BaseModel):

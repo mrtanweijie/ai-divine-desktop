@@ -130,40 +130,48 @@ def _build_agent(
     llm: Any, tools: list[StructuredTool], ctx: AgentRunContext
 ) -> Any:
     """Build the LangGraph agent with prompts, limits, and approval middleware."""
+    middleware = [
+        _build_dynamic_prompt(ctx),
+        ModelCallLimitMiddleware(
+            run_limit=MAX_TOOL_TURNS,
+            exit_behavior="end",
+        ),
+        ToolCallLimitMiddleware(
+            run_limit=MAX_TOOL_TURNS,
+            exit_behavior="end",
+        ),
+        HumanInTheLoopMiddleware(
+            interrupt_on={
+                "write_todos": {
+                    "allowed_decisions": ["approve", "reject"],
+                    "when": lambda request: not ctx.plan_approved
+                    and (
+                        ctx.plan_first_pending
+                        or _should_ask_plan(
+                            request.state.get("messages") or []
+                        )
+                    ),
+                }
+            }
+        ),
+        TodoSyncMiddleware(ctx),
+        TodoListMiddleware(),
+        ToolErrorMiddleware(
+            on_error=lambda exc, request: (
+                f"工具执行异常: {type(exc).__name__}: {str(exc)[:300]}"
+            )
+        ),
+    ]
+    if ctx.tool_mode == "react":
+        # Outermost wrapper: strips tools from the model binding and turns
+        # the text ReAct trace into standard tool_calls. Everything below
+        # (limits, approval, todo sync, error handling) runs unchanged.
+        from .react import ReActParseMiddleware
+
+        middleware.insert(0, ReActParseMiddleware())
     return create_agent(
         model=llm,
         tools=tools,
-        middleware=[
-            _build_dynamic_prompt(ctx),
-            ModelCallLimitMiddleware(
-                run_limit=MAX_TOOL_TURNS,
-                exit_behavior="end",
-            ),
-            ToolCallLimitMiddleware(
-                run_limit=MAX_TOOL_TURNS,
-                exit_behavior="end",
-            ),
-            HumanInTheLoopMiddleware(
-                interrupt_on={
-                    "write_todos": {
-                        "allowed_decisions": ["approve", "reject"],
-                        "when": lambda request: not ctx.plan_approved
-                        and (
-                            ctx.plan_first_pending
-                            or _should_ask_plan(
-                                request.state.get("messages") or []
-                            )
-                        ),
-                    }
-                }
-            ),
-            TodoSyncMiddleware(ctx),
-            TodoListMiddleware(),
-            ToolErrorMiddleware(
-                on_error=lambda exc, request: (
-                    f"工具执行异常: {type(exc).__name__}: {str(exc)[:300]}"
-                )
-            ),
-        ],
+        middleware=middleware,
         checkpointer=_CHECKPOINTER,
     )

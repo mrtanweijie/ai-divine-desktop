@@ -298,6 +298,10 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
         skill_catalog = _skill_catalog_prompt()
         if skill_catalog:
             parts.append(skill_catalog)
+        if ctx.tool_mode == "react":
+            from .react import REACT_FORMAT_PROMPT
+
+            parts.append(REACT_FORMAT_PROMPT)
         return "\n\n".join(parts)
 
     return prompt

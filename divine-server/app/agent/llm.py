@@ -51,6 +51,27 @@ def _is_deepseek_endpoint(base_url: str) -> bool:
     return "deepseek" in base_url.lower()
 
 
+def _resolve_tool_mode(
+    request_tool_mode: str | None,
+    model_id: str | None,
+    settings: dict[str, Any] | None = None,
+) -> str:
+    """Resolve the effective tool-calling paradigm for a run.
+
+    Precedence: per-request override (native/react) > model entry
+    ``tool_mode`` (auto/native/react) > ``auto``, which maps to native
+    function calling (the current behavior).
+    """
+    if request_tool_mode in ("native", "react"):
+        return request_tool_mode
+    settings = settings_store.load() if settings is None else settings
+    entry = _resolve_model_entry(settings, model_id)
+    mode = str(entry.get("tool_mode") or "auto")
+    if mode not in ("auto", "native", "react"):
+        mode = "auto"
+    return "native" if mode == "auto" else mode
+
+
 def _build_llm(
     think: bool = False,
     effort: str | None = None,

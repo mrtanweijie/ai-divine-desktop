@@ -33,6 +33,9 @@ class AgentRunContext:
     think: bool = False
     effort: str | None = None
     model_id: str | None = None
+    # Tool-calling paradigm for this run: "native" (bind_tools) or "react"
+    # (ReAct text loop). Resolved before the run starts; defaults to native.
+    tool_mode: str = "native"
     # Set when the user stops the main stream; sub-agent batches poll it and
     # abort early instead of finishing work nobody will see.
     cancel_event: asyncio.Event | None = None
