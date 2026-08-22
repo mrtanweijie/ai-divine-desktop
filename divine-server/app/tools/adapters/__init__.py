@@ -1,4 +1,9 @@
 from .calculator import CalculatorAdapter  # noqa: F401
+from .bg_tool import (  # noqa: F401
+    BgKillAdapter,
+    BgOutputAdapter,
+    BgStatusAdapter,
+)
 from .clipboard import ClipboardAdapter  # noqa: F401
 from .create_plan import CreatePlanAdapter  # noqa: F401
 from .describe_svg import DescribeSvgAdapter  # noqa: F401
@@ -7,10 +12,18 @@ from .draw_svg import DrawSvgAdapter  # noqa: F401
 from .edit_files import EditFilesAdapter  # noqa: F401
 from .edit_svg import EditSvgAdapter  # noqa: F401
 from .generate_chart import GenerateChartAdapter  # noqa: F401
+from .git_tool import (  # noqa: F401
+    GitCommitAdapter,
+    GitDiffAdapter,
+    GitLogAdapter,
+    GitRevertAdapter,
+    GitStatusAdapter,
+)
 from .github_skill import (  # noqa: F401
     InstallSkillAdapter,
     PreviewSkillRepoAdapter,
 )
+from .grep_files import GrepFilesAdapter  # noqa: F401
 from .image_resize import ImageResizeAdapter  # noqa: F401
 from .mermaid_export import MermaidExportAdapter  # noqa: F401
 from .memory import ForgetMemoryAdapter, RememberAdapter  # noqa: F401

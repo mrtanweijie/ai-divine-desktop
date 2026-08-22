@@ -106,7 +106,73 @@ async def _handle_adapter_call(
 
     try:
         if name == "run_subagents":
-            from .subagents import _run_subagents
+            from .subagents import _run_subagents, _validate_tasks
+
+            # Write-capable batches need user approval BEFORE dispatch; the
+            # sub-agents themselves never prompt.
+            tasks, sub_error = _validate_tasks(arguments, workspace=ctx.workspace)
+            write_tasks = [
+                task
+                for task in tasks
+                if task.get("write") and task.get("write_paths")
+            ]
+            if not sub_error and write_tasks:
+                decision = _ask_interrupt(
+                    ctx.session_id,
+                    f"subagents_write:{call_id}",
+                    {
+                        "type": "subagents_write",
+                        "session_id": ctx.session_id,
+                        "tool": name,
+                        "message": "确认并行写任务？",
+                        "subagent_write": {
+                            "tasks": [
+                                {
+                                    "id": task["id"],
+                                    "name": task["name"],
+                                    "write_paths": task["write_paths"],
+                                }
+                                for task in write_tasks
+                            ]
+                        },
+                        "call_id": call_id,
+                    },
+                )
+                allowed = (
+                    bool(decision.get("allowed"))
+                    if isinstance(decision, dict)
+                    else bool(decision)
+                )
+                if not allowed:
+                    if todo is not None:
+                        _finish_todo(todo, False, "用户拒绝并行写任务")
+                        writer(
+                            {
+                                "event": "todo_update",
+                                "id": todo["id"],
+                                "status": todo["status"],
+                            }
+                        )
+                    writer(
+                        {
+                            "event": "tool",
+                            "tool": name,
+                            "status": "error",
+                            "message": "已拒绝并行写任务",
+                            "messageKey": "tool.subagentsWriteRejected",
+                            "messageParams": {},
+                            "session_id": ctx.session_id,
+                            "call_id": call_id,
+                        }
+                    )
+                    return json.dumps(
+                        {
+                            "success": False,
+                            "message": "用户拒绝了并行写任务",
+                            "rejected": True,
+                        },
+                        ensure_ascii=False,
+                    )
 
             return await _run_subagents(ctx, runtime, arguments)
 
@@ -371,6 +437,117 @@ async def _handle_adapter_call(
 
         is_terminal = name == "terminal"
         command = str(arguments.get("command") or "")
+
+        if name in {"git_commit", "git_revert"} and ctx.approval_mode == "ask":
+            git_desc = (
+                f"git_commit：{str(arguments.get('message') or '')[:200]}"
+                if name == "git_commit"
+                else f"git_revert：{str(arguments.get('path') or '(全部未提交改动)')}"
+            )
+            decision = _ask_interrupt(
+                ctx.session_id,
+                f"git:{call_id}",
+                {
+                    "type": "git",
+                    "session_id": ctx.session_id,
+                    "tool": name,
+                    "message": "确认执行 git 写操作？",
+                    "command": git_desc,
+                    "call_id": call_id,
+                },
+            )
+            allowed = (
+                bool(decision.get("allowed"))
+                if isinstance(decision, dict)
+                else bool(decision)
+            )
+            if not allowed:
+                if todo is not None:
+                    _finish_todo(todo, False, "用户拒绝 git 写操作")
+                    writer(
+                        {
+                            "event": "todo_update",
+                            "id": todo["id"],
+                            "status": todo["status"],
+                        }
+                    )
+                writer(
+                    {
+                        "event": "tool",
+                        "tool": name,
+                        "status": "error",
+                        "message": "已拒绝 git 写操作",
+                        "messageKey": "tool.gitRejected",
+                        "messageParams": {},
+                        "command": git_desc,
+                        "result": {"command": git_desc},
+                        "session_id": ctx.session_id,
+                        "call_id": call_id,
+                    }
+                )
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": "用户拒绝了 git 写操作",
+                        "command": git_desc,
+                        "rejected": True,
+                    },
+                    ensure_ascii=False,
+                )
+
+        if name == "bg_kill" and ctx.approval_mode == "ask":
+            bg_desc = f"bg_kill：{str(arguments.get('bg_id') or '')}"
+            decision = _ask_interrupt(
+                ctx.session_id,
+                f"bg_kill:{call_id}",
+                {
+                    "type": "bg_kill",
+                    "session_id": ctx.session_id,
+                    "tool": name,
+                    "message": "确认停止后台任务？",
+                    "command": bg_desc,
+                    "call_id": call_id,
+                },
+            )
+            allowed = (
+                bool(decision.get("allowed"))
+                if isinstance(decision, dict)
+                else bool(decision)
+            )
+            if not allowed:
+                if todo is not None:
+                    _finish_todo(todo, False, "用户拒绝停止后台任务")
+                    writer(
+                        {
+                            "event": "todo_update",
+                            "id": todo["id"],
+                            "status": todo["status"],
+                        }
+                    )
+                writer(
+                    {
+                        "event": "tool",
+                        "tool": name,
+                        "status": "error",
+                        "message": "已拒绝停止后台任务",
+                        "messageKey": "tool.bgKillRejected",
+                        "messageParams": {},
+                        "command": bg_desc,
+                        "result": {"command": bg_desc},
+                        "session_id": ctx.session_id,
+                        "call_id": call_id,
+                    }
+                )
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": "用户拒绝了停止后台任务",
+                        "command": bg_desc,
+                        "rejected": True,
+                    },
+                    ensure_ascii=False,
+                )
+
         policy = terminal_command_policy(command) if is_terminal else "safe"
         if is_terminal and ctx.approval_mode == "full":
             policy = "safe"
@@ -543,6 +720,11 @@ async def _handle_adapter_call(
                     "session_id": ctx.session_id,
                 }
             )
+
+        # Background process tools are scoped by session: inject the session
+        # id so bg_manager can isolate processes per conversation.
+        if name == "terminal" or name in {"bg_status", "bg_output", "bg_kill"}:
+            arguments.setdefault("session_id", ctx.session_id)
 
         output = await _execute_tool(
             ctx.session_id,

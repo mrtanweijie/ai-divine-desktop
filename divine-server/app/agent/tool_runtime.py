@@ -191,6 +191,11 @@ async def _execute_tool(
         _summarize_arguments(arguments),
     )
     try:
+        effective_timeout = (
+            adapter.effective_timeout(arguments)
+            if hasattr(adapter, "effective_timeout")
+            else adapter.timeout
+        )
         result = await asyncio.wait_for(
             adapter.run(
                 workspace,
@@ -198,7 +203,7 @@ async def _execute_tool(
                 locale=locale or "zh-CN",
                 progress_callback=progress_callback,
             ),
-            timeout=adapter.timeout,
+            timeout=effective_timeout,
         )
         output = result.as_dict()
         output = _annotate_tool_output(name, output, arguments)
@@ -212,11 +217,16 @@ async def _execute_tool(
         )
         return output
     except asyncio.TimeoutError:
+        effective_timeout = (
+            adapter.effective_timeout(arguments)
+            if hasattr(adapter, "effective_timeout")
+            else adapter.timeout
+        )
         output = {
             "success": False,
-            "message": f"工具执行超时（{adapter.timeout}s）",
+            "message": f"工具执行超时（{effective_timeout}s）",
             "messageKey": "tool.toolTimeout",
-            "messageParams": {"timeout": adapter.timeout},
+            "messageParams": {"timeout": effective_timeout},
         }
         db.update_tool_run(run["id"], "error", output)
         logger.warning(
@@ -224,7 +234,7 @@ async def _execute_tool(
             session_id,
             name,
             time.monotonic() - started,
-            adapter.timeout,
+            effective_timeout,
         )
         return output
     except ToolExecutionError as exc:

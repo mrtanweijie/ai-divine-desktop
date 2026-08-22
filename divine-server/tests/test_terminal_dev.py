@@ -1,0 +1,163 @@
+"""Tests for terminal tool: policy whitelist, script truncation, timeouts."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from app.tools.adapters.terminal import (
+    TERMINAL_TIMEOUT_MAX,
+    TERMINAL_TIMEOUT_MIN,
+    TerminalAdapter,
+)
+from app.tools.registry import get_tool
+from app.tools.terminal_policy import terminal_command_policy
+
+SCRIPT = Path(__file__).resolve().parents[1] / "app" / "tools" / "scripts" / "terminal.py"
+
+
+def _run(params: dict, workspace: Path) -> dict:
+    payload = {
+        "workspace": str(workspace.resolve()),
+        "output_dir": str(workspace.resolve() / "out"),
+        "params": params,
+        "locale": "zh-CN",
+    }
+    completed = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps(payload, ensure_ascii=False),
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return json.loads(completed.stdout)
+
+
+# --- policy ---
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "ls",
+        "pwd",
+        "pytest tests/",
+        "python3 -m pytest tests/test_x.py",
+        "python -m unittest",
+        "pnpm test",
+        "pnpm build",
+        "npm run lint",
+        "npx tsc --noEmit",
+        "pip install -r requirements.txt",
+        "git status",
+        "git diff",
+        "git log --oneline -5",
+        "git diff HEAD~2",
+        "python3 run.py",
+        "python3 script.py",
+    ],
+)
+def test_policy_safe_dev_commands(command: str):
+    assert terminal_command_policy(command) == "safe"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git commit -m 'x'",
+        "git push origin main",
+        "git reset --hard HEAD",
+        "cat file.txt",
+        "make",
+        "cd /tmp && pnpm install",
+        "ls | grep foo",
+        "echo a; echo b",
+    ],
+)
+def test_policy_confirm(command: str):
+    assert terminal_command_policy(command) == "confirm"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rm -rf /",
+        "sudo rm -rf /tmp/x",
+        "curl http://example.com",
+        "wget http://example.com/x",
+        "kill -9 123",
+        "python3 << EOF\nprint(1)\nEOF",
+        "chmod 777 /tmp/x",
+    ],
+)
+def test_policy_block(command: str):
+    assert terminal_command_policy(command) == "block"
+
+
+# --- adapter effective timeout ---
+
+
+def test_effective_timeout_clamps():
+    adapter = get_tool("terminal")
+    assert isinstance(adapter, TerminalAdapter)
+    assert adapter.effective_timeout({}) == TERMINAL_TIMEOUT_MIN
+    assert adapter.effective_timeout({"timeout": 30}) == TERMINAL_TIMEOUT_MIN
+    assert adapter.effective_timeout({"timeout": 120}) == 120
+    assert adapter.effective_timeout({"timeout": 1200}) == TERMINAL_TIMEOUT_MAX
+    assert adapter.effective_timeout({"timeout": "abc"}) == TERMINAL_TIMEOUT_MIN
+
+
+# --- script behavior ---
+
+
+def test_script_echo(tmp_path: Path):
+    out = _run({"command": "echo hello"}, tmp_path)
+    assert out["success"] is True
+    assert "hello" in out["stdout"]
+    assert out["exit_code"] == 0
+    assert out["data"]["cwd"] == str(tmp_path.resolve())
+
+
+def test_script_exit_code(tmp_path: Path):
+    out = _run({"command": "exit 3"}, tmp_path)
+    assert out["success"] is True
+    assert out["exit_code"] == 3
+
+
+def test_script_timeout(tmp_path: Path):
+    out = _run({"command": "sleep 5", "timeout": 1}, tmp_path)
+    assert out["success"] is False
+    assert "超时" in out["message"]
+
+
+def test_script_truncates_large_output(tmp_path: Path):
+    out = _run(
+        {"command": "python3 -c \"print('x' * 50000)\"", "timeout": 30},
+        tmp_path,
+    )
+    assert out["success"] is True
+    assert out["data"]["stdout_truncated"] is True
+    assert out["data"]["stdout_bytes"] >= 50000
+    assert len(out["stdout"]) <= 16000
+    assert "xxx" in out["stdout"]
+
+
+def test_script_stderr_captured(tmp_path: Path):
+    out = _run(
+        {"command": "python3 -c \"import sys; print('boom', file=sys.stderr)\""},
+        tmp_path,
+    )
+    assert out["success"] is True
+    assert "boom" in out["stderr"]
+
+
+def test_script_blocked_command(tmp_path: Path):
+    out = _run({"command": "rm -rf /tmp/whatever"}, tmp_path)
+    assert out["success"] is False
+    assert "高危" in out["message"]

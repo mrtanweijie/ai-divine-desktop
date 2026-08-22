@@ -2,9 +2,15 @@
 
 The main agent delegates a batch of independent sub-tasks to this module via
 the ``run_subagents`` meta tool. Each sub-agent runs its own LangGraph agent
-with an isolated thread (fresh checkpointer + unique thread id), a read-only
-tool allowlist, and its own system prompt. Results are aggregated back into a
-JSON payload the main agent summarizes into its final answer.
+with an isolated thread (fresh checkpointer + unique thread id), a restricted
+tool set, and its own system prompt. Results are aggregated back into a JSON
+payload the main agent summarizes into its final answer.
+
+Write capability (v2): a task with ``write: true`` and ``write_paths`` may
+create/modify files, but only inside its declared paths. Claims are validated
+up front (must be inside the workspace, must not overlap between tasks), the
+user approves the whole write batch BEFORE dispatch (in execution.py), and
+every write is captured as a before/after diff returned to the main agent.
 
 Lifecycle / SSE contract (see docs/subagent-feature-design.md):
 - ``subagent`` events carry ``sub_id`` / ``name`` / ``status`` and either
@@ -18,9 +24,11 @@ Lifecycle / SSE contract (see docs/subagent-feature-design.md):
 from __future__ import annotations
 
 import asyncio
+import difflib
 import json
 import logging
 import time
+from pathlib import Path
 from typing import Any
 
 from langchain.agents import create_agent
@@ -50,12 +58,18 @@ SUBAGENT_TIMEOUT = 180
 SUBAGENT_SUMMARY_CAP = 800
 SUBAGENT_OUTPUT_CAP = 12000
 
+# Write tools available to write-capable sub-agents (opt-in via write=true).
+_SUBAGENT_WRITE_TOOLS = frozenset({"write_file", "edit_files"})
+_SUBAGENT_CHANGE_CAP = 50
+_SUBAGENT_DIFF_CAP = 4000
+
 # Registry tools allowed for sub-agents by default (read-only analysis).
 _SUBAGENT_READ_ONLY_TOOLS = frozenset(
     {
         "read_file",
         "read_image",
         "search_files",
+        "grep_files",
         "directory_tree",
         "rag_search",
         "sqlite_query",
@@ -64,6 +78,9 @@ _SUBAGENT_READ_ONLY_TOOLS = frozenset(
         "web_fetch_batch",
         "generate_chart",
         "describe_svg",
+        "git_status",
+        "git_diff",
+        "git_log",
     }
 )
 
@@ -101,11 +118,54 @@ SUBAGENT_SYSTEM_PROMPT = """你是 Divine 的并行子 Agent，负责独立完�
 - 只能使用下方提供的工具；没有工具可完成时直接输出已有结论，不要编造工具。
 - 不要请求用户确认，不要询问问题，不要输出方案。
 - 直接输出任务要求的结论。
-- 输出保持简洁：要点列表优先，不要长篇大论。"""
+- 输出保持简洁：要点列表优先，不要长篇大论。
+如果本子任务启用了写工具（write_file / edit_files）：
+- 只能创建或修改任务声明范围内（write_paths）的文件，禁止写入范围外路径；越界写入会被系统拒绝。
+- 保持改动最小：只改任务要求的部分，不要重写无关代码；创建新文件用 write_file（search 传空）。
+- 完成后在输出末尾列出修改过的文件与每个文件的改动摘要（新增/修改，各改了什么）。"""
 
 
-def _validate_tasks(arguments: dict[str, Any]) -> tuple[list[dict[str, Any]], str | None]:
-    """Validate the run_subagents arguments; return (tasks, error)."""
+def _resolve_write_claims(
+    workspace: Path, raw_paths: Any
+) -> tuple[list[Path] | None, str | None]:
+    """Resolve task write_paths to absolute paths inside the workspace."""
+    if raw_paths is None:
+        return None, None
+    if not isinstance(raw_paths, list) or not raw_paths:
+        return None, "write=true 的子任务必须提供非空 write_paths"
+    resolved: list[Path] = []
+    ws = workspace.resolve()
+    for raw in raw_paths:
+        raw = str(raw or "").strip()
+        if not raw:
+            continue
+        p = Path(raw)
+        if not p.is_absolute():
+            p = workspace / p
+        try:
+            p = p.resolve()
+            p.relative_to(ws)
+        except (ValueError, OSError):
+            return None, f"write_paths 超出工作区范围: {raw}"
+        resolved.append(p)
+    if not resolved:
+        return None, "write=true 的子任务必须提供非空 write_paths"
+    return resolved, None
+
+
+def _claims_overlap(a: Path, b: Path) -> bool:
+    """Two claims overlap when one contains the other (shared files possible)."""
+    return a == b or a in b.parents or b in a.parents
+
+
+def _validate_tasks(
+    arguments: dict[str, Any], workspace: Path | None = None
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Validate the run_subagents arguments; return (tasks, error).
+
+    With a workspace, write tasks are validated (claims inside workspace,
+    no overlap between tasks' claims).
+    """
     raw_tasks = arguments.get("tasks") or []
     if not isinstance(raw_tasks, list) or not raw_tasks:
         return [], "run_subagents 的 tasks 参数必须是非空数组"
@@ -114,6 +174,7 @@ def _validate_tasks(arguments: dict[str, Any]) -> tuple[list[dict[str, Any]], st
     if len(raw_tasks) > MAX_SUBAGENTS:
         return [], f"一次最多委托 {MAX_SUBAGENTS} 个子任务"
     tasks: list[dict[str, Any]] = []
+    all_claims: list[tuple[str, list[Path]]] = []
     for index, item in enumerate(raw_tasks):
         if not isinstance(item, dict):
             return [], f"第 {index + 1} 个子任务必须是对象"
@@ -125,15 +186,50 @@ def _validate_tasks(arguments: dict[str, Any]) -> tuple[list[dict[str, Any]], st
         tools = item.get("tools")
         if tools is not None and not isinstance(tools, list):
             return [], f"子任务 {task_id} 的 tools 必须是数组"
+        write = bool(item.get("write"))
+        claims: list[Path] | None = None
+        if write:
+            if workspace is None:
+                return [], f"子任务 {task_id} 声明 write=true，但未提供工作区校验"
+            if not item.get("write_paths"):
+                return [], f"子任务 {task_id}: write=true 必须提供非空 write_paths"
+            claims, claim_error = _resolve_write_claims(
+                workspace, item.get("write_paths")
+            )
+            if claim_error:
+                return [], f"子任务 {task_id}: {claim_error}"
+            all_claims.append((task_id, claims))
         tasks.append(
             {
                 "id": task_id,
                 "name": name,
                 "prompt": prompt,
                 "tools": tools if isinstance(tools, list) else None,
+                "write": write,
+                "write_paths": [
+                    str(p) for p in (claims or [])
+                ] if claims else None,
+                "claims": claims,
             }
         )
+    if workspace is not None:
+        for i in range(len(all_claims)):
+            for j in range(i + 1, len(all_claims)):
+                id_a, claims_a = all_claims[i]
+                id_b, claims_b = all_claims[j]
+                for ca in claims_a:
+                    for cb in claims_b:
+                        if _claims_overlap(ca, cb):
+                            return [], (
+                                f"子任务 {id_a} 与 {id_b} 的 write_paths 冲突："
+                                f"{ca} 与 {cb} 重叠；并行写任务必须修改互不重叠的文件"
+                            )
     return tasks, None
+
+
+def has_write_tasks(tasks: list[dict[str, Any]]) -> bool:
+    """True when any validated task is write-capable."""
+    return any(bool(task.get("write")) for task in tasks)
 
 
 async def _run_subagent_tool(
@@ -189,23 +285,152 @@ async def _run_subagent_tool(
     return str(content)
 
 
+def _tool_target_paths(
+    workspace: Path, name: str, arguments: dict[str, Any]
+) -> list[Path]:
+    """Resolve the file paths a write tool will touch (workspace-relative)."""
+    paths: list[Path] = []
+    if name == "write_file":
+        raw = str(arguments.get("path") or "").strip()
+        if raw:
+            paths.append(raw)
+    elif name == "edit_files":
+        for item in arguments.get("files") or []:
+            if isinstance(item, dict):
+                raw = str(item.get("path") or "").strip()
+                if raw:
+                    paths.append(raw)
+    resolved: list[Path] = []
+    for raw in paths:
+        p = Path(raw)
+        if not p.is_absolute():
+            p = workspace / p
+        resolved.append(p.resolve())
+    return resolved
+
+
+def _within_claims(path: Path, claims: list[Path] | None) -> bool:
+    if not claims:
+        return False
+    return any(path == claim or claim in path.parents for claim in claims)
+
+
+def _snapshot_text(path: Path, limit: int = 1_000_000) -> str | None:
+    """Best-effort text snapshot; None for missing/binary/oversized files."""
+    try:
+        if not path.is_file() or path.stat().st_size > limit:
+            return None
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+
+def _record_change(
+    changes: list[dict[str, Any]],
+    workspace: Path,
+    path: Path,
+    before: str | None,
+    after: str | None,
+) -> None:
+    if len(changes) >= _SUBAGENT_CHANGE_CAP:
+        return
+    try:
+        rel = path.relative_to(workspace.resolve()).as_posix()
+    except ValueError:
+        rel = str(path)
+    if before is None and after is not None:
+        action = "created"
+    elif before is not None and after is None:
+        action = "deleted"
+    elif before != after:
+        action = "modified"
+    else:
+        return
+    diff = ""
+    if before is not None and after is not None:
+        diff = "\n".join(
+            difflib.unified_diff(
+                (before or "").splitlines(),
+                (after or "").splitlines(),
+                fromfile=rel,
+                tofile=rel,
+                lineterm="",
+            )
+        )
+    elif after is not None:
+        diff = "\n".join(
+            difflib.unified_diff(
+                [], (after or "").splitlines(), fromfile="/dev/null", tofile=rel
+            )
+        )
+    changes.append(
+        {
+            "path": rel,
+            "action": action,
+            "diff": diff[:_SUBAGENT_DIFF_CAP],
+        }
+    )
+
+
+async def _run_subagent_tool_with_claims(
+    ctx: AgentRunContext,
+    adapter: Any,
+    name: str,
+    arguments: dict[str, Any],
+    claims: list[Path] | None,
+    changes: list[dict[str, Any]],
+) -> str:
+    """Write-tool variant: enforce declared write_paths and record diffs."""
+    workspace = ctx.workspace.resolve()
+    targets = _tool_target_paths(workspace, name, arguments)
+    denied = [p for p in targets if not _within_claims(p, claims)]
+    if denied:
+        return json.dumps(
+            {
+                "success": False,
+                "message": (
+                    "写入路径超出本子任务声明范围（write_paths）："
+                    + ", ".join(str(p) for p in denied[:3])
+                ),
+                "paths": [str(p) for p in denied[:5]],
+                "rejected": True,
+            },
+            ensure_ascii=False,
+        )
+    before = {str(p): _snapshot_text(p) for p in targets}
+    result_text = await _run_subagent_tool(ctx, adapter, name, arguments)
+    after = {str(p): _snapshot_text(p) for p in targets}
+    for p in targets:
+        _record_change(changes, workspace, p, before.get(str(p)), after.get(str(p)))
+    return result_text
+
+
 def _build_subagent_tools(
     ctx: AgentRunContext,
     allowlist: list[str] | None,
     lock: asyncio.Lock,
+    write_claims: list[Path] | None = None,
+    changes: list[dict[str, Any]] | None = None,
 ) -> list[StructuredTool]:
-    """Build the restricted read-only toolset for one sub-agent.
+    """Build the restricted toolset for one sub-agent.
 
-    ``allowlist`` narrows the default set; forbidden tools are always removed.
-    Each sub-agent gets its own lock so parallel sub-agents do not serialize
-    on the main session lock.
+    Default is read-only. When ``write_claims`` is provided the task may also
+    use ``write_file`` / ``edit_files``, but only within the declared paths;
+    every write is recorded as a before/after diff into ``changes``.
+    ``allowlist`` narrows the default set; forbidden tools are always removed
+    (unless explicitly enabled via write_claims).
     """
     tools: list[StructuredTool] = []
+    write_enabled = write_claims is not None and changes is not None
     for meta in registry.list():
         name = meta["name"]
         if name in _SUBAGENT_FORBIDDEN_TOOLS:
-            continue
-        if name not in _SUBAGENT_READ_ONLY_TOOLS:
+            if not (write_enabled and name in _SUBAGENT_WRITE_TOOLS):
+                continue
+        if (
+            name not in _SUBAGENT_READ_ONLY_TOOLS
+            and name not in _SUBAGENT_WRITE_TOOLS
+        ):
             continue
         if allowlist and name not in allowlist:
             continue
@@ -215,9 +440,16 @@ def _build_subagent_tools(
         args_model = _make_args_model(name, meta["parameters"])
 
         async def call(
-            runtime: Any, _adapter: Any = adapter, _name: str = name, **kwargs: Any
+            runtime: Any,
+            _adapter: Any = adapter,
+            _name: str = name,
+            **kwargs: Any,
         ) -> Any:
             async with lock:
+                if _name in _SUBAGENT_WRITE_TOOLS and write_enabled:
+                    return await _run_subagent_tool_with_claims(
+                        ctx, _adapter, _name, kwargs, write_claims, changes
+                    )
                 return await _run_subagent_tool(ctx, _adapter, _name, kwargs)
 
         tools.append(
@@ -269,14 +501,30 @@ async def _run_subagent(
         cancel_event=ctx.cancel_event,
     )
     lock = asyncio.Lock()
+    changes: list[dict[str, Any]] = []
+    write_claims = task.get("claims")
     try:
         llm = _build_llm(think=ctx.think, effort=ctx.effort, model_id=ctx.model_id)
-        tools = _build_subagent_tools(sub_ctx, task.get("tools"), lock)
+        tools = _build_subagent_tools(
+            sub_ctx,
+            task.get("tools"),
+            lock,
+            write_claims=write_claims,
+            changes=changes if write_claims else None,
+        )
         language = language_instruction(ctx.locale)
+        write_hint = ""
+        if write_claims:
+            write_hint = (
+                "\n本子任务已启用写文件权限，write_paths 声明范围：\n"
+                + "\n".join(f"- {p}" for p in (task.get("write_paths") or []))
+                + "\n只能修改以上路径内的文件。"
+            )
         system_prompt = (
             f"{SUBAGENT_SYSTEM_PROMPT}\n\n{language}\n\n"
             f"当前会话所属项目工作目录：{ctx.workspace}\n"
             "请以该目录作为资料检索和文件读取的工作区。"
+            + write_hint
         )
         agent = create_agent(
             model=llm,
@@ -310,7 +558,7 @@ async def _run_subagent(
         messages = result.get("messages") or []
         output_text = _extract_final_content(messages) or ""
         summary = output_text[:SUBAGENT_SUMMARY_CAP]
-        return {
+        payload: dict[str, Any] = {
             "id": task_id,
             "name": task["name"],
             "status": "done",
@@ -318,6 +566,10 @@ async def _run_subagent(
             "output": output_text[:SUBAGENT_OUTPUT_CAP],
             "duration": round(time.monotonic() - start, 1),
         }
+        if changes:
+            payload["changed_files"] = changes
+            payload["changed_count"] = len(changes)
+        return payload
     except asyncio.TimeoutError:
         logger.warning("subagent timeout id=%s duration=%.1fs", task_id, time.monotonic() - start)
         return {
@@ -346,10 +598,11 @@ async def _run_subagents(
     arguments: dict[str, Any],
 ) -> str:
     """Execute a run_subagents batch and return the aggregated JSON payload."""
-    tasks, error = _validate_tasks(arguments)
+    tasks, error = _validate_tasks(arguments, workspace=ctx.workspace)
     writer = getattr(runtime, "stream_writer", None)
     call_id = getattr(runtime, "tool_call_id", None) or f"call_{time.monotonic_ns()}"
     session_id = ctx.session_id
+    write_batch = has_write_tasks(tasks)
 
     def emit(kind: str, payload: dict[str, Any]) -> None:
         if writer is None:
@@ -493,11 +746,39 @@ async def _run_subagents(
             "session_id": session_id,
         },
     )
-    output_payload = {
+    output_payload: dict[str, Any] = {
         "success": bool(done_count),
         "message": summary_message,
         "results": results,
     }
+    if write_batch:
+        changed_total = sum(
+            int(item.get("changed_count") or 0) for item in results
+        )
+        output_payload["write"] = True
+        output_payload["changed_total"] = changed_total
+        summary_message = (
+            f"{len(tasks)} 个子任务完成，共修改 {changed_total} 个文件"
+            + (f"，{failed_count} 个失败" if failed_count else "")
+        )
+        output_payload["message"] = summary_message
+        emit(
+            "tool",
+            {
+                "tool": "run_subagents",
+                "status": "done" if done_count else "error",
+                "message": summary_message,
+                "messageKey": "tool.subagentsWriteDone" if done_count else None,
+                "messageParams": (
+                    {"changed": changed_total, "failed": failed_count}
+                    if done_count
+                    else {}
+                ),
+                "result": {"subagents": results, "write": True},
+                "call_id": call_id,
+                "session_id": session_id,
+            },
+        )
     try:
         db.update_tool_run(
             run["id"],
@@ -509,4 +790,9 @@ async def _run_subagents(
     return json.dumps(output_payload, ensure_ascii=False)
 
 
-__all__ = ["_run_subagents", "_validate_tasks", "SUBAGENT_SYSTEM_PROMPT"]
+__all__ = [
+    "_run_subagents",
+    "_validate_tasks",
+    "has_write_tasks",
+    "SUBAGENT_SYSTEM_PROMPT",
+]

@@ -394,5 +394,7 @@ export function subagentsFromToolRuns(tools: ToolEvent[]): SubAgentItem[] {
       status: item.status === "error" ? "error" : "done",
       summary: item.summary,
       error: item.error,
+      changed_files: item.changed_files,
+      changed_count: item.changed_count,
     }));
 }

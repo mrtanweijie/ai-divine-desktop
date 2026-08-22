@@ -71,10 +71,14 @@ export interface ToolEvent {
     | "write_calendar"
     | "skill_migrate"
     | "skill_migrate_batch"
-    | "skill_install";
+    | "skill_install"
+    | "subagents_write";
   skill_migrate?: SkillMigrationCandidate;
   skill_migrations?: SkillMigrationCandidate[];
   skill_install?: SkillInstallPreview;
+  subagent_write?: {
+    tasks: { id: string; name: string; write_paths?: string[] }[];
+  };
   target?: "project" | "user";
   paths?: string[];
   session_id?: string;
@@ -173,6 +177,8 @@ export interface SubAgentItem {
   status: "running" | "done" | "error";
   summary?: string;
   error?: string;
+  changed_files?: { path: string; action: string; diff?: string }[];
+  changed_count?: number;
 }
 
 export interface ChatMessage {

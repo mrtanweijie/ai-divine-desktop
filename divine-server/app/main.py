@@ -31,6 +31,9 @@ async def lifespan(_: FastAPI):
     yield
     await scheduler.stop()
     terminal.shutdown_terminal()
+    from .tools.bg_process import bg_manager
+
+    await bg_manager.shutdown_all()
 
 
 app = FastAPI(

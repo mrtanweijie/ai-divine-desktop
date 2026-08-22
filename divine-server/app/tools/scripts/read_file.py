@@ -83,6 +83,15 @@ def main() -> None:
     message = f"已读取 {path.name}"
     if has_range:
         message += f" 第 {display_start}-{line_end} 行（共 {total_lines} 行）"
+    truncated = len(selected) > len(capped)
+    if truncated:
+        # Tell the model how to continue reading instead of dumping more.
+        next_start = display_start + len(capped.splitlines())
+        if next_start <= total_lines:
+            capped += (
+                f"\n...(内容已截断，当前显示到第 {min(line_end, display_start + len(capped.splitlines()))} 行，"
+                f"共 {total_lines} 行；继续读取请用 start_line={next_start}/end_line 指定行段)"
+            )
     print(
         json.dumps(
             {
@@ -91,7 +100,7 @@ def main() -> None:
                 "file_name": path.name,
                 "filepath": str(path),
                 "content": capped,
-                "truncated": len(selected) > len(capped),
+                "truncated": truncated,
                 "data": {
                     "total_lines": total_lines,
                     "line_start": start,

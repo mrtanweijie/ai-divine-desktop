@@ -153,6 +153,23 @@ def _interrupt_sse(
                 "session_id": session_id,
             },
         )
+    if kind == "subagents_write":
+        return sse_event(
+            "tool",
+            {
+                "tool": "run_subagents",
+                "status": "confirm",
+                "confirm_type": "subagents_write",
+                "message": payload.get("message", "等待用户确认并行写任务"),
+                "messageKey": "tool.subagentsWriteWait",
+                "messageParams": {
+                    "count": len((payload.get("subagent_write") or {}).get("tasks") or []),
+                },
+                "subagent_write": payload.get("subagent_write") or {},
+                "call_id": payload.get("call_id", ""),
+                "session_id": session_id,
+            },
+        )
     if payload.get("action_requests"):
         plan_items: list[dict[str, str]] = []
         for action in payload["action_requests"]:

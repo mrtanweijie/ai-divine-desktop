@@ -72,6 +72,13 @@ export function SubAgentPanel({ subagents, streaming }: SubAgentPanelProps) {
               )}
             </span>
             <span className="subagent-item-title">{item.name}</span>
+            {item.status === "done" && item.changed_count != null && (
+              <span className="subagent-item-changed">
+                {t("message.subagentChangedFiles", "改动 {{count}} 个文件", {
+                  count: item.changed_count,
+                })}
+              </span>
+            )}
             {item.status === "done" && item.summary ? (
               <span className="subagent-item-summary" title={item.summary}>
                 {item.summary}

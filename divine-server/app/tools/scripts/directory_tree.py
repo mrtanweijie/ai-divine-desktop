@@ -3,6 +3,14 @@ import os
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from app.tools.gitignore import (  # noqa: E402
+    SKIP_DIR_NAMES,
+    load_gitignore_rules,
+    is_ignored,
+)
+
 
 def _relative(base: Path, path: Path) -> str:
     try:
@@ -12,11 +20,14 @@ def _relative(base: Path, path: Path) -> str:
 
 
 def _build(
-    reference: Path,
+    base: Path,
     node: Path,
     depth: int,
     show_hidden: bool,
+    show_sizes: bool,
     limit: int,
+    matchers,
+    matcher_dirs,
 ):
     entries = []
     truncated = False
@@ -30,33 +41,46 @@ def _build(
         if len(entries) >= limit:
             truncated = True
             break
+        if child.name in SKIP_DIR_NAMES:
+            continue
         if child.name.startswith(".") and not show_hidden:
             continue
+        rel = _relative(base, Path(child.path))
         child_path = Path(child.path)
         if child.is_dir(follow_symlinks=False):
+            if is_ignored(matchers, matcher_dirs, base, rel, True):
+                continue
             entry = {
-                "path": _relative(reference, child_path),
+                "path": rel,
                 "type": "dir",
             }
             if depth > 0:
                 child_entries, child_truncated = _build(
-                    reference, child_path, depth - 1, show_hidden, limit
+                    base,
+                    child_path,
+                    depth - 1,
+                    show_hidden,
+                    show_sizes,
+                    limit,
+                    matchers,
+                    matcher_dirs,
                 )
                 entry["children"] = child_entries
                 truncated = truncated or child_truncated
             entries.append(entry)
         else:
-            try:
-                size = child_path.stat().st_size
-            except OSError:
-                size = None
-            entries.append(
-                {
-                    "path": _relative(reference, child_path),
-                    "type": "file",
-                    "size": size,
-                }
-            )
+            if is_ignored(matchers, matcher_dirs, base, rel, False):
+                continue
+            entry = {
+                "path": rel,
+                "type": "file",
+            }
+            if show_sizes:
+                try:
+                    entry["size"] = child_path.stat().st_size
+                except OSError:
+                    entry["size"] = None
+            entries.append(entry)
     return entries, truncated
 
 
@@ -84,9 +108,21 @@ def main() -> None:
         limit = int(params.get("max_entries") or 200)
     except (TypeError, ValueError):
         limit = 200
+    limit = max(1, min(500, limit))
     show_hidden = bool(params.get("show_hidden"))
+    show_sizes = bool(params.get("show_sizes"))
 
-    entries, truncated = _build(workspace, base, depth, show_hidden, limit)
+    matchers, matcher_dirs = load_gitignore_rules(workspace, base)
+    entries, truncated = _build(
+        base,
+        base,
+        depth,
+        show_hidden,
+        show_sizes,
+        limit,
+        matchers,
+        matcher_dirs,
+    )
     print(
         json.dumps(
             {

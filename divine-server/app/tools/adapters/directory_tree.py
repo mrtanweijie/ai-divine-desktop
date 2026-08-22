@@ -9,7 +9,8 @@ from ..registry import register_tool
 
 @register_tool(
     "directory_tree",
-    "扫描目录并返回目录树结构，用于查看文件夹层级和文件分布；比 search_files 更适合了解目录结构",
+    "扫描目录并返回目录树结构，用于查看文件夹层级和文件分布；自动忽略 .gitignore 与 node_modules 等目录；"
+    "比 search_files 更适合了解目录结构；show_sizes=true 时附带文件大小",
     {
         "type": "object",
         "properties": {
@@ -23,11 +24,16 @@ from ..registry import register_tool
             },
             "show_hidden": {
                 "type": "boolean",
-                "description": "是否包含隐藏文件",
+                "description": "是否包含隐藏文件/目录",
+            },
+            "show_sizes": {
+                "type": "boolean",
+                "description": "是否附带文件大小，默认 false",
+                "default": False,
             },
             "max_entries": {
                 "type": "integer",
-                "description": "最多返回条目数，默认 200",
+                "description": "最多返回条目数，默认 200，最大 500",
             },
         },
     },
@@ -43,6 +49,7 @@ class DirectoryTreeAdapter(ToolAdapter):
             "path": str(arguments.get("path") or ""),
             "depth": arguments.get("depth"),
             "show_hidden": bool(arguments.get("show_hidden")),
+            "show_sizes": bool(arguments.get("show_sizes")),
             "max_entries": arguments.get("max_entries"),
         }
 

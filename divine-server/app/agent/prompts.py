@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,8 @@ from .context import AgentRunContext
 from .plans import _plan_progress
 from .rag import _auto_rag_context
 from .schema import _content_text, _skill_tool_name
+
+logger = logging.getLogger("divine.agent.prompts")
 
 _PLAN_CONTINUATION_KEYWORDS = (
     "继续",
@@ -270,6 +273,14 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
             ),
             model_line,
         ]
+        try:
+            from .project_context import build_project_context
+
+            project_block = build_project_context(ctx.workspace, ctx.session_id)
+            if project_block:
+                parts.append(project_block)
+        except Exception:  # noqa: BLE001 — injection must never break a turn
+            logger.exception("project context injection failed")
         todos = db.list_todos(ctx.session_id)
         plan_progress = _active_plan_progress(
             request.state.get("messages") or [], todos

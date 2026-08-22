@@ -53,6 +53,7 @@ import {
   fileIcon,
   openToolUrl,
 } from "./MessageHelpers";
+import { DiffView } from "./DiffView";
 
 export function ToolStatusCard({
   tool,
@@ -341,6 +342,12 @@ export function ToolStatusCard({
           )}
         </div>
       )}
+      {tool.tool === "edit_files" &&
+        tool.status === "done" &&
+        typeof tool.result?.data?.diff === "string" &&
+        tool.result.data.diff.trim().length > 0 && (
+          <DiffView diff={tool.result.data.diff} />
+        )}
       {tool.status === "done" &&
         tool.result?.filepath &&
         !tool.files?.length && (
@@ -711,6 +718,48 @@ export function ToolStatusCard({
               onClick={() => void decide(true)}
             >
               {t("tool.confirmInstall", "确认安装")}
+            </Button>
+            <Button
+              size="small"
+              variant="ghost"
+              disabled={!targetSessionId || deciding}
+              onClick={() => void decide(false)}
+            >
+              {t("common.cancel", "取消")}
+            </Button>
+          </Flex>
+        </div>
+      )}
+      {tool.status === "confirm" && tool.confirm_type === "subagents_write" && (
+        <div className="terminal-confirm subagents-write-confirm">
+          <div className="terminal-confirm-head">
+            <Group size={14} />
+            <span>{t("tool.subagentsWriteConfirm", "并行写任务确认")}</span>
+          </div>
+          <p className="plan-confirm-text">
+            {t("tool.subagentsWriteText", "以下子任务将并行创建/修改文件，是否确认执行？")}
+          </p>
+          <div className="subagents-write-list">
+            {tool.subagent_write?.tasks.map((task) => (
+              <div className="subagents-write-item" key={task.id}>
+                <span className="subagents-write-item-name">
+                  {task.name}
+                </span>
+                <span className="subagents-write-item-paths">
+                  {(task.write_paths ?? []).join(", ") ||
+                    t("tool.unknown", "未知")}
+                </span>
+              </div>
+            ))}
+          </div>
+          <Flex align="center" gap={8}>
+            <Button
+              size="small"
+              loading={deciding}
+              disabled={!targetSessionId || deciding}
+              onClick={() => void decide(true)}
+            >
+              {t("tool.confirmWrite", "确认执行")}
             </Button>
             <Button
               size="small"

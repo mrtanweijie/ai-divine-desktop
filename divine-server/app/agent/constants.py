@@ -42,6 +42,8 @@ SEARCH 必须是文件中存在的精确文本（含缩进、空行和结尾换�
 用户给出 GitHub 仓库地址想安装技能时，先调用 preview_skill_repo 拉取并展示
 SKILL.md，用户确认后再调用 install_skill；install_skill 执行前系统会再次确认。
 查找或列出工作区文件使用 search_files；搜索完文件后，读取具体内容再使用 read_file。
+按内容搜索代码/配置（函数定义、关键字、报错文本、正则）使用 grep_files，
+它会返回命中文件、行号与行内容，并自动忽略 .gitignore 与二进制文件；不要用 terminal 的 grep 命令代替。
 查看目录结构使用 directory_tree；缩放图片使用 image_resize；拆分合并 PDF 使用 pdf_split_merge；
 【用户决策卡片（通用）】任何需要用户选择、确认或拍板的场景——选风格、选方向、
 选方案、确认执行、二选一、多选一等——都在正文末尾输出 ```options 代码块，
@@ -268,8 +270,31 @@ terminal 只能用于系统操作，例如安装依赖、运行命令、管理�
   prompt 要写清背景、目标、数据来源和输出要求）；
 - 每个子任务指定明确可执行的动作（如“用 web_fetch 访问 X，提取 Y”），
   不要写“请分析”这类含糊指令；
-- 子 Agent 只能使用只读工具，不要委托需要写文件、运行命令或用户确认的子任务；
+- 默认子 Agent 只读：不要委托需要运行命令或交互确认的子任务。
+- 并行写文件（如同时实现多个相互独立的模块/文件，改动互不重叠）是允许的：
+  给对应子任务加 write=true 并声明 write_paths（workspace 内相对路径，文件或目录，
+  各写任务之间不得重叠，系统会校验）；系统会在执行前向用户确认整个写批次；
+  子任务只能修改自己声明的路径，改动会汇总成 diff 返回；写任务完成后，
+  把每个子任务修改的文件与改动摘要汇总进最终回答。
 - 全部完成后，把每个子任务的结果汇总成最终回答，失败的子任务要说明原因。
+## 项目开发工作流
+用户要求修改、开发或排查项目代码时，按以下流程执行：
+- 探索：先用 directory_tree 了解项目结构，用 grep_files 定位相关代码（函数定义、配置项、
+  报错关键字），再用 read_file 读取关键文件的相关段落；不要一次性读取整个大文件。
+- 计划：多文件改动前，先简要列出要修改的文件和每个文件的改动点（复杂任务配合 write_todos 计划）。
+- 编辑：用 edit_files 一次提交所有文件的改动（SEARCH 尽量精确；工具返回的 diff 用于自查）。
+- 验证：编辑后用 git_diff 查看实际改动是否符合预期；然后运行针对改动文件的检查：
+  Python 项目运行 python3 -m pytest <改动文件或目录>，TypeScript/前端项目运行
+  npx tsc --noEmit 或项目的 lint/测试命令；失败则修复后重试，最多重试 2 次，
+  仍失败则把错误如实汇报给用户，不要谎报成功。
+- 回滚：误改或验证失败需要还原时，用 git_revert 还原单个文件（或全部未提交改动）；
+  用户明确要求提交进度时才调用 git_commit，并给出清晰的提交说明。
+- 汇报：验证通过后，在最终回答中列出改动的文件、关键变化和测试结果（通过/失败），
+  说明下一步可以做什么（如运行哪个命令启动、如何验收）。
+- git 纪律：改动前可先 git_status 了解工作区状态；不擅自 commit/push；
+  不改动与任务无关的代码，保持改动小而清晰。
+- 长驻任务（dev server、监听、长测试）用 terminal 的 background=true 启动，
+  再用 bg_status/bg_output/bg_kill 管理，不要在前台等待数分钟。
 ## 长期记忆
 - 用户透露稳定的个人偏好、事实、习惯或重要事件时，调用 remember 工具保存，
   供未来所有会话使用；不要记临时指令、闲聊、一次性请求。
@@ -286,6 +311,7 @@ _READ_ONLY_TOOLS = {
     "read_file",
     "read_image",
     "search_files",
+    "grep_files",
     "directory_tree",
     "rag_search",
     "sqlite_query",
@@ -294,6 +320,11 @@ _READ_ONLY_TOOLS = {
     "web_fetch_batch",
     "generate_chart",
     "describe_svg",
+    "git_status",
+    "git_diff",
+    "git_log",
+    "bg_status",
+    "bg_output",
 }
 
 _NO_PLAN_TOOLS = {
@@ -311,6 +342,9 @@ _NO_PLAN_TOOLS = {
     "remember",
     "forget_memory",
     "run_subagents",
+    "git_commit",
+    "git_revert",
+    "bg_kill",
 }
 
 MAX_TOOL_TURNS = 64

@@ -223,7 +223,7 @@ class SettingsStore:
             "reasoning_effort": os.getenv(
                 "DEEPSEEK_REASONING_EFFORT", "high"
             ),
-            "context_limit": 20,
+            "context_limit": 30,
         }
         if self.path.exists():
             try:

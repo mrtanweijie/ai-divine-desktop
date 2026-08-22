@@ -11,6 +11,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from app.tools.terminal_policy import terminal_command_policy  # noqa: E402
 
+_MAX_TIMEOUT = 600
+_STDOUT_TAIL = 16_000
+_STDERR_TAIL = 8_000
+
+
+def _tail(text: str, limit: int) -> tuple[str, bool, int]:
+    if not text:
+        return "", False, 0
+    truncated = len(text) > limit
+    return text[-limit:], truncated, len(text)
+
 
 def main() -> None:
     data = json.load(sys.stdin)
@@ -35,7 +46,10 @@ def main() -> None:
     if not cwd.is_dir():
         print(json.dumps({"success": False, "message": f"目录不存在: {cwd}"}))
         return
-    timeout = int(params.get("timeout") or 30)
+    try:
+        timeout = max(1, min(int(params.get("timeout") or 30), _MAX_TIMEOUT))
+    except (TypeError, ValueError):
+        timeout = 30
     env = os.environ.copy()
     env.setdefault("LANG", "en_US.UTF-8")
     env.setdefault("PYTHONUNBUFFERED", "1")
@@ -61,19 +75,32 @@ def main() -> None:
 
     stdout = completed.stdout or ""
     stderr = completed.stderr or ""
-    content = stdout[-100_000:]
-    if stderr:
-        content += ("\n" if content else "") + stderr[-20_000:]
+    stdout_tail, stdout_truncated, stdout_bytes = _tail(stdout, _STDOUT_TAIL)
+    stderr_tail, stderr_truncated, stderr_bytes = _tail(stderr, _STDERR_TAIL)
+    content = stdout_tail
+    if stderr_tail:
+        content += ("\n" if content else "") + stderr_tail
+    duration = round(time.time() - started, 3)
     print(
         json.dumps(
             {
                 "success": True,
                 "message": "命令执行完成",
-                "stdout": stdout[-100_000:],
-                "stderr": stderr[-20_000:],
+                "stdout": stdout_tail,
+                "stderr": stderr_tail,
                 "exit_code": completed.returncode,
-                "duration": round(time.time() - started, 3),
-                "content": content[-100_000:],
+                "duration": duration,
+                "content": content,
+                "data": {
+                    "cwd": str(cwd),
+                    "exit_code": completed.returncode,
+                    "duration": duration,
+                    "timeout": timeout,
+                    "stdout_bytes": stdout_bytes,
+                    "stderr_bytes": stderr_bytes,
+                    "stdout_truncated": stdout_truncated,
+                    "stderr_truncated": stderr_truncated,
+                },
             },
             ensure_ascii=False,
         )

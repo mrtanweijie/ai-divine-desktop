@@ -408,7 +408,7 @@ export default function ChatPage() {
           username: t("common.user", "用户"),
           think_default: false,
           reasoning_effort: "high",
-          context_limit: 20,
+          context_limit: 30,
           tools: [],
           models: [
             {
