@@ -5,6 +5,7 @@ import {
   BarChart3,
   BookAudio,
   BookMarked,
+  BookOpenCheck,
   BookSearch,
   Box,
   Calculator,
@@ -152,6 +153,8 @@ export function ToolStatusCard({
       <LibraryBig size={16} />
     ) : tool.tool.includes("rag_search") ? (
       <BookSearch size={16} />
+    ) : tool.tool.includes("grep") ? (
+      <BookOpenCheck size={16} />
     ) : tool.tool.includes("search_files") ||
       tool.tool.includes("search") ? (
       <FolderSearch2 size={16} />
