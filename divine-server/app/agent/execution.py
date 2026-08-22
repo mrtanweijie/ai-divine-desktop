@@ -726,6 +726,11 @@ async def _handle_adapter_call(
         if name == "terminal" or name in {"bg_status", "bg_output", "bg_kill"}:
             arguments.setdefault("session_id", ctx.session_id)
 
+        # 图片识别：注入当前会话实际使用的模型，让 read_image 优先用它
+        # （而不是 settings 里的 active 默认模型）。
+        if name == "read_image" and ctx.model_id:
+            arguments.setdefault("model_id", ctx.model_id)
+
         output = await _execute_tool(
             ctx.session_id,
             adapter,

@@ -41,6 +41,11 @@ class ReadImageAdapter(ToolAdapter):
             params["file_path"] = file_path
         if url:
             params["url"] = url
+        # 当前会话实际使用的模型（由 execution.py 注入），
+        # read_image 用它优先识别，而不是 active 默认模型。
+        model_id = str(arguments.get("model_id") or "").strip()
+        if model_id:
+            params["model_id"] = model_id
         return params
 
     def external_paths(

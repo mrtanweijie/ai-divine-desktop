@@ -101,9 +101,49 @@ def _model_entries(settings: dict) -> list[dict]:
     return [entry for entry in models if isinstance(entry, dict)]
 
 
-def _find_multimodal_entry(settings: dict) -> dict | None:
-    """Find a configured multimodal model entry."""
+def _resolve_by_model_id(
+    settings: dict, model_id: str
+) -> dict | None:
+    """Resolve an (possibly expanded) model id to a model entry.
+
+    ``model_id`` may be ``{baseId}::{modelName}`` (the chat switcher expands
+    providers into their full model list); the base id selects the entry and
+    the model name overrides its ``model`` field.
+    """
+    if not model_id:
+        return None
+    base_id, _, model_name = model_id.partition("::")
     for entry in _model_entries(settings):
+        if str(entry.get("id") or "") == base_id:
+            if model_name.strip():
+                resolved = dict(entry)
+                resolved["model"] = model_name.strip()
+                return resolved
+            return entry
+    return None
+
+
+def _find_multimodal_entry(settings: dict) -> dict | None:
+    """Find a configured multimodal model entry.
+
+    Active entry wins first; otherwise the first configured multimodal entry
+    (in order). This way, even if the active default model is text-only (e.g.
+    deepseek-v4-flash), a configured vision-capable model (e.g. mimo-*) is used
+    instead of falling back to GLM.
+    """
+    entries = _model_entries(settings)
+    active = active_model(settings)
+    active_id = str(active.get("id") or "") if active else ""
+    # 优先 active 条目
+    for entry in entries:
+        if str(entry.get("id") or "") == active_id:
+            if (
+                _is_multimodal_model(str(entry.get("model") or ""))
+                and entry.get("api_key")
+            ):
+                return entry
+    # 再按配置顺序找第一个多模态条目
+    for entry in entries:
         model_name = str(entry.get("model") or "")
         if _is_multimodal_model(model_name) and entry.get("api_key"):
             return entry
@@ -120,6 +160,28 @@ def _resolve_multimodal(settings: dict) -> tuple[str, str, str] | None:
             str(entry.get("model") or ""),
         )
     return None
+
+
+def _resolve_vision_provider(
+    settings: dict, model_id: str | None
+) -> tuple[str, str, str] | None:
+    """Pick the provider for image understanding, in priority order:
+
+    1. The session's actual model (from ``model_id``) if it is multimodal;
+    2. Any configured multimodal entry (active first, then in order);
+    3. None (caller falls back to GLM).
+    """
+    if model_id:
+        entry = _resolve_by_model_id(settings, model_id)
+        if entry and _is_multimodal_model(str(entry.get("model") or "")) and entry.get(
+            "api_key"
+        ):
+            return (
+                str(entry.get("api_key")),
+                str(entry.get("base_url") or ""),
+                str(entry.get("model") or ""),
+            )
+    return _resolve_multimodal(settings)
 
 
 def _resolve_glm(settings: dict) -> tuple[str, str, str] | None:
@@ -190,19 +252,13 @@ def main() -> None:
     params = data.get("params") or {}
     url = str(params.get("url") or "").strip()
     raw = str(params.get("file_path") or "").strip()
+    model_id = str(params.get("model_id") or "").strip() or None
 
     settings = settings_store.load()
-    
-    # 获取当前活跃的模型配置
-    active = active_model(settings)
-    active_model_name = str(active.get("model") or "")
-    active_api_key = str(active.get("api_key") or "")
-    active_base_url = str(active.get("base_url") or "")
-    
-    # 检查当前模型是否支持多模态
-    current_is_multimodal = _is_multimodal_model(active_model_name) and active_api_key
-    
-    # 回退选项：GLM 免费模型
+
+    # 优先使用当前会话实际使用的模型（若支持多模态），
+    # 其次已配置的多模态条目（active 优先），最终回退 GLM 免费模型。
+    multimodal = _resolve_vision_provider(settings, model_id)
     glm = _resolve_glm(settings)
 
     if url:
@@ -217,11 +273,11 @@ def main() -> None:
             )
             return
         try:
-            if current_is_multimodal:
-                # 使用当前配置的多模态模型
-                content = _run_multimodal(active_api_key, active_base_url, active_model_name, url)
+            if multimodal is not None:
+                content = _run_multimodal(
+                    multimodal[0], multimodal[1], multimodal[2], url
+                )
             elif glm is not None:
-                # 回退到 GLM 免费模型
                 content = _run_multimodal(glm[0], glm[1], glm[2], url)
             else:
                 _print_err(
@@ -231,13 +287,17 @@ def main() -> None:
             _print_ok(url.rsplit("/", 1)[-1] or url, url, content)
         except Exception as exc:  # noqa: BLE001
             detail = str(exc)
-            if glm is not None and ("429" in detail or "1305" in detail):
+            if glm is not None and multimodal is None and (
+                "429" in detail or "1305" in detail
+            ):
                 _print_err(
                     "GLM 免费模型当前繁忙，已自动重试仍失败，请稍后再试；"
                     "如持续限流，可切换模型 glm-4.6v-flashx"
                 )
             else:
-                provider = "当前模型" if current_is_multimodal else ("GLM" if glm is not None else "视觉模型")
+                provider = (
+                    "多模态模型" if multimodal is not None else "GLM"
+                )
                 _print_err(f"{provider} 调用失败: {detail}")
         return
 
@@ -268,12 +328,12 @@ def main() -> None:
         mime = _IMAGE_MIME.get(path.suffix.lower(), "image/png")
         b64 = base64.b64encode(path.read_bytes()).decode("utf-8")
         img_ref = f"data:{mime};base64,{b64}"
-        
-        if current_is_multimodal:
-            # 使用当前配置的多模态模型
-            content = _run_multimodal(active_api_key, active_base_url, active_model_name, img_ref)
+
+        if multimodal is not None:
+            content = _run_multimodal(
+                multimodal[0], multimodal[1], multimodal[2], img_ref
+            )
         elif glm is not None:
-            # 回退到 GLM 免费模型
             content = _run_multimodal(glm[0], glm[1], glm[2], img_ref)
         else:
             _print_err(
@@ -283,13 +343,15 @@ def main() -> None:
         _print_ok(path.name, str(path), content)
     except Exception as exc:  # noqa: BLE001
         detail = str(exc)
-        if glm is not None and ("429" in detail or "1305" in detail):
+        if glm is not None and multimodal is None and (
+            "429" in detail or "1305" in detail
+        ):
             _print_err(
                 "GLM 免费模型当前繁忙，已自动重试仍失败，请稍后再试；"
                 "如持续限流，可切换模型 glm-4.6v-flashx"
             )
         else:
-            provider = "当前模型" if current_is_multimodal else ("GLM" if glm is not None else "视觉模型")
+            provider = "多模态模型" if multimodal is not None else "GLM"
             _print_err(f"{provider} 调用失败: {detail}")
 
 
