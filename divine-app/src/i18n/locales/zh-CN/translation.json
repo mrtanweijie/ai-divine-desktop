@@ -463,6 +463,7 @@
     "gitHubInstallConfirm": "GitHub 技能安装确认",
     "gitRejected": "已拒绝 git 写操作",
     "imageAnalyzed": "图片识别完成",
+    "imageGenerated": "图片已生成",
     "imageResized": "图片缩放完成",
     "manageTasks": "管理定时任务",
     "mermaidExported": "Mermaid 图保存完成",

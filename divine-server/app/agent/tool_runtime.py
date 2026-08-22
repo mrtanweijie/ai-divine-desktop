@@ -31,6 +31,7 @@ _STATIC_TOOL_SUCCESS_KEYS = {
     "pdf_generate": "tool.pdfGenerated",
     "pdf_render": "tool.pdfRendered",
     "read_image": "tool.imageAnalyzed",
+    "image_generate": "tool.imageGenerated",
     "calculator": "tool.calculationDone",
     "image_resize": "tool.imageResized",
     "mermaid_export": "tool.mermaidExported",

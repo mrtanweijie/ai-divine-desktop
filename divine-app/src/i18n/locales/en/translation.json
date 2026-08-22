@@ -482,6 +482,7 @@
     "gitHubInstallConfirm": "Install skill from GitHub",
     "gitRejected": "Git write operation rejected",
     "imageAnalyzed": "Image analyzed",
+    "imageGenerated": "Image generated",
     "imageResized": "Image resized",
     "manageTasks": "Manage scheduled tasks",
     "mermaidExported": "Mermaid diagram saved",

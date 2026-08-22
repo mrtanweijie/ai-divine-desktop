@@ -473,6 +473,7 @@
     "gitHubInstallConfirm": "GitHub 技能安裝確認",
     "gitRejected": "已拒絕 git 寫入操作",
     "imageAnalyzed": "圖片識別完成",
+    "imageGenerated": "圖片已生成",
     "imageResized": "圖片縮放完成",
     "manageTasks": "管理定時任務",
     "mermaidExported": "Mermaid 圖儲存完成",

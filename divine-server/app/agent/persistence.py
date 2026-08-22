@@ -9,6 +9,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 
 from .. import db
 from .schema import _content_text
+from ..llm.think_tags import strip_think_tags
 
 def _serialize_tool_calls(tool_calls: list[Any]) -> list[dict[str, Any]]:
     calls: list[dict[str, Any]] = []
@@ -80,6 +81,12 @@ def _persist_new_messages(
 
         content = _content_text(message.content)
         if content:
+            # 剥离推理模型内联的 <think> 块，只保存干净正文；
+            # 思考内容单独经 think_by_id 存为 think 片段。
+            content = strip_think_tags(content)
+            if not content:
+                index += 1
+                continue
             saved = db.add_message(session_id, "assistant", content)
             last_saved_id = saved["id"]
             think = think_by_id.get(message.id, "")

@@ -241,11 +241,40 @@ async def _consume_message(
 
     async def drain_text() -> None:
         if react_processor is None:
+            # 普通文本流：用 <think> 标签分离器把推理模型的思考块
+            # （如 MiniMax-M3、GLM-5.x）拆成 think 事件，正文保持 message。
+            from ..llm.think_tags import ThinkTagProcessor
+
+            think_processor = ThinkTagProcessor()
             async for delta in message.text:
-                text_parts.append(delta)
-                await queue.put(
-                    ("sse", sse_event("message", {"content": delta}))
-                )
+                for event in think_processor.push(delta):
+                    if event["type"] == "think":
+                        reasoning_parts.append(event["content"])
+                        await queue.put(
+                            (
+                                "sse",
+                                sse_event("think", {"content": event["content"]}),
+                            )
+                        )
+                    else:
+                        text_parts.append(event["content"])
+                        await queue.put(
+                            (
+                                "sse",
+                                sse_event("message", {"content": event["content"]}),
+                            )
+                        )
+            for event in think_processor.flush():
+                if event["type"] == "think":
+                    reasoning_parts.append(event["content"])
+                    await queue.put(
+                        ("sse", sse_event("think", {"content": event["content"]}))
+                    )
+                else:
+                    text_parts.append(event["content"])
+                    await queue.put(
+                        ("sse", sse_event("message", {"content": event["content"]}))
+                    )
             return
         async for delta in message.text:
             for event in react_processor.push(delta):
@@ -283,6 +312,15 @@ async def _consume_message(
     if reasoning_parts:
         await queue.put(("sse", sse_event("think_done", {})))
     output = await output_future
+    # 清理消息正文里的 <think> 块（推理模型内联思考），避免正文重复显示。
+    try:
+        content = getattr(output, "content", None)
+        if isinstance(content, str) and "<think>" in content:
+            from ..llm.think_tags import strip_think_tags
+
+            output = output.model_copy(update={"content": strip_think_tags(content)})
+    except Exception:  # noqa: BLE001 — 清理失败不影响主流程
+        pass
     return output, "".join(reasoning_parts)
 
 async def _stream_agent_run(

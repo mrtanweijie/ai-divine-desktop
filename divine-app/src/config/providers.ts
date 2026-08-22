@@ -65,7 +65,7 @@ export const PROVIDER_LIST: ProviderConfig[] = [
   {
     value: "minimax",
     label: "MiniMax",
-    base_url: "https://api.minimax.io/v1",
+    base_url: "https://api.minimaxi.com/v1",
     default_model: "MiniMax-M3",
     list: ["MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.5", "MiniMax-M2.1"],
     prefix: ["minimax"],

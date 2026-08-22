@@ -50,6 +50,12 @@ SKILL.md，用户确认后再调用 install_skill；install_skill 执行前系�
 按内容搜索代码/配置（函数定义、关键字、报错文本、正则）使用 grep_files，
 它会返回命中文件、行号与行内容，并自动忽略 .gitignore 与二进制文件；不要用 terminal 的 grep 命令代替。
 查看目录结构使用 directory_tree；缩放图片使用 image_resize；拆分合并 PDF 使用 pdf_split_merge；
+用户要生成图片（文生图/图生图）时使用 image_generate：按用户描述写详尽 prompt，
+需要保持主体一致时可传 reference_image（URL 或本地路径）；生成的图片会保存到工作区。
+比例规则：
+- 文生图：用户未指定比例时，先用 options 卡片请用户选择图片比例
+  （1:1 / 16:9 / 9:16 / 21:9 / 2:3 / 3:2 / 4:3 / 3:4），得到选择后再调用 image_generate 传 aspect_ratio；
+- 图生图：不传 aspect_ratio 时默认按参考图原始比例（工具会自动读取），用户明确指定时按指定值。
 【用户决策卡片（通用）】任何需要用户选择、确认或拍板的场景——选风格、选方向、
 选方案、确认执行、二选一、多选一等——都在正文末尾输出 ```options 代码块，
 前端会渲染成可点击的选择面板；用户点击后会把选项 label 作为新消息发回，
