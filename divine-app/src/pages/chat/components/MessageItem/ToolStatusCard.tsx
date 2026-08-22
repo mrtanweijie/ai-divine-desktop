@@ -72,9 +72,7 @@ export function ToolStatusCard({
   const [decideError, setDecideError] = useState<string | null>(null);
   const [commandsOpen, setCommandsOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [urlsOpen, setUrlsOpen] = useState(
-    tool.tool !== "web_fetch_batch"
-  );
+  const [urlsOpen, setUrlsOpen] = useState(false);
   const targetSessionId = tool.session_id ?? sessionId;
   const running = tool.status === "running" || tool.status === "preparing";
   const urls = tool.urls ?? [];
