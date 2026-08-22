@@ -26,7 +26,15 @@ import {
 function resolveImageSrc(src?: string): string | null {
   if (!src) return null;
   if (/^(https?:\/\/|data:)/.test(src)) return src;
-  return `${API_BASE}/files/image?path=${encodeURIComponent(src)}`;
+  // LLM 可能在 markdown 里输出 URL 编码过的路径（如 %E8%83%BD 代替中文），
+  // 先解码回真实路径再统一编码，避免双重编码导致后端 404
+  let decoded = src;
+  try {
+    decoded = decodeURIComponent(src);
+  } catch {
+    // 含非法转义序列（如字面 %）时保持原样
+  }
+  return `${API_BASE}/files/image?path=${encodeURIComponent(decoded)}`;
 }
 
 interface MarkdownViewProps {
