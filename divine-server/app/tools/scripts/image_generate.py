@@ -111,6 +111,19 @@ def _nearest_aspect_ratio(ratio: str) -> str | None:
     return best
 
 
+def _detect_image_ext(data: bytes) -> str:
+    """根据文件头判断图片格式并返回扩展名，未知格式回退 .jpeg。"""
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return ".png"
+    if data[:2] == b"\xff\xd8":
+        return ".jpg"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return ".gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return ".webp"
+    return ".jpeg"
+
+
 def _reference_image_file(reference_image: str, workspace: Path) -> dict:
     """构造 subject_reference 项。
 
@@ -316,19 +329,26 @@ def main() -> None:
         written = []
         total = max(len(images_b64), len(images_urls))
         for index in range(total):
+            if index < len(images_b64):
+                data = base64.b64decode(images_b64[index])
+            else:
+                download = httpx.get(images_urls[index], timeout=120)
+                download.raise_for_status()
+                data = download.content
             if raw_name:
-                name = raw_name if total == 1 else (
-                    f"{Path(raw_name).stem}-{index + 1}.jpeg"
+                # 始终附加实际格式的扩展名，避免无后缀文件被
+                # 预览/read_image 当成未知类型
+                base_name = Path(raw_name).stem
+                ext = _detect_image_ext(data)
+                name = (
+                    f"{base_name}{ext}"
+                    if total == 1
+                    else f"{base_name}-{index + 1}{ext}"
                 )
             else:
                 name = f"image-{int(time.time() * 1000)}-{index + 1}.jpeg"
             output = image_dir / name
-            if index < len(images_b64):
-                output.write_bytes(base64.b64decode(images_b64[index]))
-            else:
-                download = httpx.get(images_urls[index], timeout=120)
-                download.raise_for_status()
-                output.write_bytes(download.content)
+            output.write_bytes(data)
             written.append(output)
     except httpx.HTTPStatusError as exc:
         try:
