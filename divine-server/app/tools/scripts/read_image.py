@@ -28,9 +28,21 @@ _IMAGE_MIME = {
 # accepted; arbitrary web links must not be sent to the vision API.
 _IMAGE_URL_EXT_RE = re.compile(rf"\.(?:{_VISION_EXT_ALT})$", re.IGNORECASE)
 
-_DEEPSEEK_VISION_MODEL = "deepseek-v4-flash-vision-exp"
-_DEEPSEEK_DEFAULT_BASE = "https://api.deepseek.com"
-_GLM_DEFAULT_MODEL = "glm-4.6v-flash"
+# Known multimodal model prefixes that support image understanding
+# This list is extensible - add new multimodal model prefixes here
+_MULTIMODAL_MODEL_PREFIXES = [
+    "mimo-",
+    "gpt-5",
+    "gpt-4o",
+    "gpt-4-vision",
+    "claude-3",
+    "gemini",
+    "deepseek-v4-flash-vision",
+    "glm-5v",
+    "glm-4.6v",
+    "glm-4v",
+    "qwen-vl",
+]
 
 
 def _looks_like_image_url(url: str) -> bool:
@@ -39,48 +51,14 @@ def _looks_like_image_url(url: str) -> bool:
     return bool(_IMAGE_URL_EXT_RE.search(path))
 
 
-def _call_glm(client, model: str, img_ref: str) -> str:
-    last_error: Exception | None = None
-    for attempt in range(3):
-        try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": img_ref},
-                            },
-                            {
-                                "type": "text",
-                                "text": "请描述这张图片的内容，尽量详细。",
-                            },
-                        ],
-                    }
-                ],
-                thinking={"type": "enabled"},
-            )
-            return response.choices[0].message.content
-        except Exception as exc:  # noqa: BLE001
-            last_error = exc
-            detail = str(exc)
-            retriable = any(
-                token in detail for token in ("429", "1305", "502", "503")
-            )
-            if not retriable or attempt == 2:
-                raise
-            time.sleep(2 * (attempt + 1))
-    assert last_error is not None
-    raise last_error
+def _is_multimodal_model(model_name: str) -> bool:
+    """Check if a model name suggests multimodal capability."""
+    model_lower = model_name.lower()
+    return any(model_lower.startswith(prefix) for prefix in _MULTIMODAL_MODEL_PREFIXES)
 
 
-def _call_deepseek(client, model: str, img_ref: str) -> str:
-    """Call DeepSeek's vision model (OpenAI-compatible API) with retries.
-
-    ``img_ref`` is either a remote URL or a ``data:image/...;base64,...`` URI.
-    """
+def _call_multimodal(client, model: str, img_ref: str) -> str:
+    """Generic multimodal model call with image understanding."""
     last_error: Exception | None = None
     for attempt in range(3):
         try:
@@ -123,20 +101,24 @@ def _model_entries(settings: dict) -> list[dict]:
     return [entry for entry in models if isinstance(entry, dict)]
 
 
-def _find_vision_entry(settings: dict) -> dict | None:
-    """The model entry whose name is the DeepSeek vision model."""
+def _find_multimodal_entry(settings: dict) -> dict | None:
+    """Find a configured multimodal model entry."""
     for entry in _model_entries(settings):
-        if str(entry.get("model") or "") == _DEEPSEEK_VISION_MODEL:
+        model_name = str(entry.get("model") or "")
+        if _is_multimodal_model(model_name) and entry.get("api_key"):
             return entry
     return None
 
 
-def _find_glm_entry(settings: dict) -> dict | None:
-    """A configured GLM vision model entry (glm-4.xv / glm-4v style names)."""
-    for entry in _model_entries(settings):
-        name = str(entry.get("model") or "").lower()
-        if name.startswith("glm-") and "v" in name and entry.get("api_key"):
-            return entry
+def _resolve_multimodal(settings: dict) -> tuple[str, str, str] | None:
+    """(api_key, base_url, model) when a multimodal model is configured, else None."""
+    entry = _find_multimodal_entry(settings)
+    if entry and entry.get("api_key"):
+        return (
+            str(entry.get("api_key")),
+            str(entry.get("base_url") or ""),
+            str(entry.get("model") or ""),
+        )
     return None
 
 
@@ -149,26 +131,13 @@ def _resolve_glm(settings: dict) -> tuple[str, str, str] | None:
             os.getenv("GLM_BASE_URL") or settings.get("glm_base_url") or "",
             os.getenv("GLM_MODEL")
             or settings.get("glm_model")
-            or _GLM_DEFAULT_MODEL,
-        )
-    entry = _find_glm_entry(settings)
-    if entry and entry.get("api_key"):
-        return (
-            str(entry.get("api_key")),
-            str(entry.get("base_url") or ""),
-            str(entry.get("model") or _GLM_DEFAULT_MODEL),
+            or "glm-4.6v-flash",
         )
     return None
 
 
 def _resolve_deepseek(settings: dict) -> tuple[str, str]:
     """(api_key, base_url) for the DeepSeek vision fallback."""
-    vision = _find_vision_entry(settings)
-    if vision and vision.get("api_key"):
-        return (
-            str(vision.get("api_key")),
-            str(vision.get("base_url") or _DEEPSEEK_DEFAULT_BASE),
-        )
     active = active_model(settings)
     if (
         active
@@ -177,12 +146,12 @@ def _resolve_deepseek(settings: dict) -> tuple[str, str]:
     ):
         return (
             str(active.get("api_key")),
-            str(active.get("base_url") or _DEEPSEEK_DEFAULT_BASE),
+            str(active.get("base_url") or "https://api.deepseek.com"),
         )
     env_key = os.getenv("DEEPSEEK_API_KEY")
     if env_key:
-        return env_key, os.getenv("DEEPSEEK_BASE_URL") or _DEEPSEEK_DEFAULT_BASE
-    return "", _DEEPSEEK_DEFAULT_BASE
+        return env_key, os.getenv("DEEPSEEK_BASE_URL") or "https://api.deepseek.com"
+    return "", "https://api.deepseek.com"
 
 
 def _print_ok(file_name: str, filepath: str, content: str) -> None:
@@ -204,21 +173,15 @@ def _print_err(message: str) -> None:
     print(json.dumps({"success": False, "message": message}, ensure_ascii=False))
 
 
-def _run_glm(api_key: str, base_url: str, model: str, img_ref: str) -> str:
-    from zhipuai import ZhipuAI
+def _run_multimodal(api_key: str, base_url: str, model: str, img_ref: str) -> str:
+    """Run multimodal model with image understanding."""
+    from openai import OpenAI
 
     client_kwargs: dict[str, str] = {"api_key": api_key}
     if base_url:
         client_kwargs["base_url"] = base_url
-    client = ZhipuAI(**client_kwargs)
-    return _call_glm(client, model, img_ref)
-
-
-def _run_deepseek(api_key: str, base_url: str, img_ref: str) -> str:
-    from openai import OpenAI
-
-    client = OpenAI(api_key=api_key, base_url=base_url)
-    return _call_deepseek(client, _DEEPSEEK_VISION_MODEL, img_ref)
+    client = OpenAI(**client_kwargs)
+    return _call_multimodal(client, model, img_ref)
 
 
 def main() -> None:
@@ -229,6 +192,17 @@ def main() -> None:
     raw = str(params.get("file_path") or "").strip()
 
     settings = settings_store.load()
+    
+    # 获取当前活跃的模型配置
+    active = active_model(settings)
+    active_model_name = str(active.get("model") or "")
+    active_api_key = str(active.get("api_key") or "")
+    active_base_url = str(active.get("base_url") or "")
+    
+    # 检查当前模型是否支持多模态
+    current_is_multimodal = _is_multimodal_model(active_model_name) and active_api_key
+    
+    # 回退选项：GLM 免费模型
     glm = _resolve_glm(settings)
 
     if url:
@@ -243,17 +217,17 @@ def main() -> None:
             )
             return
         try:
-            if glm is not None:
-                content = _run_glm(glm[0], glm[1], glm[2], url)
+            if current_is_multimodal:
+                # 使用当前配置的多模态模型
+                content = _run_multimodal(active_api_key, active_base_url, active_model_name, url)
+            elif glm is not None:
+                # 回退到 GLM 免费模型
+                content = _run_multimodal(glm[0], glm[1], glm[2], url)
             else:
-                api_key, base_url = _resolve_deepseek(settings)
-                if not api_key:
-                    _print_err(
-                        "未配置视觉模型 API Key：请在设置中配置 GLM（推荐，免费）"
-                        f"或 {_DEEPSEEK_VISION_MODEL} 对应的 API Key"
-                    )
-                    return
-                content = _run_deepseek(api_key, base_url, url)
+                _print_err(
+                    "未配置视觉模型 API Key：请在设置中配置支持多模态的模型（如 MiMo、GLM、GPT-4V 等）"
+                )
+                return
             _print_ok(url.rsplit("/", 1)[-1] or url, url, content)
         except Exception as exc:  # noqa: BLE001
             detail = str(exc)
@@ -263,7 +237,7 @@ def main() -> None:
                     "如持续限流，可切换模型 glm-4.6v-flashx"
                 )
             else:
-                provider = "GLM" if glm is not None else "DeepSeek 视觉模型"
+                provider = "当前模型" if current_is_multimodal else ("GLM" if glm is not None else "视觉模型")
                 _print_err(f"{provider} 调用失败: {detail}")
         return
 
@@ -291,21 +265,21 @@ def main() -> None:
         return
 
     try:
-        if glm is not None:
-            img_ref = base64.b64encode(path.read_bytes()).decode("utf-8")
-            content = _run_glm(glm[0], glm[1], glm[2], img_ref)
+        mime = _IMAGE_MIME.get(path.suffix.lower(), "image/png")
+        b64 = base64.b64encode(path.read_bytes()).decode("utf-8")
+        img_ref = f"data:{mime};base64,{b64}"
+        
+        if current_is_multimodal:
+            # 使用当前配置的多模态模型
+            content = _run_multimodal(active_api_key, active_base_url, active_model_name, img_ref)
+        elif glm is not None:
+            # 回退到 GLM 免费模型
+            content = _run_multimodal(glm[0], glm[1], glm[2], img_ref)
         else:
-            api_key, base_url = _resolve_deepseek(settings)
-            if not api_key:
-                _print_err(
-                    "未配置视觉模型 API Key：请在设置中配置 GLM（推荐，免费）"
-                    f"或 {_DEEPSEEK_VISION_MODEL} 对应的 API Key"
-                )
-                return
-            mime = _IMAGE_MIME.get(path.suffix.lower(), "image/png")
-            b64 = base64.b64encode(path.read_bytes()).decode("utf-8")
-            img_ref = f"data:{mime};base64,{b64}"
-            content = _run_deepseek(api_key, base_url, img_ref)
+            _print_err(
+                "未配置视觉模型 API Key：请在设置中配置支持多模态的模型（如 MiMo、GLM、GPT-4V 等）"
+            )
+            return
         _print_ok(path.name, str(path), content)
     except Exception as exc:  # noqa: BLE001
         detail = str(exc)
@@ -315,7 +289,7 @@ def main() -> None:
                 "如持续限流，可切换模型 glm-4.6v-flashx"
             )
         else:
-            provider = "GLM" if glm is not None else "DeepSeek 视觉模型"
+            provider = "当前模型" if current_is_multimodal else ("GLM" if glm is not None else "视觉模型")
             _print_err(f"{provider} 调用失败: {detail}")
 
 

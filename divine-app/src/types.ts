@@ -235,6 +235,11 @@ export interface ModelConfig {
   has_api_key: boolean;
   active: boolean;
   tool_mode?: ToolMode;
+  /** 用户显式选择的提供方 key（deepseek/xiaomi/glm/.../custom）。
+   * 持久化后不再依赖模型名前缀反推，避免 qwen2.5:14b 等本地模型被误判。 */
+  vendor?: string;
+  /** 自定义模型名，逗号分隔；对话切换时合并到该提供方 list 之后（去重） */
+  custom_models?: string;
 }
 
 /** A model entry as submitted to the server when saving settings. `api_key`
@@ -248,6 +253,8 @@ export interface ModelConfigPayload {
   api_key?: string;
   active: boolean;
   tool_mode?: ToolMode;
+  vendor?: string;
+  custom_models?: string;
 }
 
 export type SettingsSaveBody = Partial<Omit<Settings, "models">> & {

@@ -15,6 +15,7 @@ from ..localization import language_instruction
 from ..skills import skill_registry
 from .constants import SYSTEM_PROMPT
 from .context import AgentRunContext
+from .llm import _resolve_model_entry
 from .plans import _plan_progress
 from .rag import _auto_rag_context
 from .schema import _content_text, _skill_tool_name
@@ -257,7 +258,10 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
     def prompt(request: ModelRequest) -> str:
         current_settings = settings_store.load()
         provider = current_settings.get("provider") or "auto"
-        model_name = current_settings.get("model") or "deepseek-v4-flash"
+        # 用本次请求实际使用的模型（model_id 展开解析），而不是 active 默认模型；
+        # 否则切换模型后 AI 仍自称默认模型（如 mimo-v2.5-pro）。
+        entry = _resolve_model_entry(current_settings, ctx.model_id)
+        model_name = entry.get("model") or "deepseek-v4-flash"
         if provider == "mock" or (
             provider == "auto" and not current_settings.get("api_key")
         ):

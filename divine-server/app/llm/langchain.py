@@ -259,6 +259,18 @@ class ChatDeepSeekProvider:
             }
 
 
+def _is_glm_always_think(model: str) -> bool:
+    """GLM-5.x 文本旗舰（glm-5 / 5.1 / 5.2 / 5.3）始终启用思考，
+    不支持 thinking.type: "disabled"（见官方文档 glm-5.3）。
+    glm-5v-turbo 等视觉模型不在此列。
+    """
+    m = str(model or "").strip().lower()
+    if not m.startswith("glm-5"):
+        return False
+    # 排除带 v 的视觉变体
+    return "-5v" not in m and not m.startswith("glm-5v")
+
+
 class OpenAIChatProvider:
     """LangChain adapter for OpenAI-compatible endpoints (mimo, etc.).
     Uses langchain_openai.ChatOpenAI directly — no DeepSeek-specific
@@ -266,6 +278,8 @@ class OpenAIChatProvider:
 
     def __init__(
         self,
+        think: bool = False,
+        effort: str | None = None,
         entry: dict[str, Any] | None = None,
     ) -> None:
         from langchain_openai import ChatOpenAI
@@ -284,4 +298,13 @@ class OpenAIChatProvider:
         }
         if base_url:
             llm_kwargs["base_url"] = base_url
+        # GLM-5.x 文本旗舰始终启用思考，必须显式附带 thinking 参数，
+        # 否则请求会被拒绝（官方文档：迁移时需将 thinking.type 设为 enabled）。
+        if _is_glm_always_think(model):
+            effort = (effort or "").strip().lower()
+            reasoning = effort if effort in ("low", "high", "max") else "high"
+            llm_kwargs["extra_body"] = {
+                "thinking": {"type": "enabled"},
+                "reasoning_effort": reasoning,
+            }
         self.llm = ChatOpenAI(**llm_kwargs)

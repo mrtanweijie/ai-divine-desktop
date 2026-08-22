@@ -63,6 +63,10 @@ import { ProjectModal } from "@/pages/chat/components/ProjectModal";
 import { ProjectPicker } from "@/pages/chat/components/ProjectPicker";
 import { useChatStream } from "@/pages/chat/hooks/useChatStream";
 import { ChatStreamContext } from "@/pages/chat/hooks/ChatStreamContext";
+import {
+  expandModelId,
+  expandModelsForSwitcher,
+} from "@/config/providers";
 import "./index.less";
 import {
   acceptedFilesKey,
@@ -119,6 +123,15 @@ export default function ChatPage() {
     lastStreamingRef.current = streaming;
   }, [streaming]);
   const { settings, setSettings, setWorkspace } = useConfigState();
+  // 只把已配置 API Key 的模型条目按提供商 list 展开，供对话框模型切换使用。
+  // 未配置 Key 的提供商不会出现在切换列表里。
+  const switcherModels = useMemo(
+    () =>
+      expandModelsForSwitcher(
+        (settings?.models ?? []).filter((m) => m.has_api_key)
+      ),
+    [settings?.models]
+  );
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -449,13 +462,22 @@ export default function ChatPage() {
   }, [selectedId, settings]);
 
   // 切换会话时恢复该会话记住的模型；没有记忆的会话回落到设置里的默认模型。
+  // 若记住/默认的条目未配置 API Key，回退到第一个已配置 Key 的提供商。
   useEffect(() => {
     if (selectedId === prevModelSessionRef.current) return;
     prevModelSessionRef.current = selectedId;
     const activeId =
       settings?.models?.find((entry) => entry.active)?.id ?? null;
     const savedId = selectedId ? getSessionModelId(selectedId) : null;
-    setComposerModelId(savedId ?? activeId);
+    const rawId = savedId ?? activeId;
+    const list = settings?.models ?? [];
+    const baseId = rawId?.split("::")[0] ?? null;
+    const entry = baseId ? list.find((m) => m.id === baseId) : undefined;
+    const targetId =
+      entry && entry.has_api_key
+        ? rawId
+        : (list.find((m) => m.has_api_key)?.id ?? null);
+    setComposerModelId(expandModelId(targetId, list));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, settings]);
 
@@ -755,9 +777,18 @@ export default function ChatPage() {
         updated.think_default ? updated.reasoning_effort ?? "high" : "off"
       );
       // 默认模型变更后，若当前会话没有单独记忆的模型，立即跟随。
+      // 若记住/默认的条目未配置 API Key，回退到第一个已配置 Key 的提供商。
       const activeId = updated.models?.find((entry) => entry.active)?.id ?? null;
       const remembered = selectedId ? getSessionModelId(selectedId) : null;
-      setComposerModelId(remembered ?? activeId);
+      const rawId = remembered ?? activeId;
+      const list = updated.models ?? [];
+      const baseId = rawId?.split("::")[0] ?? null;
+      const entry = baseId ? list.find((m) => m.id === baseId) : undefined;
+      const targetId =
+        entry && entry.has_api_key
+          ? rawId
+          : (list.find((m) => m.has_api_key)?.id ?? null);
+      setComposerModelId(expandModelId(targetId, list));
       setSettingsOpen(false);
       await refreshWorkspace();
     },
@@ -771,7 +802,15 @@ export default function ChatPage() {
       setSettings(updated);
       const activeId = updated.models?.find((entry) => entry.active)?.id ?? null;
       const remembered = selectedId ? getSessionModelId(selectedId) : null;
-      setComposerModelId(remembered ?? activeId);
+      const rawId = remembered ?? activeId;
+      const list = updated.models ?? [];
+      const baseId = rawId?.split("::")[0] ?? null;
+      const entry = baseId ? list.find((m) => m.id === baseId) : undefined;
+      const targetId =
+        entry && entry.has_api_key
+          ? rawId
+          : (list.find((m) => m.has_api_key)?.id ?? null);
+      setComposerModelId(expandModelId(targetId, list));
     },
     [selectedId]
   );
@@ -1127,7 +1166,7 @@ export default function ChatPage() {
                 setComposerEffort(value);
                 setSessionEffort(selectedId, value);
               }}
-              models={settings?.models ?? []}
+              models={switcherModels}
               modelId={composerModelId}
               onModelChange={handleModelChange}
               sessionId={selectedId}

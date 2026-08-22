@@ -39,10 +39,7 @@
 
 .model-effort-panel {
   z-index: 200;
-  min-width: 220px;
-  max-width: 320px;
-  max-height: 340px;
-  overflow-y: auto;
+  width: 260px;
   border: 1px solid var(--color-border-strong);
   border-radius: 10px;
   background: var(--color-surface-2);
@@ -85,6 +82,25 @@
   margin: 0;
   padding: 6px;
   list-style: none;
+  /* 菜单区域滚动：面板固定宽度，模型列表较多时在菜单内滚动 */
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.model-effort-menu-header {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 4px;
+}
+
+.model-effort-menu-header:first-child {
+  border-top: none;
+  margin-top: 0;
 }
 
 .model-effort-menu-item {

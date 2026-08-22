@@ -91,6 +91,8 @@ class ModelConfigUpdate(BaseModel):
     api_key: str | None = None
     active: bool = False
     tool_mode: str | None = None
+    custom_models: str | None = None
+    vendor: str | None = None
 
 
 class SettingsUpdate(BaseModel):

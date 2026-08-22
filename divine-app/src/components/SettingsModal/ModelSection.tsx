@@ -7,12 +7,11 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { getBalance, type BalanceInfo } from "@/services/api";
 import type { ModelConfig, ToolMode } from "@/types";
-
-const MODEL_OPTIONS = [
-  { value: "deepseek-v4-flash", label: "deepseek-v4-flash" },
-  { value: "deepseek-v4-flash-vision-exp", label: "deepseek-v4-flash-vision-exp" },
-  { value: "deepseek-v4-pro", label: "deepseek-v4-pro" },
-];
+import { 
+  PROVIDER_OPTIONS, 
+  getEntryProvider,
+  getProviderConfig
+} from "@/config/providers";
 
 function toolModeOptions(t: (key: string, fallback: string) => string) {
   return [
@@ -60,8 +59,39 @@ export function ModelSection({
   const [expandedId, setExpandedId] = useState<string | null>(() =>
     models.length === 1 ? (models[0]?.id ?? null) : null
   );
+  // 卡片内的"自定义设置"折叠区：默认收起，点击标题展开
+  const [customOpen, setCustomOpen] = useState<Record<string, boolean>>({});
   // 余额信息（DeepSeek 端点可用）
   const [balances, setBalances] = useState<Record<string, BalanceInfo>>({});
+
+  const toggleCustomSettings = (id: string) => {
+    setCustomOpen((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // 已配置 API Key 的提供方集合：新增模型时下拉过滤掉，避免重复配置
+  const vendorsWithKey = new Set<string>(
+    models
+      .filter((m) => m.has_api_key)
+      .map((m) => getEntryProvider(m))
+      .filter(Boolean)
+  );
+
+  // 提供方下拉选项：过滤掉已配置 Key 的提供方（始终保留"自定义"）
+  const availableVendorOptions = PROVIDER_OPTIONS.filter(
+    (opt) => opt.value === "custom" || !vendorsWithKey.has(opt.value)
+  );
+
+  // 单个条目的下拉选项：过滤后的选项 ∪ 当前条目的提供方（保证已选值可见）
+  const vendorOptionsFor = (entry: ModelConfig) => {
+    const current = getEntryProvider(entry);
+    if (!current) return availableVendorOptions;
+    if (availableVendorOptions.some((o) => o.value === current)) {
+      return availableVendorOptions;
+    }
+    const label =
+      PROVIDER_OPTIONS.find((o) => o.value === current)?.label ?? current;
+    return [{ value: current, label }, ...availableVendorOptions];
+  };
 
   // 为有 key 的 DeepSeek 模型批量查询余额
   useEffect(() => {
@@ -96,27 +126,41 @@ export function ModelSection({
     );
   };
 
-  const handleModelChange = (id: string, value: string) => {
-    // 名称跟随模型名自动同步，模型名同时作为展示名与模型标识。
-    updateModel(id, { model: value, name: value });
+  const handleProviderChange = (id: string, provider: string) => {
+    const providerConfig = getProviderConfig(provider);
+    updateModel(id, { 
+      // 持久化用户显式选择的提供方，避免本地模型名（如 qwen2.5:14b）被前缀误判
+      vendor: provider,
+      model: providerConfig?.default_model || "", 
+      name: providerConfig?.default_model || "",
+      base_url: providerConfig?.base_url || ""
+    });
   };
 
   const addModel = () => {
     const entry: ModelConfig = {
       id: `model-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      // 模型名留空，不默认选择 deepseek-v4-flash，由用户自行选择或输入
+      // 新增时提供方留空：下拉只展示未配置 Key 的提供方（+ 自定义）
       name: "",
       provider: "langchain",
       model: "",
-      base_url: "https://api.deepseek.com",
+      base_url: "",
+      vendor: "",
       has_api_key: false,
-      // 新添加的模型不自动设为默认，保持当前默认模型不变
       active: false,
       tool_mode: "auto",
     };
     onModelsChange([...models, entry]);
-    // 新添加的模型直接展开，方便立即填写
     setExpandedId(entry.id);
+  };
+
+  const setActive = (id: string) => {
+    const newModels = models.map((entry) => ({
+      ...entry,
+      active: entry.id === id,
+    }));
+    onModelsChange(newModels);
+    onAutoSave?.(newModels);
   };
 
   const removeModel = (id: string) => {
@@ -131,15 +175,6 @@ export function ModelSection({
     );
   };
 
-  const setActive = (id: string) => {
-    const newModels = models.map((entry) => ({
-      ...entry,
-      active: entry.id === id,
-    }));
-    onModelsChange(newModels);
-    onAutoSave?.(newModels);
-  };
-
   const toggleExpanded = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
   };
@@ -147,7 +182,7 @@ export function ModelSection({
   return (
     <div className="settings-form">
       <p className="settings-field-hint-inline settings-models-hint">
-        {t("settings.modelsHint", "可配置多个模型，对话时在输入框发送按钮左侧快速切换")}
+        {t("settings.modelsHint", "可配置多个提供方，对话时在输入框发送按钮左侧快速切换模型")}
       </p>
       <div className="settings-model-list">
         {models.map((entry) => {
@@ -170,6 +205,10 @@ export function ModelSection({
                 <span className="settings-model-name">
                   {entry.name ||
                     entry.model ||
+                    (entry.custom_models || "")
+                      .split(/[,，]/)
+                      .map((s) => s.trim())
+                      .find(Boolean) ||
                     t("settings.modelUnnamed", "未命名模型")}
                 </span>
                 {entry.active && (
@@ -221,28 +260,32 @@ export function ModelSection({
                     {
                       key: "delete",
                       icon: <Trash2 size={12} />,
-                      label: t("settings.deleteModel", "删除模型"),
+                      label: t("settings.deleteModel", "删除"),
                       description:
                         /deepseek/i.test(entry.base_url)
-                          ? t("settings.baseModelNoDelete", "基础模型不可删除")
+                          ? t("settings.baseModelNoDelete", "基础提供方不可删除")
                           : undefined,
-                      // DeepSeek 作为基础模型不可删除，仅剩一个模型时也不可删除
+                      // DeepSeek 作为基础提供方不可删除，仅剩一个提供方时也不可删除
                       disabled:
                         models.length <= 1 ||
                         /deepseek/i.test(entry.base_url),
                       onClick: () => {
-                        const modelLabel =
-                          entry.name ||
-                          entry.model ||
-                          t("settings.modelUnnamed", "未命名模型");
+                        // 弹窗展示提供方 label（如 DeepSeek、Xiaomi (MiMo)），而不是模型名
+                        const providerKey = getEntryProvider(entry);
+                        const providerLabel =
+                          PROVIDER_OPTIONS.find(
+                            (o) => o.value === providerKey
+                          )?.label ??
+                          providerKey ??
+                          t("settings.modelUnnamed", "未命名提供方");
                         const doRemove = () => removeModel(entry.id);
                         if (onConfirm) {
                           onConfirm(
-                            t("settings.deleteModelConfirmTitle", "删除模型"),
+                            t("settings.deleteModelConfirmTitle", "删除"),
                             t(
                               "settings.deleteModelConfirmMessage",
-                              "确定删除模型「{{name}}」吗？点击「保存」后生效。",
-                              { name: modelLabel }
+                              "确定删除「{{name}}」吗？点击「保存」后生效。",
+                              { name: providerLabel }
                             ),
                             doRemove
                           );
@@ -272,35 +315,12 @@ export function ModelSection({
             {expanded && (
               <div className="settings-model-card-body">
                 <Select
-                  label={t("settings.model", "模型")}
-                  value={entry.model}
-                  onChange={(value) => handleModelChange(entry.id, value)}
-                  editable
-                  options={MODEL_OPTIONS}
-                  placeholder="deepseek-v4-flash"
+                  label={t("settings.provider", "提供方")}
+                  value={getEntryProvider(entry)}
+                  onChange={(value) => handleProviderChange(entry.id, value)}
+                  options={vendorOptionsFor(entry)}
+                  placeholder="选择提供方"
                 />
-                <Input
-                  label="Base URL"
-                  value={entry.base_url}
-                  onChange={(event) =>
-                    updateModel(entry.id, { base_url: event.target.value })
-                  }
-                  placeholder="https://api.deepseek.com"
-                />
-                <Select
-                  label={t("settings.toolMode", "工具调用方式")}
-                  value={entry.tool_mode ?? "auto"}
-                  onChange={(value) =>
-                    updateModel(entry.id, { tool_mode: value as ToolMode })
-                  }
-                  options={toolModeOptions(t)}
-                />
-                <p className="settings-field-hint settings-model-tool-mode-hint">
-                  {t(
-                    "settings.toolModeHint",
-                    "ReAct 文本模式适用于不支持原生函数调用的模型或接口（如部分本地推理服务），以 Thought/Action 文本循环调用工具"
-                  )}
-                </p>
                 <Input
                   label={t("settings.apiKeyLabel", "API Key{{saved}}", {
                     saved: entry.has_api_key
@@ -333,6 +353,71 @@ export function ModelSection({
                     </Button>
                   }
                 />
+                <div
+                  className={`settings-custom-toggle${
+                    customOpen[entry.id] ? " open" : ""
+                  }`}
+                >
+                  <div
+                    className="settings-custom-toggle-header"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleCustomSettings(entry.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleCustomSettings(entry.id);
+                      }
+                    }}
+                    aria-expanded={Boolean(customOpen[entry.id])}
+                  >
+                    <span>{t("settings.customSettings", "自定义设置")}</span>
+                    <ChevronDown
+                      size={14}
+                      className="settings-custom-toggle-chevron"
+                    />
+                  </div>
+                  {customOpen[entry.id] && (
+                    <div className="settings-custom-fields">
+                      <Input
+                        label="Base URL"
+                        value={entry.base_url}
+                        onChange={(event) =>
+                          updateModel(entry.id, { base_url: event.target.value })
+                        }
+                        placeholder={
+                          getEntryProvider(entry) === "custom"
+                            ? "输入 API 地址"
+                            : "选择提供方后自动回填"
+                        }
+                      />
+                      <Select
+                        label={t("settings.toolMode", "工具调用方式")}
+                        value={entry.tool_mode ?? "auto"}
+                        onChange={(value) =>
+                          updateModel(entry.id, { tool_mode: value as ToolMode })
+                        }
+                        options={toolModeOptions(t)}
+                      />
+                      <p className="settings-field-hint settings-model-tool-mode-hint">
+                        {t(
+                          "settings.toolModeHint",
+                          "ReAct 文本模式适用于不支持原生函数调用的模型或接口（如部分本地推理服务），以 Thought/Action 文本循环调用工具"
+                        )}
+                      </p>
+                      <Input
+                        label={t("settings.customModels", "自定义模型")}
+                        value={entry.custom_models ?? ""}
+                        onChange={(event) =>
+                          updateModel(entry.id, {
+                            custom_models: event.target.value,
+                          })
+                        }
+                        placeholder="输入自定义模型名，多个用逗号分隔"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

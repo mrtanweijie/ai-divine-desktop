@@ -28,11 +28,26 @@ def _resolve_model_entry(
     settings: dict[str, Any], model_id: str | None
 ) -> dict[str, Any]:
     """Pick the model entry for this run: explicit per-message model_id wins,
-    otherwise the settings-active (default) model, otherwise the first entry."""
+    otherwise the settings-active (default) model, otherwise the first entry.
+
+    ``model_id`` may be an expanded id in the form ``{baseId}::{modelName}``
+    (the chat model switcher expands each configured provider into its full
+    model list); the base id selects the entry and the model name overrides
+    its ``model`` field so a single provider entry can drive all its models.
+    """
     models = settings.get("models") or []
-    if model_id:
+    base_id = model_id
+    model_override: str | None = None
+    if model_id and "::" in model_id:
+        base_id, _, model_override = model_id.partition("::")
+        model_override = model_override.strip() or None
+    if base_id:
         for entry in models:
-            if isinstance(entry, dict) and entry.get("id") == model_id:
+            if isinstance(entry, dict) and entry.get("id") == base_id:
+                if model_override:
+                    entry = dict(entry)
+                    entry["model"] = model_override
+                    entry["name"] = model_override
                 return entry
     for entry in models:
         if isinstance(entry, dict) and entry.get("active"):
@@ -86,10 +101,11 @@ def _build_llm(
         return MockChatModel()
     base_url = str(entry.get("base_url") or "").strip()
     # DeepSeek 端点 → ChatDeepSeekProvider（支持 thinking 扩展）
-    # 其它 OpenAI 兼容端点（mimo 等） → OpenAIChatProvider（纯 ChatOpenAI）
+    # 其它 OpenAI 兼容端点（mimo 等） → OpenAIChatProvider（纯 ChatOpenAI；
+    # GLM-5.x 文本旗舰会自动附带 thinking 参数）
     if _is_deepseek_endpoint(base_url):
         return ChatDeepSeekProvider(think=think, effort=effort, entry=entry).llm
-    return OpenAIChatProvider(entry=entry).llm
+    return OpenAIChatProvider(think=think, effort=effort, entry=entry).llm
 
 async def generate_session_title(
     llm: Any,

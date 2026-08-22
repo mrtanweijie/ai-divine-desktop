@@ -84,23 +84,38 @@ def normalize_models(
         provider = str(item.get("provider") or legacy.get("provider") or "langchain")
         if provider not in ("auto", "langchain", "mock"):
             provider = "langchain"
-        model = str(item.get("model") or "").strip() or DEFAULT_MODEL
-        if provider != "mock" and model in ("", "local", "mock"):
-            model = DEFAULT_MODEL
+        vendor = str(item.get("vendor") or legacy.get("vendor") or "").strip()
+        custom_models = str(
+            item.get("custom_models") or legacy.get("custom_models") or ""
+        ).strip()
+        raw_model = str(item.get("model") or "").strip()
+        if vendor == "custom":
+            # 自定义提供方：不允许回退到默认模型（否则标题会变成 deepseek-v4-flash）。
+            # model 为空时取自定义模型列表的第一个作为展示模型。
+            model = raw_model or next(
+                (s.strip() for s in custom_models.split(",") if s.strip()), ""
+            )
+        else:
+            model = raw_model or DEFAULT_MODEL
+            if model in ("", "local", "mock"):
+                model = DEFAULT_MODEL
+        raw_base_url = str(
+            item.get("base_url") or legacy.get("base_url") or ""
+        ).strip()
+        base_url = raw_base_url or ("" if vendor == "custom" else DEFAULT_BASE_URL)
         entry = {
             "id": str(item.get("id") or "").strip() or f"model-{index + 1}",
             "name": str(item.get("name") or "").strip() or model,
             "provider": provider,
             "model": model,
-            "base_url": (
-                str(item.get("base_url") or legacy.get("base_url") or "").strip()
-                or DEFAULT_BASE_URL
-            ),
+            "base_url": base_url,
             "api_key": str(item.get("api_key") or ""),
             "active": bool(item.get("active", False)),
             "tool_mode": _normalize_tool_mode(
                 item.get("tool_mode") or legacy.get("tool_mode")
             ),
+            "custom_models": custom_models,
+            "vendor": vendor,
         }
         normalized.append(entry)
     if not normalized:
@@ -179,6 +194,12 @@ def merge_model_updates(
                 "tool_mode": _normalize_tool_mode(
                     item.get("tool_mode") or prev.get("tool_mode")
                 ),
+                "custom_models": str(
+                    item.get("custom_models") or prev.get("custom_models") or ""
+                ).strip(),
+                "vendor": str(
+                    item.get("vendor") or prev.get("vendor") or ""
+                ).strip(),
             }
         )
     return normalize_models(merged, {})

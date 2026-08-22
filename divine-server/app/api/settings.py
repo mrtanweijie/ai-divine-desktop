@@ -42,6 +42,8 @@ def _public(settings: dict) -> dict:
                 "has_api_key": bool(entry.get("api_key")),
                 "active": bool(entry.get("active", False)),
                 "tool_mode": entry.get("tool_mode", "auto"),
+                "custom_models": entry.get("custom_models", ""),
+                "vendor": entry.get("vendor", ""),
             }
             for entry in models
             if isinstance(entry, dict)

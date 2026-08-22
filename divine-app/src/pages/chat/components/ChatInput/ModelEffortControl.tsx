@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { ModelConfig } from "@/types";
+import { PROVIDER_LIST, groupModelsByProvider } from "@/config/providers";
 import "./ModelEffortControl.less";
 
 interface ModelEffortControlProps {
@@ -17,6 +18,12 @@ interface ModelEffortControlProps {
 type MenuLevel = "main" | "models" | "efforts";
 
 const EFFORT_ITEMS = ["off", "low", "high", "max"] as const;
+
+// 获取提供商标签
+function getProviderLabel(providerKey: string): string {
+  const config = PROVIDER_LIST.find(p => p.value === providerKey);
+  return config?.label || providerKey;
+}
 
 export function ModelEffortControl({
   disabled,
@@ -206,22 +213,45 @@ export function ModelEffortControl({
                 </div>
                 <ul className="model-effort-menu" role="menu">
                   {level === "models"
-                    ? models.map((entry) => (
-                        <li
-                          key={entry.id}
-                          role="menuitem"
-                          tabIndex={0}
-                          className={`model-effort-menu-item${
-                            entry.id === modelId ? " selected" : ""
-                          }`}
-                          onClick={() => selectModel(entry.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") selectModel(entry.id);
-                          }}
-                        >
-                          <span>{entry.name || entry.model}</span>
-                        </li>
-                      ))
+                    ? (() => {
+                        const grouped = groupModelsByProvider(models);
+                        const items: React.ReactNode[] = [];
+                        
+                        grouped.forEach((groupModels, providerKey) => {
+                          const providerLabel = providerKey === "custom" 
+                            ? t("settings.custom", "自定义") 
+                            : getProviderLabel(providerKey);
+                          
+                          // 添加分组标题
+                          items.push(
+                            <li key={`header-${providerKey}`} className="model-effort-menu-header">
+                              <span>{providerLabel}</span>
+                            </li>
+                          );
+                          
+                          // 添加该分组下的模型
+                          groupModels.forEach((entry) => {
+                            items.push(
+                              <li
+                                key={entry.id}
+                                role="menuitem"
+                                tabIndex={0}
+                                className={`model-effort-menu-item${
+                                  entry.id === modelId ? " selected" : ""
+                                }`}
+                                onClick={() => selectModel(entry.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") selectModel(entry.id);
+                                }}
+                              >
+                                <span>{entry.name || entry.model}</span>
+                              </li>
+                            );
+                          });
+                        });
+                        
+                        return items;
+                      })()
                     : EFFORT_ITEMS.map((key) => (
                         <li
                           key={key}

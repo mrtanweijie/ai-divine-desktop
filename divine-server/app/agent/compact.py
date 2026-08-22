@@ -28,8 +28,25 @@ _DEFAULT_CONTEXT_WINDOW = 1_000_000
 _MODEL_CONTEXT_WINDOWS: dict[str, int] = {
     "deepseek-v4-flash": 1_000_000,
     "deepseek-v4-flash-vision-exp": 1_000_000,
+    "deepseek-v4-pro": 1_000_000,
     "deepseek-v3": 128_000,
     "deepseek-reasoner": 128_000,
+    "mimo-v2.5": 1_000_000,
+    "mimo-v2.5-pro": 1_000_000,
+    "glm-5.3": 1_000_000,
+    "glm-5.2": 1_000_000,
+    "glm-5v-turbo": 1_000_000,
+    "glm-4.6v-flash": 1_000_000,
+    "gpt-5.6": 1_000_000,
+    "gpt-5.5": 1_000_000,
+    "gpt-4.1": 1_000_000,
+    "MiniMax-M3": 1_000_000,
+    "MiniMax-M2.7": 1_000_000,
+    "qwen3.8-max": 1_000_000,
+    "qwen3.7-max": 1_000_000,
+    "qwen3.7-plus": 1_000_000,
+    "qwen3.7-flash": 1_000_000,
+    "qwen-vl-max": 1_000_000,
 }
 
 # Summary prompt template; {locale} is replaced with a language hint.

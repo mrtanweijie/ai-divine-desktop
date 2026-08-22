@@ -132,6 +132,8 @@ export function SettingsModal({
           base_url: entry.base_url,
           active: entry.active,
           tool_mode: entry.tool_mode ?? "auto",
+          custom_models: entry.custom_models ?? "",
+          vendor: entry.vendor ?? "",
           // 空字符串 = 保持不变，服务端保留已保存的 Key
           api_key: modelKeys[entry.id] ?? "",
         })),
@@ -153,6 +155,8 @@ export function SettingsModal({
         base_url: entry.base_url,
         active: entry.active,
         tool_mode: entry.tool_mode ?? "auto",
+        custom_models: entry.custom_models ?? "",
+        vendor: entry.vendor ?? "",
         api_key: modelKeys[entry.id] ?? "",
       })),
     };

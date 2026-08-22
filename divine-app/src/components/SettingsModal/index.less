@@ -222,6 +222,55 @@
   opacity: 0.85;
 }
 
+/* 自定义设置折叠容器：默认收起，点击标题展开；展开的字段放在容器内，共用一个边框 */
+.settings-custom-toggle {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: transparent;
+}
+
+/* 自定义设置折叠标题：收起时高度与输入框（40px）保持一致（容器边框 2px，标题 38px） */
+.settings-custom-toggle-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.settings-custom-toggle-header:hover {
+  color: var(--color-text);
+  background: var(--color-surface-1);
+}
+
+.settings-custom-toggle-chevron {
+  transition: transform 0.15s ease;
+  color: var(--color-text-muted);
+}
+
+.settings-custom-toggle.open .settings-custom-toggle-chevron {
+  transform: rotate(180deg);
+}
+
+/* 展开后的字段容器：在 toggle 内部自然延伸，不再单独设置边框 */
+.settings-custom-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 10px 10px;
+}
+
+/* 自定义提供商输入框组 */
 .settings-updater {
   display: flex;
   flex-direction: column;
