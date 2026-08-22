@@ -38,6 +38,7 @@ class BgStatusAdapter(ToolAdapter):
         workspace: Path,
         arguments: dict[str, Any],
         locale: str | None = None,
+        progress_callback: Any | None = None,
     ) -> ToolResult:
         from ..bg_process import bg_manager
 
@@ -87,6 +88,7 @@ class BgOutputAdapter(ToolAdapter):
         workspace: Path,
         arguments: dict[str, Any],
         locale: str | None = None,
+        progress_callback: Any | None = None,
     ) -> ToolResult:
         from ..bg_process import bg_manager
 
@@ -138,6 +140,7 @@ class BgKillAdapter(ToolAdapter):
         workspace: Path,
         arguments: dict[str, Any],
         locale: str | None = None,
+        progress_callback: Any | None = None,
     ) -> ToolResult:
         from ..bg_process import bg_manager
 

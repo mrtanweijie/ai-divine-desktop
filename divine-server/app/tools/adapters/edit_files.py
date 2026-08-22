@@ -162,6 +162,7 @@ class EditFilesAdapter(ToolAdapter):
         workspace: Path,
         arguments: dict[str, Any],
         locale: str | None = None,
+        progress_callback: Any | None = None,
     ) -> ToolResult:
         workspace = workspace.resolve()
         raw_files = arguments.get("files") or []

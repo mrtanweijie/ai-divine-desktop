@@ -31,6 +31,7 @@ class DiscoverImportableSkillsAdapter(ToolAdapter):
         workspace: Any,
         arguments: dict[str, Any],
         locale: str | None = None,
+        progress_callback: Any | None = None,
     ) -> ToolResult:
         skills = discover_importable_skills(workspace)
         return ToolResult(
@@ -77,6 +78,7 @@ class MigrateSkillAdapter(ToolAdapter):
         workspace: Any,
         arguments: dict[str, Any],
         locale: str | None = None,
+        progress_callback: Any | None = None,
     ) -> ToolResult:
         name = str(arguments.get("name") or "").strip()
         source_tool = str(arguments.get("source_tool") or "").strip() or None
@@ -135,6 +137,7 @@ class MigrateSkillsAdapter(ToolAdapter):
         workspace: Any,
         arguments: dict[str, Any],
         locale: str | None = None,
+        progress_callback: Any | None = None,
     ) -> ToolResult:
         names = [
             str(item or "").strip()

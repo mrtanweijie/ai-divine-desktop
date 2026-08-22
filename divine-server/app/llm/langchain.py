@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from typing import Any
 
 from langchain_core.language_models.chat_models import SimpleChatModel
@@ -12,6 +13,61 @@ from .content import _content_text
 from .dsml import DsmlStreamProcessor
 from .legacy import MockLLM
 from .thinking import normalize_reasoning_effort, thinking_extra_body
+
+
+def _dedupe_tool_call_ids(messages: list[dict[str, Any]]) -> None:
+    """Re-assign duplicate assistant ``tool_call`` ids and sync ToolMessages.
+
+    Some reasoning providers (e.g. MiniMax) reject requests whose historical
+    assistant tool calls carry duplicate ids with
+    ``invalid params, duplicate tool_call id``. LangGraph replays previous
+    turns; if a model ever emitted two calls with the same id (or a snapshot
+    got duplicated), the whole history becomes un-sendable. Each duplicated
+    occurrence (in order) gets a fresh id and the matching ``tool`` messages
+    are updated positionally so the conversation stays consistent.
+    """
+    # 1. Collect assistant call ids in order; mark which occurrences are dupes.
+    call_ids: list[str] = []
+    for item in messages:
+        for call in item.get("tool_calls") or []:
+            cid = call.get("id")
+            if cid:
+                call_ids.append(cid)
+    seen: set[str] = set()
+    replacement: dict[tuple[str, int], str] = {}
+    occurrence: dict[str, int] = {}
+    for cid in call_ids:
+        occurrence[cid] = occurrence.get(cid, 0) + 1
+        if cid in seen:
+            replacement[(cid, occurrence[cid])] = (
+                f"call_{uuid.uuid4().hex[:24]}"
+            )
+        else:
+            seen.add(cid)
+    if not replacement:
+        return
+    # 2. Rewrite assistant tool calls positionally.
+    occ: dict[str, int] = {}
+    for item in messages:
+        for call in item.get("tool_calls") or []:
+            cid = call.get("id")
+            if not cid:
+                continue
+            occ[cid] = occ.get(cid, 0) + 1
+            new_id = replacement.get((cid, occ[cid]))
+            if new_id:
+                call["id"] = new_id
+    # 3. Rewrite matching tool messages positionally.
+    tool_occ: dict[str, int] = {}
+    for item in messages:
+        if item.get("role") == "tool":
+            tid = item.get("tool_call_id")
+            if not tid:
+                continue
+            tool_occ[tid] = tool_occ.get(tid, 0) + 1
+            new_id = replacement.get((tid, tool_occ[tid]))
+            if new_id:
+                item["tool_call_id"] = new_id
 
 
 class MockChatModel(SimpleChatModel):
@@ -284,6 +340,29 @@ class OpenAIChatProvider:
     ) -> None:
         from langchain_openai import ChatOpenAI
 
+        class DedupToolCallChatOpenAI(ChatOpenAI):
+            """ChatOpenAI that rewrites duplicate tool_call ids before sending.
+
+            Some providers (MiniMax) hard-reject history with duplicated
+            assistant tool_call ids; fix them at the request payload level.
+            """
+
+            def _get_request_payload(
+                self,
+                input_: Any,
+                *,
+                stop: list[str] | None = None,
+                **kwargs: Any,
+            ) -> dict[str, Any]:
+                payload = super()._get_request_payload(
+                    input_, stop=stop, **kwargs
+                )
+                try:
+                    _dedupe_tool_call_ids(payload.get("messages", []))
+                except Exception:  # noqa: BLE001 — 清理失败不阻断请求
+                    pass
+                return payload
+
         settings = settings_store.load()
         entry = entry if entry is not None else settings
         model = entry.get("model") or "gpt-4o-mini"
@@ -307,4 +386,4 @@ class OpenAIChatProvider:
                 "thinking": {"type": "enabled"},
                 "reasoning_effort": reasoning,
             }
-        self.llm = ChatOpenAI(**llm_kwargs)
+        self.llm = DedupToolCallChatOpenAI(**llm_kwargs)

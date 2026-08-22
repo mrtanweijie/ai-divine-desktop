@@ -18,10 +18,10 @@ from app.config import settings_store  # noqa: E402
 
 DEFAULT_MODEL = "image-01"
 # 仅当 settings 里没有 MiniMax 条目、也没有 MINIMAX_BASE_URL 环境变量时的兜底。
-# 正常路径：base_url 完全来自用户配置的 MiniMax 条目（前端自动回填），
-# 与前端 providers.ts 不构成重复维护。
+# 正常路径：base_url 完全来自用户配置的 MiniMax 条目（前端自动回填）。
 DEFAULT_BASE_URL = "https://api.minimaxi.com/v1"
 VALID_ASPECT_RATIOS = {"1:1", "16:9", "9:16", "21:9", "2:3", "3:2", "4:3", "3:4"}
+MAX_PROMPT_LENGTH = 1500
 
 
 def _minimax_config(settings: dict) -> tuple[str, str]:
@@ -92,6 +92,25 @@ def _image_aspect_ratio(reference_image: str, workspace: Path) -> str | None:
     return f"{width // g}:{height // g}"
 
 
+def _nearest_aspect_ratio(ratio: str) -> str | None:
+    """返回与给定比例最接近的支持比例。"""
+    if ratio in VALID_ASPECT_RATIOS:
+        return ratio
+    try:
+        w_str, h_str = ratio.split(":")
+        target = float(w_str) / float(h_str)
+    except (ValueError, ZeroDivisionError):
+        return None
+    best: str | None = None
+    best_diff = float("inf")
+    for candidate in VALID_ASPECT_RATIOS:
+        cw, ch = candidate.split(":")
+        diff = abs(float(cw) / float(ch) - target)
+        if diff < best_diff:
+            best, best_diff = candidate, diff
+    return best
+
+
 def _reference_image_file(reference_image: str, workspace: Path) -> dict:
     """构造 subject_reference 项。
 
@@ -118,7 +137,7 @@ def _reference_image_file(reference_image: str, workspace: Path) -> dict:
 
 
 def _need_aspect_ratio() -> None:
-    """文生图未指定比例时，让 agent 用选项卡片请用户选择比例。"""
+    """图片比例无法自动确定时，让 agent 用选项卡片请用户选择比例。"""
     ratio_list = "、".join(sorted(VALID_ASPECT_RATIOS))
     print(
         json.dumps(
@@ -135,6 +154,23 @@ def _need_aspect_ratio() -> None:
     )
 
 
+def _api_error_message(result: dict) -> str:
+    """把 MiniMax 的 base_resp 错误翻译成友好中文提示。"""
+    base = result.get("base_resp") or {}
+    status_msg = str(base.get("status_msg") or "")
+    code = base.get("status_code")
+    lowered = status_msg.lower()
+    if "insufficient balance" in lowered:
+        return "MiniMax 账户余额不足，请充值后重试"
+    if "invalid api key" in lowered or "login fail" in lowered:
+        return "MiniMax API Key 无效或已失效，请在设置中检查 MiniMax 提供方的 API Key"
+    if "invalid params" in lowered:
+        return f"MiniMax 参数错误（{code}）：{status_msg}"
+    if status_msg:
+        return f"MiniMax 返回错误（{code}）：{status_msg}"
+    return f"MiniMax 返回错误：{result}"
+
+
 def main() -> None:
     data = json.load(sys.stdin)
     workspace = Path(data["workspace"]).resolve()
@@ -145,6 +181,12 @@ def main() -> None:
     if not prompt:
         print(json.dumps({"success": False, "message": "缺少 prompt（图片描述）"}))
         return
+    # MiniMax image-01 限制 prompt 最长 1500 字符：超长一律自动截断，
+    # 避免"让 LLM 精简"在多轮里反复超限导致死循环。
+    truncated = False
+    if len(prompt) > MAX_PROMPT_LENGTH:
+        prompt = prompt[:MAX_PROMPT_LENGTH]
+        truncated = True
 
     settings = settings_store.load()
     api_key, api_base_url = _minimax_config(settings)
@@ -164,13 +206,22 @@ def main() -> None:
 
     reference_image = str(params.get("reference_image") or "").strip()
     raw_ratio = str(params.get("aspect_ratio") or "").strip()
+    ratio_adapted = False
 
     if not raw_ratio:
         if reference_image:
-            # 图生图：默认按参考图原始比例（在支持列表内时）
+            # 图生图：默认按参考图原始比例；不在支持列表时用最接近的比例
             original = _image_aspect_ratio(reference_image, workspace)
             if original and original in VALID_ASPECT_RATIOS:
                 raw_ratio = original
+            elif original:
+                nearest = _nearest_aspect_ratio(original)
+                if nearest:
+                    raw_ratio = nearest
+                    ratio_adapted = True
+                else:
+                    _need_aspect_ratio()
+                    return
             else:
                 _need_aspect_ratio()
                 return
@@ -217,7 +268,6 @@ def main() -> None:
         "n": count,
         "prompt_optimizer": bool(prompt_optimizer),
     }
-    reference_image = str(params.get("reference_image") or "").strip()
     if reference_image:
         try:
             payload["subject_reference"] = [
@@ -236,12 +286,17 @@ def main() -> None:
         import httpx
 
         api_url = f"{api_base_url.rstrip('/')}/image_generation"
-        response = httpx.post(
-            api_url,
-            headers={"Authorization": f"Bearer {api_key}"},
-            json=payload,
-            timeout=120,
-        )
+        headers = {"Authorization": f"Bearer {api_key}"}
+        # 网络抖动/限流（429/5xx）重试一次
+        last_response = None
+        for attempt in range(2):
+            last_response = httpx.post(
+                api_url, headers=headers, json=payload, timeout=120
+            )
+            if last_response.status_code < 500 or attempt == 1:
+                break
+            time.sleep(2 * (attempt + 1))
+        response = last_response
         response.raise_for_status()
         result = response.json()
         data = result.get("data") or {}
@@ -250,10 +305,7 @@ def main() -> None:
         if not images_b64 and not images_urls:
             print(
                 json.dumps(
-                    {
-                        "success": False,
-                        "message": f"图片生成失败: {result}",
-                    },
+                    {"success": False, "message": _api_error_message(result)},
                     ensure_ascii=False,
                 )
             )
@@ -278,6 +330,18 @@ def main() -> None:
                 download.raise_for_status()
                 output.write_bytes(download.content)
             written.append(output)
+    except httpx.HTTPStatusError as exc:
+        try:
+            result = exc.response.json()
+        except Exception:  # noqa: BLE001
+            result = {}
+        print(
+            json.dumps(
+                {"success": False, "message": _api_error_message(result)},
+                ensure_ascii=False,
+            )
+        )
+        return
     except Exception as exc:  # noqa: BLE001
         print(
             json.dumps(
@@ -287,12 +351,20 @@ def main() -> None:
         )
         return
 
+    notes = []
+    if truncated:
+        notes.append(f"prompt 超过 {MAX_PROMPT_LENGTH} 字符，已自动截断")
+    if ratio_adapted:
+        notes.append(f"参考图比例不在支持列表，已用最接近的 {aspect_ratio}")
+    message = f"已生成 {len(written)} 张图片"
+    if notes:
+        message += "（" + "；".join(notes) + "）"
     first = written[0]
     print(
         json.dumps(
             {
                 "success": True,
-                "message": f"已生成 {len(written)} 张图片",
+                "message": message,
                 "file_name": first.name,
                 "filepath": str(first),
                 "files": [str(p) for p in written],

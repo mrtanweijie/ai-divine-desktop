@@ -52,6 +52,10 @@ SKILL.md，用户确认后再调用 install_skill；install_skill 执行前系�
 查看目录结构使用 directory_tree；缩放图片使用 image_resize；拆分合并 PDF 使用 pdf_split_merge；
 用户要生成图片（文生图/图生图）时使用 image_generate：按用户描述写详尽 prompt，
 需要保持主体一致时可传 reference_image（URL 或本地路径）；生成的图片会保存到工作区。
+重要：image_generate 的 prompt 上限 1500 字符，**调用前必须主动精简**——只保留主体、
+场景、风格、色调等核心要素，去掉形容词堆砌和重复描述；若发现生成失败提示截断，
+说明描述仍过长，应更精简后再调用（工具不会反复等待你精简）。
+图生图时 prompt 描述变化/新场景即可，主体由参考图提供。
 比例规则：
 - 文生图：用户未指定比例时，先用 options 卡片请用户选择图片比例
   （1:1 / 16:9 / 9:16 / 21:9 / 2:3 / 3:2 / 4:3 / 3:4），得到选择后再调用 image_generate 传 aspect_ratio；

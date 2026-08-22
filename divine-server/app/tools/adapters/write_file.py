@@ -55,6 +55,7 @@ class WriteFileAdapter(ToolAdapter):
         workspace: Path,
         arguments: dict[str, Any],
         locale: str | None = None,
+        progress_callback: Any | None = None,
     ) -> ToolResult:
         raw_path = str(arguments.get("path") or "").strip()
         content = str(arguments.get("content") or "")

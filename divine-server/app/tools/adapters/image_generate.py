@@ -16,7 +16,12 @@ from ..registry import register_tool
         "properties": {
             "prompt": {
                 "type": "string",
-                "description": "图片描述（英文效果更佳），尽量详尽",
+                "description": (
+                    "图片描述（≤1500 字符，超长会自动截断）。"
+                    "调用前必须主动压缩到 1500 字符以内："
+                    "只保留主体、动作、场景、风格、色调等核心要素，"
+                    "去掉形容词堆砌、重复细节和模板冗余文字。"
+                ),
             },
             "aspect_ratio": {
                 "type": "string",

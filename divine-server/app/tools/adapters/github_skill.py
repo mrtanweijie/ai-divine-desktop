@@ -40,6 +40,7 @@ class PreviewSkillRepoAdapter(ToolAdapter):
         workspace: Any,
         arguments: dict[str, Any],
         locale: str | None = None,
+        progress_callback: Any | None = None,
     ) -> ToolResult:
         repo_url = str(arguments.get("repo_url") or "").strip()
         ref = str(arguments.get("ref") or "").strip() or None
@@ -96,6 +97,7 @@ class InstallSkillAdapter(ToolAdapter):
         workspace: Path,
         arguments: dict[str, Any],
         locale: str | None = None,
+        progress_callback: Any | None = None,
     ) -> ToolResult:
         repo_url = str(arguments.get("repo_url") or "").strip()
         skill_path = str(arguments.get("skill_path") or "").strip() or None
