@@ -59,6 +59,23 @@ class ProjectUpdate(BaseModel):
     icon: str | None = None
 
 
+class ProjectOrderUpdate(BaseModel):
+    sort_order: int = Field(ge=0)
+
+
+class ProjectPinUpdate(BaseModel):
+    pinned: bool
+
+
+class ProjectReorderItem(BaseModel):
+    id: str
+    sort_order: int = Field(ge=0)
+
+
+class ProjectReorderRequest(BaseModel):
+    orders: list[ProjectReorderItem]
+
+
 class ModelConfigUpdate(BaseModel):
     """One editable model entry as submitted by the settings UI.
 

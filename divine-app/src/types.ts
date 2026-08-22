@@ -11,6 +11,10 @@ export interface Project {
   last_activity?: string | null;
   /** 项目下所有会话累计消耗的 token */
   token_total?: number;
+  /** 排序顺序，数值越小越靠前 */
+  sort_order?: number;
+  /** 是否置顶 */
+  pinned?: boolean | number;
 }
 
 export interface Session {

@@ -50,7 +50,7 @@ def list_projects() -> list[dict[str, Any]]:
             "FROM projects p "
             "LEFT JOIN sessions s ON s.project_id = p.id "
             "LEFT JOIN token_usage u ON u.session_id = s.id "
-            "GROUP BY p.id ORDER BY p.updated_at DESC"
+            "GROUP BY p.id ORDER BY p.pinned DESC, p.sort_order ASC, p.updated_at DESC"
         ).fetchall()
     return [dict(row) for row in rows]
 
@@ -82,4 +82,46 @@ def delete_project(project_id: str) -> None:
     with closing(_connect()) as conn:
         conn.execute("DELETE FROM sessions WHERE project_id = ?", (project_id,))
         conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        conn.commit()
+
+
+def update_project_order(project_id: str, sort_order: int) -> dict[str, Any]:
+    """Update a project's sort order."""
+    project = get_project(project_id)
+    if not project:
+        raise KeyError(project_id)
+    with closing(_connect()) as conn:
+        conn.execute(
+            "UPDATE projects SET sort_order = ?, updated_at = ? WHERE id = ?",
+            (sort_order, _now(), project_id),
+        )
+        conn.commit()
+    return get_project(project_id)
+
+
+def pin_project(project_id: str, pinned: bool) -> dict[str, Any]:
+    """Pin or unpin a project. Pinned projects appear at the top."""
+    project = get_project(project_id)
+    if not project:
+        raise KeyError(project_id)
+    with closing(_connect()) as conn:
+        conn.execute(
+            "UPDATE projects SET pinned = ?, updated_at = ? WHERE id = ?",
+            (1 if pinned else 0, _now(), project_id),
+        )
+        conn.commit()
+    return get_project(project_id)
+
+
+def reorder_projects(project_orders: list[dict[str, Any]]) -> None:
+    """Batch update sort orders for multiple projects."""
+    with closing(_connect()) as conn:
+        for item in project_orders:
+            project_id = item.get("id")
+            sort_order = item.get("sort_order", 0)
+            if project_id:
+                conn.execute(
+                    "UPDATE projects SET sort_order = ?, updated_at = ? WHERE id = ?",
+                    (sort_order, _now(), project_id),
+                )
         conn.commit()

@@ -248,6 +248,24 @@
   font-family: var(--font-mono);
   font-size: 12px;
 }
+.project-action-divider {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--color-border);
+}
+.project-action-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.project-action-item:disabled:hover {
+  background: transparent;
+}
+.project-action-delete {
+  color: var(--color-error, #ef4444);
+}
+.project-action-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
 .project-item:hover .project-actions,
 .project-item:focus-within .project-actions,
 .project-item.action-open .project-actions {

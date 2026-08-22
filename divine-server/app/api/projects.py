@@ -6,7 +6,13 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 
 from .. import db
-from ..schemas import ProjectCreate, ProjectUpdate
+from ..schemas import (
+    ProjectCreate,
+    ProjectUpdate,
+    ProjectOrderUpdate,
+    ProjectPinUpdate,
+    ProjectReorderRequest,
+)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 logger = logging.getLogger("divine.projects")
@@ -115,3 +121,40 @@ def delete_project(project_id: str):
         raise HTTPException(status_code=404, detail="项目不存在")
     db.delete_project(project_id)
     logger.info("project deleted id=%s name=%s", project_id, project["name"])
+
+
+@router.patch("/{project_id}/order")
+def update_project_order(project_id: str, body: ProjectOrderUpdate):
+    """Update a project's sort order."""
+    try:
+        project = db.update_project_order(project_id, body.sort_order)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    logger.info(
+        "project order updated id=%s sort_order=%s",
+        project_id,
+        body.sort_order,
+    )
+    return project
+
+
+@router.patch("/{project_id}/pin")
+def pin_project(project_id: str, body: ProjectPinUpdate):
+    """Pin or unpin a project."""
+    try:
+        project = db.pin_project(project_id, body.pinned)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    logger.info(
+        "project pin updated id=%s pinned=%s",
+        project_id,
+        body.pinned,
+    )
+    return project
+
+
+@router.post("/reorder", status_code=204)
+def reorder_projects(body: ProjectReorderRequest):
+    """Batch update sort orders for multiple projects."""
+    db.reorder_projects([item.model_dump() for item in body.orders])
+    logger.info("projects reordered count=%s", len(body.orders))

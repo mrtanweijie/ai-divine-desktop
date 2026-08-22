@@ -1069,6 +1069,7 @@ export default function ChatPage() {
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenTasks={() => openView("tasks")}
           onOpenSkills={() => openView("skills")}
+          onRefreshProjects={refreshProjects}
           activeView={tasksOpen ? "tasks" : skillsOpen ? "skills" : "chat"}
         />
       </Flex>

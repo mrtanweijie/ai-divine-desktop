@@ -203,11 +203,17 @@
     "settings": "设置",
     "skills": "技能",
     "titleLabel": "会话标题",
-    "session.expandMore": "展开其余 {{count}} 个对话",
-    "session.collapse": "收起",
+    "expandMore": "展开其余 {{count}} 个对话",
+    "collapse": "收起",
     "tokenUsageTotal": "本会话累计消耗 {{total}} tokens（输入 {{input}} · 输出 {{output}} · 共 {{turns}} 轮）",
     "tokenUsageShort": "{{value}} tokens",
-    "projectTokenTotal": "累计 {{value}} tokens"
+    "projectTokenTotal": "累计 {{value}} tokens",
+    "pinProject": "置顶项目",
+    "unpinProject": "取消置顶",
+    "pin": "置顶",
+    "unpin": "取消",
+    "moveUp": "上移",
+    "moveDown": "下移"
   },
   "settings": {
     "addModel": "添加模型",

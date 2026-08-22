@@ -152,6 +152,32 @@ export function deleteProject(id: string): Promise<void> {
   return request(`/projects/${id}`, { method: "DELETE" });
 }
 
+export function updateProjectOrder(
+  id: string,
+  sortOrder: number
+): Promise<Project> {
+  return request(`/projects/${id}/order`, {
+    method: "PATCH",
+    body: JSON.stringify({ sort_order: sortOrder }),
+  });
+}
+
+export function pinProject(id: string, pinned: boolean): Promise<Project> {
+  return request(`/projects/${id}/pin`, {
+    method: "PATCH",
+    body: JSON.stringify({ pinned }),
+  });
+}
+
+export function reorderProjects(
+  orders: { id: string; sort_order: number }[]
+): Promise<void> {
+  return request("/projects/reorder", {
+    method: "POST",
+    body: JSON.stringify({ orders }),
+  });
+}
+
 export function exportSession(
   id: string,
   format: "markdown" | "text" | "pdf",

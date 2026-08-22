@@ -13,6 +13,8 @@ import {
   MessageSquare,
   MoreHorizontal,
   Pencil,
+  Pin,
+  PinOff,
   Plus,
   Settings,
   Trash2,
@@ -24,6 +26,7 @@ import type { Project, Session } from "@/types";
 import { formatTime, formatTokens } from "@/utils";
 import { openFolder } from "@/services/tauri";
 import { ProjectIcon } from "@/pages/chat/components/ProjectIcon";
+import { pinProject } from "@/services/api";
 
 interface ProjectListProps {
   projects: Project[];
@@ -40,6 +43,7 @@ interface ProjectListProps {
   onSelectSession: (id: string) => void;
   onRenameSession: (id: string, title: string) => void;
   onDeleteSession: (id: string) => void;
+  onRefreshProjects: () => void;
 }
 
 export function ProjectList({
@@ -57,6 +61,7 @@ export function ProjectList({
   onSelectSession,
   onRenameSession,
   onDeleteSession,
+  onRefreshProjects,
 }: ProjectListProps) {
   const { t } = useTranslation();
   return (
@@ -98,6 +103,7 @@ export function ProjectList({
             onSelectSession={onSelectSession}
             onRenameSession={onRenameSession}
             onDeleteSession={onDeleteSession}
+            onRefreshProjects={onRefreshProjects}
           />
         ))}
       </div>
@@ -119,6 +125,7 @@ interface ProjectBranchProps {
   onSelectSession: (id: string) => void;
   onRenameSession: (id: string, title: string) => void;
   onDeleteSession: (id: string) => void;
+  onRefreshProjects: () => void;
 }
 
 function ProjectBranch({
@@ -135,6 +142,7 @@ function ProjectBranch({
   onSelectSession,
   onRenameSession,
   onDeleteSession,
+  onRefreshProjects,
 }: ProjectBranchProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -154,6 +162,7 @@ function ProjectBranch({
         onNewConversation={onNewConversation}
         onRename={onRenameProject}
         onDelete={onDeleteProject}
+        onRefreshProjects={onRefreshProjects}
       />
       <div className="project-sessions">
         {projectSessions.length === 0 ? (
@@ -223,6 +232,7 @@ interface ProjectItemProps {
   onNewConversation: (id: string) => void;
   onRename: (project: Project) => void;
   onDelete: (id: string) => void;
+  onRefreshProjects: () => void;
 }
 
 function ProjectItem({
@@ -232,6 +242,7 @@ function ProjectItem({
   onNewConversation,
   onRename,
   onDelete,
+  onRefreshProjects,
 }: ProjectItemProps) {
   const [actionOpen, setActionOpen] = useState(false);
 
@@ -271,6 +282,7 @@ function ProjectItem({
           onRename={() => onRename(project)}
           onDelete={() => onDelete(project.id)}
           onOpenChange={setActionOpen}
+          onRefreshProjects={onRefreshProjects}
         />
       </div>
     </Flex>
@@ -283,6 +295,7 @@ interface ProjectActionMenuProps {
   onRename: () => void;
   onDelete: () => void;
   onOpenChange: (open: boolean) => void;
+  onRefreshProjects: () => void;
 }
 
 function ProjectActionMenu({
@@ -291,6 +304,7 @@ function ProjectActionMenu({
   onRename,
   onDelete,
   onOpenChange,
+  onRefreshProjects,
 }: ProjectActionMenuProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -348,6 +362,15 @@ function ProjectActionMenu({
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [open]);
+
+  const handlePin = async () => {
+    try {
+      await pinProject(project.id, !project.pinned);
+      onRefreshProjects();
+    } catch (error) {
+      console.error("Failed to pin/unpin project:", error);
+    }
+  };
 
   return (
     <>
@@ -443,6 +466,24 @@ function ProjectActionMenu({
               onClick={(event) => {
                 event.stopPropagation();
                 setOpen(false);
+                void handlePin();
+              }}
+              title={project.pinned ? t("session.unpinProject", "取消置顶") : t("session.pinProject", "置顶项目")}
+            >
+              {project.pinned ? <PinOff size={13} /> : <Pin size={13} />}
+              <span>
+                {project.pinned
+                  ? t("session.unpinProject", "取消置顶")
+                  : t("session.pinProject", "置顶项目")}
+              </span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="project-action-item"
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpen(false);
                 onRename();
               }}
             >
@@ -452,7 +493,7 @@ function ProjectActionMenu({
             <button
               type="button"
               role="menuitem"
-              className="project-action-item"
+              className="project-action-item project-action-delete"
               onClick={(event) => {
                 event.stopPropagation();
                 setOpen(false);

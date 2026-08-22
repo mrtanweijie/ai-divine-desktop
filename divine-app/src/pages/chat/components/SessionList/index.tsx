@@ -29,6 +29,7 @@ interface SessionListProps {
   onOpenSettings: () => void;
   onOpenTasks: () => void;
   onOpenSkills: () => void;
+  onRefreshProjects: () => void;
   activeView: "chat" | "tasks" | "skills";
 }
 
@@ -51,6 +52,7 @@ export function SessionList({
   onOpenSettings,
   onOpenTasks,
   onOpenSkills,
+  onRefreshProjects,
   activeView,
 }: SessionListProps) {
   const { t } = useTranslation();
@@ -134,6 +136,7 @@ export function SessionList({
           onSelectSession={onSelect}
           onRenameSession={onRename}
           onDeleteSession={onDelete}
+          onRefreshProjects={onRefreshProjects}
         />
 
         <div className="settings-footer">

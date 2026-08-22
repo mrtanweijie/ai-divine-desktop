@@ -188,6 +188,14 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE projects ADD COLUMN icon TEXT NOT NULL DEFAULT 'folder'"
             )
+        if "sort_order" not in project_columns:
+            conn.execute(
+                "ALTER TABLE projects ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+            )
+        if "pinned" not in project_columns:
+            conn.execute(
+                "ALTER TABLE projects ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0"
+            )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_project "
             "ON sessions(project_id)"

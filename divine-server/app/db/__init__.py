@@ -48,7 +48,10 @@ from .projects import (
     delete_project,
     get_project,
     list_projects,
+    pin_project,
+    reorder_projects,
     update_project,
+    update_project_order,
 )
 from .scheduled_tasks import (
     create_scheduled_task,
