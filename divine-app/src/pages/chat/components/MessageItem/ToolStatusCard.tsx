@@ -22,6 +22,12 @@ import {
   FolderOpen,
   FolderSearch2,
   FolderTree,
+  GitBranch,
+  GitBranchMinus,
+  GitCommit,
+  GitCommitHorizontal,
+  GitCompareArrows,
+  GitGraph,
   Globe,
   Group,
   Image,
@@ -104,6 +110,18 @@ export function ToolStatusCard({
   const icon =
     tool.tool === "edit_files" ? (
       <Group size={16} />
+    ) : tool.tool === "run_subagents" ? (
+      <GitGraph size={16} />
+    ) : tool.tool === "git_status" ? (
+      <GitBranch size={16} />
+    ) : tool.tool === "git_diff" ? (
+      <GitCompareArrows size={16} />
+    ) : tool.tool === "git_log" ? (
+      <GitCommitHorizontal size={16} />
+    ) : tool.tool === "git_commit" ? (
+      <GitCommit size={16} />
+    ) : tool.tool === "git_revert" ? (
+      <GitBranchMinus size={16} />
     ) : tool.tool === "draw_svg" ? (
       <FileBox size={16} />
     ) : tool.tool === "describe_svg" || tool.tool === "edit_svg" ? (
