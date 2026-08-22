@@ -42,6 +42,7 @@ _MULTIMODAL_MODEL_PREFIXES = [
     "glm-4.6v",
     "glm-4v",
     "qwen-vl",
+    "minimax-",
 ]
 
 
@@ -164,12 +165,16 @@ def _resolve_multimodal(settings: dict) -> tuple[str, str, str] | None:
 
 def _resolve_vision_provider(
     settings: dict, model_id: str | None
-) -> tuple[str, str, str] | None:
+) -> tuple[str, str, str, bool] | None:
     """Pick the provider for image understanding, in priority order:
 
     1. The session's actual model (from ``model_id``) if it is multimodal;
     2. Any configured multimodal entry (active first, then in order);
     3. None (caller falls back to GLM).
+
+    Returns ``(api_key, base_url, model, is_session_model)`` — the last flag
+    tells the caller whether the model is the current session's model or a
+    fallback entry from the settings, so error messages can be accurate.
     """
     if model_id:
         entry = _resolve_by_model_id(settings, model_id)
@@ -180,8 +185,12 @@ def _resolve_vision_provider(
                 str(entry.get("api_key")),
                 str(entry.get("base_url") or ""),
                 str(entry.get("model") or ""),
+                True,
             )
-    return _resolve_multimodal(settings)
+    resolved = _resolve_multimodal(settings)
+    if resolved:
+        return (*resolved, False)
+    return None
 
 
 def _resolve_glm(settings: dict) -> tuple[str, str, str] | None:
@@ -278,6 +287,13 @@ def _vision_suggestions(
     return suggestions
 
 
+def _model_label(is_session_model: bool, name: str) -> str:
+    """报错文案里的模型归属：是当前会话模型还是配置里回退的模型。"""
+    if is_session_model:
+        return f"当前会话模型（{name}）"
+    return f"配置里已尝试的识别模型（{name}）"
+
+
 def _recognize(
     settings: dict,
     model_id: str | None,
@@ -310,9 +326,9 @@ def _recognize(
                     except Exception as session_exc:
                         suggestions = _vision_suggestions(settings, model_id)
                         _print_err(
-                            "GLM 免费模型繁忙，且当前会话模型（"
-                            + session_mm[2]
-                            + "）无法识别图片："
+                            "GLM 免费模型繁忙，且"
+                            + _model_label(session_mm[3], session_mm[2])
+                            + "无法识别图片："
                             + str(session_exc)
                             + "。检测到配置里以下模型支持图片识别，是否需要切换？",
                             suggestions,
@@ -355,7 +371,7 @@ def _recognize(
         except Exception as exc:
             suggestions = _vision_suggestions(settings, model_id)
             _print_err(
-                f"当前会话模型（{session_mm[2]}）无法识别图片：{exc}。"
+                f"{_model_label(session_mm[3], session_mm[2])}无法识别图片：{exc}。"
                 + (
                     "配置里以下模型支持图片识别，是否需要切换？"
                     if suggestions
