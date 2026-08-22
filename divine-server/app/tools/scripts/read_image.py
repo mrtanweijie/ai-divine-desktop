@@ -231,8 +231,151 @@ def _print_ok(file_name: str, filepath: str, content: str) -> None:
     )
 
 
-def _print_err(message: str) -> None:
-    print(json.dumps({"success": False, "message": message}, ensure_ascii=False))
+def _print_err(message: str, suggested_models: list[dict] | None = None) -> None:
+    payload: dict[str, Any] = {
+        "success": False,
+        "message": message,
+    }
+    if suggested_models:
+        payload["suggested_models"] = suggested_models
+    print(json.dumps(payload, ensure_ascii=False))
+
+
+def _vision_suggestions(
+    settings: dict, model_id: str | None
+) -> list[dict]:
+    """配置里其它支持图片识别的模型（排除当前 model_id 指向的条目），
+    供"是否切换模型"的询问使用。"""
+    provider_labels = {
+        "deepseek": "DeepSeek",
+        "xiaomi": "Xiaomi (MiMo)",
+        "glm": "GLM (智谱)",
+        "openai": "OpenAI",
+        "minimax": "MiniMax",
+        "qwen": "Qwen (通义千问)",
+        "custom": "自定义",
+    }
+    current_base = ""
+    if model_id:
+        current_base, _, _ = model_id.partition("::")
+    suggestions: list[dict] = []
+    for entry in _model_entries(settings):
+        if not entry.get("api_key"):
+            continue
+        if str(entry.get("id") or "") == current_base:
+            continue
+        model_name = str(entry.get("model") or "")
+        if _is_multimodal_model(model_name):
+            vendor = str(entry.get("vendor") or "")
+            provider_label = provider_labels.get(vendor, vendor or "自定义")
+            suggestions.append(
+                {
+                    "id": f"{entry.get('id')}::{model_name}",
+                    "name": model_name,
+                    "provider": provider_label,
+                }
+            )
+    return suggestions
+
+
+def _recognize(
+    settings: dict,
+    model_id: str | None,
+    img_ref: str,
+    file_name: str,
+    filepath: str,
+) -> None:
+    """图片识别：GLM 免费模型优先，繁忙时用会话模型，
+    会话模型不支持图片则列出配置里其它支持图片的模型，询问用户是否切换。"""
+    glm = _resolve_glm(settings)  # (api_key, base_url, model)
+    session_mm = _resolve_vision_provider(settings, model_id)
+
+    # 1) 优先 GLM 免费模型（免费且稳定支持图片）
+    if glm is not None:
+        try:
+            content = _run_multimodal(glm[0], glm[1], glm[2], img_ref)
+            _print_ok(file_name, filepath, content)
+            return
+        except Exception as exc:
+            detail = str(exc)
+            if "429" in detail or "1305" in detail:
+                # GLM 繁忙 → 回退会话模型
+                if session_mm is not None:
+                    try:
+                        content = _run_multimodal(
+                            session_mm[0], session_mm[1], session_mm[2], img_ref
+                        )
+                        _print_ok(file_name, filepath, content)
+                        return
+                    except Exception as session_exc:
+                        suggestions = _vision_suggestions(settings, model_id)
+                        _print_err(
+                            "GLM 免费模型繁忙，且当前会话模型（"
+                            + session_mm[2]
+                            + "）无法识别图片："
+                            + str(session_exc)
+                            + "。检测到配置里以下模型支持图片识别，是否需要切换？",
+                            suggestions,
+                        )
+                        return
+                suggestions = _vision_suggestions(settings, model_id)
+                _print_err(
+                    "GLM 免费模型当前繁忙，已自动重试仍失败，请稍后再试；"
+                    "如持续限流，可切换模型 glm-4.6v-flashx。"
+                    + (
+                        "配置里以下模型支持图片识别，是否需要切换？"
+                        if suggestions
+                        else ""
+                    ),
+                    suggestions,
+                )
+                return
+            # GLM 其它错误 → 同样尝试会话模型后报错
+            if session_mm is not None:
+                try:
+                    content = _run_multimodal(
+                        session_mm[0], session_mm[1], session_mm[2], img_ref
+                    )
+                    _print_ok(file_name, filepath, content)
+                    return
+                except Exception:
+                    pass
+            suggestions = _vision_suggestions(settings, model_id)
+            _print_err(f"GLM 免费模型调用失败: {detail}", suggestions)
+            return
+
+    # 2) 无 GLM key → 用会话模型（若支持图片）
+    if session_mm is not None:
+        try:
+            content = _run_multimodal(
+                session_mm[0], session_mm[1], session_mm[2], img_ref
+            )
+            _print_ok(file_name, filepath, content)
+            return
+        except Exception as exc:
+            suggestions = _vision_suggestions(settings, model_id)
+            _print_err(
+                f"当前会话模型（{session_mm[2]}）无法识别图片：{exc}。"
+                + (
+                    "配置里以下模型支持图片识别，是否需要切换？"
+                    if suggestions
+                    else ""
+                ),
+                suggestions,
+            )
+            return
+
+    # 3) 都没有 → 报错并给出建议
+    suggestions = _vision_suggestions(settings, model_id)
+    _print_err(
+        "未配置图片识别模型：请配置 GLM API Key（免费）"
+        + (
+            "，或切换到以下支持图片识别的模型？"
+            if suggestions
+            else "或支持多模态的模型。"
+        ),
+        suggestions,
+    )
 
 
 def _run_multimodal(api_key: str, base_url: str, model: str, img_ref: str) -> str:
@@ -256,11 +399,6 @@ def main() -> None:
 
     settings = settings_store.load()
 
-    # 优先使用当前会话实际使用的模型（若支持多模态），
-    # 其次已配置的多模态条目（active 优先），最终回退 GLM 免费模型。
-    multimodal = _resolve_vision_provider(settings, model_id)
-    glm = _resolve_glm(settings)
-
     if url:
         if not (url.startswith("http://") or url.startswith("https://")):
             _print_err("图片链接必须以 http:// 或 https:// 开头")
@@ -272,33 +410,7 @@ def main() -> None:
                 + " 结尾），已跳过图片识别；如需分析网页内容请使用其他方式。"
             )
             return
-        try:
-            if multimodal is not None:
-                content = _run_multimodal(
-                    multimodal[0], multimodal[1], multimodal[2], url
-                )
-            elif glm is not None:
-                content = _run_multimodal(glm[0], glm[1], glm[2], url)
-            else:
-                _print_err(
-                    "未配置视觉模型 API Key：请在设置中配置支持多模态的模型（如 MiMo、GLM、GPT-4V 等）"
-                )
-                return
-            _print_ok(url.rsplit("/", 1)[-1] or url, url, content)
-        except Exception as exc:  # noqa: BLE001
-            detail = str(exc)
-            if glm is not None and multimodal is None and (
-                "429" in detail or "1305" in detail
-            ):
-                _print_err(
-                    "GLM 免费模型当前繁忙，已自动重试仍失败，请稍后再试；"
-                    "如持续限流，可切换模型 glm-4.6v-flashx"
-                )
-            else:
-                provider = (
-                    "多模态模型" if multimodal is not None else "GLM"
-                )
-                _print_err(f"{provider} 调用失败: {detail}")
+        _recognize(settings, model_id, url, url.rsplit("/", 1)[-1] or url, url)
         return
 
     if not raw:
@@ -324,35 +436,10 @@ def main() -> None:
         )
         return
 
-    try:
-        mime = _IMAGE_MIME.get(path.suffix.lower(), "image/png")
-        b64 = base64.b64encode(path.read_bytes()).decode("utf-8")
-        img_ref = f"data:{mime};base64,{b64}"
-
-        if multimodal is not None:
-            content = _run_multimodal(
-                multimodal[0], multimodal[1], multimodal[2], img_ref
-            )
-        elif glm is not None:
-            content = _run_multimodal(glm[0], glm[1], glm[2], img_ref)
-        else:
-            _print_err(
-                "未配置视觉模型 API Key：请在设置中配置支持多模态的模型（如 MiMo、GLM、GPT-4V 等）"
-            )
-            return
-        _print_ok(path.name, str(path), content)
-    except Exception as exc:  # noqa: BLE001
-        detail = str(exc)
-        if glm is not None and multimodal is None and (
-            "429" in detail or "1305" in detail
-        ):
-            _print_err(
-                "GLM 免费模型当前繁忙，已自动重试仍失败，请稍后再试；"
-                "如持续限流，可切换模型 glm-4.6v-flashx"
-            )
-        else:
-            provider = "多模态模型" if multimodal is not None else "GLM"
-            _print_err(f"{provider} 调用失败: {detail}")
+    mime = _IMAGE_MIME.get(path.suffix.lower(), "image/png")
+    b64 = base64.b64encode(path.read_bytes()).decode("utf-8")
+    img_ref = f"data:{mime};base64,{b64}"
+    _recognize(settings, model_id, img_ref, path.name, str(path))
 
 
 if __name__ == "__main__":
