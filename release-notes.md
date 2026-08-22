@@ -1,5 +1,16 @@
 # Release Notes
 
+## v0.1.9
+
+- 提供方模型管理重构：按提供方（DeepSeek / Xiaomi / GLM / MiniMax / OpenAI / Qwen / 自定义）统一管理模型配置，对话框按提供方分组切换全部模型，支持自定义模型（逗号分隔去重）
+- MiMo 多模态支持：项目配置 MiMo 模型时直接使用其多模态能力
+- 图片识别优化：GLM 免费视觉模型优先，繁忙时自动回退会话模型；会话模型不支持图片时列出配置里可切换的视觉模型；修复 MiniMax 系列（M3 等）多模态识别误判
+- 图片生成工具：MiniMax image-01 文生图 / 图生图，文生图支持比例选择卡片，图生图自动读取参考图原始比例；prompt 超长先经 LLM 精简、再自动截断兜底
+- 推理模型思考过程：MiniMax-M3 / GLM-5.x 的 think 标签增量流式展示，支持折叠查看
+- Markdown 相对路径图片渲染：`![alt](images/xxx.png)` 本地图片直接显示（workspace / 输出 / 项目目录），加载失败自动隐藏
+- 工具稳定性：重复 tool_call id 自动去重（修复 MiniMax 历史消息拒绝）、工具进度回调修复、GLM-5.x 文本旗舰强制思考
+- UI 修复：启动页浅色主题背景、grep_files 工具图标
+
 ## v0.1.6
 
 - 多模型配置：模型切换、余额查询、样式拆分；支持 deepseek-v4-flash-vision-exp 视觉模型
