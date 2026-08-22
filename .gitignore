@@ -33,3 +33,5 @@ bin/
 
 # OS
 .DS_Store
+
+.pnpm-store/

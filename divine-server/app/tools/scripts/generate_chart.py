@@ -147,10 +147,6 @@ def main() -> None:
 
     chart_type = _series_type(series[0]) or "line"
     chart_title = _option_title(title, option)
-    summary = (
-        f"图表已生成：{chart_title}"
-        f"（{chart_type}，{len(series)} 个系列）"
-    )
 
     # 默认只返回 option，前端内联渲染（ECharts）；不生成 SVG 文件。
     # 只有 export_svg=true 时才生成 SVG 文件（用于导出或 PDF 嵌入）。
@@ -169,11 +165,11 @@ def main() -> None:
             json.dumps(
                 {
                     "success": True,
-                    "message": "图表已生成",
+                    "message": f"✓ {chart_title}",
                     "content": json.dumps(
                         {
                             "success": True,
-                            "message": summary,
+                            "message": f"✓ {chart_title}",
                             "file": str(chart_path),
                             "relative_file": relative_file,
                         },
@@ -198,11 +194,11 @@ def main() -> None:
             json.dumps(
                 {
                     "success": True,
-                    "message": "图表已生成",
+                    "message": f"✓ {chart_title}",
                     "content": json.dumps(
                         {
                             "success": True,
-                            "message": summary,
+                            "message": f"✓ {chart_title}",
                         },
                         ensure_ascii=False,
                     ),

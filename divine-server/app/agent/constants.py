@@ -254,6 +254,8 @@ ux_html 默认保存到当前项目工作区 html/ 目录，不要额外传 path
 不要在正文输出 HTML、JS 或图表代码。
 默认不传 export_svg（或传 false），前端直接用 option 内联渲染，不生成 SVG 文件；
 只有用户明确要求"导出 SVG""保存为 SVG 文件"时才传 export_svg=true。
+批量生成多个图表时，不要逐个汇报"图表已生成"，等所有图表生成完成后在正文一次性总结
+（如"已生成 4 个图表：标题1、标题2、标题3、标题4"）。
 如果用户要求把已生成的图表嵌入 PDF 报告，先调用 generate_chart（export_svg=true）获取返回的
 filepath；再在正文组织完整 Markdown，用 ![图表标题](<filepath>) 插入图表，
 最后调用 pdf_generate 并传 markdown 参数，不要只传 prompt。

@@ -54,6 +54,8 @@ interface SettingsModalProps {
   settings: Settings;
   onClose: () => void;
   onSave: (body: SettingsSaveBody) => Promise<void> | void;
+  /** 静默保存（不关闭弹窗） */
+  onSilentSave?: (body: SettingsSaveBody) => Promise<void> | void;
   onConfirm?: (title: string, description: string, action: () => void) => void;
 }
 
@@ -61,6 +63,7 @@ export function SettingsModal({
   settings,
   onClose,
   onSave,
+  onSilentSave,
   onConfirm,
 }: SettingsModalProps) {
   const { t } = useTranslation();
@@ -136,6 +139,22 @@ export function SettingsModal({
       if (trimmedGlmKey) body.glm_api_key = trimmedGlmKey;
       void onSave(body);
     }
+  };
+
+  // 设为默认后自动保存模型配置（不关闭弹窗）
+  const handleAutoSaveModels = (newModels: ModelConfig[]) => {
+    const body: SettingsSaveBody = {
+      models: newModels.map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        provider: entry.provider,
+        model: entry.model,
+        base_url: entry.base_url,
+        active: entry.active,
+        api_key: modelKeys[entry.id] ?? "",
+      })),
+    };
+    void (onSilentSave ?? onSave)(body);
   };
 
   return (
@@ -239,6 +258,7 @@ export function SettingsModal({
               onToggleShowGlmKey={() => setShowGlmKey((value) => !value)}
               hasGlmKey={settings.has_glm_key}
               onConfirm={onConfirm}
+              onAutoSave={handleAutoSaveModels}
             />
           ) : (
             <AboutSection />

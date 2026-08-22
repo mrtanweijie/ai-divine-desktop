@@ -764,6 +764,18 @@ export default function ChatPage() {
     [refreshWorkspace, selectedId]
   );
 
+  // 静默保存（不关闭弹窗）：用于设为默认等即时生效的操作
+  const handleSilentSave = useCallback(
+    async (body: SettingsSaveBody) => {
+      const updated = await updateSettings(body);
+      setSettings(updated);
+      const activeId = updated.models?.find((entry) => entry.active)?.id ?? null;
+      const remembered = selectedId ? getSessionModelId(selectedId) : null;
+      setComposerModelId(remembered ?? activeId);
+    },
+    [selectedId]
+  );
+
   const handleModelChange = useCallback(
     (modelId: string) => {
       setComposerModelId(modelId);
@@ -1183,6 +1195,7 @@ export default function ChatPage() {
           settings={settings}
           onClose={() => setSettingsOpen(false)}
           onSave={(body) => void handleSettingsSave(body)}
+          onSilentSave={(body) => void handleSilentSave(body)}
           onConfirm={(title, description, action) =>
             setConfirmState({ title, description, action })
           }

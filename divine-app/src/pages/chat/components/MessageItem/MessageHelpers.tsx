@@ -28,6 +28,10 @@ export function chartOptionFromResult(
   result?: ToolEvent["result"]
 ): Record<string, unknown> | null {
   const data = result?.data;
+  // export_svg=true 时只显示 SVG 文件，不渲染内联图表
+  if (data && data.export_svg === true) {
+    return null;
+  }
   if (data && data.option && typeof data.option === "object") {
     return data.option as Record<string, unknown>;
   }

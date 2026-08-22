@@ -28,6 +28,8 @@ interface SettingsModelSectionProps {
   hasGlmKey: boolean;
   /** 弹窗确认删除；未提供时直接删除 */
   onConfirm?: (title: string, description: string, action: () => void) => void;
+  /** 设为默认后自动保存 */
+  onAutoSave?: (models: ModelConfig[]) => void;
 }
 
 export function ModelSection({
@@ -43,6 +45,7 @@ export function ModelSection({
   onToggleShowGlmKey,
   hasGlmKey,
   onConfirm,
+  onAutoSave,
 }: SettingsModelSectionProps) {
   const { t } = useTranslation();
   // 列表默认收起，仅展示模型名；点击卡片展开编辑。只有一个模型时默认展开。
@@ -120,12 +123,12 @@ export function ModelSection({
   };
 
   const setActive = (id: string) => {
-    onModelsChange(
-      models.map((entry) => ({
-        ...entry,
-        active: entry.id === id,
-      }))
-    );
+    const newModels = models.map((entry) => ({
+      ...entry,
+      active: entry.id === id,
+    }));
+    onModelsChange(newModels);
+    onAutoSave?.(newModels);
   };
 
   const toggleExpanded = (id: string) => {

@@ -6,6 +6,7 @@ import {
   BookAudio,
   BookMarked,
   BookSearch,
+  Box,
   Calculator,
   CalendarClock,
   CalendarDays,
@@ -29,6 +30,7 @@ import {
   Link,
   ListChecks,
   Orbit,
+  Package,
   PenTool,
   Presentation,
   SquareKanban,
@@ -154,6 +156,10 @@ export function ToolStatusCard({
       tool.tool.includes("ppt") ||
       tool.tool.includes("slides") ? (
       <Presentation size={16} />
+    ) : tool.tool === "web_fetch_batch" ? (
+      <Package size={16} />
+    ) : tool.tool === "web_fetch" ? (
+      <Box size={16} />
     ) : tool.tool.includes("web") ||
       tool.tool.includes("fetch") ||
       tool.tool.includes("browse") ||
