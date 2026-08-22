@@ -71,6 +71,7 @@ def main() -> None:
     params = data.get("params") or {}
     option = params.get("option")
     title = str(params.get("title") or "").strip()
+    export_svg = bool(params.get("export_svg"))
 
     if not isinstance(option, dict):
         print(
@@ -150,43 +151,71 @@ def main() -> None:
         f"图表已生成：{chart_title}"
         f"（{chart_type}，{len(series)} 个系列）"
     )
-    output_root = Path(data.get("output_dir") or data.get("workspace")).resolve()
-    chart_dir = output_root / "charts"
-    chart_dir.mkdir(parents=True, exist_ok=True)
-    safe_title = re.sub(r"[\\/:*?\"<>|\s]+", "_", chart_title).strip("._")[:60]
-    chart_path = chart_dir / f"{safe_title or 'chart'}-{uuid.uuid4().hex[:8]}.svg"
-    chart_path.write_text(
-        render_chart_svg(option, chart_title),
-        encoding="utf-8",
-    )
-    relative_file = f"charts/{chart_path.name}"
-    print(
-        json.dumps(
-            {
-                "success": True,
-                "message": "图表已生成",
-                "content": json.dumps(
-                    {
-                        "success": True,
-                        "message": summary,
-                        "file": str(chart_path),
-                        "relative_file": relative_file,
-                    },
-                    ensure_ascii=False,
-                ),
-                "file_name": chart_path.name,
-                "filepath": str(chart_path),
-                "data": {
-                    "title": chart_title,
-                    "chart_type": chart_type,
-                    "option": option,
-                    "filepath": str(chart_path),
-                    "relative_file": relative_file,
-                },
-            },
-            ensure_ascii=False,
+
+    # 默认只返回 option，前端内联渲染（ECharts）；不生成 SVG 文件。
+    # 只有 export_svg=true 时才生成 SVG 文件（用于导出或 PDF 嵌入）。
+    if export_svg:
+        output_root = Path(data.get("output_dir") or data.get("workspace")).resolve()
+        chart_dir = output_root / "charts"
+        chart_dir.mkdir(parents=True, exist_ok=True)
+        safe_title = re.sub(r"[\\/:*?\"<>|\s]+", "_", chart_title).strip("._")[:60]
+        chart_path = chart_dir / f"{safe_title or 'chart'}-{uuid.uuid4().hex[:8]}.svg"
+        chart_path.write_text(
+            render_chart_svg(option, chart_title),
+            encoding="utf-8",
         )
-    )
+        relative_file = f"charts/{chart_path.name}"
+        print(
+            json.dumps(
+                {
+                    "success": True,
+                    "message": "图表已生成",
+                    "content": json.dumps(
+                        {
+                            "success": True,
+                            "message": summary,
+                            "file": str(chart_path),
+                            "relative_file": relative_file,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    "file_name": chart_path.name,
+                    "filepath": str(chart_path),
+                    "data": {
+                        "title": chart_title,
+                        "chart_type": chart_type,
+                        "option": option,
+                        "filepath": str(chart_path),
+                        "relative_file": relative_file,
+                        "export_svg": True,
+                    },
+                },
+                ensure_ascii=False,
+            )
+        )
+    else:
+        print(
+            json.dumps(
+                {
+                    "success": True,
+                    "message": "图表已生成",
+                    "content": json.dumps(
+                        {
+                            "success": True,
+                            "message": summary,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    "data": {
+                        "title": chart_title,
+                        "chart_type": chart_type,
+                        "option": option,
+                        "export_svg": False,
+                    },
+                },
+                ensure_ascii=False,
+            )
+        )
 
 
 if __name__ == "__main__":
