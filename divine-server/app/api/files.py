@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from ..config import output_dir
+from ..config import output_dir, projects_root, workspace_dir
 from ..pdf_preview import (
     MAX_PDF_PREVIEW_BYTES,
     MAX_PDF_PREVIEW_PAGES,
@@ -14,6 +14,59 @@ from ..pdf_preview import (
 )
 
 router = APIRouter(prefix="/files", tags=["files"])
+
+_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+
+
+def _resolve_image_path(raw: str) -> Path:
+    """把 Markdown 里的图片路径解析为本地文件。
+
+    支持绝对路径、相对路径（如 images/xxx.png）。相对路径依次从
+    workspace / output / 所有项目目录（~/Documents/Divine/*）解析，
+    保证项目工作区里生成的图片也能被读取。只允许读取这些目录内的图片。
+    """
+    path = Path(raw)
+    if not path.is_absolute():
+        roots: list[Path] = [
+            workspace_dir().resolve(),
+            output_dir().resolve(),
+        ]
+        projects = projects_root().resolve()
+        if projects.exists():
+            roots.extend(
+                project.resolve()
+                for project in projects.iterdir()
+                if project.is_dir()
+            )
+        for root in roots:
+            candidate = (root / path).resolve()
+            if candidate.is_file():
+                path = candidate
+                break
+    path = path.expanduser().resolve()
+    if path.suffix.lower() not in _IMAGE_SUFFIXES:
+        raise HTTPException(status_code=400, detail="不是支持的图片格式")
+    allowed = [
+        workspace_dir().resolve(),
+        output_dir().resolve(),
+        projects_root().resolve(),
+    ]
+    if not any(str(path).startswith(str(root)) for root in allowed):
+        raise HTTPException(status_code=400, detail="路径越界")
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="图片不存在")
+    return path
+
+
+@router.get("/image")
+def image_file(path: str):
+    """读取 Markdown 中引用的本地图片，供前端 <img> 渲染。"""
+    target = _resolve_image_path(path)
+    # 图片文件不会变化，缓存一天：前端流式渲染重挂载 <img> 时
+    # 直接命中缓存，避免反复请求导致页面闪烁
+    return FileResponse(
+        target, headers={"Cache-Control": "public, max-age=86400"}
+    )
 
 
 class PdfPreviewRequest(BaseModel):

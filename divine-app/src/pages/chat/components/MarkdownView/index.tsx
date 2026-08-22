@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/Toast";
 import { isTauri, openUrl } from "@/services/tauri";
 import { copyText } from "@/utils";
+import { API_BASE } from "@/services/request";
 import { HighlightedCode } from "./HighlightedCode";
 import { languageLabel } from "./language";
 import { MermaidBlock } from "./MermaidBlock";
@@ -15,6 +16,18 @@ import {
   ChoiceBlock,
   parseOptionsBlock,
 } from "@/pages/chat/components/ChoiceBlock";
+
+/**
+ * 把 Markdown 图片的 src 解析为可渲染的 URL：
+ * - http(s)/data: 直接用
+ * - 相对路径 / 绝对路径（如 images/xxx.png）→ 转成后端 /files/image 接口，
+ *   由后端从 workspace / output 目录读取并返回图片。
+ */
+function resolveImageSrc(src?: string): string | null {
+  if (!src) return null;
+  if (/^(https?:\/\/|data:)/.test(src)) return src;
+  return `${API_BASE}/files/image?path=${encodeURIComponent(src)}`;
+}
 
 interface MarkdownViewProps {
   content: string;
@@ -177,6 +190,25 @@ function buildComponents(
         >
           {props.children}
         </a>
+      );
+    },
+    img(props: any) {
+      const { src, alt, ...rest } = props;
+      const resolved = resolveImageSrc(src);
+      if (!resolved) return null;
+      return (
+        <img
+          src={resolved}
+          alt={alt || ""}
+          className="markdown-image"
+          loading="eager"
+          // 加载失败时隐藏而不是显示裂图，避免页面反复闪烁
+          onError={(event) => {
+            const element = event.currentTarget;
+            element.style.display = "none";
+          }}
+          {...rest}
+        />
       );
     },
   };
