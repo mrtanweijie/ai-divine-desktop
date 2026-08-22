@@ -349,4 +349,4 @@ _NO_PLAN_TOOLS = {
     "bg_kill",
 }
 
-MAX_TOOL_TURNS = 64
+MAX_TOOL_TURNS = 96
