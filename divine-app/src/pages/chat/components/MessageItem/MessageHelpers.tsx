@@ -42,6 +42,7 @@ export function chartOptionFromResult(
 }
 
 export const GROUPABLE_TOOLS = new Set([
+  "web_search",
   "web_fetch",
   "web_fetch_batch",
   "svg_to_png",
@@ -121,7 +122,11 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
       files,
       commands,
       message:
-        tool.tool === "web_fetch" || tool.tool === "web_fetch_batch"
+        tool.tool === "web_search"
+          ? i18next.t("tool.completedSearches", "已完成 {{count}} 次搜索", {
+              count,
+            })
+          : tool.tool === "web_fetch" || tool.tool === "web_fetch_batch"
           ? i18next.t("tool.fetchedSources", "已抓取 {{count}} 个数据源", {
               count,
             })

@@ -437,6 +437,7 @@
     "commandDone": "命令執行完成",
     "completedCalculations": "已完成 {{count}} 次計算",
     "completedCalculations_other": "已完成 {{count}} 次計算",
+    "completedSearches": "已完成 {{count}} 次搜尋",
     "confirmAllMigrate": "確認全部遷移",
     "confirmInstall": "確認安裝",
     "confirmMigrate": "確認遷移",

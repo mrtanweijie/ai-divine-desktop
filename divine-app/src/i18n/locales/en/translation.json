@@ -444,6 +444,8 @@
     "commandDone": "Command finished",
     "completedCalculations_one": "Completed {{count}} calculation",
     "completedCalculations_other": "Completed {{count}} calculations",
+    "completedSearches_one": "Completed {{count}} search",
+    "completedSearches_other": "Completed {{count}} searches",
     "confirmAllMigrate": "Migrate all",
     "confirmInstall": "Install",
     "confirmMigrate": "Migrate",

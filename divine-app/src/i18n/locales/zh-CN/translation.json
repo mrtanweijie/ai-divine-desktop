@@ -432,6 +432,7 @@
     "clipboardWritten": "已写入剪贴板",
     "commandDone": "命令执行完成",
     "completedCalculations": "已完成 {{count}} 次计算",
+    "completedSearches": "已完成 {{count}} 次搜索",
     "confirmAllMigrate": "确认全部迁移",
     "confirmInstall": "确认安装",
     "confirmMigrate": "确认迁移",

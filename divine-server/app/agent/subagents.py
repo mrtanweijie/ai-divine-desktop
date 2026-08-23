@@ -39,6 +39,7 @@ from langchain.agents.middleware import (
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.errors import GraphRecursionError
 
 from .. import db
 from ..localization import language_instruction
@@ -53,7 +54,15 @@ logger = logging.getLogger("divine.agent.subagents")
 
 MAX_SUBAGENTS = 8
 MAX_SUBAGENT_PARALLEL = 4
-SUBAGENT_MAX_TOOL_TURNS = 16
+# 调研/分析类子任务（如多来源网页调研）需要较多模型回合；
+# 16 次对“国内AI服务定价调研”这类多厂商任务不够，24 次仍远低于主 Agent 的 96 次。
+SUBAGENT_MAX_TOOL_TURNS = 24
+# LangGraph 的 recursion_limit 统计的是图里的 super-step：模型调用和每次工具执行
+# 各算一步。研究类子任务一个回合常连续调用多个工具（多次搜索/抓取），
+# 2 倍余量会在模型调用上限触发前就抛 GraphRecursionError。
+# 6 倍余量（144 步）给足“每回合多次工具调用”的空间，
+# 让 ModelCallLimitMiddleware 的 24 次上限成为真正的工作量闸门。
+SUBAGENT_RECURSION_LIMIT = SUBAGENT_MAX_TOOL_TURNS * 6
 SUBAGENT_TIMEOUT = 180
 SUBAGENT_SUMMARY_CAP = 800
 SUBAGENT_OUTPUT_CAP = 12000
@@ -76,6 +85,7 @@ _SUBAGENT_READ_ONLY_TOOLS = frozenset(
         "calculator",
         "web_fetch",
         "web_fetch_batch",
+        "web_search",
         "generate_chart",
         "describe_svg",
         "git_status",
@@ -119,6 +129,10 @@ SUBAGENT_SYSTEM_PROMPT = """你是 Divine 的并行子 Agent，负责独立完�
 - 不要请求用户确认，不要询问问题，不要输出方案。
 - 直接输出任务要求的结论。
 - 输出保持简洁：要点列表优先，不要长篇大论。
+- 网页调研先用 web_search 搜索获取线索（标题/链接/摘要），
+  再对搜索结果中的具体页面用 web_fetch_batch 一次抓取多个 URL，不要逐个 web_fetch；
+  同一 URL 抓取失败不要反复重试，换一个来源或直接基于已有信息输出结论。
+- 资料足够支撑结论时立即结束，不要为了“全面”继续抓取更多页面。
 如果本子任务启用了写工具（write_file / edit_files）：
 - 只能创建或修改任务声明范围内（write_paths）的文件，禁止写入范围外路径；越界写入会被系统拒绝。
 - 保持改动最小：只改任务要求的部分，不要重写无关代码；创建新文件用 write_file（search 传空）。
@@ -546,7 +560,7 @@ async def _run_subagent(
         )
         config = {
             "configurable": {"thread_id": f"{ctx.session_id}:sub:{task_id}"},
-            "recursion_limit": SUBAGENT_MAX_TOOL_TURNS * 2,
+            "recursion_limit": SUBAGENT_RECURSION_LIMIT,
         }
         result = await asyncio.wait_for(
             agent.ainvoke(
@@ -577,6 +591,19 @@ async def _run_subagent(
             "name": task["name"],
             "status": "error",
             "error": f"子 Agent 执行超时（{SUBAGENT_TIMEOUT}s）",
+            "duration": round(time.monotonic() - start, 1),
+        }
+    except GraphRecursionError:
+        logger.warning(
+            "subagent recursion limit id=%s steps=%s",
+            task_id,
+            SUBAGENT_RECURSION_LIMIT,
+        )
+        return {
+            "id": task_id,
+            "name": task["name"],
+            "status": "error",
+            "error": "子任务步骤过多，已停止。请拆分成更小的子任务，或减少重复工具调用。",
             "duration": round(time.monotonic() - start, 1),
         }
     except asyncio.CancelledError:

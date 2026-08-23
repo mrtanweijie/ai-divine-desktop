@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import {
   AlertCircle,
   BarChart3,
+  Blend,
   BookAudio,
   BookMarked,
   BookOpenCheck,
@@ -155,6 +156,8 @@ export function ToolStatusCard({
       <BookSearch size={16} />
     ) : tool.tool.includes("grep") ? (
       <BookOpenCheck size={16} />
+    ) : tool.tool === "web_search" ? (
+      <Blend size={16} />
     ) : tool.tool.includes("search_files") ||
       tool.tool.includes("search") ? (
       <FolderSearch2 size={16} />
