@@ -27,7 +27,7 @@ export const PROVIDER_LIST: ProviderConfig[] = [
   {
     value: "xiaomi",
     label: "Xiaomi (MiMo)",
-    base_url: "https://api.xiaomimimo.com/v1",
+    base_url: "https://token-plan-cn.xiaomimimo.com/v1",
     default_model: "mimo-v2.5",
     list: ["mimo-v2.5", "mimo-v2.5-pro"],
     prefix: ["mimo"],
