@@ -77,6 +77,7 @@ from .tool_runs import (
     get_tool_run,
     list_message_parts,
     list_tool_runs,
+    recent_tool_runs,
     save_tool_turn,
     update_tool_run,
 )

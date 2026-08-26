@@ -1,0 +1,234 @@
+"""Intent classification and rule-section selection tests."""
+
+from pathlib import Path
+
+
+def _init(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    workspace_dir = tmp_path / "workspace"
+    db_path = tmp_path / "intent.db"
+    monkeypatch.setenv("DIVINE_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("DIVINE_WORKSPACE_DIR", str(workspace_dir))
+    monkeypatch.setenv("DB_PATH", str(db_path))
+
+    from app import db
+
+    db.init_db()
+    return db
+
+
+# ---------------------------------------------------------------------------
+# classify_intents
+# ---------------------------------------------------------------------------
+
+def test_classify_basic_intents():
+    from app.agent.intent import classify_intents
+
+    assert "pdf" in classify_intents("帮我生成一份日本旅行攻略的PDF")
+    assert "pdf" in classify_intents("我想做个旅行手册，带封面和主题色")
+    assert "resume" in classify_intents("帮我写一份求职简历")
+    assert "document" in classify_intents("做一个产品介绍的PPT")
+    assert "image" in classify_intents("帮我生成一张海报图片")
+    assert "svg" in classify_intents("画一个SVG图标")
+    assert "chart" in classify_intents("把这几组数据画成柱状图")
+    assert "mermaid" in classify_intents("画个流程图说明逻辑")
+    assert "ux" in classify_intents("把这个PRD做成UX交互原型")
+    assert "skill" in classify_intents("从 Claude Code 迁移技能")
+    assert "terminal" in classify_intents("帮我执行命令安装依赖")
+    assert "subagent" in classify_intents("用并行子任务同时调研多个来源")
+    assert "memory" in classify_intents("记住我的偏好")
+
+
+def test_classify_case_insensitive_english():
+    from app.agent.intent import classify_intents
+
+    assert "pdf" in classify_intents("Generate a PDF for me")
+    assert "resume" in classify_intents("Help me with my RESUME")
+    assert "document" in classify_intents("Make a Word document")
+    assert "svg" in classify_intents("Draw an SVG logo")
+    assert "chart" in classify_intents("Show trend with ECharts")
+
+
+def test_project_intent_precision():
+    """project 意图需强关键词 >=1 或弱关键词 >=2，避免误触发。"""
+    from app.agent.intent import classify_intents
+
+    # 单弱关键词（“代码”）不应触发 —— 只是解释提问
+    assert "project" not in classify_intents("这段代码什么意思？")
+    # 强关键词触发
+    assert "project" in classify_intents("帮我重构这个模块")
+    assert "project" in classify_intents("修复那个bug")
+    assert "project" in classify_intents("帮我开发一个登录功能")
+    # 两个弱关键词触发
+    assert "project" in classify_intents("这个项目的代码结构怎么优化")
+    # 弱关键词只有 1 个时不触发
+    assert "project" not in classify_intents("看一下这个文件")
+
+
+def test_classify_no_false_positive_plain_chat():
+    from app.agent.intent import classify_intents
+
+    assert classify_intents("今天天气怎么样") == set()
+    assert classify_intents("帮我翻译这句话") == set()
+    assert classify_intents("你好") == set()
+
+
+def test_classify_history_context_for_deictic_followup():
+    """短指令（“换个颜色”）借助最近 AI 回复尾部回补意图。"""
+    from app.agent.intent import classify_intents
+
+    ai_tail = "已为你生成旅行手册 PDF，主题色当前是 teal。"
+    assert "pdf" in classify_intents("换个颜色", ai_tail)
+
+
+# ---------------------------------------------------------------------------
+# intents_from_tool_history
+# ---------------------------------------------------------------------------
+
+def test_intents_from_tool_history(tmp_path, monkeypatch):
+    db = _init(tmp_path, monkeypatch)
+    session = db.create_session("Test", None)
+    db.add_tool_run(session["id"], "pdf_generate", "done", {})
+    db.add_tool_run(session["id"], "generate_chart", "done", {})
+
+    from app.agent.intent import intents_from_tool_history
+
+    assert intents_from_tool_history(session["id"], limit=5) == {
+        "pdf",
+        "chart",
+    }
+    # limit 窗口只取最近 N 条
+    assert intents_from_tool_history(session["id"], limit=1) == {"chart"}
+    # 无历史 -> 空集
+    other = db.create_session("Other", None)
+    assert intents_from_tool_history(other["id"], limit=5) == set()
+
+
+def test_recent_tool_runs_order_and_limit(tmp_path, monkeypatch):
+    db = _init(tmp_path, monkeypatch)
+    session = db.create_session("Test", None)
+    for name in ("a", "b", "c"):
+        db.add_tool_run(session["id"], name, "done", {})
+
+    recent = db.recent_tool_runs(session["id"], limit=2)
+    assert [run["tool_name"] for run in recent] == ["b", "c"]
+
+
+# ---------------------------------------------------------------------------
+# build_rule_sections
+# ---------------------------------------------------------------------------
+
+def test_first_turn_without_intent_injects_full_system_prompt():
+    from app.agent.constants import SYSTEM_PROMPT
+    from app.agent.intent import build_rule_sections
+
+    assert build_rule_sections(set(), is_first_turn=True) == SYSTEM_PROMPT
+
+
+def test_later_turn_without_intent_injects_only_core():
+    from app.agent.intent import (
+        ALWAYS_SECTIONS,
+        build_rule_sections,
+    )
+    from app.agent.prompt_sections import (
+        _PDF_STYLE_RULES,
+        _PDF_TRAVEL_RULES,
+        _RESUME_RULES,
+        _SKILL_RULES,
+    )
+
+    text = build_rule_sections(set(), is_first_turn=False)
+    for section in ALWAYS_SECTIONS:
+        assert section in text
+    # 条件节不应出现
+    for section in (_PDF_STYLE_RULES, _PDF_TRAVEL_RULES, _RESUME_RULES, _SKILL_RULES):
+        assert section not in text
+    # 完整 options 规范不应出现（只有精简版常驻）
+    from app.agent.prompt_sections import _OPTIONS_CARD_RULES
+
+    assert _OPTIONS_CARD_RULES not in text
+
+
+def test_intent_injects_conditional_sections_only():
+    from app.agent.intent import ALWAYS_SECTIONS, build_rule_sections
+    from app.agent.prompt_sections import (
+        _OPTIONS_CARD_RULES,
+        _PDF_STYLE_RULES,
+        _PDF_TRAVEL_RULES,
+        _RESUME_RULES,
+    )
+
+    text = build_rule_sections({"pdf"}, is_first_turn=False)
+    for section in ALWAYS_SECTIONS:
+        assert section in text
+    assert _PDF_STYLE_RULES in text
+    assert _PDF_TRAVEL_RULES in text
+    assert _RESUME_RULES not in text
+    # 条件流程附带完整 options 规范
+    assert _OPTIONS_CARD_RULES in text
+
+
+def test_multi_intent_assembles_all_and_dedupes():
+    from app.agent.intent import build_rule_sections
+    from app.agent.prompt_sections import (
+        _CHART_RULES,
+        _PDF_STYLE_RULES,
+        _RESUME_RULES,
+        _SVG_RULES,
+    )
+
+    text = build_rule_sections({"pdf", "resume", "chart", "svg"}, is_first_turn=False)
+    for section in (_PDF_STYLE_RULES, _RESUME_RULES, _CHART_RULES, _SVG_RULES):
+        assert section in text
+    # 无重复节（每节只出现一次）
+    for section in (_PDF_STYLE_RULES, _RESUME_RULES):
+        assert text.count(section) == 1
+
+
+def test_options_mini_kept_in_core_and_full_only_conditional():
+    """P2：精简版常驻，完整版仅条件注入。"""
+    from app.agent.intent import ALWAYS_SECTIONS, build_rule_sections
+    from app.agent.prompt_sections import (
+        _OPTIONS_CARD_MINI_RULES,
+        _OPTIONS_CARD_RULES,
+    )
+
+    assert _OPTIONS_CARD_MINI_RULES in ALWAYS_SECTIONS
+    core = build_rule_sections(set(), is_first_turn=False)
+    assert _OPTIONS_CARD_MINI_RULES in core
+    assert _OPTIONS_CARD_RULES not in core
+
+    conditional = build_rule_sections({"resume"}, is_first_turn=False)
+    assert _OPTIONS_CARD_RULES in conditional
+
+
+def test_full_system_prompt_regression():
+    """回归：SYSTEM_PROMPT 保持旧版逐字节一致——含全部 20 节、不含新加的迷你版。"""
+    from app.agent import prompt_sections as ps
+    from app.agent.constants import SYSTEM_PROMPT
+
+    section_names = [
+        name
+        for name in dir(ps)
+        if name.startswith("_") and name.endswith("_RULES")
+    ]
+    mini = "_OPTIONS_CARD_MINI_RULES"
+    full_names = [name for name in section_names if name != mini]
+    assert mini in section_names  # 迷你版存在于模块
+    assert getattr(ps, mini) not in SYSTEM_PROMPT  # 但不属于 SYSTEM_PROMPT
+
+    # 其余每节恰好出现一次（保持无重复）
+    for name in full_names:
+        assert SYSTEM_PROMPT.count(getattr(ps, name)) == 1, name
+    assert ps._OPTIONS_CARD_RULES in SYSTEM_PROMPT  # 完整版仍属于 SYSTEM_PROMPT
+
+
+def test_estimate_rule_sections_tokens():
+    from app.agent.intent import estimate_rule_sections_tokens
+
+    full = estimate_rule_sections_tokens(set(), is_first_turn=True)
+    core = estimate_rule_sections_tokens(set(), is_first_turn=False)
+    pdf = estimate_rule_sections_tokens({"pdf"}, is_first_turn=False)
+    assert full > core
+    assert pdf > core
+    assert core > 0

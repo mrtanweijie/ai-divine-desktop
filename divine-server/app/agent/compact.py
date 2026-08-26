@@ -98,14 +98,24 @@ def _resolve_model_entry() -> dict[str, Any]:
     }
 
 
-def _system_prompt_preview() -> str:
+def _system_prompt_preview(
+    session_id: str | None = None,
+    history: list[dict[str, Any]] | None = None,
+) -> str:
     """Best-effort preview of the dynamic system prompt for token estimation.
 
     Mirrors prompts.py::_build_dynamic_prompt parts; exact tokens vary per
-    request, which is fine for a usage ring.
+    request, which is fine for a usage ring. When history is available the
+    rule sections are selected by the same intent classification used at
+    runtime; otherwise the full SYSTEM_PROMPT is assumed (conservative).
     """
     from .constants import SYSTEM_PROMPT
     from ..localization import language_instruction
+    from .intent import (
+        build_rule_sections,
+        classify_intents,
+        intents_from_tool_history,
+    )
 
     settings = settings_store.load()
     provider = settings.get("provider") or "auto"
@@ -117,8 +127,29 @@ def _system_prompt_preview() -> str:
     else:
         model_line = f"当前模型：{model_name}"
     locale = settings.get("locale") or "zh-CN"
+
+    if history:
+        user_messages = [
+            message
+            for message in history
+            if message.get("role") == "user"
+        ]
+        last_user_text = (
+            str(user_messages[-1].get("content") or "")
+            if user_messages
+            else ""
+        )
+        intents = classify_intents(last_user_text)
+        if not intents and session_id:
+            intents = intents_from_tool_history(session_id, limit=5)
+        rule_sections = build_rule_sections(
+            intents, is_first_turn=len(user_messages) <= 1
+        )
+    else:
+        rule_sections = SYSTEM_PROMPT
+
     parts = [
-        SYSTEM_PROMPT.replace("create_plan", "write_todos"),
+        rule_sections.replace("create_plan", "write_todos"),
         language_instruction(locale),
         "当前会话所属项目工作目录：{workspace}\n请以该目录作为方案设计和文件操作的工作区。",
         model_line,
@@ -149,9 +180,11 @@ def build_context_breakdown(
     limit = int(context_limit or settings.get("context_limit") or 20)
     window = context_window()
 
-    system_tokens = estimate_tokens(_system_prompt_preview())
-    tools_tokens = estimate_tokens(_tools_preview())
     history = db.history_for_model(session_id, limit=limit)
+    system_tokens = estimate_tokens(
+        _system_prompt_preview(session_id, history)
+    )
+    tools_tokens = estimate_tokens(_tools_preview())
     messages_tokens = 0
     for message in history:
         content = message.get("content") or ""

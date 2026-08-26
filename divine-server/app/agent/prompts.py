@@ -13,8 +13,12 @@ from .. import db
 from ..config import settings_store
 from ..localization import language_instruction
 from ..skills import skill_registry
-from .constants import SYSTEM_PROMPT
 from .context import AgentRunContext
+from .intent import (
+    build_rule_sections,
+    classify_intents,
+    intents_from_tool_history,
+)
 from .llm import _resolve_model_entry
 from .plans import _plan_progress
 from .rag import _auto_rag_context
@@ -268,8 +272,34 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
             model_line = "当前模型：本地演示模式（Mock）"
         else:
             model_line = f"当前模型：{model_name}"
+
+        # --- 意图分类：按用户最新消息（+ 最近 AI 回复尾部）选择注入的规则节 ---
+        messages = request.state.get("messages") or []
+        last_user_text = ""
+        for message in reversed(messages):
+            if isinstance(message, HumanMessage):
+                last_user_text = _content_text(message.content)
+                break
+        last_ai_text = ""
+        for message in reversed(messages):
+            if isinstance(message, AIMessage):
+                last_ai_text = _content_text(message.content)[:500]
+                break
+        intents = classify_intents(last_user_text, last_ai_text)
+        if not intents:
+            # 短指令（“换个颜色”“继续”）回补最近工具调用的意图
+            intents = intents_from_tool_history(ctx.session_id, limit=5)
+        # 首轮判定：会话里还没有历史用户消息（不含当前这条）
+        human_count = sum(
+            1
+            for message in messages
+            if isinstance(message, HumanMessage)
+        )
+        is_first_turn = human_count <= 1
+        rule_sections = build_rule_sections(intents, is_first_turn)
+
         parts = [
-            SYSTEM_PROMPT.replace("create_plan", "write_todos"),
+            rule_sections.replace("create_plan", "write_todos"),
             language_instruction(ctx.locale),
             (
                 f"当前会话所属项目工作目录：{ctx.workspace}\n"

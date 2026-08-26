@@ -91,6 +91,18 @@ def list_tool_runs(session_id: str) -> list[dict[str, Any]]:
         ).fetchall()
     return [dict(row) for row in rows]
 
+def recent_tool_runs(
+    session_id: str, limit: int = 5
+) -> list[dict[str, Any]]:
+    """Most recent tool runs for a session, oldest-first within the window."""
+    with closing(_connect()) as conn:
+        rows = conn.execute(
+            "SELECT * FROM tool_runs WHERE session_id = ? "
+            "ORDER BY started_at DESC, rowid DESC LIMIT ?",
+            (session_id, limit),
+        ).fetchall()
+    return [dict(row) for row in reversed(rows)]
+
 def get_tool_run(run_id: str) -> dict[str, Any]:
     with closing(_connect()) as conn:
         row = conn.execute(
