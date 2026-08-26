@@ -28,6 +28,14 @@ def parse_line_range(params: dict) -> tuple[int, int | None]:
     return start, end
 
 
+def number_lines(content: str, first_line: int) -> str:
+    """Prefix each line with a cat -n style line number for precise editing."""
+    numbered = []
+    for offset, line in enumerate(content.split("\n")):
+        numbered.append(f"{first_line + offset:>6}\t{line}")
+    return "\n".join(numbered)
+
+
 def slice_lines(
     content: str, start: int, end: int | None
 ) -> tuple[str, int, int]:
@@ -79,17 +87,21 @@ def main() -> None:
         params.get("start_line") is not None
         or params.get("end_line") is not None
     )
+    include_numbers = params.get("include_line_numbers")
+    include_numbers = True if include_numbers is None else bool(include_numbers)
     display_start = start if total_lines > 0 else 0
+    if include_numbers and capped:
+        capped = number_lines(capped, display_start)
     message = f"已读取 {path.name}"
     if has_range:
         message += f" 第 {display_start}-{line_end} 行（共 {total_lines} 行）"
-    truncated = len(selected) > len(capped)
+    truncated = len(selected) > len(selected[:12000])
     if truncated:
         # Tell the model how to continue reading instead of dumping more.
-        next_start = display_start + len(capped.splitlines())
+        next_start = display_start + len(selected[:12000].splitlines())
         if next_start <= total_lines:
             capped += (
-                f"\n...(内容已截断，当前显示到第 {min(line_end, display_start + len(capped.splitlines()))} 行，"
+                f"\n...(内容已截断，当前显示到第 {min(line_end, display_start + len(selected[:12000].splitlines()))} 行，"
                 f"共 {total_lines} 行；继续读取请用 start_line={next_start}/end_line 指定行段)"
             )
     print(

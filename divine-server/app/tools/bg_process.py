@@ -161,7 +161,9 @@ class BackgroundProcessManager:
         except asyncio.CancelledError:
             return
         bg.exit_code = code
-        bg.status = "exited"
+        # kill 流程也在 wait() 同一进程；已进入 killed/failed 终态时不回退为 exited。
+        if bg.status not in ("killed", "failed"):
+            bg.status = "exited"
         for reader in bg._readers:
             reader.cancel()
         logger.info("bg exited bg_id=%s code=%s", bg.bg_id, code)

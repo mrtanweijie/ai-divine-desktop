@@ -66,6 +66,8 @@ export const GROUPABLE_TOOLS = new Set([
   "search_files",
   "directory_tree",
   "terminal",
+  "lint_check",
+  "run_tests",
 ]);
 
 /**

@@ -155,6 +155,27 @@ def _sync_todos_from_state(
     ]
     db.replace_todos(session_id, titles)
 
+_FRONTEND_STRING_LIMIT = 4000
+
+def _frontend_truncate(value: Any) -> Any:
+    """Recursively cap long strings/lists in tool results sent to the UI."""
+    if isinstance(value, str):
+        if len(value) > _FRONTEND_STRING_LIMIT:
+            return value[:_FRONTEND_STRING_LIMIT] + (
+                f"\n...[截断，共 {len(value)} 字符]"
+            )
+        return value
+    if isinstance(value, dict):
+        return {k: _frontend_truncate(v) for k, v in value.items()}
+    if isinstance(value, list):
+        if len(value) > 50:
+            omitted = len(value) - 50
+            return _frontend_truncate(value[:50]) + [
+                {"truncated": True, "count": omitted}
+            ]
+        return [_frontend_truncate(item) for item in value]
+    return value
+
 def _frontend_tool_result(output: dict[str, Any]) -> dict[str, Any]:
     result = dict(output)
     for key in ("content", "stdout", "stderr"):
@@ -164,12 +185,8 @@ def _frontend_tool_result(output: dict[str, Any]) -> dict[str, Any]:
     data = result.get("data")
     if isinstance(data, dict):
         data_copy = dict(data)
-        for key in ("content", "stdout", "stderr", "text"):
-            value = data_copy.get(key)
-            if isinstance(value, str) and len(value) > 4000:
-                data_copy[key] = (
-                    value[:4000] + f"\n...[截断，共 {len(value)} 字符]"
-                )
+        # diff/matches 等长字段统一递归截断（此前漏网，导致大 payload 推给 WebView）
+        data_copy = _frontend_truncate(data_copy)
         results = data_copy.get("results")
         if isinstance(results, list) and len(results) > 12:
             data_copy["results"] = results[:12] + [

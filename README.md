@@ -172,6 +172,7 @@ pnpm tauri:dev
 | `edit_svg` | 基于现有 SVG 修改，只改动用户提到的元素并保持其他不变 |
 | `generate_chart` | 根据分析结果生成 ECharts 图表并在对话中内联展示 |
 | `image_resize` | 缩放图片 |
+| `lint_check` | 静态检查（ruff/mypy/eslint/tsc 自动识别），返回结构化问题列表；与 terminal 同一安全策略 |
 | `mermaid_export` | 把 Mermaid 流程图源码保存为 `.mmd` 文件 |
 | `notes` | 生成 Markdown 笔记 |
 | `pdf_split_merge` | 拆分、合并 PDF |
@@ -181,6 +182,7 @@ pnpm tauri:dev
 | `read_file` | 读取文本、Office、PDF、表格等文件；支持 start_line/end_line 分段读取 |
 | `read_image` | 用 GLM 视觉模型识别图片 |
 | `run_subagents` | 把大任务拆成多个相互独立的子任务，并行委托给多个只读子 Agent 执行并汇总结果 |
+| `run_tests` | 运行项目测试（pytest/jest/vitest/npm test 自动识别），返回失败用例列表与计数；与 terminal 同一安全策略 |
 | `ux_html` | 保存 Agent 按用户选择的风格与需求文档自定义设计的完整 UX 交互 HTML，默认写入项目工作区 `html/`；HTML/SVG 文件可在文件面板直接预览 |
 | `schedule_task` | 创建和管理定时提醒/定时任务 |
 | `search_files` | 按文件名搜索工作区文件 |

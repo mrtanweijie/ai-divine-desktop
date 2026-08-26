@@ -23,6 +23,24 @@ def _summarize_arguments(arguments: dict[str, Any]) -> str:
             parts.append(f"{key}={value!r}")
     return ", ".join(parts)[:500]
 
+_STORAGE_STRING_KEEP = 200
+_STORAGE_STRING_LIMIT = 400
+
+def _compact_for_storage(value: Any) -> Any:
+    """Deep-truncate long strings before persisting tool runs to SQLite."""
+    if isinstance(value, str):
+        if len(value) > _STORAGE_STRING_LIMIT:
+            return (
+                value[:_STORAGE_STRING_KEEP]
+                + f"...(truncated, total {len(value)} chars)"
+            )
+        return value
+    if isinstance(value, dict):
+        return {k: _compact_for_storage(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_compact_for_storage(item) for item in value]
+    return value
+
 _STATIC_TOOL_SUCCESS_KEYS = {
     "notes": "tool.notesCreated",
     "word_document": "tool.wordCreated",
@@ -182,7 +200,13 @@ async def _execute_tool(
     progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
     """Run one adapter call with timeout, logging, and persistent tool runs."""
-    run = db.add_tool_run(session_id, name, "start", arguments)
+    run = await asyncio.to_thread(
+        db.add_tool_run,
+        session_id,
+        name,
+        "start",
+        _compact_for_storage(arguments),
+    )
     started = time.monotonic()
     logger.info("tool start session=%s name=%s", session_id, name)
     logger.info(
@@ -208,7 +232,9 @@ async def _execute_tool(
         )
         output = result.as_dict()
         output = _annotate_tool_output(name, output, arguments)
-        db.update_tool_run(run["id"], "done", output)
+        await asyncio.to_thread(
+            db.update_tool_run, run["id"], "done", _compact_for_storage(output)
+        )
         logger.info(
             "tool done session=%s name=%s duration=%.2fs success=%s",
             session_id,
@@ -229,7 +255,7 @@ async def _execute_tool(
             "messageKey": "tool.toolTimeout",
             "messageParams": {"timeout": effective_timeout},
         }
-        db.update_tool_run(run["id"], "error", output)
+        await asyncio.to_thread(db.update_tool_run, run["id"], "error", output)
         logger.warning(
             "tool timeout session=%s name=%s duration=%.2fs timeout=%s",
             session_id,
@@ -249,7 +275,7 @@ async def _execute_tool(
             output.pop("messageKey")
         if not output["messageParams"]:
             output.pop("messageParams")
-        db.update_tool_run(run["id"], "error", output)
+        await asyncio.to_thread(db.update_tool_run, run["id"], "error", output)
         logger.warning(
             "tool error session=%s name=%s duration=%.2fs error=%s",
             session_id,

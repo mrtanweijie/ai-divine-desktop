@@ -100,6 +100,9 @@ def main() -> None:
                     "stderr_bytes": stderr_bytes,
                     "stdout_truncated": stdout_truncated,
                     "stderr_truncated": stderr_truncated,
+                    # 供 run_tests/lint_check 等命令型工具做结构化解析
+                    "stdout_tail": stdout_tail,
+                    "stderr_tail": stderr_tail,
                 },
             },
             ensure_ascii=False,

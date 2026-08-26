@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -81,10 +82,16 @@ class WriteFileAdapter(ToolAdapter):
                 f"文件已存在: {target}，如要覆盖请传 overwrite=true"
             )
 
-        target.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            with target.open("a" if mode == "append" else "w", encoding="utf-8") as handle:
+        def _do_write() -> int:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open(
+                "a" if mode == "append" else "w", encoding="utf-8"
+            ) as handle:
                 handle.write(content)
+            return target.stat().st_size
+
+        try:
+            file_size = await asyncio.to_thread(_do_write)
         except OSError as exc:
             raise ToolExecutionError(f"文件写入失败: {exc}") from exc
 
@@ -99,7 +106,7 @@ class WriteFileAdapter(ToolAdapter):
             message_params={},
             file_name=target.name,
             filepath=str(target),
-            file_size=target.stat().st_size,
+            file_size=file_size,
             content=None,
             data={"mode": mode, "path": str(target)},
         )

@@ -93,14 +93,18 @@ def _parse_stream_event(event: str) -> tuple[str, dict[str, Any]] | None:
     except json.JSONDecodeError:
         return None
 
-def _persist_partial_generation(
+async def _persist_partial_generation(
     session_id: str, content: str, think: str
 ) -> None:
     if not content and not think:
         return
-    saved = db.add_message(session_id, "assistant", content)
+    saved = await asyncio.to_thread(
+        db.add_message, session_id, "assistant", content
+    )
     if think:
-        db.add_message_part(saved["id"], "think", think, order=0)
+        await asyncio.to_thread(
+            db.add_message_part, saved["id"], "think", think, order=0
+        )
 
 async def run_agent(
     session_id: str,
@@ -242,7 +246,7 @@ async def run_agent(
                 react=(resolved_tool_mode == "react"),
             ):
                 if cancel_event is not None and cancel_event.is_set():
-                    _persist_partial_generation(
+                    await _persist_partial_generation(
                         session_id,
                         "".join(partial_content),
                         "".join(partial_think),
@@ -377,15 +381,16 @@ async def run_agent(
 
     messages = final_state.get("messages") or []
     _sync_todos_from_state(session_id, final_state)
-    assistant_message_id = _persist_new_messages(
-        session_id, input_messages, messages, think_by_id
+    assistant_message_id = await asyncio.to_thread(
+        _persist_new_messages, session_id, input_messages, messages, think_by_id
     )
     final_content = _extract_final_content(messages)
     # Record this turn's token consumption (real API usage when available).
     usage = _extract_token_usage(messages, input_messages, final_content)
     if assistant_message_id and usage:
         try:
-            db.save_token_usage(
+            await asyncio.to_thread(
+                db.save_token_usage,
                 session_id,
                 assistant_message_id,
                 usage["input"],
@@ -403,7 +408,7 @@ async def run_agent(
             ctx.locale,
         )
         if title:
-            db.update_session(session_id, title=title)
+            await asyncio.to_thread(db.update_session, session_id, title=title)
             logger.info("session title summarized session=%s", session_id)
     yield sse_event(
         "done",

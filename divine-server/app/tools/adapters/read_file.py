@@ -10,7 +10,8 @@ from ..registry import register_tool
 @register_tool(
     "read_file",
     "读取本地文件内容并返回给模型，支持 txt/md/json/csv/docx/pptx/pdf/xlsx/xlsm；"
-    "支持 start_line/end_line 只读取部分行；读取 Excel 请使用本工具",
+    "支持 start_line/end_line 只读取部分行；文本文件默认带行号（编辑时 search 内容不要包含行号）；"
+    "读取 Excel 请使用本工具",
     {
         "type": "object",
         "properties": {
@@ -27,6 +28,14 @@ from ..registry import register_tool
                 "type": "integer",
                 "description": "读取到第几行（含），默认读取到末尾",
             },
+            "include_line_numbers": {
+                "type": "boolean",
+                "description": (
+                    "文本内容是否带行号前缀，默认 true；"
+                    "带行号便于定位编辑位置，但 edit_files 的 search 不要复制行号"
+                ),
+                "default": True,
+            },
         },
         "required": ["file_path"],
     },
@@ -42,6 +51,7 @@ class ReadFileAdapter(ToolAdapter):
             "file_path": arguments.get("file_path") or "",
             "start_line": arguments.get("start_line"),
             "end_line": arguments.get("end_line"),
+            "include_line_numbers": arguments.get("include_line_numbers"),
         }
 
     def external_paths(

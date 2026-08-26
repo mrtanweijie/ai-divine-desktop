@@ -43,7 +43,7 @@ logger = logging.getLogger("divine.agent.react")
 
 # --- limits ---------------------------------------------------------------
 
-REACT_MAX_ACTION_INPUT_LEN = 8192
+REACT_MAX_ACTION_INPUT_LEN = 65_536
 REACT_MAX_THOUGHT_LEN = 2000
 
 # --- prompt ---------------------------------------------------------------

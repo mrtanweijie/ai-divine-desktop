@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -22,6 +23,35 @@ from .prompts import _should_ask_plan
 from .tool_runtime import _execute_tool
 
 logger = logging.getLogger("divine.agent.execution")
+
+# 与 terminal 共用命令安全策略的工具（adapter 需实现 build_command）。
+_COMMAND_TOOLS = {"lint_check", "run_tests"}
+
+_CONTEXT_STRING_LIMIT = 12_000
+_CONTEXT_STRING_KEEP = 10_000
+_CONTEXT_LIST_LIMIT = 50
+
+
+def _compact_for_context(value: Any) -> Any:
+    """Deep-truncate oversized tool output before it enters the LLM context."""
+    if isinstance(value, str):
+        if len(value) > _CONTEXT_STRING_LIMIT:
+            return (
+                value[:_CONTEXT_STRING_KEEP]
+                + f"\n...(truncated, total {len(value)} chars; "
+                "如需更多内容请分段读取或缩小搜索范围)"
+            )
+        return value
+    if isinstance(value, dict):
+        return {k: _compact_for_context(v) for k, v in value.items()}
+    if isinstance(value, list):
+        compacted = [_compact_for_context(item) for item in value]
+        if len(compacted) > _CONTEXT_LIST_LIMIT:
+            omitted = len(compacted) - _CONTEXT_LIST_LIMIT
+            compacted = compacted[:_CONTEXT_LIST_LIMIT]
+            compacted.append(f"...({omitted} more items omitted)")
+        return compacted
+    return value
 
 async def _handle_adapter_call(
     ctx: AgentRunContext,
@@ -57,7 +87,8 @@ async def _handle_adapter_call(
             else bool(decision)
         )
         ctx.plan_choice_resolved = True
-        db.update_session(
+        await asyncio.to_thread(
+            db.update_session,
             ctx.session_id,
             plan_mode="plan_first" if plan_first else "direct",
         )
@@ -92,7 +123,7 @@ async def _handle_adapter_call(
         )
 
     todo = None
-    todos = db.list_todos(ctx.session_id)
+    todos = await asyncio.to_thread(db.list_todos, ctx.session_id)
     if todos:
         todo = _claim_next_todo(ctx.session_id, todos)
         if todo is not None:
@@ -435,8 +466,19 @@ async def _handle_adapter_call(
                     ensure_ascii=False,
                 )
 
-        is_terminal = name == "terminal"
-        command = str(arguments.get("command") or "")
+        # terminal 与命令型工具（lint_check/run_tests）共用同一安全策略：
+        # 命令由 adapter.build_command 构造，经 terminal_command_policy 分级。
+        is_terminal = name == "terminal" or (
+            name in _COMMAND_TOOLS
+            and getattr(adapter, "build_command", None) is not None
+        )
+        if name == "terminal":
+            command = str(arguments.get("command") or "")
+        elif is_terminal:
+            built: Any = adapter.build_command(arguments)
+            command = str(built) if built else "(自动构建的检查/测试命令)"
+        else:
+            command = ""
 
         if name in {"git_commit", "git_revert"} and ctx.approval_mode == "ask":
             git_desc = (
@@ -744,9 +786,11 @@ async def _handle_adapter_call(
                 else None
             ),
         )
-        tool_content = output.get("content") or json.dumps(
-            output, ensure_ascii=False
+        context_view = _compact_for_context(output)
+        tool_content = context_view.get("content") or json.dumps(
+            context_view, ensure_ascii=False
         )
+        tool_content = _compact_for_context(tool_content)
         payload: dict[str, Any] = {
             "event": "tool",
             "tool": name,
@@ -766,10 +810,11 @@ async def _handle_adapter_call(
             and str(arguments.get("action") or "") == "create"
             and output.get("success")
         ):
+            tasks = await asyncio.to_thread(db.list_scheduled_tasks)
             writer(
                 {
                     "event": "scheduled_tasks_changed",
-                    "tasks": db.list_scheduled_tasks(),
+                    "tasks": tasks,
                 }
             )
             calendar_pending = (
@@ -822,10 +867,11 @@ async def _handle_adapter_call(
                 )
 
         if name == "write_calendar" and output.get("success"):
+            events = await asyncio.to_thread(db.list_calendar_events)
             writer(
                 {
                     "event": "calendar_events_changed",
-                    "events": db.list_calendar_events(),
+                    "events": events,
                 }
             )
 

@@ -6,6 +6,7 @@ from .bg_tool import (  # noqa: F401
 )
 from .clipboard import ClipboardAdapter  # noqa: F401
 from .create_plan import CreatePlanAdapter  # noqa: F401
+from .lint_check import LintCheckAdapter  # noqa: F401
 from .describe_svg import DescribeSvgAdapter  # noqa: F401
 from .directory_tree import DirectoryTreeAdapter  # noqa: F401
 from .draw_svg import DrawSvgAdapter  # noqa: F401
@@ -37,6 +38,7 @@ from .rag_index import RagIndexAdapter  # noqa: F401
 from .rag_search import RagSearchAdapter  # noqa: F401
 from .read_file import ReadFileAdapter  # noqa: F401
 from .read_image import ReadImageAdapter  # noqa: F401
+from .run_tests import RunTestsAdapter  # noqa: F401
 from .schedule_task import ScheduleTaskAdapter  # noqa: F401
 from .search_files import SearchFilesAdapter  # noqa: F401
 from .skill_migration import (  # noqa: F401
