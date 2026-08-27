@@ -162,17 +162,24 @@ pnpm tauri:dev
 
 | 工具 | 用途 |
 | --- | --- |
+| `apply_patch` | 应用标准 unified diff 补丁（多文件、支持新建文件），上下文定位允许行号漂移与空白容错 |
 | `calculator` | 安全计算数学表达式 |
 | `clipboard` | 读取、写入、清空系统剪贴板 |
 | `create_plan` | 为复杂任务创建待办计划 |
 | `directory_tree` | 查看目录树结构 |
+| `format_code` | 代码格式化（ruff format/prettier 自动识别），返回变更统计；与 terminal 同一安全策略 |
+| `git` | 读写 git 状态（status/diff/log 只读，commit/revert 需确认） |
 | `describe_svg` | 读取现有 SVG，返回画布、元素、关键 id 和结构摘要 |
 | `draw_svg` | 从零生成 SVG 矢量图/图标/插画，默认保存到 `svg/`；正文中的 SVG 代码块会在前端自动渲染预览 |
 | `edit_files` | 按 SEARCH/REPLACE 批量修改或创建多个文本文件；SEARCH 必须精确匹配，创建新文件时 search 传空字符串 |
+| `edit_lines` | 按行号范围精确编辑单个文件（替换/删除/插入），作为 SEARCH/REPLACE 的备选；返回变更区间 diff |
 | `edit_svg` | 基于现有 SVG 修改，只改动用户提到的元素并保持其他不变 |
 | `generate_chart` | 根据分析结果生成 ECharts 图表并在对话中内联展示 |
+| `glob_files` | 按 glob 模式匹配文件（支持 `**` 递归），遵循 .gitignore，按修改时间新→旧排序 |
 | `image_resize` | 缩放图片 |
 | `lint_check` | 静态检查（ruff/mypy/eslint/tsc 自动识别），返回结构化问题列表；与 terminal 同一安全策略 |
+| `list_definitions` | 代码文件结构大纲（类/函数/接口+起始行号）：Python 语法解析，ts/js/rs/go/java 启发式 |
+| `move_file` | workspace 内移动/重命名文件或目录，自动创建目标父目录，覆盖需确认参数 |
 | `mermaid_export` | 把 Mermaid 流程图源码保存为 `.mmd` 文件 |
 | `notes` | 生成 Markdown 笔记 |
 | `pdf_split_merge` | 拆分、合并 PDF |

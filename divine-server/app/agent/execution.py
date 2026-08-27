@@ -137,17 +137,22 @@ async def _handle_adapter_call(
 
     try:
         if name == "run_subagents":
-            from .subagents import _run_subagents, _validate_tasks
+            from .subagents import (
+                _run_subagents,
+                _validate_tasks,
+                has_terminal_tasks,
+            )
 
-            # Write-capable batches need user approval BEFORE dispatch; the
-            # sub-agents themselves never prompt.
+            # Write-capable / terminal-enabled batches need user approval
+            # BEFORE dispatch; the sub-agents themselves never prompt.
             tasks, sub_error = _validate_tasks(arguments, workspace=ctx.workspace)
             write_tasks = [
                 task
                 for task in tasks
                 if task.get("write") and task.get("write_paths")
             ]
-            if not sub_error and write_tasks:
+            terminal_batch = has_terminal_tasks(tasks)
+            if not sub_error and (write_tasks or terminal_batch):
                 decision = _ask_interrupt(
                     ctx.session_id,
                     f"subagents_write:{call_id}",
@@ -155,15 +160,25 @@ async def _handle_adapter_call(
                         "type": "subagents_write",
                         "session_id": ctx.session_id,
                         "tool": name,
-                        "message": "确认并行写任务？",
+                        "message": (
+                            "确认并行任务（含写文件或终端执行权限）？"
+                            if write_tasks
+                            else "确认并行任务（子任务可执行安全只读命令）？"
+                        ),
                         "subagent_write": {
                             "tasks": [
                                 {
                                     "id": task["id"],
                                     "name": task["name"],
                                     "write_paths": task["write_paths"],
+                                    "terminal": bool(task.get("terminal")),
                                 }
-                                for task in write_tasks
+                                for task in write_tasks + [
+                                    t
+                                    for t in tasks
+                                    if t.get("terminal")
+                                    and not (t.get("write") and t.get("write_paths"))
+                                ]
                             ]
                         },
                         "call_id": call_id,
@@ -189,7 +204,7 @@ async def _handle_adapter_call(
                             "event": "tool",
                             "tool": name,
                             "status": "error",
-                            "message": "已拒绝并行写任务",
+                            "message": "已拒绝并行任务",
                             "messageKey": "tool.subagentsWriteRejected",
                             "messageParams": {},
                             "session_id": ctx.session_id,

@@ -12,6 +12,7 @@ from ..base import (
     resolve_external_path,
 )
 from ..registry import register_tool
+from ..text_file_io import TextFileTraits, read_normalized, write_restored
 
 MAX_EDIT_FILES = 50
 MAX_EDIT_TEXT_CHARS = 1_000_000
@@ -225,9 +226,8 @@ class EditFilesAdapter(ToolAdapter):
 
         staged: dict[Path, str] = {}
         originals: dict[Path, str] = {}
-        # 每个已读取文件的原始编码特征：(是否有 BOM, 行尾风格)；
-        # 匹配在 LF 无 BOM 的规范化空间进行，写回时恢复原样。
-        encodings: dict[Path, tuple[bool, str]] = {}
+        # 每个已读取文件的原始编码特征（BOM/行尾），写回时恢复原样。
+        encodings: dict[Path, TextFileTraits] = {}
         summary: list[dict[str, Any]] = []
         failures: list[dict[str, Any]] = []
         fuzzy_used = False
@@ -236,17 +236,9 @@ class EditFilesAdapter(ToolAdapter):
             """Read (or reuse staged) content in normalized LF/no-BOM space."""
             if target in staged:
                 return staged[target]
-            # newline="" 保留原始 \r\n，否则 read_text 的通用换行转换
-            # 会把 CRLF 文件静默归一成 LF，导致写回时丢失行尾风格。
-            with target.open("r", encoding="utf-8", newline="") as handle:
-                text = handle.read()
-            had_bom = text.startswith("\ufeff")
-            if had_bom:
-                text = text[1:]
-            eol = "crlf" if "\r\n" in text else "lf"
-            normalized = text.replace("\r\n", "\n")
+            normalized, traits = read_normalized(target)
             originals[target] = normalized
-            encodings[target] = (had_bom, eol)
+            encodings[target] = traits
             return normalized
 
         for index, item in enumerate(raw_files, start=1):
@@ -400,19 +392,10 @@ class EditFilesAdapter(ToolAdapter):
                         pass
                 failures.append(failure)
 
-        def _restore(target: Path, text: str) -> str:
-            had_bom, eol = encodings.get(target, (False, "lf"))
-            out = text.replace("\n", "\r\n") if eol == "crlf" else text
-            if had_bom:
-                out = "\ufeff" + out
-            return out
-
         write_errors: list[str] = []
         for target, text in staged.items():
             try:
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with target.open("w", encoding="utf-8", newline="") as handle:
-                    handle.write(_restore(target, text))
+                write_restored(target, text, encodings.get(target))
             except OSError as exc:
                 write_errors.append(f"{_display_path(workspace, target)}: {exc}")
 

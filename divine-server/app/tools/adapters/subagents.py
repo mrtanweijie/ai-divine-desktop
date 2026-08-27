@@ -15,7 +15,9 @@ from ..registry import register_tool
     "默认子 Agent 只能使用只读工具。若多个子任务需要并行写文件（如同时实现多个独立模块/文件），"
     "给对应子任务加 write=true 并声明 write_paths（workspace 内相对路径，可指向文件或目录，"
     "各子任务的 write_paths 不得重叠）；写任务的改动会汇总成 diff 返回，且执行前需用户确认。"
-    "不要委托需要运行命令或交互确认的子任务；"
+    "若子任务写完代码需要跑测试/检查验证，给对应子任务加 terminal=true："
+    "可用 run_tests / lint_check / format_code，terminal 仅限安全只读命令"
+    "（python3 -m pytest、npx tsc --noEmit 等，需确认的命令会被直接拒绝），执行前需用户确认。"
     "全部完成后把每个子任务的结果汇总成最终回答，失败的子任务要说明原因。",
     {
         "type": "object",
@@ -23,7 +25,8 @@ from ..registry import register_tool
             "tasks": {
                 "type": "array",
                 "description": (
-                    "子任务数组，2-8 个；每个含 id、name、prompt，可选 tools 白名单、write、write_paths"
+                    "子任务数组，2-8 个；每个含 id、name、prompt，"
+                    "可选 tools 白名单、write、write_paths、terminal"
                 ),
                 "items": {
                     "type": "object",
@@ -64,6 +67,14 @@ from ..registry import register_tool
                                 "写任务允许创建/修改的 workspace 内相对路径（文件或目录），"
                                 "各写任务之间不得重叠"
                             ),
+                        },
+                        "terminal": {
+                            "type": "boolean",
+                            "description": (
+                                "true 时该子任务可执行验证命令：run_tests/lint_check/format_code，"
+                                "terminal 仅限安全只读命令；整批执行前需用户确认。默认 false"
+                            ),
+                            "default": False,
                         },
                     },
                     "required": ["id", "name", "prompt"],

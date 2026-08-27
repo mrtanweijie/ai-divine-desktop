@@ -11,11 +11,14 @@ import pytest
 from app.agent.context import AgentRunContext
 from app.agent.subagents import (
     MAX_SUBAGENTS,
+    _SUBAGENT_COMMAND_TOOLS,
     _SUBAGENT_FORBIDDEN_TOOLS,
     _SUBAGENT_READ_ONLY_TOOLS,
     _build_subagent_tools,
+    _run_subagent_tool,
     _run_subagents,
     _validate_tasks,
+    has_terminal_tasks,
 )
 
 
@@ -121,6 +124,77 @@ def test_subagent_tools_are_read_only():
     assert not names.intersection(_SUBAGENT_FORBIDDEN_TOOLS)
     assert "terminal" not in names
     assert "edit_files" not in names
+
+
+def test_validate_accepts_terminal_flag():
+    tasks, error = _validate_tasks(
+        {
+            "tasks": [
+                {"id": "a", "name": "A", "prompt": "p", "terminal": True},
+                {"id": "b", "name": "B", "prompt": "p"},
+            ]
+        }
+    )
+    assert error is None
+    assert tasks[0]["terminal"] is True
+    assert tasks[1]["terminal"] is False
+    assert has_terminal_tasks(tasks) is True
+    assert has_terminal_tasks([tasks[1]]) is False
+
+
+def test_terminal_enabled_build_includes_command_tools():
+    tools = _build_subagent_tools(_ctx(), None, asyncio.Lock(), terminal_enabled=True)
+    names = {tool.name for tool in tools}
+    assert "terminal" in names
+    assert _SUBAGENT_COMMAND_TOOLS.issubset(names)
+
+
+def test_terminal_disabled_excludes_command_tools():
+    tools = _build_subagent_tools(_ctx(), None, asyncio.Lock())
+    names = {tool.name for tool in tools}
+    assert "terminal" not in names
+    assert not (_SUBAGENT_COMMAND_TOOLS & names)
+
+
+class _NeverRunAdapter:
+    """Stub that fails the test if the underlying tool actually runs."""
+
+    name = "terminal"
+    timeout = 5
+
+    def external_paths(self, workspace, arguments):
+        return []
+
+    async def run(self, workspace, arguments, locale=None, progress_callback=None):
+        raise AssertionError("terminal should have been rejected before run")
+
+
+@pytest.mark.anyio
+async def test_terminal_rejects_non_safe_policy(tmp_path):
+    ctx = _ctx(workspace=str(tmp_path))
+    result = await _run_subagent_tool(
+        ctx, _NeverRunAdapter(), "terminal", {"command": "rm -rf /tmp/x"}
+    )
+    payload = json.loads(result)
+    assert payload["rejected"] is True
+    assert "安全只读命令" in payload["message"]
+
+
+@pytest.mark.anyio
+async def test_terminal_allows_safe_command(tmp_path):
+    """safe 级命令正常执行（echo），证明白名单不是全禁。"""
+    from app.tools.adapters.terminal import TerminalAdapter
+
+    ctx = AgentRunContext(
+        session_id="s1",
+        workspace=tmp_path,
+        approval_mode="ask",
+        locale="zh-CN",
+    )
+    result = await _run_subagent_tool(
+        ctx, TerminalAdapter("terminal", ""), "terminal", {"command": "echo sub-ok"}
+    )
+    assert "sub-ok" in result
 
 
 def test_allowlist_narrows_toolset():

@@ -1,8 +1,8 @@
 # Agent Code 支持优化规划（项目开发基线）
 
-> 版本：v1.3
-> 日期：2026-08-22
-> 状态：P0 全部 6 项 + P1 全部 5 项 + P2-1 可写子 Agent 已实现（见 §2 各条目"✅ 已实现"标记），P2-2/3/4 待实施。
+> 版本：v1.4
+> 日期：2026-08-27
+> 状态：P0 全部 6 项 + P1 全部 5 项 + P2-1 可写子 Agent + P2-2 轻量代码索引（list_definitions）已实现，P2-3/4 待实施。另完成性能优化（SQLite WAL + ToolMessage 压缩 + 异步 I/O + SSE 截断）与编码工具补全（edit_lines/apply_patch/move_file/glob_files/format_code/lint_check/run_tests）。
 > 目标：把 Divine Agent 从"文档生成 + 轻量文件操作"提升到"能流畅用于真实软件项目开发"的基础能力。
 > 范围：`divine-server/app/agent/*`、`divine-server/app/tools/*`、`divine-app/src/pages/chat/*`、`divine-server/tests/*`。
 
@@ -147,7 +147,7 @@
   - 每次写入做 before/after 快照并生成 unified diff，随结果返回主 Agent（`changed_files`）；批次汇总"共修改 N 个文件"
   - 前端：`subagents_write` 确认卡片（列出任务与路径）、子 Agent 面板显示"改动 N 个文件"、历史恢复保留 changed_files
   - **测试**：`divine-server/tests/test_subagents_write.py`（12 个用例：校验/越界拒绝/diff 记录/工具集/SSE 映射）✅ 通过
-- **P2-2 轻量代码索引**：函数/类符号索引（AST 解析），支持"找定义/引用"；1M 上下文下优先级低
+- **P2-2 轻量代码索引** ✅ 已实现（list_definitions）：Python AST 解析 + ts/js/rs/go/java 正则启发式，输出类/函数/接口大纲与行号
 - **P2-3 MCP 支持**：接入外部工具生态（浏览器、数据库客户端等），复用现有工具注册表抽象
 - **P2-4 自动 code review**：`git_diff` 结果交给只读子 Agent 做审查，输出问题清单与修改建议
 
@@ -163,6 +163,9 @@
 | 4 | P0-4 git 集成 | 改文件 → git_diff 可见 → 误改 git_revert 可回滚 | ✅ 已实现（13 测试） |
 | 5 | P0-5/6 前端 diff + prompt | 用户能看到每次编辑 diff；agent 遵循开发工作流 | ✅ 已实现（tsc + vite build 通过） |
 | 6 | P1 各项 | dev server 后台运行、项目骨架自动注入、验证惯例生效 | ✅ 已实现（后台任务 8 + 骨架 8 + 目录树 8 + 读文件 4 测试） |
+| 7 | P2-2 list_definitions | 大纲工具可用，行号与 read_file 一致 | ✅ 已实现（3 测试） |
+| 8 | 性能优化 | SQLite WAL + ToolMessage 压缩 + 异步 I/O + SSE 截断 | ✅ 已实现 |
+| 9 | 编码工具补全 | edit_lines/apply_patch/move_file/glob_files/format_code/lint_check/run_tests | ✅ 已实现（42 测试） |
 
 **端到端验收场景**：在 Divine 会话中打开本仓库作为项目工作区，下达真实任务（如"给 divine-server 加一个只读 API 并补测试"），要求 agent 自主完成：探索 → 定位 → 多文件修改 → diff 自查 → 跑测试 → 汇报，全程无需人工介入读文件。
 

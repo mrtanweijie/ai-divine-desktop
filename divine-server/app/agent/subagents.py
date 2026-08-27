@@ -69,6 +69,11 @@ SUBAGENT_OUTPUT_CAP = 12000
 
 # Write tools available to write-capable sub-agents (opt-in via write=true).
 _SUBAGENT_WRITE_TOOLS = frozenset({"write_file", "edit_files"})
+# Verification tools available to terminal-enabled sub-agents (opt-in via
+# terminal=true). These route through the terminal command policy already.
+_SUBAGENT_COMMAND_TOOLS = frozenset(
+    {"lint_check", "run_tests", "format_code"}
+)
 _SUBAGENT_CHANGE_CAP = 50
 _SUBAGENT_DIFF_CAP = 4000
 
@@ -79,6 +84,7 @@ _SUBAGENT_READ_ONLY_TOOLS = frozenset(
         "read_image",
         "search_files",
         "grep_files",
+        "glob_files",
         "directory_tree",
         "rag_search",
         "sqlite_query",
@@ -91,14 +97,17 @@ _SUBAGENT_READ_ONLY_TOOLS = frozenset(
         "git_status",
         "git_diff",
         "git_log",
+        # Knowledge-skill loading is read-only; appended by name below.
+        "load_skill",
     }
 )
 
 # Tools that are NEVER available to sub-agents, even when listed in the
-# per-task `tools` allowlist (v1 hard constraint: sub-agents stay read-only).
+# per-task `tools` allowlist. "terminal" is special: it stays forbidden by
+# default but can be enabled per task via terminal=true, in which case only
+# safe-policy commands (terminal_command_policy == "safe") actually run.
 _SUBAGENT_FORBIDDEN_TOOLS = frozenset(
     {
-        "terminal",
         "edit_files",
         "write_file",
         "notes",
@@ -136,7 +145,11 @@ SUBAGENT_SYSTEM_PROMPT = """你是 Divine 的并行子 Agent，负责独立完�
 如果本子任务启用了写工具（write_file / edit_files）：
 - 只能创建或修改任务声明范围内（write_paths）的文件，禁止写入范围外路径；越界写入会被系统拒绝。
 - 保持改动最小：只改任务要求的部分，不要重写无关代码；创建新文件用 write_file（search 传空）。
-- 完成后在输出末尾列出修改过的文件与每个文件的改动摘要（新增/修改，各改了什么）。"""
+- 完成后在输出末尾列出修改过的文件与每个文件的改动摘要（新增/修改，各改了什么）。
+如果本子任务启用了终端（terminal / lint_check / run_tests / format_code）：
+- 优先用 run_tests 跑测试、lint_check 做静态检查、format_code 格式化，不要直接用 terminal。
+- terminal 只能执行安全只读命令（python3 -m pytest、npx tsc --noEmit 等）；
+  需要确认或高危的命令会被系统直接拒绝，不要重试，在结果中说明即可。"""
 
 
 def _resolve_write_claims(
@@ -201,6 +214,7 @@ def _validate_tasks(
         if tools is not None and not isinstance(tools, list):
             return [], f"子任务 {task_id} 的 tools 必须是数组"
         write = bool(item.get("write"))
+        terminal_enabled = bool(item.get("terminal"))
         claims: list[Path] | None = None
         if write:
             if workspace is None:
@@ -220,6 +234,7 @@ def _validate_tasks(
                 "prompt": prompt,
                 "tools": tools if isinstance(tools, list) else None,
                 "write": write,
+                "terminal": terminal_enabled,
                 "write_paths": [
                     str(p) for p in (claims or [])
                 ] if claims else None,
@@ -246,17 +261,43 @@ def has_write_tasks(tasks: list[dict[str, Any]]) -> bool:
     return any(bool(task.get("write")) for task in tasks)
 
 
+def has_terminal_tasks(tasks: list[dict[str, Any]]) -> bool:
+    """True when any validated task requested terminal/command execution."""
+    return any(bool(task.get("terminal")) for task in tasks)
+
+
 async def _run_subagent_tool(
     ctx: AgentRunContext,
     adapter: Any,
     name: str,
     arguments: dict[str, Any],
 ) -> str:
-    """Execute one read-only tool for a sub-agent, without approvals or SSE.
+    """Execute one tool for a sub-agent, without approvals or SSE.
 
     External paths outside ``approved_paths`` are rejected automatically.
-    Returns the same string content contract as the main agent's tool calls.
+    Raw terminal runs are restricted to safe-policy commands: sub-agents
+    cannot ask the user for confirmation, so anything requiring it is
+    rejected up front. Returns the main agent's string content contract.
     """
+    if name == "terminal":
+        command = str(arguments.get("command") or "")
+        from ..tools.terminal_policy import terminal_command_policy
+
+        policy = terminal_command_policy(command)
+        if policy != "safe":
+            return json.dumps(
+                {
+                    "success": False,
+                    "message": (
+                        f"子 Agent 只能执行安全只读命令（策略={policy}），"
+                        "需要确认的命令请在任务结果中说明，由主 Agent 处理"
+                    ),
+                    "command": command[:300],
+                    "rejected": True,
+                },
+                ensure_ascii=False,
+            )
+        arguments = {**arguments, "background": False}
     external_paths = adapter.external_paths(ctx.workspace, arguments)
     denied = [
         path
@@ -273,6 +314,12 @@ async def _run_subagent_tool(
             },
             ensure_ascii=False,
         )
+    effective_timeout = adapter.timeout
+    if hasattr(adapter, "effective_timeout"):
+        try:
+            effective_timeout = adapter.effective_timeout(arguments)
+        except Exception:  # noqa: BLE001 — fall back to base timeout
+            pass
     try:
         output = await asyncio.wait_for(
             adapter.run(
@@ -280,13 +327,13 @@ async def _run_subagent_tool(
                 arguments,
                 locale=ctx.locale,
             ),
-            timeout=adapter.timeout,
+            timeout=effective_timeout,
         )
         result = output.as_dict()
     except asyncio.TimeoutError:
         result = {
             "success": False,
-            "message": f"工具执行超时（{adapter.timeout}s）",
+            "message": f"工具执行超时（{effective_timeout}s）",
         }
     except Exception as exc:  # noqa: BLE001 — surface tool errors to the model
         logger.warning(
@@ -425,27 +472,40 @@ def _build_subagent_tools(
     lock: asyncio.Lock,
     write_claims: list[Path] | None = None,
     changes: list[dict[str, Any]] | None = None,
+    terminal_enabled: bool = False,
 ) -> list[StructuredTool]:
     """Build the restricted toolset for one sub-agent.
 
     Default is read-only. When ``write_claims`` is provided the task may also
     use ``write_file`` / ``edit_files``, but only within the declared paths;
     every write is recorded as a before/after diff into ``changes``.
+    When ``terminal_enabled`` the task additionally gets the raw terminal
+    (safe-policy commands only) plus the structured verification tools
+    (lint_check / run_tests / format_code).
     ``allowlist`` narrows the default set; forbidden tools are always removed
-    (unless explicitly enabled via write_claims).
+    (unless explicitly enabled via write_claims / terminal_enabled).
     """
     tools: list[StructuredTool] = []
     write_enabled = write_claims is not None and changes is not None
     for meta in registry.list():
         name = meta["name"]
         if name in _SUBAGENT_FORBIDDEN_TOOLS:
-            if not (write_enabled and name in _SUBAGENT_WRITE_TOOLS):
+            allowed_exception = write_enabled and name in _SUBAGENT_WRITE_TOOLS
+            allowed_exception = allowed_exception or (
+                terminal_enabled
+                and (name == "terminal" or name in _SUBAGENT_COMMAND_TOOLS)
+            )
+            if not allowed_exception:
                 continue
-        if (
+        elif (
             name not in _SUBAGENT_READ_ONLY_TOOLS
             and name not in _SUBAGENT_WRITE_TOOLS
         ):
-            continue
+            if not (
+                terminal_enabled
+                and (name == "terminal" or name in _SUBAGENT_COMMAND_TOOLS)
+            ):
+                continue
         if allowlist and name not in allowlist:
             continue
         adapter = registry.get(name)
@@ -517,6 +577,7 @@ async def _run_subagent(
     lock = asyncio.Lock()
     changes: list[dict[str, Any]] = []
     write_claims = task.get("claims")
+    terminal_enabled = bool(task.get("terminal"))
     try:
         llm = _build_llm(think=ctx.think, effort=ctx.effort, model_id=ctx.model_id)
         tools = _build_subagent_tools(
@@ -525,6 +586,7 @@ async def _run_subagent(
             lock,
             write_claims=write_claims,
             changes=changes if write_claims else None,
+            terminal_enabled=terminal_enabled,
         )
         language = language_instruction(ctx.locale)
         write_hint = ""
@@ -533,6 +595,11 @@ async def _run_subagent(
                 "\n本子任务已启用写文件权限，write_paths 声明范围：\n"
                 + "\n".join(f"- {p}" for p in (task.get("write_paths") or []))
                 + "\n只能修改以上路径内的文件。"
+            )
+        if terminal_enabled:
+            write_hint += (
+                "\n本子任务已启用终端验证：可用 run_tests / lint_check / format_code，"
+                "terminal 仅限安全只读命令。"
             )
         system_prompt = (
             f"{SUBAGENT_SYSTEM_PROMPT}\n\n{language}\n\n"
@@ -821,5 +888,6 @@ __all__ = [
     "_run_subagents",
     "_validate_tasks",
     "has_write_tasks",
+    "has_terminal_tasks",
     "SUBAGENT_SYSTEM_PROMPT",
 ]

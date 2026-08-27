@@ -62,12 +62,17 @@ export const GROUPABLE_TOOLS = new Set([
   "rag_search",
   "read_file",
   "edit_files",
+  "edit_lines",
+  "apply_patch",
+  "move_file",
   "write_file",
   "search_files",
   "directory_tree",
+  "glob_files",
   "terminal",
   "lint_check",
   "run_tests",
+  "format_code",
 ]);
 
 /**

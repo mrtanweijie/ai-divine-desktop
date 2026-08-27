@@ -353,12 +353,16 @@ _SUBAGENT_RULES = """当任务包含多个相互独立的子任务（如同时�
 # PROJECT_WORKFLOW — 项目开发工作流：探索/计划/编辑/验证/回滚/汇报与 git 纪律
 _PROJECT_WORKFLOW = """## 项目开发工作流
 用户要求修改、开发或排查项目代码时，按以下流程执行：
-- 探索：先用 directory_tree 了解项目结构，用 grep_files 定位相关代码（函数定义、配置项、
-  报错关键字），再用 read_file 读取关键文件的相关段落；不要一次性读取整个大文件。
+- 探索：先用 directory_tree 了解项目结构，用 glob_files（如 src/**/*.ts）或 grep_files
+  定位相关代码，大文件先用 list_definitions 看类/函数大纲再精读相关段落（read_file）；
+  不要一次性读取整个大文件。
 - 计划：多文件改动前，先简要列出要修改的文件和每个文件的改动点（复杂任务配合 write_todos 计划）。
-- 编辑：用 edit_files 一次提交所有文件的改动；一个文件有多处修改时，
+- 编辑：优先用 edit_files 一次提交所有文件的改动；一个文件有多处修改时，
   在 files 数组中放多个 item（path 相同），不要分多次调用；
   SEARCH 尽量精确，只复制要修改的代码块；工具返回的 diff 用于自查。
+  SEARCH 反复匹配失败或需要按行号大段重写时，改用 edit_lines
+  （直接用 read_file 返回的行号编辑，不再重试 SEARCH）；
+  多文件批量改动也可用标准 unified diff 走 apply_patch。
 - SEARCH 内容从 read_file 结果复制时不要带行号前缀（行号只是定位辅助）。
 - 小步修改：每次改动聚焦一个目标，改完立即验证再做下一步；
   不确定行为时先写最小验证（测试或脚本复现），再动手改。

@@ -1,4 +1,5 @@
 from .calculator import CalculatorAdapter  # noqa: F401
+from .apply_patch import ApplyPatchAdapter  # noqa: F401
 from .bg_tool import (  # noqa: F401
     BgKillAdapter,
     BgOutputAdapter,
@@ -11,7 +12,9 @@ from .describe_svg import DescribeSvgAdapter  # noqa: F401
 from .directory_tree import DirectoryTreeAdapter  # noqa: F401
 from .draw_svg import DrawSvgAdapter  # noqa: F401
 from .edit_files import EditFilesAdapter  # noqa: F401
+from .edit_lines import EditLinesAdapter  # noqa: F401
 from .edit_svg import EditSvgAdapter  # noqa: F401
+from .format_code import FormatCodeAdapter  # noqa: F401
 from .generate_chart import GenerateChartAdapter  # noqa: F401
 from .git_tool import (  # noqa: F401
     GitCommitAdapter,
@@ -20,6 +23,7 @@ from .git_tool import (  # noqa: F401
     GitRevertAdapter,
     GitStatusAdapter,
 )
+from .glob_files import GlobFilesAdapter  # noqa: F401
 from .github_skill import (  # noqa: F401
     InstallSkillAdapter,
     PreviewSkillRepoAdapter,
@@ -29,6 +33,8 @@ from .image_generate import ImageGenerateAdapter  # noqa: F401
 from .image_resize import ImageResizeAdapter  # noqa: F401
 from .mermaid_export import MermaidExportAdapter  # noqa: F401
 from .memory import ForgetMemoryAdapter, RememberAdapter  # noqa: F401
+from .list_definitions import ListDefinitionsAdapter  # noqa: F401
+from .move_file import MoveFileAdapter  # noqa: F401
 from .notes import NotesAdapter  # noqa: F401
 from .pdf_generate import PdfGenerateAdapter  # noqa: F401
 from .pdf_split_merge import PdfSplitMergeAdapter  # noqa: F401

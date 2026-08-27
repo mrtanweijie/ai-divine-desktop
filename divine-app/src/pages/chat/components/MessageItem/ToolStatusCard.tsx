@@ -1,6 +1,7 @@
 // Renders a single tool status card, including approvals and file actions.
 import { useMemo, useState } from "react";
 import {
+  Activity,
   AlertCircle,
   BarChart3,
   Blend,
@@ -9,18 +10,24 @@ import {
   BookOpenCheck,
   BookSearch,
   Box,
+  Brain,
   Calculator,
   CalendarClock,
   CalendarDays,
   Check,
   ChevronDown,
+  CircleStop,
   Copy,
   Database,
   Eye,
   FileBox,
   FileCode2,
+  FileDiff,
+  FilePlus2,
   FileSpreadsheet,
   FileText,
+  FlaskConical,
+  FolderInput,
   FolderOpen,
   FolderSearch2,
   FolderTree,
@@ -37,10 +44,16 @@ import {
   LibraryBig,
   Link,
   ListChecks,
+  ListOrdered,
+  ListTree,
   Orbit,
   Package,
+  Paintbrush,
   PenTool,
   Presentation,
+  Regex,
+  ScanSearch,
+  ScrollText,
   SquareKanban,
   StickyNote,
   TerminalSquare,
@@ -112,6 +125,34 @@ export function ToolStatusCard({
   const icon =
     tool.tool === "edit_files" ? (
       <Group size={16} />
+    ) : tool.tool === "write_file" ? (
+      <FilePlus2 size={16} />
+    ) : tool.tool === "edit_lines" ? (
+      <ListOrdered size={16} />
+    ) : tool.tool === "apply_patch" ? (
+      <FileDiff size={16} />
+    ) : tool.tool === "move_file" ? (
+      <FolderInput size={16} />
+    ) : tool.tool === "glob_files" ? (
+      <Regex size={16} />
+    ) : tool.tool === "list_definitions" ? (
+      <ListTree size={16} />
+    ) : tool.tool === "lint_check" ? (
+      <ScanSearch size={16} />
+    ) : tool.tool === "run_tests" ? (
+      <FlaskConical size={16} />
+    ) : tool.tool === "format_code" ? (
+      <Paintbrush size={16} />
+    ) : tool.tool.startsWith("bg_") ? (
+      tool.tool === "bg_kill" ? (
+        <CircleStop size={16} />
+      ) : tool.tool === "bg_output" ? (
+        <ScrollText size={16} />
+      ) : (
+        <Activity size={16} />
+      )
+    ) : tool.tool.includes("memory") ? (
+      <Brain size={16} />
     ) : tool.tool === "run_subagents" ? (
       <GitGraph size={16} />
     ) : tool.tool === "git_status" ? (
