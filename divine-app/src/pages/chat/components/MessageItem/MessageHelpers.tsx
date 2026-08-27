@@ -74,6 +74,17 @@ export const GROUPABLE_TOOLS = new Set([
   "lint_check",
   "run_tests",
   "format_code",
+  "git_status",
+  "git_diff",
+  "git_log",
+  "git_commit",
+  "git_revert",
+  "bg_status",
+  "bg_output",
+  "bg_kill",
+  "list_definitions",
+  "remember",
+  "forget_memory",
 ]);
 
 /**
@@ -160,6 +171,22 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
                   })
               : tool.tool === "grep_files"
                 ? i18next.t("tool.grepSearches", "已完成 {{count}} 次内容搜索", {
+                    count,
+                  })
+              : tool.tool.startsWith("git_")
+                ? i18next.t("tool.gitOperations", "已完成 {{count}} 次 Git 操作", {
+                    count,
+                  })
+              : tool.tool.startsWith("bg_")
+                ? i18next.t("tool.bgOperations", "已执行 {{count}} 次后台操作", {
+                    count,
+                  })
+              : tool.tool === "list_definitions"
+                ? i18next.t("tool.listedDefinitions", "已查看 {{count}} 个文件大纲", {
+                    count,
+                  })
+              : tool.tool === "remember" || tool.tool === "forget_memory"
+                ? i18next.t("tool.memoryOperations", "已完成 {{count}} 次记忆操作", {
                     count,
                   })
               : i18next.t("tool.executedTimes", "{{tool}} 已执行 {{count}} 次", {

@@ -101,6 +101,8 @@ export function ToolStatusCard({
   const urls = tool.urls ?? [];
   const hasUrls = urls.length > 0;
   const toggleUrls = () => setUrlsOpen((value) => !value);
+  const hasFiles = tool.tool === "read_file" && (tool.files?.length ?? 0) > 0;
+  const toggleFiles = () => setFilesOpen((value) => !value);
   const statusMessage =
     tool.status === "running" && tool.currentUrl
       ? t("tool.fetchingUrl", "正在抓取：{{url}}", {
@@ -275,17 +277,18 @@ export function ToolStatusCard({
       <Flex
         align="center"
         gap={8}
-        className={`tool-status-main${hasUrls ? " clickable" : ""}`}
-        onClick={hasUrls ? toggleUrls : undefined}
-        role={hasUrls ? "button" : undefined}
-        tabIndex={hasUrls ? 0 : undefined}
-        aria-expanded={hasUrls ? urlsOpen : undefined}
+        className={`tool-status-main${hasUrls || hasFiles ? " clickable" : ""}`}
+        onClick={hasUrls ? toggleUrls : hasFiles ? toggleFiles : undefined}
+        role={hasUrls || hasFiles ? "button" : undefined}
+        tabIndex={hasUrls || hasFiles ? 0 : undefined}
+        aria-expanded={hasUrls ? urlsOpen : hasFiles ? filesOpen : undefined}
         onKeyDown={
-          hasUrls
+          hasUrls || hasFiles
             ? (event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  toggleUrls();
+                  if (hasUrls) toggleUrls();
+                  else if (hasFiles) toggleFiles();
                 }
               }
             : undefined
@@ -321,6 +324,19 @@ export function ToolStatusCard({
             />
           </>
         )}
+        {hasFiles && (
+          <>
+            <span className="tool-url-count">
+              {t("tool.fileCount", "{{count}} 个文件", {
+                count: tool.files?.length ?? 0,
+              })}
+            </span>
+            <ChevronDown
+              size={14}
+              className={`tool-url-chevron${filesOpen ? " expanded" : ""}`}
+            />
+          </>
+        )}
       </Flex>
       {tool.status === "done" && chartOption && (
         <div className="chart-block">
@@ -343,10 +359,10 @@ export function ToolStatusCard({
           ))}
         </div>
       )}
-      {tool.files && tool.files.length > 0 && (
+      {tool.files && tool.files.length > 0 && (tool.tool !== "read_file" || filesOpen) && (
         <div className="file-actions file-list">
           {tool.files
-            .slice(0, filesOpen ? tool.files.length : 6)
+            .slice(0, tool.tool === "read_file" ? tool.files.length : 6)
             .map((file) => {
               const fileRel =
                 file.path && workspacePath
@@ -398,7 +414,7 @@ export function ToolStatusCard({
                 </div>
               );
             })}
-          {tool.files.length > 6 && !filesOpen && (
+          {tool.files.length > 6 && tool.tool !== "read_file" && !filesOpen && (
             <button
               className="file-list-more"
               type="button"
