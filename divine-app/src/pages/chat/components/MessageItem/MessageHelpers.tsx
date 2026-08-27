@@ -67,6 +67,7 @@ export const GROUPABLE_TOOLS = new Set([
   "move_file",
   "write_file",
   "search_files",
+  "grep_files",
   "directory_tree",
   "glob_files",
   "terminal",
@@ -155,6 +156,10 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
                 })
               : tool.tool === "terminal"
                 ? i18next.t("tool.executedCommands", "已执行 {{count}} 个终端命令", {
+                    count,
+                  })
+              : tool.tool === "grep_files"
+                ? i18next.t("tool.grepSearches", "已完成 {{count}} 次内容搜索", {
                     count,
                   })
               : i18next.t("tool.executedTimes", "{{tool}} 已执行 {{count}} 次", {
