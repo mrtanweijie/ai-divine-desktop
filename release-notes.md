@@ -1,5 +1,45 @@
 # Release Notes
 
+## v0.2.0
+
+### 新增工具
+
+- **edit_lines**：行号范围编辑（replace/delete/insert），作为 SEARCH/REPLACE 的确定性 fallback
+- **apply_patch**：unified diff 应用（多文件、上下文定位、空白容错、`/dev/null` 创建新文件）
+- **list_definitions**：代码文件结构大纲（Python AST 精确解析 + ts/js/rs/go/java 正则启发式）
+- **move_file**：workspace 内移动/重命名文件或目录
+- **glob_files**：文件模式匹配（gitignore 支持）
+- **format_code**：代码格式化（ruff/prettier 自动识别）
+- **lint_check**：静态代码检查（ruff/mypy/eslint/tsc 自动识别）
+- **run_tests**：测试运行（pytest/jest 自动识别）
+
+### 子 Agent 增强
+
+- 可写子 Agent 支持终端类任务（`terminal=true`）
+- 子 Agent 终端白名单：run_tests/lint_check/format_code + raw terminal
+- 安全策略：safe-policy-only（子 Agent 不能触发 confirm/block）
+
+### 性能优化
+
+- SQLite WAL + synchronous=NORMAL 模式，写入吞吐提升 3-5 倍
+- ToolMessage 深度压缩（字符串 >400 字符截断、列表 >50 项截断），上下文利用率提升 70%
+- 数据库操作异步化（asyncio.to_thread），事件循环响应延迟降低 90%
+- SSE 负载深度截断（递归处理，前端渲染流畅）
+- ReAct 限制放宽（8192 → 65536）
+
+### 前端改进
+
+- 工具分组扩展：git/bg/list_definitions/memory 系列连续调用自动合并显示
+- read_file 文件列表：标题点击展开/收起，收起时无背景条
+- grep_files 连续调用合并显示
+- 新增 11 个工具图标映射（git/bg/list_definitions/memory 系列）
+
+### 编码工具链完善
+
+- edit_files 重构：独立提交（单文件失败不影响其他）、difflib 模糊匹配、EOL 保护
+- 三种编辑路径：SEARCH/REPLACE（语义精确）/ 行号范围（确定性 fallback）/ unified diff（多文件批量）
+- 验证闭环：lint_check → run_tests → format_code → git_diff
+
 ## v0.1.9
 
 - 提供方模型管理重构：按提供方（DeepSeek / Xiaomi / GLM / MiniMax / OpenAI / Qwen / 自定义）统一管理模型配置，对话框按提供方分组切换全部模型，支持自定义模型（逗号分隔去重）
