@@ -285,7 +285,7 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
             if isinstance(message, AIMessage):
                 last_ai_text = _content_text(message.content)[:500]
                 break
-        intents = classify_intents(last_user_text, last_ai_text)
+        intents, _ = classify_intents(last_user_text, last_ai_text)
         if not intents:
             # 短指令（“换个颜色”“继续”）回补最近工具调用的意图
             intents = intents_from_tool_history(ctx.session_id, limit=5)

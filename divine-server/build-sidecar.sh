@@ -34,25 +34,129 @@ case "$TARGET" in
     EXE="divine-server"
     TRIPLE="aarch64-apple-darwin"
     TARGET_ARCH="arm64"
+    LLAMA_ARCH="arm64-apple-darwin"
     ;;
   darwin-x64)
     EXE="divine-server"
     TRIPLE="x86_64-apple-darwin"
     TARGET_ARCH="x86_64"
+    LLAMA_ARCH="x86_64-apple-darwin"
     ;;
   win32-x64)
     EXE="divine-server.exe"
     TRIPLE="x86_64-pc-windows-msvc"
+    LLAMA_ARCH="x86_64-pc-windows-msvc"
     ;;
   linux-x64)
     EXE="divine-server"
     TRIPLE="x86_64-unknown-linux-gnu"
+    LLAMA_ARCH="x86_64-unknown-linux-gnu"
     ;;
   *)
     echo "未知目标平台: $TARGET" >&2
     exit 1
     ;;
 esac
+
+# ============================================================================
+# 下载 llama-server
+# ============================================================================
+download_llama() {
+  local LLAMA_VERSION="b10666"
+  local LLAMA_DIR="$ROOT/bin/$TARGET/llama"
+  
+  echo "==> 下载 llama-server ${LLAMA_VERSION} (${TARGET})..."
+  
+  # 检查是否已下载
+  if [[ -f "$LLAMA_DIR/llama-server" ]] || [[ -f "$LLAMA_DIR/llama-server.exe" ]]; then
+    echo "    llama-server 已存在，跳过下载"
+    return 0
+  fi
+  
+  mkdir -p "$LLAMA_DIR"
+  
+  # 构建下载 URL（根据平台选择）
+  local ARCHIVE_NAME=""
+  case "$TARGET" in
+    darwin-arm64) ARCHIVE_NAME="llama-${LLAMA_VERSION}-bin-macos-arm64.tar.gz" ;;
+    darwin-x64) ARCHIVE_NAME="llama-${LLAMA_VERSION}-bin-macos-x64.tar.gz" ;;
+    linux-x64) ARCHIVE_NAME="llama-${LLAMA_VERSION}-bin-ubuntu-x64.tar.gz" ;;
+    linux-arm64) ARCHIVE_NAME="llama-${LLAMA_VERSION}-bin-ubuntu-arm64.tar.gz" ;;
+    win32-x64) ARCHIVE_NAME="llama-${LLAMA_VERSION}-bin-win-x64.zip" ;;
+    *)
+      echo "警告: 不支持的平台 $TARGET，跳过下载 llama-server"
+      return 0
+      ;;
+  esac
+  
+  local DOWNLOAD_URL="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}/${ARCHIVE_NAME}"
+  local ARCHIVE_FILE="$ROOT/dist/${ARCHIVE_NAME}"
+  
+  echo "    URL: $DOWNLOAD_URL"
+  
+  # 下载
+  mkdir -p "$ROOT/dist"
+  if command -v curl &> /dev/null; then
+    curl -L -o "$ARCHIVE_FILE" "$DOWNLOAD_URL"
+  elif command -v wget &> /dev/null; then
+    wget -O "$ARCHIVE_FILE" "$DOWNLOAD_URL"
+  else
+    echo "错误: 需要 curl 或 wget" >&2
+    exit 1
+  fi
+  
+  # 解压
+  if [[ "$ARCHIVE_NAME" == *.tar.gz ]]; then
+    tar -xzf "$ARCHIVE_FILE" -C "$LLAMA_DIR"
+  else
+    unzip -o "$ARCHIVE_FILE" -d "$LLAMA_DIR"
+  fi
+  
+  # 设置可执行权限
+  chmod +x "$LLAMA_DIR"/llama-server* 2>/dev/null || true
+  
+  # 清理
+  rm -f "$ARCHIVE_FILE"
+  
+  echo "    llama-server 已下载到: $LLAMA_DIR"
+  ls -la "$LLAMA_DIR/"
+}
+
+# ============================================================================
+# 补齐 llama-server 的第三方动态库
+# ============================================================================
+# llama.cpp 官方 macOS 二进制的 libggml-base 依赖 OpenMP (libomp)，且 server
+# 二进制链接了 OpenSSL (libssl/libcrypto)。这些库不在官方发布包内，若不随包
+# 分发，部署后的 llama-server 会直接 dyld 崩溃（Library not loaded），导致
+# "启动本地模型一直失败"。这里把 brew 里的库复制到 llama/ 与 libs/ 目录，
+# 由 divine-server.spec 打包，运行时 LocalLLMManager 通过 DYLD_LIBRARY_PATH
+# 解析。
+bundle_llama_deps() {
+  local LLAMA_DIR="$ROOT/bin/$TARGET/llama"
+  local LIBS_DIR="$ROOT/bin/$TARGET/libs"
+  if [[ "$TARGET" != darwin-* ]]; then
+    # Linux/Windows 发布包通常静态链接或自带依赖，无需额外处理
+    return 0
+  fi
+
+  local EXTRA_LIBS=(
+    "/opt/homebrew/opt/openssl@3/lib/libssl.3.dylib"
+    "/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib"
+    "/opt/homebrew/opt/libomp/lib/libomp.dylib"
+  )
+  mkdir -p "$LLAMA_DIR" "$LIBS_DIR"
+  for lib in "${EXTRA_LIBS[@]}"; do
+    if [[ -f "$lib" ]]; then
+      # -f：brew 的 dylib 是只读文件，重复构建时直接覆盖
+      cp -f "$lib" "$LLAMA_DIR/"
+      cp -f "$lib" "$LIBS_DIR/"
+      chmod +x "$LLAMA_DIR/$(basename "$lib")" "$LIBS_DIR/$(basename "$lib")"
+      echo "    补齐依赖库: $lib"
+    else
+      echo "    警告: 未找到 $lib（目标机器若没有 brew，llama-server 将无法启动）" >&2
+    fi
+  done
+}
 
 cd "$ROOT"
 if [[ -n "${PYTHON:-}" ]]; then
@@ -62,6 +166,13 @@ elif [[ -x "$ROOT/.venv/bin/python" ]]; then
 else
   PYTHON_BIN="python3"
 fi
+
+# 下载 llama-server
+download_llama
+
+# 补齐 llama-server 的第三方动态库（openssl / libomp）
+bundle_llama_deps
+
 rm -rf "dist/divine-server" "dist/divine-server.exe"
 if [[ "$TARGET" == darwin-* ]]; then
   # 目标切片经环境变量传给 divine-server.spec（EXE 的 target_arch）。不能走 CLI

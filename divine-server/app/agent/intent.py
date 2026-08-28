@@ -92,6 +92,36 @@ _INTENT_ORDER: tuple[str, ...] = (
 
 # 关键词一律小写；匹配时对文本做 .lower()（中文不受影响）。
 _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    # 桌面操作（高频，优先匹配）
+    "open_app": (
+        "打开",
+        "启动",
+        "运行",
+        "open",
+        "launch",
+        "start",
+    ),
+    "screenshot": (
+        "截屏",
+        "截图",
+        "抓屏",
+        "截取屏幕",
+        "screenshot",
+        "screen capture",
+    ),
+    "lock_screen": (
+        "锁屏",
+        "锁定",
+        "lock screen",
+        "lock",
+    ),
+    "search_file": (
+        "找文件",
+        "搜索文件",
+        "查找文件",
+        "find file",
+        "search file",
+    ),
     # PDF 相关（旅行手册 / 攻略 / 封面 / 风格 / 配色）
     "pdf": (
         "pdf",
@@ -277,16 +307,29 @@ _TOOL_TO_INTENT: dict[str, str] = {
 def classify_intents(
     text: str,
     history_context: str = "",
-) -> set[str]:
+    local_llm_enabled: bool = False,
+    local_llm_mode: str = "keyword",  # "keyword" | "local" | "hybrid"
+    local_llm_threshold: float = 0.75,
+) -> tuple[set[str], dict[str, Any] | None]:
     """从用户消息（+ 最近 AI 回复上下文）中提取意图标签集合。
 
-    纯本地规则匹配，无 LLM 调用。ASCII 关键词不区分大小写。
+    返回: (intents, local_result)
+        - intents: 意图标签集合
+        - local_result: 本地模型分类结果（如有），否则 None
+
+    模式语义：
+        - keyword: 仅关键词匹配，不调本地模型
+        - local/hybrid: 始终调用本地模型，本地意图与关键词意图取并集
+          （hybrid 的"关键词 + AI 双重判断"即两者都参与）
     """
     combined = f"{text} {history_context}".lower()
     intents: set[str] = set()
+
+    # Step 1: 关键词匹配
     for intent, keywords in _INTENT_KEYWORDS.items():
         if any(keyword in combined for keyword in keywords):
             intents.add(intent)
+
     # project 精度：强 >=1 或 弱 >=2
     strong_hits = sum(
         1 for keyword in _PROJECT_STRONG_KEYWORDS if keyword in combined
@@ -296,7 +339,26 @@ def classify_intents(
     )
     if strong_hits >= 1 or weak_hits >= 2:
         intents.add("project")
-    return intents
+
+    # Step 2: 本地模型分类（可选）
+    local_result = None
+    if local_llm_enabled:
+        # local / hybrid 都始终调用本地模型（"双重判断"）；keyword 模式不调。
+        # 本地意图与关键词意图取并集，_can_handle_locally 再决定是否短路本地。
+        try:
+            from .local_llm import get_manager
+
+            manager = get_manager()
+            if manager.is_ready():
+                local_result = manager.classify(text, history_context)
+                if local_result and local_result["confidence"] >= local_llm_threshold:
+                    intent = local_result["intent"]
+                    if intent and intent != "other":
+                        intents.add(intent)
+        except Exception:
+            pass  # 降级：不调本地模型，走云端
+
+    return intents, local_result
 
 
 def intents_from_tool_history(

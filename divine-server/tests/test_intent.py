@@ -24,61 +24,89 @@ def _init(tmp_path, monkeypatch):
 def test_classify_basic_intents():
     from app.agent.intent import classify_intents
 
-    assert "pdf" in classify_intents("帮我生成一份日本旅行攻略的PDF")
-    assert "pdf" in classify_intents("我想做个旅行手册，带封面和主题色")
-    assert "resume" in classify_intents("帮我写一份求职简历")
-    assert "document" in classify_intents("做一个产品介绍的PPT")
-    assert "image" in classify_intents("帮我生成一张海报图片")
-    assert "svg" in classify_intents("画一个SVG图标")
-    assert "chart" in classify_intents("把这几组数据画成柱状图")
-    assert "mermaid" in classify_intents("画个流程图说明逻辑")
-    assert "ux" in classify_intents("把这个PRD做成UX交互原型")
-    assert "skill" in classify_intents("从 Claude Code 迁移技能")
-    assert "terminal" in classify_intents("帮我执行命令安装依赖")
-    assert "subagent" in classify_intents("用并行子任务同时调研多个来源")
-    assert "memory" in classify_intents("记住我的偏好")
+    intents, _ = classify_intents("帮我生成一份日本旅行攻略的PDF")
+    assert "pdf" in intents
+    intents, _ = classify_intents("我想做个旅行手册，带封面和主题色")
+    assert "pdf" in intents
+    intents, _ = classify_intents("帮我写一份求职简历")
+    assert "resume" in intents
+    intents, _ = classify_intents("做一个产品介绍的PPT")
+    assert "document" in intents
+    intents, _ = classify_intents("帮我生成一张海报图片")
+    assert "image" in intents
+    intents, _ = classify_intents("画一个SVG图标")
+    assert "svg" in intents
+    intents, _ = classify_intents("把这几组数据画成柱状图")
+    assert "chart" in intents
+    intents, _ = classify_intents("画个流程图说明逻辑")
+    assert "mermaid" in intents
+    intents, _ = classify_intents("把这个PRD做成UX交互原型")
+    assert "ux" in intents
+    intents, _ = classify_intents("从 Claude Code 迁移技能")
+    assert "skill" in intents
+    intents, _ = classify_intents("帮我执行命令安装依赖")
+    assert "terminal" in intents
+    intents, _ = classify_intents("用并行子任务同时调研多个来源")
+    assert "subagent" in intents
+    intents, _ = classify_intents("记住我的偏好")
+    assert "memory" in intents
 
 
 def test_classify_case_insensitive_english():
     from app.agent.intent import classify_intents
 
-    assert "pdf" in classify_intents("Generate a PDF for me")
-    assert "resume" in classify_intents("Help me with my RESUME")
-    assert "document" in classify_intents("Make a Word document")
-    assert "svg" in classify_intents("Draw an SVG logo")
-    assert "chart" in classify_intents("Show trend with ECharts")
+    intents, _ = classify_intents("Generate a PDF for me")
+    assert "pdf" in intents
+    intents, _ = classify_intents("Help me with my RESUME")
+    assert "resume" in intents
+    intents, _ = classify_intents("Make a Word document")
+    assert "document" in intents
+    intents, _ = classify_intents("Draw an SVG logo")
+    assert "svg" in intents
+    intents, _ = classify_intents("Show trend with ECharts")
+    assert "chart" in intents
 
 
 def test_project_intent_precision():
     """project 意图需强关键词 >=1 或弱关键词 >=2，避免误触发。"""
     from app.agent.intent import classify_intents
 
-    # 单弱关键词（“代码”）不应触发 —— 只是解释提问
-    assert "project" not in classify_intents("这段代码什么意思？")
+    # 单弱关键词（"代码"）不应触发 —— 只是解释提问
+    intents, _ = classify_intents("这段代码什么意思？")
+    assert "project" not in intents
     # 强关键词触发
-    assert "project" in classify_intents("帮我重构这个模块")
-    assert "project" in classify_intents("修复那个bug")
-    assert "project" in classify_intents("帮我开发一个登录功能")
+    intents, _ = classify_intents("帮我重构这个模块")
+    assert "project" in intents
+    intents, _ = classify_intents("修复那个bug")
+    assert "project" in intents
+    intents, _ = classify_intents("帮我开发一个登录功能")
+    assert "project" in intents
     # 两个弱关键词触发
-    assert "project" in classify_intents("这个项目的代码结构怎么优化")
+    intents, _ = classify_intents("这个项目的代码结构怎么优化")
+    assert "project" in intents
     # 弱关键词只有 1 个时不触发
-    assert "project" not in classify_intents("看一下这个文件")
+    intents, _ = classify_intents("看一下这个文件")
+    assert "project" not in intents
 
 
 def test_classify_no_false_positive_plain_chat():
     from app.agent.intent import classify_intents
 
-    assert classify_intents("今天天气怎么样") == set()
-    assert classify_intents("帮我翻译这句话") == set()
-    assert classify_intents("你好") == set()
+    intents, _ = classify_intents("今天天气怎么样")
+    assert intents == set()
+    intents, _ = classify_intents("帮我翻译这句话")
+    assert intents == set()
+    intents, _ = classify_intents("你好")
+    assert intents == set()
 
 
 def test_classify_history_context_for_deictic_followup():
-    """短指令（“换个颜色”）借助最近 AI 回复尾部回补意图。"""
+    """短指令（"换个颜色"）借助最近 AI 回复尾部回补意图。"""
     from app.agent.intent import classify_intents
 
     ai_tail = "已为你生成旅行手册 PDF，主题色当前是 teal。"
-    assert "pdf" in classify_intents("换个颜色", ai_tail)
+    intents, _ = classify_intents("换个颜色", ai_tail)
+    assert "pdf" in intents
 
 
 # ---------------------------------------------------------------------------

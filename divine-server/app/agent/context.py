@@ -39,3 +39,6 @@ class AgentRunContext:
     # Set when the user stops the main stream; sub-agent batches poll it and
     # abort early instead of finishing work nobody will see.
     cancel_event: asyncio.Event | None = None
+    # 本地意图识别结果
+    intents: set[str] | None = None
+    local_intent_result: dict | None = None

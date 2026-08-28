@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Tag } from "@/components/ui/Tag";
 import { getBalance, type BalanceInfo } from "@/services/api";
 import type { ModelConfig, ToolMode } from "@/types";
 import { 
@@ -212,15 +213,14 @@ export function ModelSection({
                     t("settings.modelUnnamed", "未命名模型")}
                 </span>
                 {entry.active && (
-                  <span className="settings-model-badge">
-                    <Star size={10} fill="currentColor" />
+                  <Tag tone="accent" icon={<Star size={10} fill="currentColor" />}>
                     {t("settings.defaultBadge", "默认")}
-                  </span>
+                  </Tag>
                 )}
                 {balances[entry.id]?.available && (
-                  <span className="settings-model-balance">
+                  <Tag tone="success">
                     ¥{balances[entry.id].balance}
-                  </span>
+                  </Tag>
                 )}
               </button>
               {models.length > 1 && (

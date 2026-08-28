@@ -8,6 +8,7 @@ UI is free to refresh on every turn.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -139,7 +140,7 @@ def _system_prompt_preview(
             if user_messages
             else ""
         )
-        intents = classify_intents(last_user_text)
+        intents, _ = classify_intents(last_user_text)
         if not intents and session_id:
             intents = intents_from_tool_history(session_id, limit=5)
         rule_sections = build_rule_sections(
@@ -303,12 +304,35 @@ def _messages_since(session_id: str, cutoff_rowid: int) -> list[dict[str, Any]]:
 async def _summarize(
     previous: str, text: str, budget: int, locale: str
 ) -> str:
-    """Run one summarization pass over the given text (best-effort)."""
+    """Run one summarization pass over the given text (best-effort).
+
+    优先用本地模型压缩（省云 token），本地不可用/失败再回退云端 LLM。
+    """
     lang = {
         "zh-CN": "简体中文",
         "zh-TW": "繁體中文",
         "en": "English",
     }.get(str(locale or ""), "简体中文")
+
+    # 本地模型压缩优先
+    try:
+        from .local_llm import get_manager
+
+        manager = get_manager()
+        if manager.is_ready():
+            local_summary = await asyncio.to_thread(
+                manager.summarize,
+                text,
+                budget,
+                lang,
+                previous,
+            )
+            if local_summary:
+                logger.info("本地模型完成摘要压缩 (saved_tokens=~%d)", estimate_tokens(text) - estimate_tokens(local_summary))
+                return local_summary
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("本地模型摘要不可用，回退云端: %s", exc)
+
     system = _SUMMARY_SYSTEM.format(lang=lang, budget=budget)
     prompt_parts: list[str] = []
     if previous:

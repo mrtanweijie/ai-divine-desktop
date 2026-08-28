@@ -95,6 +95,9 @@ function logResponse(
 
 function logError(method: string, url: string, error: unknown) {
   if (!API_DEBUG) return;
+  // 主动 abort（如 StartupGate 轮询后端就绪、用户中断流式请求）属于预期行为，
+  // 不算错误，不打 warning 避免刷屏误导。
+  if (error instanceof Error && error.name === "AbortError") return;
   console.warn(
     `[api] error ${method} ${url}`,
     error instanceof Error ? error.message : error

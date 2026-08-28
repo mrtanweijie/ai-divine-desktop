@@ -53,25 +53,21 @@ _SAFE_GIT_SUBCOMMANDS = {
     "--version",
 }
 
+# 硬拦截：即使询问也不放开（系统/磁盘级破坏，误确认即不可逆）。
+# rm -rf / rm -fr 递归删除同样保留硬拦截——需要删目录时请用普通 rm 或
+# 在系统终端操作，避免 AI 误触。其余常见开发命令（sudo / kill -9 / chmod
+# 777 / find / -name / heredoc / curl / wget 等）不在黑名单里，会落到下面
+# 的 confirm 分级，由用户在弹窗里确认后执行——用户授权即可执行，无论内外网。
 _BLOCKED_TERMINAL_TOKENS = (
     "rm -rf",
     "rm -fr",
-    "sudo",
-    "kill -9",
     "shutdown",
     "reboot",
     "diskutil",
     "mkfs",
     "dd if=",
     "> /dev/sd",
-    "chmod 777",
-    "chown -r /",
-    "curl ",
-    "wget ",
-    "find / -name",
-    "openpyxl",
-    "python3 <<",
-    "python <<",
+    "chown -r",
 )
 
 _SHELL_CONTROL_RE = re.compile(r"(?:\|\||&&|;|\||&|`|\$\(|\$\{|\n)")
@@ -89,6 +85,9 @@ def _base_command(normalized: str) -> tuple[str, str | None]:
 
 def terminal_command_policy(command: str) -> str:
     normalized = command.strip().lstrip("$ ").lower()
+    # curl/wget：不硬拦截，一律"确认"——用户授权后即可执行（含外网）
+    if re.match(r"^(curl|wget)\b", normalized):
+        return "confirm"
     if any(token in normalized for token in _BLOCKED_TERMINAL_TOKENS):
         return "block"
     if _SHELL_CONTROL_RE.search(normalized):

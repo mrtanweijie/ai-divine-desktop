@@ -264,6 +264,14 @@ class SettingsStore:
                 "DEEPSEEK_REASONING_EFFORT", "high"
             ),
             "context_limit": 30,
+            # 本地模型配置
+            "local_llm_enabled": False,
+            "local_llm_mode": "keyword",  # "keyword" | "local" | "hybrid"
+            "local_llm_port": 8016,
+            "local_llm_model": "",
+            "local_llm_ctx_size": 4096,
+            "local_llm_threshold": 0.75,
+            "installed_models": [],  # [{"id": "...", "name": "...", "path": "...", "size": 0, "enabled": False}]
         }
         if self.path.exists():
             try:

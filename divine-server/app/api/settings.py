@@ -31,6 +31,13 @@ def _public(settings: dict) -> dict:
         "think_default": bool(settings.get("think_default", False)),
         "reasoning_effort": settings.get("reasoning_effort", "high"),
         "context_limit": int(settings.get("context_limit", 20)),
+        # 本地模型配置（意图识别模式等）
+        "local_llm_enabled": bool(settings.get("local_llm_enabled", False)),
+        "local_llm_mode": settings.get("local_llm_mode", "keyword"),
+        "local_llm_port": int(settings.get("local_llm_port", 8016)),
+        "local_llm_model": settings.get("local_llm_model", ""),
+        "local_llm_ctx_size": int(settings.get("local_llm_ctx_size", 4096)),
+        "local_llm_threshold": float(settings.get("local_llm_threshold", 0.75)),
         "tools": registry.list(),
         "models": [
             {

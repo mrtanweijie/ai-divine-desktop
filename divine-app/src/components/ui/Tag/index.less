@@ -1,0 +1,47 @@
+.ui-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+  background: var(--color-accent-soft);
+  color: var(--color-text-secondary);
+}
+
+.ui-tag-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* accent：强调色（如"默认"） */
+.ui-tag--accent {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+/* success：成功/运行中 */
+.ui-tag--success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+}
+
+/* 深色下用更柔和的青绿色，避免荧光绿突兀 */
+:root[data-theme="dark"] .ui-tag--success {
+  background: rgba(74, 222, 128, 0.12);
+  color: #4ade80;
+}
+
+.ui-tag--danger {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+
+.ui-tag--warning {
+  background: rgba(245, 165, 36, 0.14);
+  color: #d97706;
+}

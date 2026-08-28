@@ -86,6 +86,14 @@ export const PROVIDER_LIST: ProviderConfig[] = [
     prefix: ["qwen"],
   },
   {
+    value: "local",
+    label: "本地模型 (llama.cpp)",
+    base_url: "http://127.0.0.1:8016/v1",
+    default_model: "local",
+    list: [],
+    prefix: ["local"],
+  },
+  {
     value: "custom",
     label: "自定义",
     base_url: "",

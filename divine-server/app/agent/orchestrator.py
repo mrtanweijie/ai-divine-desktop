@@ -14,10 +14,12 @@ from langgraph.types import Command
 
 from .. import db
 from ..api.terminal import create_terminal_decision, remove_terminal_decision
+from ..config import settings_store
 from ..localization import default_session_title, normalize_locale
 from ..sse import error_event, sse_event
 from .context import AgentRunContext, canonical_path
 from .llm import _build_llm, _resolve_tool_mode, generate_session_title
+from .intent import classify_intents
 from .persistence import (
     _extract_final_content,
     _extract_token_usage,
@@ -29,6 +31,23 @@ from .sse import _interrupt_sse, _stream_agent_run
 from .tools import _build_agent, _build_tools, reset_agent_thread
 
 logger = logging.getLogger("divine.agent.orchestrator")
+
+# 本地可直接处理的意图（不需要调云端 LLM）
+_LOCAL_INTENTS = {"open_app", "screenshot", "lock_screen", "search_file"}
+
+
+def _can_handle_locally(
+    intents: set[str],
+    local_result: dict | None,
+    threshold: float = 0.75,
+) -> bool:
+    """判断是否可以本地直接处理（不调云端 LLM）。"""
+    if not intents:
+        return False
+    # 只要有一个意图属于本地可处理的，且本地模型置信度高
+    if local_result and local_result.get("confidence", 0) >= threshold:
+        return bool(intents & _LOCAL_INTENTS)
+    return False
 
 def _has_incomplete_tool_calls(messages: list[Any]) -> bool:
     from langchain_core.messages import AIMessage, ToolMessage
@@ -223,6 +242,81 @@ async def run_agent(
             question_text[:24],
         }
     )
+
+    # 本地意图识别 + 路由判断
+    settings = settings_store.load()
+    local_llm_enabled = settings.get("local_llm_enabled", False)
+    local_llm_mode = settings.get("local_llm_mode", "keyword")
+    local_llm_threshold = settings.get("local_llm_threshold", 0.75)
+    history_context = ""
+    if len(history) >= 2:
+        last_ai = history[-2].get("content", "") if history[-2].get("role") == "assistant" else ""
+        history_context = str(last_ai)[:500]
+
+    intents, local_result = classify_intents(
+        question_text,
+        history_context=history_context,
+        local_llm_enabled=local_llm_enabled,
+        local_llm_mode=local_llm_mode,
+        local_llm_threshold=local_llm_threshold,
+    )
+
+    # 更新上下文
+    ctx.intents = intents
+    ctx.local_intent_result = local_result
+
+    # 如果可以本地处理，执行真实本地动作；执行不了就回退云端，绝不吞消息
+    if _can_handle_locally(intents, local_result, local_llm_threshold):
+        logger.info(
+            "local intent handled session=%s intents=%s confidence=%.2f",
+            session_id,
+            intents,
+            local_result.get("confidence", 0) if local_result else 0,
+        )
+        reply = None
+        try:
+            from .local_actions import execute_local_action
+
+            from ..config import data_root
+
+            # 截图保存到应用数据目录 outputs/screenshots（output_dir 在打包
+            # 环境可能指向临时解压目录，不适合存用户文件）
+            reply = await asyncio.to_thread(
+                execute_local_action,
+                intents,
+                question_text,
+                data_root() / "outputs" / "screenshots",
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.warning("本地动作执行异常，回退云端: %s", e)
+
+        if reply is None:
+            # 目标不明 / 命令失败 / 模型误判 → 交给云端 agent 正常回答
+            logger.info(
+                "local intent 无法本地执行，回退云端 session=%s intents=%s",
+                session_id,
+                intents,
+            )
+        else:
+            # 注意：用户消息已由调用方（api/chat.py:123 / scheduler）预先保存，
+            # 这里不要重复 db.add_message("user")，否则每条消息会入库两次。
+            # 只持久化 assistant 回复，保证会话历史与前端刷新一致。
+            await asyncio.to_thread(
+                db.add_message, session_id, "assistant", reply
+            )
+            yield sse_event("message", {"content": reply})
+            # 正常收尾：前端依赖 done 事件结束流式状态并从服务端刷新消息列表
+            yield sse_event(
+                "done",
+                {
+                    "message": "回答完成",
+                    "messageKey": "tool.answerDone",
+                    "messageParams": {},
+                    "content": reply,
+                },
+            )
+            return
+
     logger.info(
         "agent start session=%s history=%d thread=%s tool_mode=%s",
         session_id,

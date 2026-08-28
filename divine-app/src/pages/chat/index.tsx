@@ -434,6 +434,13 @@ export default function ChatPage() {
               active: true,
             },
           ],
+          local_llm_enabled: false,
+          local_llm_mode: "keyword",
+          local_llm_port: 8016,
+          local_llm_model: "",
+          local_llm_ctx_size: 2048,
+          local_llm_threshold: 0.75,
+          installed_models: [],
         });
         setSelectionReady(true);
       });

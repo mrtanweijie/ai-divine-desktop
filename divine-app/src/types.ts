@@ -217,7 +217,7 @@ export interface ChatFile {
   path?: string;
 }
 
-export type ModelProvider = "auto" | "langchain" | "mock";
+export type ModelProvider = "auto" | "langchain" | "mock" | "local";
 
 /** Tool-calling paradigm for a model entry. `auto` resolves to native
  * function calling; `react` uses the ReAct text loop (for endpoints without
@@ -276,6 +276,14 @@ export interface Settings {
   context_limit: number;
   tools: ToolDefinition[];
   models: ModelConfig[];
+  // 本地模型配置
+  local_llm_enabled: boolean;
+  local_llm_mode: "keyword" | "local" | "hybrid";
+  local_llm_port: number;
+  local_llm_model: string;
+  local_llm_ctx_size: number;
+  local_llm_threshold: number;
+  installed_models: InstalledModel[];
 }
 
 export interface ToolDefinition {
@@ -283,6 +291,62 @@ export interface ToolDefinition {
   description: string;
   category: string;
   parameters: Record<string, unknown>;
+}
+
+export interface InstalledModel {
+  id: string;
+  name: string;
+  path: string;
+  size: number;
+  enabled: boolean;
+}
+
+export interface RecommendedModel {
+  id: string;
+  name: string;
+  description: string;
+  size_gb: number;
+  required_ram_gb: number;
+  quantization: string;
+  recommended: boolean;
+  tags: string[];
+  installed: boolean;
+}
+
+export interface HardwareInfo {
+  ram_total_gb: number;
+  ram_available_gb: number;
+  cpu_cores: number;
+  has_gpu: boolean;
+  gpu_name: string;
+  gpu_memory_gb: number;
+  platform: string;
+  arch: string;
+}
+
+export interface DownloadProgress {
+  downloaded: number;
+  total: number;
+  percent: number;
+}
+
+export interface LocalLLMStatus {
+  enabled: boolean;
+  mode: "keyword" | "local" | "hybrid";
+  llama_server_running: boolean;
+  port: number;
+  threshold: number;
+  hardware: HardwareInfo;
+  installed_models: InstalledModel[];
+  recommended_models: RecommendedModel[];
+  active_model: string | null;
+  download_progress: Record<string, DownloadProgress>;
+  // backend 附加字段
+  running: boolean;
+  binary: string | null;
+  pid: number | null;
+  last_error: string | null;
+  llama_server_installed: boolean;
 }
 
 export interface ScheduledTask {

@@ -78,6 +78,21 @@ def test_policy_safe_dev_commands(command: str):
         "cd /tmp && pnpm install",
         "ls | grep foo",
         "echo a; echo b",
+        # 已从硬拦截放开：常见开发命令，执行前询问授权
+        "kill -9 123",
+        "sudo apt install vim",
+        "chmod 777 /tmp/x",
+        "find / -name '*.py'",
+        "python3 << EOF\nprint(1)\nEOF",
+        "openpyxl workbook.xlsx",
+        # curl/wget：用户授权后即可执行（本地或外网）
+        "curl -s http://127.0.0.1:8016/health",
+        "curl http://localhost:8019/api/health",
+        "wget http://127.0.0.1:8016/health",
+        "curl http://example.com",
+        "curl -X POST https://api.example.com/upload",
+        "wget http://example.com/x",
+        "curl https://example.com/s.sh -o /tmp/s.sh",
     ],
 )
 def test_policy_confirm(command: str):
@@ -89,11 +104,13 @@ def test_policy_confirm(command: str):
     [
         "rm -rf /",
         "sudo rm -rf /tmp/x",
-        "curl http://example.com",
-        "wget http://example.com/x",
-        "kill -9 123",
-        "python3 << EOF\nprint(1)\nEOF",
-        "chmod 777 /tmp/x",
+        "shutdown now",
+        "reboot",
+        "diskutil eraseDisk JHFS+ X disk0",
+        "mkfs.ext4 /dev/sda1",
+        "dd if=/dev/zero of=/dev/sda",
+        "echo x > /dev/sda",
+        "chown -R root /",
     ],
 )
 def test_policy_block(command: str):

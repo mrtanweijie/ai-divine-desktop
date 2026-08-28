@@ -15,6 +15,11 @@ a = Analysis(
     datas=[
         (str(project_root / "app" / "tools" / "scripts"), "app/tools/scripts"),
         (str(project_root / "app" / "pdf_themes"), "app/pdf_themes"),
+        # llama-server 全套（二进制 + 全部动态库，含 openssl/libomp 等第三方
+        # 依赖；打包为数据文件，运行时解压部署）。必须整体打包 llama/ 目录，
+        # 否则部署后的 llama-server 会因缺 libssl/libcrypto/libomp 直接 dyld
+        # 崩溃，表现为"启动本地模型一直失败"。
+        (str(project_root / "bin" / "darwin-arm64" / "llama"), "llama"),
     ],
     hiddenimports=[
         "eval_type_backport",

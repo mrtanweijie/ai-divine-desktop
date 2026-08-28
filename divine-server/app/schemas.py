@@ -107,6 +107,13 @@ class SettingsUpdate(BaseModel):
     reasoning_effort: ReasoningEffort | None = None
     context_limit: int | None = Field(default=None, ge=1, le=200)
     models: list[ModelConfigUpdate] | None = None
+    # 本地模型配置
+    local_llm_enabled: bool | None = None
+    local_llm_mode: Literal["keyword", "local", "hybrid"] | None = None
+    local_llm_port: int | None = Field(default=None, ge=1, le=65535)
+    local_llm_model: str | None = None
+    local_llm_ctx_size: int | None = Field(default=None, ge=256, le=131072)
+    local_llm_threshold: float | None = Field(default=None, ge=0, le=1)
 
 
 class ScheduledTaskCreate(BaseModel):

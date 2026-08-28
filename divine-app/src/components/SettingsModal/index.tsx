@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Cpu, Info, Save, Settings2, X } from "lucide-react";
+import { AudioWaveform, Cpu, Info, Save, Settings2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
 import type {
@@ -23,6 +23,7 @@ import {
 import { AboutSection } from "./AboutSection";
 import { BasicSection } from "./BasicSection";
 import { ModelSection } from "./ModelSection";
+import { LocalLLMSection } from "./LocalLLMSection";
 import "./index.less";
 
 /** Build a UI-ready model list from server settings, tolerating servers that
@@ -82,7 +83,11 @@ export function SettingsModal({
   const [showGlmKey, setShowGlmKey] = useState(false);
   const [version, setVersion] = useState(`v${tauriConfig.version}`);
   const [themePreference, setThemePreferenceState] = useThemePreference();
-  const [section, setSection] = useState<"basic" | "model" | "about">("basic");
+  const [section, setSection] = useState<"basic" | "model" | "local" | "about">("basic");
+  const [localLLMEnabled, setLocalLLMEnabled] = useState(settings.local_llm_enabled ?? false);
+  const [localLLMMode, setLocalLLMMode] = useState<"keyword" | "local" | "hybrid">(
+    settings.local_llm_mode ?? "keyword"
+  );
 
   useEffect(() => {
     setSettingsOpen(true);
@@ -98,6 +103,8 @@ export function SettingsModal({
       settings.think_default ? settings.reasoning_effort ?? "high" : "off"
     );
     setContextLimit(settings.context_limit);
+    setLocalLLMEnabled(settings.local_llm_enabled ?? false);
+    setLocalLLMMode(settings.local_llm_mode ?? "keyword");
   }, [settings]);
 
   useEffect(() => {
@@ -142,6 +149,12 @@ export function SettingsModal({
       if (trimmedGlmKey) body.glm_api_key = trimmedGlmKey;
       void onSave(body);
     }
+    if (section === "local") {
+      void onSave({
+        local_llm_enabled: localLLMEnabled,
+        local_llm_mode: localLLMMode,
+      });
+    }
   };
 
   // 设为默认后自动保存模型配置（不关闭弹窗）
@@ -169,7 +182,7 @@ export function SettingsModal({
       title={t("settings.title", "设置")}
       titleSuffix={version}
       onClose={onClose}
-      width={760}
+      width={800}
       headerAction={
         <Button
           variant="icon"
@@ -215,6 +228,16 @@ export function SettingsModal({
           >
             <Cpu size={15} />
             <span>{t("settings.sectionModel", "模型")}</span>
+          </button>
+          <button
+            type="button"
+            className={`settings-nav-item${
+              section === "local" ? " active" : ""
+            }`}
+            onClick={() => setSection("local")}
+          >
+            <AudioWaveform size={15} />
+            <span>{t("settings.sectionLocal", "意图")}</span>
           </button>
           <button
             type="button"
@@ -265,6 +288,12 @@ export function SettingsModal({
               hasGlmKey={settings.has_glm_key}
               onConfirm={onConfirm}
               onAutoSave={handleAutoSaveModels}
+            />
+          ) : section === "local" ? (
+            <LocalLLMSection
+              localLLMEnabled={localLLMEnabled}
+              localLLMMode={localLLMMode}
+              onModeChange={setLocalLLMMode}
             />
           ) : (
             <AboutSection />
