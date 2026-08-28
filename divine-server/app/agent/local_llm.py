@@ -329,9 +329,9 @@ class LocalLLMManager:
             '只输出 JSON：{"intent":"类别","confidence":0.0}'
         )
 
+        # 注意：不拼上一条 AI 回复做上下文——动作词（如"已截图保存到…"）会
+        # 污染分类，导致后续消息被误判。意图只看用户当前消息。
         user_prompt = text
-        if context:
-            user_prompt = f"[上下文] {context[-200:]}\n[输入] {text}"
 
         payload = {
             "model": "local",

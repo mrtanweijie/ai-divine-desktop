@@ -303,6 +303,11 @@ _TOOL_TO_INTENT: dict[str, str] = {
     "git_log": "project",
 }
 
+# 上下文不可贡献的意图：本地动作类必须由用户当前消息明确触发。
+# 上一条 AI 回复里的动作词（如"已截图保存到 …/screenshot-xxx.png"）会
+# 污染关键词分类，导致后续消息被误判成截图并误执行本地动作。
+_CONTEXT_EXCLUDED_INTENTS = {"open_app", "screenshot", "lock_screen", "search_file"}
+
 
 def classify_intents(
     text: str,
@@ -311,7 +316,12 @@ def classify_intents(
     local_llm_mode: str = "keyword",  # "keyword" | "local" | "hybrid"
     local_llm_threshold: float = 0.75,
 ) -> tuple[set[str], dict[str, Any] | None]:
-    """从用户消息（+ 最近 AI 回复上下文）中提取意图标签集合。
+    """从用户消息（+ 上一条 AI 回复上下文）中提取意图标签集合。
+
+    上下文参与所有消息的关键词匹配（"换个颜色"→ pdf、"继续"→ 上次任务），
+    但本地动作类意图（open_app/screenshot/lock_screen/search_file）只能来自
+    用户当前消息——上一条回复里的动作词会污染分类、误触发本地动作。
+    本地模型只分类用户当前消息（其类别里也没有 pdf 等文档类目）。
 
     返回: (intents, local_result)
         - intents: 意图标签集合
@@ -322,15 +332,24 @@ def classify_intents(
         - local/hybrid: 始终调用本地模型，本地意图与关键词意图取并集
           （hybrid 的"关键词 + AI 双重判断"即两者都参与）
     """
-    combined = f"{text} {history_context}".lower()
+    combined = text.lower()
     intents: set[str] = set()
 
-    # Step 1: 关键词匹配
+    # Step 1: 关键词匹配 —— 当前消息全部意图都算
     for intent, keywords in _INTENT_KEYWORDS.items():
         if any(keyword in combined for keyword in keywords):
             intents.add(intent)
 
-    # project 精度：强 >=1 或 弱 >=2
+    # 上下文只补充非本地动作类意图，避免动作词污染
+    if history_context:
+        ctx = history_context.lower()
+        for intent, keywords in _INTENT_KEYWORDS.items():
+            if intent in _CONTEXT_EXCLUDED_INTENTS:
+                continue
+            if any(keyword in ctx for keyword in keywords):
+                intents.add(intent)
+
+    # project 精度：强 >=1 或 弱 >=2（只按当前消息，不按上下文）
     strong_hits = sum(
         1 for keyword in _PROJECT_STRONG_KEYWORDS if keyword in combined
     )
@@ -340,7 +359,7 @@ def classify_intents(
     if strong_hits >= 1 or weak_hits >= 2:
         intents.add("project")
 
-    # Step 2: 本地模型分类（可选）
+    # Step 2: 本地模型分类（可选，只看用户当前消息）
     local_result = None
     if local_llm_enabled:
         # local / hybrid 都始终调用本地模型（"双重判断"）；keyword 模式不调。
@@ -350,7 +369,7 @@ def classify_intents(
 
             manager = get_manager()
             if manager.is_ready():
-                local_result = manager.classify(text, history_context)
+                local_result = manager.classify(text)
                 if local_result and local_result["confidence"] >= local_llm_threshold:
                     intent = local_result["intent"]
                     if intent and intent != "other":

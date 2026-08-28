@@ -182,7 +182,7 @@ export function SettingsModal({
       title={t("settings.title", "设置")}
       titleSuffix={version}
       onClose={onClose}
-      width={800}
+      width={860}
       headerAction={
         <Button
           variant="icon"
