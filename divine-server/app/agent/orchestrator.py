@@ -277,15 +277,14 @@ async def run_agent(
         try:
             from .local_actions import execute_local_action
 
-            from ..config import data_root
-
-            # 截图保存到应用数据目录 outputs/screenshots（output_dir 在打包
-            # 环境可能指向临时解压目录，不适合存用户文件）
+            # 截图保存到当前会话工作区 screenshots/，方便用户在工作区里
+            # 直接找到/管理截图文件
+            screenshot_dir = workspace_path / "screenshots"
             reply = await asyncio.to_thread(
                 execute_local_action,
                 intents,
                 question_text,
-                data_root() / "outputs" / "screenshots",
+                screenshot_dir,
             )
         except Exception as e:  # noqa: BLE001
             logger.warning("本地动作执行异常，回退云端: %s", e)

@@ -82,10 +82,23 @@ def _extract_target(text: str) -> str:
     return t.strip(" \t，。？！?,.!；;：:")
 
 
-def _open_app(text: str) -> str | None:
+def _open_app(text: str, output_dir: Path | None = None) -> str | None:
     target = _extract_target(text)
     if not target:
         logger.info("open_app 目标为空: %r", text[:50])
+        return None
+    # "打开截图文件夹/截图目录/打开截图" → 打开截图保存目录
+    if output_dir is not None and (
+        "截图" in target
+        and ("文件夹" in target or "目录" in target or target == "截图")
+    ):
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.warning("截图目录创建失败: %s", e)
+        code, _ = _run(["open", str(output_dir)])
+        if code == 0:
+            return f"已打开截图文件夹：{output_dir}"
         return None
     name = _APP_ALIASES.get(target.lower(), target)
     code, err = _run(["open", "-a", name])
@@ -149,14 +162,24 @@ def _search_files(text: str) -> str | None:
 def execute_local_action(
     intents: set[str], text: str, output_dir: Path
 ) -> str | None:
-    """执行本地意图；返回回复文本；无法执行返回 None（调用方回退云端）。"""
-    for intent in ("open_app", "screenshot", "lock_screen", "search_file"):
+    """执行本地意图；返回回复文本；无法执行返回 None（调用方回退云端）。
+
+    注意：用户消息带"打开/启动"类措辞（open_app 命中）时，只尝试打开，
+    打开失败就交给云端——绝不回退到截图/锁屏/找文件等其他动作，
+    避免"打开截图文件夹"被误执行成截图。
+    """
+    if "open_app" in intents:
+        try:
+            return _open_app(text, output_dir)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("open_app 异常: %s", e)
+            return None
+
+    for intent in ("screenshot", "lock_screen", "search_file"):
         if intent not in intents:
             continue
         try:
-            if intent == "open_app":
-                result = _open_app(text)
-            elif intent == "screenshot":
+            if intent == "screenshot":
                 result = _screenshot(output_dir)
             elif intent == "lock_screen":
                 result = _lock_screen()

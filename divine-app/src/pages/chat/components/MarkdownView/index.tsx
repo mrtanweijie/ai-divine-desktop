@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/Toast";
-import { isTauri, openUrl } from "@/services/tauri";
+import { isTauri, openFileLocation, openUrl } from "@/services/tauri";
 import { copyText } from "@/utils";
 import { API_BASE } from "@/services/request";
 import { HighlightedCode } from "./HighlightedCode";
@@ -37,6 +37,32 @@ function resolveImageSrc(src?: string): string | null {
   return `${API_BASE}/files/image?path=${encodeURIComponent(decoded)}`;
 }
 
+/**
+ * 把 Markdown 文本里的绝对文件路径包成可点击链接（divine-path: 协议，
+ * 由 a 渲染器拦截后调用 openFileLocation 在 Finder 中显示）。
+ * 跳过 ``` 代码块，避免把代码里的路径也变成链接。
+ * 两类匹配：
+ *   - 带扩展名的路径（含空格/中文）：贪婪匹配到结尾扩展名
+ *   - 目录路径（不含空格）：避免把后文散文吞进链接
+ */
+const ABS_PATH_RE =
+  /(?<![\w])(?:(?:\/|~\/|(?:[A-Za-z]:[\\/]))[^\n，。；、！？"'`<>|*?#[\]]{3,}\.\w{1,5}|(?:\/|~\/|(?:[A-Za-z]:[\\/]))[\w\-./\\（）()%+@,'_\u4e00-\u9fff]{3,}[\w)\u4e00-\u9fff])/g;
+
+function linkifyFilePaths(content: string): string {
+  if (!content || content.length < 4) return content;
+  const parts = content.split("```");
+  return parts
+    .map((part, index) => {
+      // 奇数下标是代码块内容，不处理
+      if (index % 2 === 1) return part;
+      return part.replace(
+        ABS_PATH_RE,
+        (path) => `[${path}](divine-path:${encodeURIComponent(path)})`
+      );
+    })
+    .join("```");
+}
+
 interface MarkdownViewProps {
   content: string;
   streaming: boolean;
@@ -50,13 +76,14 @@ export function MarkdownView({
   messageId,
   choiceState,
 }: MarkdownViewProps) {
+  const { t } = useTranslation();
   return (
     <div className={`markdown-body ${streaming ? "streaming" : ""}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        components={buildComponents(streaming, messageId, choiceState)}
+        components={buildComponents(streaming, messageId, choiceState, t)}
       >
-        {content}
+        {linkifyFilePaths(content)}
       </ReactMarkdown>
     </div>
   );
@@ -121,7 +148,8 @@ function CodeBlock({
 function buildComponents(
   streaming: boolean,
   messageId?: string,
-  choiceState?: Record<string, unknown> | null
+  choiceState?: Record<string, unknown> | null,
+  t?: (key: string, options?: Record<string, unknown>) => string
 ): Components {
   return {
     code(props: any) {
@@ -183,13 +211,33 @@ function buildComponents(
       );
     },
     a(props: any) {
+      const href = props.href as string | undefined;
+      // 本地文件路径链接：点击在 Finder 中显示所在位置
+      if (href?.startsWith("divine-path:")) {
+        const path = decodeURIComponent(href.slice("divine-path:".length));
+        return (
+          <a
+            href="#"
+            className="file-path-link"
+            title={t?.("chat.openFileLocation", { defaultValue: "打开所在目录" }) ?? "打开所在目录"}
+            onClick={(event) => {
+              event.preventDefault();
+              if (isTauri()) {
+                void openFileLocation(path);
+              }
+            }}
+          >
+            <FolderOpen size={12} />
+            <span>{props.children}</span>
+          </a>
+        );
+      }
       return (
         <a
-          href={props.href}
+          href={href}
           target="_blank"
           rel="noreferrer"
           onClick={(event) => {
-            const href = props.href as string | undefined;
             if (href && /^https?:\/\//.test(href) && isTauri()) {
               event.preventDefault();
               void openUrl(href);
