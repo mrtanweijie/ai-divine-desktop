@@ -4,6 +4,7 @@ require 'base64'
 require 'tmpdir'
 require 'fileutils'
 require 'securerandom'
+require 'shellwords'
 
 default_platform(:mac)
 
@@ -272,11 +273,16 @@ platform :mac do
     UI.user_error!("PYTHON_X86_64 不存在: #{x64_python}") unless File.file?(x64_python)
 
     UI.message "Building divine-server sidecar for darwin-arm64 (python=#{arm64_python})..."
-    sh("env PYTHON='#{arm64_python}' bash '#{File.join(SIDECAR_DIR, 'build-sidecar.sh')}' darwin-arm64")
+    # fastlane 的 sh 会按 UTF-8 解析子进程输出，构建脚本/PyInstaller 偶发
+    # 非法字节会直接崩（invalid byte sequence in UTF-8）。用 pipefail + iconv
+    # 剥离非法字节，同时保留构建脚本的真实退出码。
+    build_cmd = "env PYTHON='#{arm64_python}' bash '#{File.join(SIDECAR_DIR, 'build-sidecar.sh')}' darwin-arm64 2>&1 | iconv -c -t UTF-8"
+    sh("bash -o pipefail -c #{Shellwords.escape(build_cmd)}")
     UI.message "Building divine-server sidecar for darwin-x64 (python=#{x64_python})..."
     # arch -x86_64 强制 x86_64 模式运行，确保 platform.machine() 返回 x86_64，
     # pip 解析 x86_64 的 wheel、PyInstaller 产出 x86_64 切片。
-    sh("arch -x86_64 env PYTHON='#{x64_python}' bash '#{File.join(SIDECAR_DIR, 'build-sidecar.sh')}' darwin-x64")
+    build_cmd = "arch -x86_64 env PYTHON='#{x64_python}' bash '#{File.join(SIDECAR_DIR, 'build-sidecar.sh')}' darwin-x64 2>&1 | iconv -c -t UTF-8"
+    sh("bash -o pipefail -c #{Shellwords.escape(build_cmd)}")
 
     # PyInstaller 工作目录（dist/ 里是最终二进制，build/ 是中间产物，各几百 MB）。
     # 二进制已经拷到 src-tauri/binaries/ 与 bin/，这里直接清掉省磁盘。

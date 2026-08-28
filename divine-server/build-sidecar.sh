@@ -53,7 +53,7 @@ case "$TARGET" in
     LLAMA_ARCH="x86_64-unknown-linux-gnu"
     ;;
   *)
-    echo "未知目标平台: $TARGET" >&2
+    echo "unknown target platform: $TARGET" >&2
     exit 1
     ;;
 esac
@@ -65,11 +65,11 @@ download_llama() {
   local LLAMA_VERSION="b10666"
   local LLAMA_DIR="$ROOT/bin/$TARGET/llama"
   
-  echo "==> 下载 llama-server ${LLAMA_VERSION} (${TARGET})..."
+  echo "==> downloading llama-server ${LLAMA_VERSION} (${TARGET})..."
   
   # 检查是否已下载
   if [[ -f "$LLAMA_DIR/llama-server" ]] || [[ -f "$LLAMA_DIR/llama-server.exe" ]]; then
-    echo "    llama-server 已存在，跳过下载"
+    echo "    llama-server already exists, skipping download"
     return 0
   fi
   
@@ -84,7 +84,7 @@ download_llama() {
     linux-arm64) ARCHIVE_NAME="llama-${LLAMA_VERSION}-bin-ubuntu-arm64.tar.gz" ;;
     win32-x64) ARCHIVE_NAME="llama-${LLAMA_VERSION}-bin-win-x64.zip" ;;
     *)
-      echo "警告: 不支持的平台 $TARGET，跳过下载 llama-server"
+      echo "WARNING: unsupported platform $TARGET, skipping llama-server download"
       return 0
       ;;
   esac
@@ -101,7 +101,7 @@ download_llama() {
   elif command -v wget &> /dev/null; then
     wget -O "$ARCHIVE_FILE" "$DOWNLOAD_URL"
   else
-    echo "错误: 需要 curl 或 wget" >&2
+    echo "ERROR: curl or wget required" >&2
     exit 1
   fi
   
@@ -118,7 +118,7 @@ download_llama() {
   # 清理
   rm -f "$ARCHIVE_FILE"
   
-  echo "    llama-server 已下载到: $LLAMA_DIR"
+  echo "    llama-server downloaded to: $LLAMA_DIR"
   ls -la "$LLAMA_DIR/"
 }
 
@@ -151,9 +151,9 @@ bundle_llama_deps() {
       cp -f "$lib" "$LLAMA_DIR/"
       cp -f "$lib" "$LIBS_DIR/"
       chmod +x "$LLAMA_DIR/$(basename "$lib")" "$LIBS_DIR/$(basename "$lib")"
-      echo "    补齐依赖库: $lib"
+      echo "    bundling dependency: $lib"
     else
-      echo "    警告: 未找到 $lib（目标机器若没有 brew，llama-server 将无法启动）" >&2
+      echo "    WARNING: $lib not found (llama-server may fail to start without brew)" >&2
     fi
   done
 }
@@ -197,5 +197,5 @@ mv -f "$BIN_DIR/.$EXE.tmp" "$BIN_DIR/$EXE"
 cp "dist/$EXE" "$TAURI_BIN_DIR/.$EXTERNAL_NAME.tmp"
 mv -f "$TAURI_BIN_DIR/.$EXTERNAL_NAME.tmp" "$TAURI_BIN_DIR/$EXTERNAL_NAME"
 
-echo "sidecar 已生成: $BIN_DIR/$EXE"
-echo "externalBin 已生成: $TAURI_BIN_DIR/$EXTERNAL_NAME"
+echo "sidecar generated: $BIN_DIR/$EXE"
+echo "externalBin generated: $TAURI_BIN_DIR/$EXTERNAL_NAME"
