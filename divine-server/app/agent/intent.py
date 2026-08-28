@@ -318,6 +318,19 @@ _ABS_PATH_RE = re.compile(
 )
 
 
+# 提问/信息查询类标记：命中则不执行本地动作（如"上海天气"被 0.5B 模型误判
+# 成 search_file），交给云端回答。
+_QUESTION_MARKERS = (
+    "？", "?", "吗", "呢", "什么", "怎么", "怎么样", "多少", "哪个", "哪些",
+    "哪里", "是否", "为什么", "天气", "几点", "价格", "如何", "谁", "是不是",
+)
+
+
+def is_question_like(text: str) -> bool:
+    """消息是否像提问/信息查询（应交给云端，而非执行本地动作）。"""
+    return any(marker in text for marker in _QUESTION_MARKERS)
+
+
 def classify_intents(
     text: str,
     history_context: str = "",

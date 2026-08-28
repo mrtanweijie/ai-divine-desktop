@@ -98,7 +98,8 @@ def _open_app(text: str, output_dir: Path | None = None) -> str | None:
             logger.warning("截图目录创建失败: %s", e)
         code, _ = _run(["open", str(output_dir)])
         if code == 0:
-            return f"已打开截图文件夹：{output_dir}"
+            # 空行分段：文案与路径分行展示（markdown 单换行会合并成一行）
+            return f"已打开截图文件夹：\n\n{output_dir}"
         return None
     name = _APP_ALIASES.get(target.lower(), target)
     code, err = _run(["open", "-a", name])
@@ -126,7 +127,8 @@ def _screenshot(output_dir: Path) -> str | None:
     path = output_dir / f"screenshot-{int(time.time())}.png"
     code, err = _run(["screencapture", "-x", str(path)], timeout=15.0)
     if code == 0 and path.exists() and path.stat().st_size > 0:
-        return f"已截图保存到 {path}"
+        # 空行分段：文案与路径分行展示
+        return f"已截图保存到：\n\n{path}"
     logger.info("screencapture 失败: %s", err[:120])
     return None
 
@@ -142,21 +144,27 @@ def _lock_screen() -> str | None:
     return None
 
 
+# 找文件专用剥离：去掉"帮我找一下/搜索/查找/文件"等措辞，剩下文件名关键字
+_SEARCH_STRIP = re.compile(
+    r"帮我|请|一下|找一找|找找|找|搜索|搜一搜|搜|查找|查一下|查|看看|文件|帮我找|帮我搜"
+)
+
+
 def _search_files(text: str) -> str | None:
-    query = _extract_target(text)
+    query = _SEARCH_STRIP.sub("", text).strip(" \t，。？！?,.!；;：:")
     if not query:
-        query = text.strip(" \t，。？！?,.!；;：:")
+        query = _extract_target(text).strip(" \t，。？！?,.!；;：:")
     if not query:
         return None
+    # 只按文件名搜索（-name）：Spotlight 的宽松内容搜索会把无关文件
+    # （如截图）当结果返回，误判时会产生无意义输出。按名找不到就交给云端。
     code, out = _run(["mdfind", "-name", query], timeout=15.0, use_stderr=False)
     lines = [line for line in out.splitlines() if line.strip()][:5]
-    if code != 0 or not lines:
-        code2, out2 = _run(["mdfind", query], timeout=15.0, use_stderr=False)
-        lines = [line for line in out2.splitlines() if line.strip()][:5]
     if not lines:
         logger.info("search_file 无结果 query=%r", query[:50])
         return None
-    return "找到以下文件：\n" + "\n".join(lines)
+    # 空行分段 + 文件列表（markdown 单换行会合并成一行）
+    return "找到以下文件：\n\n" + "\n".join(f"- {line}" for line in lines)
 
 
 def execute_local_action(

@@ -19,7 +19,7 @@ from ..localization import default_session_title, normalize_locale
 from ..sse import error_event, sse_event
 from .context import AgentRunContext, canonical_path
 from .llm import _build_llm, _resolve_tool_mode, generate_session_title
-from .intent import classify_intents
+from .intent import classify_intents, is_question_like
 from .persistence import (
     _extract_final_content,
     _extract_token_usage,
@@ -274,20 +274,29 @@ async def run_agent(
             local_result.get("confidence", 0) if local_result else 0,
         )
         reply = None
-        try:
-            from .local_actions import execute_local_action
+        # 提问/信息查询类消息（如"上海天气"被误判成 search_file）不执行
+        # 本地动作，直接交给云端回答
+        if not is_question_like(question_text):
+            try:
+                from .local_actions import execute_local_action
 
-            # 截图保存到当前会话工作区 screenshots/，方便用户在工作区里
-            # 直接找到/管理截图文件
-            screenshot_dir = workspace_path / "screenshots"
-            reply = await asyncio.to_thread(
-                execute_local_action,
-                intents,
-                question_text,
-                screenshot_dir,
+                # 截图保存到当前会话工作区 screenshots/，方便用户在工作区里
+                # 直接找到/管理截图文件
+                screenshot_dir = workspace_path / "screenshots"
+                reply = await asyncio.to_thread(
+                    execute_local_action,
+                    intents,
+                    question_text,
+                    screenshot_dir,
+                )
+            except Exception as e:  # noqa: BLE001
+                logger.warning("本地动作执行异常，回退云端: %s", e)
+        else:
+            logger.info(
+                "消息疑似提问，跳过本地动作交给云端 session=%s question=%r",
+                session_id,
+                question_text[:50],
             )
-        except Exception as e:  # noqa: BLE001
-            logger.warning("本地动作执行异常，回退云端: %s", e)
 
         if reply is None:
             # 目标不明 / 命令失败 / 模型误判 → 交给云端 agent 正常回答
