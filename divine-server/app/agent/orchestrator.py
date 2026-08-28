@@ -483,6 +483,26 @@ async def run_agent(
 
     messages = final_state.get("messages") or []
     _sync_todos_from_state(session_id, final_state)
+
+    # 演示模式（未配置 API Key，走 Mock 模型）：在回答后追加引导提示，
+    # 提示用户安装免费本地模型或配置 API Key（追加进消息内容，持久化与
+    # SSE 一致）
+    try:
+        from ..llm import MockChatModel
+        from langchain_core.messages import AIMessage
+
+        if isinstance(llm, MockChatModel):
+            for message in reversed(messages):
+                if isinstance(message, AIMessage) and (message.content or ""):
+                    notice = (
+                        "\n\n---\n> ⚠️ 当前为演示模式回答（未配置 API Key）。"
+                        "可安装免费本地模型离线使用，或在设置中配置 API Key。"
+                    )
+                    message.content = f"{message.content}{notice}"
+                    break
+    except Exception:  # noqa: BLE001
+        pass
+
     assistant_message_id = await asyncio.to_thread(
         _persist_new_messages, session_id, input_messages, messages, think_by_id
     )
