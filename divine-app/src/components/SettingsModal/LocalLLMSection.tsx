@@ -1,12 +1,20 @@
 // Local LLM settings section for the settings modal.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AudioWaveform, ChevronDown, Infinity, Zap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
+import { Input } from "@/components/ui/Input";
 import { Tag } from "@/components/ui/Tag";
+import { toast } from "@/components/ui/Toast";
 import { request } from "@/services/request";
-import type { DownloadProgress, LocalLLMStatus } from "@/types";
+import { isTauri } from "@/services/tauri";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import type {
+  DownloadProgress,
+  LocalLLMStatus,
+  RecommendedModel,
+} from "@/types";
 
 // 模型描述：后端 registry 返回中文原文，这里按模型 id 映射到 i18n 词条；
 // 未知模型（如用户自装）回退后端原文。
@@ -33,18 +41,61 @@ export function LocalLLMSection({
   const [status, setStatus] = useState<LocalLLMStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [installing, setInstalling] = useState<string | null>(null);
+  const [customInstallingKey, setCustomInstallingKey] = useState<string | null>(null);
+  const [customUrl, setCustomUrl] = useState("");
   const [progress, setProgress] = useState<Record<string, DownloadProgress>>({});
+  // 记录上一轮轮询进度，用于检测"条目消失 = 下载完成"
+  const lastProgressRef = useRef<Record<string, DownloadProgress>>({});
   // 推荐模型列表：默认收起，点击卡片展开详情（与"模型"tab 交互一致）
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // 自定义模型安装表单
+  const [customOpen, setCustomOpen] = useState(false);
+  // 启动失败详情默认收起
+  const [errorOpen, setErrorOpen] = useState(false);
 
   useEffect(() => {
     void loadStatus();
   }, []);
 
+  // 安装中的下载进度轮询（内置/自定义通用）
+  useEffect(() => {
+    const key = installing ?? customInstallingKey;
+    if (!key) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const p = await request<DownloadProgress>(
+          `/local_llm/download_progress/${key}`
+        );
+        setProgress((prev) => ({ ...prev, [key]: p }));
+        // 完成检测：之前有总量，现在条目消失（0/0/0）→ 下载完成
+        const prev = lastProgressRef.current[key];
+        if (prev && prev.total > 0 && p.total === 0 && p.downloaded === 0) {
+          lastProgressRef.current[key] = { downloaded: 0, total: 0, percent: 0 };
+          setInstalling(null);
+          void loadStatus();
+          return;
+        }
+        lastProgressRef.current[key] = p;
+      } catch {
+        // 忽略瞬时失败，下一轮再试
+      }
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [installing, customInstallingKey]);
+
   const loadStatus = async () => {
     try {
       const s = await request<LocalLLMStatus>("/local_llm/status");
       setStatus(s);
+      // 恢复进行中的下载：后端仍有活动下载（total>0）时恢复进度轮询，
+      // 避免"关闭弹窗再打开"只看到"未完成"
+      const activeKey = Object.keys(s.download_progress ?? {}).find(
+        (k) => (s.download_progress?.[k]?.total ?? 0) > 0
+      );
+      if (activeKey && !installing && !customInstallingKey) {
+        lastProgressRef.current[activeKey] = s.download_progress![activeKey];
+        setInstalling(activeKey);
+      }
     } catch (e) {
       console.error("Failed to load local LLM status:", e);
     }
@@ -75,9 +126,11 @@ export function LocalLLMSection({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model_id: modelId }),
       });
+      toast.success(t("settings.installSuccess", "模型安装成功"));
       await loadStatus();
     } catch (e) {
       console.error("Install failed:", e);
+      toast.error(t("settings.installFailed", "模型安装失败"));
     } finally {
       setInstalling(null);
       setProgress((prev) => {
@@ -85,6 +138,58 @@ export function LocalLLMSection({
         delete next[modelId];
         return next;
       });
+    }
+  };
+
+  const handleInstallCustom = async () => {
+    const url = customUrl.trim();
+    if (!url) return;
+    const key = `custom-${Date.now()}`;
+    setCustomInstallingKey(key);
+    setProgress((prev) => ({ ...prev, [key]: { downloaded: 0, total: 0, percent: 0 } }));
+    try {
+      await request("/local_llm/install_custom", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, key }),
+      });
+      setCustomUrl("");
+      toast.success(t("settings.installSuccess", "模型安装成功"));
+      await loadStatus();
+    } catch (e) {
+      console.error("Custom install failed:", e);
+      toast.error(t("settings.installFailed", "模型安装失败"));
+    } finally {
+      setCustomInstallingKey(null);
+      setProgress((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  };
+
+  const handleRegisterLocal = async () => {
+    if (!isTauri()) return;
+    try {
+      const selected = await openDialog({
+        multiple: false,
+        filters: [{ name: "GGUF", extensions: ["gguf"] }],
+      });
+      if (!selected || typeof selected !== "string") return;
+      setLoading(true);
+      try {
+        await request("/local_llm/register_local", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: selected }),
+        });
+        await loadStatus();
+      } finally {
+        setLoading(false);
+      }
+    } catch (e) {
+      console.error("Register local model failed:", e);
     }
   };
 
@@ -138,31 +243,181 @@ export function LocalLLMSection({
   };
 
   const recommended = status?.recommended_models ?? [];
+  const customModels = status?.custom_models ?? [];
   const activeModel = status?.active_model;
+
+  /** 模型卡片（推荐与自定义共用） */
+  const renderModelCard = (model: RecommendedModel) => {
+    const isInstalled = model.installed;
+    const isInstalling = installing === model.id;
+    const isActive = activeModel === model.id;
+    const dlProgress = progress[model.id];
+    const expanded = expandedId === model.id;
+    const toggle = () =>
+      setExpandedId((prev) => (prev === model.id ? null : model.id));
+
+    return (
+      <div
+        key={model.id}
+        className={`settings-model-card${
+          model.recommended ? " local-model-recommended" : ""
+        }${expanded ? " settings-model-card--expanded" : ""}`}
+      >
+        <div className="settings-model-card-header">
+          <button
+            type="button"
+            className="settings-model-summary"
+            onClick={toggle}
+            aria-expanded={expanded}
+            title={
+              expanded
+                ? t("settings.collapseModel", "收起")
+                : t("settings.expandModel", "展开详情")
+            }
+          >
+            <span className="settings-model-name">{model.name}</span>
+            {isActive && (
+              <Tag tone="success">{t("settings.active", "运行中")}</Tag>
+            )}
+            {isInstalled && !isActive && !model.incomplete && (
+              <Tag>{t("settings.installedBadge", "已安装")}</Tag>
+            )}
+            {model.incomplete && !isInstalling && (
+              <Tag tone="warning">
+                {t("settings.incompleteTag", "未完成")}
+              </Tag>
+            )}
+          </button>
+          <button
+            type="button"
+            className={`settings-model-chevron${expanded ? " open" : ""}`}
+            onClick={toggle}
+            aria-label={
+              expanded
+                ? t("settings.collapseModel", "收起")
+                : t("settings.expandModel", "展开详情")
+            }
+          >
+            <ChevronDown size={14} />
+          </button>
+        </div>
+        {expanded && (
+          <div className="settings-model-card-body">
+            <p className="local-model-desc">
+              {MODEL_DESC_KEYS[model.id]
+                ? t(MODEL_DESC_KEYS[model.id])
+                : model.description}
+            </p>
+            <div className="local-model-meta">
+              <span>
+                {t("settings.modelSize", "大小")} {formatSize(model.size_gb)}
+              </span>
+              <span>
+                {t("settings.modelRam", "需要内存")}{" "}
+                {formatSize(model.required_ram_gb)}
+              </span>
+              <span>
+                {t("settings.modelQuant", "量化")} {model.quantization}
+              </span>
+              {model.tags.length > 0 && (
+                <span className="local-model-tags">
+                  {model.tags.join(" / ")}
+                </span>
+              )}
+            </div>
+            <div className="model-actions">
+              {isInstalling && (
+                <div className="install-progress">
+                  <div className="progress-bar">
+                    <div
+                      className="progress-fill"
+                      style={{ width: `${dlProgress?.percent ?? 0}%` }}
+                    />
+                  </div>
+                  <span className="progress-text">
+                    {Math.round(dlProgress?.percent ?? 0)}%
+                  </span>
+                </div>
+              )}
+              {isInstalled && !model.incomplete ? (
+                <Flex gap={8} align="center">
+                  {isActive ? (
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onClick={handleStop}
+                      disabled={loading}
+                    >
+                      {t("settings.stop", "停止")}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      size="small"
+                      onClick={() => handleStart(model.id)}
+                      disabled={loading}
+                    >
+                      {t("settings.start", "启动")}
+                    </Button>
+                  )}
+                  <Button
+                    variant="danger"
+                    size="small"
+                    onClick={() => handleUninstall(model.id)}
+                    disabled={loading || isActive}
+                  >
+                    {t("settings.uninstall", "卸载")}
+                  </Button>
+                </Flex>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="small"
+                  className="local-model-install-btn"
+                  onClick={() => handleInstall(model.id)}
+                  disabled={loading || isInstalling}
+                  loading={isInstalling}
+                >
+                  {t("settings.install", model.incomplete ? "重新安装" : "一键安装")}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="settings-section">
-      <h3>{t("settings.localLLM", "意图识别模式")}</h3>
+      <h3 className="local-llm-title">
+        {t("settings.localLLM", "意图识别模式")}
+        {(localLLMMode === "local" || localLLMMode === "hybrid") &&
+          status &&
+          !status.running && (
+            <Tag tone="warning">{t("settings.notStartedTag", "未启动")}</Tag>
+          )}
+      </h3>
 
-      {/* 启动失败提示 */}
+      {/* 启动失败提示：默认收起，点击展开 */}
       {status?.last_error && (
-        <div className="local-llm-error">
-          <strong>{t("settings.localLLMStartFailed", "本地模型启动失败")}:</strong>{" "}
-          {status.last_error}
+        <div
+          className={`local-llm-error${errorOpen ? " open" : ""}`}
+          onClick={() => setErrorOpen((prev) => !prev)}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="local-llm-error-header">
+            <strong>
+              {t("settings.localLLMStartFailed", "本地模型启动失败")}
+            </strong>
+            <ChevronDown size={12} className="local-llm-error-chevron" />
+          </div>
+          {errorOpen && (
+            <div className="local-llm-error-body">{status.last_error}</div>
+          )}
         </div>
       )}
-
-      {/* 选了本地模式但模型未运行 */}
-      {(localLLMMode === "local" || localLLMMode === "hybrid") &&
-        status &&
-        !status.running && (
-          <div className="local-llm-hint">
-            {t(
-              "settings.localLLMNotRunning",
-              "本地模型未运行，意图识别将回退到关键词/云端，启动模型后生效"
-            )}
-          </div>
-        )}
 
       {/* 意图识别模式 */}
       <div className="settings-field">
@@ -216,143 +471,106 @@ export function LocalLLMSection({
       <div className="settings-field">
         <label>{t("settings.recommendedModels", "推荐模型")}</label>
         <div className="model-list">
-          {recommended.map((model) => {
-            const isInstalled = model.installed;
-            const isInstalling = installing === model.id;
-            const isActive = activeModel === model.id;
-            const dlProgress = progress[model.id];
-            const expanded = expandedId === model.id;
-            const toggle = () =>
-              setExpandedId((prev) => (prev === model.id ? null : model.id));
+          {recommended.map((model) => renderModelCard(model))}
+          {customModels.map((model) => renderModelCard(model))}
 
-            return (
-              <div
-                key={model.id}
-                className={`settings-model-card${
-                  model.recommended ? " local-model-recommended" : ""
-                }${expanded ? " settings-model-card--expanded" : ""}`}
-              >
-                <div className="settings-model-card-header">
-                  <button
-                    type="button"
-                    className="settings-model-summary"
-                    onClick={toggle}
-                    aria-expanded={expanded}
-                    title={
-                      expanded
-                        ? t("settings.collapseModel", "收起")
-                        : t("settings.expandModel", "展开详情")
-                    }
-                  >
-                    <span className="settings-model-name">{model.name}</span>
-                    {isActive && (
-                      <Tag tone="success">{t("settings.active", "运行中")}</Tag>
-                    )}
-                    {isInstalled && !isActive && (
-                      <Tag>{t("settings.installedBadge", "已安装")}</Tag>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className={`settings-model-chevron${expanded ? " open" : ""}`}
-                    onClick={toggle}
-                    aria-label={
-                      expanded
-                        ? t("settings.collapseModel", "收起")
-                        : t("settings.expandModel", "展开详情")
-                    }
-                  >
-                    <ChevronDown size={14} />
-                  </button>
-                </div>
-                {expanded && (
-                  <div className="settings-model-card-body">
-                    <p className="local-model-desc">
-                      {MODEL_DESC_KEYS[model.id]
-                        ? t(MODEL_DESC_KEYS[model.id])
-                        : model.description}
-                    </p>
-                    <div className="local-model-meta">
-                      <span>
-                        {t("settings.modelSize", "大小")} {formatSize(model.size_gb)}
-                      </span>
-                      <span>
-                        {t("settings.modelRam", "需要内存")}{" "}
-                        {formatSize(model.required_ram_gb)}
-                      </span>
-                      <span>
-                        {t("settings.modelQuant", "量化")} {model.quantization}
-                      </span>
-                      {model.tags.length > 0 && (
-                        <span className="local-model-tags">
-                          {model.tags.join(" / ")}
-                        </span>
-                      )}
-                    </div>
-                    <div className="model-actions">
-                      {isInstalling ? (
-                        <div className="install-progress">
-                          <div className="progress-bar">
-                            <div
-                              className="progress-fill"
-                              style={{ width: `${dlProgress?.percent ?? 0}%` }}
-                            />
-                          </div>
-                          <span className="progress-text">
-                            {Math.round(dlProgress?.percent ?? 0)}%
-                          </span>
-                        </div>
-                      ) : isInstalled ? (
-                        <Flex gap={8} align="center">
-                          {isActive ? (
-                            <Button
-                              variant="secondary"
-                              size="small"
-                              onClick={handleStop}
-                              disabled={loading}
-                            >
-                              {t("settings.stop", "停止")}
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="primary"
-                              size="small"
-                              onClick={() => handleStart(model.id)}
-                              disabled={loading}
-                            >
-                              {t("settings.start", "启动")}
-                            </Button>
-                          )}
-                          <Button
-                            variant="danger"
-                            size="small"
-                            onClick={() => handleUninstall(model.id)}
-                            disabled={loading || isActive}
-                          >
-                            {t("settings.uninstall", "卸载")}
-                          </Button>
-                        </Flex>
-                      ) : (
-                        <Button
-                          variant="primary"
-                          size="small"
-                          onClick={() => handleInstall(model.id)}
-                          disabled={loading}
-                        >
-                          {t("settings.install", "一键安装")}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {recommended.length === 0 && (
+          {recommended.length === 0 && customModels.length === 0 && (
             <div className="empty-state">
               {t("settings.noRecommendedModels", "暂无推荐模型，请检查硬件配置")}
             </div>
           )}
+
+          {/* 自定义模型：点击展开安装表单 */}
+          <div
+            className={`settings-model-card local-model-custom-card${
+              customOpen ? " settings-model-card--expanded" : ""
+            }`}
+          >
+            <div className="settings-model-card-header">
+              <button
+                type="button"
+                className="settings-model-summary"
+                onClick={() => setCustomOpen((prev) => !prev)}
+                aria-expanded={customOpen}
+              >
+                <span className="settings-model-name">
+                  {t("settings.customInstall", "自定义模型")}
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`settings-model-chevron${customOpen ? " open" : ""}`}
+                onClick={() => setCustomOpen((prev) => !prev)}
+                aria-label={
+                  customOpen
+                    ? t("settings.collapseModel", "收起")
+                    : t("settings.expandModel", "展开")
+                }
+              >
+                <ChevronDown size={14} />
+              </button>
+            </div>
+            {customOpen && (
+              <div className="settings-model-card-body">
+                <Input
+                  className="local-model-url"
+                  type="text"
+                  value={customUrl}
+                  onChange={(event) => setCustomUrl(event.target.value)}
+                  placeholder={t(
+                    "settings.customInstallUrlPlaceholder",
+                    "粘贴 GGUF 下载链接（如 HuggingFace resolve 直链）"
+                  )}
+                  disabled={loading || customInstallingKey !== null}
+                  action={
+                    <Button
+                      variant="primary"
+                      size="small"
+                      className="local-model-install-btn"
+                      onClick={handleInstallCustom}
+                      disabled={
+                        loading ||
+                        customInstallingKey !== null ||
+                        !customUrl.trim()
+                      }
+                      loading={customInstallingKey !== null}
+                    >
+                      {t("settings.install", "安装")}
+                    </Button>
+                  }
+                />
+                <Flex justify="space-between" align="center" gap={8} wrap>
+                  {customInstallingKey ? (
+                    <div className="install-progress">
+                      <div className="progress-bar">
+                        <div
+                          className="progress-fill"
+                          style={{
+                            width: `${progress[customInstallingKey]?.percent ?? 0}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="progress-text">
+                        {Math.round(progress[customInstallingKey]?.percent ?? 0)}%
+                      </span>
+                    </div>
+                  ) : (
+                    <span />
+                  )}
+                  {isTauri() && (
+                    <Button
+                      variant="ghost"
+                      size="small"
+                      onClick={handleRegisterLocal}
+                      disabled={loading || customInstallingKey !== null}
+                    >
+                      {t("settings.registerLocal", "选择本地 .gguf 文件")}
+                    </Button>
+                  )}
+                </Flex>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

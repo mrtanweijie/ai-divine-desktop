@@ -255,7 +255,11 @@ def get_recommended_models(hardware: HardwareInfo | None = None) -> list[ModelEn
 
 
 def get_installed_models(models_dir: Path) -> list[dict[str, Any]]:
-    """获取已安装的模型列表。"""
+    """获取已安装的模型列表。
+
+    对命中推荐仓库的文件做完整性粗校验：文件大小低于仓库声明大小的
+    50% 时标记 incomplete（下载中断的残文件，界面应显示"未完成"而非已安装）。
+    """
     installed = []
     if not models_dir.exists():
         return installed
@@ -268,14 +272,22 @@ def get_installed_models(models_dir: Path) -> list[dict[str, Any]]:
                 registry_entry = model
                 break
 
+        size_bytes = file.stat().st_size
+        incomplete = False
+        if registry_entry is not None:
+            expected = int(registry_entry.size_gb * (1024 ** 3))
+            if expected > 0 and size_bytes < expected * 0.5:
+                incomplete = True
+
         installed.append({
             "id": registry_entry.id if registry_entry else file.stem,
             "name": registry_entry.name if registry_entry else file.stem,
             "filename": file.name,
             "path": str(file),
-            "size_gb": file.stat().st_size / (1024 ** 3),
+            "size_gb": size_bytes / (1024 ** 3),
             "enabled": False,  # 需要外部设置
             "registry_id": registry_entry.id if registry_entry else None,
+            "incomplete": incomplete,
         })
 
     return installed
@@ -310,10 +322,20 @@ def download_model(
     models_dir.mkdir(parents=True, exist_ok=True)
     target_path = models_dir / model.filename
 
-    # 检查是否已下载
+    # 检查是否已下载：完整文件直接返回；残文件（大小明显不足）删除重下
     if target_path.exists():
-        logger.info("模型已存在: %s", target_path)
-        return target_path
+        size_bytes = target_path.stat().st_size
+        expected = int(model.size_gb * (1024 ** 3))
+        if expected <= 0 or size_bytes >= expected * 0.5:
+            logger.info("模型已存在: %s", target_path)
+            return target_path
+        logger.warning(
+            "检测到不完整文件（%d/%d bytes），删除重新下载: %s",
+            size_bytes,
+            expected,
+            target_path,
+        )
+        target_path.unlink(missing_ok=True)
 
     # 构建 URL 列表：优先镜像源，回退到官方源
     urls_to_try = []
@@ -349,6 +371,18 @@ def download_model(
                     if progress_callback:
                         progress_callback(downloaded, total_size)
 
+            # 完整性校验：已知总大小但下载量不足 → 判定中断，删除残文件
+            if total_size > 0 and downloaded < total_size:
+                logger.error(
+                    "下载不完整 (%s): %d/%d bytes，已删除 %s",
+                    source_name,
+                    downloaded,
+                    total_size,
+                    target_path,
+                )
+                target_path.unlink(missing_ok=True)
+                continue
+
             logger.info(
                 "模型下载完成 (%s): %s (%.1f GB)",
                 source_name,
@@ -375,6 +409,81 @@ def download_model(
 
     logger.error("所有下载源均失败，模型: %s", model_id)
     return None
+
+
+def download_custom_model(
+    url: str,
+    models_dir: Path,
+    name: str | None = None,
+    progress_callback: Any = None,
+) -> Path | None:
+    """从指定 URL 下载 GGUF 模型（用户自定义安装，不走内置仓库）。
+
+    Args:
+        url: GGUF 文件直链（http/https，支持 HuggingFace resolve 链接）
+        models_dir: 模型存储目录
+        name: 可选文件名（缺省从 URL 推断）
+        progress_callback: 进度回调 (downloaded_bytes, total_bytes) -> None
+
+    Returns:
+        下载后的文件路径，失败返回 None
+    """
+    if not str(url).strip().lower().startswith(("http://", "https://")):
+        logger.error("非法下载 URL: %s", str(url)[:100])
+        return None
+    filename = (name or "").strip() or str(url).split("/")[-1].split("?")[0].strip()
+    if not filename or "." not in filename:
+        logger.error("无法从 URL 推断文件名: %s", str(url)[:100])
+        return None
+    if not filename.lower().endswith(".gguf"):
+        filename = f"{filename}.gguf"
+    filename = Path(filename).name  # 防路径穿越
+    models_dir.mkdir(parents=True, exist_ok=True)
+    target_path = models_dir / filename
+    if target_path.exists():
+        logger.info("模型已存在: %s", target_path)
+        return target_path
+
+    try:
+        response = requests.get(
+            url,
+            stream=True,
+            timeout=(10, 120),
+            allow_redirects=True,
+        )
+        response.raise_for_status()
+        total_size = int(response.headers.get("content-length", 0))
+        downloaded = 0
+        with open(target_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+                downloaded += len(chunk)
+                if progress_callback:
+                    progress_callback(downloaded, total_size)
+        if downloaded == 0:
+            target_path.unlink(missing_ok=True)
+            logger.error("下载内容为空: %s", str(url)[:100])
+            return None
+        # 完整性校验：已知总大小但下载不足 → 删除残文件
+        if total_size > 0 and downloaded < total_size:
+            target_path.unlink(missing_ok=True)
+            logger.error(
+                "下载不完整: %d/%d bytes，已删除 %s",
+                downloaded,
+                total_size,
+                target_path,
+            )
+            return None
+        logger.info(
+            "自定义模型下载完成: %s (%.1f GB)",
+            target_path,
+            downloaded / (1024**3),
+        )
+        return target_path
+    except Exception as e:  # noqa: BLE001
+        logger.warning("自定义模型下载失败: %s", e)
+        target_path.unlink(missing_ok=True)
+        return None
 
 
 def delete_model(model_id: str, models_dir: Path) -> bool:

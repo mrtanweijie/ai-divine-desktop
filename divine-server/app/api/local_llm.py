@@ -42,6 +42,16 @@ class UninstallRequest(BaseModel):
     model_id: str
 
 
+class CustomInstallRequest(BaseModel):
+    url: str
+    name: str | None = None
+    key: str | None = None
+
+
+class RegisterLocalRequest(BaseModel):
+    path: str
+
+
 @router.get("/status")
 async def get_status():
     """获取本地模型状态（硬件 + 推荐 + 已安装）。"""
@@ -208,8 +218,8 @@ async def install_model(req: InstallRequest):
         if any(m["id"] == req.model_id for m in status["installed_models"]):
             return {"ok": True, "message": "模型已安装"}
 
-        # 下载
-        ok = manager.install_model(req.model_id)
+        # 下载（阻塞下载放线程池，避免卡住事件循环与进度轮询）
+        ok = await asyncio.to_thread(manager.install_model, req.model_id)
         if not ok:
             raise HTTPException(
                 500,
@@ -239,6 +249,53 @@ async def uninstall_model(req: UninstallRequest):
         raise
     except Exception as e:
         raise HTTPException(500, f"卸载失败: {e}")
+
+
+@router.post("/install_custom")
+async def install_custom_model(req: CustomInstallRequest):
+    """安装自定义模型（从指定 URL 下载 GGUF，不走内置仓库）。"""
+    if not req.url.strip():
+        raise HTTPException(400, "URL 不能为空")
+    try:
+        from ..agent.local_llm import get_manager
+
+        manager = get_manager()
+        key = req.key or f"custom-{int(time.time())}"
+        # 阻塞下载放入线程池，避免卡住事件循环
+        ok, message = await asyncio.to_thread(
+            manager.install_custom_model,
+            req.url.strip(),
+            req.name,
+            key,
+        )
+        if not ok:
+            raise HTTPException(500, detail=message)
+        return {"ok": True, "path": message, "key": key}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"安装失败: {e}")
+
+
+@router.post("/register_local")
+async def register_local_model(req: RegisterLocalRequest):
+    """注册本地 .gguf 文件（复制到模型目录）。"""
+    if not req.path.strip():
+        raise HTTPException(400, "路径不能为空")
+    try:
+        from ..agent.local_llm import get_manager
+
+        manager = get_manager()
+        ok, message = await asyncio.to_thread(
+            manager.register_local_model, req.path.strip()
+        )
+        if not ok:
+            raise HTTPException(500, detail=message)
+        return {"ok": True, "path": message}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"注册失败: {e}")
 
 
 @router.get("/download_progress/{model_id}")

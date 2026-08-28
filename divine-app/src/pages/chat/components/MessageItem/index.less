@@ -252,6 +252,10 @@
   color: var(--color-code-text);
   font-family: var(--font-mono);
   font-size: 12.5px;
+  /* 长内容（路径/URL）自动换行，避免溢出消息气泡 */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 .code-block {
   margin: 12px 0;

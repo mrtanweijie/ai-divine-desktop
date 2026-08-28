@@ -113,7 +113,8 @@
 .ui-spinner {
   width: 13px;
   height: 13px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  /* 轨道跟随文字颜色（低透明度），保证在浅色/深色按钮上都可见 */
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
   border-top-color: currentColor;
   border-radius: 50%;
   animation: ui-spin 0.7s linear infinite;

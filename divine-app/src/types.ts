@@ -311,6 +311,7 @@ export interface RecommendedModel {
   recommended: boolean;
   tags: string[];
   installed: boolean;
+  incomplete?: boolean;
 }
 
 export interface HardwareInfo {
@@ -339,6 +340,7 @@ export interface LocalLLMStatus {
   hardware: HardwareInfo;
   installed_models: InstalledModel[];
   recommended_models: RecommendedModel[];
+  custom_models: RecommendedModel[];
   active_model: string | null;
   download_progress: Record<string, DownloadProgress>;
   // backend 附加字段

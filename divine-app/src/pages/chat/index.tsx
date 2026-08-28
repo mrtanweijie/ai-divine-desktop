@@ -1240,7 +1240,11 @@ export default function ChatPage() {
       {settingsOpen && settings && (
         <SettingsModal
           settings={settings}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => {
+            setSettingsOpen(false);
+            // 刷新模型列表：本地模型启动/停止后，切换器随之出现/消失
+            void getSettings().then((current) => setSettings(current));
+          }}
           onSave={(body) => void handleSettingsSave(body)}
           onSilentSave={(body) => void handleSilentSave(body)}
           onConfirm={(title, description, action) =>

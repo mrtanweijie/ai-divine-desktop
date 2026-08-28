@@ -60,7 +60,22 @@ def _public(settings: dict) -> dict:
 
 @router.get("")
 def get_settings():
-    return _public(settings_store.load())
+    settings = settings_store.load()
+    # 本地模型运行时，动态注入"本地模型"条目（不持久化，先注入再经 _public
+    # 白名单转换，保证 has_api_key 等字段齐全），聊天模型切换器即可选它直接对话
+    try:
+        from ..agent.local_llm import get_manager, local_model_entry
+
+        manager = get_manager()
+        if manager.is_ready():
+            models = settings.get("models") or []
+            settings = dict(settings)
+            # 用当前运行的模型名展示（如 Qwen2.5-0.5B-Instruct）
+            entry = local_model_entry(manager.port, manager.active_model_name() or "本地模型")
+            settings["models"] = models + [entry]
+    except Exception:
+        pass
+    return _public(settings)
 
 
 @router.put("")

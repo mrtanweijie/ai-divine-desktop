@@ -41,6 +41,14 @@ def _resolve_model_entry(
     if model_id and "::" in model_id:
         base_id, _, model_override = model_id.partition("::")
         model_override = model_override.strip() or None
+    # 本地模型虚拟条目（llama-server 运行时由 settings API 动态注入）
+    if base_id == "local":
+        from .local_llm import local_model_entry
+
+        entry = local_model_entry()
+        if model_override:
+            entry["model"] = model_override
+        return entry
     if base_id:
         for entry in models:
             if isinstance(entry, dict) and entry.get("id") == base_id:

@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 from pathlib import Path
+from typing import Any, AsyncIterator
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -180,6 +181,18 @@ async def stream_chat(request: StreamChatRequest):
         cancel_event = asyncio.Event()
         _CANCEL_EVENTS[session_id] = cancel_event
         try:
+            # 本地模型：不走 agent（系统提示词 + 工具 schema 超过 0.5B 的
+            # 上下文），直接与 llama-server 对话
+            from ..agent.llm import _resolve_model_entry
+
+            entry = _resolve_model_entry(settings, request.model_id)
+            if entry.get("provider") == "local":
+                async for event in stream_local_chat(
+                    session_id, question, history, locale
+                ):
+                    yield event
+                return
+
             async for event in run_agent(
                 session_id,
                 history,
@@ -218,3 +231,97 @@ async def cancel_session(session_id: str) -> dict[str, object]:
         return {"ok": False, "message": "没有正在运行的会话"}
     cancel_event.set()
     return {"ok": True}
+
+
+async def stream_local_chat(
+    session_id: str,
+    question: str,
+    history: list[dict[str, Any]],
+    locale: str | None,
+) -> AsyncIterator[str]:
+    """与本地模型直接对话：把最近会话发给 llama-server 流式回答。
+
+    不走 agent（系统提示词 + 工具 schema 远超 0.5B 模型上下文），
+    用精简系统提示词直连 llama.cpp 的 OpenAI 兼容接口。
+    """
+    from ..agent.local_llm import get_manager
+
+    manager = get_manager()
+    if not manager.is_ready():
+        yield error_event(
+            "local_model_not_running",
+            "本地模型未运行，请先在设置-意图中启动",
+        )
+        return
+
+    lang = "中文" if str(locale or "").startswith("zh") else "English"
+    messages: list[dict[str, str]] = [
+        {
+            "role": "system",
+            "content": f"你是一个乐于助人的 AI 助手，请用{lang}简洁、准确地回答。",
+        }
+    ]
+    for message in history[-12:]:
+        role = message.get("role")
+        content = str(message.get("content") or "").strip()
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content[:2000]})
+    # history 已包含刚保存的用户消息（api/chat.py 预先 add_message）；
+    # 若最后一条不是当前问题再补
+    last_content = str((history[-1] or {}).get("content") or "")
+    if last_content != question:
+        messages.append({"role": "user", "content": question})
+
+    payload = {
+        "model": "local",
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 1024,
+        "stream": True,
+    }
+    parts: list[str] = []
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(120, connect=5)
+        ) as client:
+            async with client.stream(
+                "POST",
+                f"http://127.0.0.1:{manager.port}/v1/chat/completions",
+                json=payload,
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        delta = json.loads(data)["choices"][0]["delta"]
+                        chunk = delta.get("content") or ""
+                    except Exception:  # noqa: BLE001
+                        continue
+                    if chunk:
+                        parts.append(chunk)
+                        yield sse_event("message", {"content": chunk})
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("本地模型对话失败: %s", exc)
+        yield error_event("local_chat_failed", f"本地模型对话失败: {exc}")
+        return
+
+    reply = "".join(parts).strip()
+    if not reply:
+        yield error_event("local_chat_empty", "本地模型没有返回内容")
+        return
+    await asyncio.to_thread(db.add_message, session_id, "assistant", reply)
+    yield sse_event(
+        "done",
+        {
+            "message": "回答完成",
+            "messageKey": "tool.answerDone",
+            "messageParams": {},
+            "content": reply,
+        },
+    )

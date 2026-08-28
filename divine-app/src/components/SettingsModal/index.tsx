@@ -194,7 +194,8 @@ export function SettingsModal({
         </Button>
       }
       footer={
-        section !== "about" ? (
+        // 意图 tab 的操作（模式切换/模型启停）即时生效，无需底部保存按钮
+        section !== "about" && section !== "local" ? (
           <>
             <Button variant="secondary" onClick={onClose}>
               {t("common.cancel", "取消")}

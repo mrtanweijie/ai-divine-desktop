@@ -299,7 +299,17 @@
     "installedBadge": "已安裝",
     "modelSize": "大小",
     "modelRam": "需要記憶體",
-    "modelQuant": "量化"
+    "modelQuant": "量化",
+    "customInstall": "自訂模型",
+    "customInstallUrlPlaceholder": "貼上 GGUF 下載連結（如 HuggingFace resolve 直鏈）",
+    "registerLocal": "選擇本機 .gguf 檔案",
+    "customTag": "自訂",
+    "customInstalled": "已安裝的自訂模型",
+    "customInstalledEmpty": "尚無自訂模型，可在下方「自訂模型」卡片貼上連結或選擇本機 .gguf 檔案安裝",
+    "notStartedTag": "未啟動",
+    "incompleteTag": "未完成",
+    "installSuccess": "模型安裝成功",
+    "installFailed": "模型安裝失敗"
   },
   "skills": {
     "bodyTitle": "SKILL.md 內文",

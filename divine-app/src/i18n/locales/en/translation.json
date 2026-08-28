@@ -302,7 +302,17 @@
     "installedBadge": "Installed",
     "modelSize": "Size",
     "modelRam": "RAM",
-    "modelQuant": "Quant"
+    "modelQuant": "Quant",
+    "customInstall": "Custom Model",
+    "customInstallUrlPlaceholder": "Paste a GGUF download URL (e.g. HuggingFace resolve link)",
+    "registerLocal": "Choose local .gguf file",
+    "customTag": "Custom",
+    "customInstalled": "Custom Installed Models",
+    "customInstalledEmpty": "No custom models yet. Paste a GGUF link or choose a local .gguf file in the \"Custom Model\" card below.",
+    "notStartedTag": "Not Running",
+    "incompleteTag": "Incomplete",
+    "installSuccess": "Model installed successfully",
+    "installFailed": "Model installation failed"
   },
   "skills": {
     "bodyTitle": "SKILL.md content",

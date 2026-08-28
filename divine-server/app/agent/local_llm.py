@@ -31,6 +31,7 @@ from .model_registry import (
     MODEL_REGISTRY,
     ModelEntry,
     delete_model,
+    download_custom_model,
     download_model,
     get_installed_models,
 )
@@ -43,6 +44,55 @@ except Exception:
     get_recommended_models = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
+
+# 本地模型虚拟条目 id（聊天模型切换用）
+LOCAL_MODEL_ID = "local"
+
+# 常见 GGUF 量化后缀（自定义模型命名用）
+_KNOWN_QUANTS = (
+    "q2_k", "q3_k_m", "q4_k_s", "q4_k_m", "q4_0", "q5_k_m",
+    "q5_0", "q6_k", "q8_0", "fp16", "bf16", "f16",
+)
+
+
+def custom_model_display_name(filename: str) -> str:
+    """自定义模型的可读名称：同家族归到推荐模型名并标注量化。
+
+    如 qwen2.5-0.5b-instruct-q2_k.gguf → "Qwen2.5-0.5B-Instruct (Q2_K)"
+    """
+    stem = Path(filename).stem
+    quant: str | None = None
+    base = stem
+    for q in _KNOWN_QUANTS:
+        if stem.endswith(f"-{q}"):
+            quant = q
+            base = stem[: -(len(q) + 1)]
+            break
+    for model in MODEL_REGISTRY:
+        if model.filename.startswith(f"{base}-") or model.id.startswith(base):
+            suffix = f" ({quant.upper()})" if quant else " (自定义)"
+            return f"{model.name}{suffix}"
+    return stem
+
+
+def local_model_entry(port: int = 8016, model_name: str = "本地模型") -> dict[str, Any]:
+    """本地模型虚拟条目：llama-server 运行时由 settings API 动态注入模型列表。
+
+    model_name 传当前运行的模型名（如 Qwen2.5-0.5B-Instruct），
+    模型切换器分组下即显示具体模型名。不持久化到 settings["models"]。
+    """
+    return {
+        "id": LOCAL_MODEL_ID,
+        "name": model_name,
+        "provider": "local",
+        "model": model_name,
+        "base_url": f"http://127.0.0.1:{port}/v1",
+        "api_key": "local",
+        "active": False,
+        "tool_mode": "auto",
+        "custom_models": "",
+        "vendor": "local",
+    }
 
 # 意图分类白名单 + 中文/别名 → 规范标签归一化
 _VALID_INTENTS = {
@@ -147,6 +197,71 @@ class LocalLLMManager:
         except Exception:
             return False
 
+    def _effective_active_model_id(self) -> str | None:
+        """当前运行模型 id（内存态 → 设置持久化 → 询问 llama-server 兜底）。"""
+        model_id = self.active_model_id
+        if model_id is None:
+            try:
+                from ..config import settings_store
+
+                model_id = settings_store.load().get("local_llm_model") or None
+            except Exception:
+                model_id = None
+        if model_id is None:
+            model_id = self._query_loaded_model_id()
+            if model_id:
+                self._persist_active_model(model_id)
+        return model_id
+
+    def active_model_name(self) -> str | None:
+        """当前运行模型的可展示名称（来自模型仓库，找不到则用 id）。"""
+        model_id = self._effective_active_model_id()
+        if not model_id:
+            return None
+        for model in MODEL_REGISTRY:
+            if model.id == model_id:
+                return model.name
+        return model_id
+
+    def _query_loaded_model_id(self) -> str | None:
+        """通过 llama-server /v1/models 获取当前加载的模型 id。"""
+        try:
+            r = requests.get(
+                f"http://127.0.0.1:{self.port}/v1/models", timeout=2.0
+            )
+            r.raise_for_status()
+            models = r.json().get("models") or []
+            if not models:
+                return None
+            path = str(
+                models[0].get("model") or models[0].get("name") or ""
+            )
+            installed = get_installed_models(self.models_dir)
+            target = Path(path).expanduser().resolve()
+            for m in installed:
+                if m.get("path") and Path(m["path"]).resolve() == target:
+                    return m.get("registry_id") or m.get("id")
+            # 按文件名兜底
+            filename = target.name
+            for m in installed:
+                if m.get("filename") == filename:
+                    return m.get("registry_id") or m.get("id")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("查询 llama-server 模型失败: %s", e)
+        return None
+
+    def _persist_active_model(self, model_id: str) -> None:
+        """记录当前运行模型到设置，sidecar 重启后仍能识别模型名。"""
+        try:
+            from ..config import settings_store
+
+            settings = settings_store.load()
+            if settings.get("local_llm_model") != model_id:
+                settings["local_llm_model"] = model_id
+                settings_store.save(settings)
+        except Exception:  # noqa: BLE001
+            pass
+
     def _read_stderr(self, proc: subprocess.Popen | None) -> str:
         """读取子进程错误输出（进程退出后调用）。"""
         if proc is None or not proc.stderr:
@@ -155,6 +270,42 @@ class LocalLLMManager:
             return proc.stderr.read().decode("utf-8", errors="replace").strip()
         except Exception:
             return ""
+
+    def _port_pids(self) -> list[int]:
+        """返回占用本端口的进程 PID（用于释放孤儿 llama-server）。"""
+        try:
+            r = subprocess.run(
+                ["lsof", "-ti", f"tcp:{self.port}"],
+                capture_output=True, text=True, timeout=3,
+            )
+            pids = [
+                int(line.strip())
+                for line in r.stdout.splitlines()
+                if line.strip().isdigit()
+            ]
+            return pids
+        except Exception:  # noqa: BLE001
+            return []
+
+    def _free_orphan_port(self, wait_s: float = 5.0) -> None:
+        """终止占用端口但未被本 manager 托管的进程（孤儿 llama-server）。"""
+        for pid in self._port_pids():
+            if self.process and self.process.pid == pid:
+                continue
+            try:
+                os.kill(pid, signal.SIGTERM)
+                logger.info("终止孤儿 llama-server pid=%s", pid)
+            except ProcessLookupError:
+                pass
+            except Exception as e:  # noqa: BLE001
+                logger.warning("终止孤儿进程失败 pid=%s: %s", pid, e)
+        # 等待端口释放，避免新进程绑定失败
+        deadline = time.time() + wait_s
+        while time.time() < deadline:
+            if not self._port_pids():
+                return
+            time.sleep(0.2)
+        logger.warning("端口 %d 在 %ss 内未释放", self.port, wait_s)
 
     def start(
         self,
@@ -178,6 +329,9 @@ class LocalLLMManager:
             running_proc = self.process if self.process and self.process.poll() is None else None
         if running_proc is not None:
             self.stop()
+
+        # 释放端口上未托管的孤儿 llama-server（避免绑定失败/误判就绪）
+        self._free_orphan_port()
 
         with self._lock:
             self.last_error = None
@@ -242,6 +396,7 @@ class LocalLLMManager:
                 return False, self.last_error[:500]
             if self.is_ready():
                 self.active_model_id = model_id
+                self._persist_active_model(model_id)
                 logger.info("llama-server 就绪，端口 %d", self.port)
                 return True, ""
             time.sleep(0.2)
@@ -260,6 +415,8 @@ class LocalLLMManager:
             time.sleep(0.5)
             if self.is_ready():
                 self.active_model_id = getattr(self, "_pending_model_id", None)
+                if self.active_model_id:
+                    self._persist_active_model(self.active_model_id)
                 logger.info("llama-server 就绪，端口 %d", self.port)
                 return
 
@@ -284,7 +441,7 @@ class LocalLLMManager:
             self.stop()
 
     def stop(self) -> None:
-        """停止 llama-server 子进程。"""
+        """停止 llama-server 子进程（含未托管的孤儿进程）。"""
         with self._lock:
             if self.process:
                 try:
@@ -301,6 +458,8 @@ class LocalLLMManager:
                 self.process = None
                 self.active_model_id = None
                 logger.info("llama-server 已停止")
+        # 顺带释放端口上的孤儿进程
+        self._free_orphan_port(wait_s=3.0)
 
     def classify(self, text: str, context: str = "") -> dict[str, Any] | None:
         """调用本地模型做意图分类。
@@ -457,6 +616,9 @@ class LocalLLMManager:
 
         # 标记已安装的模型
         installed_ids = {m["registry_id"] for m in installed if m.get("registry_id")}
+        installed_by_id = {
+            m["registry_id"]: m for m in installed if m.get("registry_id")
+        }
         for model in recommended:
             model.recommended = model.id in installed_ids or model.recommended
 
@@ -476,13 +638,46 @@ class LocalLLMManager:
         )
 
         binary = self._find_binary()
+        # 推荐列表 = 仓库推荐 + 用户自定义安装的模型（无 registry_id）
+        custom_installed = [m for m in installed if not m.get("registry_id")]
+        recommended_list = [
+            {
+                "id": m.id,
+                "name": m.name,
+                "description": m.description,
+                "size_gb": m.size_gb,
+                "required_ram_gb": m.required_ram_gb,
+                "quantization": m.quantization,
+                "recommended": m.recommended,
+                "tags": m.tags,
+                "installed": m.id in installed_ids,
+                "incomplete": bool(installed_by_id.get(m.id, {}).get("incomplete")),
+            }
+            for m in recommended
+        ]
+        # 自定义安装的模型单独分组展示（不与推荐列表混排，避免同家族重复观感）
+        custom_list = [
+            {
+                "id": cm["id"],
+                "name": custom_model_display_name(cm["filename"]),
+                "description": "用户自定义安装的模型",
+                "size_gb": cm["size_gb"],
+                "required_ram_gb": max(round(cm["size_gb"] * 1.3, 1), 2.0),
+                "quantization": "自定义",
+                "recommended": False,
+                "tags": ["custom"],
+                "installed": True,
+                "incomplete": bool(cm.get("incomplete")),
+            }
+            for cm in custom_installed
+        ]
         return {
             "enabled": enabled,
             "mode": mode,
             "threshold": threshold,
             "running": running,
             "llama_server_running": running,
-            "active_model": self.active_model_id if running else None,
+            "active_model": self._effective_active_model_id() if running else None,
             "last_error": self.last_error,
             "port": self.port,
             "binary": binary,
@@ -490,20 +685,8 @@ class LocalLLMManager:
             "pid": self.process.pid if self.process and self.process.poll() is None else None,
             "hardware": hw_info,
             "installed_models": installed,
-            "recommended_models": [
-                {
-                    "id": m.id,
-                    "name": m.name,
-                    "description": m.description,
-                    "size_gb": m.size_gb,
-                    "required_ram_gb": m.required_ram_gb,
-                    "quantization": m.quantization,
-                    "recommended": m.recommended,
-                    "tags": m.tags,
-                    "installed": m.id in installed_ids,
-                }
-                for m in recommended
-            ],
+            "recommended_models": recommended_list,
+            "custom_models": custom_list,
             "download_progress": self._download_progress,
         }
 
@@ -530,6 +713,66 @@ class LocalLLMManager:
     def uninstall_model(self, model_id: str) -> bool:
         """卸载模型（删除文件）。"""
         return delete_model(model_id, self.models_dir)
+
+    def install_custom_model(
+        self,
+        url: str,
+        name: str | None = None,
+        progress_key: str | None = None,
+    ) -> tuple[bool, str]:
+        """安装自定义模型。返回 (ok, message)。
+
+        若 URL/文件名命中了推荐仓库的模型，走仓库下载（镜像源 + 统一文件名），
+        等同点击推荐列表的"一键安装"，装完即推荐列表中的同一条目，不重复。
+        """
+        key = progress_key or f"custom-{int(time.time())}"
+
+        def _progress(downloaded: int, total: int) -> None:
+            self._download_progress[key] = {
+                "downloaded": downloaded,
+                "total": total,
+                "percent": (downloaded / total * 100) if total > 0 else 0,
+            }
+
+        filename = (name or "").strip() or str(url).split("/")[-1].split("?")[0].strip()
+        # 匹配推荐仓库：优先按文件名，URL 兜底
+        registry_model = None
+        for model in MODEL_REGISTRY:
+            if model.filename == filename or (
+                str(model.download_url).rstrip("/") == str(url).rstrip("/")
+            ):
+                registry_model = model
+                break
+        try:
+            if registry_model is not None:
+                logger.info(
+                    "自定义安装命中推荐仓库: %s → %s", url[:80], registry_model.id
+                )
+                path = download_model(registry_model.id, self.models_dir, _progress)
+            else:
+                path = download_custom_model(url, self.models_dir, name, _progress)
+        finally:
+            self._download_progress.pop(key, None)
+        if path is None:
+            return False, "下载失败，请检查 URL 与网络"
+        return True, str(path)
+
+    def register_local_model(self, path: str) -> tuple[bool, str]:
+        """注册本地 .gguf 文件（复制到模型目录）。返回 (ok, message)。"""
+        src = Path(path).expanduser()
+        if not src.is_file() or src.suffix.lower() != ".gguf":
+            return False, "文件不存在或不是 .gguf 格式"
+        self.models_dir.mkdir(parents=True, exist_ok=True)
+        dest = self.models_dir / src.name
+        # 源文件已在模型目录内 → 直接视为已注册
+        if src.resolve() == dest.resolve():
+            return True, str(dest)
+        try:
+            shutil.copy2(src, dest)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("注册本地模型失败: %s", e)
+            return False, f"复制失败: {e}"
+        return True, str(dest)
 
 
 def get_manager(data_dir: str | None = None, port: int = 8016) -> LocalLLMManager:

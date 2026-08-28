@@ -9,7 +9,7 @@
   flex-shrink: 0;
   flex-direction: column;
   gap: 4px;
-  width: 200px;
+  width: 170px;
   padding-right: 16px;
   border-right: 1px solid var(--color-border);
 }
@@ -60,7 +60,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 300px;
+  max-height: 350px;
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -471,7 +471,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 300px;
+  max-height: 350px;
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -522,6 +522,26 @@
   color: var(--color-text-muted);
 }
 
+/* 一键安装按钮：loading/禁用时保持实底，不淡出 */
+.local-model-install-btn.ui-button:disabled {
+  opacity: 1;
+}
+
+/* 自定义模型安装 */
+
+.local-model-custom-card {
+  border-style: dashed;
+  border-color: var(--color-border-strong);
+}
+
+.local-model-custom-card:hover {
+  border-style: dashed;
+}
+
+.local-model-url {
+  width: 100%;
+}
+
 .install-progress {
   display: flex;
   align-items: center;
@@ -555,27 +575,47 @@
   font-size: 13px;
 }
 
-/* 本地模型启动失败提示 */
+/* 意图识别模式标题 + 未启动 tag */
+.local-llm-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 本地模型启动失败提示：默认收起，点击展开 */
 .local-llm-error {
-  margin-bottom: 14px;
-  padding: 10px 12px;
   border: 1px solid var(--color-danger, #e5484d);
   border-radius: 8px;
   background: color-mix(in srgb, var(--color-danger, #e5484d) 8%, transparent);
   color: var(--color-danger, #e5484d);
   font-size: 13px;
-  line-height: 1.5;
-  word-break: break-all;
+  cursor: pointer;
+  overflow: hidden;
 }
 
-/* 本地模型未运行提示 */
-.local-llm-hint {
-  margin-bottom: 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--color-warning, #f5a524);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--color-warning, #f5a524) 8%, transparent);
-  color: var(--color-warning, #f5a524);
-  font-size: 13px;
-  line-height: 1.5;
+.local-llm-error-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+}
+
+.local-llm-error-chevron {
+  flex-shrink: 0;
+  transition: transform 150ms ease;
+}
+
+.local-llm-error.open .local-llm-error-chevron {
+  transform: rotate(180deg);
+}
+
+.local-llm-error-body {
+  padding: 0 12px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  word-break: break-all;
+  color: var(--color-text-secondary);
+  padding-top: 8px;
+  margin-top: 0;
 }

@@ -295,7 +295,17 @@
     "installedBadge": "已安装",
     "modelSize": "大小",
     "modelRam": "需要内存",
-    "modelQuant": "量化"
+    "modelQuant": "量化",
+    "customInstall": "自定义模型",
+    "customInstallUrlPlaceholder": "粘贴 GGUF 下载链接（如 HuggingFace resolve 直链）",
+    "registerLocal": "选择本地 .gguf 文件",
+    "customTag": "自定义",
+    "customInstalled": "已安装的自定义模型",
+    "customInstalledEmpty": "暂无自定义模型，可在下方「自定义模型」卡片粘贴链接或选择本地 .gguf 文件安装",
+    "notStartedTag": "未启动",
+    "incompleteTag": "未完成",
+    "installSuccess": "模型安装成功",
+    "installFailed": "模型安装失败"
   },
   "skills": {
     "bodyTitle": "SKILL.md 正文",
