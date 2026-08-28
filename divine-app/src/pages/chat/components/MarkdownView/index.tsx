@@ -81,6 +81,11 @@ export function MarkdownView({
     <div className={`markdown-body ${streaming ? "streaming" : ""}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        // react-markdown 默认 urlTransform 会过滤非 http/https 协议，
+        // 导致 divine-path: 链接的 href 被替换为空串、点击失效。
+        // 这里放行原样保留 URL；点击行为由下方 a 渲染器拦截（仅处理
+        // http(s) 与 divine-path:）。
+        urlTransform={(url) => url}
         components={buildComponents(streaming, messageId, choiceState, t)}
       >
         {linkifyFilePaths(content)}
