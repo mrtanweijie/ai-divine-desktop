@@ -16,3 +16,42 @@
   flex-direction: column;
   background: var(--color-bg);
 }
+
+/* 未配置 API Key 横幅 */
+.api-key-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-warning, #f5a524) 10%, var(--color-bg));
+  font-size: 13px;
+}
+
+.api-key-banner-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.api-key-banner-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.api-key-banner-close:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}

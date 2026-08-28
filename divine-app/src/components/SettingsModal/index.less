@@ -111,6 +111,7 @@
   gap: 6px;
 }
 
+/* 卡片头部摘要：可点击展开/收起（div，视觉上非按钮） */
 .settings-model-summary {
   display: flex;
   align-items: center;
@@ -135,7 +136,9 @@
   font-weight: 500;
 }
 
-.settings-model-chevron {
+/* 卡片箭头：模型 tab 用原生 button、意图 tab 用 Button 组件，两种选择器都覆盖 */
+.settings-model-chevron,
+.ui-button.settings-model-chevron {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -151,11 +154,13 @@
   transition: transform 150ms ease, color 120ms ease;
 }
 
-.settings-model-chevron:hover {
+.settings-model-chevron:hover,
+.ui-button.settings-model-chevron:hover {
   color: var(--color-text);
 }
 
-.settings-model-chevron.open {
+.settings-model-chevron.open,
+.ui-button.settings-model-chevron.open {
   transform: rotate(180deg);
 }
 

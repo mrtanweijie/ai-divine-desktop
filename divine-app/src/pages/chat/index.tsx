@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import {
   createProject,
   deleteProject,
@@ -132,6 +134,11 @@ export default function ChatPage() {
       ),
     [settings?.models]
   );
+  // 没有任何可用模型（无 API Key 且本地模型未运行）→ 提示安装免费本地模型
+  const noUsableModel = useMemo(() => {
+    const models = settings?.models ?? [];
+    return models.length === 0 || models.every((m) => !m.has_api_key);
+  }, [settings?.models]);
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -143,6 +150,12 @@ export default function ChatPage() {
   const fullscreen = useFullscreen();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  // 设置弹窗初始 tab（横幅"去安装本地模型"跳转到意图页）
+  const [settingsInitialSection, setSettingsInitialSection] = useState<
+    "basic" | "model" | "local" | "about"
+  >("basic");
+  // 未配置 API Key 横幅（本次会话可关闭）
+  const [apiKeyBannerDismissed, setApiKeyBannerDismissed] = useState(false);
   const view = searchParams.get("view");
   const tasksOpen = view === "tasks";
   const skillsOpen = view === "skills";
@@ -1120,6 +1133,37 @@ export default function ChatPage() {
         />
       </Flex>
       <Flex direction="column" className="main-area">
+        {/* 未配置 API Key：提示安装免费本地模型 */}
+        {noUsableModel && !apiKeyBannerDismissed && (
+          <div className="api-key-banner">
+            <span className="api-key-banner-text">
+              {t(
+                "chat.noApiKeyBanner",
+                "未配置 API Key，当前为演示模式。可安装免费本地模型离线使用，或配置 API Key。"
+              )}
+            </span>
+            <Button
+              size="small"
+              variant="primary"
+              onClick={() => {
+                setSettingsInitialSection("local");
+                setSettingsOpen(true);
+              }}
+            >
+              {t("chat.installLocalModel", "去安装本地模型")}
+            </Button>
+            <Button
+              variant="icon"
+              size="small"
+              className="api-key-banner-close"
+              aria-label={t("common.close", "关闭")}
+              title={t("common.close", "关闭")}
+              onClick={() => setApiKeyBannerDismissed(true)}
+            >
+              <X size={14} />
+            </Button>
+          </div>
+        )}
         {tasksOpen ? (
           <ScheduledTasksPage
             onOpenSidebar={() => setSidebarOpen(true)}
@@ -1240,6 +1284,7 @@ export default function ChatPage() {
       {settingsOpen && settings && (
         <SettingsModal
           settings={settings}
+          initialSection={settingsInitialSection}
           onClose={() => {
             setSettingsOpen(false);
             // 刷新模型列表：本地模型启动/停止后，切换器随之出现/消失

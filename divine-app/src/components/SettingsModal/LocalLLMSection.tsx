@@ -264,10 +264,17 @@ export function LocalLLMSection({
         }${expanded ? " settings-model-card--expanded" : ""}`}
       >
         <div className="settings-model-card-header">
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             className="settings-model-summary"
             onClick={toggle}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                toggle();
+              }
+            }}
             aria-expanded={expanded}
             title={
               expanded
@@ -287,9 +294,10 @@ export function LocalLLMSection({
                 {t("settings.incompleteTag", "未完成")}
               </Tag>
             )}
-          </button>
-          <button
-            type="button"
+          </div>
+          <Button
+            variant="icon"
+            size="small"
             className={`settings-model-chevron${expanded ? " open" : ""}`}
             onClick={toggle}
             aria-label={
@@ -299,7 +307,7 @@ export function LocalLLMSection({
             }
           >
             <ChevronDown size={14} />
-          </button>
+          </Button>
         </div>
         {expanded && (
           <div className="settings-model-card-body">
@@ -487,18 +495,26 @@ export function LocalLLMSection({
             }`}
           >
             <div className="settings-model-card-header">
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 className="settings-model-summary"
                 onClick={() => setCustomOpen((prev) => !prev)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setCustomOpen((prev) => !prev);
+                  }
+                }}
                 aria-expanded={customOpen}
               >
                 <span className="settings-model-name">
                   {t("settings.customInstall", "自定义模型")}
                 </span>
-              </button>
-              <button
-                type="button"
+              </div>
+              <Button
+                variant="icon"
+                size="small"
                 className={`settings-model-chevron${customOpen ? " open" : ""}`}
                 onClick={() => setCustomOpen((prev) => !prev)}
                 aria-label={
@@ -508,7 +524,7 @@ export function LocalLLMSection({
                 }
               >
                 <ChevronDown size={14} />
-              </button>
+              </Button>
             </div>
             {customOpen && (
               <div className="settings-model-card-body">

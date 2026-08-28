@@ -68,7 +68,9 @@
     "switchModel": "切换模型",
     "text": "文本",
     "thinkEffort": "深度思考",
-    "thinkEffortTooltip": "选择关闭则不进行深度思考"
+    "thinkEffortTooltip": "选择关闭则不进行深度思考",
+    "noApiKeyBanner": "未配置 API Key，当前为演示模式。可安装免费本地模型离线使用，或配置 API Key。",
+    "installLocalModel": "去安装本地模型"
   },
   "common": {
     "accept": "接受",

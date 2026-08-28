@@ -68,7 +68,9 @@
     "switchModel": "Switch model",
     "text": "Text",
     "thinkEffort": "Deep thinking",
-    "thinkEffortTooltip": "Select Off to disable deep thinking"
+    "thinkEffortTooltip": "Select Off to disable deep thinking",
+    "noApiKeyBanner": "No API key configured — demo mode. Install a free local model for offline use, or configure an API key.",
+    "installLocalModel": "Install Local Model"
   },
   "common": {
     "accept": "Accept",

@@ -58,6 +58,8 @@ interface SettingsModalProps {
   /** 静默保存（不关闭弹窗） */
   onSilentSave?: (body: SettingsSaveBody) => Promise<void> | void;
   onConfirm?: (title: string, description: string, action: () => void) => void;
+  /** 打开时定位到的 tab（默认"通用"） */
+  initialSection?: "basic" | "model" | "local" | "about";
 }
 
 export function SettingsModal({
@@ -66,6 +68,7 @@ export function SettingsModal({
   onSave,
   onSilentSave,
   onConfirm,
+  initialSection = "basic",
 }: SettingsModalProps) {
   const { t } = useTranslation();
   const [locale, setLocaleState] = useState<AppLocale>(readLocalePreference);
@@ -83,7 +86,7 @@ export function SettingsModal({
   const [showGlmKey, setShowGlmKey] = useState(false);
   const [version, setVersion] = useState(`v${tauriConfig.version}`);
   const [themePreference, setThemePreferenceState] = useThemePreference();
-  const [section, setSection] = useState<"basic" | "model" | "local" | "about">("basic");
+  const [section, setSection] = useState<"basic" | "model" | "local" | "about">(initialSection);
   const [localLLMEnabled, setLocalLLMEnabled] = useState(settings.local_llm_enabled ?? false);
   const [localLLMMode, setLocalLLMMode] = useState<"keyword" | "local" | "hybrid">(
     settings.local_llm_mode ?? "keyword"
