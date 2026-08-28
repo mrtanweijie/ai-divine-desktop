@@ -5,7 +5,7 @@ import { Check, Copy, FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/Toast";
-import { isTauri, openFileLocation, openUrl } from "@/services/tauri";
+import { isTauri, openFileLocation, openFolder, openUrl } from "@/services/tauri";
 import { copyText } from "@/utils";
 import { API_BASE } from "@/services/request";
 import { HighlightedCode } from "./HighlightedCode";
@@ -212,7 +212,7 @@ function buildComponents(
     },
     a(props: any) {
       const href = props.href as string | undefined;
-      // 本地文件路径链接：点击在 Finder 中显示所在位置
+      // 本地文件路径链接：目录直接打开文件夹；文件则在其所在文件夹中显示
       if (href?.startsWith("divine-path:")) {
         const path = decodeURIComponent(href.slice("divine-path:".length));
         return (
@@ -223,7 +223,9 @@ function buildComponents(
             onClick={(event) => {
               event.preventDefault();
               if (isTauri()) {
-                void openFileLocation(path);
+                void openFolder(path).catch(() => {
+                  void openFileLocation(path);
+                });
               }
             }}
           >

@@ -11,6 +11,7 @@ tool-run history backfills intents for short follow-ups like "换个颜色".
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .. import db
@@ -308,6 +309,14 @@ _TOOL_TO_INTENT: dict[str, str] = {
 # 污染关键词分类，导致后续消息被误判成截图并误执行本地动作。
 _CONTEXT_EXCLUDED_INTENTS = {"open_app", "screenshot", "lock_screen", "search_file"}
 
+# 绝对路径（含空格/中文，带扩展名或纯目录）：用户直接发路径时，路径内部的
+# 动作词（如 screenshots/截图）不应触发本地动作——纯路径消息应交给云端
+# 读取文件（read_file/read_image），而不是误执行截图等本地动作。
+_ABS_PATH_RE = re.compile(
+    r"(?<!\w)(?:(?:/|~/|(?:[A-Za-z]:[\\/]))[^\n，。；、！？\"'`<>|*?#\[\]]{3,}\.\w{1,5}"
+    r"|(?:/|~/|(?:[A-Za-z]:[\\/]))[\w\-./\\（）()%+@,'_\u4e00-\u9fff]{3,}[\w)\u4e00-\u9fff])"
+)
+
 
 def classify_intents(
     text: str,
@@ -332,7 +341,10 @@ def classify_intents(
         - local/hybrid: 始终调用本地模型，本地意图与关键词意图取并集
           （hybrid 的"关键词 + AI 双重判断"即两者都参与）
     """
-    combined = text.lower()
+    # 去掉消息里的绝对路径再判断意图：路径内部的动作词（screenshots/截图）
+    # 不应触发本地动作；纯路径消息交给云端读取文件
+    intent_text = _ABS_PATH_RE.sub(" ", text)
+    combined = intent_text.lower()
     intents: set[str] = set()
 
     # Step 1: 关键词匹配 —— 当前消息全部意图都算
@@ -369,7 +381,11 @@ def classify_intents(
 
             manager = get_manager()
             if manager.is_ready():
-                local_result = manager.classify(text)
+                # 本地模型也只看去掉路径后的文本；纯路径消息直接交给云端
+                local_input = intent_text.strip()
+                local_result = (
+                    manager.classify(local_input) if local_input else None
+                )
                 if local_result and local_result["confidence"] >= local_llm_threshold:
                     intent = local_result["intent"]
                     if intent and intent != "other":
