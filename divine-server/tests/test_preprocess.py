@@ -63,6 +63,25 @@ def _maybe_preprocess(text, session_id="s1", workspace=None):
 # 指针（链接 / 本地路径）跳过
 # ---------------------------------------------------------------------------
 
+def test_design_terms_not_misidentified_as_paths(tmp_path, monkeypatch):
+    """斜杠分隔的设计术语（网格/层级、封面/内容模板）不应被识别为路径：
+    正则要求路径以 / ~/ X:/ 开头，且斜杠前是汉字（\\w）时被 lookbehind 拦截。"""
+    _init(tmp_path, monkeypatch)
+    manager = FakeManager()
+    _patch_manager(monkeypatch, manager)
+    text = "（网格/层级/留白/配色）封面/内容模板 这些设计要点，需要注意信息层级和留白。" * 40
+    final, attachment, organized = _maybe_preprocess(
+        text, workspace=tmp_path / "workspace"
+    )
+    # 正常进入整理（未被当纯路径跳过）
+    assert organized is True
+    assert attachment is not None
+    # organize 收到的是原文（含设计术语），未被剥离
+    assert manager.calls
+    assert "网格/层级/留白/配色" in manager.calls[0]
+    assert "封面/内容模板" in manager.calls[0]
+
+
 def test_pointer_only_url_skips(tmp_path, monkeypatch):
     _init(tmp_path, monkeypatch)
     manager = FakeManager()
