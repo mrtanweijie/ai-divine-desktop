@@ -339,6 +339,20 @@ async def stream_chat(request: StreamChatRequest):
                     logger.info(
                         "预整理失败用户取消走云端 session=%s", session_id
                     )
+                    # 同 call_id 的后续事件：确认卡 → 已取消（upsertTool 按 call_id 替换）
+                    yield sse_event(
+                        "tool",
+                        {
+                            "tool": "preprocess_fallback",
+                            "status": "error",
+                            "message": "已取消",
+                            "messageKey": "tool.preprocessCancelled",
+                            "messageParams": {},
+                            "confirm_type": "preprocess_fallback",
+                            "call_id": "preprocess_confirm",
+                            "session_id": session_id,
+                        },
+                    )
                     cancel_text = (
                         "已取消：本地整理失败，本次未调用云端。"
                         "你可以重试，或直接发送原文让云端处理。"
@@ -358,6 +372,21 @@ async def stream_chat(request: StreamChatRequest):
                         },
                     )
                     return
+
+                # 用户确认走云端：确认卡 → 处理中（同 call_id 替换）
+                yield sse_event(
+                    "tool",
+                    {
+                        "tool": "preprocess_fallback",
+                        "status": "running",
+                        "message": "已确认，继续处理",
+                        "messageKey": "tool.preprocessConfirmed",
+                        "messageParams": {},
+                        "confirm_type": "preprocess_fallback",
+                        "call_id": "preprocess_confirm",
+                        "session_id": session_id,
+                    },
+                )
 
             async for event in run_agent(
                 session_id,

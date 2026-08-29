@@ -596,7 +596,8 @@
     "preprocessFallbackText": "长文本本地整理失败，直接交给云端将消耗较多 token。是否继续？",
     "preprocessContinueCloud": "继续走云端",
     "preprocessCancel": "取消",
-    "preprocessCancelled": "已取消"
+    "preprocessCancelled": "已取消",
+    "preprocessConfirmed": "已确认，继续处理"
   },
   "updater": {
     "available": "发现新版本 v{{version}}",

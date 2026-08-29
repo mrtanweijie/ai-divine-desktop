@@ -591,19 +591,8 @@ export function ToolStatusCard({
       {tool.status === "confirm" &&
         tool.confirm_type === "preprocess_fallback" && (
           <div className="terminal-confirm preprocess-fallback-confirm">
-            <div className="terminal-confirm-head">
-              <AlertCircle size={14} />
-              <span>{t("tool.preprocessFallbackTitle", "本地整理失败")}</span>
-            </div>
-            <p className="plan-confirm-text">
-              {tool.messageKey
-                ? t(
-                    tool.messageKey,
-                    "长文本本地整理失败，直接交给云端将消耗较多 token。是否继续？",
-                    tool.messageParams ?? {}
-                  )
-                : tool.message}
-            </p>
+            {/* 标题与文案由共享头部（tool-name + tool-message）展示，
+                这里只渲染操作按钮，避免重复 */}
             <Flex align="center" gap={8}>
               <Button
                 size="small"
