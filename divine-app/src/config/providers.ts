@@ -36,12 +36,14 @@ export const PROVIDER_LIST: ProviderConfig[] = [
     value: "glm",
     label: "GLM (智谱)",
     base_url: "https://open.bigmodel.cn/api/paas/v4",
-    default_model: "glm-5.3",
+    default_model: "glm-5.3-flash",
     list: [
       "glm-5.3",
+      "glm-5.3-flash",
       "glm-5.2",
       "glm-5",
       "glm-5v-turbo",
+      "glm-image",
       "glm-4.7-flash",
       "glm-4.6v-flash",
     ],
@@ -84,6 +86,16 @@ export const PROVIDER_LIST: ProviderConfig[] = [
       "qwen-vl-max",
     ],
     prefix: ["qwen"],
+  },
+  {
+    value: "tencent",
+    label: "Tencent",
+    base_url: "https://tokenhub.tencentmaas.com/v1",
+    default_model: "hy4-preview",
+    list: [
+      "hy4-preview",
+    ],
+    prefix: ["hy"],
   },
   {
     value: "local",
