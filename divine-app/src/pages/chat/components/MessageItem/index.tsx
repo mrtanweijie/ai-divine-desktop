@@ -207,6 +207,7 @@ export function MessageItem({
             !message.error && (
               <Flex
                 className="loading-cursor"
+                align="center"
                 aria-label={t("message.generating", "正在生成")}
               >
                 <LoadingOrb state="shaping" size={20} speed={2} />
