@@ -46,7 +46,7 @@ function resolveImageSrc(src?: string): string | null {
  *   - 目录路径（不含空格）：避免把后文散文吞进链接
  */
 const ABS_PATH_RE =
-  /(?<![\w])(?:(?:\/|~\/|(?:[A-Za-z]:[\\/]))[^\n，。；、！？"'`<>|*?#[\]]{3,}\.\w{1,5}|(?:\/|~\/|(?:[A-Za-z]:[\\/]))[\w\-./\\（）()%+@,'_\u4e00-\u9fff]{3,}[\w)\u4e00-\u9fff])/g;
+  /(?<![\w\u4e00-\u9fff])(?:(?:\/|~\/|(?:[A-Za-z]:[\\/]))[^\n，。；、！？"'`<>|*?#[\]]{3,}\.\w{1,5}|(?:\/|~\/|(?:[A-Za-z]:[\\/]))[\w\-./\\（）()%+@,'_\u4e00-\u9fff]{3,}[\w)\u4e00-\u9fff])/g;
 
 function linkifyFilePaths(content: string): string {
   if (!content || content.length < 4) return content;
