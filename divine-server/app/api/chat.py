@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import logging
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -365,7 +366,10 @@ async def stream_chat(request: StreamChatRequest):
             # （上一问+已回答+追问），历史/数据库仍保存原文。解决多轮断点。
             model_question = final_question
             model_history = history
-            _expanded = _expand_referential_followup(final_question, history)
+            _expanded = (
+                _expand_referential_followup(final_question, history)
+                or _expand_choice_selection(final_question, history)
+            )
             if _expanded:
                 model_question = _expanded
                 model_history = _replace_last_user(history, _expanded)
@@ -374,8 +378,19 @@ async def stream_chat(request: StreamChatRequest):
             # 省 token。带附件时跳过（涉及文件的复杂任务交给预处理+云端）。
             # 模型没在跑时自动拉起（复用预整理 _start_local_model，最长 ~40s），
             # 避免"简单任务静默走云端"——起不来才回退云端。
-            if not request.attachments:
-                task = _detect_local_task(model_question)
+            # 实时信息请求：系统层强制联网（不依赖模型自觉）。
+            # 命中新闻/天气/股票等关键词 → 跳过本地路由、注入硬指令，
+            # 禁止"无法提供实时信息"类拒绝（deepseek-v4-flash 常无视提示词）。
+            if _is_realtime_request(model_question):
+                model_question = (
+                    "（用户请求实时信息，必须调用 web_search / web_fetch 工具"
+                    "获取真实数据，禁止回复「无法提供实时信息」或建议用户自行查看。）"
+                    f"\n{model_question}"
+                )
+                model_history = _replace_last_user(history, model_question)
+            else:
+                if not request.attachments:
+                    task = _detect_local_task(model_question)
                 if task:
                     from ..agent.local_llm import get_manager
                     from ..agent.preprocess import _start_local_model
@@ -946,6 +961,9 @@ _REFERENTIAL_WORDS = (
     "呢",
     "啥",
     "什么意思",
+    "联网搜索",
+    "搜索一下",
+    "查一下",
 )
 
 
@@ -1003,6 +1021,86 @@ def _replace_last_user(
             result[i] = {**result[i], "content": new_content}
             break
     return result
+
+
+# ---------------------------------------------------------------------------
+# 选项选择补全：用户点击选项卡片时，前端把 label 当普通消息发送（无标记），
+# 模型常把"导出PDF报告"/"现代科技"当成新咨询/术语提问（各烧 23-28k token）。
+# 这里在模型侧注入"（用户选择了选项 X，请按该选项执行）"，路由/历史仍原文。
+# ---------------------------------------------------------------------------
+
+_OPTIONS_BLOCK_RE = re.compile(r"```options\s*\n(.*?)```", re.S)
+
+
+# 实时信息关键词：命中 → 系统层强制联网搜索（不依赖模型自觉）
+_REALTIME_KEYWORDS = (
+    "新闻",
+    "天气",
+    "股票",
+    "股价",
+    "行情",
+    "最新",
+    "实时",
+    "热搜",
+    "报价",
+    "油价",
+    "金价",
+    "汇率",
+    "今天有什么",
+    "发生了什么",
+    "今天热点",
+)
+
+
+def _is_realtime_request(text: str) -> bool:
+    return any(keyword in text for keyword in _REALTIME_KEYWORDS)
+
+
+def _extract_choice_labels(content: str) -> list[str]:
+    """从 AI 消息的 ```options 代码块提取选项 label。"""
+    labels: list[str] = []
+    for match in _OPTIONS_BLOCK_RE.finditer(content or ""):
+        try:
+            data = json.loads(match.group(1))
+        except Exception:  # noqa: BLE001
+            continue
+        for opt in data.get("options", []):
+            label = str(opt.get("label", "")).strip()
+            if label:
+                labels.append(label)
+    return labels
+
+
+def _expand_choice_selection(
+    question: str, history: list[dict[str, Any]]
+) -> str | None:
+    """用户消息命中最近选项卡片的选项 label → 注入"选择了选项"上下文。
+
+    例：上一问是"请选择PDF风格 [现代科技/通用现代/学术典雅]"，
+    用户发"现代科技" → 补全为"（用户从上一问的选项卡片选择了「现代科技」，
+    请按该选项执行，不要解释选项本身）"。
+    仅匹配最近一条带 ```options 的 AI 消息；未命中返回 None。
+    """
+    q = str(question or "").strip()
+    if not q:
+        return None
+    for msg in reversed(history):
+        if msg.get("role") != "assistant":
+            continue
+        labels = _extract_choice_labels(str(msg.get("content") or ""))
+        if not labels:
+            continue
+        matched = next(
+            (label for label in labels if q == label or q.startswith(label)),
+            None,
+        )
+        if matched:
+            return (
+                f"（用户从上一问的选项卡片中选择了「{matched}」，"
+                f"请按该选项执行，不要解释选项本身）"
+            )
+        break  # 最近一条带选项的消息未匹配 → 不再往前找
+    return None
 
 
 def _detect_qa(text: str) -> bool:
