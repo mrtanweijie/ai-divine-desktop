@@ -201,6 +201,8 @@ export interface ChatMessage {
   files?: ChatFile[];
   /** 本地预整理：长文本被整理成结构化版本，原文可展开查看 */
   preprocess?: ChatPreprocess;
+  /** 发送后等待本地预整理（冷启动/分块）期间显示"正在本地整理"提示 */
+  preprocess_pending?: boolean;
   streaming?: boolean;
   error?: string;
   /** 选项卡片的已选状态（选择后置灰持久化） */

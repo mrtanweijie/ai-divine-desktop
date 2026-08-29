@@ -210,6 +210,14 @@ export function MessageItem({
                 aria-label={t("message.generating", "正在生成")}
               >
                 <LoadingOrb state="shaping" size={20} speed={2} />
+                {message.preprocess_pending && (
+                  <span className="preprocess-hint">
+                    {t(
+                      "message.preprocessWorking",
+                      "正在本地整理长文本（启动模型/分块整理），请稍候…"
+                    )}
+                  </span>
+                )}
               </Flex>
             )
           )}

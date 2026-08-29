@@ -132,6 +132,12 @@ export function useChatStream(options: UseChatStreamOptions) {
         tools: [],
         files,
       };
+      // 预整理判定（与服务端触发规则一致的前端近似）：整理指令词 / 长文本 /
+      // 大附件 → 等待期间显示"正在本地整理"过程反馈
+      const expectsPreprocess =
+        trimmed.length > 800 ||
+        /整理|梳理|归纳|总结/.test(trimmed) ||
+        files.some((f) => (f.size ?? 0) >= 20000);
       const assistantMessage: ChatMessage = {
         id: `local-assistant-${Date.now()}`,
         role: "assistant",
@@ -139,6 +145,7 @@ export function useChatStream(options: UseChatStreamOptions) {
         created_at: new Date().toISOString(),
         tools: [],
         streaming: true,
+        preprocess_pending: expectsPreprocess,
       };
       setSessionMessages(
         sessionId,
@@ -202,6 +209,7 @@ export function useChatStream(options: UseChatStreamOptions) {
                       ...message,
                       content: message.content + content,
                       thinking: false,
+                      preprocess_pending: false,
                     }
                   : message
               )
@@ -240,6 +248,14 @@ export function useChatStream(options: UseChatStreamOptions) {
           },
           tool: (data) => {
             const event = data as unknown as ToolEvent;
+            // 首个工具事件到达 → 预整理阶段结束（可能是确认卡/执行中）
+            setSessionMessages(sessionId, (prev) =>
+              prev.map((message) =>
+                message.id === assistantMessage.id
+                  ? { ...message, preprocess_pending: false }
+                  : message
+              )
+            );
             if (event.status === "done" && event.result) {
               const projectPath = projects.find(
                 (item) => item.id === selectedProjectId
@@ -295,7 +311,12 @@ export function useChatStream(options: UseChatStreamOptions) {
             setSessionMessages(sessionId, (prev) =>
               prev.map((message) =>
                 message.id === assistantMessage.id
-                  ? { ...message, streaming: false, thinking: false }
+                  ? {
+                      ...message,
+                      streaming: false,
+                      thinking: false,
+                      preprocess_pending: false,
+                    }
                   : message
               )
             );
