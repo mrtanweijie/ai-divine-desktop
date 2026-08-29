@@ -328,16 +328,22 @@ def _organize_text(
         if not _start_local_model(manager):
             return None, None
 
-    # 分块整理（超过 _MAX_CHUNKS 的部分只进附件）
+    # 分块整理：单块失败不再整体放弃——成功块照常整理，失败块原样保留并
+    # 标注（部分成功）。全部失败才返回 None（调用方询问用户/原样上云）。
     parts = _chunks(text)[:_MAX_CHUNKS]
     results: list[str] = []
+    failed: list[int] = []
     for index, part in enumerate(parts, 1):
         organized = manager.organize(part, timeout=30.0)
         if not organized:
+            # 重试一次：拒绝（无法整理）/ 截断偶尔是采样噪声
+            organized = manager.organize(part, timeout=30.0)
+        if not organized:
+            failed.append(index)
             logger.info(
-                "本地整理失败（第 %d/%d 块），原样上云", index, len(parts)
+                "本地整理失败（第 %d/%d 块），该块原样保留", index, len(parts)
             )
-            return None, None
+            continue
         if len(parts) > 1:
             if organized.startswith("[本地整理版]"):
                 organized = (
@@ -351,7 +357,16 @@ def _organize_text(
                 )
         results.append(organized)
 
+    if not results:
+        logger.info("所有分块整理均失败，原样上云")
+        return None, None
+
     organized_text = "\n\n".join(results)
+    if failed:
+        failed_desc = "、".join(f"第 {i} 块" for i in failed)
+        organized_text += (
+            f"\n\n（{failed_desc}未能本地整理，原文见附件）"
+        )
     if len(text) > _CHUNK_CHARS * _MAX_CHUNKS:
         organized_text += "\n\n（更早内容见原文附件）"
 

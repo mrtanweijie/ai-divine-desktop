@@ -406,6 +406,55 @@ def test_chat_attachment_parts_and_history(tmp_path, monkeypatch):
 # organize() 输出三关校验（local_llm.LocalLLMManager.organize）
 # ---------------------------------------------------------------------------
 
+class FlakyManager(FakeManager):
+    """第 fail_on 次调用起连续 fail_count 次失败（含重试），其余成功。"""
+
+    def __init__(
+        self,
+        fail_on: int = 2,
+        fail_count: int = 2,
+        result: str = "[本地整理版]\n### 主题\n- 要点",
+    ) -> None:
+        super().__init__(result=result)
+        self.fail_on = fail_on
+        self.fail_count = fail_count
+        self.call_no = 0
+
+    def organize(self, text: str, timeout: float = 30.0) -> str | None:
+        self.call_no += 1
+        if self.fail_on <= self.call_no < self.fail_on + self.fail_count:
+            return None
+        return self.result
+
+
+def test_partial_success_when_one_chunk_fails(tmp_path, monkeypatch):
+    """单块失败不再整体放弃：成功块照常整理，失败块标注后继续。"""
+    _init(tmp_path, monkeypatch)
+    manager = FlakyManager(fail_on=2, fail_count=2)  # 第 2 块失败（含重试）
+    _patch_manager(monkeypatch, manager)
+    text = "这是需要整理的测试内容段落。" * 250  # 3250 字 → 2 块
+    final, attachment, organized = _maybe_preprocess(
+        text, workspace=tmp_path / "workspace"
+    )
+    assert organized is True
+    assert attachment is not None
+    assert "[本地整理版（第 1/2 部分）]" in final
+    assert "第 2 块未能本地整理" in final
+
+
+def test_all_chunks_fail_falls_back(tmp_path, monkeypatch):
+    """全部分块失败 → organized=False, attempted=True（询问用户）。"""
+    _init(tmp_path, monkeypatch)
+    manager = FakeManager(result=None)
+    _patch_manager(monkeypatch, manager)
+    text = "帮我整理这段：" + "这是需要整理的测试内容段落。" * 250
+    final, _, organized, attempted = _maybe_preprocess_full(
+        text, workspace=tmp_path / "workspace"
+    )
+    assert organized is False
+    assert attempted is True
+
+
 class AutoStartManager(FakeManager):
     """模拟模型不在 → start() 后就绪（验证自动拉起）。"""
 
