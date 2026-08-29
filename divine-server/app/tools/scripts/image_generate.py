@@ -1,9 +1,8 @@
-"""MiniMax 图片生成工具：文生图 / 图生图。
+"""图片生成工具：MiniMax（文生图/图生图） / GLM-Image（智谱，文生图）。
 
-调用 MiniMax image-01 模型（OpenAI 兼容端点）：
-- 文生图：prompt + aspect_ratio
-- 图生图：额外传 reference_image（网络 URL 或本地路径）
-结果以 base64 返回，保存为 JPEG 文件到工作区输出目录。
+MiniMax：调用 image-01 模型（OpenAI 兼容端点），结果以 base64 返回。
+GLM-Image：调用智谱 glm-image 模型，结果以 URL 返回，需下载保存。
+两种后端均保存为图片文件到工作区输出目录。
 """
 
 import base64
@@ -22,6 +21,22 @@ DEFAULT_MODEL = "image-01"
 DEFAULT_BASE_URL = "https://api.minimaxi.com/v1"
 VALID_ASPECT_RATIOS = {"1:1", "16:9", "9:16", "21:9", "2:3", "3:2", "4:3", "3:4"}
 MAX_PROMPT_LENGTH = 1500
+MAX_PROMPT_LENGTH_GLM = 1000
+
+# GLM-Image 官方推荐尺寸（均为 32 的倍数，512-2048px）
+GLM_ASPECT_TO_SIZE = {
+    "1:1": "1280x1280",
+    "16:9": "1728x960",
+    "9:16": "960x1728",
+    "4:3": "1472x1088",
+    "3:4": "1088x1472",
+    "3:2": "1568x1056",
+    "2:3": "1056x1568",
+}
+GLM_VALID_SIZES = {
+    "1280x1280", "1568x1056", "1056x1568",
+    "1472x1088", "1088x1472", "1728x960", "960x1728",
+}
 
 
 def _minimax_config(settings: dict) -> tuple[str, str]:
@@ -59,6 +74,49 @@ def _minimax_config(settings: dict) -> tuple[str, str]:
     if env_key:
         return env_key, env_base or DEFAULT_BASE_URL
     return "", DEFAULT_BASE_URL
+
+
+def _glm_config(settings: dict) -> tuple[str, str]:
+    """GLM 提供方的 (api_key, base_url)。
+
+    优先级：settings.glm_api_key > 环境变量 GLM_API_KEY。
+    base_url 来自 settings.glm_base_url 或环境变量 GLM_BASE_URL。
+    """
+    import os
+
+    env_key = os.getenv("GLM_API_KEY", "").strip()
+    env_base = os.getenv("GLM_BASE_URL", "").strip()
+    key = str(settings.get("glm_api_key") or "").strip() or env_key
+    base = (
+        str(settings.get("glm_base_url") or "").strip()
+        or env_base
+        or "https://open.bigmodel.cn/api/paas/v4"
+    )
+    return key, base
+
+
+def _glm_resolve_size(aspect_ratio: str, explicit_size: str) -> str:
+    """将 aspect_ratio 或 explicit_size 映射为 GLM-Image 合法尺寸。
+
+    优先使用 explicit_size（用户直接指定），否则按 aspect_ratio 查表。
+    """
+    if explicit_size:
+        size = explicit_size.strip()
+        if size in GLM_VALID_SIZES:
+            return size
+        # 用户自定义尺寸：校验范围和 32 倍数
+        try:
+            w, h = (int(x) for x in size.split("x"))
+            if 512 <= w <= 2048 and 512 <= h <= 2048 and w % 32 == 0 and h % 32 == 0:
+                return size
+        except (ValueError, AttributeError):
+            pass
+        # 非法尺寸 → fallback 到 aspect_ratio 映射
+    mapped = GLM_ASPECT_TO_SIZE.get(aspect_ratio)
+    if mapped:
+        return mapped
+    # 21:9 等超宽幅 → fallback 到 16:9
+    return "1728x960"
 
 
 def _image_aspect_ratio(reference_image: str, workspace: Path) -> str | None:
@@ -184,6 +242,83 @@ def _api_error_message(result: dict) -> str:
     return f"MiniMax 返回错误：{result}"
 
 
+def _glm_error_message(result: dict) -> str:
+    """把 GLM 的错误翻译成友好中文提示。"""
+    error = result.get("error") or {}
+    code = str(error.get("code") or "")
+    msg = str(error.get("message") or "")
+    if "insufficient" in msg.lower() or "balance" in msg.lower():
+        return "GLM 账户余额不足，请充值后重试"
+    if "invalid" in msg.lower() or "auth" in msg.lower() or "api key" in msg.lower():
+        return "GLM API Key 无效或已失效，请在设置中检查 GLM API Key"
+    if code or msg:
+        return f"GLM 返回错误（{code}）：{msg}" if code else f"GLM 返回错误：{msg}"
+    return f"GLM 返回错误：{result}"
+
+
+def _call_glm_image(
+    api_key: str,
+    base_url: str,
+    prompt: str,
+    size: str,
+    filename: str,
+    output_dir: Path,
+) -> dict:
+    """调用 GLM-Image API 生成图片，返回标准结果 dict。"""
+    import httpx
+
+    api_url = f"{base_url.rstrip('/')}/images/generations"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    payload = {
+        "model": "glm-image",
+        "prompt": prompt,
+        "size": size,
+    }
+
+    last_response = None
+    for attempt in range(2):
+        last_response = httpx.post(
+            api_url, headers=headers, json=payload, timeout=120
+        )
+        if last_response.status_code < 500 or attempt == 1:
+            break
+        time.sleep(2 * (attempt + 1))
+    response = last_response
+    response.raise_for_status()
+    result = response.json()
+
+    data_list = result.get("data") or []
+    if not data_list:
+        return {"success": False, "message": _glm_error_message(result)}
+
+    image_url = data_list[0].get("url")
+    if not image_url:
+        return {"success": False, "message": _glm_error_message(result)}
+
+    # 下载图片
+    img_resp = httpx.get(image_url, timeout=120)
+    img_resp.raise_for_status()
+    raw_data = img_resp.content
+
+    ext = _detect_image_ext(raw_data)
+    image_dir = output_dir / "images"
+    image_dir.mkdir(parents=True, exist_ok=True)
+
+    if filename:
+        name = f"{Path(filename).stem}{ext}"
+    else:
+        name = f"image-{int(time.time() * 1000)}-1{ext}"
+
+    output = image_dir / name
+    output.write_bytes(raw_data)
+    return {
+        "success": True,
+        "message": f"已生成 1 张图片（GLM-Image，{size}）",
+        "file_name": output.name,
+        "filepath": str(output),
+    }
+
+
 def main() -> None:
     data = json.load(sys.stdin)
     workspace = Path(data["workspace"]).resolve()
@@ -194,6 +329,94 @@ def main() -> None:
     if not prompt:
         print(json.dumps({"success": False, "message": "缺少 prompt（图片描述）"}))
         return
+
+    settings = settings_store.load()
+    provider = str(params.get("provider") or "").strip().lower()
+
+    # --- 自动检测 provider ---
+    if not provider:
+        # 有 reference_image → MiniMax（GLM 不支持图生图）
+        if params.get("reference_image"):
+            provider = "minimax"
+        else:
+            # 有 GLM API key → 优先 GLM（文字密集场景更优）
+            glm_key, _ = _glm_config(settings)
+            provider = "glm" if glm_key else "minimax"
+
+    # ============================================================
+    # GLM-Image 路径
+    # ============================================================
+    if provider == "glm":
+        api_key, base_url = _glm_config(settings)
+        if not api_key:
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "message": "未配置 GLM API Key：请在设置中填写 GLM API Key",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return
+
+        # prompt 截断
+        truncated = False
+        if len(prompt) > MAX_PROMPT_LENGTH_GLM:
+            prompt = prompt[:MAX_PROMPT_LENGTH_GLM]
+            truncated = True
+
+        # 尺寸映射
+        raw_ratio = str(params.get("aspect_ratio") or "").strip()
+        explicit_size = str(params.get("size") or "").strip()
+        size = _glm_resolve_size(raw_ratio, explicit_size)
+
+        # GLM-Image 仅支持 n=1
+        try:
+            count = int(params.get("n") or 1)
+        except (TypeError, ValueError):
+            count = 1
+        if count > 1:
+            print(
+                json.dumps(
+                    {"success": False, "message": "GLM-Image 仅支持生成 1 张图片（n=1）"},
+                    ensure_ascii=False,
+                )
+            )
+            return
+
+        if params.get("reference_image"):
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "message": "GLM-Image 不支持图生图（reference_image），请使用 MiniMax 后端或去掉参考图",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return
+
+        raw_name = str(params.get("filename") or "").strip()
+        try:
+            result = _call_glm_image(
+                api_key, base_url, prompt, size, raw_name, output_root
+            )
+        except Exception as exc:  # noqa: BLE001
+            result = {"success": False, "message": f"GLM 图片生成失败: {exc}"}
+
+        if truncated:
+            note = f"prompt 超过 {MAX_PROMPT_LENGTH_GLM} 字符，已自动截断"
+            if result.get("success"):
+                result["message"] += f"（{note}）"
+            else:
+                result["message"] += f"（{note}）"
+        print(json.dumps(result, ensure_ascii=False))
+        return
+
+    # ============================================================
+    # MiniMax 路径（原有逻辑）
+    # ============================================================
     # MiniMax image-01 限制 prompt 最长 1500 字符：超长一律自动截断，
     # 避免"让 LLM 精简"在多轮里反复超限导致死循环。
     truncated = False
@@ -201,7 +424,6 @@ def main() -> None:
         prompt = prompt[:MAX_PROMPT_LENGTH]
         truncated = True
 
-    settings = settings_store.load()
     api_key, api_base_url = _minimax_config(settings)
     if not api_key:
         print(
