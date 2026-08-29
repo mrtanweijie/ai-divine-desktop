@@ -343,6 +343,10 @@ async def stream_chat(request: StreamChatRequest):
                         "已取消：本地整理失败，本次未调用云端。"
                         "你可以重试，或直接发送原文让云端处理。"
                     )
+                    # 持久化（与本地动作回复同款双写：db + SSE），刷新后仍可见
+                    await asyncio.to_thread(
+                        db.add_message, session_id, "assistant", cancel_text
+                    )
                     yield sse_event("message", {"content": cancel_text})
                     yield sse_event(
                         "done",
