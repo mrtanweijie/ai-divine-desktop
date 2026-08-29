@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from contextlib import closing
 from typing import Any
 
-from .connection import _connect
+from .connection import get_conn
 
 
 def save_token_usage(
@@ -21,7 +20,7 @@ def save_token_usage(
     ``source`` is "real" when reported by the model API, "estimated" when
     computed locally as a fallback.
     """
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "INSERT INTO token_usage "
             "(session_id, message_id, input_tokens, output_tokens, total_tokens, source) "
@@ -40,7 +39,7 @@ def save_token_usage(
 
 def token_usage_totals(session_id: str) -> dict[str, Any]:
     """Cumulative token usage for a session."""
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT COALESCE(SUM(input_tokens), 0) AS input_tokens, "
             "COALESCE(SUM(output_tokens), 0) AS output_tokens, "

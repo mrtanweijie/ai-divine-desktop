@@ -15,6 +15,10 @@ Behavior:
 - Always skips VCS dirs and common heavy/vendored directories.
 - Skips binary files (null byte in head) and oversized files.
 - Output is compact ripgrep-style text; structured matches go in data.
+
+``run_tool`` is the reusable in-process entrypoint (adapters call it directly
+inside ``asyncio.to_thread``); ``main`` reads the stdin payload and prints the
+same result dict for the standalone subprocess path.
 """
 
 from __future__ import annotations
@@ -53,25 +57,16 @@ def _format_match(rel: str, line: int, text: str, prefix: str) -> str:
     return f"{rel}{prefix}{line}: {text}"
 
 
-def main() -> None:
-    data = json.load(sys.stdin)
-    workspace = Path(data["workspace"]).resolve()
-    params = data.get("params") or {}
+def run_tool(workspace: Path, params: dict) -> dict:
+    """Run the grep search and return the tool result dict."""
     pattern_raw = str(params.get("pattern") or "")
     if not pattern_raw.strip():
-        print(json.dumps({"success": False, "message": "pattern 不能为空"}, ensure_ascii=False))
-        return
+        return {"success": False, "message": "pattern 不能为空"}
     try:
         flags = 0 if params.get("case_sensitive") else re.IGNORECASE
         regex = re.compile(pattern_raw, flags)
     except re.error as exc:
-        print(
-            json.dumps(
-                {"success": False, "message": f"正则表达式无效: {exc}"},
-                ensure_ascii=False,
-            )
-        )
-        return
+        return {"success": False, "message": f"正则表达式无效: {exc}"}
 
     raw_path = str(params.get("path") or "").strip()
     base = workspace
@@ -81,8 +76,7 @@ def main() -> None:
             candidate = workspace / candidate
         base = candidate.resolve()
     if not base.is_dir():
-        print(json.dumps({"success": False, "message": f"搜索目录不存在: {base}"}, ensure_ascii=False))
-        return
+        return {"success": False, "message": f"搜索目录不存在: {base}"}
 
     glob_filter = str(params.get("glob") or "").strip() or None
     try:
@@ -211,28 +205,30 @@ def main() -> None:
         content = content[:_MAX_OUTPUT_CHARS] + "\n...(输出已截断)"
         truncated = True
 
-    print(
-        json.dumps(
-            {
-                "success": True,
-                "message": (
-                    f"找到 {total} 处匹配"
-                    + (f"，已截断" if truncated else "")
-                ),
-                "content": content,
-                "data": {
-                    "pattern": pattern_raw,
-                    "total": total,
-                    "truncated": truncated,
-                    "searched_files": searched_files,
-                    "skipped_binary": skipped_binary,
-                    "skipped_oversized": skipped_oversized,
-                    "matches": matches[:500],
-                },
-            },
-            ensure_ascii=False,
-        )
-    )
+    return {
+        "success": True,
+        "message": (
+            f"找到 {total} 处匹配"
+            + (f"，已截断" if truncated else "")
+        ),
+        "content": content,
+        "data": {
+            "pattern": pattern_raw,
+            "total": total,
+            "truncated": truncated,
+            "searched_files": searched_files,
+            "skipped_binary": skipped_binary,
+            "skipped_oversized": skipped_oversized,
+            "matches": matches[:500],
+        },
+    }
+
+
+def main() -> None:
+    data = json.load(sys.stdin)
+    workspace = Path(data["workspace"]).resolve()
+    params = data.get("params") or {}
+    print(json.dumps(run_tool(workspace, params), ensure_ascii=False))
 
 
 if __name__ == "__main__":

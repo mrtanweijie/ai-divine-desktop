@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from contextlib import closing
 from typing import Any
 
 from ..config import workspace_dir
-from .connection import _connect, _new_id, _now
+from .connection import get_conn, _new_id, _now
 
 def create_project(
     name: str, path: str, icon: str | None = None
 ) -> dict[str, Any]:
     project_id = _new_id()
     now = _now()
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "INSERT INTO projects "
             "(id, name, path, icon, created_at, updated_at) "
@@ -24,7 +23,7 @@ def create_project(
     return get_project(project_id)
 
 def default_project() -> dict[str, Any]:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM projects ORDER BY created_at ASC LIMIT 1"
         ).fetchone()
@@ -35,14 +34,14 @@ def default_project() -> dict[str, Any]:
     return create_project("默认项目", str(workspace))
 
 def get_project(project_id: str) -> dict[str, Any] | None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM projects WHERE id = ?", (project_id,)
         ).fetchone()
     return dict(row) if row else None
 
 def list_projects() -> list[dict[str, Any]]:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         rows = conn.execute(
             "SELECT p.*, COUNT(DISTINCT s.id) AS session_count, "
             "MAX(s.updated_at) AS last_activity, "
@@ -63,7 +62,7 @@ def update_project(
     project = get_project(project_id)
     if not project:
         raise KeyError(project_id)
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "UPDATE projects SET name = ?, path = ?, icon = ?, updated_at = ? "
             "WHERE id = ?",
@@ -79,7 +78,7 @@ def update_project(
     return get_project(project_id)
 
 def delete_project(project_id: str) -> None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute("DELETE FROM sessions WHERE project_id = ?", (project_id,))
         conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
         conn.commit()
@@ -90,7 +89,7 @@ def update_project_order(project_id: str, sort_order: int) -> dict[str, Any]:
     project = get_project(project_id)
     if not project:
         raise KeyError(project_id)
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "UPDATE projects SET sort_order = ?, updated_at = ? WHERE id = ?",
             (sort_order, _now(), project_id),
@@ -104,7 +103,7 @@ def pin_project(project_id: str, pinned: bool) -> dict[str, Any]:
     project = get_project(project_id)
     if not project:
         raise KeyError(project_id)
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "UPDATE projects SET pinned = ?, updated_at = ? WHERE id = ?",
             (1 if pinned else 0, _now(), project_id),
@@ -115,7 +114,7 @@ def pin_project(project_id: str, pinned: bool) -> dict[str, Any]:
 
 def reorder_projects(project_orders: list[dict[str, Any]]) -> None:
     """Batch update sort orders for multiple projects."""
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         for item in project_orders:
             project_id = item.get("id")
             sort_order = item.get("sort_order", 0)

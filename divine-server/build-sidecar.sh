@@ -181,6 +181,10 @@ if [[ "$TARGET" == darwin-* ]]; then
   # 错误的切片——这正是上一轮 lipo 踩的坑。
   export SIDECAR_TARGET_ARCH="$TARGET_ARCH"
 fi
+# PyInstaller 的 macOS 默认缓存位于 ~/Library/Application Support/pyinstaller，
+# 沙箱/CI 环境可能无权写该目录。默认改为仓库内缓存（.gitignore 已忽略），
+# 仍允许外部通过 PYINSTALLER_CONFIG_DIR 覆盖。
+export PYINSTALLER_CONFIG_DIR="${PYINSTALLER_CONFIG_DIR:-$ROOT/.pyinstaller-cache}"
 "$PYTHON_BIN" -m PyInstaller --clean --noconfirm divine-server.spec
 
 BIN_DIR="bin/$TARGET"

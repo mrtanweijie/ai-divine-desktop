@@ -30,21 +30,21 @@ def _validate_query(query: str) -> str:
     return core
 
 
-def main() -> None:
-    data = json.load(sys.stdin)
-    workspace = Path(data["workspace"]).resolve()
-    params = data.get("params") or {}
+def run_tool(workspace: Path, params: dict) -> dict:
+    """Run a read-only SQLite query and return the tool result dict.
+
+    Callable both from the CLI entrypoint and in-process (adapters run this
+    directly inside ``asyncio.to_thread``).
+    """
     raw = str(params.get("db_path") or "").strip()
     if not raw:
-        print(json.dumps({"success": False, "message": "缺少 db_path"}))
-        return
+        return {"success": False, "message": "缺少 db_path"}
     path = Path(raw)
     if not path.is_absolute():
         path = workspace / path
     path = path.resolve()
     if not path.is_file():
-        print(json.dumps({"success": False, "message": f"数据库不存在: {path}"}))
-        return
+        return {"success": False, "message": f"数据库不存在: {path}"}
     query = str(params.get("query") or "")
     try:
         query = _validate_query(query)
@@ -58,27 +58,23 @@ def main() -> None:
                 for row in cursor.fetchmany(200)
             ]
     except Exception as exc:  # noqa: BLE001
-        print(
-            json.dumps(
-                {"success": False, "message": f"查询失败: {exc}"},
-                ensure_ascii=False,
-            )
-        )
-        return
+        return {"success": False, "message": f"查询失败: {exc}"}
 
-    print(
-        json.dumps(
-            {
-                "success": True,
-                "message": f"查询完成，返回 {len(data_rows)} 行",
-                "content": json.dumps(
-                    {"columns": columns, "rows": data_rows},
-                    ensure_ascii=False,
-                ),
-            },
+    return {
+        "success": True,
+        "message": f"查询完成，返回 {len(data_rows)} 行",
+        "content": json.dumps(
+            {"columns": columns, "rows": data_rows},
             ensure_ascii=False,
-        )
-    )
+        ),
+    }
+
+
+def main() -> None:
+    data = json.load(sys.stdin)
+    workspace = Path(data["workspace"]).resolve()
+    params = data.get("params") or {}
+    print(json.dumps(run_tool(workspace, params), ensure_ascii=False))
 
 
 if __name__ == "__main__":

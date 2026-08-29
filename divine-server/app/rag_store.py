@@ -6,39 +6,57 @@ import math
 import os
 import re
 import sqlite3
+import threading
 from pathlib import Path
 
-from .config import db_path
+from .db.connection import get_conn
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 MAX_FILES = 500
 MAX_CHUNK_CHARS = 1000
 
+_RAG_SCHEMA = """
+CREATE TABLE IF NOT EXISTS rag_chunks (
+    workspace_key TEXT NOT NULL,
+    chunk_id TEXT PRIMARY KEY,
+    file_path TEXT NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    tokens TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS rag_terms (
+    workspace_key TEXT NOT NULL,
+    term TEXT NOT NULL,
+    doc_freq INTEGER NOT NULL,
+    PRIMARY KEY (workspace_key, term)
+);
+CREATE INDEX IF NOT EXISTS idx_rag_chunks_key
+    ON rag_chunks(workspace_key);
+"""
+
+_schema_lock = threading.Lock()
+_schema_ready = False
+
+
+def _ensure_schema() -> None:
+    """Create RAG tables once on the shared connection (idempotent)."""
+    global _schema_ready
+    if _schema_ready:
+        return
+    with _schema_lock:
+        if _schema_ready:
+            return
+        conn = get_conn()
+        conn.executescript(_RAG_SCHEMA)
+        conn.commit()
+        _schema_ready = True
+
 
 def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path())
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS rag_chunks (
-            workspace_key TEXT NOT NULL,
-            chunk_id TEXT PRIMARY KEY,
-            file_path TEXT NOT NULL,
-            chunk_index INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            tokens TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS rag_terms (
-            workspace_key TEXT NOT NULL,
-            term TEXT NOT NULL,
-            doc_freq INTEGER NOT NULL,
-            PRIMARY KEY (workspace_key, term)
-        );
-        CREATE INDEX IF NOT EXISTS idx_rag_chunks_key
-            ON rag_chunks(workspace_key);
-        """
-    )
-    return conn
+    """Return the shared per-thread connection with the RAG schema ensured."""
+    _ensure_schema()
+    return get_conn()
 
 
 def workspace_key(workspace: Path) -> str:
@@ -115,44 +133,43 @@ def index_workspace(
 ) -> dict[str, int]:
     files = _collect_files(workspace, extra_path)
     key = workspace_key(workspace)
-    conn = _connect()
-    conn.execute("DELETE FROM rag_chunks WHERE workspace_key = ?", (key,))
-    conn.execute("DELETE FROM rag_terms WHERE workspace_key = ?", (key,))
-    doc_freq: dict[str, int] = {}
-    chunk_count = 0
-    for file_path in files:
-        try:
-            text = _read_text(file_path)[:200_000]
-        except OSError:
-            continue
-        for chunk_index, chunk in enumerate(_chunk_text(text)):
-            tokens = _term_frequency(tokenize(chunk))
-            if not tokens:
+    with _connect() as conn:
+        conn.execute("DELETE FROM rag_chunks WHERE workspace_key = ?", (key,))
+        conn.execute("DELETE FROM rag_terms WHERE workspace_key = ?", (key,))
+        doc_freq: dict[str, int] = {}
+        chunk_count = 0
+        for file_path in files:
+            try:
+                text = _read_text(file_path)[:200_000]
+            except OSError:
                 continue
-            chunk_id = f"{key}:{chunk_count}"
-            conn.execute(
-                "INSERT INTO rag_chunks "
-                "(workspace_key, chunk_id, file_path, chunk_index, text, tokens) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    key,
-                    chunk_id,
-                    str(file_path),
-                    chunk_index,
-                    chunk,
-                    json.dumps(tokens, ensure_ascii=False),
-                ),
-            )
-            chunk_count += 1
-            for term in tokens:
-                doc_freq[term] = doc_freq.get(term, 0) + 1
-    conn.executemany(
-        "INSERT OR REPLACE INTO rag_terms "
-        "(workspace_key, term, doc_freq) VALUES (?, ?, ?)",
-        [(key, term, count) for term, count in doc_freq.items()],
-    )
-    conn.commit()
-    conn.close()
+            for chunk_index, chunk in enumerate(_chunk_text(text)):
+                tokens = _term_frequency(tokenize(chunk))
+                if not tokens:
+                    continue
+                chunk_id = f"{key}:{chunk_count}"
+                conn.execute(
+                    "INSERT INTO rag_chunks "
+                    "(workspace_key, chunk_id, file_path, chunk_index, text, tokens) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        key,
+                        chunk_id,
+                        str(file_path),
+                        chunk_index,
+                        chunk,
+                        json.dumps(tokens, ensure_ascii=False),
+                    ),
+                )
+                chunk_count += 1
+                for term in tokens:
+                    doc_freq[term] = doc_freq.get(term, 0) + 1
+        conn.executemany(
+            "INSERT OR REPLACE INTO rag_terms "
+            "(workspace_key, term, doc_freq) VALUES (?, ?, ?)",
+            [(key, term, count) for term, count in doc_freq.items()],
+        )
+        conn.commit()
     return {"files": len(files), "chunks": chunk_count}
 
 
@@ -160,20 +177,18 @@ def search_workspace(
     workspace: Path, query: str, top_k: int = 5
 ) -> list[dict[str, object]]:
     key = workspace_key(workspace)
-    conn = _connect()
-    chunks = conn.execute(
-        "SELECT chunk_id, file_path, chunk_index, text, tokens "
-        "FROM rag_chunks WHERE workspace_key = ?",
-        (key,),
-    ).fetchall()
-    if not chunks:
-        conn.close()
-        return []
-    term_rows = conn.execute(
-        "SELECT term, doc_freq FROM rag_terms WHERE workspace_key = ?",
-        (key,),
-    ).fetchall()
-    conn.close()
+    with _connect() as conn:
+        chunks = conn.execute(
+            "SELECT chunk_id, file_path, chunk_index, text, tokens "
+            "FROM rag_chunks WHERE workspace_key = ?",
+            (key,),
+        ).fetchall()
+        if not chunks:
+            return []
+        term_rows = conn.execute(
+            "SELECT term, doc_freq FROM rag_terms WHERE workspace_key = ?",
+            (key,),
+        ).fetchall()
     idf = {
         term: math.log((len(chunks) + 1) / (doc_freq + 1)) + 1
         for term, doc_freq in term_rows

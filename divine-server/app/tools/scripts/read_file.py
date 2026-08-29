@@ -48,10 +48,12 @@ def slice_lines(
     return "\n".join(selected), total, stop
 
 
-def main() -> None:
-    data = json.load(sys.stdin)
-    workspace = Path(data["workspace"]).resolve()
-    params = data.get("params") or {}
+def run_tool(workspace: Path, params: dict) -> dict:
+    """Read a file and return the tool result dict.
+
+    Callable both from the CLI entrypoint and in-process (adapters run this
+    directly inside ``asyncio.to_thread``).
+    """
     raw = params.get("file_path") or params.get("path") or ""
     path = Path(raw)
     if not path.is_absolute():
@@ -59,28 +61,20 @@ def main() -> None:
     path = path.resolve()
 
     if path.is_dir():
-        print(
-            json.dumps(
-                {
-                    "success": False,
-                    "message": f"路径是目录，不是文件: {path}",
-                },
-                ensure_ascii=False,
-            )
-        )
-        return
+        return {
+            "success": False,
+            "message": f"路径是目录，不是文件: {path}",
+        }
 
     if not path.is_file():
-        print(json.dumps({"success": False, "message": f"文件不存在: {path}"}))
-        return
+        return {"success": False, "message": f"文件不存在: {path}"}
 
     try:
         content = read_file_text(path)
         start, end = parse_line_range(params)
         selected, total_lines, line_end = slice_lines(content, start, end)
     except Exception as exc:  # noqa: BLE001
-        print(json.dumps({"success": False, "message": f"读取失败: {exc}"}))
-        return
+        return {"success": False, "message": f"读取失败: {exc}"}
 
     capped = selected[:12000]
     has_range = (
@@ -104,24 +98,26 @@ def main() -> None:
                 f"\n...(内容已截断，当前显示到第 {min(line_end, display_start + len(selected[:12000].splitlines()))} 行，"
                 f"共 {total_lines} 行；继续读取请用 start_line={next_start}/end_line 指定行段)"
             )
-    print(
-        json.dumps(
-            {
-                "success": True,
-                "message": message,
-                "file_name": path.name,
-                "filepath": str(path),
-                "content": capped,
-                "truncated": truncated,
-                "data": {
-                    "total_lines": total_lines,
-                    "line_start": start,
-                    "line_end": line_end,
-                },
-            },
-            ensure_ascii=False,
-        )
-    )
+    return {
+        "success": True,
+        "message": message,
+        "file_name": path.name,
+        "filepath": str(path),
+        "content": capped,
+        "truncated": truncated,
+        "data": {
+            "total_lines": total_lines,
+            "line_start": start,
+            "line_end": line_end,
+        },
+    }
+
+
+def main() -> None:
+    data = json.load(sys.stdin)
+    workspace = Path(data["workspace"]).resolve()
+    params = data.get("params") or {}
+    print(json.dumps(run_tool(workspace, params), ensure_ascii=False))
 
 
 if __name__ == "__main__":

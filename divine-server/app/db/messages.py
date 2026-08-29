@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import json
-from contextlib import closing
 from typing import Any
 
-from .connection import _connect, _new_id, _now
+from .connection import get_conn, _new_id, _now
 
 def clear_messages(session_id: str) -> None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
         conn.execute("DELETE FROM tool_runs WHERE session_id = ?", (session_id,))
         conn.execute("DELETE FROM agent_todos WHERE session_id = ?", (session_id,))
@@ -24,7 +23,7 @@ def add_message(
 ) -> dict[str, Any]:
     message_id = _new_id()
     now = created_at or _now()
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "INSERT INTO messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
             (message_id, session_id, role, content, now),
@@ -36,7 +35,7 @@ def add_message(
     return get_message(message_id)
 
 def get_message(message_id: str) -> dict[str, Any]:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM messages WHERE id = ?", (message_id,)
         ).fetchone()
@@ -57,7 +56,7 @@ def _attach_token_usage(message: dict[str, Any], row) -> None:
 
 
 def list_messages(session_id: str) -> list[dict[str, Any]]:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         rows = conn.execute(
             "SELECT m.*, u.input_tokens AS usage_input, "
             "u.output_tokens AS usage_output, u.total_tokens AS usage_total, "
@@ -76,7 +75,7 @@ def list_messages(session_id: str) -> list[dict[str, Any]]:
 
 
 def get_message(message_id: str) -> dict[str, Any]:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM messages WHERE id = ?", (message_id,)
         ).fetchone()
@@ -99,7 +98,7 @@ def _decode_choice_state(message: dict[str, Any]) -> dict[str, Any]:
 def update_choice_state(message_id: str, state: dict[str, Any]) -> dict[str, Any]:
     """保存选项卡片的已选状态（selected/sentCustom 等），返回更新后的消息。"""
     payload = json.dumps(state or {}, ensure_ascii=False)
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "UPDATE messages SET choice_state = ? WHERE id = ?",
             (payload, message_id),
@@ -110,7 +109,7 @@ def update_choice_state(message_id: str, state: dict[str, Any]) -> dict[str, Any
 def add_message_part(
     message_id: str, part_type: str, content: str, order: int = 0
 ) -> None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "INSERT INTO message_parts (id, message_id, type, content, \"order\") VALUES (?, ?, ?, ?, ?)",
             (_new_id(), message_id, part_type, content, order),

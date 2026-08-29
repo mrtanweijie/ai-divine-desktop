@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import json
-from contextlib import closing
 from typing import Any
 
-from .connection import _connect, _json, _new_id, _now
+from .connection import get_conn, _json, _new_id, _now
 from .messages import add_message, add_message_part
 
 def save_tool_turn(
@@ -39,7 +38,7 @@ def save_tool_turn(
         )
 
 def list_message_parts(message_id: str) -> list[dict[str, Any]]:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         rows = conn.execute(
             "SELECT * FROM message_parts WHERE message_id = ? ORDER BY \"order\" ASC, rowid ASC",
             (message_id,),
@@ -55,7 +54,7 @@ def add_tool_run(
 ) -> dict[str, Any]:
     run_id = _new_id()
     now = _now()
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "INSERT INTO tool_runs (id, session_id, tool_name, status, input, output, started_at, finished_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -76,7 +75,7 @@ def add_tool_run(
 def update_tool_run(
     run_id: str, status: str, output: dict[str, Any] | None = None
 ) -> None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "UPDATE tool_runs SET status = ?, output = ?, finished_at = ? WHERE id = ?",
             (status, _json(output) if output else None, _now(), run_id),
@@ -84,7 +83,7 @@ def update_tool_run(
         conn.commit()
 
 def list_tool_runs(session_id: str) -> list[dict[str, Any]]:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         rows = conn.execute(
             "SELECT * FROM tool_runs WHERE session_id = ? ORDER BY started_at ASC, rowid ASC",
             (session_id,),
@@ -95,7 +94,7 @@ def recent_tool_runs(
     session_id: str, limit: int = 5
 ) -> list[dict[str, Any]]:
     """Most recent tool runs for a session, oldest-first within the window."""
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         rows = conn.execute(
             "SELECT * FROM tool_runs WHERE session_id = ? "
             "ORDER BY started_at DESC, rowid DESC LIMIT ?",
@@ -104,7 +103,7 @@ def recent_tool_runs(
     return [dict(row) for row in reversed(rows)]
 
 def get_tool_run(run_id: str) -> dict[str, Any]:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM tool_runs WHERE id = ?", (run_id,)
         ).fetchone()

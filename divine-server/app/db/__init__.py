@@ -24,7 +24,14 @@ from .calendar_events import (
     list_calendar_events,
     update_calendar_event,
 )
-from .connection import _connect, _json, _new_id, _now
+from .connection import (
+    _connect,
+    close_thread_conn,
+    get_conn,
+    _json,
+    _new_id,
+    _now,
+)
 from .history import history_for_model, load_session, load_session_page
 from .messages import (
     add_message,

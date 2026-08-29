@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from contextlib import closing
 
-from .connection import _connect
+from .connection import get_conn
 from .projects import default_project
 
 SCHEMA = """
@@ -163,10 +162,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS sessions_fts USING fts5(
 
 def rebuild_fts5(conn=None) -> None:
     """重建 FTS5 索引（全量重建）。"""
-    close_conn = False
     if conn is None:
-        conn = _connect()
-        close_conn = True
+        conn = get_conn()
     try:
         conn.execute("DELETE FROM sessions_fts")
         conn.execute("""
@@ -177,10 +174,8 @@ def rebuild_fts5(conn=None) -> None:
         """)
         conn.commit()
     except Exception:
-        pass
-    finally:
-        if close_conn:
-            conn.close()
+        # Shared connection: never leave a half-open transaction behind.
+        conn.rollback()
 
 # 早期版本的 FTS5 触发器：用 'delete' 特殊命令时把 TEXT 型 session_id 当
 # rowid 传入，任何 sessions.title 更新 / messages 更新删除都会抛
@@ -203,7 +198,7 @@ def _drop_broken_fts_triggers(conn) -> None:
 
 
 def init_db() -> None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.executescript(SCHEMA)
         _drop_broken_fts_triggers(conn)
         columns = {
@@ -256,7 +251,7 @@ def init_db() -> None:
         conn.commit()
 
     default = default_project()
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "UPDATE sessions SET project_id = ? WHERE project_id IS NULL",
             (default["id"],),
@@ -266,7 +261,7 @@ def init_db() -> None:
 
 def _init_fts5() -> None:
     """初始化 FTS5 全文搜索索引。"""
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         # 检查 FTS5 是否已初始化
         exists = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='sessions_fts'"

@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from contextlib import closing
 from typing import Any
 
-from .connection import _connect, _new_id, _now
+from .connection import get_conn, _new_id, _now
 from .projects import default_project
 
 def session_workspace(session_id: str) -> str | None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT p.path FROM sessions s "
             "JOIN projects p ON p.id = s.project_id "
@@ -28,7 +27,7 @@ def create_session(
     now = _now()
     if not project_id:
         project_id = default_project()["id"]
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "INSERT INTO sessions "
             "(id, title, project_id, approval_mode, locale, created_at, updated_at) "
@@ -47,14 +46,14 @@ def create_session(
     return get_session(session_id)
 
 def get_session(session_id: str) -> dict[str, Any] | None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM sessions WHERE id = ?", (session_id,)
         ).fetchone()
     return dict(row) if row else None
 
 def list_sessions(project_id: str | None = None) -> list[dict[str, Any]]:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         if project_id:
             rows = conn.execute(
                 "SELECT s.*, "
@@ -85,7 +84,7 @@ def update_session(
     session = get_session(session_id)
     if not session:
         raise KeyError(session_id)
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "UPDATE sessions SET title = ?, approval_mode = ?, "
             "plan_mode = ?, locale = ?, updated_at = ? "
@@ -105,14 +104,14 @@ def update_session(
     return get_session(session_id)
 
 def touch_session(session_id: str) -> None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "UPDATE sessions SET updated_at = ? WHERE id = ?", (_now(), session_id)
         )
         conn.commit()
 
 def delete_session(session_id: str) -> None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
         conn.commit()
 
@@ -125,7 +124,7 @@ def search_sessions(
     if not query:
         return []
 
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         # 检查 FTS5 表是否存在，不存在则惰性创建
         fts_exists = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='sessions_fts'"

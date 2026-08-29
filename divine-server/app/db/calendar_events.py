@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
-from contextlib import closing
 from typing import Any
 
-from .connection import _connect, _new_id, _now
+from .connection import get_conn, _new_id, _now
 
 def list_calendar_events() -> list[dict[str, Any]]:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         rows = conn.execute(
             "SELECT * FROM calendar_events ORDER BY start_at ASC, rowid ASC"
         ).fetchall()
     return [dict(row) for row in rows]
 
 def get_calendar_event(event_id: str) -> dict[str, Any] | None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM calendar_events WHERE id = ?", (event_id,)
         ).fetchone()
@@ -32,7 +31,7 @@ def create_calendar_event(
 ) -> dict[str, Any]:
     event_id = _new_id()
     now = _now()
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "INSERT INTO calendar_events "
             "(id, title, start_at, end_at, notes, location, task_id, "
@@ -70,7 +69,7 @@ def update_calendar_event(
         return event
     values.append(_now())
     values.append(event_id)
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             f"UPDATE calendar_events SET {', '.join(assignments)}, updated_at = ? "
             "WHERE id = ?",
@@ -80,6 +79,6 @@ def update_calendar_event(
     return get_calendar_event(event_id)
 
 def delete_calendar_event(event_id: str) -> None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute("DELETE FROM calendar_events WHERE id = ?", (event_id,))
         conn.commit()

@@ -5,11 +5,10 @@ from __future__ import annotations
 import json
 import re
 from collections import defaultdict
-from contextlib import closing
 from typing import Any
 
 from ..file_types import VISION_IMAGE_EXTENSIONS, is_image_path
-from .connection import _connect
+from .connection import get_conn
 from .messages import _attach_token_usage, _decode_choice_state, list_messages
 from .sessions import get_session
 from .todos import list_todos
@@ -33,9 +32,8 @@ def _image_urls_in(text: str) -> list[str]:
 
 def conn_summary(session_id: str) -> dict[str, Any] | None:
     """Session summary lookup independent of the caller's connection scope."""
-    from contextlib import closing
 
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT summary FROM session_summaries WHERE session_id = ?",
             (session_id,),
@@ -49,7 +47,7 @@ def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
     synthetic system message so the model keeps early context without paying
     full token cost for every old message.
     """
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         rows = conn.execute(
             "SELECT * FROM messages WHERE session_id = ? "
             "ORDER BY created_at ASC, rowid ASC",
@@ -236,7 +234,7 @@ def load_session_page(
 ) -> dict[str, Any]:
     """Cursor-paginated message view for long conversation history."""
     limit = max(1, min(int(limit or 100), 200))
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         if before_id:
             rows = conn.execute(
                 "SELECT m.*, m.rowid, u.input_tokens AS usage_input, "
@@ -278,12 +276,13 @@ def load_session_page(
             item.pop("rowid", None)
             message = _decode_choice_state(item)
             _attach_token_usage(message, row)
-            messages.append(
-                {
-                    **message,
-                    "parts": list_message_parts(item["id"]),
-                }
-            )
+            messages.append(message)
+
+    # Attach parts outside the connection scope: list_message_parts opens its
+    # own get_conn() transaction on the shared connection, so calling it inside
+    # the with block above would commit the outer (read-only) transaction.
+    for message in messages:
+        message["parts"] = list_message_parts(message["id"])
 
     tool_runs = list_tool_runs(session_id)
     if messages:

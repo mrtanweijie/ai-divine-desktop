@@ -7,21 +7,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from app.tools.gitignore import is_ignored, load_gitignore_rules  # noqa: E402
 
 
-def main() -> None:
-    data = json.load(sys.stdin)
-    workspace = Path(data["workspace"]).resolve()
-    params = data.get("params") or {}
+def run_tool(workspace: Path, params: dict) -> dict:
+    """Glob workspace files by pattern and return the tool result dict.
+
+    Callable both from the CLI entrypoint and in-process (adapters run this
+    directly inside ``asyncio.to_thread``).
+    """
     pattern = str(params.get("pattern") or "").strip()
     raw_path = str(params.get("path") or "").strip()
 
     if not pattern:
-        print(
-            json.dumps(
-                {"success": False, "message": "pattern 不能为空"},
-                ensure_ascii=False,
-            )
-        )
-        return
+        return {"success": False, "message": "pattern 不能为空"}
 
     base = workspace
     if raw_path:
@@ -32,21 +28,9 @@ def main() -> None:
         try:
             base.relative_to(workspace)
         except ValueError:
-            print(
-                json.dumps(
-                    {"success": False, "message": f"搜索路径越界: {base}"},
-                    ensure_ascii=False,
-                )
-            )
-            return
+            return {"success": False, "message": f"搜索路径越界: {base}"}
     if not base.is_dir():
-        print(
-            json.dumps(
-                {"success": False, "message": f"搜索目录不存在: {base}"},
-                ensure_ascii=False,
-            )
-        )
-        return
+        return {"success": False, "message": f"搜索目录不存在: {base}"}
 
     matchers, matcher_dirs = load_gitignore_rules(workspace, base)
 
@@ -92,18 +76,20 @@ def main() -> None:
     message = f"找到 {len(files)} 个文件"
     if truncated:
         message += f"（已截断，仅保留最近修改的 {max_results} 个）"
-    print(
-        json.dumps(
-            {
-                "success": True,
-                "message": message,
-                "content": json.dumps(files, ensure_ascii=False),
-                "truncated": truncated,
-                "data": {"pattern": pattern, "count": len(files)},
-            },
-            ensure_ascii=False,
-        )
-    )
+    return {
+        "success": True,
+        "message": message,
+        "content": json.dumps(files, ensure_ascii=False),
+        "truncated": truncated,
+        "data": {"pattern": pattern, "count": len(files)},
+    }
+
+
+def main() -> None:
+    data = json.load(sys.stdin)
+    workspace = Path(data["workspace"]).resolve()
+    params = data.get("params") or {}
+    print(json.dumps(run_tool(workspace, params), ensure_ascii=False))
 
 
 if __name__ == "__main__":

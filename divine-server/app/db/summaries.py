@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from contextlib import closing
 from typing import Any
 
-from .connection import _connect, _now
+from .connection import get_conn, _now
 
 def get_summary(session_id: str) -> dict[str, Any] | None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM session_summaries WHERE session_id = ?",
             (session_id,),
@@ -22,7 +21,7 @@ def save_summary(
     saved_tokens: int = 0,
 ) -> dict[str, Any]:
     now = _now()
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "INSERT INTO session_summaries "
             "(session_id, summary, cutoff_rowid, saved_tokens, created_at, updated_at) "
@@ -42,7 +41,7 @@ def save_summary(
     return dict(row)
 
 def delete_summary(session_id: str) -> None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "DELETE FROM session_summaries WHERE session_id = ?",
             (session_id,),

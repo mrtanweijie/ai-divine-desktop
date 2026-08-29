@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import os
 from pathlib import Path
@@ -240,12 +241,33 @@ def projects_root() -> Path:
 
 
 class SettingsStore:
-    """Small local settings file layered over environment defaults."""
+    """Small local settings file layered over environment defaults.
+
+    ``load()`` results are cached in memory and invalidated by file mtime, so
+    hot paths (settings are read dozens of times per request) skip the disk
+    read + JSON parse + model normalization on every call. Each ``load()``
+    returns a deep copy, so callers may freely mutate the dict they receive
+    without poisoning the cache; ``save()`` refreshes both cache and mtime.
+    """
 
     def __init__(self) -> None:
         self.path = data_root() / "settings.json"
+        self._cache: dict[str, Any] | None = None
+        self._mtime_ns: int | None = None
 
     def load(self) -> dict[str, Any]:
+        try:
+            mtime_ns = self.path.stat().st_mtime_ns
+        except OSError:
+            mtime_ns = None
+        if self._cache is not None and mtime_ns == self._mtime_ns:
+            return copy.deepcopy(self._cache)
+        data = self._build()
+        self._cache = data
+        self._mtime_ns = mtime_ns
+        return copy.deepcopy(data)
+
+    def _build(self) -> dict[str, Any]:
         data: dict[str, Any] = {
             "host": os.getenv("HOST", "127.0.0.1"),
             "port": int(os.getenv("PORT", "8019")),
@@ -303,6 +325,11 @@ class SettingsStore:
             json.dumps(values, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        self._cache = copy.deepcopy(values)
+        try:
+            self._mtime_ns = self.path.stat().st_mtime_ns
+        except OSError:
+            self._mtime_ns = None
         return values
 
 

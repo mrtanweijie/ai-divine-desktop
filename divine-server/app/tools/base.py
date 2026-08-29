@@ -119,6 +119,17 @@ class ToolAdapter:
         progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     ) -> ToolResult:
         params = self.build_params(arguments or {})
+        return await self._run_subprocess_tool(
+            workspace, params, locale, progress_callback
+        )
+
+    async def _run_subprocess_tool(
+        self,
+        workspace: Path,
+        params: dict[str, Any],
+        locale: str | None = None,
+        progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+    ) -> ToolResult:
         script = Path(__file__).resolve().parent / "scripts" / self.script_name
         if not script.exists():
             raise ToolExecutionError(f"脚本不存在: {self.script_name}")
@@ -279,6 +290,57 @@ class ToolAdapter:
                 "工具执行失败，请重试",
                 message_key="tool.actionFailed",
             ) from exc
+
+    async def _run_in_process(
+        self,
+        workspace: Path,
+        params: dict[str, Any],
+        script_module: str,
+        locale: str | None = None,
+        progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+    ) -> ToolResult:
+        """Run a lightweight tool script's ``run_tool`` in-process.
+
+        Avoids subprocess spawn overhead for cheap IO tools; the target module
+        must expose ``run_tool(workspace: Path, params: dict) -> dict`` (the
+        CLI ``main`` delegates to the same function, so behavior is identical).
+        Heavy tools (PDF/image/PPT) keep using the subprocess ``run`` path.
+
+        If the module cannot be imported (e.g. a frozen build that predates the
+        script being listed in the spec's ``hiddenimports``), it falls back to
+        the subprocess path — scripts are always shipped as data files.
+        """
+        import importlib
+
+        try:
+            module = importlib.import_module(script_module)
+        except ModuleNotFoundError:
+            logger.warning(
+                "in-process tool script not bundled module=%s, falling back "
+                "to subprocess",
+                script_module,
+            )
+            return await self._run_subprocess_tool(
+                workspace, params, locale, progress_callback
+            )
+
+        def _call() -> dict[str, Any]:
+            return module.run_tool(workspace.resolve(), params)
+
+        try:
+            result = await asyncio.to_thread(_call)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "in-process tool script failed module=%s error=%s",
+                script_module,
+                exc,
+            )
+            raise ToolExecutionError(
+                "工具执行失败，请重试",
+                message_key="tool.actionFailed",
+            ) from exc
+        output_root = output_dir_for_workspace(workspace)
+        return self._result_from_output(workspace, result, output_root)
 
     def _result_from_output(
         self, workspace: Path, output: dict[str, Any], output_root: Path

@@ -288,11 +288,10 @@ def _rows_to_text(rows: list[dict[str, Any]]) -> str:
 
 
 def _messages_since(session_id: str, cutoff_rowid: int) -> list[dict[str, Any]]:
-    from contextlib import closing
 
-    from ..db.connection import _connect
+    from ..db.connection import get_conn
 
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         rows = conn.execute(
             "SELECT rowid, * FROM messages WHERE session_id = ? AND rowid > ? "
             "ORDER BY rowid ASC",

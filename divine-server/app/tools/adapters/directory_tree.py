@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ..base import ToolAdapter, resolve_external_path
+from ..base import ToolAdapter, ToolResult, resolve_external_path
 from ..registry import register_tool
 
 
@@ -58,3 +58,20 @@ class DirectoryTreeAdapter(ToolAdapter):
     ) -> list[str]:
         external = resolve_external_path(workspace, arguments.get("path"))
         return [external] if external else []
+
+    async def run(
+        self,
+        workspace: Path,
+        arguments: dict[str, Any],
+        locale: str | None = None,
+        progress_callback: Any | None = None,
+    ) -> ToolResult:
+        params = self.build_params(arguments or {})
+        # Lightweight IO: run the script's core in-process (no subprocess).
+        return await self._run_in_process(
+            workspace,
+            params,
+            "app.tools.scripts.directory_tree",
+            locale=locale,
+            progress_callback=progress_callback,
+        )

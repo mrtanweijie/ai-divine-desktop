@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import json
-from contextlib import closing
 from typing import Any
 
-from .connection import _connect, _new_id, _now
+from .connection import get_conn, _new_id, _now
 
 def pause_tasks_for_session(session_id: str) -> None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "UPDATE scheduled_tasks SET status = 'paused', updated_at = ? "
             "WHERE session_id = ? AND status = 'active'",
@@ -18,14 +17,14 @@ def pause_tasks_for_session(session_id: str) -> None:
         conn.commit()
 
 def list_scheduled_tasks() -> list[dict[str, Any]]:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         rows = conn.execute(
             "SELECT * FROM scheduled_tasks ORDER BY created_at ASC, rowid ASC"
         ).fetchall()
     return [_normalize_task(dict(row)) for row in rows]
 
 def get_scheduled_task(task_id: str) -> dict[str, Any] | None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM scheduled_tasks WHERE id = ?", (task_id,)
         ).fetchone()
@@ -57,7 +56,7 @@ def create_scheduled_task(
     task_id = _new_id()
     now = _now()
     days = json.dumps(list(days_of_week or []), ensure_ascii=False)
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             "INSERT INTO scheduled_tasks "
             "(id, session_id, title, description, task_type, frequency, "
@@ -125,7 +124,7 @@ def update_scheduled_task(
         return task
     values.append(_now())
     values.append(task_id)
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute(
             f"UPDATE scheduled_tasks SET {', '.join(assignments)}, updated_at = ? "
             "WHERE id = ?",
@@ -135,6 +134,6 @@ def update_scheduled_task(
     return get_scheduled_task(task_id)
 
 def delete_scheduled_task(task_id: str) -> None:
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         conn.execute("DELETE FROM scheduled_tasks WHERE id = ?", (task_id,))
         conn.commit()

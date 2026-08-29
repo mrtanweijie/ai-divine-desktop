@@ -10,10 +10,9 @@ from __future__ import annotations
 
 import math
 import re
-from contextlib import closing
 from typing import Any
 
-from .connection import _connect, _new_id, _now
+from .connection import get_conn, _new_id, _now
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -70,7 +69,7 @@ def save_memory(
     now = _now()
     memory_id = _new_id()
 
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         if supersede_similar:
             query_tokens = set(_tokenize(content))
             rows = conn.execute(
@@ -122,7 +121,7 @@ def list_active_memories(
     category: str | None = None, limit: int = 100
 ) -> list[dict[str, Any]]:
     """Return active memories, newest first, optionally filtered by category."""
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         if category and category in _ALLOWED_CATEGORIES:
             rows = conn.execute(
                 "SELECT * FROM user_memories WHERE status = ? AND category = ? "
@@ -193,7 +192,7 @@ def search_memories(query: str, limit: int = 5) -> list[dict[str, Any]]:
 
 def forget_memory(memory_id: str) -> bool:
     """Soft-delete one memory; returns True when an active row was removed."""
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         cursor = conn.execute(
             "UPDATE user_memories SET status = ?, superseded_at = ? "
             "WHERE id = ? AND status = ?",
@@ -212,7 +211,7 @@ def forget_memory_by_content(content: str) -> int:
     content = str(content or "").strip()
     if not content:
         return 0
-    with closing(_connect()) as conn:
+    with get_conn() as conn:
         cursor = conn.execute(
             "UPDATE user_memories SET status = ?, superseded_at = ? "
             "WHERE status = ? AND trim(content) = ?",

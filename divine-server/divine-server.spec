@@ -144,6 +144,15 @@ a = Analysis(
         "app.tools.adapters.terminal",
         "app.tools.adapters.ux_html",
         "app.tools.adapters.word_document",
+        # 轻量 IO 工具：适配器在进程内 importlib 调用其 run_tool（不进子进程），
+        # 必须编入 PYZ 才能在 frozen 环境下 import（datas 里的 .py 只是给
+        # 子进程 runpy 用的，不可 import）。
+        "app.tools.scripts.read_file",
+        "app.tools.scripts.search_files",
+        "app.tools.scripts.grep_files",
+        "app.tools.scripts.glob_files",
+        "app.tools.scripts.directory_tree",
+        "app.tools.scripts.sqlite_query",
         "app.tools.scripts.file_utils",
         "app.rag_store",
         "app.pdf_renderer",

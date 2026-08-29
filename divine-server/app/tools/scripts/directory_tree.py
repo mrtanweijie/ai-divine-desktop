@@ -84,10 +84,12 @@ def _build(
     return entries, truncated
 
 
-def main() -> None:
-    data = json.load(sys.stdin)
-    workspace = Path(data["workspace"]).resolve()
-    params = data.get("params") or {}
+def run_tool(workspace: Path, params: dict) -> dict:
+    """Scan a directory tree and return the tool result dict.
+
+    Callable both from the CLI entrypoint and in-process (adapters run this
+    directly inside ``asyncio.to_thread``).
+    """
     raw_path = str(params.get("path") or "").strip()
     base = workspace
     if raw_path:
@@ -96,8 +98,7 @@ def main() -> None:
             candidate = workspace / candidate
         base = candidate.resolve()
     if not base.is_dir():
-        print(json.dumps({"success": False, "message": f"目录不存在: {base}"}))
-        return
+        return {"success": False, "message": f"目录不存在: {base}"}
 
     try:
         depth = int(params.get("depth") or 3)
@@ -123,23 +124,25 @@ def main() -> None:
         matchers,
         matcher_dirs,
     )
-    print(
-        json.dumps(
+    return {
+        "success": True,
+        "message": f"目录扫描完成，返回 {len(entries)} 个顶层条目",
+        "content": json.dumps(
             {
-                "success": True,
-                "message": f"目录扫描完成，返回 {len(entries)} 个顶层条目",
-                "content": json.dumps(
-                    {
-                        "root": str(base),
-                        "truncated": truncated,
-                        "tree": entries,
-                    },
-                    ensure_ascii=False,
-                ),
+                "root": str(base),
+                "truncated": truncated,
+                "tree": entries,
             },
             ensure_ascii=False,
-        )
-    )
+        ),
+    }
+
+
+def main() -> None:
+    data = json.load(sys.stdin)
+    workspace = Path(data["workspace"]).resolve()
+    params = data.get("params") or {}
+    print(json.dumps(run_tool(workspace, params), ensure_ascii=False))
 
 
 if __name__ == "__main__":
