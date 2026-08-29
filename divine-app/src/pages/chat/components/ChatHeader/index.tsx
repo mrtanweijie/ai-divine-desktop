@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ChevronLeft,
@@ -10,9 +10,10 @@ import {
   Pencil,
   PanelLeftOpen,
 } from "lucide-react";
-import type { Project, Session } from "@/types";
+import type { PreviewFile, Project, Session } from "@/types";
 import { exportSession } from "@/services/api";
 import { ProjectIcon } from "@/pages/chat/components/ProjectIcon";
+import { GitInfoCard } from "@/pages/chat/components/GitInfoCard";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
@@ -29,6 +30,8 @@ interface ChatHeaderProps {
   onRename: (id: string, title: string) => void;
   workspaceOpen: boolean;
   onToggleWorkspace: () => void;
+  onPreviewFile?: (file: PreviewFile) => void;
+  isGit?: boolean;
   /** 会话累计 token 消耗（来自每条回复的 token_usage 汇总） */
   tokenUsage?: {
     input_tokens: number;
@@ -38,13 +41,15 @@ interface ChatHeaderProps {
   };
 }
 
-export function ChatHeader({
+export function ChatHeaderInner({
   session,
   project,
   onOpenSidebar,
   onRename,
   workspaceOpen,
   onToggleWorkspace,
+  onPreviewFile,
+  isGit = false,
   tokenUsage,
 }: ChatHeaderProps) {
   const { t } = useTranslation();
@@ -182,6 +187,9 @@ export function ChatHeader({
             <span className="project-badge-name">{project.name}</span>
           </span>
         )}
+        {project && isGit && (
+          <GitInfoCard projectPath={project.path} onPreviewFile={onPreviewFile} />
+        )}
         {!workspaceOpen && (
           <Button
             variant="icon"
@@ -197,3 +205,5 @@ export function ChatHeader({
     </header>
   );
 }
+
+export const ChatHeader = memo(ChatHeaderInner);

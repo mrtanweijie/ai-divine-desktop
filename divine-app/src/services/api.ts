@@ -458,3 +458,34 @@ export function subagentsFromToolRuns(tools: ToolEvent[]): SubAgentItem[] {
       changed_count: item.changed_count,
     }));
 }
+
+/* ------------------------------------------------------------------ */
+/*  Git project info                                                   */
+/* ------------------------------------------------------------------ */
+
+export interface GitFileInfo {
+  path: string;
+  status: "modified" | "added" | "deleted" | "renamed" | "untracked";
+}
+
+export interface GitCommitInfo {
+  message: string;
+  relative_time: string;
+}
+
+export interface GitInfo {
+  is_git: boolean;
+  branch: string;
+  ahead: number;
+  behind: number;
+  dirty: boolean;
+  total_changes: number;
+  files: GitFileInfo[];
+  last_commit: GitCommitInfo | null;
+  remote_url: string;
+  stash_count: number;
+}
+
+export function getGitInfo(projectPath: string): Promise<GitInfo> {
+  return request<GitInfo>(`/git/info?path=${encodeURIComponent(projectPath)}`);
+}

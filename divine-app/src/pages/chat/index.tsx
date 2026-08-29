@@ -8,6 +8,7 @@ import {
   deleteProject,
   deleteSession,
   getSession,
+  getGitInfo,
   getSettings,
   getWorkspace,
   listProjects,
@@ -185,6 +186,7 @@ export default function ChatPage() {
     nonce: number;
   } | null>(null);
   const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
+  const [isGit, setIsGit] = useState(false);
   const [agentChangedFiles, setAgentChangedFiles] = useState<Set<string>>(
     new Set()
   );
@@ -1050,6 +1052,36 @@ export default function ChatPage() {
     }
   }, [currentProject?.path, workspacePanelOpen]);
 
+  // Git 项目检测（从 ChatHeader 上移到 ChatPage，避免级联渲染 FileTree）
+  const gitFetchIdRef = useRef(0);
+  const isGitRef = useRef(false);
+  useEffect(() => {
+    if (!currentProject?.path) {
+      if (isGitRef.current) {
+        isGitRef.current = false;
+        setIsGit(false);
+      }
+      return;
+    }
+    const id = ++gitFetchIdRef.current;
+    getGitInfo(currentProject.path)
+      .then((info) => {
+        if (id !== gitFetchIdRef.current) return;
+        const next = info.is_git;
+        if (next !== isGitRef.current) {
+          isGitRef.current = next;
+          setIsGit(next);
+        }
+      })
+      .catch(() => {
+        if (id !== gitFetchIdRef.current) return;
+        if (isGitRef.current) {
+          isGitRef.current = false;
+          setIsGit(false);
+        }
+      });
+  }, [currentProject?.path]);
+
   const visibleChangedFiles = useMemo(() => {
     const visible = new Set(agentChangedFiles);
     acceptedFiles.forEach((path) => visible.delete(path));
@@ -1183,6 +1215,8 @@ export default function ChatPage() {
               onToggleWorkspace={() =>
                 setWorkspacePanelOpen((open) => !open)
               }
+              onPreviewFile={handlePreviewFile}
+              isGit={isGit}
               tokenUsage={sessionTokenUsage}
             />
             {!selectedId ? (

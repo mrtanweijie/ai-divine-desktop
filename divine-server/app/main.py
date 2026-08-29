@@ -12,6 +12,7 @@ from .api import (
     calendar_events,
     chat,
     files,
+    git,
     local_llm,
     pdf_themes,
     projects,
@@ -101,6 +102,7 @@ app.include_router(files.router, prefix="/api")
 app.include_router(pdf_themes.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(local_llm.router, prefix="/api")
+app.include_router(git.router, prefix="/api")
 app.include_router(skills.router)
 app.include_router(terminal.router)
 

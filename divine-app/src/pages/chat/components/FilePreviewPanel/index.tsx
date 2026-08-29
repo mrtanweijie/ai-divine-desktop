@@ -1,4 +1,7 @@
 import {
+  memo,
+  useEffect,
+  useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
@@ -27,7 +30,7 @@ interface FilePreviewPanelProps {
   onAcceptFile: (relPath: string) => void;
 }
 
-export function FilePreviewPanel({
+export function FilePreviewPanelInner({
   open,
   repoPath,
   selectedFile,
@@ -45,6 +48,18 @@ export function FilePreviewPanel({
 }: FilePreviewPanelProps) {
   const { t } = useTranslation();
   const [resizing, setResizing] = useState(false);
+  const [expandTo, setExpandTo] = useState<string | null>(null);
+  const expandToPrevRef = useRef<string | null>(null);
+
+  // selectedFile 变化时触发文件树展开（仅在路径真正变化时）
+  useEffect(() => {
+    const next = selectedFile?.relPath ?? null;
+    if (next !== expandToPrevRef.current) {
+      expandToPrevRef.current = next;
+      setExpandTo(next);
+    }
+  }, [selectedFile?.relPath]);
+
   if (!repoPath) return null;
 
   const handleResizeStart = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -149,6 +164,7 @@ export function FilePreviewPanel({
           changedFiles={changedFiles}
           selectedPath={selectedFile?.relPath ?? null}
           width={treeWidth}
+          expandTo={expandTo}
           onSelectFile={(relPath) =>
             onSelectFile({
               repoPath,
@@ -188,3 +204,5 @@ export function FilePreviewPanel({
     </aside>
   );
 }
+
+export const FilePreviewPanel = memo(FilePreviewPanelInner);
