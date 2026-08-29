@@ -166,6 +166,34 @@ async def run_agent(
     elif plan_mode == "plan_first":
         ctx.plan_choice_resolved = True
         ctx.plan_first_pending = True
+
+    # 意图识别（提前到工具构建前——工具按意图裁减需要，见 tools._CONTENT_TOOLS）。
+    # 从 history 取当前用户消息做分类，与后文线程化 question_text 等价。
+    settings = settings_store.load()
+    local_llm_enabled = settings.get("local_llm_enabled", False)
+    local_llm_mode = settings.get("local_llm_mode", "keyword")
+    local_llm_threshold = settings.get("local_llm_threshold", 0.75)
+    _hist_user = next(
+        (m for m in reversed(history) if m.get("role") == "user"), None
+    )
+    history_context = ""
+    if len(history) >= 2:
+        last_ai = (
+            history[-2].get("content", "")
+            if history[-2].get("role") == "assistant"
+            else ""
+        )
+        history_context = str(last_ai)[:500]
+    intents, local_result = classify_intents(
+        str((_hist_user or {}).get("content") or ""),
+        history_context=history_context,
+        local_llm_enabled=local_llm_enabled,
+        local_llm_mode=local_llm_mode,
+        local_llm_threshold=local_llm_threshold,
+    )
+    ctx.intents = intents
+    ctx.local_intent_result = local_result
+
     llm = _build_llm(think=think, effort=effort, model_id=model_id)
     tools = _build_tools(ctx)
     agent = _build_agent(llm, tools, ctx)
@@ -243,29 +271,8 @@ async def run_agent(
         }
     )
 
-    # 本地意图识别 + 路由判断
-    settings = settings_store.load()
-    local_llm_enabled = settings.get("local_llm_enabled", False)
-    local_llm_mode = settings.get("local_llm_mode", "keyword")
-    local_llm_threshold = settings.get("local_llm_threshold", 0.75)
-    history_context = ""
-    if len(history) >= 2:
-        last_ai = history[-2].get("content", "") if history[-2].get("role") == "assistant" else ""
-        history_context = str(last_ai)[:500]
-
-    intents, local_result = classify_intents(
-        question_text,
-        history_context=history_context,
-        local_llm_enabled=local_llm_enabled,
-        local_llm_mode=local_llm_mode,
-        local_llm_threshold=local_llm_threshold,
-    )
-
-    # 更新上下文
-    ctx.intents = intents
-    ctx.local_intent_result = local_result
-
-    # 如果可以本地处理，执行真实本地动作；执行不了就回退云端，绝不吞消息
+    # 本地意图识别 + 路由判断已提前到工具构建前（见上方），此处直接使用
+    # 已计算好的 intents / local_result，执行本地动作或回退云端。
     if _can_handle_locally(intents, local_result, local_llm_threshold):
         logger.info(
             "local intent handled session=%s intents=%s confidence=%.2f",

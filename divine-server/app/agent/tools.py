@@ -30,6 +30,38 @@ _CHECKPOINTER = InMemorySaver()
 
 _TOOL_LOCKS: dict[str, asyncio.Lock] = {}
 
+# 内容创作/技能类工具：仅当对应意图命中时注入（其余工具常驻）。
+# 这类工具 schema 大（pdf_generate 889 token、run_subagents 738 等）且只服务
+# 特定意图——按意图裁减可显著降低每次云端调用的 input token
+# （60 个全带 ≈ 13.3k，意图=question 时裁到 ≈ 7k）。
+# 保守原则：只裁"纯内容创作 + 技能 + 子 agent"，文件/代码/网络/终端等
+# 干活主力工具一律常驻，避免意图漏判导致工具缺失。
+_CONTENT_TOOLS: dict[str, str] = {
+    "pdf_generate": "pdf",
+    "pdf_render": "pdf",
+    "pdf_split_merge": "pdf",
+    "word_document": "document",
+    "presentation": "document",
+    "spreadsheet": "document",
+    "image_generate": "image",
+    "image_resize": "image",
+    "draw_svg": "svg",
+    "edit_svg": "svg",
+    "describe_svg": "svg",
+    "svg_to_png": "svg",
+    "svg_to_png_batch": "svg",
+    "generate_chart": "chart",
+    "mermaid_export": "mermaid",
+    "ux_html": "ux",
+    "install_skill": "skill",
+    "migrate_skill": "skill",
+    "migrate_skills": "skill",
+    "discover_importable_skills": "skill",
+    "preview_skill_repo": "skill",
+    "run_subagents": "subagent",
+}
+
+
 def _make_tool_call(
     ctx: AgentRunContext,
     adapter: Any,
@@ -49,9 +81,17 @@ def _build_tools(ctx: AgentRunContext) -> list[StructuredTool]:
     tools: list[StructuredTool] = []
     skill_registry.refresh(ctx.workspace)
     lock = _TOOL_LOCKS.setdefault(ctx.session_id, asyncio.Lock())
+    intents = ctx.intents
     for meta in registry.list():
-        if meta["name"] == "create_plan":
+        name = meta["name"]
+        if name == "create_plan":
             continue
+        # 意图工具裁减：内容创作/技能类工具仅当对应意图命中时注入。
+        # 无意图信号（intents 为空）→ 全量注入（保守，等同首轮兜底）
+        if intents:
+            content_intent = _CONTENT_TOOLS.get(name)
+            if content_intent and content_intent not in intents:
+                continue
         adapter = registry.get(meta["name"])
         if adapter is None:
             continue
