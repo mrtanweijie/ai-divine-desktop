@@ -61,20 +61,28 @@ function looksLikeRealPath(path: string): boolean {
 
 function linkifyFilePaths(content: string): string {
   if (!content || content.length < 4) return content;
-  const parts = content.split("```");
-  return parts
-    .map((part, index) => {
-      // 奇数下标是代码块内容，不处理
-      if (index % 2 === 1) return part;
-      return part.replace(
-        ABS_PATH_RE,
-        (path) =>
-          looksLikeRealPath(path)
-            ? `[${path}](divine-path:${encodeURIComponent(path)})`
-            : path
-      );
-    })
-    .join("```");
+  // 保护代码块（```...```）与行内代码（`...`）：其中的路径不 linkify。
+  // 模型常把路径包成行内代码（`/Users/...`），若在里面再包 divine-path
+  // 链接，链接 markdown 会落在 <code> 里被当纯文本显示、不可点击。
+  const protectedSpans: string[] = [];
+  const masked = content.replace(
+    /```[\s\S]*?```|`[^`\n]*`/g,
+    (span) => {
+      protectedSpans.push(span);
+      return `\uE000${protectedSpans.length - 1}\uE000`;
+    }
+  );
+  const linkified = masked.replace(
+    ABS_PATH_RE,
+    (path) =>
+      looksLikeRealPath(path)
+        ? `[${path}](divine-path:${encodeURIComponent(path)})`
+        : path
+  );
+  return linkified.replace(
+    /\uE000(\d+)\uE000/g,
+    (_, index) => protectedSpans[Number(index)] ?? ""
+  );
 }
 
 interface MarkdownViewProps {
