@@ -334,9 +334,12 @@ export function messagesToChatMessages(
     const tools: ToolEvent[] = [];
     if (message.role === "assistant" && currentUserIndex !== -1) {
       const user = messages[currentUserIndex];
-      const next = messages[index + 1];
+      // 归属窗口右边界用本条消息自身的创建时间：答案消息在整轮跑完后才落库，
+      // 本轮的 web_search/fetch 等工具运行必然早于它。不能再用"下一条消息"
+      // 做右边界——重答会在回答后追加相邻 assistant 消息（中间没有用户消息），
+      // 导致同一次工具运行同时落进两条消息的窗口，工具卡片重复展示。
       const start = new Date(user.created_at).getTime();
-      const end = next ? new Date(next.created_at).getTime() : Date.now();
+      const end = new Date(message.created_at).getTime();
       tools.push(
         ...toolRuns
           .filter((run) => {
