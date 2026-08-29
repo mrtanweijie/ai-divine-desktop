@@ -1,6 +1,7 @@
 import type {
   ApprovalMode,
   ChatMessage,
+  ChatPreprocess,
   CompactResult,
   ContextUsage,
   Message,
@@ -295,6 +296,17 @@ function trimToolResult(result: any): any {
   return copy;
 }
 
+/** 解析本地预整理标记部件（type="preprocess"）。 */
+function parsePreprocessPart(parts: Message["parts"]): ChatPreprocess | undefined {
+  const part = parts.find((p) => p.type === "preprocess");
+  if (!part) return undefined;
+  try {
+    return JSON.parse(part.content) as ChatPreprocess;
+  } catch {
+    return undefined;
+  }
+}
+
 export function messagesToChatMessages(
   messages: Message[],
   toolRuns: ToolRun[] = [],
@@ -385,17 +397,26 @@ export function messagesToChatMessages(
               size?: number;
               path?: string;
               content?: string;
+              preprocess_original?: boolean;
             };
             return {
               name: parsed.name ?? part.content,
               size: parsed.size,
               path: parsed.path,
               content: parsed.content,
+              preprocess_original: parsed.preprocess_original,
             };
           } catch {
             return { name: part.content };
           }
-        }),
+        })
+        // 预整理原文附件（preprocess_original）只服务模型，UI 由
+        // preprocess 部件展示可展开原文，避免重复卡片
+        .filter(
+          (file) =>
+            !(file as { preprocess_original?: boolean }).preprocess_original
+        ),
+      preprocess: parsePreprocessPart(message.parts),
       tools,
       subagents: subagentsFromToolRuns(tools),
       choice_state: message.choice_state,

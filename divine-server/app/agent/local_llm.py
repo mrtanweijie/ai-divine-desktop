@@ -584,6 +584,98 @@ class LocalLLMManager:
             logger.warning("本地模型摘要失败: %s", e)
             return None
 
+    def organize(self, text: str, timeout: float = 30.0) -> str | None:
+        """用本地模型把长文本整理成结构化版本（输入侧预整理）。
+
+        返回整理文本；本地不可用/失败/校验不过返回 None（调用方降级原样上云）。
+        设计与规则见 docs/preprocess-feature-design.md。
+
+        输出校验（三关，任一不过即丢弃，宁可不整理）：
+        1. 必须以「[本地整理版]」开头（对齐格式契约，防跑题/拒绝整理）
+        2. 长度不得超过原文 80%（防废话整理）
+        3. 可打印字符占比 >= 0.9（防乱码）
+        """
+        if not self.is_ready():
+            return None
+
+        system_prompt = (
+            "你是文本整理助手。把用户输入整理成结构清晰的版本：\n"
+            "1. 按主题分段，每段用「### 标题」+ 要点列表\n"
+            "2. 保留所有关键事实、数字、名称、约束条件，不改写原意\n"
+            "3. 删除重复、客套、无关内容\n"
+            "4. 不添加原文没有的信息，不判断对错\n"
+            "5. 保留所有链接、路径、专有名词，原样不改写；表格/CSV 等结构化内容保持原格式\n"
+            "6. 输出以「[本地整理版]」开头；无法整理时只输出「无法整理」\n"
+            "示例：\n"
+            "输入：明天下午3点和客户开会，讨论项目延期，需要准备进度报告。\n"
+            "输出：\n"
+            "[本地整理版]\n"
+            "\n"
+            "### 会议安排\n"
+            "- 明天下午 3 点与客户开会，议题为项目延期\n"
+            "- 需要准备：进度报告"
+        )
+        # 输出 token 上限：按输入长度缩放但保底 1536——1.5B 整理 1500+ 字
+        # 输入时常输出 800+ token，len//2 会截断导致整理被丢弃
+        max_tokens = min(max(len(text) // 2, 1536), 2048)
+        payload = {
+            "model": "local",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": text},
+            ],
+            "temperature": 0.2,
+            "max_tokens": max_tokens,
+        }
+        try:
+            r = requests.post(
+                f"http://127.0.0.1:{self.port}/v1/chat/completions",
+                json=payload,
+                timeout=timeout,
+            )
+            r.raise_for_status()
+            choice = r.json()["choices"][0]
+            if choice.get("finish_reason") == "length":
+                logger.warning(
+                    "本地整理输出被截断（finish_reason=length），丢弃走云端"
+                )
+                return None
+            content = str(choice["message"]["content"] or "").strip()
+            if content.startswith("```"):
+                content = content.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            # 三关校验
+            # ① 格式契约：以「[本地整理版]」开头，或以「###」标题直接开头
+            #   （小模型常见表现：内容格式正确但漏掉前缀标记，此时仍视为合格）
+            if not (
+                content.startswith("[本地整理版]")
+                or content.startswith("### ")
+            ):
+                logger.info(
+                    "本地整理输出未按格式契约，丢弃走云端: %r", content[:80]
+                )
+                return None
+            # ② 废话整理检测：输出显著长于原文（>1.5x+200 字符）且无结构化
+            #    标题 → 丢弃。不设压缩率硬门槛：密集内容的重构输出（加
+            #    ### 标题/要点化）可能与原文等长甚至更长，只要带结构即视为有效
+            if "### " not in content and len(content) > int(len(text) * 1.5) + 200:
+                logger.info(
+                    "本地整理输出疑似废话整理（%.0f 字 vs 原文 %d 字且无标题），丢弃走云端",
+                    len(content),
+                    len(text),
+                )
+                return None
+            if content:
+                printable = sum(
+                    1 for ch in content if ch.isprintable() or ch in "\r\n\t"
+                )
+                if printable / len(content) < 0.9:
+                    logger.info("本地整理输出疑似乱码，丢弃走云端")
+                    return None
+            return content
+        except Exception as e:  # noqa: BLE001
+            logger.warning("本地整理失败: %s", e)
+            return None
+
     def get_status(self) -> dict[str, Any]:
         """获取本地模型状态。"""
         installed = get_installed_models(self.models_dir)

@@ -88,6 +88,62 @@
 .user-text {
   white-space: pre-wrap;
 }
+.user-preprocess {
+  display: flex;
+  margin-top: 8px;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+.user-preprocess-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.user-preprocess-original {
+  width: 100%;
+  max-width: 420px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-1);
+  font-size: 12px;
+}
+.user-preprocess-original summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 9px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  user-select: none;
+  list-style: none;
+}
+.user-preprocess-original summary::-webkit-details-marker {
+  display: none;
+}
+.user-preprocess-chevron {
+  transition: transform 120ms ease;
+}
+.user-preprocess-original[open] .user-preprocess-chevron {
+  transform: rotate(180deg);
+}
+.user-preprocess-original pre {
+  margin: 0;
+  padding: 8px 10px;
+  border-top: 1px solid var(--color-border);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 260px;
+  overflow-y: auto;
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 1.55;
+}
 .user-files {
   display: flex;
   margin-top: 8px;

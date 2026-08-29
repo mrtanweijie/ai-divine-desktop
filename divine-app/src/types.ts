@@ -31,7 +31,7 @@ export interface Session {
 export interface MessagePart {
   id: string;
   message_id: string;
-  type: "think" | "tool" | "file" | "tool_calls" | "tool_result";
+  type: "think" | "tool" | "file" | "tool_calls" | "tool_result" | "preprocess";
   content: string;
   order: number;
 }
@@ -198,6 +198,8 @@ export interface ChatMessage {
   subagents?: SubAgentItem[];
   tools: ToolEvent[];
   files?: ChatFile[];
+  /** 本地预整理：长文本被整理成结构化版本，原文可展开查看 */
+  preprocess?: ChatPreprocess;
   streaming?: boolean;
   error?: string;
   /** 选项卡片的已选状态（选择后置灰持久化） */
@@ -216,6 +218,15 @@ export interface ChatFile {
   size?: number;
   content?: string;
   path?: string;
+}
+
+/** 本地预整理标记（message part type="preprocess"）。
+ * 长文本被本地模型整理成结构化版本后，原文存于 original 供前端展开查看；
+ * original_path 是工作区里的原文附件路径（云端 read_file 按需读取）。 */
+export interface ChatPreprocess {
+  organized: boolean;
+  original_path?: string;
+  original?: string;
 }
 
 export type ModelProvider = "auto" | "langchain" | "mock" | "local";

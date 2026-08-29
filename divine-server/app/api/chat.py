@@ -117,11 +117,68 @@ async def stream_chat(request: StreamChatRequest):
         or "ask"
     )
     workspace = Path(db.session_workspace(session_id) or workspace_dir())
+    # 本地预整理：长文本先由本地模型整理成结构化版本，原文转存附件
+    # （见 docs/preprocess-feature-design.md；失败/不可用一律原样上云）
+    final_question = question
+    original_attachment: Path | None = None
+    organized = False
+    try:
+        from ..agent.preprocess import maybe_preprocess
+
+        final_question, original_attachment, organized = await asyncio.to_thread(
+            maybe_preprocess, question, session_id, workspace
+        )
+    except Exception as exc:  # noqa: BLE001 — 预整理失败绝不影响对话
+        logger.warning("本地预整理异常，原样上云: %s", exc)
     messages = db.list_messages(session_id)
     if not messages:
         title = question[:24] if len(question) > 24 else question
         db.update_session(session_id, title=title)
-    message = db.add_message(session_id, "user", question)
+    message = db.add_message(session_id, "user", final_question)
+    if organized and original_attachment is not None:
+        try:
+            # file 附件：只带路径，不注入原文内容（决策 3，省 token）。
+            # preprocess_original 标记供前端过滤——UI 用 preprocess 部件展示
+            # 可展开原文，这里只服务模型（history_for_model 读 path 引用）。
+            db.add_message_part(
+                message["id"],
+                "file",
+                json.dumps(
+                    {
+                        "name": "原文附件",
+                        "path": str(original_attachment),
+                        "size": original_attachment.stat().st_size,
+                        "preprocess_original": True,
+                    },
+                    ensure_ascii=False,
+                ),
+                order=0,
+            )
+            # preprocess 标记：前端渲染「已整理」徽标 + 可展开原文。
+            # history_for_model 只处理 type == "file" 的附件，不占模型上下文。
+            try:
+                original_text = original_attachment.read_text(
+                    encoding="utf-8", errors="replace"
+                )[:12000]
+            except OSError:
+                original_text = ""
+            db.add_message_part(
+                message["id"],
+                "preprocess",
+                json.dumps(
+                    {
+                        "organized": True,
+                        "original_path": str(original_attachment),
+                        "original": original_text,
+                    },
+                    ensure_ascii=False,
+                ),
+                order=1,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("预整理附件元信息写入失败: %s", exc)
+    # 附件通道的预整理原文路径（无 file_path 的 content 附件会新写 original-*.md）
+    preprocess_originals: list[str] = []
     for index, attachment in enumerate(request.attachments):
         meta: dict[str, object] = {
             "name": attachment.name,
@@ -146,6 +203,46 @@ async def stream_chat(request: StreamChatRequest):
                         meta["content"] = text[:12000]
         elif attachment.content:
             meta["content"] = attachment.content[:12000]
+        # 本地预整理：大文本附件（粘贴的 paste-*.txt 等）先本地整理再上云，
+        # 上下文里换成整理版（省 token），原文仍是附件自身（云端可 read_file）。
+        # 显式："帮我整理" + 附件（附件即指代对象）；自动：内容超阈值且非代码/表格。
+        if isinstance(meta.get("content"), str) and meta["content"]:
+            try:
+                from ..agent.preprocess import maybe_preprocess_attachment
+
+                original_text = meta["content"]
+                att_original_path = (
+                    str(Path(attachment.file_path))
+                    if attachment.file_path
+                    else None
+                )
+                new_content, att_orig, att_organized = await asyncio.to_thread(
+                    maybe_preprocess_attachment,
+                    question,
+                    original_text,
+                    session_id,
+                    workspace,
+                    att_original_path,
+                )
+                if att_organized and new_content:
+                    meta["content"] = new_content
+                    if att_orig:
+                        preprocess_originals.append(att_orig)
+                    db.add_message_part(
+                        message["id"],
+                        "preprocess",
+                        json.dumps(
+                            {
+                                "organized": True,
+                                "original_path": att_orig,
+                                "original": original_text,
+                            },
+                            ensure_ascii=False,
+                        ),
+                        order=100 + index,
+                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("附件预整理异常，按原样处理: %s", exc)
         db.add_message_part(
             message["id"],
             "file",
@@ -163,6 +260,9 @@ async def stream_chat(request: StreamChatRequest):
         for attachment in request.attachments
         if attachment.file_path
     ]
+    if original_attachment is not None:
+        approved_paths.append(str(original_attachment))
+    approved_paths.extend(preprocess_originals)
     logger.info(
         "chat request session=%s question_len=%d attachments=%d think=%s "
         "effort=%s history=%d model_id=%s tool_mode=%s",
@@ -188,7 +288,7 @@ async def stream_chat(request: StreamChatRequest):
             entry = _resolve_model_entry(settings, request.model_id)
             if entry.get("provider") == "local":
                 async for event in stream_local_chat(
-                    session_id, question, history, locale
+                    session_id, final_question, history, locale
                 ):
                     yield event
                 return

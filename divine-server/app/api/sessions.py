@@ -122,6 +122,21 @@ def clear_session(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
     db.clear_messages(session_id)
+    # 决策 4：预整理原文附件随会话清空删除。
+    # 路径必须与 preprocess.py 落盘位置一致：
+    # workspace/sessions/{session_id}/attachments/
+    try:
+        import shutil
+        from pathlib import Path
+
+        from ..config import workspace_dir
+
+        ws = Path(db.session_workspace(session_id) or workspace_dir())
+        att_dir = ws / "sessions" / session_id / "attachments"
+        if att_dir.is_dir():
+            shutil.rmtree(att_dir, ignore_errors=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("会话附件清理失败: %s", exc)
     logger.info("session cleared id=%s", session_id)
     return db.load_session(session_id)
 

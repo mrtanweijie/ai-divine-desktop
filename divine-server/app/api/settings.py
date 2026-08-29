@@ -38,6 +38,19 @@ def _public(settings: dict) -> dict:
         "local_llm_model": settings.get("local_llm_model", ""),
         "local_llm_ctx_size": int(settings.get("local_llm_ctx_size", 4096)),
         "local_llm_threshold": float(settings.get("local_llm_threshold", 0.75)),
+        # 本地预整理（输入侧预处理）
+        "local_llm_preprocess_enabled": bool(
+            settings.get("local_llm_preprocess_enabled", True)
+        ),
+        "local_llm_preprocess_auto": bool(
+            settings.get("local_llm_preprocess_auto", True)
+        ),
+        "local_llm_preprocess_threshold": int(
+            settings.get("local_llm_preprocess_threshold", 800)
+        ),
+        "local_llm_preprocess_code_skip": bool(
+            settings.get("local_llm_preprocess_code_skip", True)
+        ),
         "tools": registry.list(),
         "models": [
             {

@@ -271,6 +271,11 @@ class SettingsStore:
             "local_llm_model": "",
             "local_llm_ctx_size": 4096,
             "local_llm_threshold": 0.75,
+            # 本地预整理（输入侧预处理）
+            "local_llm_preprocess_enabled": True,
+            "local_llm_preprocess_auto": True,
+            "local_llm_preprocess_threshold": 800,  # token 估算阈值（estimate_tokens）
+            "local_llm_preprocess_code_skip": True,
             "installed_models": [],  # [{"id": "...", "name": "...", "path": "...", "size": 0, "enabled": False}]
         }
         if self.path.exists():

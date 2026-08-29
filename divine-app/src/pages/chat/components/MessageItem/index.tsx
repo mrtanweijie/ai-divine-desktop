@@ -6,6 +6,7 @@ import {
   Copy,
   Eye,
   FileText,
+  Sparkles,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
@@ -100,6 +101,23 @@ export function MessageItem({
           title={t("message.doubleClickCopy", "双击复制")}
         >
           <div className="user-text">{message.content}</div>
+          {message.preprocess?.organized && (
+            <div className="user-preprocess">
+              <span className="user-preprocess-badge">
+                <Sparkles size={12} />
+                {t("message.preprocessOrganized", "已本地整理")}
+              </span>
+              {message.preprocess.original && (
+                <details className="user-preprocess-original">
+                  <summary>
+                    <ChevronDown size={12} className="user-preprocess-chevron" />
+                    {t("message.preprocessShowOriginal", "查看原文")}
+                  </summary>
+                  <pre>{message.preprocess.original}</pre>
+                </details>
+              )}
+            </div>
+          )}
           {message.files && message.files.length > 0 && (
             <div className="user-files">
               {message.files.map((file) => (
