@@ -150,9 +150,62 @@ CREATE INDEX IF NOT EXISTS idx_token_usage_session ON token_usage(session_id);
 CREATE INDEX IF NOT EXISTS idx_token_usage_message ON token_usage(message_id);
 """
 
+# FTS5 全文搜索：独立执行，不放在 SCHEMA 中（避免重复执行报错）
+FTS5_SCHEMA = """
+CREATE VIRTUAL TABLE IF NOT EXISTS sessions_fts USING fts5(
+    session_id UNINDEXED,
+    title,
+    content,
+    tokenize='unicode61'
+);
+"""
+
+
+def rebuild_fts5(conn=None) -> None:
+    """重建 FTS5 索引（全量重建）。"""
+    close_conn = False
+    if conn is None:
+        conn = _connect()
+        close_conn = True
+    try:
+        conn.execute("DELETE FROM sessions_fts")
+        conn.execute("""
+            INSERT INTO sessions_fts(session_id, title, content)
+            SELECT s.id, s.title, m.content
+            FROM sessions s
+            JOIN messages m ON m.session_id = s.id
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    finally:
+        if close_conn:
+            conn.close()
+
+# 早期版本的 FTS5 触发器：用 'delete' 特殊命令时把 TEXT 型 session_id 当
+# rowid 传入，任何 sessions.title 更新 / messages 更新删除都会抛
+# "SQL logic error"。当前代码改用 rebuild_fts5 维护索引，这些触发器已无用，
+# 迁移时统一丢弃，避免历史库触发损坏。
+_BROKEN_FTS_TRIGGERS = (
+    "messages_fts_ai",
+    "messages_fts_ad",
+    "messages_fts_au",
+    "sessions_fts_title_update",
+)
+
+
+def _drop_broken_fts_triggers(conn) -> None:
+    try:
+        for name in _BROKEN_FTS_TRIGGERS:
+            conn.execute(f"DROP TRIGGER IF EXISTS {name}")
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def init_db() -> None:
     with closing(_connect()) as conn:
         conn.executescript(SCHEMA)
+        _drop_broken_fts_triggers(conn)
         columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(sessions)")
         }
@@ -201,6 +254,7 @@ def init_db() -> None:
             "ON sessions(project_id)"
         )
         conn.commit()
+
     default = default_project()
     with closing(_connect()) as conn:
         conn.execute(
@@ -208,3 +262,17 @@ def init_db() -> None:
             (default["id"],),
         )
         conn.commit()
+
+
+def _init_fts5() -> None:
+    """初始化 FTS5 全文搜索索引。"""
+    with closing(_connect()) as conn:
+        # 检查 FTS5 是否已初始化
+        exists = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='sessions_fts'"
+        ).fetchone()
+        if not exists:
+            # 创建 FTS5 表
+            conn.executescript(FTS5_SCHEMA)
+        # 重建索引
+        rebuild_fts5(conn)

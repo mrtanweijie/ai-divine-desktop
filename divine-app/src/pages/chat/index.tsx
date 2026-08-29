@@ -1269,6 +1269,7 @@ export default function ChatPage() {
         open={searchOpen}
         sessions={sessions}
         selectedId={selectedId}
+        projectId={selectedProjectId}
         onClose={() => setSearchOpen(false)}
         onSelect={handleSelectSession}
       />

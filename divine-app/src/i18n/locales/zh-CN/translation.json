@@ -208,7 +208,7 @@
     "projectTokenTotal": "累计 {{value}} tokens",
     "rename": "重命名",
     "scheduled": "已安排",
-    "searchPlaceholder": "输入会话标题…",
+    "searchPlaceholder": "搜索标题或内容…",
     "sessionCount": "{{count}} 个对话",
     "settings": "设置",
     "skills": "技能",

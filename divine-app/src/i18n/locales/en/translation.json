@@ -214,7 +214,7 @@
     "projectTokenTotal": "Total {{value}} tokens",
     "rename": "Rename",
     "scheduled": "Scheduled",
-    "searchPlaceholder": "Enter a session title...",
+    "searchPlaceholder": "Search title or content...",
     "sessionCount_one": "{{count}} conversation",
     "sessionCount_other": "{{count}} conversations",
     "settings": "Settings",

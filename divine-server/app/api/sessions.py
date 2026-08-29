@@ -38,6 +38,12 @@ def list_sessions(project_id: str | None = None):
     return {"sessions": db.list_sessions(project_id)}
 
 
+@router.get("/search")
+def search_sessions(q: str, project_id: str | None = None, limit: int = 20):
+    """全文搜索会话标题和消息内容。"""
+    return {"sessions": db.search_sessions(q, project_id, limit)}
+
+
 @router.post("", status_code=201)
 def create_session(body: SessionCreate):
     if body.project_id and db.get_project(body.project_id) is None:

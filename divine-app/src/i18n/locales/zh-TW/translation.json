@@ -212,7 +212,7 @@
     "projectTokenTotal": "累計 {{value}} tokens",
     "rename": "重命名",
     "scheduled": "已安排",
-    "searchPlaceholder": "輸入對話標題…",
+    "searchPlaceholder": "搜尋標題或內容…",
     "sessionCount": "{{count}} 個對話",
     "sessionCount_other": "{{count}} 個對話",
     "settings": "設定",

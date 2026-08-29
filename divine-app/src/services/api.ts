@@ -29,6 +29,19 @@ export function listSessions(
   return request(`/sessions${query}`);
 }
 
+export interface SearchResult extends Session {
+  snippet?: string;
+}
+
+export function searchSessions(
+  q: string,
+  projectId?: string
+): Promise<{ sessions: SearchResult[] }> {
+  const params = new URLSearchParams({ q });
+  if (projectId) params.set("project_id", projectId);
+  return request(`/sessions/search?${params}`);
+}
+
 export function createSession(
   title?: string,
   projectId?: string,
