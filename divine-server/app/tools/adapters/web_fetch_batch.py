@@ -9,7 +9,8 @@ from ..registry import register_tool
 @register_tool(
     "web_fetch_batch",
     "批量抓取多个网页或数据源 URL 并汇总返回内容；当需要同时获取多个 URL"
-    "（如多个指数、多个新闻源、多个页面）时使用，不要逐个重复调用 web_fetch",
+    "（如多个指数、多个新闻源、多个页面）时使用，不要逐个重复调用 web_fetch；"
+    "JS 动态渲染页面会自动用本机浏览器渲染兜底",
     {
         "type": "object",
         "properties": {
@@ -29,7 +30,7 @@ from ..registry import register_tool
 class WebFetchBatchAdapter(ToolAdapter):
     script_name = "web_fetch_batch.py"
     category = "web"
-    timeout = 120
+    timeout = 180
     supports_progress = True
 
     def build_params(self, arguments: dict[str, Any]) -> dict[str, Any]:

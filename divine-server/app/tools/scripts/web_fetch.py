@@ -1,114 +1,43 @@
-import ipaddress
+"""web_fetch 工具：抓取指定网页/URL 并返回可读文本。
+
+双层策略：httpx 静态直连优先；静态结果为空壳（JS 动态渲染）时自动用
+本机无头浏览器渲染兜底。可选参数：
+- api_fragment：页面数据接口 URL 片段，提供后优先监听接口响应直接取 JSON
+- wait_selector：浏览器渲染后等待出现的 CSS 选择器（懒加载内容）
+
+输入（stdin JSON）: {workspace, output_dir, params: {url, wait_selector?, api_fragment?}, locale}
+输出（stdout JSON）: {success, message, url, content, truncated,
+                      data: {url, method, truncated}}
+method: static（静态抓取）| browser（浏览器渲染）| api（接口直取）
+"""
+
+from __future__ import annotations
+
 import json
-import socket
+import os
 import sys
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
-import httpx
-from bs4 import BeautifulSoup
+# 冻结版 --run-script 不会像普通 `python script.py` 那样自动把脚本所在目录
+# 加入 sys.path，需显式加入以支持兄弟模块 web_common 的导入。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-MAX_RESPONSE_BYTES = 2_000_000
+import web_common
+from web_common import (
+    MAX_SINGLE_CONTENT,
+    SPARSE_TEXT_THRESHOLD,
+    build_headers,
+    browser_fallback,
+    is_sparse,
+    static_fetch,
+    text_content,
+)
 
-
-def _accept_language(locale: str) -> str:
-    return {
-        "zh-CN": "zh-CN,zh;q=0.9",
-        "zh-TW": "zh-TW,zh-Hant;q=0.9,zh;q=0.8",
-        "en": "en-US,en;q=0.9",
-    }.get(locale, "zh-CN,zh;q=0.9")
-
-
-def _text_content(text: str, content_type: str) -> str:
-    content_type = content_type.lower()
-    if "text/html" not in content_type and "application/xhtml" not in content_type:
-        return text[:12000]
-
-    soup = BeautifulSoup(text, "html.parser")
-    for tag in soup(["script", "style", "noscript", "svg", "iframe"]):
-        tag.decompose()
-    title = (
-        soup.title.get_text(strip=True)
-        if soup.title and soup.title.get_text(strip=True)
-        else ""
-    )
-    text = "\n".join(
-        line.strip()
-        for line in soup.get_text("\n").splitlines()
-        if line.strip()
-    )
-    links = [
-        link.get("href")
-        for link in soup.find_all("a", href=True)
-        if str(link.get("href", "")).startswith(("http://", "https://"))
-    ][:10]
-
-    blocks = []
-    if title:
-        blocks.append(f"标题：{title}")
-    blocks.append(text[:12000])
-    if links:
-        blocks.append("相关链接：\n" + "\n".join(links))
-    return "\n\n".join(blocks)
-
-
-def _is_private_ip(host: str) -> bool:
-    raw = host.split("%", 1)[0]
-    try:
-        addr = ipaddress.ip_address(raw)
-    except ValueError:
-        return True
-    return (
-        addr.is_private
-        or addr.is_loopback
-        or addr.is_link_local
-        or addr.is_reserved
-        or addr.is_multicast
-    )
-
-
-def _is_local_url(url: str) -> bool:
-    host = (urlparse(url).hostname or "").lower().rstrip(".")
-    if not host:
-        return True
-    if host == "localhost" or host.endswith(".localhost") or host.endswith(".local"):
-        return True
-    try:
-        infos = socket.getaddrinfo(host, None)
-    except socket.gaierror:
-        return True
-    addresses = {info[4][0] for info in infos}
-    return not addresses or any(_is_private_ip(address) for address in addresses)
-
-
-def _fetch(url: str, headers: dict[str, str]) -> tuple[str, str, bool]:
-    current = url
-    for _ in range(6):
-        if _is_local_url(current):
-            raise ValueError("不允许访问本地、内网或无法解析的地址")
-        with httpx.Client(timeout=20.0, follow_redirects=False) as client:
-            with client.stream("GET", current, headers=headers) as response:
-                if response.is_redirect:
-                    location = response.headers.get("location")
-                    if not location:
-                        raise ValueError("重定向缺少 Location")
-                    current = urljoin(current, location)
-                    continue
-                response.raise_for_status()
-                content_type = response.headers.get("content-type", "")
-                chunks: list[bytes] = []
-                total = 0
-                for chunk in response.iter_bytes():
-                    chunks.append(chunk)
-                    total += len(chunk)
-                    if total >= MAX_RESPONSE_BYTES:
-                        break
-                raw = b"".join(chunks)[:MAX_RESPONSE_BYTES]
-                return (
-                    raw.decode("utf-8", errors="replace"),
-                    content_type,
-                    total > MAX_RESPONSE_BYTES,
-                )
-    raise ValueError("重定向次数过多")
+METHOD_LABELS = {
+    "static": "静态抓取",
+    "browser": "浏览器渲染",
+    "api": "接口直取",
+}
 
 
 def main() -> None:
@@ -131,26 +60,44 @@ def main() -> None:
         )
         return
 
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0 Safari/537.36"
-        ),
-        "Accept-Language": _accept_language(locale),
-    }
+    headers = build_headers(url, locale)
     try:
-        text, content_type, truncated = _fetch(url, headers)
-        content = _text_content(text, content_type)
+        text, content_type, truncated = static_fetch(url, headers)
+        method = "static"
+        content = text_content(text, content_type, MAX_SINGLE_CONTENT)
+        note = ""
+        api_fragment = str(params.get("api_fragment") or "").strip()
+        wait_selector = str(params.get("wait_selector") or "").strip()
+        if api_fragment or wait_selector or is_sparse(text, content_type):
+            fb_method, fb_payload = browser_fallback(url, params)
+            if fb_method == "api":
+                content = text_content(
+                    json.dumps(fb_payload, ensure_ascii=False, indent=2),
+                    "application/json",
+                    MAX_SINGLE_CONTENT,
+                )
+                method = "api"
+            elif fb_method == "browser":
+                rendered = text_content(fb_payload, "text/html", MAX_SINGLE_CONTENT)
+                if len(rendered.strip()) < SPARSE_TEXT_THRESHOLD:
+                    note = "；浏览器渲染后正文仍为空，页面可能需要登录或接口鉴权"
+                else:
+                    content = rendered
+                    method = "browser"
+            else:
+                note = f"；{fb_payload}"
+        message = f"已抓取 {url}（{METHOD_LABELS.get(method, method)}）"
+        if note:
+            message += note
         print(
             json.dumps(
                 {
                     "success": True,
-                    "message": f"已抓取 {url}",
+                    "message": message,
                     "url": url,
                     "content": content,
                     "truncated": truncated,
-                    "data": {"url": url, "truncated": truncated},
+                    "data": {"url": url, "method": method, "truncated": truncated},
                 },
                 ensure_ascii=False,
             )
