@@ -39,9 +39,65 @@ def _read_text_fallback(path: Path) -> str:
     return text if printable / len(text) >= 0.9 else ""
 
 
+def _extract_file_url_attachments(
+    text: str,
+) -> tuple[str, list[Attachment]]:
+    """把消息文本里的 file:// URL 解码为本地路径附件。
+
+    用户从地址栏/文本里粘贴的 file:// 链接（如
+    file:///Users/.../xxx.html，含 percent 编码）若原样发给模型，会变成
+    一串怪字符串导致工具调用异常（空工具名 / is not a valid tool）。
+    这里在发送时自动提取：解码 → 校验文件存在 → 转为附件
+    （走 approved_paths，agent 可直接 read_file），并从文本剔除 URL。
+
+    返回 (清理后的文本, 附件列表)。文件不存在的 URL 保留原文（让模型
+    告诉用户路径不存在）。
+    """
+    import re
+    from urllib.parse import unquote
+
+    found = re.findall(r"file://[^\s<>\"'`]+", text)
+    if not found:
+        return text, []
+    cleaned = text
+    attachments: list[Attachment] = []
+    for url in dict.fromkeys(found):
+        path = unquote(url[len("file://"):])
+        # Windows file:///C:/... -> C:/...
+        if path.startswith("/") and re.match(r"^/[A-Za-z]:", path):
+            path = path[1:]
+        p = Path(path)
+        if not p.is_file():
+            continue
+        try:
+            size = p.stat().st_size
+        except OSError:
+            size = None
+        attachments.append(
+            Attachment(name=p.name, file_path=str(p), size=size)
+        )
+        cleaned = cleaned.replace(url, "")
+    return cleaned.strip(), attachments
+
+
 @router.post("/stream_chat")
 async def stream_chat(request: StreamChatRequest):
     question = request.question.strip()
+    # 自动提取消息里的 file:// URL 为附件：模型直接读 percent 编码的怪字符串
+    # 会工具调用异常（空工具名 / is not a valid tool），转成附件后可正常读取
+    try:
+        question, file_url_attachments = _extract_file_url_attachments(
+            question
+        )
+        if file_url_attachments:
+            request.attachments.extend(file_url_attachments)
+            logger.info(
+                "提取 file:// 附件 %d 个: %s",
+                len(file_url_attachments),
+                [a.file_path for a in file_url_attachments],
+            )
+    except Exception as exc:  # noqa: BLE001 — 提取失败不影响对话
+        logger.warning("file:// 附件提取失败: %s", exc)
     locale = normalize_locale(request.locale)
     if request.session_id:
         existing_session = db.get_session(request.session_id)
@@ -428,6 +484,62 @@ async def cancel_session(session_id: str) -> dict[str, object]:
     return {"ok": True}
 
 
+def _build_local_chat_messages(
+    question: str,
+    history: list[dict[str, Any]],
+    locale: str | None,
+    ctx_size: int = 4096,
+) -> list[dict[str, str]]:
+    """组装本地模型对话的 messages，按上下文预算裁剪历史。
+
+    修复：history[-12:] 每条 2000 字符全塞会轻松超 4096 ctx，
+    llama.cpp 返回 400 exceed_context_size_error。这里用 estimate_tokens
+    从新到旧挑选历史，预算 = ctx - 系统提示 - 输出预留（1100 token）。
+    """
+    from ..agent.compact import estimate_tokens
+
+    lang = "中文" if str(locale or "").startswith("zh") else "English"
+    system_prompt = f"你是一个乐于助人的 AI 助手，请用{lang}简洁、准确地回答。"
+    messages: list[dict[str, str]] = [
+        {"role": "system", "content": system_prompt}
+    ]
+
+    budget = ctx_size - estimate_tokens(system_prompt) - 1100
+    if budget < 256:
+        budget = 256
+
+    question = str(question or "").strip()
+    history_trim = history[-12:]
+    # 最后一条可能是刚保存的当前问题（chat.py 预先 add_message），跳过避免重复
+    if history_trim and (
+        str(history_trim[-1].get("content") or "").strip() == question
+    ):
+        history_trim = history_trim[:-1]
+
+    # 从新到旧挑选历史，直到预算不足（至少留 256 token 给当前问题）
+    picked: list[dict[str, str]] = []
+    for message in reversed(history_trim):
+        role = message.get("role")
+        content = str(message.get("content") or "").strip()
+        if role not in ("user", "assistant") or not content:
+            continue
+        content = content[:2000]
+        tokens = estimate_tokens(content)
+        if budget - tokens < 256:
+            break
+        budget -= tokens
+        picked.append({"role": role, "content": content})
+    messages.extend(reversed(picked))
+
+    # 当前问题必放；极端超预算时按比例截断
+    q_tokens = estimate_tokens(question)
+    if budget < q_tokens and question:
+        cut = max(int(len(question) * budget / max(q_tokens, 1)) - 32, 64)
+        question = question[:cut]
+    messages.append({"role": "user", "content": question})
+    return messages
+
+
 async def stream_local_chat(
     session_id: str,
     question: str,
@@ -450,22 +562,12 @@ async def stream_local_chat(
         return
 
     lang = "中文" if str(locale or "").startswith("zh") else "English"
-    messages: list[dict[str, str]] = [
-        {
-            "role": "system",
-            "content": f"你是一个乐于助人的 AI 助手，请用{lang}简洁、准确地回答。",
-        }
-    ]
-    for message in history[-12:]:
-        role = message.get("role")
-        content = str(message.get("content") or "").strip()
-        if role in ("user", "assistant") and content:
-            messages.append({"role": role, "content": content[:2000]})
-    # history 已包含刚保存的用户消息（api/chat.py 预先 add_message）；
-    # 若最后一条不是当前问题再补
-    last_content = str((history[-1] or {}).get("content") or "")
-    if last_content != question:
-        messages.append({"role": "user", "content": question})
+    from ..config import settings_store
+
+    ctx_size = int(settings_store.load().get("local_llm_ctx_size") or 4096)
+    messages = _build_local_chat_messages(
+        question, history, locale, ctx_size
+    )
 
     payload = {
         "model": "local",
