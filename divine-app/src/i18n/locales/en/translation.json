@@ -167,7 +167,8 @@
     "tokenTotal": "{{value}} tokens",
     "tokenUsageDetail": "Input {{input}} · Output {{output}} · Total {{total}} tokens (reported by API)",
     "tokenUsageEstimated": "Input {{input}} · Output {{output}} · Total {{total}} tokens (estimated)",
-    "working": "Working..."
+    "working": "Working...",
+    "preprocessWorking": "Organizing the long text locally (starting model / chunking)…"
   },
   "project": {
     "addFolder": "Add a readable and editable folder",
@@ -631,7 +632,12 @@
     "wordCreated": "Word document created",
     "writeCalendar": "Write to calendar",
     "writtenFiles_one": "Wrote {{count}} file",
-    "writtenFiles_other": "Wrote {{count}} files"
+    "writtenFiles_other": "Wrote {{count}} files",
+    "preprocessFallbackTitle": "Local organize failed",
+    "preprocessFallbackText": "Local organization of the long text failed. Sending it to the cloud will consume many tokens. Continue?",
+    "preprocessContinueCloud": "Continue with cloud",
+    "preprocessCancel": "Cancel",
+    "preprocessCancelled": "Cancelled"
   },
   "updater": {
     "available": "New version v{{version}} available",

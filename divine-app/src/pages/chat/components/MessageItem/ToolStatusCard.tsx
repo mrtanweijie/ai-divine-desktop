@@ -302,7 +302,11 @@ export function ToolStatusCard({
           )}
         </span>
         <div className="tool-copy">
-          <span className="tool-name">{tool.tool}</span>
+          <span className="tool-name">
+            {tool.tool === "preprocess_fallback"
+              ? t("tool.preprocessFallbackTitle", "本地整理失败")
+              : tool.tool}
+          </span>
           <span
             className={`tool-message${
               tool.status === "running" && tool.currentUrl ? " nowrap" : ""
@@ -593,7 +597,11 @@ export function ToolStatusCard({
             </div>
             <p className="plan-confirm-text">
               {tool.messageKey
-                ? t(tool.messageKey, tool.messageParams ?? {})
+                ? t(
+                    tool.messageKey,
+                    "长文本本地整理失败，直接交给云端将消耗较多 token。是否继续？",
+                    tool.messageParams ?? {}
+                  )
                 : tool.message}
             </p>
             <Flex align="center" gap={8}>

@@ -165,7 +165,8 @@
     "tokenTotal": "{{value}} tokens",
     "tokenUsageDetail": "輸入 {{input}} · 輸出 {{output}} · 總計 {{total}} tokens（API 上報）",
     "tokenUsageEstimated": "輸入 {{input}} · 輸出 {{output}} · 總計 {{total}} tokens（估算）",
-    "working": "Working..."
+    "working": "Working...",
+    "preprocessWorking": "正在本地整理長文本（啟動模型/分塊整理），請稍候…"
   },
   "project": {
     "addFolder": "新增可讀取和編輯的資料夾",
@@ -613,7 +614,12 @@
     "wordCreated": "Word 文檔產生完成",
     "writeCalendar": "寫入行程",
     "writtenFiles": "已寫入 {{count}} 個檔案",
-    "writtenFiles_other": "已寫入 {{count}} 個檔案"
+    "writtenFiles_other": "已寫入 {{count}} 個檔案",
+    "preprocessFallbackTitle": "本地整理失敗",
+    "preprocessFallbackText": "長文本本地整理失敗，直接交給雲端將消耗較多 token。是否繼續？",
+    "preprocessContinueCloud": "繼續走雲端",
+    "preprocessCancel": "取消",
+    "preprocessCancelled": "已取消"
   },
   "updater": {
     "available": "發現新版本 v{{version}}",
