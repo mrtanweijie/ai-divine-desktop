@@ -400,10 +400,17 @@ export function LocalLLMSection({
     <div className="settings-section">
       <h3 className="local-llm-title">
         {t("settings.localLLM", "意图识别模式")}
+        {/* 占位容器常驻（local/hybrid 模式），固定尺寸避免 Tag 出现/
+            消失导致标题行高度变化引发页面抖动 */}
         {(localLLMMode === "local" || localLLMMode === "hybrid") &&
-          status &&
-          !status.running && (
-            <Tag tone="warning">{t("settings.notStartedTag", "未启动")}</Tag>
+          status && (
+            <span className="local-llm-title-tag">
+              {!status.running && (
+                <Tag tone="warning">
+                  {t("settings.notStartedTag", "未启动")}
+                </Tag>
+              )}
+            </span>
           )}
       </h3>
 

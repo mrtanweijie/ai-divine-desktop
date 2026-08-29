@@ -587,6 +587,15 @@
   gap: 8px;
 }
 
+/* 未启动 Tag 的占位容器：常驻固定尺寸，Tag 出现/消失不改变标题行高度，
+   避免设置页布局抖动 */
+.local-llm-title-tag {
+  display: inline-flex;
+  align-items: center;
+  min-width: 58px;
+  min-height: 26px;
+}
+
 /* 本地模型启动失败提示：默认收起，点击展开 */
 .local-llm-error {
   border: 1px solid var(--color-danger, #e5484d);
