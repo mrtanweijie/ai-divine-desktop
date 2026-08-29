@@ -244,6 +244,68 @@ def maybe_preprocess(
     return final_text, original_path, True
 
 
+def _start_local_model(manager) -> bool:
+    """预整理需要本地模型但 llama-server 没在跑时，自动拉起（冷启动 10-40s）。
+
+    选模型顺序：设置里的 local_llm_model → 已装模型里优先 1.5B → 第一个已装模型。
+    返回是否就绪；无模型/启动失败/超时返回 False（调用方降级云端）。
+    注：App 的 sidecar 重启会杀掉孤儿 llama-server（_free_orphan_port），
+    模型"起得来留不住"，自动拉起是让预整理不依赖模型常驻的关键。
+    """
+    try:
+        status = manager.get_status()
+        installed = status.get("installed_models") or []
+        if not installed:
+            logger.info("本地预整理需要模型，但未安装任何模型，降级云端")
+            return False
+
+        from ..config import settings_store
+
+        preferred = settings_store.load().get("local_llm_model") or ""
+        model = None
+        for entry in installed:
+            if preferred and (
+                entry.get("id") == preferred
+                or entry.get("registry_id") == preferred
+            ):
+                model = entry
+                break
+        if model is None:
+            model = next(
+                (
+                    entry
+                    for entry in installed
+                    if "1.5b" in str(entry.get("id") or "").lower()
+                ),
+                None,
+            )
+        if model is None:
+            model = installed[0]
+        model_id = model.get("id") or model.get("registry_id")
+        path = model.get("path")
+        if not model_id or not path:
+            logger.warning("本地模型条目缺少 id/path，无法自动拉起")
+            return False
+
+        logger.info("本地预整理自动拉起模型: %s (%s)", model_id, path)
+        ok, err = manager.start(model_id, path, wait_s=10.0)
+        deadline = time.time() + 40.0
+        while time.time() < deadline:
+            if manager.is_ready():
+                logger.info("本地模型自动拉起成功: %s", model_id)
+                return True
+            # start 快速失败（二进制/模型缺失）→ 不再等待
+            if not ok and getattr(manager, "process", None) is None:
+                logger.warning("本地模型启动失败，降级云端: %s", err)
+                return False
+            time.sleep(2)
+        logger.warning("本地模型自动拉起超时（40s），降级云端")
+        return False
+    except Exception as e:  # noqa: BLE001
+        logger.warning("本地模型自动拉起异常，降级云端: %s", e)
+        return False
+
+
 def _organize_text(
     text: str,
     session_id: str,
@@ -260,7 +322,9 @@ def _organize_text(
 
     manager = get_manager()
     if not manager.is_ready():
-        return None, None
+        # 自动拉起：预整理不依赖模型常驻（App sidecar 重启会杀孤儿 llama）
+        if not _start_local_model(manager):
+            return None, None
 
     # 分块整理（超过 _MAX_CHUNKS 的部分只进附件）
     parts = _chunks(text)[:_MAX_CHUNKS]

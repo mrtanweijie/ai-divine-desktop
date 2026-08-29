@@ -400,6 +400,63 @@ def test_chat_attachment_parts_and_history(tmp_path, monkeypatch):
 # organize() 输出三关校验（local_llm.LocalLLMManager.organize）
 # ---------------------------------------------------------------------------
 
+class AutoStartManager(FakeManager):
+    """模拟模型不在 → start() 后就绪（验证自动拉起）。"""
+
+    def __init__(self, result: str = "[本地整理版]\n### 主题\n- 要点") -> None:
+        super().__init__(result=result, ready=False)
+        self.started: list[tuple[str, str]] = []
+
+    def get_status(self) -> dict:
+        return {
+            "installed_models": [
+                {
+                    "id": "qwen2.5-1.5b-instruct-q4km",
+                    "registry_id": "qwen2.5-1.5b-instruct-q4km",
+                    "path": "/fake/models/qwen2.5-1.5b.gguf",
+                }
+            ]
+        }
+
+    def start(self, model_id: str, model_path: str, wait_s: float = 3.0):
+        self.started.append((model_id, model_path))
+        self.ready = True
+        return True, ""
+
+    def is_ready(self) -> bool:
+        return self.ready
+
+
+def test_auto_start_when_model_down(tmp_path, monkeypatch):
+    """模型没跑时预整理自动拉起（选择 1.5B），拉起后正常整理。"""
+    _init(tmp_path, monkeypatch)
+    manager = AutoStartManager()
+    _patch_manager(monkeypatch, manager)
+    text = "帮我整理这段：今天开会讨论了三个议题。第一是预算，第二是排期。" * 30
+    final, attachment, organized = _maybe_preprocess(
+        text, workspace=tmp_path / "workspace"
+    )
+    assert organized is True
+    assert attachment is not None
+    assert manager.started == [
+        ("qwen2.5-1.5b-instruct-q4km", "/fake/models/qwen2.5-1.5b.gguf")
+    ]
+
+
+def test_auto_start_no_model_falls_back(tmp_path, monkeypatch):
+    """没有已装模型时自动拉起失败 → 原样上云。"""
+    _init(tmp_path, monkeypatch)
+    manager = FakeManager(ready=False)
+    manager.get_status = lambda: {"installed_models": []}  # type: ignore[method-assign]
+    _patch_manager(monkeypatch, manager)
+    text = "帮我整理这段：今天开会讨论了三个议题。" * 30
+    final, _, organized = _maybe_preprocess(
+        text, workspace=tmp_path / "workspace"
+    )
+    assert final == text
+    assert organized is False
+
+
 class _FakeResponse:
     def __init__(self, payload):
         self._payload = payload

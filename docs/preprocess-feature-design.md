@@ -120,6 +120,8 @@ chat.py stream_chat
 > **实现记录 2（附件通道，2026-08-29）**：前端 `savePasteText` 把大段粘贴存成 `paste-*.txt` 文件再以附件发送（`Attachment(file_path=…)`），**"贴长文本"实际走的是附件通道而非 question 文本**。为此 `chat.py` 在附件循环里对纯文本附件调用 `maybe_preprocess_attachment()`（见 §5.3）：显式 = question 含整理指令词（附件即指代对象）；自动 = 内容 token 超阈值且非代码/表格。整理版替换附件 content（进模型上下文），原文仍是附件自身（approved_paths + read_file 可读），`preprocess` 部件落库供前端。
 >
 > **实现记录 3（真实模型参数，2026-08-29）**：`organize()` 两个参数经真机调优——① `max_tokens` 从 `len//2` 改为 `min(max(len//2, 1536), 2048)`：1.5B 整理 1500+ 字输入常输出 800+ token，原值会截断导致整段整理被丢弃；② 校验 ② 从"长度 > 原文 80%"改为"长度 > 原文 1.5x+200 且无 `###` 标题"：密集内容的重构输出（加标题/要点化）与原文等长甚至更长，80% 会误杀合格整理（实测 1731 字输入输出 1823 字、结构完整，被旧规则丢弃）。
+>
+> **实现记录 4（自动拉起模型，2026-08-29）**：实测发现 App 的 sidecar 会周期性重启，且每次重启把 8016 上的 llama-server 当"孤儿"杀掉（`_free_orphan_port`），导致本地模型"起得来留不住"，预整理频繁静默降级云端（用户连续 3 次"整理文件内容/帮我整理"+大附件全走了云端，单次烧 2.7 万 token）。修复：`preprocess._start_local_model()`——预整理触发时若 `is_ready()` 为 False，自动用已装模型（设置里的 local_llm_model → 优先 1.5B → 第一个已装）拉起 llama-server 并等就绪（最长 40s），成功才整理；无模型/失败/超时再降级云端。真实环境验证：8016 停机状态下触发预整理，15s 冷启动 + 整理成功。
 
 ### 5.2 `divine-server/app/agent/preprocess.py`（新模块）
 
