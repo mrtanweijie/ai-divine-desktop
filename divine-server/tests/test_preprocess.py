@@ -82,6 +82,25 @@ def test_design_terms_not_misidentified_as_paths(tmp_path, monkeypatch):
     assert "封面/内容模板" in manager.calls[0]
 
 
+def test_domain_list_not_misidentified_as_paths(tmp_path, monkeypatch):
+    """"名词 / 域名"分隔（GemDesign（design.gemcoder.com / www.aigem.design））
+    不应被识别为路径：真路径的 / ~/ X:/ 后不可能直接跟空白（(?!\\s)）。"""
+    _init(tmp_path, monkeypatch)
+    manager = FakeManager()
+    _patch_manager(monkeypatch, manager)
+    text = (
+        "GemDesign（design.gemcoder.com / www.aigem.design）是一款 AI 设计工具，"
+        "用于网格、层级、留白与配色的自动排版，需要重点测试各设计模式。"
+    ) * 30
+    final, attachment, organized = _maybe_preprocess(
+        text, workspace=tmp_path / "workspace"
+    )
+    assert organized is True
+    assert attachment is not None
+    assert manager.calls
+    assert "www.aigem.design" in manager.calls[0]
+
+
 def test_pointer_only_url_skips(tmp_path, monkeypatch):
     _init(tmp_path, monkeypatch)
     manager = FakeManager()

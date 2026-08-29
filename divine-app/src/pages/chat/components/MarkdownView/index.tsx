@@ -46,7 +46,18 @@ function resolveImageSrc(src?: string): string | null {
  *   - 目录路径（不含空格）：避免把后文散文吞进链接
  */
 const ABS_PATH_RE =
-  /(?<![\w\u4e00-\u9fff])(?:(?:\/|~\/|(?:[A-Za-z]:[\\/]))[^\n，。；、！？"'`<>|*?#[\]]{3,}\.\w{1,5}|(?:\/|~\/|(?:[A-Za-z]:[\\/]))[\w\-./\\（）()%+@,'_\u4e00-\u9fff]{3,}[\w)\u4e00-\u9fff])/g;
+  /(?<![\w\u4e00-\u9fff])(?:(?:\/|~\/|(?:[A-Za-z]:[\\/]))(?!\s)[^\n，。；、！？"'`<>|*?#[\]]{3,}\.\w{1,5}|(?:\/|~\/|(?:[A-Za-z]:[\\/]))(?!\s)[\w\-./\\（）()%+@,'_\u4e00-\u9fff]{3,}[\w)\u4e00-\u9fff])/g;
+
+/** 严格判定是否像真实绝对路径，避免"A/B/C 列表"、"名词 / 域名"等误判。
+ * 规则：~/ 开头（长度 >3）；盘符开头（长度 >4）；/ 开头且至少 2 段、
+ * 首段 ≥2 字符（排除"选项 A/B/C"这类列表写法与根级单段）。 */
+function looksLikeRealPath(path: string): boolean {
+  if (path.startsWith("~/")) return path.length > 3;
+  if (/^[A-Za-z]:[\\/]/.test(path)) return path.length > 4;
+  if (!path.startsWith("/")) return false;
+  const segments = path.slice(1).split(/[\\/]/).filter(Boolean);
+  return segments.length >= 2 && segments[0].length >= 2;
+}
 
 function linkifyFilePaths(content: string): string {
   if (!content || content.length < 4) return content;
@@ -57,7 +68,10 @@ function linkifyFilePaths(content: string): string {
       if (index % 2 === 1) return part;
       return part.replace(
         ABS_PATH_RE,
-        (path) => `[${path}](divine-path:${encodeURIComponent(path)})`
+        (path) =>
+          looksLikeRealPath(path)
+            ? `[${path}](divine-path:${encodeURIComponent(path)})`
+            : path
       );
     })
     .join("```");

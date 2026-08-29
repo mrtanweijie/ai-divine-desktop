@@ -312,10 +312,39 @@ _CONTEXT_EXCLUDED_INTENTS = {"open_app", "screenshot", "lock_screen", "search_fi
 # 绝对路径（含空格/中文，带扩展名或纯目录）：用户直接发路径时，路径内部的
 # 动作词（如 screenshots/截图）不应触发本地动作——纯路径消息应交给云端
 # 读取文件（read_file/read_image），而不是误执行截图等本地动作。
+# (?!\s)：真路径的 / ~/ X:/ 后不可能直接跟空白；"design.gemcoder.com /
+# www.aigem.design" 这类"名词 / 域名"分隔不应被当路径。
 _ABS_PATH_RE = re.compile(
-    r"(?<!\w)(?:(?:/|~/|(?:[A-Za-z]:[\\/]))[^\n，。；、！？\"'`<>|*?#\[\]]{3,}\.\w{1,5}"
-    r"|(?:/|~/|(?:[A-Za-z]:[\\/]))[\w\-./\\（）()%+@,'_\u4e00-\u9fff]{3,}[\w)\u4e00-\u9fff])"
+    r"(?<!\w)(?:(?:/|~/|(?:[A-Za-z]:[\\/]))(?!\s)[^\n，。；、！？\"'`<>|*?#\[\]]{3,}\.\w{1,5}"
+    r"|(?:/|~/|(?:[A-Za-z]:[\\/]))(?!\s)[\w\-./\\（）()%+@,'_\u4e00-\u9fff]{3,}[\w)\u4e00-\u9fff])"
 )
+
+
+def _looks_like_abs_path(path: str) -> bool:
+    """严格判定是否像真实绝对路径，避免"A/B/C 列表"、"名词 / 域名"等误判。
+
+    规则：
+    - `~/` 开头：长度 >3（至少有一个名称段）；
+    - 盘符开头（`X:/`）：长度 >4；
+    - `/` 开头：至少 2 段且首段 ≥2 字符——排除"选项 A/B/C"这类列表写法
+      （首段只有 1 个字符，如 /B/C）与根级单段（/abc）。
+    """
+    if path.startswith("~/"):
+        return len(path) > 3
+    if re.match(r"^[A-Za-z]:[\\/]", path):
+        return len(path) > 4
+    if not path.startswith("/"):
+        return False
+    segments = [s for s in path[1:].split("/") if s]
+    return len(segments) >= 2 and len(segments[0]) >= 2
+
+
+def strip_abs_paths(text: str) -> str:
+    """剔除文本中的真实绝对路径（严格判定），返回剩余文本。"""
+    for path in _ABS_PATH_RE.findall(text):
+        if _looks_like_abs_path(path):
+            text = text.replace(path, " ")
+    return text
 
 
 # 提问/信息查询类标记：命中则不执行本地动作（如"上海天气"被 0.5B 模型误判
@@ -356,7 +385,7 @@ def classify_intents(
     """
     # 去掉消息里的绝对路径再判断意图：路径内部的动作词（screenshots/截图）
     # 不应触发本地动作；纯路径消息交给云端读取文件
-    intent_text = _ABS_PATH_RE.sub(" ", text)
+    intent_text = strip_abs_paths(text)
     combined = intent_text.lower()
     intents: set[str] = set()
 

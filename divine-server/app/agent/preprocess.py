@@ -17,7 +17,7 @@ import re
 import time
 from pathlib import Path
 
-from .intent import _ABS_PATH_RE
+from .intent import _ABS_PATH_RE, _looks_like_abs_path, strip_abs_paths
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +71,8 @@ _ATTACHMENT_PREFIX = "original-"
 
 
 def _strip_pointers(text: str) -> str:
-    """去掉文本中的 URL 与本地绝对路径，返回剩余部分。"""
-    t = _ABS_PATH_RE.sub(" ", text)
+    """去掉文本中的 URL 与本地绝对路径（严格判定），返回剩余部分。"""
+    t = strip_abs_paths(text)
     t = _URL_RE.sub(" ", t)
     return t.strip(" \t\n，。；、！？?,.!；;：:()（）\"'")
 
@@ -89,7 +89,9 @@ def _is_pointer_only(text: str) -> bool:
     rest = _strip_pointers(text)
     if len(rest) <= 2:
         return True
-    has_pointer = bool(_URL_RE.search(text)) or bool(_ABS_PATH_RE.search(text))
+    has_pointer = bool(_URL_RE.search(text)) or any(
+        _looks_like_abs_path(p) for p in _ABS_PATH_RE.findall(text)
+    )
     return has_pointer and len(text) < 120
 
 
