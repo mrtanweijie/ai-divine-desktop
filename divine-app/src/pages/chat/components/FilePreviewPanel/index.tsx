@@ -8,6 +8,7 @@ import {
 import { Minimize2, PanelRightClose } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
 import type { PreviewFile } from "@/types";
 import { FilePreview } from "./FilePreview";
 import { FileTree } from "./FileTree";
@@ -135,15 +136,11 @@ export function FilePreviewPanelInner({
         <span className="file-inspector-title">{t("file.title", "文件")}</span>
         <div className="file-inspector-actions">
           {!expanded && (
-            <Button
-              variant="icon"
-              size="small"
-              onClick={onClose}
+            <IconButton
+              icon={<PanelRightClose size={13} />}
               title={t("file.collapsePanel", "收起面板")}
-              aria-label={t("file.collapsePanel", "收起面板")}
-            >
-              <PanelRightClose size={14} />
-            </Button>
+              onClick={onClose}
+            />
           )}
           {expanded && !selectedFile && (
             <Button

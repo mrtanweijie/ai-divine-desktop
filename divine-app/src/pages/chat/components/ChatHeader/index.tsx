@@ -15,6 +15,7 @@ import { exportSession } from "@/services/api";
 import { ProjectIcon } from "@/pages/chat/components/ProjectIcon";
 import { GitInfoCard } from "@/pages/chat/components/GitInfoCard";
 import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
@@ -191,15 +192,11 @@ export function ChatHeaderInner({
           <GitInfoCard projectPath={project.path} onPreviewFile={onPreviewFile} />
         )}
         {!workspaceOpen && (
-          <Button
-            variant="icon"
-            className="workspace-toggle"
-            onClick={onToggleWorkspace}
+          <IconButton
+            icon={<PanelRightOpen size={13} />}
             title={t("chat.openFilePanel", "打开文件面板")}
-            aria-label={t("chat.openFilePanel", "打开文件面板")}
-          >
-            <PanelRightOpen size={15} />
-          </Button>
+            onClick={onToggleWorkspace}
+          />
         )}
       </Flex>
     </header>
