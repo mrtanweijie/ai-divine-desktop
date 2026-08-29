@@ -77,7 +77,8 @@ export interface ToolEvent {
     | "skill_migrate"
     | "skill_migrate_batch"
     | "skill_install"
-    | "subagents_write";
+    | "subagents_write"
+    | "preprocess_fallback";
   skill_migrate?: SkillMigrationCandidate;
   skill_migrations?: SkillMigrationCandidate[];
   skill_install?: SkillInstallPreview;

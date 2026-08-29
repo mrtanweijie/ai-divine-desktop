@@ -187,40 +187,42 @@ def maybe_preprocess(
     text: str,
     session_id: str,
     workspace: Path,
-) -> tuple[str, Path | None, bool]:
+) -> tuple[str, Path | None, bool, bool]:
     """长文本本地预整理。
 
-    返回 (最终消息文本, 原文附件路径或 None, 是否已整理)。
-    - 未触发 / 降级：返回 (原文本, None, False)，调用方原样上云。
-    - 已整理：返回 (核对提示 + 整理版, 附件路径, True)。
+    返回 (最终消息文本, 原文附件路径或 None, 是否已整理, 是否尝试过整理)。
+    - 未触发 / 降级：返回 (原文本, None, False, False)，调用方原样上云。
+    - 已整理：返回 (核对提示 + 整理版, 附件路径, True, True)。
+    - 触发但失败：返回 (原文本, None, False, True)——调用方可据此询问用户
+      是否仍走云端（见 chat.py 的 preprocess_fallback 确认流）。
     """
     if not text or not text.strip():
-        return text, None, False
+        return text, None, False, False
 
     from ..config import settings_store
 
     settings = settings_store.load()
     if not settings.get("local_llm_preprocess_enabled", True):
-        return text, None, False
+        return text, None, False, False
 
     # 指针消息（URL / 本地路径）：跳过整理，云端 read_file / web_fetch
     if _is_pointer_only(text):
-        return text, None, False
+        return text, None, False, False
 
     explicit = _is_explicit(text)
     if not explicit:
         if not settings.get("local_llm_preprocess_auto", True):
-            return text, None, False
+            return text, None, False, False
         if _token_estimate(text) < int(
             settings.get("local_llm_preprocess_threshold", 800)
         ):
-            return text, None, False
+            return text, None, False, False
         if settings.get("local_llm_preprocess_code_skip", True) and _looks_like_code(
             text
         ):
-            return text, None, False
+            return text, None, False, False
         if _looks_like_table(text):
-            return text, None, False
+            return text, None, False, False
     else:
         # 多轮退化：输入与最近一次原文几乎相同 → 不重复整理（P1）
         latest = _latest_original(workspace, session_id)
@@ -228,20 +230,20 @@ def maybe_preprocess(
             try:
                 prev = latest.read_text(encoding="utf-8", errors="replace")
                 if difflib.SequenceMatcher(None, text, prev).ratio() > 0.8:
-                    return text, None, False
+                    return text, None, False, False
             except OSError:
                 pass
 
     organized_text, original_path = _organize_text(text, session_id, workspace)
     if not organized_text or original_path is None:
-        return text, None, False
+        return text, None, False, True
 
     # 核对提示前缀：防整理错带偏云端（质量保险）
     final_text = (
         "（用户原文已保存为工作区附件，整理版可能有遗漏，"
         "关键信息请读附件核对）\n\n" + organized_text
     )
-    return final_text, original_path, True
+    return final_text, original_path, True, True
 
 
 def _start_local_model(manager) -> bool:
@@ -378,38 +380,39 @@ def maybe_preprocess_attachment(
 ) -> tuple[str, str | None, bool]:
     """对纯文本附件内容做本地预整理（大段粘贴文本走附件通道时）。
 
-    返回 (处理后的内容, 原文路径, 是否已整理)。
+    返回 (处理后的内容, 原文路径, 是否已整理, 是否尝试过整理)。
     - 已整理：内容 = 核对提示 + 整理版；原文路径 = 附件自身路径（传入了
       ``original_path``）或新写的 ``original-*.md``（调用方加入 approved_paths）。
-    - 未触发 / 失败：内容原样，路径 None。
+    - 未触发：内容原样，路径 None，attempted=False。
+    - 触发但失败：内容原样，路径 None，attempted=True（调用方据此询问用户）。
 
     触发规则（见 docs/preprocess-feature-design.md §8 附件通道）：
     - 显式：question 含整理指令词（附件即指代对象，无需"这段/这个"）；
     - 自动：内容 token 估算 > 阈值且非代码、非表格。
     """
     if not content or not content.strip():
-        return content, None, False
+        return content, None, False, False
 
     from ..config import settings_store
 
     settings = settings_store.load()
     if not settings.get("local_llm_preprocess_enabled", True):
-        return content, None, False
+        return content, None, False, False
 
     explicit = _is_explicit(question, has_referent_attachment=True)
     if not explicit:
         if not settings.get("local_llm_preprocess_auto", True):
-            return content, None, False
+            return content, None, False, False
         if _token_estimate(content) < int(
             settings.get("local_llm_preprocess_threshold", 800)
         ):
-            return content, None, False
+            return content, None, False, False
         if settings.get("local_llm_preprocess_code_skip", True) and _looks_like_code(
             content
         ):
-            return content, None, False
+            return content, None, False, False
         if _looks_like_table(content):
-            return content, None, False
+            return content, None, False, False
 
     organized_text, written_path = _organize_text(
         content,
@@ -418,12 +421,12 @@ def maybe_preprocess_attachment(
         write_original=(original_path is None),
     )
     if not organized_text:
-        return content, None, False
+        return content, None, False, True
     orig = original_path or (str(written_path) if written_path else None)
     if orig is None:
-        return content, None, False
+        return content, None, False, True
     final = (
         "（用户原文已保存为附件，整理版可能有遗漏，关键信息请读附件核对）\n\n"
         + organized_text
     )
-    return final, orig, True
+    return final, orig, True, True

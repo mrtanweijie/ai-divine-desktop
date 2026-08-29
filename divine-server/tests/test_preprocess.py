@@ -53,7 +53,10 @@ def _patch_manager(monkeypatch, manager: FakeManager) -> None:
 def _maybe_preprocess(text, session_id="s1", workspace=None):
     from app.agent.preprocess import maybe_preprocess
 
-    return maybe_preprocess(text, session_id, workspace)
+    final, path, organized, _attempted = maybe_preprocess(
+        text, session_id, workspace
+    )
+    return final, path, organized
 
 
 # ---------------------------------------------------------------------------
@@ -257,9 +260,10 @@ def test_chunked_relabel_keeps_heading(tmp_path, monkeypatch):
 def _maybe_preprocess_attachment(question, content, workspace, orig=None):
     from app.agent.preprocess import maybe_preprocess_attachment
 
-    return maybe_preprocess_attachment(
+    new_content, path, organized, _attempted = maybe_preprocess_attachment(
         question, content, "s1", workspace, orig
     )
+    return new_content, path, organized
 
 
 def test_attachment_explicit_organizes(tmp_path, monkeypatch):
@@ -337,12 +341,14 @@ def test_chat_attachment_parts_and_history(tmp_path, monkeypatch):
 
     session = db.create_session(title="t")["id"]
     original = "1. 需求评审：讨论第一项。\n2. 技术选型：讨论第二项。\n" * 60
-    new_content, att_orig, organized = maybe_preprocess_attachment(
-        "帮我整理",
-        original,
-        session,
-        ws,
-        "/tmp/paste-xxx.txt",  # 附件自身路径
+    new_content, att_orig, organized, _att_attempted = (
+        maybe_preprocess_attachment(
+            "帮我整理",
+            original,
+            session,
+            ws,
+            "/tmp/paste-xxx.txt",  # 附件自身路径
+        )
     )
     assert organized is True
     assert att_orig == "/tmp/paste-xxx.txt"
@@ -457,6 +463,45 @@ def test_auto_start_no_model_falls_back(tmp_path, monkeypatch):
     assert organized is False
 
 
+# ---------------------------------------------------------------------------
+# attempted 标记：触发但失败 → 调用方询问用户是否走云端
+# ---------------------------------------------------------------------------
+
+def test_triggered_but_failed_reports_attempted(tmp_path, monkeypatch):
+    """显式触发但整理失败 → attempted=True（chat.py 据此询问用户）。"""
+    _init(tmp_path, monkeypatch)
+    manager = FakeManager(result=None)  # organize 失败
+    _patch_manager(monkeypatch, manager)
+    text = "帮我整理这段：今天开会讨论了三个议题。" * 30
+    final, path, organized, attempted = _maybe_preprocess_full(
+        text, workspace=tmp_path / "workspace"
+    )
+    assert final == text
+    assert path is None
+    assert organized is False
+    assert attempted is True
+
+
+def test_not_triggered_reports_not_attempted(tmp_path, monkeypatch):
+    """未触发（短文本无整理指令）→ attempted=False，不询问。"""
+    _init(tmp_path, monkeypatch)
+    manager = FakeManager(result=None)
+    _patch_manager(monkeypatch, manager)
+    text = "今天天气怎么样"
+    final, _, organized, attempted = _maybe_preprocess_full(
+        text, workspace=tmp_path / "workspace"
+    )
+    assert final == text
+    assert organized is False
+    assert attempted is False
+
+
+def _maybe_preprocess_full(text, session_id="s1", workspace=None):
+    from app.agent.preprocess import maybe_preprocess
+
+    return maybe_preprocess(text, session_id, workspace)
+
+
 class _FakeResponse:
     def __init__(self, payload):
         self._payload = payload
@@ -559,7 +604,7 @@ def test_chat_message_parts_and_history(tmp_path, monkeypatch):
 
     session = db.create_session(title="t")["id"]
     original = "今天开会讨论了三个议题。" * 120  # 超阈值，触发自动整理
-    final_text, original_path, organized = maybe_preprocess(
+    final_text, original_path, organized, _attempted = maybe_preprocess(
         original, session, ws
     )
     assert organized is True

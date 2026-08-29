@@ -122,6 +122,10 @@ chat.py stream_chat
 > **实现记录 3（真实模型参数，2026-08-29）**：`organize()` 两个参数经真机调优——① `max_tokens` 从 `len//2` 改为 `min(max(len//2, 1536), 2048)`：1.5B 整理 1500+ 字输入常输出 800+ token，原值会截断导致整段整理被丢弃；② 校验 ② 从"长度 > 原文 80%"改为"长度 > 原文 1.5x+200 且无 `###` 标题"：密集内容的重构输出（加标题/要点化）与原文等长甚至更长，80% 会误杀合格整理（实测 1731 字输入输出 1823 字、结构完整，被旧规则丢弃）。
 >
 > **实现记录 4（自动拉起模型，2026-08-29）**：实测发现 App 的 sidecar 会周期性重启，且每次重启把 8016 上的 llama-server 当"孤儿"杀掉（`_free_orphan_port`），导致本地模型"起得来留不住"，预整理频繁静默降级云端（用户连续 3 次"整理文件内容/帮我整理"+大附件全走了云端，单次烧 2.7 万 token）。修复：`preprocess._start_local_model()`——预整理触发时若 `is_ready()` 为 False，自动用已装模型（设置里的 local_llm_model → 优先 1.5B → 第一个已装）拉起 llama-server 并等就绪（最长 40s），成功才整理；无模型/失败/超时再降级云端。真实环境验证：8016 停机状态下触发预整理，15s 冷启动 + 整理成功。
+>
+> **实现记录 5（输出截断修复，2026-08-29）**：用户 107KB 附件实测仍走云端，App 日志显示根因是**分块整理输出被 `max_tokens` 截断**（`本地整理失败（第 2/5 块）`）→ 按"半截丢弃"设计整体放弃上云。两个修复：① prompt 新增"尽量简洁，每个要点一句话，不要逐条复述原文"；② `max_tokens` 改为 `min(max(len(text), 1024), 2048)`（2000 字分块给足 2048）。真实模型验证：2312 字分块 6.5s 输出 908 字、未截断。注意：分块越多越容易在某块截断，若仍偶发，可降低单块字数（2000→1500）。
+>
+> **实现记录 6（失败询问用户，2026-08-29）**：用户明确要求"整理失败后询问是否走云端"。实现：`maybe_preprocess`/`maybe_preprocess_attachment` 返回值增加 `attempted` 标记（触发但失败 = attempted=True）；chat.py 在云端调用前检测到 `attempted and not organized` 时，复用终端审批机制（`create_terminal_decision` + SSE `tool` 事件 `confirm_type="preprocess_fallback"` + `POST /api/terminal/decide`）弹确认卡"长文本本地整理失败，直接交给云端将消耗较多 token。是否继续？"；用户取消 → 回复"已取消，未调用云端"+ done；180s 超时按取消处理。前端 `ToolStatusCard` 新增 `preprocess_fallback` 确认卡分支（提交沿用统一的 `/terminal/decide`）。端到端验证：模型停机 → 确认卡出现 → 批准后走云端 / 取消后无云端调用。
 
 ### 5.2 `divine-server/app/agent/preprocess.py`（新模块）
 

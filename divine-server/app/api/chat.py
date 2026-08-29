@@ -122,11 +122,14 @@ async def stream_chat(request: StreamChatRequest):
     final_question = question
     original_attachment: Path | None = None
     organized = False
+    attempted_question = False
     try:
         from ..agent.preprocess import maybe_preprocess
 
-        final_question, original_attachment, organized = await asyncio.to_thread(
-            maybe_preprocess, question, session_id, workspace
+        final_question, original_attachment, organized, attempted_question = (
+            await asyncio.to_thread(
+                maybe_preprocess, question, session_id, workspace
+            )
         )
     except Exception as exc:  # noqa: BLE001 — 预整理失败绝不影响对话
         logger.warning("本地预整理异常，原样上云: %s", exc)
@@ -179,6 +182,7 @@ async def stream_chat(request: StreamChatRequest):
             logger.warning("预整理附件元信息写入失败: %s", exc)
     # 附件通道的预整理原文路径（无 file_path 的 content 附件会新写 original-*.md）
     preprocess_originals: list[str] = []
+    attachment_attempted_fail = False
     for index, attachment in enumerate(request.attachments):
         meta: dict[str, object] = {
             "name": attachment.name,
@@ -216,14 +220,18 @@ async def stream_chat(request: StreamChatRequest):
                     if attachment.file_path
                     else None
                 )
-                new_content, att_orig, att_organized = await asyncio.to_thread(
-                    maybe_preprocess_attachment,
-                    question,
-                    original_text,
-                    session_id,
-                    workspace,
-                    att_original_path,
+                new_content, att_orig, att_organized, att_attempted = (
+                    await asyncio.to_thread(
+                        maybe_preprocess_attachment,
+                        question,
+                        original_text,
+                        session_id,
+                        workspace,
+                        att_original_path,
+                    )
                 )
+                if att_attempted and not att_organized:
+                    attachment_attempted_fail = True
                 if att_organized and new_content:
                     meta["content"] = new_content
                     if att_orig:
@@ -263,6 +271,10 @@ async def stream_chat(request: StreamChatRequest):
     if original_attachment is not None:
         approved_paths.append(str(original_attachment))
     approved_paths.extend(preprocess_originals)
+    # 本地整理被触发但失败 → 询问用户是否仍走云端（避免静默烧 token）
+    preprocess_attempted_fail = (
+        attempted_question and not organized
+    ) or attachment_attempted_fail
     logger.info(
         "chat request session=%s question_len=%d attachments=%d think=%s "
         "effort=%s history=%d model_id=%s tool_mode=%s",
@@ -292,6 +304,56 @@ async def stream_chat(request: StreamChatRequest):
                 ):
                     yield event
                 return
+
+            # 本地整理被触发但失败 → 询问用户是否走云端（复用终端审批机制：
+            # create_terminal_decision + POST /api/terminal/decide，前端零改动提交）
+            if preprocess_attempted_fail:
+                from ..api.terminal import (
+                    create_terminal_decision,
+                    remove_terminal_decision,
+                )
+
+                pending = create_terminal_decision(session_id)
+                try:
+                    yield sse_event(
+                        "tool",
+                        {
+                            "tool": "preprocess_fallback",
+                            "status": "confirm",
+                            "message": "长文本本地整理失败，直接交给云端将消耗较多 token。是否继续？",
+                            "messageKey": "tool.preprocessFallbackText",
+                            "messageParams": {},
+                            "confirm_type": "preprocess_fallback",
+                            "call_id": "preprocess_confirm",
+                            "session_id": session_id,
+                        },
+                    )
+                    try:
+                        await asyncio.wait_for(pending["event"].wait(), 180)
+                        allowed = bool(pending["allowed"])
+                    except asyncio.TimeoutError:
+                        allowed = False
+                finally:
+                    remove_terminal_decision(session_id)
+                if not allowed:
+                    logger.info(
+                        "预整理失败用户取消走云端 session=%s", session_id
+                    )
+                    cancel_text = (
+                        "已取消：本地整理失败，本次未调用云端。"
+                        "你可以重试，或直接发送原文让云端处理。"
+                    )
+                    yield sse_event("message", {"content": cancel_text})
+                    yield sse_event(
+                        "done",
+                        {
+                            "message": "已取消",
+                            "messageKey": "tool.preprocessCancelled",
+                            "messageParams": {},
+                            "content": cancel_text,
+                        },
+                    )
+                    return
 
             async for event in run_agent(
                 session_id,

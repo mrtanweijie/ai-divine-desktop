@@ -584,6 +584,38 @@ export function ToolStatusCard({
           </Flex>
         </div>
       )}
+      {tool.status === "confirm" &&
+        tool.confirm_type === "preprocess_fallback" && (
+          <div className="terminal-confirm preprocess-fallback-confirm">
+            <div className="terminal-confirm-head">
+              <AlertCircle size={14} />
+              <span>{t("tool.preprocessFallbackTitle", "本地整理失败")}</span>
+            </div>
+            <p className="plan-confirm-text">
+              {tool.messageKey
+                ? t(tool.messageKey, tool.messageParams ?? {})
+                : tool.message}
+            </p>
+            <Flex align="center" gap={8}>
+              <Button
+                size="small"
+                loading={deciding}
+                disabled={!targetSessionId || deciding}
+                onClick={() => void decide(true)}
+              >
+                {t("tool.preprocessContinueCloud", "继续走云端")}
+              </Button>
+              <Button
+                size="small"
+                variant="ghost"
+                disabled={!targetSessionId || deciding}
+                onClick={() => void decide(false)}
+              >
+                {t("tool.preprocessCancel", "取消")}
+              </Button>
+            </Flex>
+          </div>
+        )}
       {tool.status === "confirm" && tool.confirm_type === "plan_choice" && (
         <div className="terminal-confirm plan-choice-confirm">
           <div className="terminal-confirm-head">
