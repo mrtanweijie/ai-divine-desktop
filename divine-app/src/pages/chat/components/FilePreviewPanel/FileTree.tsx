@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Braces,
   ChevronRight,
@@ -39,6 +39,7 @@ interface FileTreeProps {
   selectedPath: string | null;
   onSelectFile: (relPath: string) => void;
   width: number;
+  expandTo?: string | null;
 }
 
 interface TreeNodeProps {
@@ -48,6 +49,7 @@ interface TreeNodeProps {
   selectedPath: string | null;
   onSelectFile: (relPath: string) => void;
   depth: number;
+  expandTo?: string | null;
 }
 
 function fileIcon(name: string) {
@@ -135,12 +137,42 @@ function TreeNode({
   selectedPath,
   onSelectFile,
   depth,
+  expandTo,
 }: TreeNodeProps) {
   const [open, setOpen] = useState(false);
   const [children, setChildren] = useState<WorkspaceFileNode[] | null>(
     node.children
   );
   const [loading, setLoading] = useState(false);
+  const expandedByRef = useRef<string | null>(null);
+
+  // 当 expandTo 变化时，如果当前目录是目标路径的前缀，自动展开
+  useEffect(() => {
+    if (!node.isDir || !expandTo) return;
+    // 目标文件在当前目录下（当前目录路径 + "/" 是目标路径的前缀）
+    const dirPrefix = node.path ? `${node.path}/` : "";
+    if (!expandTo.startsWith(dirPrefix)) return;
+    // 已经展开过同一个 expandTo，跳过
+    if (expandedByRef.current === expandTo) return;
+    expandedByRef.current = expandTo;
+    if (!open) setOpen(true);
+    if (children === null) {
+      const cacheKey = `${repoPath}\u0000${node.path}`;
+      const cached = dirCache.get(cacheKey);
+      if (cached) {
+        setChildren(cached);
+      } else {
+        setLoading(true);
+        void getDirChildren(repoPath, node.path)
+          .then((data) => {
+            dirCache.set(cacheKey, data);
+            setChildren(data);
+          })
+          .catch(() => setChildren([]))
+          .finally(() => setLoading(false));
+      }
+    }
+  }, [expandTo, node.isDir, node.path, repoPath, open, children]);
 
   const handleClick = async () => {
     if (!node.isDir) {
@@ -214,6 +246,7 @@ function TreeNode({
               selectedPath={selectedPath}
               onSelectFile={onSelectFile}
               depth={depth + 1}
+              expandTo={expandTo}
             />
           ))}
         </div>
@@ -228,6 +261,7 @@ export function FileTree({
   selectedPath,
   onSelectFile,
   width,
+  expandTo,
 }: FileTreeProps) {
   const { t } = useTranslation();
   const [nodes, setNodes] = useState<WorkspaceFileNode[] | null>(null);
@@ -254,6 +288,12 @@ export function FileTree({
     let unlisten: (() => void) | undefined;
     void listenWorkspaceChanges((payload) => {
       const changed = normalizePath(payload.path);
+      // 忽略 git 元数据与系统文件：hover GitInfoCard 时服务端跑 git status
+      // 会刷新 .git/index，触发 workspace:changed 导致文件树被误刷新
+      // （收起 → 重新展开到当前文件，页面跳动）
+      const segments = changed.split("/");
+      if (segments.includes(".git")) return;
+      if (changed.endsWith(".DS_Store")) return;
       const root = normalizePath(repoPath);
       if (changed !== root && !changed.startsWith(`${root}/`)) return;
       treeCache.delete(repoPath);
@@ -302,6 +342,7 @@ export function FileTree({
           selectedPath={selectedPath}
           onSelectFile={onSelectFile}
           depth={0}
+          expandTo={expandTo}
         />
       ))}
     </div>
