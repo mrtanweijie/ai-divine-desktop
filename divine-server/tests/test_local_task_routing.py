@@ -60,9 +60,60 @@ def test_qa_routed():
     assert _task("伦敦在哪") == "qa"
 
 
-def test_weather_question_is_qa_then_falls_back():
-    """天气这类需实时信息的问题命中 qa，但本地会答'不确定'回退云端。"""
-    assert _task("今天天气怎么样") == "qa"
+def test_weather_question_not_local():
+    """天气需实时信息 → 系统层强制联网分流，不再命中本地 qa。"""
+    assert _task("今天天气怎么样") is None
+
+
+def test_market_query_not_local():
+    """股市/行情请求（1.5B 无实时数据必拒答）→ 不分流，走云端联网。"""
+    assert _task("近一个月 A 股数据走势") is None
+    assert _task("今天的大盘怎么样") is None
+    assert _task("茅台股价走势") is None
+    assert _task("帮我看看最近美股行情") is None
+    # 正则兜住的措辞变体（关键词表里没有的词）
+    assert _task("上证指数今天收盘点位") is None
+    assert _task("近一周基金收益排名") is None
+    assert _task("芯片股今天涨了") is None
+
+
+def test_realtime_detection():
+    """实时信息关键词：空格归一（"A 股"→"A股"），新闻/天气/股市全覆盖。"""
+    from app.api.chat import _is_realtime_request
+
+    assert _is_realtime_request("近一个月 A 股数据走势") is True
+    assert _is_realtime_request("A股今日大盘") is True
+    assert _is_realtime_request("今天天气怎么样") is True
+    assert _is_realtime_request("最新科技新闻") is True
+    assert _is_realtime_request("上证指数今天收盘点位") is True
+    assert _is_realtime_request("茅台股价走势") is True
+    # 非实时内容不误伤
+    assert _is_realtime_request("英国首都") is False
+    assert _is_realtime_request("帮我整理会议纪要") is False
+    assert _is_realtime_request("股东会决议需要全体签字") is False
+    assert _is_realtime_request("今天心情不错，谢谢") is False
+
+
+def test_qa_refusal_is_fallback_signal():
+    """本地拒答话术（"无法提供实时数据"）要算回退信号，不能当正常回答返回。"""
+    from app.api.chat import _is_local_refusal
+
+    # 关键词表直接命中
+    refusal = "作为 AI，我无法提供实时数据或最新信息。建议您查看最新的财经新闻。"
+    assert _is_local_refusal(refusal) is True
+    # 骨架正则兜住的变体（关键词表没有的词/隔字）
+    assert _is_local_refusal("作为一个AI助手，我不能回答这个问题。") is True
+    assert _is_local_refusal("对不起，我无法帮您查询实时数据。") is True
+    assert _is_local_refusal("这个问题我回答不了。") is True
+    assert _is_local_refusal("我暂时无法获取相关信息。") is True
+    assert _is_local_refusal("需要联网才能查到最新数据。") is True
+    assert _is_local_refusal("我不确定，这个问题需要查证。") is True
+    # 正常回答不受影响
+    assert _is_local_refusal("英国首都是伦敦。") is False
+    assert _is_local_refusal("太阳从东方升起。") is False
+    assert _is_local_refusal("这个公式不能直接套用，需要先化简。") is False
+    assert _is_local_refusal("作为AI，我可以帮你翻译这句话。") is False
+    assert _is_local_refusal("谢谢你，再见。") is False
 
 
 def test_list_guard():
@@ -71,6 +122,7 @@ def test_list_guard():
 
     assert _is_list_request("欧盟国有哪些") is True
     assert _is_list_request("猫科有哪些常见动物") is True
+    assert _is_list_request("英伟达有什么大模型") is True
     assert _is_list_request("英国首都") is False
 
     # "欧盟国有17个成员国。"（无列表分隔符，短）→ 判定没列 → 回退
@@ -79,6 +131,16 @@ def test_list_guard():
     assert _has_list_items("包括狮子、老虎、美洲豹、雪豹、豹猫等。") is True
     # 长回答视为已展开
     assert _has_list_items("欧盟共有27个成员国，分别是德国、法国、意大利、" + "内容" * 30) is True
+
+
+def test_entity_knowledge_falls_back():
+    """企业/产品知识（1.5B 会自信编造，如"英伟达自己没有大模型"）→ 云端。"""
+    assert _task("英伟达自己有什么大模型") is None
+    assert _task("华为最新发布了什么手机") is None
+    assert _task("特斯拉有哪些车型") is None
+    assert _task("苹果公司什么时候成立的") is None
+    # 误伤方向安全：含公司名的普通问题也走云端（宁可多花 token 不答错）
+    assert _task("苹果有什么营养") is None
 
 
 def test_numeric_facts_fall_back():

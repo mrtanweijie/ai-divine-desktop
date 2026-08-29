@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
+  ArrowLeftRight,
   Check,
   ChevronDown,
   Copy,
@@ -30,6 +31,8 @@ interface MessageItemProps {
   workspacePath?: string | null;
   onPreviewFile?: (file: PreviewFile) => void;
   onUserInteract?: () => void;
+  /** 本地模型回答上的【重答】：用云端重答同一条问题 */
+  onRetryCloud?: (messageId: string) => void;
 }
 
 export function MessageItem({
@@ -40,6 +43,7 @@ export function MessageItem({
   workspacePath,
   onPreviewFile,
   onUserInteract,
+  onRetryCloud,
 }: MessageItemProps) {
   const { t } = useTranslation();
   const isUser = message.role === "user";
@@ -90,6 +94,13 @@ export function MessageItem({
                 })}
               </span>
             )}
+            {message.content &&
+              message.source === "local" &&
+              onRetryCloud && (
+                <MessageRetryButton
+                  onRetry={() => onRetryCloud(message.id)}
+                />
+              )}
             {message.content && <MessageCopyButton text={message.content} />}
           </span>
         )}
@@ -265,6 +276,26 @@ function MessageCopyButton({ text }: { text: string }) {
       title={t("message.copyContent", "复制内容")}
     >
       {copied ? <Check size={12} /> : <Copy size={12} />}
+    </Button>
+  );
+}
+
+/** 本地模型回答的【重答】：点击用云端重答同一条问题（复制按钮左侧）。 */
+function MessageRetryButton({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Button
+      variant="icon"
+      size="small"
+      className="message-retry"
+      onClick={(event) => {
+        event.currentTarget.blur();
+        onRetry();
+      }}
+      aria-label={t("message.retryCloud", "用云端重答")}
+      title={t("message.retryCloud", "用云端重答")}
+    >
+      <ArrowLeftRight size={12} />
     </Button>
   );
 }

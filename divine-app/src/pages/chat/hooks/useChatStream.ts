@@ -91,6 +91,221 @@ export function useChatStream(options: UseChatStreamOptions) {
   // 停止时中止对应会话的连接实现即时反馈。
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
 
+  // 流式事件处理器（sendMessage / retryCloud 共用）：把事件写进
+  // assistantId 对应的乐观消息，done 时从服务端恢复整段会话。
+  const buildStreamHandlers = useCallback(
+    (sessionId: string, assistantId: string) => ({
+      think: ({ content }: { content: string }) => {
+        setSessionMessages(sessionId, (prev) =>
+          prev.map((message) =>
+            message.id === assistantId
+              ? {
+                  ...message,
+                  think: (message.think ?? "") + content,
+                  thinking: true,
+                }
+              : message
+          )
+        );
+      },
+      think_done: () => {
+        setSessionMessages(sessionId, (prev) =>
+          prev.map((message) =>
+            message.id === assistantId
+              ? { ...message, thinking: false }
+              : message
+          )
+        );
+      },
+      message: ({ content }: { content: string }) => {
+        setSessionMessages(sessionId, (prev) =>
+          prev.map((message) =>
+            message.id === assistantId
+              ? {
+                  ...message,
+                  content: message.content + content,
+                  thinking: false,
+                  preprocess_pending: false,
+                }
+              : message
+          )
+        );
+      },
+      plan: (data: { items?: unknown }) => {
+        const items = (data.items ?? []) as unknown as TodoItem[];
+        setSessionMessages(sessionId, (prev) =>
+          prev.map((message) =>
+            message.id === assistantId ? { ...message, todos: items } : message
+          )
+        );
+      },
+      todo_update: (data: {
+        id: string;
+        status: string;
+        result?: string;
+      }) => {
+        const next = data as {
+          id: string;
+          status: TodoItem["status"];
+          result?: string;
+        };
+        setSessionMessages(sessionId, (prev) =>
+          prev.map((message) =>
+            message.id === assistantId
+              ? {
+                  ...message,
+                  todos: (message.todos ?? []).map((todo) =>
+                    todo.id === next.id
+                      ? { ...todo, status: next.status, result: next.result }
+                      : todo
+                  ),
+                }
+              : message
+          )
+        );
+      },
+      tool: (data: unknown) => {
+        const event = data as unknown as ToolEvent;
+        // 首个工具事件到达 → 预整理阶段结束（可能是确认卡/执行中）
+        setSessionMessages(sessionId, (prev) =>
+          prev.map((message) =>
+            message.id === assistantId
+              ? { ...message, preprocess_pending: false }
+              : message
+          )
+        );
+        if (event.status === "done" && event.result) {
+          const projectPath = projects.find(
+            (item) => item.id === selectedProjectId
+          )?.path;
+          if (projectPath) {
+            for (const filePath of changedFilePathsFromResult(event.result)) {
+              const rel = changedFileRel(projectPath, filePath);
+              if (rel && workspacePanelOpenRef.current) {
+                setAgentChangedFiles((prev) => new Set(prev).add(rel));
+              }
+            }
+          }
+        }
+        setSessionMessages(sessionId, (prev) =>
+          prev.map((message) =>
+            message.id === assistantId
+              ? { ...message, tools: upsertTool(message.tools, event) }
+              : message
+          )
+        );
+      },
+      subagent: (data: unknown) => {
+        const raw = data as {
+          sub_id: string;
+          name: string;
+          status: SubAgentItem["status"];
+          summary: string;
+          error?: string;
+        };
+        const item: SubAgentItem = {
+          id: raw.sub_id,
+          name: raw.name,
+          status: raw.status,
+          summary: raw.summary,
+          error: raw.error,
+        };
+        setSessionMessages(sessionId, (prev) =>
+          prev.map((message) =>
+            message.id === assistantId
+              ? {
+                  ...message,
+                  subagents: upsertSubAgent(message.subagents ?? [], item),
+                }
+              : message
+          )
+        );
+      },
+      scheduled_tasks_changed: () => {
+        emitTasksChanged();
+      },
+      calendar_events_changed: () => {
+        emitEventsChanged();
+      },
+      done: async () => {
+        setSessionMessages(sessionId, (prev) =>
+          prev.map((message) =>
+            message.id === assistantId
+              ? {
+                  ...message,
+                  streaming: false,
+                  thinking: false,
+                  preprocess_pending: false,
+                }
+              : message
+          )
+        );
+        if (sessionId) {
+          const data = await getSession(sessionId);
+          const restored = messagesToChatMessages(
+            data.messages,
+            data.tool_runs ?? [],
+            data.todos
+          );
+          setSessionMessages(sessionId, (prev) =>
+            mergeLocalTools(prev, restored)
+          );
+          setHasMoreOlder(false);
+          setOldestMessageId(null);
+        }
+        await Promise.all([
+          refreshSessions(selectedProjectId),
+          refreshProjects(),
+          refreshWorkspace(),
+        ]);
+        if (sessionId && workspacePanelOpenRef.current) {
+          await loadChangedFiles(sessionId);
+        }
+      },
+      error: ({
+        message,
+        messageKey,
+        messageParams,
+      }: {
+        message: string;
+        messageKey?: string;
+        messageParams?: Record<string, unknown>;
+      }) => {
+        setSessionMessages(sessionId, (prev) =>
+          prev.map((item) =>
+            item.id === assistantId
+              ? {
+                  ...item,
+                  streaming: false,
+                  thinking: false,
+                  error: messageKey
+                    ? t(messageKey, {
+                        ...(messageParams ?? {}),
+                        defaultValue: message,
+                      })
+                    : message,
+                }
+              : item
+          )
+        );
+      },
+    }),
+    [
+      loadChangedFiles,
+      projects,
+      refreshProjects,
+      refreshSessions,
+      refreshWorkspace,
+      selectedProjectId,
+      setAgentChangedFiles,
+      setHasMoreOlder,
+      setOldestMessageId,
+      setSessionMessages,
+      t,
+      workspacePanelOpenRef,
+    ]
+  );
+
   const sendMessage = useCallback(
     async (
       question: string,
@@ -178,188 +393,10 @@ export function useChatStream(options: UseChatStreamOptions) {
             })),
           }),
         });
-        await consumeSSE(response, {
-          think: ({ content }) => {
-            setSessionMessages(sessionId, (prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? {
-                      ...message,
-                      think: (message.think ?? "") + content,
-                      thinking: true,
-                    }
-                  : message
-              )
-            );
-          },
-          think_done: () => {
-            setSessionMessages(sessionId, (prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? { ...message, thinking: false }
-                  : message
-              )
-            );
-          },
-          message: ({ content }) => {
-            setSessionMessages(sessionId, (prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? {
-                      ...message,
-                      content: message.content + content,
-                      thinking: false,
-                      preprocess_pending: false,
-                    }
-                  : message
-              )
-            );
-          },
-          plan: (data) => {
-            const items = (data.items ?? []) as unknown as TodoItem[];
-            setSessionMessages(sessionId, (prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? { ...message, todos: items }
-                  : message
-              )
-            );
-          },
-          todo_update: (data) => {
-            const next = data as {
-              id: string;
-              status: TodoItem["status"];
-              result?: string;
-            };
-            setSessionMessages(sessionId, (prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? {
-                      ...message,
-                      todos: (message.todos ?? []).map((todo) =>
-                        todo.id === next.id
-                          ? { ...todo, status: next.status, result: next.result }
-                          : todo
-                      ),
-                    }
-                  : message
-              )
-            );
-          },
-          tool: (data) => {
-            const event = data as unknown as ToolEvent;
-            // 首个工具事件到达 → 预整理阶段结束（可能是确认卡/执行中）
-            setSessionMessages(sessionId, (prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? { ...message, preprocess_pending: false }
-                  : message
-              )
-            );
-            if (event.status === "done" && event.result) {
-              const projectPath = projects.find(
-                (item) => item.id === selectedProjectId
-              )?.path;
-              if (projectPath) {
-                for (const filePath of changedFilePathsFromResult(
-                  event.result
-                )) {
-                  const rel = changedFileRel(projectPath, filePath);
-                  if (rel && workspacePanelOpenRef.current) {
-                    setAgentChangedFiles((prev) => new Set(prev).add(rel));
-                  }
-                }
-              }
-            }
-            setSessionMessages(sessionId, (prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? {
-                      ...message,
-                      tools: upsertTool(message.tools, event),
-                    }
-                  : message
-              )
-            );
-          },
-          subagent: (data) => {
-            const item: SubAgentItem = {
-              id: data.sub_id,
-              name: data.name,
-              status: data.status,
-              summary: data.summary,
-              error: data.error,
-            };
-            setSessionMessages(sessionId, (prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? {
-                      ...message,
-                      subagents: upsertSubAgent(message.subagents ?? [], item),
-                    }
-                  : message
-              )
-            );
-          },
-          scheduled_tasks_changed: () => {
-            emitTasksChanged();
-          },
-          calendar_events_changed: () => {
-            emitEventsChanged();
-          },
-          done: async () => {
-            setSessionMessages(sessionId, (prev) =>
-              prev.map((message) =>
-                message.id === assistantMessage.id
-                  ? {
-                      ...message,
-                      streaming: false,
-                      thinking: false,
-                      preprocess_pending: false,
-                    }
-                  : message
-              )
-            );
-            if (sessionId) {
-              const data = await getSession(sessionId);
-              const restored = messagesToChatMessages(
-                data.messages,
-                data.tool_runs ?? [],
-                data.todos
-              );
-              setSessionMessages(sessionId, (prev) => mergeLocalTools(prev, restored));
-              setHasMoreOlder(false);
-              setOldestMessageId(null);
-            }
-            await Promise.all([
-              refreshSessions(selectedProjectId),
-              refreshProjects(),
-              refreshWorkspace(),
-            ]);
-            if (sessionId && workspacePanelOpenRef.current) {
-              await loadChangedFiles(sessionId);
-            }
-          },
-          error: ({ message, messageKey, messageParams }) => {
-            setSessionMessages(sessionId, (prev) =>
-              prev.map((item) =>
-                item.id === assistantMessage.id
-                  ? {
-                      ...item,
-                      streaming: false,
-                      thinking: false,
-                      error: messageKey
-                        ? t(messageKey, {
-                            ...(messageParams ?? {}),
-                            defaultValue: message,
-                          })
-                        : message,
-                    }
-                  : item
-              )
-            );
-          },
-        });
+        await consumeSSE(
+          response,
+          buildStreamHandlers(sessionId, assistantMessage.id)
+        );
       } catch (error) {
         if (controller.signal.aborted) {
           // 主动点击停止：中止连接，不显示错误，只结束流式态
@@ -398,7 +435,7 @@ export function useChatStream(options: UseChatStreamOptions) {
     },
     [
       approvalMode,
-      loadChangedFiles,
+      buildStreamHandlers,
       modelId,
       projects,
       refreshProjects,
@@ -407,15 +444,99 @@ export function useChatStream(options: UseChatStreamOptions) {
       selectedId,
       selectedProjectId,
       setAgentChangedFiles,
-      setSessionMessages,
       setSelectedId,
+      setSessionEffort,
+      setSessionMessages,
+      setSessionModelId,
       setSessions,
-      setHasMoreOlder,
       setSessionStreaming,
-      setOldestMessageId,
       streaming,
       t,
       workspacePanelOpenRef,
+    ]
+  );
+
+  // 本地模型回答不满意 → 用云端重答同一条问题（POST /chat/retry_cloud）。
+  // 与 sendMessage 不同：不复述用户消息，只追加一条云端回答的乐观气泡。
+  const retryCloud = useCallback(
+    async (messageId: string, effort: string) => {
+      const sessionId = selectedId;
+      if (!sessionId || streaming) return;
+      const think = effort !== "off";
+      const assistantMessage: ChatMessage = {
+        id: `retry-assistant-${Date.now()}`,
+        role: "assistant",
+        content: "",
+        created_at: new Date().toISOString(),
+        tools: [],
+        streaming: true,
+      };
+      setSessionMessages(sessionId, (prev) => [...prev, assistantMessage]);
+      setSessionStreaming(sessionId, true);
+
+      const controller = new AbortController();
+      abortControllersRef.current.set(sessionId, controller);
+      try {
+        const response = await requestRaw("/chat/retry_cloud", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            session_id: sessionId,
+            message_id: messageId,
+            approval_mode: approvalMode,
+            think,
+            ...(think ? { reasoning_effort: effort } : {}),
+            ...(modelId ? { model_id: modelId } : {}),
+            locale: i18next.language || "zh-CN",
+          }),
+        });
+        await consumeSSE(
+          response,
+          buildStreamHandlers(sessionId, assistantMessage.id)
+        );
+      } catch (error) {
+        if (controller.signal.aborted) {
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((item) =>
+              item.id === assistantMessage.id
+                ? { ...item, streaming: false, thinking: false }
+                : item
+            )
+          );
+        } else {
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((item) =>
+              item.id === assistantMessage.id
+                ? {
+                    ...item,
+                    streaming: false,
+                    thinking: false,
+                    error:
+                      error instanceof Error
+                        ? error.message
+                        : t("chat.requestFailed", "请求失败，请稍后重试"),
+                  }
+                : item
+            )
+          );
+        }
+      } finally {
+        if (abortControllersRef.current.get(sessionId) === controller) {
+          abortControllersRef.current.delete(sessionId);
+        }
+        setSessionStreaming(sessionId, false);
+      }
+    },
+    [
+      approvalMode,
+      buildStreamHandlers,
+      modelId,
+      selectedId,
+      setSessionMessages,
+      setSessionStreaming,
+      streaming,
+      t,
     ]
   );
 
@@ -431,5 +552,5 @@ export function useChatStream(options: UseChatStreamOptions) {
     [selectedId]
   );
 
-  return { sendMessage, stopStreaming };
+  return { sendMessage, stopStreaming, retryCloud };
 }

@@ -580,11 +580,24 @@
   font-size: 13px;
 }
 
-/* 意图识别模式标题 + 未启动 tag */
+/* 意图识别模式标题 + 副标题（误判风险提醒） */
+.local-llm-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .local-llm-title {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* 副标题：误判风险提醒（一直展示，所有模式通用） */
+.local-llm-subtitle {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
 }
 
 /* 未启动 Tag 的占位容器：常驻固定尺寸，Tag 出现/消失不改变标题行高度，

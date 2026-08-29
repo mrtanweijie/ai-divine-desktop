@@ -398,12 +398,13 @@ export function LocalLLMSection({
 
   return (
     <div className="settings-section">
-      <h3 className="local-llm-title">
-        {t("settings.localLLM", "意图识别模式")}
-        {/* 占位容器常驻（local/hybrid 模式），固定尺寸避免 Tag 出现/
-            消失导致标题行高度变化引发页面抖动 */}
-        {(localLLMMode === "local" || localLLMMode === "hybrid") &&
-          status && (
+      <div className="local-llm-head">
+        <h3 className="local-llm-title">
+          {t("settings.localLLM", "意图识别模式")}
+          {/* 未启动 Tag 的占位容器：常驻固定尺寸，Tag 出现/消失不改变标题行
+              高度，避免设置页布局抖动；只要本地模型未启动就展示警告标签
+              （所有模式通用，不依赖当前意图识别模式） */}
+          {status && (
             <span className="local-llm-title-tag">
               {!status.running && (
                 <Tag tone="warning">
@@ -412,7 +413,16 @@ export function LocalLLMSection({
               )}
             </span>
           )}
-      </h3>
+        </h3>
+
+        {/* 副标题：提醒意图识别可能有误判风险；误判时可重试/切换模式（一直展示） */}
+        <div className="local-llm-subtitle">
+          {t(
+            "settings.localLLMSubtitle",
+            "AI 意图识别可能有误判风险；若误判，可重试或切换匹配模式"
+          )}
+        </div>
+      </div>
 
       {/* 启动失败提示：默认收起，点击展开 */}
       {status?.last_error && (

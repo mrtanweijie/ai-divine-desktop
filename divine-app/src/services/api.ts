@@ -420,6 +420,7 @@ export function messagesToChatMessages(
       tools,
       subagents: subagentsFromToolRuns(tools),
       choice_state: message.choice_state,
+      source: message.source,
       token_usage: message.token_usage,
     });
   });

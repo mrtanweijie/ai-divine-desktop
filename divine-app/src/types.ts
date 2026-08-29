@@ -46,6 +46,8 @@ export interface Message {
   todos?: TodoItem[];
   /** 选项卡片的已选状态（{selected, sentCustom}），选择后置灰持久化 */
   choice_state?: Record<string, unknown>;
+  /** 消息来源：normal=云端/local=本地模型/local_fallback=本地拒答转云端 */
+  source?: string;
   /** 本条回复消耗的 token（服务端 token_usage 表 LEFT JOIN 嵌入） */
   token_usage?: {
     input_tokens: number;
@@ -207,6 +209,8 @@ export interface ChatMessage {
   error?: string;
   /** 选项卡片的已选状态（选择后置灰持久化） */
   choice_state?: Record<string, unknown>;
+  /** 消息来源：normal=云端/local=本地模型/local_fallback=本地拒答转云端 */
+  source?: string;
   /** 本条回复消耗的 token（real=API 上报，estimated=本地估算） */
   token_usage?: {
     input_tokens: number;

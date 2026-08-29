@@ -14,6 +14,7 @@ interface MessageTimelineProps {
   username: string;
   workspacePath?: string | null;
   onPreviewFile?: (file: PreviewFile) => void;
+  onRetryCloud?: (messageId: string) => void;
   hasMoreOlder?: boolean;
   loadingOlder?: boolean;
   onLoadOlder?: () => void;
@@ -26,6 +27,7 @@ export function MessageList({
   username,
   workspacePath,
   onPreviewFile,
+  onRetryCloud,
   hasMoreOlder = false,
   loadingOlder = false,
   onLoadOlder,
@@ -213,6 +215,7 @@ export function MessageList({
                     username={username}
                     workspacePath={workspacePath}
                     onPreviewFile={onPreviewFile}
+                    onRetryCloud={onRetryCloud}
                     onUserInteract={() => {
                       stickToBottom.current = false;
                     }}

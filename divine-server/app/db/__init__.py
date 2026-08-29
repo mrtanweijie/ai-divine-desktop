@@ -36,9 +36,11 @@ from .history import history_for_model, load_session, load_session_page
 from .messages import (
     add_message,
     add_message_part,
+    clear_fallback_pending,
     clear_messages,
     get_message,
     list_messages,
+    mark_fallback_pending,
     update_choice_state,
 )
 from .memories import (

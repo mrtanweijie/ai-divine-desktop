@@ -5,7 +5,7 @@ import json
 import re
 import logging
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -16,7 +16,7 @@ from ..config import settings_store
 from ..document_reader import read_file_text
 from ..file_types import is_image_path
 from ..localization import default_session_title, normalize_locale
-from ..schemas import Attachment, StreamChatRequest
+from ..schemas import Attachment, RetryCloudRequest, StreamChatRequest
 from ..sse import error_event, sse_event
 
 router = APIRouter(tags=["chat"])
@@ -400,7 +400,7 @@ async def stream_chat(request: StreamChatRequest):
                         _start_local_model(manager)
                     if manager.is_ready():
                         if task == "qa":
-                            # 知识问答：护栏式本地答（不确定/空 → 回退云端）
+                            # 知识问答：护栏式本地答（不确定/拒答/空 → 回退云端）
                             reply = await asyncio.to_thread(
                                 _local_answer,
                                 model_question,
@@ -408,7 +408,7 @@ async def stream_chat(request: StreamChatRequest):
                             )
                             if (
                                 reply
-                                and "不确定" not in reply
+                                and not _is_local_refusal(reply)
                                 and len(reply) <= 500
                                 and not (
                                     # 列表题护栏：要列表却只给短答/没列 → 回退云端
@@ -421,6 +421,7 @@ async def stream_chat(request: StreamChatRequest):
                                     session_id,
                                     "assistant",
                                     reply,
+                                    source="local",
                                 )
                                 yield sse_event(
                                     "message", {"content": reply}
@@ -435,17 +436,54 @@ async def stream_chat(request: StreamChatRequest):
                                     },
                                 )
                                 return
-                            # 不确定/空 → 落回云端（继续往下走 agent）
+                            # 本地拒答/不确定/空（"我无法提供实时信息…"）：
+                            # 不落库、不提示，直接云端接管回答（本地这句拒答
+                            # 不留痕）；挂"转云端"标记，云端回答落库时记
+                            # source='local_fallback'（后端留痕）。
+                            db.mark_fallback_pending(session_id)
                         else:
+                            # 流式本地答：defer_emit 攒完整回复再判——
+                            # 正常回答一次性展示；本地拒答时拒答文本不闪现
+                            # （不落库、不提示），直接云端接管。
+                            local_replies: list[str] = []
                             async for event in stream_local_chat(
                                 session_id,
                                 model_question,
                                 model_history,
                                 locale,
                                 system_prompt=_LOCAL_TASK_PROMPTS[task],
+                                on_reply=local_replies.append,
+                                defer_emit=True,
                             ):
                                 yield event
-                            return
+                            if not local_replies:
+                                # 本地失败/空：错误事件已发出 → 结束
+                                return
+                            reply = local_replies[0]
+                            if not _is_local_refusal(reply):
+                                await asyncio.to_thread(
+                                    db.add_message,
+                                    session_id,
+                                    "assistant",
+                                    reply,
+                                    source="local",
+                                )
+                                yield sse_event(
+                                    "message", {"content": reply}
+                                )
+                                yield sse_event(
+                                    "done",
+                                    {
+                                        "message": "回答完成",
+                                        "messageKey": "tool.answerDone",
+                                        "messageParams": {},
+                                        "content": reply,
+                                    },
+                                )
+                                return
+                            # 本地拒答 → 不落库、不提示，继续往下走云端模型回答；
+                            # 挂"转云端"标记，云端回答落库时记 source='local_fallback'
+                            db.mark_fallback_pending(session_id)
 
             # 本地整理被触发但失败 → 询问用户是否走云端（复用终端审批机制：
             # create_terminal_decision + POST /api/terminal/decide，前端零改动提交）
@@ -545,6 +583,8 @@ async def stream_chat(request: StreamChatRequest):
                 tool_mode=request.tool_mode,
             ):
                 yield event
+            # 兜底清理：云端没产出 assistant 消息时，转云端标记不泄漏到下一轮
+            db.clear_fallback_pending(session_id)
         except Exception as exc:  # noqa: BLE001
             logger.exception(
                 "stream_chat error session=%s: %s", session_id, exc
@@ -553,6 +593,103 @@ async def stream_chat(request: StreamChatRequest):
         finally:
             _CANCEL_EVENTS.pop(session_id, None)
             db.touch_session(session_id)
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.post("/chat/retry_cloud")
+async def retry_cloud(request: RetryCloudRequest):
+    """本地模型回答不满意 → 用户点【重答】：对同一问题直接用云端重答。
+
+    不复述用户消息（历史里已有）：回溯到目标本地回答前面的用户问题，
+    历史截断到该问题为止，直接跑云端 agent，追加一条云端回答。
+    不做本地路由/预整理——用户已明确要云端。
+    """
+    from ..config import workspace_dir
+
+    session = db.get_session(request.session_id)
+    if session is None:
+        return StreamingResponse(
+            iter([error_event("not_found", "会话不存在")]),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    messages = db.list_messages(request.session_id)
+    target_index = next(
+        (
+            index
+            for index, message in enumerate(messages)
+            if message["id"] == request.message_id
+        ),
+        None,
+    )
+    if target_index is None:
+        return StreamingResponse(
+            iter([error_event("not_found", "消息不存在")]),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+    question_index = None
+    for index in range(target_index - 1, -1, -1):
+        if messages[index]["role"] == "user":
+            question_index = index
+            break
+    if question_index is None:
+        return StreamingResponse(
+            iter([error_event("no_question", "未找到对应问题")]),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    settings = settings_store.load()
+    context_limit = int(settings.get("context_limit") or 20)
+    history = db.history_for_model(
+        request.session_id,
+        limit=context_limit,
+        until_message_id=messages[question_index]["id"],
+    )
+    approval_mode = (
+        request.approval_mode or session.get("approval_mode") or "ask"
+    )
+    locale = normalize_locale(
+        request.locale or session.get("locale") or "zh-CN"
+    )
+    workspace = Path(
+        db.session_workspace(request.session_id) or workspace_dir()
+    )
+
+    async def generate():
+        cancel_event = asyncio.Event()
+        _CANCEL_EVENTS[request.session_id] = cancel_event
+        try:
+            async for event in run_agent(
+                request.session_id,
+                history,
+                request.think,
+                workspace=workspace,
+                approval_mode=approval_mode,
+                locale=locale,
+                effort=request.reasoning_effort,
+                context_limit=context_limit,
+                cancel_event=cancel_event,
+                model_id=request.model_id,
+                approved_paths=[],
+                tool_mode=request.tool_mode,
+            ):
+                yield event
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "retry_cloud error session=%s: %s", request.session_id, exc
+            )
+            yield error_event("server_error", str(exc))
+        finally:
+            _CANCEL_EVENTS.pop(request.session_id, None)
+            db.touch_session(request.session_id)
 
     return StreamingResponse(
         generate(),
@@ -920,10 +1057,64 @@ _NUMERIC_FACT_MARKERS = (
 )
 
 
+# 本地问答护栏回退信号：出现这些措辞 → 本地没把握/拒答 → 回退云端。
+# 1.5B 被问实时数据时常用"无法提供/无法回答"式拒答，
+# 而不是按提示词输出"不确定"，所以拒答话术也要算回退信号。
+_QA_FALLBACK_MARKERS = (
+    "不确定",
+    "无法提供",
+    "无法回答",
+    "无法获取",
+    "无法访问",
+    "不能提供",
+    "很抱歉",
+    "抱歉",
+)
+
+# 拒答骨架正则：兜住关键词表漏网的措辞变体（"作为一个AI助手"、
+# "我不能回答"、"回答不了"、"对不起"、"需要联网"…）。
+# 方向性：误判为拒答只多花一次云端调用（安全方向）；漏判才会把
+# "无法回答"当正常答案交付（原 bug），所以骨架宁宽勿窄。
+_REFUSAL_PATTERNS = (
+    # 否定能力 + 动作：无法/不能/没法/难以/拒绝/没有权限 + 提供/回答/获取/访问/查询/处理…
+    re.compile(
+        r"(?:无法|不能|没法|不可以|难以|拒绝|没有权限|不允许)"
+        r"[^。!?！？]{0,8}(?:提供|回答|获取|访问|查询|处理|满足|做到|给出|告知|完成|执行|展示)"
+    ),
+    # 能力边界自述：作为(一个)AI/语言模型/助手…（允许逗号）
+    re.compile(
+        r"作为(?:一个|一名)?(?:AI|人工智能|语言模型|模型|助手|机器人)"
+        r"[^。!?！？]{0,12}(?:无法|不能|没有|不|抱歉|只能)"
+    ),
+    # 直接道歉
+    re.compile(r"(?:抱歉|对不起|不好意思|很遗憾|非常抱歉)"),
+    # 无把握 / 答不上来
+    re.compile(
+        r"(?:不确定|不知道|不清楚|没把握|查不到|答不上|回答不了|"
+        r"帮不了|帮不上|无法判断|无法确认|暂时无法)"
+    ),
+    # 需要外部条件才能回答
+    re.compile(r"需要(?:联网|实时数据|最新信息|外部信息|更多信息)"),
+    re.compile(r"没有(?:实时|最新|联网)数据"),
+)
+
+
+def _is_local_refusal(reply: str) -> bool:
+    """本地答复是否为拒答/没把握（关键词快查 + 骨架正则兜底）。
+
+    这类回复不能当正常答案交付：不落库、不展示，直接回退云端回答。
+    """
+    if not reply:
+        return True
+    if any(marker in reply for marker in _QA_FALLBACK_MARKERS):
+        return True
+    return any(pattern.search(reply) for pattern in _REFUSAL_PATTERNS)
+
+
 # 列表题护栏：问题要求"有哪些/列举"，但本地只给了短答或没列表分隔符
 # （如"欧盟国有哪些"→本地编"17个成员国"只报数没列）→ 判定没真列出来，
 # 回退云端。常见类目枚举（猫科动物）本地能列 → 正常交付。
-_LIST_REQUEST_MARKERS = ("有哪些", "哪些", "列举", "包括哪些")
+_LIST_REQUEST_MARKERS = ("有哪些", "哪些", "列举", "包括哪些", "有什么")
 _LIST_ITEM_PUNCT = ("、", "，", ",", "和", "以及", "\n")
 
 
@@ -1032,7 +1223,8 @@ def _replace_last_user(
 _OPTIONS_BLOCK_RE = re.compile(r"```options\s*\n(.*?)```", re.S)
 
 
-# 实时信息关键词：命中 → 系统层强制联网搜索（不依赖模型自觉）
+# 实时信息关键词：命中 → 系统层强制联网搜索（不依赖模型自觉）。
+# 匹配时先去掉所有空白（"A 股" → "A股"），避免带空格漏网。
 _REALTIME_KEYWORDS = (
     "新闻",
     "天气",
@@ -1049,11 +1241,51 @@ _REALTIME_KEYWORDS = (
     "今天有什么",
     "发生了什么",
     "今天热点",
+    # 股市/行情类：1.5B 无实时数据，必拒 → 直接分流云端联网
+    "A股",
+    "股市",
+    "大盘",
+    "走势",
+    "涨跌",
+    "涨幅",
+    "跌幅",
+    "涨停",
+    "跌停",
+    "开盘",
+    "收盘",
+    "基金",
+    "板块",
+    "美股",
+    "港股",
+    "期货",
+    "比特币",
+)
+
+# 结构性正则（关键词漏网的措辞变体，如"近一个月A股数据走势"、
+# "茅台股价走势"、"上证指数今天收盘"）——时间区间/市场名词 + 行情动词的固定骨架。
+_REALTIME_PATTERNS = (
+    # 时间区间 + 数据/行情名词：近一个月/一周/30天 + 走势/行情/数据/表现/统计/点位/排名/价格
+    re.compile(
+        r"近.{0,3}?[月天周时年][^，。!?！？]{0,12}"
+        r"(?:走势|行情|数据|表现|统计|点位|排名|价格|指数)"
+    ),
+    # 市场名词 + 行情动词/名词（含具体标的：上证指数收盘 / 美股今天走势）
+    re.compile(
+        r"(?:A股|a股|美股|港股|股市|大盘|上证|深证|沪深|创业板|科创板|"
+        r"纳指|标普|道琼斯|恒生|日经|基金|板块|期货|原油|黄金|比特币|"
+        r"金价|油价|汇率)\S{0,8}(?:走势|行情|指数|点位|股价|价格|数据|"
+        r"表现|收盘|开盘|报收|涨跌|涨幅|跌幅)"
+    ),
+    # 具体个股/板块名 + 股 + 行情词（"茅台股价走势"、"芯片股跌了"）
+    re.compile(r"\S{1,6}股(?:价)?\S{0,6}(?:走势|行情|数据|表现|今天|最新|涨|跌)"),
 )
 
 
 def _is_realtime_request(text: str) -> bool:
-    return any(keyword in text for keyword in _REALTIME_KEYWORDS)
+    compact = re.sub(r"\s+", "", text or "")
+    if any(keyword in compact for keyword in _REALTIME_KEYWORDS):
+        return True
+    return any(pattern.search(compact) for pattern in _REALTIME_PATTERNS)
 
 
 def _extract_choice_labels(content: str) -> list[str]:
@@ -1103,6 +1335,37 @@ def _expand_choice_selection(
     return None
 
 
+# 企业/产品知识类问题：1.5B 会自信地编造（如"英伟达自己没有大模型"——
+# 实际有 Nemotron/Cosmos/GR00T 等）。命中知名公司名 → 不分流本地。
+# 误伤方向安全：即便问题与公司无关（"苹果有什么营养"），最多多花一次
+# 云端调用，也不会答错。
+_ENTITY_KNOWLEDGE_MARKERS = (
+    "英伟达",
+    "苹果",
+    "特斯拉",
+    "华为",
+    "小米",
+    "三星",
+    "谷歌",
+    "微软",
+    "亚马逊",
+    "OpenAI",
+    "百度",
+    "腾讯",
+    "阿里巴巴",
+    "字节跳动",
+    "比亚迪",
+    "宁德时代",
+    "英特尔",
+    "高通",
+    "台积电",
+    "Meta",
+    "IBM",
+    "甲骨文",
+    "任天堂",
+)
+
+
 def _detect_qa(text: str) -> bool:
     """知识问答：常识/事实类问题本地直答（护栏式，不确定回退云端）。
 
@@ -1113,16 +1376,23 @@ def _detect_qa(text: str) -> bool:
 
     排除：
     - 小语种（编造风险）；
-    - 精确数字事实（"几个/多少/哪年/人口"——1.5B 会自信地编）。
+    - 精确数字事实（"几个/多少/哪年/人口"——1.5B 会自信地编）；
+    - 企业/产品知识（"英伟达有什么大模型"——1.5B 会自信地编造）。
     """
     if not text:
         return False
     t = text.strip()
+    # 实时信息请求（新闻/天气/股市行情…）→ 本地必拒答，不分流
+    if _is_realtime_request(t):
+        return False
     # 小语种翻译请求（"苹果 用日语怎么说"）→ 不分流（编造风险）
     if any(lang in t for lang in _SMALL_LANGS):
         return False
     # 精确数字事实 → 云端
     if any(marker in t for marker in _NUMERIC_FACT_MARKERS):
+        return False
+    # 企业/产品知识（公司产品线/发布动态 1.5B 会编）→ 云端
+    if any(name in t for name in _ENTITY_KNOWLEDGE_MARKERS):
         return False
     if len(t) <= 60 and any(marker in t for marker in _QUESTION_MARKERS):
         return True
@@ -1155,12 +1425,19 @@ async def stream_local_chat(
     history: list[dict[str, Any]],
     locale: str | None,
     system_prompt: str | None = None,
+    on_reply: Callable[[str], None] | None = None,
+    defer_emit: bool = False,
 ) -> AsyncIterator[str]:
     """与本地模型直接对话：把最近会话发给 llama-server 流式回答。
 
     不走 agent（系统提示词 + 工具 schema 远超 0.5B 模型上下文），
     用精简系统提示词直连 llama.cpp 的 OpenAI 兼容接口。
     ``system_prompt`` 可传任务专用提示（本地能力路由）。
+
+    传 ``on_reply`` 时：完整回答到手后回调它，由调用方决定是否落库/
+    结束（用于"本地拒答 → 转云端"），本函数不再自动保存和发出 done 事件。
+    ``defer_emit`` 为 True 时不边生成边发 message 事件（攒完整回复后
+    一次性回调），避免本地拒答文本在转云端前闪现到气泡里。
     """
     from ..agent.local_llm import get_manager
 
@@ -1213,7 +1490,8 @@ async def stream_local_chat(
                         continue
                     if chunk:
                         parts.append(chunk)
-                        yield sse_event("message", {"content": chunk})
+                        if not defer_emit:
+                            yield sse_event("message", {"content": chunk})
     except Exception as exc:  # noqa: BLE001
         logger.warning("本地模型对话失败: %s", exc)
         yield error_event("local_chat_failed", f"本地模型对话失败: {exc}")
@@ -1223,7 +1501,13 @@ async def stream_local_chat(
     if not reply:
         yield error_event("local_chat_empty", "本地模型没有返回内容")
         return
-    await asyncio.to_thread(db.add_message, session_id, "assistant", reply)
+    if on_reply is not None:
+        # 调用方接管：完整回答已流式展示，是否落库/结束由调用方决定
+        on_reply(reply)
+        return
+    await asyncio.to_thread(
+        db.add_message, session_id, "assistant", reply, source="local"
+    )
     yield sse_event(
         "done",
         {

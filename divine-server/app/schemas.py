@@ -31,6 +31,22 @@ class StreamChatRequest(BaseModel):
     tool_mode: str | None = None
 
 
+class RetryCloudRequest(BaseModel):
+    """本地模型回答不满意 → 用户点【重答】：对同一问题直接用云端重答。
+
+    message_id 指向那条本地回答；服务端回溯到它前面的用户问题，
+    以历史截断到该问题为止重新跑云端 agent，追加一条新回答。
+    """
+    session_id: str
+    message_id: str
+    approval_mode: str | None = None
+    think: bool = False
+    reasoning_effort: ReasoningEffort | None = None
+    locale: str | None = None
+    model_id: str | None = None
+    tool_mode: str | None = None
+
+
 class SessionCreate(BaseModel):
     title: str | None = None
     project_id: str | None = None

@@ -378,6 +378,73 @@ function mergeAxis(
   return isRecord(value) ? mergeRecord(defaults, value) : defaults;
 }
 
+/**
+ * 保证每个轴维度至少有一个有效轴，并覆盖系列引用的轴索引
+ * （yAxisIndex / xAxisIndex），避免 ECharts 抛 `yAxis "0" not found`。
+ * LLM 生成的 option 常见三类坑：
+ * - yAxis: []（空数组）→ 系列默认引用 index 0 → 找不到；
+ * - 数组里混入 null/字符串等无效项 → 过滤后为空；
+ * - 系列声明了 yAxisIndex: 1/2 但 yAxis 数组没这么多项。
+ */
+function ensureAxisCoverage(
+  merged: Record<string, unknown>,
+  key: "xAxis" | "yAxis",
+  defaults: Record<string, unknown>
+): void {
+  const value = merged[key];
+  if (!Array.isArray(value)) return; // 单对象：index 0 天然可用
+  const cleaned = value.filter(isRecord);
+  if (cleaned.length === 0) {
+    merged[key] = [mergeRecord(defaults, {})];
+    return;
+  }
+  const series = Array.isArray(merged.series) ? merged.series : [];
+  const indexKey = key === "yAxis" ? "yAxisIndex" : "xAxisIndex";
+  let maxIndex = -1;
+  for (const s of series) {
+    if (!isRecord(s)) continue;
+    const idx = s[indexKey];
+    if (typeof idx === "number" && idx > maxIndex) maxIndex = idx;
+  }
+  while (cleaned.length <= maxIndex) {
+    cleaned.push(mergeRecord(defaults, { gridIndex: cleaned.length }));
+  }
+  merged[key] = cleaned;
+}
+
+/**
+ * LLM 常把第二根轴写成独立的顶层键 `yAxis1` / `yAxis2`（或 `xAxis1`），
+ * ECharts 只认 yAxis/xAxis（对象或数组）。把 `yAxis1+` 并回 `yAxis` 数组
+ * （`xAxis1+` 同理），否则引用 yAxisIndex: 1 的系列会抛 "yAxis '1' not found"。
+ */
+function normalizeMultiAxes(
+  option: Record<string, unknown>
+): Record<string, unknown> {
+  const next = { ...option };
+  for (const base of ["xAxis", "yAxis"] as const) {
+    const items: unknown[] = [];
+    if (Array.isArray(next[base])) {
+      items.push(...(next[base] as unknown[]));
+    } else if (next[base] !== undefined) {
+      items.push(next[base]);
+    }
+    let i = 1;
+    while (next[`${base}${i}`] !== undefined) {
+      items.push(next[`${base}${i}`]);
+      delete next[`${base}${i}`];
+      i += 1;
+    }
+    if (items.length === 0) {
+      delete next[base];
+    } else if (items.length === 1) {
+      next[base] = items[0];
+    } else {
+      next[base] = items;
+    }
+  }
+  return next;
+}
+
 function decorateSeries(
   option: Record<string, unknown>,
   palette: ChartPalette
@@ -952,6 +1019,8 @@ export function buildChartOption(
   option: Record<string, unknown>,
   theme: ChartTheme
 ): EChartsOption {
+  // 先把 yAxis1/yAxis2/xAxis1… 顶层键并回标准轴数组，再走主题合并
+  option = normalizeMultiAxes(option);
   const palette = CHART_PALETTES[theme];
   const series = Array.isArray(option.series) ? option.series : [];
   const primaryType =
@@ -1056,6 +1125,14 @@ export function buildChartOption(
   decorateReadableText(merged, palette);
   const usesCartesianAxis =
     primaryType === "" || !NON_CARTESIAN_TYPES.has(primaryType);
+  // 混合图（首系列非笛卡尔如 pie，但后面还有 line/bar）时也要保留轴，
+  // 否则 line 系列引用 yAxis "0" 会抛 "yAxis '0' not found"。
+  const hasCartesianSeries = series.some(
+    (s) =>
+      isRecord(s) &&
+      typeof s.type === "string" &&
+      !NON_CARTESIAN_TYPES.has(s.type)
+  );
   if (usesCartesianAxis) {
     if (
       isRecord(merged.title) &&
@@ -1087,10 +1164,35 @@ export function buildChartOption(
       fixCandlestickAxes(merged, themeBase.yAxis as Record<string, unknown>);
       decorateCandlestick(merged, palette);
     }
+    // 兜底：空数组/全无效轴/系列轴索引越界 → 补齐，避免 ECharts 抛轴找不到
+    ensureAxisCoverage(
+      merged,
+      "xAxis",
+      themeBase.xAxis as Record<string, unknown>
+    );
+    ensureAxisCoverage(
+      merged,
+      "yAxis",
+      themeBase.yAxis as Record<string, unknown>
+    );
   } else {
-    if (option.xAxis === undefined) delete merged.xAxis;
-    if (option.yAxis === undefined) delete merged.yAxis;
-    if (option.grid === undefined) delete merged.grid;
+    if (!hasCartesianSeries) {
+      if (option.xAxis === undefined) delete merged.xAxis;
+      if (option.yAxis === undefined) delete merged.yAxis;
+      if (option.grid === undefined) delete merged.grid;
+    } else {
+      // 混合图：保留轴并补齐覆盖（不删，line/bar 系列需要）
+      ensureAxisCoverage(
+        merged,
+        "xAxis",
+        themeBase.xAxis as Record<string, unknown>
+      );
+      ensureAxisCoverage(
+        merged,
+        "yAxis",
+        themeBase.yAxis as Record<string, unknown>
+      );
+    }
   }
   if (isRecord(merged.tooltip) && merged.tooltip.trigger === undefined) {
     merged.tooltip = {

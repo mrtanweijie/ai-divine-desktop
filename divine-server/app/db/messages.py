@@ -7,6 +7,24 @@ from typing import Any
 
 from .connection import get_conn, _new_id, _now
 
+# 本地拒答转云端回答的"待标记"会话：本地拒答后挂标记，
+# 下一条落库的 assistant 消息自动带 source='local_fallback'（留痕）。
+_FALLBACK_PENDING: set[str] = set()
+
+def mark_fallback_pending(session_id: str) -> None:
+    """标记会话：下一次 assistant 消息落库时记 source='local_fallback'。"""
+    _FALLBACK_PENDING.add(session_id)
+
+def clear_fallback_pending(session_id: str) -> None:
+    """清除标记（云端若没产出 assistant 消息，避免泄漏到下一轮）。"""
+    _FALLBACK_PENDING.discard(session_id)
+
+def _consume_fallback_source(session_id: str) -> str:
+    if session_id in _FALLBACK_PENDING:
+        _FALLBACK_PENDING.discard(session_id)
+        return "local_fallback"
+    return "normal"
+
 def clear_messages(session_id: str) -> None:
     with get_conn() as conn:
         conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
@@ -19,14 +37,26 @@ def clear_messages(session_id: str) -> None:
         conn.commit()
 
 def add_message(
-    session_id: str, role: str, content: str, created_at: str | None = None
+    session_id: str,
+    role: str,
+    content: str,
+    created_at: str | None = None,
+    source: str | None = None,
 ) -> dict[str, Any]:
     message_id = _new_id()
     now = created_at or _now()
+    if source is None:
+        # 本地拒答转云端留痕：待标记会话的首条 assistant 消息记 local_fallback
+        source = (
+            _consume_fallback_source(session_id)
+            if role == "assistant"
+            else "normal"
+        )
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
-            (message_id, session_id, role, content, now),
+            "INSERT INTO messages (id, session_id, role, content, source, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (message_id, session_id, role, content, source, now),
         )
         conn.execute(
             "UPDATE sessions SET updated_at = ? WHERE id = ?", (now, session_id)

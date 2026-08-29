@@ -40,12 +40,19 @@ def conn_summary(session_id: str) -> dict[str, Any] | None:
         ).fetchone()
     return dict(row) if row else None
 
-def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
+def history_for_model(
+    session_id: str,
+    limit: int = 20,
+    until_message_id: str | None = None,
+) -> list[dict[str, Any]]:
     """Model-facing history; file attachments are rehydrated into user turns.
 
     When a session summary exists (context compaction), it is prepended as a
     synthetic system message so the model keeps early context without paying
     full token cost for every old message.
+
+    ``until_message_id`` 指定时只取到该消息为止（含）——【重答云端】用：
+    在目标用户问题处截断，丢弃其后（本地回答）的消息。
     """
     with get_conn() as conn:
         rows = conn.execute(
@@ -53,7 +60,13 @@ def history_for_model(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
             "ORDER BY created_at ASC, rowid ASC",
             (session_id,),
         ).fetchall()
-        messages = [dict(row) for row in rows][-limit:]
+        messages = [dict(row) for row in rows]
+        if until_message_id:
+            for index, message in enumerate(messages):
+                if message["id"] == until_message_id:
+                    messages = messages[: index + 1]
+                    break
+        messages = messages[-limit:]
         parts_by_message: dict[str, list[dict[str, Any]]] = defaultdict(list)
         if messages:
             ids = [message["id"] for message in messages]

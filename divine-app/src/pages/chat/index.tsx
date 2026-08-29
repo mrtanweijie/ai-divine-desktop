@@ -868,7 +868,7 @@ export default function ChatPage() {
     }
   }, []);
 
-  const { sendMessage, stopStreaming } = useChatStream({
+  const { sendMessage, stopStreaming, retryCloud } = useChatStream({
     selectedId,
     selectedProjectId,
     projects,
@@ -897,6 +897,14 @@ export default function ChatPage() {
     setSessionStreaming(selectedId, false);
     stopStreaming(selectedId);
   }, [selectedId, setSessionStreaming, stopStreaming]);
+
+  // 本地模型回答的【重答】：用云端重答同一条问题（复用当前思考档位）。
+  const handleRetryCloud = useCallback(
+    (messageId: string) => {
+      void retryCloud(messageId, composerEffort);
+    },
+    [composerEffort, retryCloud]
+  );
 
   // 供消息渲染层的可点击组件（如风格选择卡片）发送消息。
   const chatStreamValue = useMemo(
@@ -1235,6 +1243,7 @@ export default function ChatPage() {
                 username={settings?.username || t("common.user", "用户")}
                 workspacePath={currentProject?.path ?? null}
                 onPreviewFile={handlePreviewFile}
+                onRetryCloud={handleRetryCloud}
                 hasMoreOlder={hasMoreOlder}
                 loadingOlder={loadingOlder}
                 onLoadOlder={loadOlderMessages}

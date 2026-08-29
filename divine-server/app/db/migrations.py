@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS messages (
     role TEXT NOT NULL,
     content TEXT NOT NULL DEFAULT '',
     choice_state TEXT NOT NULL DEFAULT '{}',
+    source TEXT NOT NULL DEFAULT 'normal',
     created_at TEXT NOT NULL
 );
 
@@ -228,6 +229,11 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE messages ADD COLUMN choice_state TEXT "
                 "NOT NULL DEFAULT '{}'"
+            )
+        if "source" not in message_columns:
+            conn.execute(
+                "ALTER TABLE messages ADD COLUMN source TEXT "
+                "NOT NULL DEFAULT 'normal'"
             )
         project_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(projects)")
