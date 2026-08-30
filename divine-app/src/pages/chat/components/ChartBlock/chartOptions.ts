@@ -652,6 +652,9 @@ function decorateSeries(
       }
     } else if (type === "line") {
       next.smooth = next.smooth ?? true;
+      // LLM 常用 null 占位缺失数据，ECharts 默认遇 null 断线——默认跨空值
+      // 连线，LLM 显式设 connectNulls: false 时尊重其选择。
+      next.connectNulls = next.connectNulls ?? true;
       next.symbol = next.symbol ?? "circle";
       next.symbolSize = next.symbolSize ?? 5;
       next.lineStyle = withDefaults(next.lineStyle, { width: 1.5 });
