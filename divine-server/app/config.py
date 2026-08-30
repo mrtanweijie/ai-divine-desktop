@@ -254,6 +254,13 @@ class SettingsStore:
         self.path = data_root() / "settings.json"
         self._cache: dict[str, Any] | None = None
         self._mtime_ns: int | None = None
+        # 设置文件含 API Key：确保历史遗留文件也收紧为仅本人可读写
+        # （Windows 无 POSIX 权限语义，跳过）。
+        if os.name != "nt":
+            try:
+                self.path.chmod(0o600)
+            except OSError:
+                pass
 
     def load(self) -> dict[str, Any]:
         try:
@@ -325,6 +332,13 @@ class SettingsStore:
             json.dumps(values, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        # 写入后保持 0600：write_text 不会重置已存在文件的权限，
+        # 但若文件被重建（删除后新建）会按 umask 回落，这里强制固定。
+        if os.name != "nt":
+            try:
+                self.path.chmod(0o600)
+            except OSError:
+                pass
         self._cache = copy.deepcopy(values)
         try:
             self._mtime_ns = self.path.stat().st_mtime_ns

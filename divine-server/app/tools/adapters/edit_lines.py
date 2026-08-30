@@ -5,7 +5,12 @@ import difflib
 from pathlib import Path
 from typing import Any
 
-from ..base import ToolAdapter, ToolExecutionError, ToolResult
+from ..base import (
+    ToolAdapter,
+    ToolExecutionError,
+    ToolResult,
+    resolve_external_path,
+)
 from ..registry import register_tool
 from ..text_file_io import read_normalized, write_restored
 
@@ -142,6 +147,15 @@ def apply_line_edits(
 class EditLinesAdapter(ToolAdapter):
     category = "files"
     timeout = 30
+    # 与 write_file/edit_files 对齐：绝对路径可能落在工作区外，
+    # 必须声明并通过 external_paths() 上报，让执行层走用户确认。
+    allow_external_paths = True
+
+    def external_paths(
+        self, workspace: Path, arguments: dict[str, Any]
+    ) -> list[str]:
+        external = resolve_external_path(workspace, arguments.get("path"))
+        return [external] if external else []
 
     async def run(
         self,
