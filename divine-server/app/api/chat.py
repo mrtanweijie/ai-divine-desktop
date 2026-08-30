@@ -570,10 +570,13 @@ async def stream_chat(request: StreamChatRequest):
                     },
                 )
 
+            from ..agent.core.constants import OPTIONS_CARD_HINT
+
             async for event in run_agent(
                 session_id,
                 model_history,
                 request.think,
+                output_hint=OPTIONS_CARD_HINT,
                 workspace=workspace,
                 approval_mode=approval_mode,
                 locale=locale,
@@ -1356,14 +1359,20 @@ def _expand_choice_selection(
         labels = _extract_choice_labels(str(msg.get("content") or ""))
         if not labels:
             continue
+        # 回传消息现为「【标题】label（副标题）」格式 → 用包含匹配
+        # （最长 label 优先，防短 label 误吞），并保留消息原文让标题/副标题进入上下文
         matched = next(
-            (label for label in labels if q == label or q.startswith(label)),
+            (
+                label
+                for label in sorted(labels, key=len, reverse=True)
+                if label and label in q
+            ),
             None,
         )
         if matched:
             return (
                 f"（用户从上一问的选项卡片中选择了「{matched}」，"
-                f"请按该选项执行，不要解释选项本身）"
+                f"请按该选项执行，不要解释选项本身）用户消息原文：{q}"
             )
         break  # 最近一条带选项的消息未匹配 → 不再往前找
     return None

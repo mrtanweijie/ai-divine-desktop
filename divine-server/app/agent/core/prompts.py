@@ -361,6 +361,11 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
         if ctx.tool_mode == "react":
             parts.append(REACT_FORMAT_PROMPT)
 
+        # 尾部固定提醒：后续询问必须用 options 卡片（含暂时不用，other=false）
+        from ..core.prompt_sections import _FOLLOWUP_CARD_TAIL
+
+        parts.append(_FOLLOWUP_CARD_TAIL)
+
         # 回合预算软着陆：接近 ModelCallLimit/ToolCallLimit 上限时提醒模型
         # 收尾汇报，而不是被上限静默截断（P3-3c）。
         ai_count = 0

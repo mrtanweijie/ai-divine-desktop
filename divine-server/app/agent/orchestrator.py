@@ -245,6 +245,7 @@ async def run_agent(
     model_id: str | None = None,
     approved_paths: list[str] | None = None,
     tool_mode: str | None = None,
+    output_hint: str | None = None,
 ) -> AsyncIterator[str]:
     """Stream one agent turn as SSE strings, handling interrupts and persistence."""
     workspace_path = workspace if isinstance(workspace, Path) else Path(workspace)
@@ -502,6 +503,16 @@ async def run_agent(
         has_thread,
         resolved_tool_mode,
     )
+
+    # options 卡片遵循提示：拼在本次模型输入末尾（意图分类之后，不落库）
+    if output_hint and input_messages and input_messages[-1].type == "human":
+        from langchain_core.messages import HumanMessage as _HintHuman
+
+        last = input_messages[-1]
+        input_messages[-1] = _HintHuman(
+            content=_content_text(last.content) + "\n" + output_hint,
+            id=last.id,
+        )
 
     graph_input: Any = {"messages": input_messages}
     final_state: dict[str, Any] | None = None

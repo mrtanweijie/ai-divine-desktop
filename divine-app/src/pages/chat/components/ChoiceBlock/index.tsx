@@ -50,11 +50,21 @@ export function parseOptionsBlock(code: string): ChoiceBlockData | null {
         desc: item.desc ? String(item.desc) : undefined,
       }));
     if (options.length === 0) return null;
+    // 含「暂时不用」选项 = 后续询问卡片（下一步做什么/是否生成产物）：
+    // 纯点选，禁用自定义输入框（模型即使写了 other:true 也强制关闭）；
+    // 副标题兜底：模型漏写 desc 时统一补「后续有需求再继续任务」
+    const declineDesc = "后续有需求再继续任务";
+    const optionsFilled = options.map((item) =>
+      item.label === "暂时不用"
+        ? { ...item, desc: item.desc || declineDesc }
+        : item
+    );
+    const hasDecline = optionsFilled.some((item) => item.label === "暂时不用");
     return {
       title: data.title ? String(data.title) : undefined,
-      options,
-      other: Boolean(data.other),
-      multiple: Boolean(data.multiple),
+      options: optionsFilled,
+      other: hasDecline ? false : Boolean(data.other),
+      multiple: hasDecline ? false : Boolean(data.multiple),
     };
   } catch {
     return null;
@@ -229,7 +239,17 @@ export function ChoiceBlock({
     }
   };
 
-  // 单选：点击即发送选项 label
+  // 组装回传消息：携带卡片标题与选项副标题，Agent 可结合上下文理解选择
+  const composeMsg = (opt: ChoiceOption) => {
+    const head = data.title ? `【${data.title}】` : "";
+    if (opt.color_scheme) {
+      // 主题色卡片：保留「label（color_scheme）」机读格式让 Agent 明确传配色
+      return `${head}${opt.label}（${opt.color_scheme}）`;
+    }
+    return opt.desc ? `${head}${opt.label}（${opt.desc}）` : `${head}${opt.label}`;
+  };
+
+  // 单选：点击即发送选项
   const pick = (opt: ChoiceOption) => {
     if (finished) return;
     setSelected(opt.label);
@@ -238,11 +258,7 @@ export function ChoiceBlock({
       sentCustom: false,
       color_scheme: opt.color_scheme ?? null,
     });
-    // 带 color_scheme 的选项（主题色卡片）：发送「label（color_scheme）」让 Agent 明确传配色
-    const msg = opt.color_scheme
-      ? `${opt.label}（${opt.color_scheme}）`
-      : opt.label;
-    sendMessage(msg, [], effort);
+    sendMessage(composeMsg(opt), [], effort);
   };
 
   // 多选：点击切换选中；确认后发送逗号分隔的 label 列表
@@ -257,7 +273,8 @@ export function ChoiceBlock({
 
   const confirmMulti = () => {
     if (finished || selectedMulti.length === 0) return;
-    const msg = selectedMulti.join("、");
+    const head = data.title ? `【${data.title}】` : "";
+    const msg = `${head}${selectedMulti.join("、")}`;
     setMultiConfirmed(true);
     persistChoice({
       selected: msg,
@@ -280,7 +297,8 @@ export function ChoiceBlock({
     }
     setSentCustom(true);
     persistChoice({ selected: null, sentCustom: true, color_scheme: null });
-    sendMessage(text, [], effort);
+    const head = data.title ? `【${data.title}】` : "";
+    sendMessage(`${head}${text}`, [], effort);
   };
 
   return (
