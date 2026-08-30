@@ -541,9 +541,9 @@ export default function ChatPage() {
   // 应用内快捷键统一走 config/keymap.ts + useShortcuts（单一监听器，
   // 修饰键按平台归一化：macOS ⌘ / 其他平台 Ctrl），不再散落硬编码。
   useShortcutAction("session.new", () => void handleNewSession());
-  useShortcutAction("session.search", () => {
-    document.getElementById("session-search")?.focus();
-  });
+  // 打开会话搜索弹窗（弹窗输入框自带 autoFocus）；旧实现 focus 的
+  // #session-search 元素在 DOM 中不存在，快捷键一直处于落空状态
+  useShortcutAction("session.search", () => setSearchOpen(true));
   useShortcutAction("composer.focus", () => composerRef.current?.focus());
   useShortcutAction("composer.toggleThinking", () => {
     if (!settings) return;
