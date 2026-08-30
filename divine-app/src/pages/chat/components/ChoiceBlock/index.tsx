@@ -239,14 +239,13 @@ export function ChoiceBlock({
     }
   };
 
-  // 组装回传消息：携带卡片标题与选项副标题，Agent 可结合上下文理解选择
+  // 组装回传消息：选项 label + 副标题（不带卡片标题文案）
   const composeMsg = (opt: ChoiceOption) => {
-    const head = data.title ? `【${data.title}】` : "";
     if (opt.color_scheme) {
       // 主题色卡片：保留「label（color_scheme）」机读格式让 Agent 明确传配色
-      return `${head}${opt.label}（${opt.color_scheme}）`;
+      return `${opt.label}（${opt.color_scheme}）`;
     }
-    return opt.desc ? `${head}${opt.label}（${opt.desc}）` : `${head}${opt.label}`;
+    return opt.desc ? `${opt.label}（${opt.desc}）` : opt.label;
   };
 
   // 单选：点击即发送选项
@@ -273,8 +272,7 @@ export function ChoiceBlock({
 
   const confirmMulti = () => {
     if (finished || selectedMulti.length === 0) return;
-    const head = data.title ? `【${data.title}】` : "";
-    const msg = `${head}${selectedMulti.join("、")}`;
+    const msg = selectedMulti.join("、");
     setMultiConfirmed(true);
     persistChoice({
       selected: msg,
@@ -297,8 +295,7 @@ export function ChoiceBlock({
     }
     setSentCustom(true);
     persistChoice({ selected: null, sentCustom: true, color_scheme: null });
-    const head = data.title ? `【${data.title}】` : "";
-    sendMessage(`${head}${text}`, [], effort);
+    sendMessage(text, [], effort);
   };
 
   return (
