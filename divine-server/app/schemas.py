@@ -130,6 +130,8 @@ class SettingsUpdate(BaseModel):
     local_llm_model: str | None = None
     local_llm_ctx_size: int | None = Field(default=None, ge=256, le=131072)
     local_llm_threshold: float | None = Field(default=None, ge=0, le=1)
+    # 桌面全局快捷键（唤起/隐藏主窗口）开关
+    global_shortcut_enabled: bool | None = None
 
 
 class ScheduledTaskCreate(BaseModel):

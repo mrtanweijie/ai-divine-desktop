@@ -89,7 +89,7 @@ export function SessionSearchModal({
         autoFocus
         value={query}
         onChange={(event) => handleChange(event.target.value)}
-        placeholder={t("session.searchPlaceholder", "搜索标题或内容…")}
+        placeholder={t("session.searchPlaceholder", "搜索标题或内容，支持拼音…")}
         aria-label={t("common.searchSessions", "搜索会话")}
       />
       <div className="session-search-results">

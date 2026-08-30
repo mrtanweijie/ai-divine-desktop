@@ -31,6 +31,10 @@ def _public(settings: dict) -> dict:
         "think_default": bool(settings.get("think_default", False)),
         "reasoning_effort": settings.get("reasoning_effort", "high"),
         "context_limit": int(settings.get("context_limit", 20)),
+        # 桌面全局快捷键
+        "global_shortcut_enabled": bool(
+            settings.get("global_shortcut_enabled", True)
+        ),
         # 本地模型配置（意图识别模式等）
         "local_llm_enabled": bool(settings.get("local_llm_enabled", False)),
         "local_llm_mode": settings.get("local_llm_mode", "keyword"),

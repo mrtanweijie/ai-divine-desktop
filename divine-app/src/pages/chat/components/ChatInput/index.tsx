@@ -18,6 +18,7 @@ import {
 } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
+import { isComposingEvent } from "@/config/keymap";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
@@ -310,6 +311,8 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
             }}
             onPaste={(event) => void handlePaste(event)}
             onKeyDown={(event) => {
+              // 输入法合成态（中文选词确认的回车）不发送，避免误发消息
+              if (isComposingEvent(event.nativeEvent)) return;
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
                 send();

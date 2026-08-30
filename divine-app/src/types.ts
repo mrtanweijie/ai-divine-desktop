@@ -293,6 +293,8 @@ export interface Settings {
   think_default: boolean;
   reasoning_effort: string;
   context_limit: number;
+  // 桌面全局快捷键（唤起/隐藏主窗口）
+  global_shortcut_enabled: boolean;
   tools: ToolDefinition[];
   models: ModelConfig[];
   // 本地模型配置

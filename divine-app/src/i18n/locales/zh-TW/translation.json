@@ -215,7 +215,7 @@
     "projectTokenTotal": "累計 {{value}} tokens",
     "rename": "重命名",
     "scheduled": "已安排",
-    "searchPlaceholder": "搜尋標題或內容…",
+    "searchPlaceholder": "搜尋標題或內容，支援拼音…",
     "sessionCount": "{{count}} 個對話",
     "sessionCount_other": "{{count}} 個對話",
     "settings": "設定",
@@ -644,5 +644,17 @@
     "descQwen25_3b": "中等模型，適合程式碼輔助和複雜對話",
     "descPhi3Mini4k": "微軟小模型，4K上下文，適合快速推理",
     "descGemma2_2b": "Google 輕量模型，適合多語言任務"
+  },
+  "shortcuts": {
+    "collapse": "收起",
+    "count": "{{total}} 項",
+    "expand": "展開",
+    "focusComposer": "聚焦輸入框",
+    "globalHint": "全域快捷鍵可在任意應用中喚起或隱藏 Divine 主視窗。",
+    "newSession": "新建會話",
+    "searchSessions": "搜尋會話",
+    "title": "快捷鍵",
+    "toggleThinking": "切換深度思考",
+    "toggleWindow": "全域喚起/隱藏視窗"
   }
 }

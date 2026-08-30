@@ -217,7 +217,7 @@
     "projectTokenTotal": "Total {{value}} tokens",
     "rename": "Rename",
     "scheduled": "Scheduled",
-    "searchPlaceholder": "Search title or content...",
+    "searchPlaceholder": "Search titles or content, pinyin supported…",
     "sessionCount_one": "{{count}} conversation",
     "sessionCount_other": "{{count}} conversations",
     "settings": "Settings",
@@ -662,5 +662,17 @@
     "descQwen25_3b": "Mid-size model for coding assistance and complex chat",
     "descPhi3Mini4k": "Microsoft's small model, 4K context, fast inference",
     "descGemma2_2b": "Google's lightweight model for multilingual tasks"
+  },
+  "shortcuts": {
+    "collapse": "Collapse",
+    "count": "{{total}} items",
+    "expand": "Expand",
+    "focusComposer": "Focus composer",
+    "globalHint": "The global shortcut summons or hides the Divine main window from any app.",
+    "newSession": "New session",
+    "searchSessions": "Search sessions",
+    "title": "Shortcuts",
+    "toggleThinking": "Toggle deep thinking",
+    "toggleWindow": "Summon/hide window (global)"
   }
 }

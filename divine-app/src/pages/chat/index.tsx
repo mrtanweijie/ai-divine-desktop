@@ -46,6 +46,7 @@ import { useConfigState } from "@/pages/chat/state/configStore";
 import { useFullscreen } from "@/pages/chat/state/fullscreenStore";
 import { useInputState } from "@/pages/chat/state/inputStore";
 import { useMessageState } from "@/pages/chat/state/messageStore";
+import { useShortcutAction } from "@/hooks/useShortcuts";
 import {
   readLastSessionSelection,
   useSessionState,
@@ -437,6 +438,7 @@ export default function ChatPage() {
           think_default: false,
           reasoning_effort: "high",
           context_limit: 30,
+          global_shortcut_enabled: true,
           tools: [],
           models: [
             {
@@ -536,40 +538,27 @@ export default function ChatPage() {
     }
   }, [selectedId]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key.toLowerCase() === "n") {
-        event.preventDefault();
-        void handleNewSession();
-      }
-      if (event.ctrlKey && event.key.toLowerCase() === "f") {
-        event.preventDefault();
-        document.getElementById("session-search")?.focus();
-      }
-      if (event.ctrlKey && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        composerRef.current?.focus();
-      }
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "t") {
-        event.preventDefault();
-        if (settings) {
-          const defaultEffort = settings.think_default
-            ? settings.reasoning_effort ?? "high"
-            : "off";
-          const next =
-            composerEffort === "off"
-              ? defaultEffort === "off"
-                ? "high"
-                : defaultEffort
-              : "off";
-          setComposerEffort(next);
-          setSessionEffort(selectedId, next);
-          setSettings({ ...settings, think_default: next !== "off" });
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+  // 应用内快捷键统一走 config/keymap.ts + useShortcuts（单一监听器，
+  // 修饰键按平台归一化：macOS ⌘ / 其他平台 Ctrl），不再散落硬编码。
+  useShortcutAction("session.new", () => void handleNewSession());
+  useShortcutAction("session.search", () => {
+    document.getElementById("session-search")?.focus();
+  });
+  useShortcutAction("composer.focus", () => composerRef.current?.focus());
+  useShortcutAction("composer.toggleThinking", () => {
+    if (!settings) return;
+    const defaultEffort = settings.think_default
+      ? settings.reasoning_effort ?? "high"
+      : "off";
+    const next =
+      composerEffort === "off"
+        ? defaultEffort === "off"
+          ? "high"
+          : defaultEffort
+        : "off";
+    setComposerEffort(next);
+    setSessionEffort(selectedId, next);
+    setSettings({ ...settings, think_default: next !== "off" });
   });
 
   const closeSidebarForNarrow = useCallback(() => {

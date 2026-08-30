@@ -163,3 +163,13 @@ removed;"#
     let removed = run_osascript(&script)?;
     Ok(removed)
 }
+
+/// 启用/停用全局唤起快捷键（CmdOrCtrl+Shift+D）。设置页开关调用；
+/// 默认在启动时由 lib.rs 注册，用户关闭后经此命令注销。
+#[tauri::command]
+pub fn set_global_shortcut_enabled(
+    app: tauri::AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    crate::set_global_shortcut_enabled(&app, enabled)
+}

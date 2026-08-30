@@ -293,6 +293,8 @@ class SettingsStore:
                 "DEEPSEEK_REASONING_EFFORT", "high"
             ),
             "context_limit": 30,
+            # 桌面全局快捷键（唤起/隐藏主窗口）
+            "global_shortcut_enabled": True,
             # 本地模型配置
             "local_llm_enabled": False,
             "local_llm_mode": "keyword",  # "keyword" | "local" | "hybrid"

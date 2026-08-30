@@ -211,7 +211,7 @@
     "projectTokenTotal": "累计 {{value}} tokens",
     "rename": "重命名",
     "scheduled": "已安排",
-    "searchPlaceholder": "搜索标题或内容…",
+    "searchPlaceholder": "搜索标题或内容，支持拼音…",
     "sessionCount": "{{count}} 个对话",
     "settings": "设置",
     "skills": "技能",
@@ -621,5 +621,17 @@
     "descQwen25_3b": "中等模型，适合代码辅助和复杂对话",
     "descPhi3Mini4k": "微软小模型，4K上下文，适合快速推理",
     "descGemma2_2b": "Google 轻量模型，适合多语言任务"
+  },
+  "shortcuts": {
+    "collapse": "收起",
+    "count": "{{total}} 项",
+    "expand": "展开",
+    "focusComposer": "聚焦输入框",
+    "globalHint": "全局快捷键在任意应用中唤起或隐藏 Divine 主窗口。",
+    "newSession": "新建会话",
+    "searchSessions": "搜索会话",
+    "title": "快捷键",
+    "toggleThinking": "切换深度思考",
+    "toggleWindow": "全局唤起/隐藏窗口"
   }
 }

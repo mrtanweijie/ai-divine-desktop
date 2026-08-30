@@ -14,7 +14,11 @@ import {
 } from "@/i18n";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { getAppVersion } from "@/services/tauri";
+import {
+  getAppVersion,
+  isTauri,
+  setGlobalShortcutEnabled,
+} from "@/services/tauri";
 import { setSettingsOpen } from "@/services/updater";
 import {
   useThemePreference,
@@ -91,6 +95,9 @@ export function SettingsModal({
   const [localLLMMode, setLocalLLMMode] = useState<"keyword" | "local" | "hybrid">(
     settings.local_llm_mode ?? "keyword"
   );
+  const [globalShortcutEnabled, setGlobalShortcutEnabledState] = useState(
+    settings.global_shortcut_enabled !== false
+  );
 
   useEffect(() => {
     setSettingsOpen(true);
@@ -108,6 +115,7 @@ export function SettingsModal({
     setContextLimit(settings.context_limit);
     setLocalLLMEnabled(settings.local_llm_enabled ?? false);
     setLocalLLMMode(settings.local_llm_mode ?? "keyword");
+    setGlobalShortcutEnabledState(settings.global_shortcut_enabled !== false);
   }, [settings]);
 
   useEffect(() => {
@@ -156,6 +164,18 @@ export function SettingsModal({
       void onSave({
         local_llm_enabled: localLLMEnabled,
         local_llm_mode: localLLMMode,
+      });
+    }
+  };
+
+  // 全局快捷键开关：立即持久化并即时注册/注销（不经过"保存"按钮）
+  const handleGlobalShortcutChange = (value: boolean) => {
+    setGlobalShortcutEnabledState(value);
+    void (onSilentSave ?? onSave)({ global_shortcut_enabled: value });
+    if (isTauri()) {
+      void setGlobalShortcutEnabled(value).catch(() => {
+        // 注册失败（如被其他应用占用）：回滚 UI，下次打开设置同步真实状态
+        setGlobalShortcutEnabledState(!value);
       });
     }
   };
@@ -272,6 +292,8 @@ export function SettingsModal({
               onContextLimitChange={setContextLimit}
               effort={effort}
               onEffortChange={setEffort}
+              globalShortcutEnabled={globalShortcutEnabled}
+              onGlobalShortcutChange={handleGlobalShortcutChange}
             />
           ) : section === "model" ? (
             <ModelSection

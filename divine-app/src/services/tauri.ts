@@ -27,6 +27,10 @@ export async function openUrl(url: string): Promise<void> {
   await invoke("open_url", { url });
 }
 
+export async function setGlobalShortcutEnabled(enabled: boolean): Promise<void> {
+  await invoke("set_global_shortcut_enabled", { enabled });
+}
+
 export async function getAppVersion(): Promise<string> {
   if (!isTauri()) return "";
   try {

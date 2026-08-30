@@ -14,6 +14,52 @@ fn show_main_window(app: &tauri::AppHandle) {
     }
 }
 
+/// 全局快捷键动作：唤起/隐藏主窗口（键位见前端 config/keymap.ts）。
+/// 可见但未聚焦（如点了其他应用）时也唤起聚焦，而不是隐藏。
+fn toggle_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let visible = window.is_visible().unwrap_or(false);
+        let focused = window.is_focused().unwrap_or(false);
+        if visible && focused {
+            let _ = window.hide();
+        } else {
+            show_main_window(app);
+        }
+    }
+}
+
+/// setup 阶段注册全局快捷键（系统级，webview 未就绪也生效）。
+/// 键位与前端 config/keymap.ts 的 GLOBAL_TOGGLE_SHORTCUT 保持一致。
+pub fn register_global_shortcut(app: &tauri::App) {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+    const TOGGLE_SHORTCUT: &str = "CmdOrCtrl+Shift+D";
+    app.global_shortcut()
+        .register(TOGGLE_SHORTCUT)
+        .unwrap_or_else(|err| {
+            eprintln!("[global-shortcut] 注册失败: {err}");
+        });
+}
+
+/// 设置页开关：启用/停用全局唤起快捷键（默认启用）。
+pub fn set_global_shortcut_enabled(
+    app: &tauri::AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+    const TOGGLE_SHORTCUT: &str = "CmdOrCtrl+Shift+D";
+    if enabled {
+        app.global_shortcut()
+            .register(TOGGLE_SHORTCUT)
+            .map_err(|err| err.to_string())
+    } else {
+        app.global_shortcut()
+            .unregister(TOGGLE_SHORTCUT)
+            .map_err(|err| err.to_string())
+    }
+}
+
 // macOS 原生全屏通知监听：
 // 监听 NSWindowWillEnterFullScreenNotification / NSWindowWillExitFullScreenNotification。
 // 注意必须用 Will（动画【开始前】触发）而不是 Did（动画结束后才触发）——
@@ -131,7 +177,17 @@ pub fn run() {
         .manage(WorkspaceWatchState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build());
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    use tauri_plugin_global_shortcut::ShortcutState;
+                    if event.state() == ShortcutState::Pressed {
+                        toggle_main_window(app);
+                    }
+                })
+                .build(),
+        );
     #[cfg(not(target_os = "macos"))]
     let builder = builder.plugin(tauri_plugin_notification::init());
     let app = builder
@@ -146,6 +202,7 @@ pub fn run() {
             if let Err(err) = services::sidecar::spawn_and_monitor(app.handle().clone()) {
                 eprintln!("[ai-divine-sidecar] 启动失败: {err}");
             }
+            register_global_shortcut(app);
             #[cfg(target_os = "macos")]
             {
                 use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
@@ -182,6 +239,7 @@ pub fn run() {
             commands::system::show_native_notification,
             commands::system::add_calendar_event,
             commands::system::remove_calendar_event,
+            commands::system::set_global_shortcut_enabled,
             commands::workspace::get_file_tree,
             commands::workspace::get_dir_children,
             commands::workspace::get_file_diff,

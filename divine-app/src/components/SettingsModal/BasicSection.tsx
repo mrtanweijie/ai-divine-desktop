@@ -1,7 +1,15 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronDown, Keyboard } from "lucide-react";
 import type { AppLocale } from "@/i18n";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Switch } from "@/components/ui/Switch";
+import {
+  DEFAULT_KEYMAP,
+  formatShortcut,
+  isMacPlatform,
+} from "@/config/keymap";
 import type { ThemePreference } from "@/services/theme";
 import { UpdaterSection } from "./UpdaterSection";
 
@@ -16,6 +24,8 @@ interface SettingsBasicSectionProps {
   onContextLimitChange: (value: number) => void;
   effort: string;
   onEffortChange: (value: string) => void;
+  globalShortcutEnabled: boolean;
+  onGlobalShortcutChange: (value: boolean) => void;
 }
 
 export function BasicSection({
@@ -29,8 +39,16 @@ export function BasicSection({
   onContextLimitChange,
   effort,
   onEffortChange,
+  globalShortcutEnabled,
+  onGlobalShortcutChange,
 }: SettingsBasicSectionProps) {
   const { t } = useTranslation();
+  const isMac = isMacPlatform();
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const appShortcuts = DEFAULT_KEYMAP.filter((def) => def.layer === "app");
+  const globalShortcuts = DEFAULT_KEYMAP.filter(
+    (def) => def.layer === "global"
+  );
 
   return (
     <div className="settings-form">
@@ -93,6 +111,82 @@ export function BasicSection({
           { value: "max", label: t("settings.effortMax", "最高") },
         ]}
       />
+      <div
+        className={`settings-shortcut-card${
+          shortcutsOpen ? " settings-shortcut-card--open" : ""
+        }`}
+      >
+        <div
+          className="settings-shortcut-summary"
+          role="button"
+          tabIndex={0}
+          aria-expanded={shortcutsOpen}
+          onClick={() => setShortcutsOpen((value) => !value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            setShortcutsOpen((value) => !value);
+          }}
+          title={
+            shortcutsOpen
+              ? t("shortcuts.collapse", "收起")
+              : t("shortcuts.expand", "展开")
+          }
+        >
+          <Keyboard size={14} className="settings-shortcut-icon" />
+          <span className="settings-shortcut-title">
+            {t("shortcuts.title", "快捷键")}
+          </span>
+          <span className="settings-shortcut-count">
+            {t("shortcuts.count", "{{total}} 项", {
+              total: DEFAULT_KEYMAP.length,
+            })}
+          </span>
+          <ChevronDown
+            size={14}
+            className={`settings-shortcut-chevron${
+              shortcutsOpen ? " open" : ""
+            }`}
+          />
+        </div>
+        {shortcutsOpen && (
+          <div className="settings-shortcut-list">
+            {appShortcuts.map((def) => (
+              <div key={def.id} className="settings-shortcut-row">
+                <span className="settings-shortcut-label">
+                  {t(def.labelKey, "")}
+                </span>
+                <kbd className="settings-shortcut-keys">
+                  {formatShortcut(def, isMac)}
+                </kbd>
+              </div>
+            ))}
+            <div className="settings-shortcut-divider" />
+            {globalShortcuts.map((def) => (
+              <div key={def.id} className="settings-shortcut-row">
+                <span className="settings-shortcut-label">
+                  {t(def.labelKey, "")}
+                </span>
+                <span className="settings-shortcut-actions">
+                  <Switch
+                    checked={globalShortcutEnabled}
+                    onChange={onGlobalShortcutChange}
+                  />
+                  <kbd className="settings-shortcut-keys">
+                    {formatShortcut(def, isMac)}
+                  </kbd>
+                </span>
+              </div>
+            ))}
+            <p className="settings-shortcut-hint">
+              {t(
+                "shortcuts.globalHint",
+                "全局快捷键在任意应用中唤起或隐藏 Divine 主窗口。"
+              )}
+            </p>
+          </div>
+        )}
+      </div>
       <UpdaterSection />
     </div>
   );
