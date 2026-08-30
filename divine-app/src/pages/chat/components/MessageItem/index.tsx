@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowLeftRight,
@@ -35,7 +35,15 @@ interface MessageItemProps {
   onRetryCloud?: (messageId: string) => void;
 }
 
-export function MessageItem({
+/**
+ * 单条消息渲染。React.memo：流式 chunk 更新时只有正在流式的那条消息
+ * 的 content 变化（useChatStream 按 id 局部更新），其余历史消息的
+ * message 引用不变 → 浅比较跳过整条重渲染（含 MarkdownView 解析、
+ * ToolStatusCard、SubAgentPanel 等子树）。
+ * 调用方需保证 props 中函数引用稳定（MessageList 已对 onUserInteract
+ * 做 useCallback；onPreviewFile/onRetryCloud 来自 index.tsx 的 useCallback）。
+ */
+export const MessageItem = memo(function MessageItem({
   message,
   streaming,
   sessionId,
@@ -251,7 +259,7 @@ export function MessageItem({
       )}
     </article>
   );
-}
+});
 
 function MessageCopyButton({ text }: { text: string }) {
   const { t } = useTranslation();

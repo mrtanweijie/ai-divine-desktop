@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check, Copy, FolderOpen } from "lucide-react";
@@ -92,13 +92,31 @@ interface MarkdownViewProps {
   choiceState?: Record<string, unknown> | null;
 }
 
-export function MarkdownView({
+/**
+ * Markdown 渲染组件。
+ *
+ * 用 React.memo 阻断未变化消息的重渲染：流式更新时只有正在流式的
+ * 那条消息 content 变化，其余历史消息的 content/messageId/choiceState
+ * 引用都不变，浅比较即可跳过整棵 Markdown 解析树（react-markdown 的
+ * markdown 解析 + linkifyFilePaths 全量正则 + 渲染器重建都是重活）。
+ */
+export const MarkdownView = memo(function MarkdownView({
   content,
   streaming,
   messageId,
   choiceState,
 }: MarkdownViewProps) {
   const { t } = useTranslation();
+  // buildComponents 每次渲染新建对象会破坏 react-markdown 内部按引用
+  // 缓存 components 的机制 → 流式每 chunk 全量重解析。用 useMemo 固化，
+  // 依赖变化时才重建（t 在语言切换时变化，此时重建是正确行为）。
+  const components = useMemo(
+    () => buildComponents(streaming, messageId, choiceState, t),
+    [streaming, messageId, choiceState, t]
+  );
+  // linkifyFilePaths 对全文跑掩码→linkify→还原 3 遍正则，结果仅依赖
+  // content，缓存后流式 chunk 到达时不再对历史消息重复计算。
+  const linkified = useMemo(() => linkifyFilePaths(content), [content]);
   return (
     <div className={`markdown-body ${streaming ? "streaming" : ""}`}>
       <ReactMarkdown
@@ -108,13 +126,13 @@ export function MarkdownView({
         // 这里放行原样保留 URL；点击行为由下方 a 渲染器拦截（仅处理
         // http(s) 与 divine-path:）。
         urlTransform={(url) => url}
-        components={buildComponents(streaming, messageId, choiceState, t)}
+        components={components}
       >
-        {linkifyFilePaths(content)}
+        {linkified}
       </ReactMarkdown>
     </div>
   );
-}
+});
 
 function extractText(node: ReactNode): string {
   if (node == null || typeof node === "boolean") return "";

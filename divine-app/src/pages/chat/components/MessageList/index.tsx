@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { MessageItem } from "@/pages/chat/components/MessageItem";
@@ -58,6 +58,12 @@ export function MessageList({
     // 关闭后用普通 rerender()，避免在 React commit 期间同步刷新。
     useFlushSync: false,
   });
+
+  // 稳定引用：MessageItem 是 memo 组件，内联箭头函数会让每次渲染
+  // 都生成新引用导致 memo 失效（流式 chunk 更新时所有历史消息白重渲染）。
+  const handleUserInteract = useCallback(() => {
+    stickToBottom.current = false;
+  }, []);
 
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
@@ -216,9 +222,7 @@ export function MessageList({
                     workspacePath={workspacePath}
                     onPreviewFile={onPreviewFile}
                     onRetryCloud={onRetryCloud}
-                    onUserInteract={() => {
-                      stickToBottom.current = false;
-                    }}
+                    onUserInteract={handleUserInteract}
                     streaming={
                       streaming && virtualRow.index === messages.length - 1
                     }
