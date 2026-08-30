@@ -35,3 +35,4 @@ bin/
 .DS_Store
 
 .pnpm-store/
+*test.mjs

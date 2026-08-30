@@ -20,14 +20,27 @@ from ..registry import register_tool
             "theme": {
                 "type": "string",
                 "enum": [
+                    "aurora", "glass", "brutalist", "swiss", "mesh",
+                    "editorial", "darktech",
                     "universal", "notion", "linear", "apple", "modern",
                     "academic", "travel", "roadmap", "minimal",
                 ],
-                "description": "PPT 风格，默认 universal",
+                "description": (
+                    "PPT 风格；aurora 极光渐变（现代商务默认）、glass 玻璃拟态、"
+                    "brutalist 新粗野撞色、swiss 瑞士极简、mesh 渐变弥散、"
+                    "editorial 杂志衬线、darktech 暗黑科技"
+                ),
             },
             "path": {
                 "type": "string",
                 "description": "保存目录，workspace 内相对路径；默认保存到应用输出目录，不写入项目",
+            },
+            "toc": {
+                "type": "boolean",
+                "description": (
+                    "是否生成目录页；不传时自动判断（≥2 个章节页且内容 ≥5 页时自动插入，"
+                    "条目按章节页推导并带页码）"
+                ),
             },
             "slides": {
                 "type": "array",
@@ -178,9 +191,11 @@ class PresentationAdapter(ToolAdapter):
     timeout = 60
 
     def build_params(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        toc = arguments.get("toc")
         return {
             "title": str(arguments.get("title") or "未命名演示文稿"),
             "theme": str(arguments.get("theme") or arguments.get("style") or "universal").strip(),
             "slides": arguments.get("slides") or [],
             "path": str(arguments.get("path") or ""),
+            "toc": None if toc is None else bool(toc),
         }
