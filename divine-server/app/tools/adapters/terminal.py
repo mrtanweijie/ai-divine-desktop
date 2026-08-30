@@ -14,6 +14,7 @@ TERMINAL_TIMEOUT_MAX = 600
 @register_tool(
     "terminal",
     "在本地终端执行系统命令并返回标准输出、错误输出和退出码；需要确认的命令会先征求用户同意。"
+    "同一会话内工作目录会延续：上一条命令 cd 进入的目录是下一条命令的起点（显式传 cwd 可跳转）。"
     "timeout 可传 60-600 秒（默认 60），长命令（构建/测试/安装）请给足超时；"
     "输出超长时会截断保留尾部并标注。background=true 时以后台任务方式启动长驻命令"
     "（dev server、监听、长测试），立即返回 bg_id，之后用 bg_status/bg_output/bg_kill 管理。"

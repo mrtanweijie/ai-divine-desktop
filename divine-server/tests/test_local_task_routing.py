@@ -161,3 +161,60 @@ def test_command_not_misrouted_as_qa():
 def test_long_input_falls_back():
     long_text = "帮我润色这段话：" + "内容" * 600
     assert _task(long_text) is None
+
+
+def test_pdf_short_tool_word_not_local():
+    """文档/工具词（PDF 等）是内容生成意图：本地模型只会复读，必须走云端。
+
+    原缺陷：『PDF』命中 qa 短名词兜底 → 1.5B 本地模型复读"PDF"，
+    用户不得不重新输入完整指令才走云端。
+    """
+    assert _task("PDF") is None
+    assert _task("输出 PDF 报告") is None
+    assert _task("导出 excel") is None
+    assert _task("帮我写周报") is None
+
+
+def test_short_answer_after_ai_question_not_local():
+    """AI 正在等用户选择时，短输入是省略式回答 → 必须结合上下文，走云端。"""
+    from app.api.chat import _ai_asking_hint, _detect_local_task
+
+    history = [
+        {"role": "user", "content": "分析计费数据"},
+        {
+            "role": "assistant",
+            "content": "需要我把这份分析整理成一份 Markdown 笔记 / Excel 表格 / "
+            "PDF 报告，或补充「百炼对应字段」的映射吗？",
+        },
+        {"role": "user", "content": "PDF"},
+    ]
+    assert _ai_asking_hint(history) is True
+    assert _detect_local_task("PDF", _ai_asking_hint(history)) is None
+    # 带问号的正常提问在 AI 提问后同样回云端（省略式回答方向性优先）
+    assert _detect_local_task("哪个更划算？", _ai_asking_hint(history)) is None
+
+
+def test_ai_asking_hint_scoping():
+    from app.api.chat import _ai_asking_hint
+
+    # 最后一条是 assistant 且带"吗" → True
+    assert _ai_asking_hint([{"role": "assistant", "content": "要继续吗？"}]) is True
+    # 最后一条是 assistant 的普通陈述（无提问语气）→ False
+    assert (
+        _ai_asking_hint([{"role": "assistant", "content": "已生成周报。"}]) is False
+    )
+    # 尾部 user 消息是当前输入（chat 先保存后路由）：跳过它看上面的
+    # assistant——"要继续吗？"之后用户回"要"正是省略式回答 → True
+    assert (
+        _ai_asking_hint(
+            [{"role": "assistant", "content": "要继续吗？"}, {"role": "user", "content": "要"}]
+        )
+        is True
+    )
+    # 空历史 → False
+    assert _ai_asking_hint([]) is False
+
+
+def test_noun_qa_still_routed():
+    """原有短名词问答能力不受文档词排除影响。"""
+    assert _task("英国首都") == "qa"

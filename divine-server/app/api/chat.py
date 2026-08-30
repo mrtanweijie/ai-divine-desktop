@@ -390,7 +390,9 @@ async def stream_chat(request: StreamChatRequest):
                 model_history = _replace_last_user(history, model_question)
             else:
                 if not request.attachments:
-                    task = _detect_local_task(model_question)
+                    task = _detect_local_task(
+                        model_question, _ai_asking_hint(history)
+                    )
                 if task:
                     from ..agent.core import get_manager
                     from ..agent.middleware import _start_local_model
@@ -1030,6 +1032,38 @@ _ACTION_WORDS = (
     "整理",
     "润色",
     "提取",
+    "输出",
+    "导出",
+    "保存",
+    "下载",
+    "整理成",
+    "转成",
+    "做成",
+    "生成一份",
+)
+
+# 文档/工具类词汇：出现即视为内容生成意图（本地模型无工具能力只会复读），
+# 对 _detect_qa 的短名词兜底与问句兜底一并排除。大小写不敏感。
+_DOC_TOOL_MARKERS = (
+    "pdf",
+    "word",
+    "excel",
+    "xlsx",
+    "docx",
+    "csv",
+    "ppt",
+    "幻灯",
+    "演示文稿",
+    "图表",
+    "表格",
+    "报告",
+    "周报",
+    "日报",
+    "简历",
+    "笔记",
+    "文档",
+    "思维导图",
+    "图片",
 )
 
 
@@ -1366,7 +1400,7 @@ _ENTITY_KNOWLEDGE_MARKERS = (
 )
 
 
-def _detect_qa(text: str) -> bool:
+def _detect_qa(text: str, ai_asking: bool = False) -> bool:
     """知识问答：常识/事实类问题本地直答（护栏式，不确定回退云端）。
 
     两类命中：
@@ -1377,11 +1411,23 @@ def _detect_qa(text: str) -> bool:
     排除：
     - 小语种（编造风险）；
     - 精确数字事实（"几个/多少/哪年/人口"——1.5B 会自信地编）；
-    - 企业/产品知识（"英伟达有什么大模型"——1.5B 会自信地编造）。
+    - 企业/产品知识（"英伟达有什么大模型"——1.5B 会自信地编造）；
+    - 文档/工具类词汇（PDF/Excel/报告…——这些是内容生成意图，本地模型
+      无工具能力，只会复读原词，必须走云端）；
+    - ai_asking=True（AI 上一条消息在等用户选择，短输入是省略式回答，
+      需结合上下文理解 → 云端）。
     """
     if not text:
         return False
     t = text.strip()
+    # AI 正在等用户选择/回答：短输入是省略式回答（如上轮问"要 PDF 吗？"，
+    # 用户回"PDF"），绝不能当知识问答本地直答
+    if ai_asking:
+        return False
+    # 文档/工具生成意图词：本地模型只会复读（实测"PDF"→回"PDF"），不分流
+    lowered = t.lower()
+    if any(marker in lowered for marker in _DOC_TOOL_MARKERS):
+        return False
     # 实时信息请求（新闻/天气/股市行情…）→ 本地必拒答，不分流
     if _is_realtime_request(t):
         return False
@@ -1411,12 +1457,54 @@ _LOCAL_TASK_DETECTORS: tuple[tuple[str, Any], ...] = (
 )
 
 
-def _detect_local_task(text: str) -> str | None:
-    """命中本地能力路由的任务名；未命中返回 None（走云端）。"""
+def _detect_local_task(text: str, ai_asking: bool = False) -> str | None:
+    """命中本地能力路由的任务名；未命中返回 None（走云端）。
+
+    ai_asking=True 表示 AI 上一条消息正在等用户选择（省略式回答场景），
+    此时禁用 qa 短名词兜底——省略式回答必须结合上下文理解，走云端。
+    """
     for name, detect in _LOCAL_TASK_DETECTORS:
+        if name == "qa" and ai_asking:
+            continue
         if detect(text):
             return name
     return None
+
+
+_AI_ASKING_MARKERS = (
+    "还是",
+    "或者",
+    "需要我",
+    "要不要",
+    "想要哪种",
+    "哪种",
+    "请选择",
+    "请告诉我",
+    "选一个",
+    "选一下",
+    "补充",
+    "吗",
+)
+
+
+def _ai_asking_hint(history: list[dict[str, Any]] | None) -> bool:
+    """AI 是否在等用户选择/回答（省略式回答的信号）。
+
+    history 末尾通常已包含当前这条用户输入（chat 保存先于路由），
+    所以要跳过尾部连续的 user 消息，看它上面最近的 assistant 消息。
+    """
+    for message in reversed(history or []):
+        if message.get("role") == "user":
+            continue
+        if message.get("role") == "assistant":
+            tail = str(message.get("content") or "").strip()[-300:]
+            if not tail:
+                return False
+            if tail.endswith(("？", "?")):
+                return True
+            return any(marker in tail for marker in _AI_ASKING_MARKERS)
+        break
+    return False
 
 
 async def stream_local_chat(

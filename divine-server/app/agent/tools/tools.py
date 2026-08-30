@@ -33,7 +33,7 @@ _TOOL_LOCKS: dict[str, asyncio.Lock] = {}
 # 免锁（可并行执行）的工具 = 只读工具 + 明确无副作用的辅助工具。
 # lint_check 只读分析；run_tests 会跑项目代码（可能占端口/写缓存），保持加锁。
 _LOCK_FREE_TOOLS: frozenset[str] = frozenset(
-    _READ_ONLY_TOOLS | {"glob_files", "list_definitions", "lint_check", "load_skill"}
+    _READ_ONLY_TOOLS | {"glob_files", "list_definitions", "lint_check", "load_skill", "review_changes"}
 )
 
 # 内容创作/技能类工具：仅当对应意图命中时注入（其余工具常驻）。

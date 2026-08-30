@@ -70,6 +70,7 @@ _READ_ONLY_TOOLS = {
     "describe_svg",
     "git_status",
     "git_diff",
+    "review_changes",
     "git_log",
     "bg_status",
     "bg_output",

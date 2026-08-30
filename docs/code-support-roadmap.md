@@ -1,9 +1,9 @@
 # Agent Code 支持优化规划（项目开发基线）
 
-> 版本：v1.7
+> 版本：v1.8
 > 日期：2026-08-30
-> 状态：P0 全部 6 项 + P1 全部 5 项 + P2-1 可写子 Agent + P2-2 轻量代码索引（list_definitions）已实现，**P2-3 MCP 支持已实现（v0 stdio + 设置页）**，P2-4 待实施。另完成性能优化（SQLite WAL + ToolMessage 压缩 + 异步 I/O + SSE 截断）与编码工具补全（edit_lines/apply_patch/move_file/glob_files/format_code/lint_check/run_tests）。
-> **P3-0 评测体系 + P3-1 快赢四项 + P3-2 上下文工程 + P3-3 质量闭环 + P4 MCP 接入已实现（2026-08-30）**：eval harness（12 场景，真实模型基线 36/36）；token 预算裁剪 + 工具结果置换 + 编码导向摘要；项目指令文件；编辑后自动语法检查；turn 级 checkpoint + undo_last_turn；终端命令审批记忆 + 回合预算软着陆；MCP 客户端（keeper 任务连接管理、动态工具注入、审批复用、设置页 MCP tab、Claude Desktop 配置导入）。全套件 629 测试通过 + 前端 tsc/vite 构建通过。
+> 状态：P0 全部 6 项 + P1 全部 5 项 + P2-1 可写子 Agent + P2-2 轻量代码索引（list_definitions）+ **P2-3 MCP 支持（v0 stdio + 设置页）** 已实现，P2-4 自动 code review **已实现（review_changes 工具）**。另完成性能优化（SQLite WAL + ToolMessage 压缩 + 异步 I/O + SSE 截断）与编码工具补全（edit_lines/apply_patch/move_file/glob_files/format_code/lint_check/run_tests）。
+> **P3 全部（评测体系/上下文工程/质量闭环）+ P4（MCP 接入、自动 code review、ripgrep 引擎、子 Agent 分级超时、终端 cwd 记忆）已实现（2026-08-30）**。全套件 647 测试通过 + 前端 tsc/vite 构建通过。
 > 目标：把 Divine Agent 从"文档生成 + 轻量文件操作"提升到"能流畅用于真实软件项目开发"的基础能力。
 > 范围：`divine-server/app/agent/*`、`divine-server/app/tools/*`、`divine-server/app/mcp/*`、`divine-app/src/pages/chat/*`、`divine-server/tests/*`、`divine-server/evals/*`。
 
@@ -248,3 +248,45 @@
 - **上下文预算**：1M 窗口很大，但多文件编辑仍要"结果紧凑化"，避免工具输出重复读文件全文。
 - **测试先行**：每个 P0 项都带独立测试文件，避免破坏现有 30+ 工具的注册与审批链路。
 - **兼容性**：`edit_files` 保持原参数契约（新增可选行为不破坏 schema），旧会话可继续回放。
+
+---
+
+## P4 补充实施记录（2026-08-30）
+
+### P4-1 自动 code review ✅ 已实现
+
+- 新增 `review_changes` 工具（`app/tools/adapters/code_review.py`）：收集
+  `git diff HEAD`（含暂存区，60k 字符截断），单次 LLM 调用输出按严重度排列的
+  问题清单（[严重/警告/建议] 文件:行号 → 建议）；只读不修改文件
+- 可选 `focus` 参数指定关注方向；非 git 仓库/空改动返回明确提示；
+  untracked 新文件提示先 git add
+- 已加入 `_READ_ONLY_TOOLS` / `_LOCK_FREE_TOOLS` / 子 Agent 只读集
+- 测试：`tests/test_code_review.py`（空改动短路/LLM 调用与提示词/非仓库报错）
+
+### P4-2 ripgrep 加速 grep_files ✅ 已实现
+
+- `app/tools/scripts/grep_files.py` 双引擎：rg 二进制优先（`DIVINE_RG_PATH` →
+  PATH → 打包目录），`--json` 流式解析、命中 max_results 即停；
+  `--no-require-git` 保证非 git 目录尊重 .gitignore（与旧行为一致）；
+  node_modules 等重目录以排除 glob 硬编码
+- rg 不可用或执行失败（如 rust 正则不支持 lookahead）自动回退 Python 引擎；
+  `data.engine` 标记实际引擎
+- 测试：`tests/test_grep_rg.py`（引擎选择/lookahead 回退/无 rg 兜底/
+  非 git gitignore/重目录剪枝）；原 18 个 grep 测试在 rg 引擎下全过
+
+### P4-3 子 Agent 分级超时 ✅ 已实现
+
+- 180s 一刀切 → `subagent_timeout(task)`：写文件/终端类 600s，调研类 300s
+  （`app/agent/tools/subagents.py`）
+
+### P4-4 终端会话 cwd 记忆（持久 shell 廉价版）✅ 已实现
+
+- `app/tools/scripts/terminal.py`：每条命令结束时把 shell 的 `$PWD` 记入
+  `<data_root>/terminal_cwd.json`（按 session 隔离）；下一条命令不显式传
+  cwd 时从上次目录继续，显式 cwd 覆盖并更新记忆；退出码透传不受影响；
+  Windows 跳过
+- 实现要点：`$PWD` 捕获用换行分隔而非子 shell 包裹（子 shell 里 cd 透不出
+  PWD）；状态文件用 `data_root()`（`data_dir()` 会因 config 导入时
+  setdefault DB_PATH 而解析错误）
+- 测试：`tests/test_p4_shell_and_subagent.py`（记忆延续/显式覆盖/会话隔离/
+  退出码透传）

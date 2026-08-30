@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -27,6 +28,9 @@ def _run(params: dict, workspace: Path) -> dict:
         "params": params,
         "locale": "zh-CN",
     }
+    env = dict(os.environ)
+    # cwd 记忆等状态文件必须隔离到本测试的数据目录，避免跨测试污染
+    env["DIVINE_DATA_DIR"] = str(workspace.parent / (workspace.name + "_data"))
     completed = subprocess.run(
         [sys.executable, str(SCRIPT)],
         input=json.dumps(payload, ensure_ascii=False),
@@ -34,6 +38,7 @@ def _run(params: dict, workspace: Path) -> dict:
         text=True,
         timeout=120,
         check=False,
+        env=env,
     )
     assert completed.returncode == 0, completed.stderr
     return json.loads(completed.stdout)

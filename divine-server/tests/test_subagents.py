@@ -330,7 +330,7 @@ def test_timeout_marks_error(tmp_path, monkeypatch):
             approval_mode="ask",
             locale="zh-CN",
         )
-        monkeypatch.setattr(module, "SUBAGENT_TIMEOUT", 0.01)
+        monkeypatch.setattr(module, "SUBAGENT_TIMEOUT_RESEARCH", 0.01)
 
         async def slow_ainvoke(self, *args, **kwargs):
             await asyncio.sleep(10)

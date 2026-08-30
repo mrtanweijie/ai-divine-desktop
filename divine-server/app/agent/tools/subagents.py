@@ -60,12 +60,22 @@ SUBAGENT_MAX_TOOL_TURNS = 24
 # LangGraph 的 recursion_limit 统计的是图里的 super-step：模型调用和每次工具执行
 # 各算一步。研究类子任务一个回合常连续调用多个工具（多次搜索/抓取），
 # 2 倍余量会在模型调用上限触发前就抛 GraphRecursionError。
-# 6 倍余量（144 步）给足“每回合多次工具调用”的空间，
+# 6 倍余量（144 步）给足"每回合多次工具调用"的空间，
 # 让 ModelCallLimitMiddleware 的 24 次上限成为真正的工作量闸门。
 SUBAGENT_RECURSION_LIMIT = SUBAGENT_MAX_TOOL_TURNS * 6
-SUBAGENT_TIMEOUT = 180
 SUBAGENT_SUMMARY_CAP = 800
 SUBAGENT_OUTPUT_CAP = 12000
+# 超时按任务类型放宽：编码/终端类子任务（写文件、跑测试）远超 3 分钟；
+# 纯调研类 5 分钟也足够。原 180s 对编码子任务过紧。
+SUBAGENT_TIMEOUT_RESEARCH = 300
+SUBAGENT_TIMEOUT_BUILD = 600
+
+
+def subagent_timeout(task: dict[str, Any]) -> int:
+    """按任务类型返回超时秒数：写文件/终端类 600s，调研类 300s。"""
+    if task.get("write") or task.get("terminal"):
+        return SUBAGENT_TIMEOUT_BUILD
+    return SUBAGENT_TIMEOUT_RESEARCH
 
 # Write tools available to write-capable sub-agents (opt-in via write=true).
 _SUBAGENT_WRITE_TOOLS = frozenset({"write_file", "edit_files"})
@@ -96,6 +106,7 @@ _SUBAGENT_READ_ONLY_TOOLS = frozenset(
         "describe_svg",
         "git_status",
         "git_diff",
+        "review_changes",
         "git_log",
         # Knowledge-skill loading is read-only; appended by name below.
         "load_skill",
@@ -630,12 +641,13 @@ async def _run_subagent(
             "configurable": {"thread_id": f"{ctx.session_id}:sub:{task_id}"},
             "recursion_limit": SUBAGENT_RECURSION_LIMIT,
         }
+        task_timeout = subagent_timeout(task)
         result = await asyncio.wait_for(
             agent.ainvoke(
                 {"messages": [HumanMessage(content=task["prompt"])]},
                 config,
             ),
-            timeout=SUBAGENT_TIMEOUT,
+            timeout=task_timeout,
         )
         messages = result.get("messages") or []
         output_text = _extract_final_content(messages) or ""
@@ -658,7 +670,7 @@ async def _run_subagent(
             "id": task_id,
             "name": task["name"],
             "status": "error",
-            "error": f"子 Agent 执行超时（{SUBAGENT_TIMEOUT}s）",
+            "error": f"子 Agent 执行超时（{subagent_timeout(task)}s）",
             "duration": round(time.monotonic() - start, 1),
         }
     except GraphRecursionError:
