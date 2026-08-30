@@ -67,8 +67,10 @@
 }
 
 .settings-mcp-tools {
-  margin: 6px 0 0;
-  padding-left: 18px;
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  margin: 0 10px 10px 0;
   font-size: 12px;
   opacity: 0.85;
 
@@ -135,4 +137,9 @@
 
 .settings-mcp-list::-webkit-scrollbar {
   display: none;
+}
+
+/* header 为纯 div（与 ModelSection 的折叠头一致）：去掉公共样式里的 hover 背景色 */
+.settings-mcp-list .settings-custom-toggle-header:hover {
+  background: transparent;
 }

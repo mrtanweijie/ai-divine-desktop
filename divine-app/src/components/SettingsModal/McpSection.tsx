@@ -321,11 +321,22 @@ export function McpSection({
               </Button>
             </div>
           </div>
+        ) : editingId !== null && draft ? (
+          // 新建/编辑表单独占列表区域：点击「添加服务器」时隐藏服务器列表
+          <div className="settings-model-card settings-model-card--expanded">
+            <McpDraftForm
+              draft={draft}
+              onDraftChange={setDraft}
+              onSubmit={submitDraft}
+              onCancel={() => {
+                setEditingId(null);
+                setDraft(null);
+              }}
+            />
+          </div>
         ) : (
         <>
-        {servers.length === 0 &&
-        !(editingId !== null && draft) &&
-        !jsonMode ? (
+        {servers.length === 0 ? (
           <EmptyState
             icon={<Blocks size={26} />}
             title={t("settings.mcp.emptyTitle", "还没有接入 MCP 服务器")}
@@ -337,25 +348,6 @@ export function McpSection({
         ) : null}
         {servers.map((server) => {
           const status = statusOf(server);
-          const isEditing = editingId === server.id && draft;
-          if (isEditing && draft) {
-            return (
-              <div
-                key={server.id}
-                className="settings-model-card settings-model-card--expanded"
-              >
-                <McpDraftForm
-                  draft={draft}
-                  onDraftChange={setDraft}
-                  onSubmit={submitDraft}
-                  onCancel={() => {
-                    setEditingId(null);
-                    setDraft(null);
-                  }}
-                />
-              </div>
-            );
-          }
           const dotClass =
             status === undefined
               ? "settings-mcp-dot--pending"
@@ -390,36 +382,41 @@ export function McpSection({
               ) : null}
               {status?.tools && status.tools.length > 0 ? (
                 <div>
-                  <button
-                    type="button"
-                    className="settings-custom-toggle"
-                    onClick={() =>
-                      setExpandedTools((prev) => ({
-                        ...prev,
-                        [server.id]: !prev[server.id],
-                      }))
-                    }
+                  <div
+                    className={`settings-custom-toggle${
+                      expandedTools[server.id] ? " open" : ""
+                    }`}
                   >
-                    <ChevronDown
-                      size={13}
-                      className={`settings-custom-toggle-chevron${
-                        expandedTools[server.id] ? " open" : ""
-                      }`}
-                    />
-                    {t("settings.mcp.toolsCount", "{{count}} 个工具", {
-                      count: status.tools.length,
-                    })}
-                  </button>
-                  {expandedTools[server.id] ? (
-                    <ul className="settings-mcp-tools">
-                      {status.tools.map((tool) => (
-                        <li key={tool.name}>
-                          <code>{tool.name}</code>
-                          {tool.description ? ` — ${tool.description}` : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
+                    <div
+                      className="settings-custom-toggle-header"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() =>
+                        setExpandedTools((prev) => ({
+                          ...prev,
+                          [server.id]: !prev[server.id],
+                        }))
+                      }
+                    >
+                      {t("settings.mcp.toolsCount", "{{count}} 个工具", {
+                        count: status.tools.length,
+                      })}
+                      <ChevronDown
+                        size={13}
+                        className="settings-custom-toggle-chevron"
+                      />
+                    </div>
+                    {expandedTools[server.id] ? (
+                      <ul className="settings-mcp-tools">
+                        {status.tools.map((tool) => (
+                          <li key={tool.name}>
+                            <code>{tool.name}</code>
+                            {tool.description ? ` — ${tool.description}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
               <div className="settings-mcp-actions">
@@ -446,20 +443,6 @@ export function McpSection({
             </div>
           );
         })}
-
-        {editingId !== null && draft && !servers.some((s) => s.id === editingId) ? (
-          <div className="settings-model-card settings-model-card--expanded">
-            <McpDraftForm
-              draft={draft}
-              onDraftChange={setDraft}
-              onSubmit={submitDraft}
-              onCancel={() => {
-                setEditingId(null);
-                setDraft(null);
-              }}
-            />
-          </div>
-        ) : null}
         </>
         )}
       </div>
