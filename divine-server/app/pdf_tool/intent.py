@@ -111,6 +111,23 @@ async def parse_intent(
     if not raw_title:
         raw_title = user_input[:40]
     title = _clean_title(raw_title)
+    meta = {
+        "recipe": recipe.name,
+        "destination": data.get("destination"),
+        "days": data.get("days"),
+        "duration": data.get("duration"),
+        "travelers": data.get("travelers"),
+        "countries": data.get("countries"),
+        "tags": tags_value,
+        "route": route_value,
+        "dates": data.get("dates"),
+        "summary": data.get("summary"),
+        "style": data.get("style"),
+        "watermark": data.get("watermark"),
+    }
+    design_value = data.get("design")
+    if isinstance(design_value, dict):
+        meta["design"] = design_value
     return PDFIntent(
         title=title or "旅行攻略",
         topic=str(data.get("topic") or user_input),
@@ -119,18 +136,5 @@ async def parse_intent(
             data.get("color_scheme") or recipe.color_scheme
         ),
         sections=sections,
-        meta={
-            "recipe": recipe.name,
-            "destination": data.get("destination"),
-            "days": data.get("days"),
-            "duration": data.get("duration"),
-            "travelers": data.get("travelers"),
-            "countries": data.get("countries"),
-            "tags": tags_value,
-            "route": route_value,
-            "dates": data.get("dates"),
-            "summary": data.get("summary"),
-            "style": data.get("style"),
-            "watermark": data.get("watermark"),
-        },
+        meta=meta,
     )

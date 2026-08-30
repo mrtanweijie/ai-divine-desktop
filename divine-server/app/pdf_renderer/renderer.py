@@ -25,9 +25,27 @@ def render_markdown_to_pdf(
     base_dir: Path | None = None,
     theme: str = "universal",
     cover_data: dict[str, Any] | None = None,
+    overrides: dict[str, Any] | None = None,
+    extra_css: str | None = None,
 ) -> dict[str, Any]:
     normalized_style = _normalize(style, STYLE_KEYS, "modern")
-    normalized_color = _normalize(color_scheme, COLOR_KEYS, "blue")
+    # color_scheme 除经典 5 色外，还支持扩展预设（iceblue 等）与直接传颜色
+    #（"红色"/#E74C3C）：非经典值原样保留，由渲染层按主色派生覆盖
+    raw_scheme = (color_scheme or "").strip()
+    if raw_scheme.lower() in COLOR_KEYS:
+        normalized_color = raw_scheme.lower()
+    else:
+        from ..pdf_theme_manager import SCHEME_PRIMARY_COLORS, resolve_color
+
+        normalized_color = (
+            raw_scheme
+            if raw_scheme
+            and (
+                raw_scheme.lower() in SCHEME_PRIMARY_COLORS
+                or resolve_color(raw_scheme)
+            )
+            else "blue"
+        )
     normalized_paper = _normalize(paper_size, PAPER_KEYS, "a4")
     if theme == "travel":
         cover = True
@@ -46,6 +64,8 @@ def render_markdown_to_pdf(
                 base_dir,
                 theme,
                 cover_data,
+                overrides,
+                extra_css,
             )
             renderer = "weasyprint"
             return {

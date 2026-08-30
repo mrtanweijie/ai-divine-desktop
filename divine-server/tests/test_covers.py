@@ -141,7 +141,7 @@ def test_engine_injects_cover_style(monkeypatch, tmp_path):
 
     def fake_render(
         markdown, output, title, style, color_scheme, paper_size,
-        cover, toc, base_dir, theme, cover_data,
+        cover, toc, base_dir, theme, cover_data, overrides=None, extra_css=None,
     ):
         captured["cover_data"] = cover_data
         output.write_bytes(b"%PDF-1.4")

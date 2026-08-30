@@ -3,13 +3,15 @@
 在 Agent 未显式指定风格时，根据用户输入（场景关键词 + 风格词）自动决策，
 保证生成 PDF 的主题与内容类型匹配；用户/Agent 显式指定时以显式值为准。
 
-优先级链：显式参数 > prompt 风格词 > 场景分类 > 配方默认。
+优先级链：显式参数 > prompt 风格词 > DesignSpec（LLM 设计师）> 场景分类 > 配方默认。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+
+from ..pdf_theme_manager import resolve_color
 
 # ---------------------------------------------------------------------------
 # 已知主题 / 配色（与 pdf_theme_manager.THEMES、渲染器保持一致）
@@ -313,6 +315,54 @@ def parse_cover_style(text: str) -> str | None:
     return None
 
 
+# ---------------------------------------------------------------------------
+# DesignSpec（LLM 设计师）校验：意图阶段 LLM 输出的 design 对象，
+# 仅接受合法值；非法字段忽略后走场景/配方默认
+# ---------------------------------------------------------------------------
+
+# DesignSpec 的 base_theme 不允许跨到旅行/简历的独立主题体系
+_SPEC_THEME_BLOCKLIST = frozenset({"travel", "travel_mag", "resume"})
+_KNOWN_COVER_STYLES = frozenset(style for style, _ in COVER_STYLE_ALIASES)
+
+
+def _spec_base_theme(value: Any) -> str | None:
+    text = str(value or "").strip().lower()
+    if text in KNOWN_THEMES and text not in _SPEC_THEME_BLOCKLIST:
+        return text
+    return None
+
+
+def _spec_primary_color(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text if text and resolve_color(text) else None
+
+
+def _spec_flag(value: Any) -> bool | None:
+    return value if isinstance(value, bool) else None
+
+
+def _spec_cover_style(value: Any) -> str | None:
+    text = str(value or "").strip().lower()
+    return text if text in _KNOWN_COVER_STYLES else None
+
+
+def _extract_design_spec(
+    design_spec: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """提取并校验 DesignSpec 字段，非法值统一为 None。"""
+    if not isinstance(design_spec, dict):
+        return {}
+    return {
+        "base_theme": _spec_base_theme(design_spec.get("base_theme")),
+        "primary_color": _spec_primary_color(
+            design_spec.get("primary_color")
+        ),
+        "cover": _spec_flag(design_spec.get("cover")),
+        "toc": _spec_flag(design_spec.get("toc")),
+        "cover_style": _spec_cover_style(design_spec.get("cover_style")),
+    }
+
+
 @dataclass
 class DesignDecision:
     """一次设计决策的完整结果（含来源标记，便于日志/调试）。"""
@@ -325,10 +375,12 @@ class DesignDecision:
     scene: str | None = None
     cover_style: str | None = None
     scene_label: str | None = None
+    primary_color: str | None = None
     theme_source: str = "recipe"
     color_source: str = "recipe"
     cover_source: str = "recipe"
     toc_source: str = "recipe"
+    primary_source: str = "recipe"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -339,10 +391,12 @@ class DesignDecision:
             "scene": self.scene,
             "cover_style": self.cover_style,
             "scene_label": self.scene_label,
+            "primary_color": self.primary_color,
             "theme_source": self.theme_source,
             "color_source": self.color_source,
             "cover_source": self.cover_source,
             "toc_source": self.toc_source,
+            "primary_source": self.primary_source,
         }
 
 
@@ -358,12 +412,15 @@ def resolve_design(
     cover_style: str | None = None,
     recipe_theme: str = "universal",
     recipe_color: str = "blue",
+    design_spec: dict[str, Any] | None = None,
 ) -> DesignDecision:
-    """按「显式参数 > 风格词 > 场景分类 > 配方默认」解析设计决策。
+    """按「显式参数 > 风格词 > DesignSpec > 场景分类 > 配方默认」解析设计决策。
 
     旅行手册（travel）走独立主题体系，场景分类与风格词均不适用，
-    仅保留显式 theme/color_scheme，其余按配方默认。
+    仅保留显式 theme/color_scheme（以及 DesignSpec 主色），其余按配方默认。
     """
+    spec = _extract_design_spec(design_spec)
+
     if recipe_name == "travel":
         return DesignDecision(
             theme=theme or recipe_theme,
@@ -372,10 +429,12 @@ def resolve_design(
             cover=bool(cover) if cover is not None else False,
             toc=bool(toc) if toc is not None else False,
             scene=None,
+            primary_color=spec.get("primary_color"),
             theme_source="explicit" if theme else "recipe",
             color_source="explicit" if color_scheme else "recipe",
             cover_source="explicit" if cover is not None else "recipe",
             toc_source="explicit" if toc is not None else "recipe",
+            primary_source="design-llm" if spec.get("primary_color") else "recipe",
         )
 
     text = prompt or ""
@@ -395,26 +454,33 @@ def resolve_design(
         resolved_theme, theme_source = STYLE_TO_THEME[style], "explicit-style"
     elif override_theme:
         resolved_theme, theme_source = override_theme, "override"
+    elif spec.get("base_theme"):
+        resolved_theme, theme_source = spec["base_theme"], "design-llm"
     elif scene:
         resolved_theme, theme_source = SCENES[scene]["theme"], "scene"
     else:
         resolved_theme, theme_source = recipe_theme, "recipe"
 
-    # ---- color_scheme ----
+    # ---- color_scheme（DesignSpec 提供主色时记录到 primary_color，渲染层派生）----
+    resolved_color, color_source = recipe_color, "recipe"
+    primary_color, primary_source = None, "recipe"
     if color_scheme:
         resolved_color, color_source = color_scheme, "explicit"
     elif override_color:
         resolved_color, color_source = override_color, "override"
+    elif spec.get("primary_color"):
+        primary_color, primary_source = spec["primary_color"], "design-llm"
+        resolved_color, color_source = recipe_color, "recipe"
     elif scene:
         resolved_color, color_source = SCENES[scene]["color_scheme"], "scene"
-    else:
-        resolved_color, color_source = recipe_color, "recipe"
 
     # ---- cover / toc ----
     if cover is not None:
         resolved_cover, cover_source = cover, "explicit"
     elif override_cover is not None:
         resolved_cover, cover_source = override_cover, "override"
+    elif spec.get("cover") is not None:
+        resolved_cover, cover_source = spec["cover"], "design-llm"
     elif scene:
         resolved_cover, cover_source = SCENES[scene]["cover"], "scene"
     else:
@@ -424,6 +490,8 @@ def resolve_design(
         resolved_toc, toc_source = toc, "explicit"
     elif override_toc is not None:
         resolved_toc, toc_source = override_toc, "override"
+    elif spec.get("toc") is not None:
+        resolved_toc, toc_source = spec["toc"], "design-llm"
     elif scene:
         resolved_toc, toc_source = SCENES[scene]["toc"], "scene"
     else:
@@ -439,11 +507,14 @@ def resolve_design(
         cover_style=(
             cover_style
             or override_cover_style
+            or spec.get("cover_style")
             or (SCENES[scene]["cover_style"] if scene else "left-aligned")
         ),
         scene_label=SCENE_LABELS.get(scene) if scene else None,
+        primary_color=primary_color,
         theme_source=theme_source,
         color_source=color_source,
         cover_source=cover_source,
         toc_source=toc_source,
+        primary_source=primary_source,
     )

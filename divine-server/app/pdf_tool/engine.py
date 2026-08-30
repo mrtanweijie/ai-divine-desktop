@@ -3,16 +3,24 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 from ..config import settings_store
 from ..llm import DeepSeekLLM, MockLLM
 from ..pdf_renderer import render_html_to_pdf, render_markdown_to_pdf
+from ..pdf_renderer.qa import inspect_pdf, render_with_qa
+from ..pdf_theme_manager import (
+    derive_universal_palette,
+    travel_color_overrides,
+    universal_color_overrides,
+)
 from .base import PDFIntent
 from .content import generate_content
 from .design_enforcer import enforce_design
 from .design_rules import resolve_design
+from .illustration import inline_markdown_images
 from .intent import _clean_title, parse_intent
 from .recipes import detect_recipe, get_recipe
 from .travel_html import looks_like_travel_html, travel_prompt_to_html
@@ -273,6 +281,8 @@ class PDFTool:
             intent = await parse_intent(prompt, recipe, llm)
             if recipe_name == "travel" and theme in ("travel", "travel_mag"):
                 intent.meta["theme"] = theme
+            # markdown 类配方的配图开关：内容生成时注入配图提示
+            intent.meta["images_requested"] = bool(images)
             markdown = await generate_content(intent, recipe, llm)
 
         if recipe_name == "travel" and (
@@ -281,8 +291,14 @@ class PDFTool:
         ):
             markdown = travel_prompt_to_html(prompt) or markdown
 
-        # 设计决策层：显式参数 > prompt 风格词 > 场景分类 > 配方默认。
+        # 设计决策层：显式参数 > prompt 风格词 > DesignSpec（LLM 设计师）
+        # > 场景分类 > 配方默认。
         # 旅行（travel）走独立主题体系，resolve_design 内直接透传，不影响其流程。
+        design_spec = None
+        if isinstance(intent.meta, dict):
+            design_spec = intent.meta.pop("design", None)
+        if not isinstance(design_spec, dict):
+            design_spec = None
         design = resolve_design(
             prompt,
             recipe_name=recipe_name,
@@ -294,6 +310,7 @@ class PDFTool:
             cover_style=cover_style,
             recipe_theme=recipe.css_template,
             recipe_color=recipe.color_scheme,
+            design_spec=design_spec,
         )
         design = enforce_design(design, recipe)
         final_style = style or recipe.css_template
@@ -350,11 +367,17 @@ class PDFTool:
         if recipe_name == "travel" or final_theme in ("travel", "travel_mag"):
             cover = True
             toc = False
+        # 非旅行配方开启配图时：远程图/keyword 图下载内嵌，失败降级占位块
+        #（travel 的配图在 render_html_to_pdf 内部处理）
+        if images and recipe_name != "travel":
+            markdown = inline_markdown_images(markdown)
         if recipe_name == "travel" and final_theme in ("travel", "travel_mag"):
-            from ..pdf_theme_manager import travel_color_overrides
-
+            # 主色优先级：theme_colors 显式值 > DesignSpec 主色 > color_scheme 预设
+            travel_custom = color_overrides
+            if not travel_custom and design.primary_color:
+                travel_custom = {"--color-primary": design.primary_color}
             overrides = travel_color_overrides(
-                final_color, color_overrides, theme=final_theme
+                final_color, travel_custom, theme=final_theme
             )
             meta = render_html_to_pdf(
                 markdown,
@@ -368,20 +391,36 @@ class PDFTool:
                 overrides=overrides,
                 images=images,
             )
+            # travel 固定页式排版：质检只上报（空白页/越界），不自动修复
+            meta["qa"] = inspect_pdf(output)
         else:
-            meta = render_markdown_to_pdf(
-                markdown,
+            # 合并链：DesignSpec 派生色 → theme_colors 显式值（后者优先）
+            md_overrides = universal_color_overrides(color_overrides)
+            if design.primary_color:
+                derived = derive_universal_palette(design.primary_color)
+                if derived:
+                    md_overrides = {**derived, **md_overrides}
+            meta, qa_report = render_with_qa(
+                partial(
+                    render_markdown_to_pdf,
+                    markdown,
+                    output,
+                    title=intent.title,
+                ),
                 output,
-                title=intent.title,
-                style=final_style,
-                color_scheme=final_color,
-                paper_size=paper_size,
-                cover=cover,
-                toc=toc,
-                base_dir=base_dir,
-                theme=final_theme,
-                cover_data=intent.meta,
+                {
+                    "style": final_style,
+                    "color_scheme": final_color,
+                    "paper_size": paper_size,
+                    "cover": cover,
+                    "toc": toc,
+                    "base_dir": base_dir,
+                    "theme": final_theme,
+                    "cover_data": intent.meta,
+                    "overrides": md_overrides or None,
+                },
             )
+            meta["qa"] = qa_report
         return {
             "recipe": recipe.name,
             "display_name": recipe.display_name,

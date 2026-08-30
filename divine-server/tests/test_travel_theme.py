@@ -245,6 +245,8 @@ def test_travel_render_forces_cover_on_and_toc_off(monkeypatch, tmp_path):
         base_dir,
         theme,
         cover_data,
+        overrides=None,
+        extra_css=None,
     ):
         captured["cover"] = cover
         captured["toc"] = toc

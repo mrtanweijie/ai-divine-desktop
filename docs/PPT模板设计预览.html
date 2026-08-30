@@ -1,0 +1,1681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PPT 现代设计预设 · 效果预览</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --font: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+    --serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+    --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  body { background:#E9EBF0; font-family:var(--font); color:#1A1D24; padding:48px 40px 96px; }
+  .wrap { max-width:1560px; margin:0 auto; }
+  h1 { font-size:26px; font-weight:800; letter-spacing:.01em; }
+  .sub { font-size:13.5px; color:#6B7280; margin-top:8px; }
+  .note { background:#FFFFFF; border:1px solid #E3E5EC; border-radius:12px; padding:16px 20px;
+          font-size:13px; color:#4B5563; line-height:1.8; margin-top:18px; }
+  .note b { color:#1A1D24; }
+
+  .preset { margin-top:64px; }
+  .preset-head { display:flex; align-items:center; gap:12px; }
+  .preset-num { font-size:12.5px; font-weight:700; color:#9AA3B2; letter-spacing:.12em; }
+  .preset-name { font-size:21px; font-weight:800; }
+  .preset-en { font-size:14px; font-weight:600; color:#9AA3B2; }
+  .chips { display:flex; gap:6px; margin-left:auto; }
+  .chip { width:18px; height:18px; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.18); }
+  .preset-desc { font-size:13.5px; color:#6B7280; margin-top:6px; margin-bottom:20px; }
+  .slides { display:grid; grid-template-columns:repeat(2, 720px); gap:36px 28px; }
+  .slide-label { font-size:12.5px; font-weight:600; color:#8A90A0; letter-spacing:.05em; margin-bottom:8px; }
+  .slide { width:720px; height:405px; border-radius:12px; overflow:hidden; position:relative;
+           box-shadow:0 12px 32px rgba(15,20,40,.13); background:#fff; }
+
+  /* ---------- 共享版式骨架 ---------- */
+  .topbar { position:absolute; top:0; left:0; right:0; height:6px;
+            background:linear-gradient(90deg,var(--accent),var(--accent2)); z-index:5; }
+  .s-head { position:absolute; top:34px; left:44px; right:44px; z-index:4; }
+  .s-index { font-size:14px; font-weight:800; color:var(--accent); }
+  .s-heading { font-size:25px; font-weight:700; color:var(--text); margin-top:6px; }
+
+  .cards { position:absolute; top:120px; left:44px; right:44px; display:flex; gap:18px; z-index:4; }
+  .card { flex:1; border-radius:14px; padding:20px; background:var(--card-bg); border:1px solid var(--card-border); }
+  .card .dot { width:10px; height:10px; border-radius:50%; background:var(--accent); }
+  .card h4 { font-size:16.5px; font-weight:700; color:var(--text); margin:12px 0 8px; }
+  .card p { font-size:12.5px; line-height:1.7; color:var(--muted); }
+
+  .chart-area { position:absolute; top:110px; left:44px; width:400px; z-index:4; }
+  .chart-area svg { width:100%; height:auto; display:block; }
+  .tk-area { position:absolute; top:116px; left:478px; right:44px; z-index:4; }
+  .tk { display:flex; gap:10px; margin-bottom:15px; }
+  .tk-num { font-size:13px; font-weight:800; color:var(--accent); line-height:1.5; }
+  .tk p { font-size:13px; color:var(--text); line-height:1.65; }
+  .chart-caption { position:absolute; bottom:16px; left:44px; font-size:11px; color:var(--muted); z-index:4; }
+
+  .s-end { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+           justify-content:center; text-align:center; z-index:4; }
+  .end-title { font-size:44px; font-weight:800; color:var(--end-title,#fff); }
+  .end-sub { margin-top:14px; font-size:15px; color:var(--end-sub); }
+  .end-contact { margin-top:26px; font-size:12.5px; color:var(--end-meta); }
+
+  /* 目录 */
+  .toc-grid { position:absolute; top:118px; left:44px; right:44px; display:grid;
+              grid-template-columns:1fr 1fr; gap:14px 32px; z-index:4; }
+  .toc-item { display:flex; align-items:baseline; gap:12px; padding:10px 2px 8px;
+              border-bottom:1px solid var(--toc-line,#EDEEF3); }
+  .toc-num { font-size:14px; font-weight:800; color:var(--accent); }
+  .toc-item h5 { font-size:16px; font-weight:700; color:var(--text); }
+  .toc-page { margin-left:auto; font-size:11.5px; color:var(--muted); font-family:var(--mono); }
+
+  /* 章节页 */
+  .sec-inner { position:absolute; left:64px; right:64px; top:50%; transform:translateY(-50%); z-index:4; }
+  .sec-num { font-size:104px; font-weight:800; line-height:1; letter-spacing:-.02em; color:var(--sec-num); }
+  .sec-kicker { margin-top:16px; font-size:13px; font-weight:800; letter-spacing:.3em; color:var(--accent); }
+  .sec-title { margin-top:10px; font-size:40px; font-weight:800; color:var(--sec-title); }
+  .sec-sub { margin-top:12px; font-size:14.5px; color:var(--sec-sub); letter-spacing:.05em; }
+
+  /* 时间轴 */
+  .timeline { position:absolute; top:170px; left:44px; right:44px; z-index:4; }
+  .tl-track { height:4px; border-radius:2px; background:var(--tl-line,#E5E7EB); }
+  .tl-nodes { display:flex; margin-top:-10px; }
+  .tl-node { flex:1; position:relative; text-align:center; padding:28px 8px 0; }
+  .tl-dot { position:absolute; top:0; left:50%; transform:translateX(-50%); width:16px; height:16px;
+            border-radius:50%; background:var(--accent); border:3px solid var(--tl-dot-border,#fff); }
+  .tl-period { font-size:12px; font-weight:800; letter-spacing:.12em; color:var(--accent); }
+  .tl-node h5 { margin-top:6px; font-size:15px; font-weight:700; color:var(--text); }
+  .tl-node p { margin-top:6px; font-size:12px; line-height:1.65; color:var(--muted); }
+
+  /* 核心指标 */
+  .kpis { position:absolute; top:124px; left:44px; right:44px; display:flex; gap:18px; z-index:4; }
+  .kpi { flex:1; border-radius:14px; padding:24px 20px; background:var(--card-bg); border:1px solid var(--card-border); }
+  .kpi-value { font-size:34px; font-weight:800; color:var(--accent); letter-spacing:-.01em; }
+  .kpi-label { margin-top:10px; font-size:13.5px; font-weight:600; color:var(--text); }
+  .kpi-delta { margin-top:5px; font-size:12px; color:var(--muted); }
+  .kpi-delta b { color:var(--accent); font-weight:700; }
+
+  /* 方案对比 */
+  .compare { position:absolute; top:120px; left:44px; right:44px; display:flex; gap:22px; z-index:4; }
+  .cmp { flex:1; border-radius:14px; padding:20px 22px; background:var(--card-bg); border:1px solid var(--card-border); }
+  .cmp-tag { display:inline-block; font-size:12px; font-weight:700; color:#fff; background:var(--accent);
+             border-radius:999px; padding:5px 14px; letter-spacing:.06em; }
+  .cmp:nth-child(3) .cmp-tag { background:var(--accent2); }
+  .cmp ul { list-style:none; margin-top:12px; }
+  .cmp li { position:relative; padding:7px 0 7px 18px; font-size:13px; line-height:1.55; color:var(--text); }
+  .cmp li::before { content:""; position:absolute; left:2px; top:13px; width:7px; height:7px; border-radius:50%;
+                    background:var(--accent); opacity:.65; }
+  .cmp:nth-child(3) li::before { background:var(--accent2); }
+  .vs-badge { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:42px; height:42px;
+              border-radius:50%; background:var(--text); color:#fff; display:flex; align-items:center;
+              justify-content:center; font-size:13px; font-weight:800; z-index:5; box-shadow:0 4px 14px rgba(0,0,0,.18); }
+
+  /* 金句 */
+  .s-quote { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+             justify-content:center; text-align:center; padding:0 96px; z-index:4; }
+  .q-mark { font-family:Georgia, "Songti SC", serif; font-size:76px; font-weight:700; line-height:.6;
+            color:var(--accent); opacity:.4; }
+  .q-text { margin-top:18px; font-size:24px; font-weight:700; line-height:1.75; color:var(--text); }
+  .q-author { margin-top:22px; font-size:13px; letter-spacing:.12em; color:var(--muted); }
+
+  /* 表格 */
+  .data-table { position:absolute; top:120px; left:44px; right:44px; width:calc(100% - 88px);
+                border-collapse:separate; border-spacing:0; font-size:13px; z-index:4;
+                border-radius:12px; overflow:hidden; }
+  .data-table th { background:var(--accent); color:#fff; text-align:left; font-weight:700;
+                   padding:11px 16px; letter-spacing:.04em; }
+  .data-table td { padding:11px 16px; color:var(--text); background:transparent;
+                   border-bottom:1px solid var(--toc-line,#EDEEF3); }
+  .data-table tbody tr:nth-child(even) td { background:var(--card-bg); }
+  .data-table th.num, .data-table td.num { text-align:right; }
+  .data-table td.pos { color:var(--accent); font-weight:700; }
+
+  /* 图文两栏 */
+  .media-area { position:absolute; top:116px; left:44px; width:390px; bottom:52px; border-radius:14px;
+                background:var(--media-bg,#EEF0F6); border:1px solid var(--card-border,#E5E7EB);
+                overflow:hidden; z-index:4; }
+  .media-glyph { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+                 justify-content:center; gap:12px; color:var(--muted); }
+  .media-glyph .ico { width:52px; height:52px; border-radius:14px; background:var(--accent); opacity:.18; }
+  .media-glyph span { font-size:12.5px; letter-spacing:.08em; }
+  .media-cap { position:absolute; left:0; right:0; bottom:0; padding:9px 16px; font-size:11.5px;
+               color:var(--muted); background:rgba(0,0,0,.04); border-top:1px solid var(--toc-line,#EDEEF3); }
+
+  /* 图表 SVG 共享样式 */
+  .gl { stroke:#E5E7EB; stroke-width:1; }
+  .axis { stroke:#C8CDD8; stroke-width:1.5; }
+  .ylab, .cat { font-size:12px; fill:var(--muted); font-family:var(--font); }
+  .val { font-size:12.5px; fill:var(--muted); text-anchor:middle; }
+  .val-hi { font-size:15px; font-weight:800; fill:var(--text); text-anchor:middle; }
+  .bar { fill:var(--c1); opacity:.35; }
+  .bar-hi { fill:var(--c1); opacity:1; }
+  .tline { stroke:var(--c2); stroke-width:2; stroke-dasharray:6 5; }
+  .tlab { font-size:11.5px; fill:var(--c2); text-anchor:start; }
+
+  /* ---------- 01 aurora 极光 ---------- */
+  .p-aurora { --accent:#7C3AED; --accent2:#22D3EE; --text:#232052; --muted:#6E6A96;
+              --card-bg:#F6F4FF; --card-border:#ECE7FE; --c1:#7C3AED; --c2:#0EA5E9;
+              --cover-title:#fff; --cover-sub:#CBC5F4; --cover-meta:#948ECB;
+              --end-sub:#CBC5F4; --end-meta:#948ECB;
+              --sec-num:rgba(255,255,255,.15); --sec-title:#FFFFFF; --sec-sub:#CBC5F4; }
+  .p-aurora .cover-bg { position:absolute; inset:0; background:linear-gradient(130deg,#141133 0%,#2A2470 50%,#5B2BD0 100%); }
+  .p-aurora .blob { position:absolute; border-radius:50%; filter:blur(64px); }
+  .p-aurora .blob1 { width:340px; height:340px; right:-60px; bottom:-110px; background:#22D3EE; opacity:.42; }
+  .p-aurora .blob2 { width:300px; height:300px; right:120px; top:-120px; background:#8B5CF6; opacity:.5; }
+  .p-aurora .cover-bar { position:absolute; left:56px; bottom:66px; width:6px; height:96px;
+                         background:linear-gradient(180deg,#A78BFA,#22D3EE); border-radius:3px; }
+  .p-aurora .cover-inner { position:absolute; left:82px; bottom:60px; right:60px; }
+  .p-aurora .cover-title { font-size:44px; font-weight:800; color:var(--cover-title); line-height:1.22; }
+  .p-aurora .cover-sub { margin-top:14px; font-size:16px; color:var(--cover-sub); letter-spacing:.06em; }
+  .p-aurora .cover-meta { margin-top:24px; font-size:12.5px; color:var(--cover-meta); letter-spacing:.08em; }
+  .p-aurora .media-area { --media-bg:#F3F1FC; }
+
+  /* ---------- 02 glass 玻璃拟态 ---------- */
+  .p-glass { --accent:#4F46E5; --accent2:#0EA5E9; --text:#1E2A55; --muted:#5D6A94;
+             --card-bg:rgba(255,255,255,.68); --card-border:rgba(255,255,255,.95); --c1:#4F46E5; --c2:#0EA5E9;
+             --cover-title:#1E2A55; --cover-sub:#4A5680; --cover-meta:#6B76A0; --end-title:#1E2A55;
+             --end-sub:#4A5680; --end-meta:#6B76A0;
+             --sec-num:rgba(30,42,85,.08); --sec-title:#1E2A55; --sec-sub:#4A5680; }
+  .p-glass .cover-bg, .p-glass .end-bg { position:absolute; inset:0; background:linear-gradient(160deg,#EAF0FB,#E2E9F8); }
+  .p-glass .blob { position:absolute; border-radius:50%; filter:blur(72px); }
+  .p-glass .blob1 { width:300px; height:300px; left:60px; top:-80px; background:#7DB0FF; opacity:.55; }
+  .p-glass .blob2 { width:280px; height:280px; right:40px; bottom:-90px; background:#8B8CF9; opacity:.5; }
+  .p-glass .blob3 { width:200px; height:200px; right:200px; top:40px; background:#7DD3FC; opacity:.45; }
+  .p-glass .panel { position:absolute; left:60px; bottom:60px; right:200px; background:rgba(255,255,255,.55);
+                    border:1px solid rgba(255,255,255,.85); border-radius:20px; padding:34px 38px;
+                    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+                    box-shadow:0 20px 50px rgba(80,100,180,.16); }
+  .p-glass .panel .cover-title { font-size:40px; font-weight:800; color:var(--cover-title); line-height:1.24; }
+  .p-glass .panel .cover-sub { margin-top:12px; font-size:15px; color:var(--cover-sub); letter-spacing:.05em; }
+  .p-glass .cover-meta { position:absolute; right:60px; bottom:70px; font-size:12.5px; color:var(--cover-meta);
+                         letter-spacing:.08em; text-align:right; }
+  .p-glass .content-bg { position:absolute; inset:0; background:linear-gradient(160deg,#F5F8FE,#ECF1FA); }
+  .p-glass .card { box-shadow:0 12px 28px rgba(90,110,180,.13); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+  .p-glass .end-panel { position:absolute; left:200px; right:200px; top:120px; bottom:120px; border-radius:24px;
+                        background:rgba(255,255,255,.55); border:1px solid rgba(255,255,255,.85);
+                        backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+                        box-shadow:0 20px 50px rgba(80,100,180,.16); }
+  .p-glass .media-area { background:rgba(255,255,255,.55); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+                         box-shadow:0 12px 28px rgba(90,110,180,.13); }
+
+  /* ---------- 03 brutalist 新粗野 ---------- */
+  .p-brutalist { --accent:#FF5C00; --accent2:#2563EB; --text:#111111; --muted:#4A4A42;
+                 --card-bg:#FFFFFF; --card-border:#111111; --c1:#111111; --c2:#FF5C00;
+                 --cover-title:#111; --cover-sub:#3E3E36; --cover-meta:#111;
+                 --end-title:#111; --end-sub:#3E3E36; --end-meta:#4A4A42;
+                 --sec-num:#EFE6CE; --sec-title:#111111; --sec-sub:#3E3E36; }
+  .p-brutalist .cover-bg, .p-brutalist .end-bg { position:absolute; inset:0; background:#FAF6EE; }
+  .p-brutalist .blk { position:absolute; border:3px solid #111; }
+  .p-brutalist .blk-y { width:230px; height:170px; right:44px; top:44px; background:#FFD400; box-shadow:10px 10px 0 #111; }
+  .p-brutalist .blk-b { width:130px; height:130px; right:220px; bottom:52px; background:#2563EB; box-shadow:8px 8px 0 #111; }
+  .p-brutalist .blk-o { width:34px; height:72px; left:56px; top:44px; background:#FF5C00; border:3px solid #111; }
+  .p-brutalist .cover-inner { position:absolute; left:56px; bottom:64px; right:420px; }
+  .p-brutalist .cover-title { font-size:50px; font-weight:900; color:var(--cover-title); line-height:1.18; letter-spacing:.01em; }
+  .p-brutalist .cover-sub { margin-top:14px; font-size:15px; font-weight:600; color:var(--cover-sub); }
+  .p-brutalist .cover-meta { display:inline-block; margin-top:20px; font-size:12px; font-weight:700;
+                             border:2.5px solid #111; padding:6px 12px; background:#fff; box-shadow:4px 4px 0 #111; }
+  .p-brutalist .topbar { height:8px; background:#111; }
+  .p-brutalist .card { border:3px solid #111; border-radius:6px; box-shadow:6px 6px 0 #111; }
+  .p-brutalist .card .dot { border-radius:0; width:14px; height:14px; border:2.5px solid #111; background:#FFD400; }
+  .p-brutalist .card:nth-child(2) .dot { background:#FF5C00; }
+  .p-brutalist .card:nth-child(3) .dot { background:#2563EB; }
+  .p-brutalist .bar { fill:#111111; opacity:.22; }
+  .p-brutalist .bar-hi { fill:#FF5C00; opacity:1; }
+  .p-brutalist .s-heading { font-weight:900; }
+  .p-brutalist .kpi, .p-brutalist .cmp { border:3px solid #111; border-radius:6px; box-shadow:6px 6px 0 #111; }
+  .p-brutalist .toc-item { border-bottom:2px solid #111; }
+  .p-brutalist .tl-track { background:#111; height:5px; border-radius:0; }
+  .p-brutalist .tl-dot { border-radius:0; border:3px solid #111; background:#FFD400; }
+  .p-brutalist .cmp-tag { border:2.5px solid #111; border-radius:0; box-shadow:3px 3px 0 #111; color:#111; background:#FFD400; }
+  .p-brutalist .cmp:nth-child(3) .cmp-tag { background:#2563EB; color:#fff; }
+  .p-brutalist .vs-badge { border-radius:0; background:#FF5C00; border:3px solid #111; box-shadow:4px 4px 0 #111; }
+  .p-brutalist .sec-title { font-weight:900; }
+  .p-brutalist .q-mark { opacity:1; }
+  .p-brutalist .media-area { border:3px solid #111; border-radius:6px; box-shadow:6px 6px 0 #111; --media-bg:#FFFFFF; }
+  .p-brutalist .data-table { border:3px solid #111; border-radius:6px; }
+  .p-brutalist .data-table th { background:#FFD400; color:#111; }
+  .p-brutalist .data-table tbody tr:nth-child(even) td { background:#FFF3D6; }
+
+  /* ---------- 04 swiss 瑞士国际 ---------- */
+  .p-swiss { --accent:#DA291C; --accent2:#111111; --text:#111111; --muted:#777772;
+             --card-bg:transparent; --card-border:transparent; --c1:#111111; --c2:#DA291C;
+             --cover-title:#111; --cover-sub:#55554F; --cover-meta:#8A8A82;
+             --end-title:#111; --end-sub:#55554F; --end-meta:#8A8A82;
+             --sec-num:#ECECE5; --sec-title:#111111; --sec-sub:#55554F; }
+  .p-swiss .cover-bg, .p-swiss .end-bg { position:absolute; inset:0; background:#FAFAF7; }
+  .p-swiss .bignum { position:absolute; right:36px; top:-18px; font-size:190px; font-weight:800;
+                     color:#ECECE5; letter-spacing:-.04em; line-height:1; }
+  .p-swiss .cover-inner { position:absolute; left:60px; bottom:70px; right:340px; }
+  .p-swiss .cover-rule { width:120px; height:3px; background:#111; margin-bottom:22px; }
+  .p-swiss .cover-title { font-size:46px; font-weight:800; color:var(--cover-title); line-height:1.2; letter-spacing:-.01em; }
+  .p-swiss .cover-sub { margin-top:16px; font-size:15px; color:var(--cover-sub); }
+  .p-swiss .cover-meta { margin-top:26px; font-size:12px; color:var(--cover-meta); letter-spacing:.18em; text-transform:uppercase; }
+  .p-swiss .sq { position:absolute; right:60px; top:52px; width:20px; height:20px; background:#DA291C; }
+  .p-swiss .topbar { display:none; }
+  .p-swiss .s-heading { border-bottom:2px solid #111; padding-bottom:12px; font-size:24px; }
+  .p-swiss .card { border-radius:0; border:none; border-top:3px solid #111; padding:16px 0 0; }
+  .p-swiss .card .dot { border-radius:0; background:#DA291C; }
+  .p-swiss .bar { fill:#111111; opacity:.2; }
+  .p-swiss .bar-hi { fill:#DA291C; opacity:1; }
+  .p-swiss .toc-item { border-bottom:none; border-top:2px solid #111; }
+  .p-swiss .kpi, .p-swiss .cmp { border-radius:0; border:none; border-top:3px solid #111; background:transparent; }
+  .p-swiss .tl-track { background:#111; height:3px; border-radius:0; }
+  .p-swiss .tl-dot { border-radius:0; border:none; background:#DA291C; }
+  .p-swiss .vs-badge { border-radius:0; }
+  .p-swiss .q-mark { opacity:1; }
+  .p-swiss .media-area { border-radius:0; border:none; border-top:3px solid #111; --media-bg:#F0F0E9; }
+  .p-swiss .data-table { border-radius:0; }
+  .p-swiss .data-table th { background:transparent; color:#111; border-bottom:3px solid #111; }
+  .p-swiss .data-table td { border-bottom:1px solid #D8D8D0; }
+  .p-swiss .data-table tbody tr:nth-child(even) td { background:transparent; }
+
+  /* ---------- 05 mesh 渐变弥散 ---------- */
+  .p-mesh { --accent:#6366F1; --accent2:#06B6D4; --text:#1E1B4B; --muted:#64748B;
+            --card-bg:#F4F5FF; --card-border:#E4E7FB; --c1:#6366F1; --c2:#06B6D4;
+            --cover-sub:#94A3B8; --cover-meta:#64748B; --end-sub:#94A3B8; --end-meta:#64748B;
+            --sec-num:rgba(255,255,255,.12); --sec-title:#F9FAFB; --sec-sub:#94A3B8; }
+  .p-mesh .cover-bg, .p-mesh .end-bg { position:absolute; inset:0; background:#0A0A1C; }
+  .p-mesh .blob { position:absolute; border-radius:50%; filter:blur(84px); }
+  .p-mesh .blob1 { width:360px; height:360px; left:50%; top:50%; margin:-190px 0 0 -190px; background:#8B5CF6; opacity:.55; }
+  .p-mesh .blob2 { width:280px; height:280px; left:120px; top:60px; background:#3B82F6; opacity:.45; }
+  .p-mesh .blob3 { width:240px; height:240px; right:90px; bottom:30px; background:#06B6D4; opacity:.35; }
+  .p-mesh .badge { position:absolute; left:50%; top:96px; transform:translateX(-50%); font-size:12px;
+                   color:#C7D2FE; border:1px solid rgba(255,255,255,.28); background:rgba(255,255,255,.08);
+                   border-radius:999px; padding:7px 16px; letter-spacing:.1em; }
+  .p-mesh .cover-title { position:absolute; left:0; right:0; top:170px; text-align:center; font-size:46px; font-weight:800;
+                         background:linear-gradient(92deg,#E0E7FF 10%,#A5B4FC 45%,#67E8F9 90%);
+                         -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .p-mesh .cover-sub { position:absolute; left:0; right:0; top:246px; text-align:center; font-size:15px; color:var(--cover-sub); }
+  .p-mesh .cover-meta { position:absolute; left:0; right:0; top:300px; text-align:center; font-size:12px;
+                        color:var(--cover-meta); font-family:var(--mono); letter-spacing:.14em; }
+
+  /* ---------- 06 editorial 杂志编辑 ---------- */
+  .p-editorial { --accent:#C2410C; --accent2:#1C1917; --text:#1C1917; --muted:#78716C;
+                 --card-bg:transparent; --card-border:transparent; --c1:#1C1917; --c2:#C2410C;
+                 --cover-title:#1C1917; --cover-sub:#57534E; --cover-meta:#A8A29E;
+                 --end-title:#1C1917; --end-sub:#57534E; --end-meta:#A8A29E;
+                 --sec-num:#E7DEC9; --sec-title:#1C1917; --sec-sub:#57534E; }
+  .p-editorial .cover-bg, .p-editorial .end-bg { position:absolute; inset:0; background:#F7F3EA; }
+  .p-editorial .dbl { position:absolute; top:30px; left:52px; right:52px; height:7px;
+                      border-top:3px solid #1C1917; border-bottom:1px solid #1C1917; }
+  .p-editorial .dbl-b { position:absolute; bottom:30px; left:52px; right:52px; height:7px;
+                        border-top:3px solid #1C1917; border-bottom:1px solid #1C1917; }
+  .p-editorial .cover-inner { position:absolute; left:52px; right:52px; top:108px; text-align:center; }
+  .p-editorial .kicker { font-size:13px; font-weight:700; color:#C2410C; letter-spacing:.32em; }
+  .p-editorial .cover-title { font-family:var(--serif); font-size:48px; font-weight:700; color:var(--cover-title);
+                              margin-top:22px; line-height:1.3; }
+  .p-editorial .cover-rule { width:76px; height:1px; background:#1C1917; margin:26px auto 0; }
+  .p-editorial .cover-sub { font-family:var(--serif); margin-top:20px; font-size:16px; color:var(--cover-sub); letter-spacing:.12em; }
+  .p-editorial .cover-meta { margin-top:22px; font-size:12px; color:var(--cover-meta); letter-spacing:.2em; }
+  .p-editorial .s-heading { font-family:var(--serif); font-weight:700; }
+  .p-editorial .s-index { font-family:var(--serif); }
+  .p-editorial .card { border-radius:0; border:none; border-top:1px solid #1C1917; padding:18px 0 0; }
+  .p-editorial .card h4 { font-family:var(--serif); font-size:18px; }
+  .p-editorial .card .dot { border-radius:0; width:12px; height:12px; background:#C2410C; }
+  .p-editorial .bar { fill:#1C1917; opacity:.2; }
+  .p-editorial .bar-hi { fill:#C2410C; opacity:1; }
+  .p-editorial .sec-title, .p-editorial .toc-item h5, .p-editorial .q-text { font-family:var(--serif); }
+  .p-editorial .kpi, .p-editorial .cmp { border-radius:0; border:none; border-top:1px solid #1C1917; background:transparent; }
+  .p-editorial .tl-track { background:#1C1917; height:2px; border-radius:0; }
+  .p-editorial .tl-dot { border-radius:0; border:none; background:#C2410C; }
+  .p-editorial .q-text { font-size:26px; }
+  .p-editorial .media-area { border-radius:0; border:none; border-top:1px solid #1C1917; --media-bg:#EFE8D8; }
+  .p-editorial .data-table { border-radius:0; font-family:var(--serif); }
+  .p-editorial .data-table th { background:transparent; color:#1C1917; border-bottom:2px solid #1C1917; }
+  .p-editorial .data-table td { border-bottom:1px solid #DDD5C2; }
+  .p-editorial .data-table tbody tr:nth-child(even) td { background:transparent; }
+
+  /* ---------- 07 darktech 暗黑科技 ---------- */
+  .p-darktech { --accent:#22D3EE; --accent2:#A78BFA; --text:#E5E7EB; --muted:#8B93A7;
+                --card-bg:#111827; --card-border:#202B40; --c1:#22D3EE; --c2:#A78BFA;
+                --cover-title:#F9FAFB; --cover-sub:#9CA3AF; --cover-meta:#5B6478;
+                --end-title:#F9FAFB; --end-sub:#9CA3AF; --end-meta:#5B6478;
+                --sec-num:rgba(34,211,238,.12); --sec-title:#F9FAFB; --sec-sub:#9CA3AF; }
+  .p-darktech .cover-bg, .p-darktech .end-bg { position:absolute; inset:0; background:#0B0F1A;
+    background-image:linear-gradient(rgba(148,163,184,.06) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(148,163,184,.06) 1px,transparent 1px);
+    background-size:36px 36px; }
+  .p-darktech .glow { position:absolute; width:380px; height:380px; left:-90px; top:-120px; border-radius:50%;
+                      background:#22D3EE; opacity:.14; filter:blur(90px); }
+  .p-darktech .glow2 { position:absolute; width:320px; height:320px; right:-60px; bottom:-120px; border-radius:50%;
+                       background:#A78BFA; opacity:.14; filter:blur(90px); }
+  .p-darktech .bk { position:absolute; width:20px; height:20px; border-color:rgba(34,211,238,.55); border-style:solid; border-width:0; }
+  .p-darktech .bk-tl { left:24px; top:24px; border-left-width:2px; border-top-width:2px; }
+  .p-darktech .bk-tr { right:24px; top:24px; border-right-width:2px; border-top-width:2px; }
+  .p-darktech .bk-bl { left:24px; bottom:24px; border-left-width:2px; border-bottom-width:2px; }
+  .p-darktech .bk-br { right:24px; bottom:24px; border-right-width:2px; border-bottom-width:2px; }
+  .p-darktech .kicker { font-family:var(--mono); font-size:12.5px; color:#22D3EE; letter-spacing:.22em; }
+  .p-darktech .neon-bar { position:absolute; left:56px; bottom:78px; width:6px; height:92px;
+                          background:linear-gradient(180deg,#22D3EE,#A78BFA); border-radius:3px;
+                          box-shadow:0 0 18px rgba(34,211,238,.55); }
+  .p-darktech .cover-inner { position:absolute; left:84px; bottom:72px; right:60px; }
+  .p-darktech .cover-title { font-size:42px; font-weight:800; color:var(--cover-title); line-height:1.24; }
+  .p-darktech .cover-sub { margin-top:14px; font-size:15px; color:var(--cover-sub); }
+  .p-darktech .cover-meta { margin-top:22px; font-family:var(--mono); font-size:12px; color:var(--cover-meta); letter-spacing:.1em; }
+  .p-darktech .content-bg { position:absolute; inset:0; background:#0B0F1A;
+    background-image:linear-gradient(rgba(148,163,184,.05) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(148,163,184,.05) 1px,transparent 1px);
+    background-size:36px 36px; }
+  .p-darktech .s-heading { color:#F1F5F9; }
+  .p-darktech .card { border-left:3px solid var(--accent); }
+  .p-darktech .card h4 { color:#E5E7EB; }
+  .p-darktech .card p { color:#9CA3AF; }
+  .p-darktech .tk p { color:#C7CEDB; }
+  .p-darktech .gl { stroke:rgba(148,163,184,.16); }
+  .p-darktech .axis { stroke:rgba(148,163,184,.35); }
+  .p-darktech .ylab, .p-darktech .cat { fill:#8B93A7; }
+  .p-darktech .val { fill:#8B93A7; }
+  .p-darktech .val-hi { fill:#F1F5F9; }
+  .p-darktech .bar { fill:#A78BFA; opacity:.3; }
+  .p-darktech .bar-hi { fill:#22D3EE; opacity:1; }
+  .p-darktech .chart-caption { color:#5B6478; }
+  .p-darktech .toc-item h5, .p-darktech .tl-node h5, .p-darktech .kpi-label { color:#E5E7EB; }
+  .p-darktech .tl-track { background:rgba(148,163,184,.25); }
+  .p-darktech .tl-dot { border-color:#0B0F1A; box-shadow:0 0 12px rgba(34,211,238,.55); }
+  .p-darktech .kpi, .p-darktech .cmp { border-left:3px solid var(--accent); }
+  .p-darktech .cmp-tag { background:#22D3EE; color:#0B0F1A; }
+  .p-darktech .cmp:nth-child(3) .cmp-tag { background:#A78BFA; }
+  .p-darktech .cmp li { color:#C7CEDB; }
+  .p-darktech .vs-badge { background:#22D3EE; color:#0B0F1A; }
+  .p-darktech .q-text { color:#E5E7EB; }
+  .p-darktech .q-author { color:#8B93A7; }
+  .p-darktech .q-mark { opacity:.6; }
+  .p-darktech .media-area { --media-bg:#0E1526; border-color:#202B40; }
+  .p-darktech .media-glyph { color:#8B93A7; }
+  .p-darktech .media-cap { color:#5B6478; border-color:#202B40; background:rgba(0,0,0,.25); }
+  .p-darktech .data-table { background:#111827; }
+  .p-darktech .data-table th { background:rgba(34,211,238,.14); color:#22D3EE; }
+  .p-darktech .data-table td { color:#C7CEDB; border-color:#202B40; }
+  .p-darktech .data-table tbody tr:nth-child(even) td { background:#0E1526; }
+  .p-darktech .data-table td.pos { color:#22D3EE; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PPT 现代设计预设 · 效果预览</h1>
+  <div class="sub">7 套预设 × 12 个版式（封面 / 目录 / 章节页 / 图文两栏 / 内容卡片 / 时间轴 / 图表+要点 / 核心指标 / 方案对比 / 表格 / 金句 / 结尾页） · 16:9 · 示例数据</div>
+  <div class="note">
+    <b>说明：</b>本页为视觉方向预览，实际 PPT 由 python-pptx 按相同色板、字体与装饰语言程序化渲染；
+    「图表+要点」页演示了与 generate_chart 的配色联动（图表取预设专属 palette）；
+    后续接入你提供的模板时，同一套版式骨架将映射到模板版式，预设仅作兜底与参考。
+  </div>
+
+  <!-- ============ 01 aurora 极光 ============ -->
+  <div class="preset p-aurora">
+    <div class="preset-head">
+      <span class="preset-num">01</span><span class="preset-name">极光</span><span class="preset-en">Aurora</span>
+      <span class="chips"><span class="chip" style="background:#5B2BD0"></span><span class="chip" style="background:#7C3AED"></span><span class="chip" style="background:#22D3EE"></span><span class="chip" style="background:#F6F4FF"></span></span>
+    </div>
+    <div class="preset-desc">深空蓝紫渐变 + 弥散光斑，白色大标题。适合产品发布、通用商务。</div>
+    <div class="slides">
+      <div><div class="slide-label">封面</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="blob blob1"></div><div class="blob blob2"></div>
+          <div class="cover-bar"></div>
+          <div class="cover-inner">
+            <div class="cover-title">2026 增长战略规划</div>
+            <div class="cover-sub">市场洞察 · 增长引擎 · 产品路线</div>
+            <div class="cover-meta">AI DIVINE · 战略与运营部 · 2026.01</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">目录</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">CONTENTS</div><div class="s-heading">目录</div></div>
+          <div class="toc-grid">
+            <div class="toc-item"><span class="toc-num">01</span><h5>市场洞察</h5><span class="toc-page">P02</span></div>
+            <div class="toc-item"><span class="toc-num">02</span><h5>增长引擎</h5><span class="toc-page">P05</span></div>
+            <div class="toc-item"><span class="toc-num">03</span><h5>产品路线</h5><span class="toc-page">P10</span></div>
+            <div class="toc-item"><span class="toc-num">04</span><h5>组织保障</h5><span class="toc-page">P14</span></div>
+            <div class="toc-item"><span class="toc-num">05</span><h5>财务规划</h5><span class="toc-page">P16</span></div>
+            <div class="toc-item"><span class="toc-num">06</span><h5>风险与应对</h5><span class="toc-page">P18</span></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">章节页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="blob blob1"></div><div class="blob blob2"></div>
+          <div class="sec-inner">
+            <div class="sec-num">03</div>
+            <div class="sec-kicker">PART 03</div>
+            <div class="sec-title">产品路线</div>
+            <div class="sec-sub">三步走：夯实核心 · 拓展生态 · 智能升级</div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">图文两栏</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">04</div><div class="s-heading">智能体平台 2.0 发布</div></div>
+          <div class="media-area">
+            <div class="media-glyph"><div class="ico"></div><span>产品主视觉 · 配图占位</span></div>
+            <div class="media-cap">配图可由 image_generate 生成或使用用户提供的图片</div>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>多模态理解升级，支持文档 / 图表 / 音视频输入</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>智能体编排引擎，业务流程零代码搭建</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>内置行业模板 30+，开箱即用</p></div>
+            <div class="tk"><div class="tk-num">04</div><p>企业级权限与审计，安全合规</p></div>
+          </div>
+        </div>
+      </div>
+<div><div class="slide-label">内容卡片</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">05</div><div class="s-heading">三大增长引擎</div></div>
+          <div class="cards">
+            <div class="card"><div class="dot"></div><h4>企业客户拓展</h4><p>深耕头部行业标杆客户，KA 团队扩编 30%，推动标杆案例规模化复制。</p></div>
+            <div class="card"><div class="dot"></div><h4>生态合作网络</h4><p>联合 ISV 与渠道伙伴构建分发联盟，年内覆盖 200+ 重点城市。</p></div>
+            <div class="card"><div class="dot"></div><h4>智能化提效</h4><p>AI 驱动营销与交付流程自动化，整体人效提升 40% 以上。</p></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">时间轴</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">06</div><div class="s-heading">2026 关键里程碑</div></div>
+          <div class="timeline">
+            <div class="tl-track"></div>
+            <div class="tl-nodes">
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q1</div><h5>生态联盟成立</h5><p>首批 12 家 ISV 完成签约</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q2</div><h5>KA 团队扩编</h5><p>华东 / 华南团队全部就位</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q3</div><h5>新品发布会</h5><p>智能体平台 2.0 正式发布</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q4</div><h5>年度复盘规划</h5><p>全年目标校准与来年规划</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">图表 + 要点</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">07</div><div class="s-heading">季度营收增长趋势</div></div>
+          <div class="chart-area">
+            <svg viewBox="0 0 520 320">
+              <line class="gl" x1="60" y1="50" x2="500" y2="50"/><line class="gl" x1="60" y1="105" x2="500" y2="105"/>
+              <line class="gl" x1="60" y1="160" x2="500" y2="160"/><line class="gl" x1="60" y1="215" x2="500" y2="215"/>
+              <line class="tline" x1="60" y1="123" x2="500" y2="123"/><text class="tlab" x="64" y="117" text-anchor="start">目标 400</text>
+              <rect class="bar" x="82" y="156" width="66" height="114" rx="5"/>
+              <rect class="bar-hi" x="192" y="107" width="66" height="163" rx="5"/>
+              <rect class="bar" x="302" y="128" width="66" height="142" rx="5"/>
+              <rect class="bar" x="412" y="76" width="66" height="194" rx="5"/>
+              <text class="val" x="115" y="148">312</text><text class="val-hi" x="225" y="99">444</text>
+              <text class="val" x="335" y="120">386</text><text class="val" x="445" y="68">528</text>
+              <line class="axis" x1="60" y1="270" x2="500" y2="270"/>
+              <text class="ylab" x="52" y="274" text-anchor="end">0</text><text class="ylab" x="52" y="219" text-anchor="end">150</text>
+              <text class="ylab" x="52" y="164" text-anchor="end">300</text><text class="ylab" x="52" y="109" text-anchor="end">450</text>
+              <text class="ylab" x="52" y="54" text-anchor="end">600</text>
+              <text class="cat" x="115" y="294" text-anchor="middle">Q1</text><text class="cat" x="225" y="294" text-anchor="middle">Q2</text>
+              <text class="cat" x="335" y="294" text-anchor="middle">Q3</text><text class="cat" x="445" y="294" text-anchor="middle">Q4</text>
+            </svg>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>Q2 营收 444 万，环比增长 42%，超出季度目标 11%。</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>华东区贡献 38% 增量，标杆客户复购率达 91%。</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>Q4 冲刺 528 万，需提前锁定促销资源与交付产能。</p></div>
+          </div>
+          <div class="chart-caption">数据来源：2026 年销售明细（示例数据） · 单位：万元</div>
+        </div>
+      </div>
+      <div><div class="slide-label">核心指标</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">08</div><div class="s-heading">上半年核心指标</div></div>
+          <div class="kpis">
+            <div class="kpi"><div class="kpi-value">1,668</div><div class="kpi-label">营收（万元）</div><div class="kpi-delta">同比 <b>+38%</b></div></div>
+            <div class="kpi"><div class="kpi-value">1,240</div><div class="kpi-label">企业客户数</div><div class="kpi-delta">同比 <b>+52%</b></div></div>
+            <div class="kpi"><div class="kpi-value">91%</div><div class="kpi-label">标杆客户复购率</div><div class="kpi-delta">较去年 <b>+6pt</b></div></div>
+            <div class="kpi"><div class="kpi-value">68</div><div class="kpi-label">NPS 净推荐值</div><div class="kpi-delta">较去年 <b>+12</b></div></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">方案对比</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">09</div><div class="s-heading">增长路径对比</div></div>
+          <div class="compare">
+            <div class="cmp"><span class="cmp-tag">自建团队</span>
+              <ul><li>数据与流程完全自主可控</li><li>初期投入高，团队成本大</li><li>建设周期约 6 个月</li><li>适合核心能力长期深耕</li></ul>
+            </div>
+            <div class="vs-badge">VS</div>
+            <div class="cmp"><span class="cmp-tag">生态合作</span>
+              <ul><li>借助伙伴网络快速起量</li><li>轻资产运营，按分成结算</li><li>落地周期约 2 个月</li><li>适合区域市场快速覆盖</li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">表格页</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">10</div><div class="s-heading">区域销售明细</div></div>
+          <table class="data-table">
+            <thead><tr><th>区域</th><th class="num">营收（万元）</th><th class="num">同比</th><th class="num">占比</th></tr></thead>
+            <tbody>
+              <tr><td>华东</td><td class="num">634</td><td class="num pos">+45%</td><td class="num">38%</td></tr>
+              <tr><td>华北</td><td class="num">428</td><td class="num pos">+32%</td><td class="num">26%</td></tr>
+              <tr><td>华南</td><td class="num">355</td><td class="num pos">+41%</td><td class="num">21%</td></tr>
+              <tr><td>西部</td><td class="num">251</td><td class="num pos">+28%</td><td class="num">15%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+<div><div class="slide-label">金句</div>
+        <div class="slide">
+          <div class="s-quote">
+            <div class="q-mark">&ldquo;</div>
+            <div class="q-text">增长的本质不是追逐流量，<br>而是构建可复用的价值网络。</div>
+            <div class="q-author">—— 2026 增长战略纲要</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">结尾页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="blob blob1"></div><div class="blob blob2"></div>
+          <div class="s-end">
+            <div class="end-title">谢谢观看</div>
+            <div class="end-sub">让每一页演示都有设计感</div>
+            <div class="end-contact">hello@aivine.ai · www.aivine.ai</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 02 glass 玻璃拟态 ============ -->
+  <div class="preset p-glass">
+    <div class="preset-head">
+      <span class="preset-num">02</span><span class="preset-name">玻璃拟态</span><span class="preset-en">Glassmorphism</span>
+      <span class="chips"><span class="chip" style="background:#4F46E5"></span><span class="chip" style="background:#7DB0FF"></span><span class="chip" style="background:#7DD3FC"></span><span class="chip" style="background:#EAF0FB"></span></span>
+    </div>
+    <div class="preset-desc">浅色弥散底 + 毛玻璃面板，柔和通透。适合数据汇报、SaaS 产品。</div>
+    <div class="slides">
+      <div><div class="slide-label">封面</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="blob blob1"></div><div class="blob blob2"></div><div class="blob blob3"></div>
+          <div class="panel">
+            <div class="cover-title">2026 增长战略规划</div>
+            <div class="cover-sub">市场洞察 · 增长引擎 · 产品路线</div>
+          </div>
+          <div class="cover-meta">AI DIVINE<br>2026.01</div>
+        </div>
+      </div>
+      <div><div class="slide-label">目录</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">CONTENTS</div><div class="s-heading">目录</div></div>
+          <div class="toc-grid">
+            <div class="toc-item"><span class="toc-num">01</span><h5>市场洞察</h5><span class="toc-page">P02</span></div>
+            <div class="toc-item"><span class="toc-num">02</span><h5>增长引擎</h5><span class="toc-page">P05</span></div>
+            <div class="toc-item"><span class="toc-num">03</span><h5>产品路线</h5><span class="toc-page">P10</span></div>
+            <div class="toc-item"><span class="toc-num">04</span><h5>组织保障</h5><span class="toc-page">P14</span></div>
+            <div class="toc-item"><span class="toc-num">05</span><h5>财务规划</h5><span class="toc-page">P16</span></div>
+            <div class="toc-item"><span class="toc-num">06</span><h5>风险与应对</h5><span class="toc-page">P18</span></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">章节页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="blob blob1"></div><div class="blob blob2"></div><div class="blob blob3"></div>
+          <div class="sec-inner">
+            <div class="sec-num">03</div>
+            <div class="sec-kicker">PART 03</div>
+            <div class="sec-title">产品路线</div>
+            <div class="sec-sub">三步走：夯实核心 · 拓展生态 · 智能升级</div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">图文两栏</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">04</div><div class="s-heading">智能体平台 2.0 发布</div></div>
+          <div class="media-area">
+            <div class="media-glyph"><div class="ico"></div><span>产品主视觉 · 配图占位</span></div>
+            <div class="media-cap">配图可由 image_generate 生成或使用用户提供的图片</div>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>多模态理解升级，支持文档 / 图表 / 音视频输入</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>智能体编排引擎，业务流程零代码搭建</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>内置行业模板 30+，开箱即用</p></div>
+            <div class="tk"><div class="tk-num">04</div><p>企业级权限与审计，安全合规</p></div>
+          </div>
+        </div>
+      </div>
+<div><div class="slide-label">内容卡片</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">05</div><div class="s-heading">三大增长引擎</div></div>
+          <div class="cards">
+            <div class="card"><div class="dot"></div><h4>企业客户拓展</h4><p>深耕头部行业标杆客户，KA 团队扩编 30%，推动标杆案例规模化复制。</p></div>
+            <div class="card"><div class="dot"></div><h4>生态合作网络</h4><p>联合 ISV 与渠道伙伴构建分发联盟，年内覆盖 200+ 重点城市。</p></div>
+            <div class="card"><div class="dot"></div><h4>智能化提效</h4><p>AI 驱动营销与交付流程自动化，整体人效提升 40% 以上。</p></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">时间轴</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">06</div><div class="s-heading">2026 关键里程碑</div></div>
+          <div class="timeline">
+            <div class="tl-track"></div>
+            <div class="tl-nodes">
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q1</div><h5>生态联盟成立</h5><p>首批 12 家 ISV 完成签约</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q2</div><h5>KA 团队扩编</h5><p>华东 / 华南团队全部就位</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q3</div><h5>新品发布会</h5><p>智能体平台 2.0 正式发布</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q4</div><h5>年度复盘规划</h5><p>全年目标校准与来年规划</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">图表 + 要点</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">07</div><div class="s-heading">季度营收增长趋势</div></div>
+          <div class="chart-area">
+            <svg viewBox="0 0 520 320">
+              <line class="gl" x1="60" y1="50" x2="500" y2="50"/><line class="gl" x1="60" y1="105" x2="500" y2="105"/>
+              <line class="gl" x1="60" y1="160" x2="500" y2="160"/><line class="gl" x1="60" y1="215" x2="500" y2="215"/>
+              <line class="tline" x1="60" y1="123" x2="500" y2="123"/><text class="tlab" x="64" y="117" text-anchor="start">目标 400</text>
+              <rect class="bar" x="82" y="156" width="66" height="114" rx="5"/>
+              <rect class="bar-hi" x="192" y="107" width="66" height="163" rx="5"/>
+              <rect class="bar" x="302" y="128" width="66" height="142" rx="5"/>
+              <rect class="bar" x="412" y="76" width="66" height="194" rx="5"/>
+              <text class="val" x="115" y="148">312</text><text class="val-hi" x="225" y="99">444</text>
+              <text class="val" x="335" y="120">386</text><text class="val" x="445" y="68">528</text>
+              <line class="axis" x1="60" y1="270" x2="500" y2="270"/>
+              <text class="ylab" x="52" y="274" text-anchor="end">0</text><text class="ylab" x="52" y="219" text-anchor="end">150</text>
+              <text class="ylab" x="52" y="164" text-anchor="end">300</text><text class="ylab" x="52" y="109" text-anchor="end">450</text>
+              <text class="ylab" x="52" y="54" text-anchor="end">600</text>
+              <text class="cat" x="115" y="294" text-anchor="middle">Q1</text><text class="cat" x="225" y="294" text-anchor="middle">Q2</text>
+              <text class="cat" x="335" y="294" text-anchor="middle">Q3</text><text class="cat" x="445" y="294" text-anchor="middle">Q4</text>
+            </svg>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>Q2 营收 444 万，环比增长 42%，超出季度目标 11%。</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>华东区贡献 38% 增量，标杆客户复购率达 91%。</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>Q4 冲刺 528 万，需提前锁定促销资源与交付产能。</p></div>
+          </div>
+          <div class="chart-caption">数据来源：2026 年销售明细（示例数据） · 单位：万元</div>
+        </div>
+      </div>
+      <div><div class="slide-label">核心指标</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">08</div><div class="s-heading">上半年核心指标</div></div>
+          <div class="kpis">
+            <div class="kpi"><div class="kpi-value">1,668</div><div class="kpi-label">营收（万元）</div><div class="kpi-delta">同比 <b>+38%</b></div></div>
+            <div class="kpi"><div class="kpi-value">1,240</div><div class="kpi-label">企业客户数</div><div class="kpi-delta">同比 <b>+52%</b></div></div>
+            <div class="kpi"><div class="kpi-value">91%</div><div class="kpi-label">标杆客户复购率</div><div class="kpi-delta">较去年 <b>+6pt</b></div></div>
+            <div class="kpi"><div class="kpi-value">68</div><div class="kpi-label">NPS 净推荐值</div><div class="kpi-delta">较去年 <b>+12</b></div></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">方案对比</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">09</div><div class="s-heading">增长路径对比</div></div>
+          <div class="compare">
+            <div class="cmp"><span class="cmp-tag">自建团队</span>
+              <ul><li>数据与流程完全自主可控</li><li>初期投入高，团队成本大</li><li>建设周期约 6 个月</li><li>适合核心能力长期深耕</li></ul>
+            </div>
+            <div class="vs-badge">VS</div>
+            <div class="cmp"><span class="cmp-tag">生态合作</span>
+              <ul><li>借助伙伴网络快速起量</li><li>轻资产运营，按分成结算</li><li>落地周期约 2 个月</li><li>适合区域市场快速覆盖</li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">表格页</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">10</div><div class="s-heading">区域销售明细</div></div>
+          <table class="data-table">
+            <thead><tr><th>区域</th><th class="num">营收（万元）</th><th class="num">同比</th><th class="num">占比</th></tr></thead>
+            <tbody>
+              <tr><td>华东</td><td class="num">634</td><td class="num pos">+45%</td><td class="num">38%</td></tr>
+              <tr><td>华北</td><td class="num">428</td><td class="num pos">+32%</td><td class="num">26%</td></tr>
+              <tr><td>华南</td><td class="num">355</td><td class="num pos">+41%</td><td class="num">21%</td></tr>
+              <tr><td>西部</td><td class="num">251</td><td class="num pos">+28%</td><td class="num">15%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+<div><div class="slide-label">金句</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="blob blob1"></div><div class="blob blob2"></div><div class="blob blob3"></div>
+          <div class="s-quote">
+            <div class="q-mark">&ldquo;</div>
+            <div class="q-text">增长的本质不是追逐流量，<br>而是构建可复用的价值网络。</div>
+            <div class="q-author">—— 2026 增长战略纲要</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">结尾页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="blob blob1"></div><div class="blob blob2"></div><div class="blob blob3"></div>
+          <div class="end-panel"></div>
+          <div class="s-end">
+            <div class="end-title">谢谢观看</div>
+            <div class="end-sub">让每一页演示都有设计感</div>
+            <div class="end-contact">hello@aivine.ai · www.aivine.ai</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 03 brutalist 新粗野 ============ -->
+  <div class="preset p-brutalist">
+    <div class="preset-head">
+      <span class="preset-num">03</span><span class="preset-name">新粗野</span><span class="preset-en">Neo Brutalism</span>
+      <span class="chips"><span class="chip" style="background:#111111"></span><span class="chip" style="background:#FFD400"></span><span class="chip" style="background:#FF5C00"></span><span class="chip" style="background:#2563EB"></span></span>
+    </div>
+    <div class="preset-desc">米白底 + 高饱和撞色块 + 粗黑边框硬阴影，超大标题。适合创意、年轻化品牌。</div>
+    <div class="slides">
+      <div><div class="slide-label">封面</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="blk blk-y"></div><div class="blk blk-b"></div><div class="blk blk-o"></div>
+          <div class="cover-inner">
+            <div class="cover-title">2026 增长战略规划</div>
+            <div class="cover-sub">市场洞察 · 增长引擎 · 产品路线</div>
+            <div class="cover-meta">AI DIVINE · 2026.01</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">目录</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">CONTENTS</div><div class="s-heading">目录</div></div>
+          <div class="toc-grid">
+            <div class="toc-item"><span class="toc-num">01</span><h5>市场洞察</h5><span class="toc-page">P02</span></div>
+            <div class="toc-item"><span class="toc-num">02</span><h5>增长引擎</h5><span class="toc-page">P05</span></div>
+            <div class="toc-item"><span class="toc-num">03</span><h5>产品路线</h5><span class="toc-page">P10</span></div>
+            <div class="toc-item"><span class="toc-num">04</span><h5>组织保障</h5><span class="toc-page">P14</span></div>
+            <div class="toc-item"><span class="toc-num">05</span><h5>财务规划</h5><span class="toc-page">P16</span></div>
+            <div class="toc-item"><span class="toc-num">06</span><h5>风险与应对</h5><span class="toc-page">P18</span></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">章节页</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="blk blk-o"></div>
+          <div class="sec-inner">
+            <div class="sec-num">03</div>
+            <div class="sec-kicker">PART 03</div>
+            <div class="sec-title">产品路线</div>
+            <div class="sec-sub">三步走：夯实核心 · 拓展生态 · 智能升级</div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">图文两栏</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">04</div><div class="s-heading">智能体平台 2.0 发布</div></div>
+          <div class="media-area">
+            <div class="media-glyph"><div class="ico"></div><span>产品主视觉 · 配图占位</span></div>
+            <div class="media-cap">配图可由 image_generate 生成或使用用户提供的图片</div>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>多模态理解升级，支持文档 / 图表 / 音视频输入</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>智能体编排引擎，业务流程零代码搭建</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>内置行业模板 30+，开箱即用</p></div>
+            <div class="tk"><div class="tk-num">04</div><p>企业级权限与审计，安全合规</p></div>
+          </div>
+        </div>
+      </div>
+<div><div class="slide-label">内容卡片</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">05</div><div class="s-heading">三大增长引擎</div></div>
+          <div class="cards">
+            <div class="card"><div class="dot"></div><h4>企业客户拓展</h4><p>深耕头部行业标杆客户，KA 团队扩编 30%，推动标杆案例规模化复制。</p></div>
+            <div class="card"><div class="dot"></div><h4>生态合作网络</h4><p>联合 ISV 与渠道伙伴构建分发联盟，年内覆盖 200+ 重点城市。</p></div>
+            <div class="card"><div class="dot"></div><h4>智能化提效</h4><p>AI 驱动营销与交付流程自动化，整体人效提升 40% 以上。</p></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">时间轴</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">06</div><div class="s-heading">2026 关键里程碑</div></div>
+          <div class="timeline">
+            <div class="tl-track"></div>
+            <div class="tl-nodes">
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q1</div><h5>生态联盟成立</h5><p>首批 12 家 ISV 完成签约</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q2</div><h5>KA 团队扩编</h5><p>华东 / 华南团队全部就位</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q3</div><h5>新品发布会</h5><p>智能体平台 2.0 正式发布</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q4</div><h5>年度复盘规划</h5><p>全年目标校准与来年规划</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">图表 + 要点</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">07</div><div class="s-heading">季度营收增长趋势</div></div>
+          <div class="chart-area">
+            <svg viewBox="0 0 520 320">
+              <line class="gl" x1="60" y1="50" x2="500" y2="50"/><line class="gl" x1="60" y1="105" x2="500" y2="105"/>
+              <line class="gl" x1="60" y1="160" x2="500" y2="160"/><line class="gl" x1="60" y1="215" x2="500" y2="215"/>
+              <line class="tline" x1="60" y1="123" x2="500" y2="123"/><text class="tlab" x="64" y="117" text-anchor="start">目标 400</text>
+              <rect class="bar" x="82" y="156" width="66" height="114" rx="5"/>
+              <rect class="bar-hi" x="192" y="107" width="66" height="163" rx="5"/>
+              <rect class="bar" x="302" y="128" width="66" height="142" rx="5"/>
+              <rect class="bar" x="412" y="76" width="66" height="194" rx="5"/>
+              <text class="val" x="115" y="148">312</text><text class="val-hi" x="225" y="99">444</text>
+              <text class="val" x="335" y="120">386</text><text class="val" x="445" y="68">528</text>
+              <line class="axis" x1="60" y1="270" x2="500" y2="270"/>
+              <text class="ylab" x="52" y="274" text-anchor="end">0</text><text class="ylab" x="52" y="219" text-anchor="end">150</text>
+              <text class="ylab" x="52" y="164" text-anchor="end">300</text><text class="ylab" x="52" y="109" text-anchor="end">450</text>
+              <text class="ylab" x="52" y="54" text-anchor="end">600</text>
+              <text class="cat" x="115" y="294" text-anchor="middle">Q1</text><text class="cat" x="225" y="294" text-anchor="middle">Q2</text>
+              <text class="cat" x="335" y="294" text-anchor="middle">Q3</text><text class="cat" x="445" y="294" text-anchor="middle">Q4</text>
+            </svg>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>Q2 营收 444 万，环比增长 42%，超出季度目标 11%。</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>华东区贡献 38% 增量，标杆客户复购率达 91%。</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>Q4 冲刺 528 万，需提前锁定促销资源与交付产能。</p></div>
+          </div>
+          <div class="chart-caption">数据来源：2026 年销售明细（示例数据） · 单位：万元</div>
+        </div>
+      </div>
+      <div><div class="slide-label">核心指标</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">08</div><div class="s-heading">上半年核心指标</div></div>
+          <div class="kpis">
+            <div class="kpi"><div class="kpi-value">1,668</div><div class="kpi-label">营收（万元）</div><div class="kpi-delta">同比 <b>+38%</b></div></div>
+            <div class="kpi"><div class="kpi-value">1,240</div><div class="kpi-label">企业客户数</div><div class="kpi-delta">同比 <b>+52%</b></div></div>
+            <div class="kpi"><div class="kpi-value">91%</div><div class="kpi-label">标杆客户复购率</div><div class="kpi-delta">较去年 <b>+6pt</b></div></div>
+            <div class="kpi"><div class="kpi-value">68</div><div class="kpi-label">NPS 净推荐值</div><div class="kpi-delta">较去年 <b>+12</b></div></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">方案对比</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">09</div><div class="s-heading">增长路径对比</div></div>
+          <div class="compare">
+            <div class="cmp"><span class="cmp-tag">自建团队</span>
+              <ul><li>数据与流程完全自主可控</li><li>初期投入高，团队成本大</li><li>建设周期约 6 个月</li><li>适合核心能力长期深耕</li></ul>
+            </div>
+            <div class="vs-badge">VS</div>
+            <div class="cmp"><span class="cmp-tag">生态合作</span>
+              <ul><li>借助伙伴网络快速起量</li><li>轻资产运营，按分成结算</li><li>落地周期约 2 个月</li><li>适合区域市场快速覆盖</li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">表格页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">10</div><div class="s-heading">区域销售明细</div></div>
+          <table class="data-table">
+            <thead><tr><th>区域</th><th class="num">营收（万元）</th><th class="num">同比</th><th class="num">占比</th></tr></thead>
+            <tbody>
+              <tr><td>华东</td><td class="num">634</td><td class="num pos">+45%</td><td class="num">38%</td></tr>
+              <tr><td>华北</td><td class="num">428</td><td class="num pos">+32%</td><td class="num">26%</td></tr>
+              <tr><td>华南</td><td class="num">355</td><td class="num pos">+41%</td><td class="num">21%</td></tr>
+              <tr><td>西部</td><td class="num">251</td><td class="num pos">+28%</td><td class="num">15%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+<div><div class="slide-label">金句</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="s-quote">
+            <div class="q-mark">&ldquo;</div>
+            <div class="q-text">增长的本质不是追逐流量，<br>而是构建可复用的价值网络。</div>
+            <div class="q-author">—— 2026 增长战略纲要</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">结尾页</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="blk blk-y" style="top:auto; bottom:40px; right:40px; width:170px; height:120px;"></div>
+          <div class="s-end">
+            <div class="end-title">谢谢观看</div>
+            <div class="end-sub">让每一页演示都有设计感</div>
+            <div class="end-contact">hello@aivine.ai · www.aivine.ai</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 04 swiss 瑞士国际 ============ -->
+  <div class="preset p-swiss">
+    <div class="preset-head">
+      <span class="preset-num">04</span><span class="preset-name">瑞士国际</span><span class="preset-en">Swiss Style</span>
+      <span class="chips"><span class="chip" style="background:#111111"></span><span class="chip" style="background:#DA291C"></span><span class="chip" style="background:#FAFAF7"></span><span class="chip" style="background:#ECECE5"></span></span>
+    </div>
+    <div class="preset-desc">大留白 + 网格 + 超大序号，单一红色强调。适合咨询、学术、极简汇报。</div>
+    <div class="slides">
+      <div><div class="slide-label">封面</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="bignum">01</div>
+          <div class="cover-inner">
+            <div class="cover-rule"></div>
+            <div class="cover-title">2026 增长战略规划</div>
+            <div class="cover-sub">市场洞察 · 增长引擎 · 产品路线</div>
+            <div class="cover-meta">AI DIVINE — STRATEGY 2026</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">目录</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="sq"></div>
+          <div class="s-head"><div class="s-index">CONTENTS</div><div class="s-heading">目录</div></div>
+          <div class="toc-grid">
+            <div class="toc-item"><span class="toc-num">01</span><h5>市场洞察</h5><span class="toc-page">P02</span></div>
+            <div class="toc-item"><span class="toc-num">02</span><h5>增长引擎</h5><span class="toc-page">P05</span></div>
+            <div class="toc-item"><span class="toc-num">03</span><h5>产品路线</h5><span class="toc-page">P10</span></div>
+            <div class="toc-item"><span class="toc-num">04</span><h5>组织保障</h5><span class="toc-page">P14</span></div>
+            <div class="toc-item"><span class="toc-num">05</span><h5>财务规划</h5><span class="toc-page">P16</span></div>
+            <div class="toc-item"><span class="toc-num">06</span><h5>风险与应对</h5><span class="toc-page">P18</span></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">章节页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="sq"></div>
+          <div class="sec-inner">
+            <div class="sec-num">03</div>
+            <div class="sec-kicker">PART 03</div>
+            <div class="sec-title">产品路线</div>
+            <div class="sec-sub">三步走：夯实核心 · 拓展生态 · 智能升级</div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">图文两栏</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="sq"></div>
+          <div class="s-head"><div class="s-index">04</div><div class="s-heading">智能体平台 2.0 发布</div></div>
+          <div class="media-area">
+            <div class="media-glyph"><div class="ico"></div><span>产品主视觉 · 配图占位</span></div>
+            <div class="media-cap">配图可由 image_generate 生成或使用用户提供的图片</div>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>多模态理解升级，支持文档 / 图表 / 音视频输入</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>智能体编排引擎，业务流程零代码搭建</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>内置行业模板 30+，开箱即用</p></div>
+            <div class="tk"><div class="tk-num">04</div><p>企业级权限与审计，安全合规</p></div>
+          </div>
+        </div>
+      </div>
+<div><div class="slide-label">内容卡片</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="sq"></div>
+          <div class="s-head"><div class="s-index">05</div><div class="s-heading">三大增长引擎</div></div>
+          <div class="cards">
+            <div class="card"><div class="dot"></div><h4>企业客户拓展</h4><p>深耕头部行业标杆客户，KA 团队扩编 30%，推动标杆案例规模化复制。</p></div>
+            <div class="card"><div class="dot"></div><h4>生态合作网络</h4><p>联合 ISV 与渠道伙伴构建分发联盟，年内覆盖 200+ 重点城市。</p></div>
+            <div class="card"><div class="dot"></div><h4>智能化提效</h4><p>AI 驱动营销与交付流程自动化，整体人效提升 40% 以上。</p></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">时间轴</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="sq"></div>
+          <div class="s-head"><div class="s-index">06</div><div class="s-heading">2026 关键里程碑</div></div>
+          <div class="timeline">
+            <div class="tl-track"></div>
+            <div class="tl-nodes">
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q1</div><h5>生态联盟成立</h5><p>首批 12 家 ISV 完成签约</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q2</div><h5>KA 团队扩编</h5><p>华东 / 华南团队全部就位</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q3</div><h5>新品发布会</h5><p>智能体平台 2.0 正式发布</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q4</div><h5>年度复盘规划</h5><p>全年目标校准与来年规划</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">图表 + 要点</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="sq"></div>
+          <div class="s-head"><div class="s-index">07</div><div class="s-heading">季度营收增长趋势</div></div>
+          <div class="chart-area">
+            <svg viewBox="0 0 520 320">
+              <line class="gl" x1="60" y1="50" x2="500" y2="50"/><line class="gl" x1="60" y1="105" x2="500" y2="105"/>
+              <line class="gl" x1="60" y1="160" x2="500" y2="160"/><line class="gl" x1="60" y1="215" x2="500" y2="215"/>
+              <line class="tline" x1="60" y1="123" x2="500" y2="123"/><text class="tlab" x="64" y="117" text-anchor="start">目标 400</text>
+              <rect class="bar" x="82" y="156" width="66" height="114" rx="5"/>
+              <rect class="bar-hi" x="192" y="107" width="66" height="163" rx="5"/>
+              <rect class="bar" x="302" y="128" width="66" height="142" rx="5"/>
+              <rect class="bar" x="412" y="76" width="66" height="194" rx="5"/>
+              <text class="val" x="115" y="148">312</text><text class="val-hi" x="225" y="99">444</text>
+              <text class="val" x="335" y="120">386</text><text class="val" x="445" y="68">528</text>
+              <line class="axis" x1="60" y1="270" x2="500" y2="270"/>
+              <text class="ylab" x="52" y="274" text-anchor="end">0</text><text class="ylab" x="52" y="219" text-anchor="end">150</text>
+              <text class="ylab" x="52" y="164" text-anchor="end">300</text><text class="ylab" x="52" y="109" text-anchor="end">450</text>
+              <text class="ylab" x="52" y="54" text-anchor="end">600</text>
+              <text class="cat" x="115" y="294" text-anchor="middle">Q1</text><text class="cat" x="225" y="294" text-anchor="middle">Q2</text>
+              <text class="cat" x="335" y="294" text-anchor="middle">Q3</text><text class="cat" x="445" y="294" text-anchor="middle">Q4</text>
+            </svg>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>Q2 营收 444 万，环比增长 42%，超出季度目标 11%。</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>华东区贡献 38% 增量，标杆客户复购率达 91%。</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>Q4 冲刺 528 万，需提前锁定促销资源与交付产能。</p></div>
+          </div>
+          <div class="chart-caption">数据来源：2026 年销售明细（示例数据） · 单位：万元</div>
+        </div>
+      </div>
+      <div><div class="slide-label">核心指标</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="sq"></div>
+          <div class="s-head"><div class="s-index">08</div><div class="s-heading">上半年核心指标</div></div>
+          <div class="kpis">
+            <div class="kpi"><div class="kpi-value">1,668</div><div class="kpi-label">营收（万元）</div><div class="kpi-delta">同比 <b>+38%</b></div></div>
+            <div class="kpi"><div class="kpi-value">1,240</div><div class="kpi-label">企业客户数</div><div class="kpi-delta">同比 <b>+52%</b></div></div>
+            <div class="kpi"><div class="kpi-value">91%</div><div class="kpi-label">标杆客户复购率</div><div class="kpi-delta">较去年 <b>+6pt</b></div></div>
+            <div class="kpi"><div class="kpi-value">68</div><div class="kpi-label">NPS 净推荐值</div><div class="kpi-delta">较去年 <b>+12</b></div></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">方案对比</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="sq"></div>
+          <div class="s-head"><div class="s-index">09</div><div class="s-heading">增长路径对比</div></div>
+          <div class="compare">
+            <div class="cmp"><span class="cmp-tag">自建团队</span>
+              <ul><li>数据与流程完全自主可控</li><li>初期投入高，团队成本大</li><li>建设周期约 6 个月</li><li>适合核心能力长期深耕</li></ul>
+            </div>
+            <div class="vs-badge">VS</div>
+            <div class="cmp"><span class="cmp-tag">生态合作</span>
+              <ul><li>借助伙伴网络快速起量</li><li>轻资产运营，按分成结算</li><li>落地周期约 2 个月</li><li>适合区域市场快速覆盖</li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">表格页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="sq"></div>
+          <div class="s-head"><div class="s-index">10</div><div class="s-heading">区域销售明细</div></div>
+          <table class="data-table">
+            <thead><tr><th>区域</th><th class="num">营收（万元）</th><th class="num">同比</th><th class="num">占比</th></tr></thead>
+            <tbody>
+              <tr><td>华东</td><td class="num">634</td><td class="num pos">+45%</td><td class="num">38%</td></tr>
+              <tr><td>华北</td><td class="num">428</td><td class="num pos">+32%</td><td class="num">26%</td></tr>
+              <tr><td>华南</td><td class="num">355</td><td class="num pos">+41%</td><td class="num">21%</td></tr>
+              <tr><td>西部</td><td class="num">251</td><td class="num pos">+28%</td><td class="num">15%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+<div><div class="slide-label">金句</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="sq" style="left:50%; right:auto; top:auto; bottom:64px; transform:translateX(-50%);"></div>
+          <div class="s-quote">
+            <div class="q-mark">&ldquo;</div>
+            <div class="q-text">增长的本质不是追逐流量，<br>而是构建可复用的价值网络。</div>
+            <div class="q-author">—— 2026 增长战略纲要</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">结尾页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="sq" style="left:50%; top:auto; bottom:96px; transform:translateX(-50%);"></div>
+          <div class="s-end">
+            <div class="end-title">谢谢观看</div>
+            <div class="end-sub">让每一页演示都有设计感</div>
+            <div class="end-contact">hello@aivine.ai · www.aivine.ai</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 05 mesh 渐变弥散 ============ -->
+  <div class="preset p-mesh">
+    <div class="preset-head">
+      <span class="preset-num">05</span><span class="preset-name">渐变弥散</span><span class="preset-en">Mesh Gradient</span>
+      <span class="chips"><span class="chip" style="background:#8B5CF6"></span><span class="chip" style="background:#3B82F6"></span><span class="chip" style="background:#06B6D4"></span><span class="chip" style="background:#0A0A1C"></span></span>
+    </div>
+    <div class="preset-desc">深色底多色弥散光晕 + 渐变字，Linear / Vercel 风。适合科技、开发者场景。</div>
+    <div class="slides">
+      <div><div class="slide-label">封面</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="blob blob1"></div><div class="blob blob2"></div><div class="blob blob3"></div>
+          <div class="badge">2026 STRATEGY</div>
+          <div class="cover-title">2026 增长战略规划</div>
+          <div class="cover-sub">市场洞察 · 增长引擎 · 产品路线</div>
+          <div class="cover-meta">AI DIVINE — 2026.01</div>
+        </div>
+      </div>
+      <div><div class="slide-label">目录</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">CONTENTS</div><div class="s-heading">目录</div></div>
+          <div class="toc-grid">
+            <div class="toc-item"><span class="toc-num">01</span><h5>市场洞察</h5><span class="toc-page">P02</span></div>
+            <div class="toc-item"><span class="toc-num">02</span><h5>增长引擎</h5><span class="toc-page">P05</span></div>
+            <div class="toc-item"><span class="toc-num">03</span><h5>产品路线</h5><span class="toc-page">P10</span></div>
+            <div class="toc-item"><span class="toc-num">04</span><h5>组织保障</h5><span class="toc-page">P14</span></div>
+            <div class="toc-item"><span class="toc-num">05</span><h5>财务规划</h5><span class="toc-page">P16</span></div>
+            <div class="toc-item"><span class="toc-num">06</span><h5>风险与应对</h5><span class="toc-page">P18</span></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">章节页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="blob blob1"></div><div class="blob blob2"></div><div class="blob blob3"></div>
+          <div class="sec-inner">
+            <div class="sec-num">03</div>
+            <div class="sec-kicker">PART 03</div>
+            <div class="sec-title">产品路线</div>
+            <div class="sec-sub">三步走：夯实核心 · 拓展生态 · 智能升级</div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">图文两栏</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">04</div><div class="s-heading">智能体平台 2.0 发布</div></div>
+          <div class="media-area">
+            <div class="media-glyph"><div class="ico"></div><span>产品主视觉 · 配图占位</span></div>
+            <div class="media-cap">配图可由 image_generate 生成或使用用户提供的图片</div>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>多模态理解升级，支持文档 / 图表 / 音视频输入</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>智能体编排引擎，业务流程零代码搭建</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>内置行业模板 30+，开箱即用</p></div>
+            <div class="tk"><div class="tk-num">04</div><p>企业级权限与审计，安全合规</p></div>
+          </div>
+        </div>
+      </div>
+<div><div class="slide-label">内容卡片</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">05</div><div class="s-heading">三大增长引擎</div></div>
+          <div class="cards">
+            <div class="card"><div class="dot"></div><h4>企业客户拓展</h4><p>深耕头部行业标杆客户，KA 团队扩编 30%，推动标杆案例规模化复制。</p></div>
+            <div class="card"><div class="dot"></div><h4>生态合作网络</h4><p>联合 ISV 与渠道伙伴构建分发联盟，年内覆盖 200+ 重点城市。</p></div>
+            <div class="card"><div class="dot"></div><h4>智能化提效</h4><p>AI 驱动营销与交付流程自动化，整体人效提升 40% 以上。</p></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">时间轴</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">06</div><div class="s-heading">2026 关键里程碑</div></div>
+          <div class="timeline">
+            <div class="tl-track"></div>
+            <div class="tl-nodes">
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q1</div><h5>生态联盟成立</h5><p>首批 12 家 ISV 完成签约</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q2</div><h5>KA 团队扩编</h5><p>华东 / 华南团队全部就位</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q3</div><h5>新品发布会</h5><p>智能体平台 2.0 正式发布</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q4</div><h5>年度复盘规划</h5><p>全年目标校准与来年规划</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">图表 + 要点</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">07</div><div class="s-heading">季度营收增长趋势</div></div>
+          <div class="chart-area">
+            <svg viewBox="0 0 520 320">
+              <line class="gl" x1="60" y1="50" x2="500" y2="50"/><line class="gl" x1="60" y1="105" x2="500" y2="105"/>
+              <line class="gl" x1="60" y1="160" x2="500" y2="160"/><line class="gl" x1="60" y1="215" x2="500" y2="215"/>
+              <line class="tline" x1="60" y1="123" x2="500" y2="123"/><text class="tlab" x="64" y="117" text-anchor="start">目标 400</text>
+              <rect class="bar" x="82" y="156" width="66" height="114" rx="5"/>
+              <rect class="bar-hi" x="192" y="107" width="66" height="163" rx="5"/>
+              <rect class="bar" x="302" y="128" width="66" height="142" rx="5"/>
+              <rect class="bar" x="412" y="76" width="66" height="194" rx="5"/>
+              <text class="val" x="115" y="148">312</text><text class="val-hi" x="225" y="99">444</text>
+              <text class="val" x="335" y="120">386</text><text class="val" x="445" y="68">528</text>
+              <line class="axis" x1="60" y1="270" x2="500" y2="270"/>
+              <text class="ylab" x="52" y="274" text-anchor="end">0</text><text class="ylab" x="52" y="219" text-anchor="end">150</text>
+              <text class="ylab" x="52" y="164" text-anchor="end">300</text><text class="ylab" x="52" y="109" text-anchor="end">450</text>
+              <text class="ylab" x="52" y="54" text-anchor="end">600</text>
+              <text class="cat" x="115" y="294" text-anchor="middle">Q1</text><text class="cat" x="225" y="294" text-anchor="middle">Q2</text>
+              <text class="cat" x="335" y="294" text-anchor="middle">Q3</text><text class="cat" x="445" y="294" text-anchor="middle">Q4</text>
+            </svg>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>Q2 营收 444 万，环比增长 42%，超出季度目标 11%。</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>华东区贡献 38% 增量，标杆客户复购率达 91%。</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>Q4 冲刺 528 万，需提前锁定促销资源与交付产能。</p></div>
+          </div>
+          <div class="chart-caption">数据来源：2026 年销售明细（示例数据） · 单位：万元</div>
+        </div>
+      </div>
+      <div><div class="slide-label">核心指标</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">08</div><div class="s-heading">上半年核心指标</div></div>
+          <div class="kpis">
+            <div class="kpi"><div class="kpi-value">1,668</div><div class="kpi-label">营收（万元）</div><div class="kpi-delta">同比 <b>+38%</b></div></div>
+            <div class="kpi"><div class="kpi-value">1,240</div><div class="kpi-label">企业客户数</div><div class="kpi-delta">同比 <b>+52%</b></div></div>
+            <div class="kpi"><div class="kpi-value">91%</div><div class="kpi-label">标杆客户复购率</div><div class="kpi-delta">较去年 <b>+6pt</b></div></div>
+            <div class="kpi"><div class="kpi-value">68</div><div class="kpi-label">NPS 净推荐值</div><div class="kpi-delta">较去年 <b>+12</b></div></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">方案对比</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">09</div><div class="s-heading">增长路径对比</div></div>
+          <div class="compare">
+            <div class="cmp"><span class="cmp-tag">自建团队</span>
+              <ul><li>数据与流程完全自主可控</li><li>初期投入高，团队成本大</li><li>建设周期约 6 个月</li><li>适合核心能力长期深耕</li></ul>
+            </div>
+            <div class="vs-badge">VS</div>
+            <div class="cmp"><span class="cmp-tag">生态合作</span>
+              <ul><li>借助伙伴网络快速起量</li><li>轻资产运营，按分成结算</li><li>落地周期约 2 个月</li><li>适合区域市场快速覆盖</li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">表格页</div>
+        <div class="slide">
+          <div class="topbar"></div>
+          <div class="s-head"><div class="s-index">10</div><div class="s-heading">区域销售明细</div></div>
+          <table class="data-table">
+            <thead><tr><th>区域</th><th class="num">营收（万元）</th><th class="num">同比</th><th class="num">占比</th></tr></thead>
+            <tbody>
+              <tr><td>华东</td><td class="num">634</td><td class="num pos">+45%</td><td class="num">38%</td></tr>
+              <tr><td>华北</td><td class="num">428</td><td class="num pos">+32%</td><td class="num">26%</td></tr>
+              <tr><td>华南</td><td class="num">355</td><td class="num pos">+41%</td><td class="num">21%</td></tr>
+              <tr><td>西部</td><td class="num">251</td><td class="num pos">+28%</td><td class="num">15%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+<div><div class="slide-label">金句</div>
+        <div class="slide">
+          <div class="s-quote">
+            <div class="q-mark">&ldquo;</div>
+            <div class="q-text">增长的本质不是追逐流量，<br>而是构建可复用的价值网络。</div>
+            <div class="q-author">—— 2026 增长战略纲要</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">结尾页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="blob blob1"></div><div class="blob blob2"></div><div class="blob blob3"></div>
+          <div class="s-end">
+            <div class="end-title" style="background:linear-gradient(92deg,#E0E7FF,#A5B4FC 45%,#67E8F9); -webkit-background-clip:text; background-clip:text; color:transparent;">谢谢观看</div>
+            <div class="end-sub">让每一页演示都有设计感</div>
+            <div class="end-contact" style="font-family:var(--mono);">hello@aivine.ai · www.aivine.ai</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 06 editorial 杂志编辑 ============ -->
+  <div class="preset p-editorial">
+    <div class="preset-head">
+      <span class="preset-num">06</span><span class="preset-name">杂志编辑</span><span class="preset-en">Editorial</span>
+      <span class="chips"><span class="chip" style="background:#1C1917"></span><span class="chip" style="background:#C2410C"></span><span class="chip" style="background:#F7F3EA"></span><span class="chip" style="background:#78716C"></span></span>
+    </div>
+    <div class="preset-desc">米白纸感 + 衬线大标题 + 双细线装帧，橙红强调。适合深度报告、文化内容。</div>
+    <div class="slides">
+      <div><div class="slide-label">封面</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="dbl"></div><div class="dbl-b"></div>
+          <div class="cover-inner">
+            <div class="kicker">ANNUAL STRATEGY</div>
+            <div class="cover-title">2026 增长战略规划</div>
+            <div class="cover-rule"></div>
+            <div class="cover-sub">市场洞察 · 增长引擎 · 产品路线</div>
+            <div class="cover-meta">AI DIVINE · 2026 年 1 月</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">目录</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="s-head"><div class="s-index">CONTENTS</div><div class="s-heading">目录</div></div>
+          <div class="toc-grid">
+            <div class="toc-item"><span class="toc-num">01</span><h5>市场洞察</h5><span class="toc-page">P02</span></div>
+            <div class="toc-item"><span class="toc-num">02</span><h5>增长引擎</h5><span class="toc-page">P05</span></div>
+            <div class="toc-item"><span class="toc-num">03</span><h5>产品路线</h5><span class="toc-page">P10</span></div>
+            <div class="toc-item"><span class="toc-num">04</span><h5>组织保障</h5><span class="toc-page">P14</span></div>
+            <div class="toc-item"><span class="toc-num">05</span><h5>财务规划</h5><span class="toc-page">P16</span></div>
+            <div class="toc-item"><span class="toc-num">06</span><h5>风险与应对</h5><span class="toc-page">P18</span></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">章节页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="dbl"></div><div class="dbl-b"></div>
+          <div class="sec-inner">
+            <div class="sec-num">03</div>
+            <div class="sec-kicker">PART 03</div>
+            <div class="sec-title">产品路线</div>
+            <div class="sec-sub">三步走：夯实核心 · 拓展生态 · 智能升级</div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">图文两栏</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="s-head"><div class="s-index">04</div><div class="s-heading">智能体平台 2.0 发布</div></div>
+          <div class="media-area">
+            <div class="media-glyph"><div class="ico"></div><span>产品主视觉 · 配图占位</span></div>
+            <div class="media-cap">配图可由 image_generate 生成或使用用户提供的图片</div>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>多模态理解升级，支持文档 / 图表 / 音视频输入</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>智能体编排引擎，业务流程零代码搭建</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>内置行业模板 30+，开箱即用</p></div>
+            <div class="tk"><div class="tk-num">04</div><p>企业级权限与审计，安全合规</p></div>
+          </div>
+        </div>
+      </div>
+<div><div class="slide-label">内容卡片</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="s-head"><div class="s-index">05</div><div class="s-heading">三大增长引擎</div></div>
+          <div class="cards">
+            <div class="card"><div class="dot"></div><h4>企业客户拓展</h4><p>深耕头部行业标杆客户，KA 团队扩编 30%，推动标杆案例规模化复制。</p></div>
+            <div class="card"><div class="dot"></div><h4>生态合作网络</h4><p>联合 ISV 与渠道伙伴构建分发联盟，年内覆盖 200+ 重点城市。</p></div>
+            <div class="card"><div class="dot"></div><h4>智能化提效</h4><p>AI 驱动营销与交付流程自动化，整体人效提升 40% 以上。</p></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">时间轴</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="s-head"><div class="s-index">06</div><div class="s-heading">2026 关键里程碑</div></div>
+          <div class="timeline">
+            <div class="tl-track"></div>
+            <div class="tl-nodes">
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q1</div><h5>生态联盟成立</h5><p>首批 12 家 ISV 完成签约</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q2</div><h5>KA 团队扩编</h5><p>华东 / 华南团队全部就位</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q3</div><h5>新品发布会</h5><p>智能体平台 2.0 正式发布</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q4</div><h5>年度复盘规划</h5><p>全年目标校准与来年规划</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">图表 + 要点</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="s-head"><div class="s-index">07</div><div class="s-heading">季度营收增长趋势</div></div>
+          <div class="chart-area">
+            <svg viewBox="0 0 520 320">
+              <line class="gl" x1="60" y1="50" x2="500" y2="50"/><line class="gl" x1="60" y1="105" x2="500" y2="105"/>
+              <line class="gl" x1="60" y1="160" x2="500" y2="160"/><line class="gl" x1="60" y1="215" x2="500" y2="215"/>
+              <line class="tline" x1="60" y1="123" x2="500" y2="123"/><text class="tlab" x="64" y="117" text-anchor="start">目标 400</text>
+              <rect class="bar" x="82" y="156" width="66" height="114" rx="5"/>
+              <rect class="bar-hi" x="192" y="107" width="66" height="163" rx="5"/>
+              <rect class="bar" x="302" y="128" width="66" height="142" rx="5"/>
+              <rect class="bar" x="412" y="76" width="66" height="194" rx="5"/>
+              <text class="val" x="115" y="148">312</text><text class="val-hi" x="225" y="99">444</text>
+              <text class="val" x="335" y="120">386</text><text class="val" x="445" y="68">528</text>
+              <line class="axis" x1="60" y1="270" x2="500" y2="270"/>
+              <text class="ylab" x="52" y="274" text-anchor="end">0</text><text class="ylab" x="52" y="219" text-anchor="end">150</text>
+              <text class="ylab" x="52" y="164" text-anchor="end">300</text><text class="ylab" x="52" y="109" text-anchor="end">450</text>
+              <text class="ylab" x="52" y="54" text-anchor="end">600</text>
+              <text class="cat" x="115" y="294" text-anchor="middle">Q1</text><text class="cat" x="225" y="294" text-anchor="middle">Q2</text>
+              <text class="cat" x="335" y="294" text-anchor="middle">Q3</text><text class="cat" x="445" y="294" text-anchor="middle">Q4</text>
+            </svg>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>Q2 营收 444 万，环比增长 42%，超出季度目标 11%。</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>华东区贡献 38% 增量，标杆客户复购率达 91%。</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>Q4 冲刺 528 万，需提前锁定促销资源与交付产能。</p></div>
+          </div>
+          <div class="chart-caption">数据来源：2026 年销售明细（示例数据） · 单位：万元</div>
+        </div>
+      </div>
+      <div><div class="slide-label">核心指标</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="s-head"><div class="s-index">08</div><div class="s-heading">上半年核心指标</div></div>
+          <div class="kpis">
+            <div class="kpi"><div class="kpi-value">1,668</div><div class="kpi-label">营收（万元）</div><div class="kpi-delta">同比 <b>+38%</b></div></div>
+            <div class="kpi"><div class="kpi-value">1,240</div><div class="kpi-label">企业客户数</div><div class="kpi-delta">同比 <b>+52%</b></div></div>
+            <div class="kpi"><div class="kpi-value">91%</div><div class="kpi-label">标杆客户复购率</div><div class="kpi-delta">较去年 <b>+6pt</b></div></div>
+            <div class="kpi"><div class="kpi-value">68</div><div class="kpi-label">NPS 净推荐值</div><div class="kpi-delta">较去年 <b>+12</b></div></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">方案对比</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="s-head"><div class="s-index">09</div><div class="s-heading">增长路径对比</div></div>
+          <div class="compare">
+            <div class="cmp"><span class="cmp-tag">自建团队</span>
+              <ul><li>数据与流程完全自主可控</li><li>初期投入高，团队成本大</li><li>建设周期约 6 个月</li><li>适合核心能力长期深耕</li></ul>
+            </div>
+            <div class="vs-badge">VS</div>
+            <div class="cmp"><span class="cmp-tag">生态合作</span>
+              <ul><li>借助伙伴网络快速起量</li><li>轻资产运营，按分成结算</li><li>落地周期约 2 个月</li><li>适合区域市场快速覆盖</li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">表格页</div>
+        <div class="slide">
+          <div class="cover-bg"></div>
+          <div class="s-head"><div class="s-index">10</div><div class="s-heading">区域销售明细</div></div>
+          <table class="data-table">
+            <thead><tr><th>区域</th><th class="num">营收（万元）</th><th class="num">同比</th><th class="num">占比</th></tr></thead>
+            <tbody>
+              <tr><td>华东</td><td class="num">634</td><td class="num pos">+45%</td><td class="num">38%</td></tr>
+              <tr><td>华北</td><td class="num">428</td><td class="num pos">+32%</td><td class="num">26%</td></tr>
+              <tr><td>华南</td><td class="num">355</td><td class="num pos">+41%</td><td class="num">21%</td></tr>
+              <tr><td>西部</td><td class="num">251</td><td class="num pos">+28%</td><td class="num">15%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+<div><div class="slide-label">金句</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="dbl"></div><div class="dbl-b"></div>
+          <div class="s-quote">
+            <div class="q-mark">&ldquo;</div>
+            <div class="q-text">增长的本质不是追逐流量，<br>而是构建可复用的价值网络。</div>
+            <div class="q-author">—— 2026 增长战略纲要</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">结尾页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="dbl"></div><div class="dbl-b"></div>
+          <div class="s-end">
+            <div class="end-title" style="font-family:var(--serif);">谢谢观看</div>
+            <div class="end-sub" style="font-family:var(--serif); letter-spacing:.12em;">让每一页演示都有设计感</div>
+            <div class="end-contact">hello@aivine.ai · www.aivine.ai</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 07 darktech 暗黑科技 ============ -->
+  <div class="preset p-darktech">
+    <div class="preset-head">
+      <span class="preset-num">07</span><span class="preset-name">暗黑科技</span><span class="preset-en">Dark Tech</span>
+      <span class="chips"><span class="chip" style="background:#0B0F1A"></span><span class="chip" style="background:#22D3EE"></span><span class="chip" style="background:#A78BFA"></span><span class="chip" style="background:#111827"></span></span>
+    </div>
+    <div class="preset-desc">深色底 + 细网格 + 霓虹渐变强调，等宽字体点缀。适合技术分享、发布会。</div>
+    <div class="slides">
+      <div><div class="slide-label">封面</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="glow"></div><div class="glow2"></div>
+          <div class="bk bk-tl"></div><div class="bk bk-tr"></div><div class="bk bk-bl"></div><div class="bk bk-br"></div>
+          <div class="neon-bar"></div>
+          <div class="cover-inner">
+            <div class="kicker">// 2026 STRATEGY REPORT</div>
+            <div class="cover-title">2026 增长战略规划</div>
+            <div class="cover-sub">市场洞察 · 增长引擎 · 产品路线</div>
+            <div class="cover-meta">AI DIVINE · 2026-01-15</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">目录</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">CONTENTS</div><div class="s-heading">目录</div></div>
+          <div class="toc-grid">
+            <div class="toc-item"><span class="toc-num">01</span><h5>市场洞察</h5><span class="toc-page">P02</span></div>
+            <div class="toc-item"><span class="toc-num">02</span><h5>增长引擎</h5><span class="toc-page">P05</span></div>
+            <div class="toc-item"><span class="toc-num">03</span><h5>产品路线</h5><span class="toc-page">P10</span></div>
+            <div class="toc-item"><span class="toc-num">04</span><h5>组织保障</h5><span class="toc-page">P14</span></div>
+            <div class="toc-item"><span class="toc-num">05</span><h5>财务规划</h5><span class="toc-page">P16</span></div>
+            <div class="toc-item"><span class="toc-num">06</span><h5>风险与应对</h5><span class="toc-page">P18</span></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">章节页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="glow"></div><div class="glow2"></div>
+          <div class="bk bk-tl"></div><div class="bk bk-tr"></div><div class="bk bk-bl"></div><div class="bk bk-br"></div>
+          <div class="sec-inner">
+            <div class="sec-num">03</div>
+            <div class="sec-kicker">// PART 03</div>
+            <div class="sec-title">产品路线</div>
+            <div class="sec-sub">三步走：夯实核心 · 拓展生态 · 智能升级</div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">图文两栏</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">04</div><div class="s-heading">智能体平台 2.0 发布</div></div>
+          <div class="media-area">
+            <div class="media-glyph"><div class="ico"></div><span>产品主视觉 · 配图占位</span></div>
+            <div class="media-cap">配图可由 image_generate 生成或使用用户提供的图片</div>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>多模态理解升级，支持文档 / 图表 / 音视频输入</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>智能体编排引擎，业务流程零代码搭建</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>内置行业模板 30+，开箱即用</p></div>
+            <div class="tk"><div class="tk-num">04</div><p>企业级权限与审计，安全合规</p></div>
+          </div>
+        </div>
+      </div>
+<div><div class="slide-label">内容卡片</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">05</div><div class="s-heading">三大增长引擎</div></div>
+          <div class="cards">
+            <div class="card"><div class="dot"></div><h4>企业客户拓展</h4><p>深耕头部行业标杆客户，KA 团队扩编 30%，推动标杆案例规模化复制。</p></div>
+            <div class="card"><div class="dot"></div><h4>生态合作网络</h4><p>联合 ISV 与渠道伙伴构建分发联盟，年内覆盖 200+ 重点城市。</p></div>
+            <div class="card"><div class="dot"></div><h4>智能化提效</h4><p>AI 驱动营销与交付流程自动化，整体人效提升 40% 以上。</p></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">时间轴</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">06</div><div class="s-heading">2026 关键里程碑</div></div>
+          <div class="timeline">
+            <div class="tl-track"></div>
+            <div class="tl-nodes">
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q1</div><h5>生态联盟成立</h5><p>首批 12 家 ISV 完成签约</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q2</div><h5>KA 团队扩编</h5><p>华东 / 华南团队全部就位</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q3</div><h5>新品发布会</h5><p>智能体平台 2.0 正式发布</p></div>
+              <div class="tl-node"><div class="tl-dot"></div><div class="tl-period">Q4</div><h5>年度复盘规划</h5><p>全年目标校准与来年规划</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">图表 + 要点</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">07</div><div class="s-heading">季度营收增长趋势</div></div>
+          <div class="chart-area">
+            <svg viewBox="0 0 520 320">
+              <line class="gl" x1="60" y1="50" x2="500" y2="50"/><line class="gl" x1="60" y1="105" x2="500" y2="105"/>
+              <line class="gl" x1="60" y1="160" x2="500" y2="160"/><line class="gl" x1="60" y1="215" x2="500" y2="215"/>
+              <line class="tline" x1="60" y1="123" x2="500" y2="123"/><text class="tlab" x="64" y="117" text-anchor="start">目标 400</text>
+              <rect class="bar" x="82" y="156" width="66" height="114" rx="5"/>
+              <rect class="bar-hi" x="192" y="107" width="66" height="163" rx="5"/>
+              <rect class="bar" x="302" y="128" width="66" height="142" rx="5"/>
+              <rect class="bar" x="412" y="76" width="66" height="194" rx="5"/>
+              <text class="val" x="115" y="148">312</text><text class="val-hi" x="225" y="99">444</text>
+              <text class="val" x="335" y="120">386</text><text class="val" x="445" y="68">528</text>
+              <line class="axis" x1="60" y1="270" x2="500" y2="270"/>
+              <text class="ylab" x="52" y="274" text-anchor="end">0</text><text class="ylab" x="52" y="219" text-anchor="end">150</text>
+              <text class="ylab" x="52" y="164" text-anchor="end">300</text><text class="ylab" x="52" y="109" text-anchor="end">450</text>
+              <text class="ylab" x="52" y="54" text-anchor="end">600</text>
+              <text class="cat" x="115" y="294" text-anchor="middle">Q1</text><text class="cat" x="225" y="294" text-anchor="middle">Q2</text>
+              <text class="cat" x="335" y="294" text-anchor="middle">Q3</text><text class="cat" x="445" y="294" text-anchor="middle">Q4</text>
+            </svg>
+          </div>
+          <div class="tk-area">
+            <div class="tk"><div class="tk-num">01</div><p>Q2 营收 444 万，环比增长 42%，超出季度目标 11%。</p></div>
+            <div class="tk"><div class="tk-num">02</div><p>华东区贡献 38% 增量，标杆客户复购率达 91%。</p></div>
+            <div class="tk"><div class="tk-num">03</div><p>Q4 冲刺 528 万，需提前锁定促销资源与交付产能。</p></div>
+          </div>
+          <div class="chart-caption">数据来源：2026 年销售明细（示例数据） · 单位：万元</div>
+        </div>
+      </div>
+      <div><div class="slide-label">核心指标</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">08</div><div class="s-heading">上半年核心指标</div></div>
+          <div class="kpis">
+            <div class="kpi"><div class="kpi-value">1,668</div><div class="kpi-label">营收（万元）</div><div class="kpi-delta">同比 <b>+38%</b></div></div>
+            <div class="kpi"><div class="kpi-value">1,240</div><div class="kpi-label">企业客户数</div><div class="kpi-delta">同比 <b>+52%</b></div></div>
+            <div class="kpi"><div class="kpi-value">91%</div><div class="kpi-label">标杆客户复购率</div><div class="kpi-delta">较去年 <b>+6pt</b></div></div>
+            <div class="kpi"><div class="kpi-value">68</div><div class="kpi-label">NPS 净推荐值</div><div class="kpi-delta">较去年 <b>+12</b></div></div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">方案对比</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">09</div><div class="s-heading">增长路径对比</div></div>
+          <div class="compare">
+            <div class="cmp"><span class="cmp-tag">自建团队</span>
+              <ul><li>数据与流程完全自主可控</li><li>初期投入高，团队成本大</li><li>建设周期约 6 个月</li><li>适合核心能力长期深耕</li></ul>
+            </div>
+            <div class="vs-badge">VS</div>
+            <div class="cmp"><span class="cmp-tag">生态合作</span>
+              <ul><li>借助伙伴网络快速起量</li><li>轻资产运营，按分成结算</li><li>落地周期约 2 个月</li><li>适合区域市场快速覆盖</li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+            <div><div class="slide-label">表格页</div>
+        <div class="slide">
+          <div class="content-bg"></div><div class="topbar"></div>
+          <div class="s-head"><div class="s-index">10</div><div class="s-heading">区域销售明细</div></div>
+          <table class="data-table">
+            <thead><tr><th>区域</th><th class="num">营收（万元）</th><th class="num">同比</th><th class="num">占比</th></tr></thead>
+            <tbody>
+              <tr><td>华东</td><td class="num">634</td><td class="num pos">+45%</td><td class="num">38%</td></tr>
+              <tr><td>华北</td><td class="num">428</td><td class="num pos">+32%</td><td class="num">26%</td></tr>
+              <tr><td>华南</td><td class="num">355</td><td class="num pos">+41%</td><td class="num">21%</td></tr>
+              <tr><td>西部</td><td class="num">251</td><td class="num pos">+28%</td><td class="num">15%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+<div><div class="slide-label">金句</div>
+        <div class="slide">
+          <div class="content-bg"></div>
+          <div class="s-quote">
+            <div class="q-mark">&ldquo;</div>
+            <div class="q-text">增长的本质不是追逐流量，<br>而是构建可复用的价值网络。</div>
+            <div class="q-author">—— 2026 增长战略纲要</div>
+          </div>
+        </div>
+      </div>
+      <div><div class="slide-label">结尾页</div>
+        <div class="slide">
+          <div class="cover-bg"></div><div class="glow"></div><div class="glow2"></div>
+          <div class="bk bk-tl"></div><div class="bk bk-tr"></div><div class="bk bk-bl"></div><div class="bk bk-br"></div>
+          <div class="s-end">
+            <div class="end-title">谢谢观看</div>
+            <div class="end-sub">让每一页演示都有设计感</div>
+            <div class="end-contact" style="font-family:var(--mono);">hello@aivine.ai · www.aivine.ai</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

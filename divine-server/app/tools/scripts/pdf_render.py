@@ -217,6 +217,8 @@ def main() -> None:
                 overrides=overrides,
             )
         else:
+            from app.pdf_theme_manager import universal_color_overrides
+
             meta = render_markdown_to_pdf(
                 content,
                 output_path,
@@ -229,6 +231,10 @@ def main() -> None:
                 base_dir=base_dir,
                 theme=theme,
                 cover_data=cover_data,
+                overrides=universal_color_overrides(
+                    params.get("theme_colors")
+                )
+                or None,
             )
     except Exception as exc:
         print(

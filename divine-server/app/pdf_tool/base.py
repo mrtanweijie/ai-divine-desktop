@@ -43,6 +43,20 @@ MODULE_GUIDE = """
 issue_no、cta_text、footer、highlight.value/label/stats（split 封面大数字）。
 """
 
+# 设计规格提示：追加在意图规划 prompt 之后，让 LLM 在同一调用里给出设计决策，
+# 替代纯关键词查表；字段经 design_rules 校验，非法值自动忽略。
+DESIGN_SPEC_HINT = """
+【设计决策（可选）】根据文档的主题、行业与受众，在 JSON 顶层输出一个 design 对象：
+{"design": {
+  "base_theme": "版式骨架，从 universal(商务通用)/notion(轻量笔记)/linear(紧凑研发)/apple(圆润舒适)/modern(现代科技)/academic(学术衬线)/minimal(极简黑白)/roadmap(知识图谱) 中选最贴合的",
+  "primary_color": "主色，颜色中文名或十六进制（如 红色、藏青、#1F3A5F），需贴合内容气质",
+  "cover_style": "left-aligned|centered|split|minimal|hero-graphic|terminal 之一",
+  "cover": true 或 false,
+  "toc": true 或 false
+}}
+仅在有把握时输出 design；不确定就整体省略，系统会按场景自动决策。
+"""
+
 
 
 @dataclass
@@ -61,6 +75,8 @@ class PDFRecipe:
     content_format: str = "markdown"
     css_template: str = "universal"
     color_scheme: str = "blue"
+    # 内容生成是否支持大纲→分章两段式（结构强耦合的配方关闭，如 resume）
+    sectioned_content: bool = True
     illustration_plan: dict[str, bool] = {
         "mermaid": False,
         "svg": False,
@@ -77,7 +93,8 @@ class PDFRecipe:
         return (
             f"你是{self.display_name}规划器。根据用户需求输出 JSON，不要输出 JSON 以外的内容。\n"
             f"输出结构：{self.intent_json_hint}\n"
-            f"用户输入：{user_input}"
+            + DESIGN_SPEC_HINT
+            + f"\n用户输入：{user_input}"
         )
 
     def content_system_prompt(self, intent: PDFIntent) -> str:

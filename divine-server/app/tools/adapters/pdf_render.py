@@ -46,7 +46,11 @@ from ..registry import register_tool
             },
             "theme_colors": {
                 "type": "object",
-                "description": "可选，自定义主题色变量：--color-primary、--color-accent、--bg-cover、--bg-highlight 等",
+                "description": (
+                    "可选，自定义主题色变量（对所有主题生效）："
+                    "旅行主题用 --color-primary/--color-accent/--bg-cover/--bg-highlight，"
+                    "其他主题用 --primary/--accent，只传主色即可自动派生整套配色"
+                ),
             },
             "paper_size": {
                 "type": "string",

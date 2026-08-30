@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from svg_common import parse_svg, svg_metadata
+from svg_common import parse_svg, render_svg_to_png, svg_metadata  # noqa: E402
 
 
 def _resolve_source(workspace: Path, raw_path: str) -> Path:
@@ -43,71 +43,6 @@ def _resolve_output(
     return output
 
 
-def _render_with_svglib(source: Path, output: Path) -> bool:
-    try:
-        from svglib.svglib import svg2rlg
-        from reportlab.graphics import renderPM
-
-        drawing = svg2rlg(str(source))
-        renderPM.drawToFile(drawing, str(output), fmt="PNG", dpi=96)
-        return True
-    except Exception:  # noqa: BLE001
-        return False
-
-
-def _render_with_cairosvg(source: Path, output: Path) -> bool:
-    try:
-        import cairosvg
-
-        cairosvg.svg2png(url=str(source), write_to=str(output))
-        return True
-    except Exception:  # noqa: BLE001
-        return False
-
-
-def _render_with_resvg(source: Path, output: Path) -> bool:
-    try:
-        import resvg_py
-
-        png_bytes = resvg_py.svg_to_bytes(svg_string=source.read_text(encoding="utf-8"))
-        output.write_bytes(png_bytes)
-        return True
-    except Exception:  # noqa: BLE001
-        return False
-
-
-def _render_with_qlmanage(source: Path, output: Path, max_dim: int) -> bool:
-    if sys.platform != "darwin":
-        return False
-    qlmanage = shutil.which("qlmanage")
-    if not qlmanage:
-        return False
-    try:
-        with tempfile.TemporaryDirectory(prefix="svg_to_png_") as tmp:
-            completed = subprocess.run(
-                [
-                    qlmanage,
-                    "-t",
-                    "-s",
-                    str(max(1, int(max_dim))),
-                    "-o",
-                    tmp,
-                    str(source),
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30,
-                check=False,
-            )
-            if completed.returncode != 0:
-                return False
-            rendered = Path(tmp) / f"{source.name}.png"
-            if not rendered.is_file():
-                return False
-            shutil.move(str(rendered), str(output))
-        return True
-    except Exception:  # noqa: BLE001
-        return False
 
 
 def _apply_size(output: Path, width: int | None, height: int | None) -> tuple[int, int]:
@@ -191,26 +126,17 @@ def main() -> None:
         )
         return
 
-    renderer = ""
-    if _render_with_resvg(source, output):
-        renderer = "resvg_py"
-    elif _render_with_cairosvg(source, output):
-        renderer = "cairosvg"
-    elif _render_with_svglib(source, output):
-        renderer = "svglib"
-    elif _render_with_qlmanage(
-        source,
-        output,
-        max(
+    ok, renderer = render_svg_to_png(
+        source, output,
+        max_dim=max(
             width or 0,
             height or 0,
             int(meta.get("width") or 0),
             int(meta.get("height") or 0),
             1024,
         ),
-    ):
-        renderer = "qlmanage"
-    else:
+    )
+    if not ok:
         print(
             json.dumps(
                 {

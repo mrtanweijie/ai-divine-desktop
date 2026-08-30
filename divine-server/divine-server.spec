@@ -142,6 +142,14 @@ a = Analysis(
         "app.resume_themes.themes",
         "app.word_themes",
         "app.ppt_themes",
+        # ppt_renderer：presentation 脚本（data 形式子进程运行）依赖的新渲染包，
+        # 不在 entry.py 主导入图里，必须显式编入 PYZ
+        "app.ppt_renderer",
+        "app.ppt_renderer.themes",
+        "app.ppt_renderer.textfit",
+        "app.ppt_renderer.charts",
+        "app.ppt_renderer.tables",
+        "app.ppt_renderer.layouts",
         "app.tools.adapters.pdf_generate",
         "app.tools.adapters.generate_chart",
         "app.tools.adapters.describe_svg",

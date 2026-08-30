@@ -241,11 +241,14 @@ def _patch_render(monkeypatch, tmp_path):
         base_dir,
         theme,
         cover_data,
+        overrides=None,
+        extra_css=None,
     ):
         captured["theme"] = theme
         captured["cover"] = cover
         captured["toc"] = toc
         captured["color_scheme"] = color_scheme
+        captured["overrides"] = overrides
         output.write_bytes(b"%PDF-1.4")
 
     monkeypatch.setattr(renderer_module, "_render_with_weasyprint", fake_render)

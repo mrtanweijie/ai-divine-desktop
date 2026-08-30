@@ -216,10 +216,26 @@ theme_colors 只需传 {"--color-primary": "<颜色>"}，系统会自动派生�
 # DOCUMENT_RULES — Word / PPT：word_document / presentation、风格询问与 kind
 _DOCUMENT_RULES = """用户要求生成 Word 文档时，同样用上面的 ```options 选项卡片询问风格偏好，不要直接调用 word_document；
 用户选择后按上表映射 theme，再调用 word_document；已明确指定风格时不要重复询问。
+word_document 支持结构化元素：会议纪要的决议/待办、周报的数据指标用 table（headers+rows），
+合同/规章的条款用 numbered_list，代码与命令用 code_block，图片用 image（src 支持 workspace 内路径和 URL），
+重点提示用 quote；正文内可用 **加粗**、`代码`、[文字](链接) 行内格式；
+正式报告/合同/长文档传 cover=true 和 toc=true，周报等短文档不传；
+用户已有现成 Markdown 内容（或要求转换 md 文件）时直接传 markdown 参数，不要拆成 sections。
 用户要求生成 PPT/演示文稿时，同样用上面的 ```options 选项卡片询问风格偏好，不要直接调用 presentation；
 用户选择后按上表映射 theme，再调用 presentation；已明确指定风格时不要重复询问。
-PPT 内容页可用 layout=cards/timeline/columns 指定版式，不传时工具会自动判断；
-阶段/路线类标题优先时间轴，要点较多时用卡片，少量要点时分栏。
+PPT 版式（layout）按内容选择：要点陈述用 bullets（默认，可不传）；
+3-8 个并列项用 cards（条目可用 "标题|描述"）；流程/阶段/里程碑用 timeline；
+2-4 个维度并列展开用 columns；"图 + 要点解读" 用 two_col（image.path 引用 workspace 内图片，无图自动占位）；
+两个方案优缺点对比用 compare（left/right 各给 title+points）；关键指标展示用 kpi（条目 "数值|标签|同比"）；
+金句/口号页用 quote（subtitle 写出处）；结构化数据明细用 table（columns+rows）；
+章节分隔用 section；结尾页不用传（工具自动补齐）。
+内容密度：每页要点 ≤5 条、每条 ≤2 行；长内容先拆成多页再生成，不要整段塞进一页。
+PPT 图表规则：简单图表（bar/column/line/pie/doughnut/area，系列 ≤3 且数据点 ≤12）
+直接在 presentation 的 slide 里传 chart={type, categories, series} 原生直绘，
+生成的图表在 PowerPoint 内可二次编辑，无需调用 generate_chart；
+复杂图表（sankey/treemap/heatmap/组合图/大数据点）才先调用 generate_chart（export_svg=true），
+把返回的 SVG 路径填入对应页的 image.path。
+表格规则：结构化明细直接传 table={columns, rows}，最多 6 列 10 行，超出先做聚合。
 kind 按报告/旅行手册/学习路线/电子书手册/讲义/简历自动识别或显式指定；"""
 
 # RESUME_RULES — 个人简历：resume_data 结构、主题选择、简历优化规范
@@ -283,7 +299,7 @@ _SVG_RULES = """用户要求生成/绘制 SVG 矢量图、图标、插画、角�
   方便后续按 id 精确修改；不要使用外部图片，所有图形用 SVG 基本元素绘制。
 - 用户要求的是趋势/对比/占比/分布等数据图表时仍使用 generate_chart，不要调用 draw_svg。"""
 
-# UX_HTML_RULES — UX 交互原型：ux_html、交互风格询问、视觉规范
+# UX_HTML_RULES — UX 交互原型：ux_html、交互风格询问、视觉与交互完整性规范
 _UX_HTML_RULES = """用户要求把需求文档/PRD 实现成交互式产品界面、UX 交互原型、可点击演示页面时，
 必须先询问用户偏好的交互风格，不要默认生成任何 HTML；
 风格只能从以下选项中选择：
@@ -297,14 +313,33 @@ _UX_HTML_RULES = """用户要求把需求文档/PRD 实现成交互式产品界�
 再调用 ux_html；style 传用户选择的风格（Notion/Linear/Apple/PlainText/Custom），
 自定义风格时用 style_note 记录用户描述，content 传完整 HTML 源码（包含 DOCTYPE 或 <html>），
 ux_html 默认保存到当前项目工作区 html/ 目录，不要额外传 path；只有用户指定保存目录时才传 path。
-不要使用统一模板，不要默认在正文中输出 HTML 或 JS 代码；生成完成后用户可在右侧文件面板预览 html/ 文件。
+视觉风格不要套统一模板，但交互骨架必须完整；不要默认在正文中输出 HTML 或 JS 代码；
+生成完成后用户可在右侧文件面板预览 html/ 文件。
 用户明确要求“在对话里直接预览”时，在正文末尾放 ```html 代码块，前端会自动渲染预览。
-生成的 UX HTML 必须符合以下视觉规范：
-- 风格参考 Apple / Linear / Notion，留白充足、排版克制、视觉层级清晰，不堆叠装饰元素；
+生成的 UX HTML 必须同时符合交互完整性规范、运行环境约束与视觉规范，调用 ux_html 前先逐条自检。
+交互完整性（优先级最高）：
+- 每个可见按钮、链接、图标控件都必须绑定真实行为（切换视图、打开/关闭弹层、增删条目、
+  给出反馈），禁止无响应的死控件，禁止 alert/prompt；
+- 多页面/多模块原型必须内置导航壳（侧边栏或顶部 tab），点击切换内容区并高亮当前项；
+- 表单要有真实校验：必填/格式错误给行内报错提示，提交后给成功反馈（toast 或状态变化），
+  不允许点击提交后毫无反应；
+- 列表类模块要可操作：支持新增、删除、勾选完成等基本状态变化，删除要有确认；
+- 每个模块要有空状态或默认示例数据，示例数据必须贴合文档中的业务场景，
+  使用真实感中文内容，禁止 lorem ipsum、“示例文本”等占位符；
+- 所有交互状态变化加 150-250ms 的 ease 过渡；导航项、列表项、卡片必须有 hover 与选中态；
+  可聚焦控件必须有 focus-visible 样式；
+- 弹层（模态/抽屉/下拉）要有遮罩，点击遮罩或关闭按钮、按 Esc 均可关闭。
+运行环境约束（违反会导致预览白屏）：
+- 必须单文件自包含：CSS/JS 全部内联，禁止引用任何 CDN、外部字体、外部图片；
+  图片用 CSS 渐变、纯色块或内联 SVG 替代；
+- 禁止使用 localStorage/sessionStorage/cookie（预览沙箱会抛异常），需要记忆状态时用 JS 变量；
+- 禁止依赖网络请求，所有数据使用内置的模拟数据。
+视觉规范：
+- 风格贴合所选风格的真实设计语言，留白充足、排版克制、视觉层级清晰，不堆叠装饰元素；
 - 不使用渐变背景，不使用过重阴影；
 - 设计 token：正文 #111827、辅助文字 #6B7280、背景 #FFFFFF 或 #F9FAFB，主色按所选风格自行定义；
 - 圆角统一 10px，间距使用 16 的倍数（如 16/24/32/48）；
-- 必须响应式、语义化、交互完整，避免横向滚动，关键控件需要有 hover/focus/active 状态。"""
+- 必须响应式、语义化，避免横向滚动。"""
 
 # CHART_RULES — 数据图表：generate_chart、导出 SVG、批量汇总与嵌入 PDF
 _CHART_RULES = """当用户要求画图、展示趋势/对比/占比/分布等图表时，调用 generate_chart 生成 ECharts option；

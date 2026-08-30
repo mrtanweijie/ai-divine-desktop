@@ -178,3 +178,86 @@ def safe_name(name: str, fallback: str, suffix: str) -> str:
     if not cleaned.lower().endswith(suffix.lower()):
         cleaned += suffix
     return cleaned
+
+
+# ----------------------------------------------------------------------
+# SVG → PNG 渲染链（resvg → cairosvg → svglib → qlmanage）
+# 供 svg_to_png 与 presentation（复杂图表 SVG 兜底）共用，同进程调用。
+
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+import tempfile  # noqa: E402
+
+
+def _render_with_resvg(source: Path, output: Path) -> bool:
+    try:
+        import resvg_py
+
+        png_bytes = resvg_py.svg_to_bytes(svg_string=source.read_text(encoding="utf-8"))
+        output.write_bytes(png_bytes)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _render_with_cairosvg(source: Path, output: Path) -> bool:
+    try:
+        import cairosvg
+
+        cairosvg.svg2png(url=str(source), write_to=str(output))
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _render_with_svglib(source: Path, output: Path) -> bool:
+    try:
+        from svglib.svglib import svg2rlg
+        from reportlab.graphics import renderPM
+
+        drawing = svg2rlg(str(source))
+        renderPM.drawToFile(drawing, str(output), fmt="PNG", dpi=96)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _render_with_qlmanage(source: Path, output: Path, max_dim: int) -> bool:
+    if sys.platform != "darwin":
+        return False
+    qlmanage = shutil.which("qlmanage")
+    if not qlmanage:
+        return False
+    try:
+        with tempfile.TemporaryDirectory(prefix="svg_to_png_") as tmp:
+            completed = subprocess.run(
+                [qlmanage, "-t", "-s", str(max(1, int(max_dim))), "-o", tmp,
+                 str(source)],
+                capture_output=True, text=True, timeout=30, check=False,
+            )
+            if completed.returncode != 0:
+                return False
+            rendered = Path(tmp) / f"{source.name}.png"
+            if not rendered.is_file():
+                return False
+            shutil.move(str(rendered), str(output))
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def render_svg_to_png(source: Path, output: Path, max_dim: int = 2048) -> tuple[bool, str]:
+    """把 SVG 渲染为 PNG，返回 (是否成功, 渲染器名)。"""
+    for renderer_name, renderer in (
+        ("resvg_py", _render_with_resvg),
+        ("cairosvg", _render_with_cairosvg),
+        ("svglib", _render_with_svglib),
+        ("qlmanage", lambda src, out: _render_with_qlmanage(src, out, max_dim)),
+    ):
+        try:
+            if renderer(source, output):
+                return True, renderer_name
+        except Exception:  # noqa: BLE001
+            continue
+    return False, ""

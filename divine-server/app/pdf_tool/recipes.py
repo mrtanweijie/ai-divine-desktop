@@ -354,6 +354,8 @@ class ResumeRecipe(PDFRecipe):
     display_name = "个人简历"
     css_template = "resume"
     color_scheme = "blue"
+    # 简历各区块共用 resume-header 等结构类，必须整篇一次生成
+    sectioned_content = False
     illustration_plan = {
         "mermaid": False,
         "svg": False,

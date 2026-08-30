@@ -15,22 +15,34 @@ from .styles import COLOR_MAP
 
 
 def _color_scheme_overrides(color_scheme: str) -> dict[str, str]:
-    """把预设配色（blue/green/warm/monochrome/purple）映射为 CSS 变量覆盖。
+    """把配色方案映射为 CSS 变量覆盖。
 
-    WeasyPrint 渲染路径此前忽略 color_scheme，主题色恒为默认蓝；
-    这里用 COLOR_MAP 的主色覆盖 --primary/--primary-light/--accent，
-    使 hero-stat、标题、表格、封面等模块配色随 color_scheme 变化。
+    三级支持：
+    - 经典 5 色（blue/green/warm/monochrome/purple）：COLOR_MAP 精确值；
+    - 扩展 12 色（iceblue/desert/vintage/midnight/…）：按统一主色基准 HSL 派生，
+      与 travel_mag 同名预设观感一致；
+    - 直接传颜色（"红色"/#E74C3C/rgb(...)）：同样派生整套配色，
+      使 color_scheme 参数与 theme_colors 一样支持任意色。
     """
-    colors = COLOR_MAP.get(color_scheme or "")
-    if not colors:
-        return {}
-    accent = colors["accent"]
-    return {
-        "--primary": accent,
-        "--primary-light": colors["light"],
-        "--primary-dark": colors.get("dark", accent),
-        "--accent": accent,
-    }
+    scheme = (color_scheme or "").strip()
+    colors = COLOR_MAP.get(scheme.lower())
+    if colors:
+        accent = colors["accent"]
+        return {
+            "--primary": accent,
+            "--primary-light": colors["light"],
+            "--primary-dark": colors.get("dark", accent),
+            "--accent": accent,
+        }
+    from ..pdf_theme_manager import (
+        SCHEME_PRIMARY_COLORS,
+        derive_universal_palette,
+    )
+
+    primary = SCHEME_PRIMARY_COLORS.get(scheme.lower())
+    if not primary:
+        primary = scheme
+    return derive_universal_palette(primary) or {}
 
 _WEASYPRINT_OK: bool | None = None
 
@@ -65,6 +77,8 @@ def _render_with_weasyprint(
     base_dir: Path | None = None,
     theme: str = "universal",
     cover_data: dict[str, Any] | None = None,
+    overrides: dict[str, str] | None = None,
+    extra_css: str | None = None,
 ) -> None:
     from weasyprint import HTML
 
@@ -72,9 +86,14 @@ def _render_with_weasyprint(
 
     from ..pdf_theme_manager import build_cover_html, load_theme_css
 
+    # 合并链：color_scheme 预设 → 调用方 overrides（DesignSpec 派生色 /
+    # theme_colors 显式值，后者优先）
+    merged_overrides = _color_scheme_overrides(color_scheme)
+    if overrides:
+        merged_overrides.update(overrides)
     css = load_theme_css(
         theme,
-        overrides=_color_scheme_overrides(color_scheme),
+        overrides=merged_overrides,
         paper_size=paper_size,
     )
     css += (
@@ -82,7 +101,14 @@ def _render_with_weasyprint(
         "figure, .illustration { text-align: center; }\n"
         # .header 必须为 running，否则普通 div 占流会把封面挤到第 2 页产生空白页
         ".header { position: running(header); }\n"
+        # 配图下载失败的降级占位块（pdf_tool/illustration.py 生成）
+        ".img-fallback { display: block; padding: 2.2em 1em; margin: 1.2em auto;"
+        " text-align: center; color: #6b7280; font-size: 9.5pt;"
+        " background: linear-gradient(135deg, #e8ecef 0%, #d8e1e8 100%);"
+        " border-radius: 6px; }\n"
     )
+    if extra_css:
+        css += extra_css
     prepared = _prepare_markdown(markdown)
     body = markdown_lib.markdown(
         prepared,

@@ -1039,6 +1039,34 @@ COLOR_NAMES: dict[str, str] = {    "red": "#E74C3C",
     "灰色": "#555555",
     "black": "#222222",
     "黑色": "#222222",
+    "navy": "#1F3A5F",
+    "藏青": "#1F3A5F",
+    "酒红": "#7B2D3B",
+    "墨绿": "#1F4A38",
+    "森绿": "#2E6B4F",
+    "天蓝": "#3B82C4",
+    "靛蓝": "#3F51B5",
+    "琥珀": "#B8743A",
+    "金黄": "#D4A017",
+    "珊瑚": "#E87A5D",
+    "石板灰": "#4A5568",
+}
+
+
+# 扩展配色方案（iceblue 等 12 个旅行杂志预设）在通用主题下的主色基准，
+# 取值与 TRAVEL_MAG_THEMES 各预设的 --teal-600 一致，保证两个体系观感统一。
+SCHEME_PRIMARY_COLORS: dict[str, str] = {
+    "iceblue": "#2C5775",
+    "desert": "#8B4513",
+    "vintage": "#5F5E5A",
+    "midnight": "#3A3A5C",
+    "pureblack": "#333333",
+    "mistsage": "#5A8A82",
+    "mistblue": "#587892",
+    "duskmauve": "#6A5C7C",
+    "lotuspink": "#8E7068",
+    "dunesand": "#8C7E62",
+    "smokegray": "#76756E",
 }
 
 _HEX_COLOR_RE = re.compile(r"^#?([0-9a-fA-F]{6})$")
@@ -1091,6 +1119,10 @@ def _resolve_color(value: str) -> tuple[int, int, int] | None:
     return None
 
 
+# 公开别名：设计决策层校验主色是否可解析（不依赖私有函数名）
+resolve_color = _resolve_color
+
+
 def derive_travel_palette(primary_color: str) -> dict[str, str] | None:
     """从单一主色派生整套旅行手册色调；无法解析时返回 None。
 
@@ -1121,6 +1153,80 @@ def derive_travel_palette(primary_color: str) -> dict[str, str] | None:
         "--bg-highlight": _rgb_to_hex(_shift_lightness(primary_rgb, 0.42)),
         "--bg-cover": _rgb_to_hex(_shift_lightness(primary_rgb, -0.12)),
     }
+
+
+def derive_universal_palette(primary_color: str) -> dict[str, str] | None:
+    """从单一主色派生通用主题（非 travel）的 CSS 变量覆盖。
+
+    派生关系与 classic COLOR_MAP（blue: #2563eb / #eaf1fe / #1e40af）一致：
+    - --primary / --accent：主色压到可读亮度（保证表头白字、封面条带可读）；
+    - --primary-light：同色相极浅底色（引用、标签、callout 背景）；
+    - --primary-dark：主色加深（深色强调文本）。
+    无法解析时返回 None。
+    """
+    rgb = _resolve_color(primary_color)
+    if not rgb:
+        return None
+    r, g, b = (channel / 255.0 for channel in rgb)
+    hue, lightness, saturation = colorsys.rgb_to_hls(r, g, b)
+    primary_l = min(max(lightness, 0.18), 0.48)
+    primary_rgb = (
+        round(channel * 255)
+        for channel in colorsys.hls_to_rgb(hue, primary_l, saturation)
+    )
+    primary_hex = _rgb_to_hex(primary_rgb)
+    light_rgb = colorsys.hls_to_rgb(
+        hue, 0.95, min(max(saturation, 0.20), 0.85)
+    )
+    dark_rgb = colorsys.hls_to_rgb(
+        hue, max(primary_l - 0.14, 0.12), saturation
+    )
+    return {
+        "--primary": primary_hex,
+        "--accent": primary_hex,
+        "--primary-light": _rgb_to_hex(
+            round(channel * 255) for channel in light_rgb
+        ),
+        "--primary-dark": _rgb_to_hex(
+            round(channel * 255) for channel in dark_rgb
+        ),
+    }
+
+
+# theme_colors 里旅行风格的变量名 → 通用主题变量名的等价映射
+#（无对应语义的键保持原名透传，注入 :root 后不影响渲染）
+_UNIVERSAL_COLOR_KEY_ALIASES: dict[str, str] = {
+    "--color-primary": "--primary",
+    "--color-primary-dark": "--primary-dark",
+    "--color-accent": "--accent",
+    "--text-primary": "--text",
+    "--bg-highlight": "--bg-soft",
+}
+
+
+def universal_color_overrides(
+    custom: dict[str, str] | None,
+) -> dict[str, str]:
+    """把 theme_colors 归一化为通用主题的 CSS 变量覆盖。
+
+    与 travel_color_overrides 的约定一致：只传 {"--color-primary": "<颜色>"}
+    时自动派生整套配套色；显式给出的其他变量优先级最高（覆盖派生值）。
+    """
+    if not custom:
+        return {}
+    normalized: dict[str, str] = {}
+    for key, value in custom.items():
+        clean_key = str(key).strip().lower()
+        mapped = _UNIVERSAL_COLOR_KEY_ALIASES.get(clean_key, clean_key)
+        normalized[mapped] = str(value)
+    merged: dict[str, str] = {}
+    primary = normalized.get("--primary")
+    if primary and "--primary-light" not in normalized:
+        derived = derive_universal_palette(primary)
+        if derived:
+            merged.update(derived)
+    merged.update(normalized)
+    return merged
 
 
 def _derive_hero_vars(scale: dict[str, str]) -> dict[str, str]:

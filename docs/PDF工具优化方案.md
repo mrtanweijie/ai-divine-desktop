@@ -1,0 +1,198 @@
+# PDF 工具优化方案
+
+> 背景：`pdf_generate` 目前是典型的"预设模板"式生成——设计决策靠关键词查表，输出收敛在 6 种配方 × 12 套主题 × 17 配色 × 6 封面风格的有限组合里，同场景的需求渲染结果高度雷同。本文档给出诊断与分层优化方案。
+
+## 一、现状与链路
+
+```
+adapters/pdf_generate.py（工具 schema，17 个参数）
+  → scripts/pdf_generate.py（入口：路径校验、文件名清洗）
+    → app/pdf_tool/engine.py（编排）
+        ├─ recipes.detect_recipe()        关键词 → 6 种配方（report/travel/roadmap/book/slide/resume）
+        ├─ intent.parse_intent()          LLM 调用①：需求 → 结构化提纲 JSON
+        ├─ content.generate_content()     LLM 调用②：提纲 → 整篇 Markdown/HTML（单次生成）
+        ├─ design_rules.resolve_design()  关键词表 → 主题/配色/封面/目录
+        ├─ design_enforcer.enforce_design() 校验回退
+        └─ pdf_renderer/                  WeasyPrint 优先，ReportLab 兜底
+            ├─ travel 路径：travel_template.html / travel_optimized.html 骨架 + 色板派生
+            └─ markdown 路径：11 套 CSS 主题 + modules.css（10 个布局模块）+ 封面生成
+```
+
+配套工具：`pdf_render`（现成 Markdown/HTML 直接转 PDF，同样只在 travel 主题下支持自定义色）、`pdf_split_merge`（与模板无关）、`/pdf/themes`、`/pdf/preview-css`、`/pdf/render-preview`（主题预览 API）；简历走独立的 `resume_themes.renderer`（7 主题，不经设计决策层）。
+
+## 二、核心诊断：为什么"都是模板味"
+
+按感知影响排序：
+
+1. **设计决策是查表，不是理解**（`design_rules.py:77-196`）。场景识别是 6 组硬编码关键词表（weekly/quarterly/proposal/portfolio/prd/editorial），`resolve_design` 输出只是「主题 ID + 配色 ID + cover/toc」。所有输入最终收敛到 12×17×6 的有限组合：任何"季度汇报"永远是 universal+blue+split 封面，无论行业、语气、受众差异多大。关键词未命中时静默落到配方默认，用户无感知也无选择。
+
+2. **主题差异 ≈ 换色换字体，版式骨架不变**。11 套 CSS 主题（`pdf_themes/*.css`）的排版结构（标题、表格、引用、代码块、封面）高度同构，"换主题"感知差异主要在颜色；每套主题是 4-15KB 手写静态文件，新增一套主题成本高、无法参数化微调。
+
+3. **隐性不一致：自定义色和 12 个配色方案只对 travel 生效**。
+   - 工具 schema 声称 `theme_colors` 可为任意 PDF 自定义主色（`adapters/pdf_generate.py:51-58`），Agent 提示词也这么引导（`agent/core/prompt_sections.py:159,200`），但 engine 只在 travel 分支把它传给 `travel_color_overrides`（`engine.py:350-358`），markdown 路径的 `render_markdown_to_pdf` 根本没有 overrides 参数——非 travel 主题下自定义色被静默丢弃。
+   - `color_scheme` 枚举有 17 个值，但非 travel 路径的 `_color_scheme_overrides`（`pdf_renderer/weasyprint.py:17-33`）只映射 5 个经典色（COLOR_MAP），其余 12 个（iceblue/desert/vintage/midnight/…）对通用主题同样静默无效。
+
+4. **内容单次生成，长文质量不可控**（`content.py:67-95`）。整篇文档一次 LLM 调用产出：长文必然截断或衰减；无大纲→分章两段式；无生成后自检（"待补充"占位、章节缺失会直接进 PDF，engine 里甚至有针对"待补充"的事后补救 `engine.py:113-121`）；不接 `web_search`，事实性内容全靠模型记忆。
+
+5. **视觉素材几乎为零（travel 除外）**。各 recipe 的 `illustration_plan` 全部关闭 mermaid/svg/chart/ai_image；而报告、路线图、作品集天然适合图表配图。travel 已沉淀的三级配图能力（AI 生图 → 网络图内嵌 `_fetch_image_data` → 渐变占位）没有抽象复用。讽刺的是 `PPT工具功能增强方案.md` 里引用的"PDF 侧既有范式"，在 PDF 自己的非 travel 配方上并不存在。
+
+6. **无渲染后质检闭环**。渲染完成即返回：文字溢出、空白页、表格超宽、封面字段缺失等问题直接到用户眼前。项目 venv 里已有 pymupdf，具备做渲染后检查的条件但未使用。
+
+7. **工程债**。
+   - `pdf_theme_manager.py` 1933 行单文件：主题注册、travel 打印 CSS、5 种封面 HTML 构建、色板派生、图片抓取、travel 文档组装全部混在一起。
+   - 场景表/主题别名/封面别名/否定词表硬编码在 `design_rules.py`，扩展场景要改代码。
+   - `detect_recipe`（`recipes.py:478-511`）与 `classify_scene`（`design_rules.py:261-268`）是两套独立关键词体系，存在叠加误判（如"行业分析报告"同时命中 report 配方与 editorial 场景，二者默认主题不同）。
+   - 死代码：`pdf_renderer/styles.py:29` 的 `_PAGE_CSS` 全仓无引用；ReportLab 兜底渲染不走主题 CSS，输出与主题完全脱节。
+
+## 三、优化方案
+
+### 方案一：设计决策升级——"LLM 设计师" + 任意主色派生【P0，直接回应"模板味"】
+
+把「关键词查表」升级为「按需求生成设计规格」，同时保留查表作为确定性兜底。
+
+1. **DesignSpec**：在 `parse_intent` 的同一次 LLM 调用里追加设计字段（不增加调用次数），输出：
+   ```json
+   {
+     "design": {
+       "base_theme": "universal | notion | linear | apple | modern | academic | minimal | roadmap",
+       "primary_color": "#E74C3C 或颜色名",
+       "density": "airy | normal | dense",
+       "cover_concept": "一句话封面创意",
+       "cover_style": "left-aligned | centered | split | minimal | hero-graphic | terminal",
+       "cover": true, "toc": true
+     }
+   }
+   ```
+2. **色板派生推广到全部主题**：travel 已有完整派生机制（`derive_travel_palette`、`_SEMANTIC_LIGHT/_SEMANTIC_DARK`、`_derive_hero_vars`，`pdf_theme_manager.py:1094-1372`），把它抽象为通用 `derive_palette(base_theme, primary_color)`：任给一个主色派生整套 CSS 变量（primary/primary-light/primary-dark/accent/bg-soft/…）。主题体系从「12 个预设」变成「8 个版式骨架 × 任意主色」的组合空间。
+3. **修通非 travel 路径的自定义色**：`render_markdown_to_pdf` 增加 `overrides` 参数透传 `load_theme_css`（该函数本就支持 overrides，`pdf_theme_manager.py:730`），`color_scheme` 的 12 个扩展色也走派生而非静默忽略。这同时修复上面诊断 3 的两个隐性不一致。
+4. **兜底链**：LLM 不可用/输出不合法 → 现有关键词表 → 配方默认。`design_enforcer` 增加 DesignSpec 合法性校验，主色统一经 `_resolve_color` 归一。
+
+工作量：2-3 天。风险：低（查表链路原样保留为 fallback）。
+
+### 方案二：内容生成两段式 + 自检【P0，长文质量】
+
+1. **大纲 → 分章生成**：`generate_content` 拆为两次编排——`parse_intent` 产出提纲后，按 section 并发调用分章生成（每次携带全局提纲 + 前后章摘要做衔接），最后拼装。长文不再受单次输出上限约束，章节质量均匀。章节数 ≤3 或用户传了 `markdown` 时保持单次直出，避免过度拆分。
+2. **可选事实增强**：report/editorial/prd 配方在提纲阶段可选触发 `web_search`（复用现有工具），把检索摘要作为素材注入分章 prompt；travel 模板已有骨架保障，不接。
+3. **生成后自检**：拼装后检查——提纲章节是否齐全、是否残留"待补充/[量化数据待补]"、篇幅与提纲是否匹配；不合格的章节单独重生成一次（上限 1 轮）。把 engine 里 `_looks_like_generic_travel_fallback` 这类事后补救泛化成统一的自检层。
+
+工作量：3-4 天。风险：中（分章并发需控制 LLM 并发与成本，默认串行、可配置并发）。
+
+### 方案三：视觉素材管线推广【P1，感知提升最大】
+
+1. 把 travel 的三级配图策略抽象为 `app/pdf_tool/illustration.py` 通用模块：AI 生图（`image_generate`）→ 网络图（`_fetch_image_data`，6s/2MB 约束保留）→ 渐变/几何占位。report/portfolio/roadmap 配方开放 `images` 参数（schema 已有该字段，语义从"旅行配图"泛化为"文档配图"）。
+2. **图表嵌入**：`illustration_plan.chart` 对 report/slide/roadmap 打开；引导 LLM 在数据段落输出 ECharts 配置块或直接复用 `generate_chart` 生成 SVG，WeasyPrint 对简单 SVG 可直接内嵌，复杂图走 `svg_to_png` 落 PNG（对 WeasyPrint 最稳）。mermaid 同理经 `mermaid_export` 落图。
+3. 配图节奏沿用 travel 范式：首轮出"排版完整 + 占位"版本，询问后二次带 `images=true`（`PPT工具功能增强方案.md` 已按此交互对齐）。
+
+工作量：3-4 天。风险：中（外部图源不可达是常态，占位兜底必须始终可用）。
+
+### 方案四：渲染后质检闭环【P1】
+
+新增 `app/pdf_renderer/qa.py`，用 pymupdf 对渲染产物做检查，不通过则自动修复重渲（上限 1 轮）：
+
+| 检查项 | 自动修复 |
+|---|---|
+| 空白页（除封面/章节页约定） | 剔除导致空页的分页元素后重渲 |
+| 文本块超出页面边界 | 注入降档 CSS 变量（base 字号 -1pt）重渲 |
+| 单页文字密度异常（过密） | 同上 |
+| travel 占位图未替换且 images=true | 记录失败图源，回退渐变占位 |
+
+质检结果写入返回 meta（`qa: {passed, issues, fixed}`），前端可提示。顺带为后续视觉回归测试打底（渲染首末页为 PNG 做基线对比）。
+
+工作量：2-3 天。风险：低（只读检查 + 受控重渲）。
+
+### 方案五：主题与工程重构【P1，为以上方案铺路】
+
+1. **拆分 `pdf_theme_manager.py`（1933 行）**：
+   ```
+   app/pdf_themes_kit/
+     registry.py     THEMES 注册 + ThemeManager（load_css/list）
+     palette.py      色板派生（_resolve_color/derive_*/_SEMANTIC_*，方案一复用）
+     covers.py       5 种通用封面 + travel 封面构建
+     travel_doc.py   travel 文档组装 + 图片抓取 + 占位
+     modules.py      modules.css 加载
+   ```
+   保留 `pdf_theme_manager.py` 为兼容 re-export 门面，外部引用（engine、api、scripts）零改动。
+2. **场景/别名表外置**：`design_rules.py` 的 SCENES/THEME_ALIASES/COLOR_ALIASES 迁到 `app/pdf_tool/design_data.json`，代码只留解析逻辑；新增场景不再改代码。
+3. **统一分类入口**：`detect_recipe` 与 `classify_scene` 合并为一次 `classify(prompt) -> (recipe, scene)`，消除两套关键词叠加误判。
+4. **清理**：删除 `_PAGE_CSS` 死代码；ReportLab 兜底降级为"纯文本应急导出"并在返回 meta 标注 `renderer: reportlab(fallback)`，不再冒充主题渲染。
+
+工作量：2-3 天。风险：中（纯重构，靠现有 42 个测试文件中的 PDF 测试 + 新增回归用例护航）。
+
+### 方案六：生成前"设计卡"确认【P2，前端体验】
+
+`/pdf/preview-css`、`/pdf/render-preview` 已具备主题预览能力，补齐交互闭环：
+
+- pdf_generate 支持先返回 design spec（不渲染）的 `dry_run` 模式；前端展示设计卡（主色、封面风格、版式骨架色卡，复用 PPT 方案的主题色卡范式）；
+- 用户可在卡片上换主色/封面风格/骨架，确认后再正式渲染；LLM 推荐时只给 2-3 个候选而非全枚举。
+
+工作量：前端 3-4 天 + 后端 0.5 天。依赖方案一。
+
+## 四、实施顺序
+
+| 阶段 | 内容 | 前置 | 工作量 |
+|---|---|---|---|
+| M1 | 方案一（设计师层 + 全主题色派生 + 修隐性不一致） | 无 | 2-3 天 |
+| M2 | 方案二（两段式生成 + 自检） | 无 | 3-4 天 |
+| M3 | 方案五（工程重构，拆 theme_manager、数据外置） | 无（与 M2 可并行） | 2-3 天 |
+| M4 | 方案三（配图/图表推广） | 方案五的 travel_doc 抽象 | 3-4 天 |
+| M5 | 方案四（渲染后质检） | 方案一（降档重渲依赖 CSS 变量注入） | 2-3 天 |
+| M6 | 方案六（前端设计卡） | 方案一 | 3-5 天 |
+
+M1+M2 完成后即可显著改善"模板味"（设计随需求变化 + 长文质量稳定），是收益最集中的两个里程碑。
+
+## 五、验收标准
+
+- 同一配方、不同行业/语气/受众的 3 个 prompt，产出 PDF 的主题、主色、封面风格至少出现 2 种不同组合（M1 前：恒为同一组合）。
+- 8000 字级长文不再截断，章节完整率 100%（自检通过）。
+- 任意主题下传 `theme_colors: {"--color-primary": "#E74C3C"}` 与传 `color_scheme` 的 17 个枚举值均实际生效（渲染结果可见差异）。
+- 渲染产物无空白页、无越界文本；质检 meta 正确上报。
+- 现有 `test_pdf_renderer.py`、`test_pdf_modules.py` 全绿，新增：DesignSpec 解析与兜底、色板派生、分章拼装、质检修复各一组用例。
+
+## 六、实施记录
+
+### 2026-08-30：M1 + M2 已实施（方案一、方案二）
+
+**方案一：设计决策升级 + 任意主色派生**
+
+- `pdf_theme_manager.py`：新增 `derive_universal_palette()`（单主色 → --primary/--accent/--primary-light/--primary-dark，HSL 派生）、`universal_color_overrides()`（theme_colors 归一化 + 自动派生 + 显式值优先）、`SCHEME_PRIMARY_COLORS`（12 个扩展配色在通用主题下的主色基准，与 TRAVEL_MAG_THEMES 对齐）、扩充 COLOR_NAMES（藏青/酒红/墨绿等 10 个中文色名）。
+- `pdf_renderer/weasyprint.py`：`_color_scheme_overrides` 三级支持（经典 5 色 / 扩展 12 色派生 / 直接传颜色）；`_render_with_weasyprint` 接受 overrides 参数并与 color_scheme 预设合并。
+- `pdf_renderer/renderer.py`：`render_markdown_to_pdf` 新增 overrides 透传；color_scheme 归一化放行扩展预设名与原始色值（不再压成 blue）。
+- `pdf_tool/design_rules.py`：DesignDecision 新增 `primary_color/primary_source`；`resolve_design` 接入 DesignSpec，优先级链更新为「显式参数 > prompt 风格词 > DesignSpec > 场景分类 > 配方默认」；新增 `_extract_design_spec` 校验（非法值忽略）。
+- `pdf_tool/design_enforcer.py`：color_scheme 允许可解析的原始颜色值。
+- `pdf_tool/base.py`：意图规划 prompt 追加 DESIGN_SPEC_HINT（同一次 LLM 调用输出 design 对象，零额外成本）。
+- `pdf_tool/intent.py`：parse_intent 提取 design 对象至 meta。
+- `pdf_tool/engine.py`：pop 出 DesignSpec 传入 resolve_design；markdown 路径合并 DesignSpec 派生色 + theme_colors；travel 路径 DesignSpec 主色作为 `--color-primary` 传入 travel_color_overrides。
+- `tools/scripts/pdf_render.py`：markdown 分支同样透传 theme_colors。
+- 工具 schema：`color_scheme` 去掉 enum 约束（支持原始色值），`theme_colors` 描述更新为全主题生效。
+
+**方案二：两段式生成 + 自检**
+
+- `pdf_tool/content.py` 重写：markdown 类配方章节数 >3 时走「大纲 → 分章生成 → 拼装」（并发默认串行，环境变量 `PDF_CONTENT_CONCURRENCY` 可调；resume 因结构强耦合关闭分章）；单章输出归一化（去围栏/去误输出的文档大标题/补标题行）。
+- 生成后自检：标题完全未出现、含"待补充/量化数据待补"占位词、空输出的章节按 strict 指令重生成一轮；仍失败的空章节用要点兜底，结构保证完整。
+- 质检结果写入 `intent.meta.content_qa`（mode/sections/regenerated/unresolved_sections/placeholders_left），随工具返回上报。
+
+**测试**：新增 `tests/test_pdf_design.py`（17 用例）、`tests/test_pdf_content_sections.py`（9 用例）；更新 3 个测试桩签名；全量 549 个测试通过；端到端真实渲染验证（academic + 酒红 → PDF 产出，CSS 注入确认）。
+
+**遗留**：方案三（配图推广）、方案四（渲染后质检）、方案五（工程重构）、方案六（前端设计卡）待后续里程碑实施；方案二中的 web_search 事实增强为可选项，暂未接入。
+
+### 2026-08-30：M5 + M4 已实施（方案四、方案三）
+
+**方案四：渲染后质检闭环（qa.py）**
+
+- 新增 `app/pdf_renderer/qa.py`：pymupdf 检查渲染产物——空白页（无文本/图片/绘图）、水平文本越界、单页文本超密（>6000 字）。
+- 检测中发现的渲染器特性：页脚页码（margin box）在零边距封面页上会纵向超出页底约 6pt——属正常表现而非内容问题，因此越界检测仅看水平方向（正文垂直方向总会分页，纵向溢出基本只可能来自 margin box）；越界判定抽为纯函数 `_block_out_of_bounds` 单测覆盖（pymupdf 对真实越界块的坐标会截断到页边，真实 PDF 上难以稳定复现 >2pt 水平越界）。
+- 修复重渲：`render_markdown_to_pdf` / `_render_with_weasyprint` 新增 `extra_css` 参数；可修复问题（越界/超密）触发注入 `overflow-wrap: break-word` CSS 重渲一轮；空白页等不可修复问题仅上报。质检结果写入返回 meta 的 `qa` 字段（passed/issues/pages/fixed/first_pass_issues）。
+- engine 接线：markdown 路径走 `render_with_qa` 完整闭环；travel 固定页式排版仅质检上报。
+- 环境无 pymupdf 时质检自动跳过（`qa.available=False`），不影响生成。
+
+**方案三：配图能力推广（illustration.py）**
+
+- 新增 `app/pdf_tool/illustration.py`：把 travel 的配图能力抽象为通用模块——`![alt](https://...)` 真实 URL 下载内嵌（6s/2MB 约束）、`![alt](keyword:关键词)` 按关键词取稳定网络图（picsum seed）、下载失败统一降级为 `.img-fallback` 渐变占位块（保留说明文字）；本地路径不处理；单文档内嵌上限 12 张。
+- engine：非 travel 配方开启 `images` 时渲染前内嵌图片；内容生成时注入配图提示（`_ILLUSTRATION_HINT`，引导 LLM 用 keyword: 语法或真实 URL，禁止编造不确定 URL）；travel 仍走自身管线。
+- 渲染器：weasyprint 路径追加 `.img-fallback` 占位块样式。
+- 工具 schema：`images` 描述更新为全配方语义。
+- E2E 验证：keyword 配图真实下载内嵌成功（328KB PDF），质检零误报通过。
+
+**测试**：新增 `tests/test_pdf_qa.py`（12 用例）、`tests/test_pdf_illustration.py`（10 用例）；全量 583 个测试通过。
+
+**剩余**：方案五（pdf_theme_manager 拆分重构，建议在功能稳定后单独进行）、方案六（前端设计卡）、方案二中的 web_search 事实增强。

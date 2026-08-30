@@ -10,7 +10,7 @@ from ..registry import register_tool
     "pdf_generate",
     "统一 PDF 生成入口：按需求选择 Report/Travel/Roadmap/Book/Slide 配方并渲染。"
     "简历场景用 resume_data 传结构化 JSON；prompt 传需求；"
-    "kind/style/theme/color_scheme 均可省略（系统按场景自动识别，用户风格词优先）；"
+    "kind/style/theme/color_scheme 均可省略（系统按场景自动识别 + LLM 设计师决策，用户风格词优先）；"
     "默认保存到应用输出目录 pdf，指定项目内目录时传 path。",
     {
         "type": "object",
@@ -40,20 +40,21 @@ from ..registry import register_tool
             },
             "color_scheme": {
                 "type": "string",
-                "enum": [
-                    "teal", "blue", "green", "warm", "monochrome", "purple",
-                    "iceblue", "desert", "vintage", "midnight", "pureblack",
-                    "mistsage", "mistblue", "duskmauve", "lotuspink",
-                    "dunesand", "smokegray",
-                ],
-                "description": "配色方案（经典/旅行杂志预设）；不传时自动选择",
+                "description": (
+                    "配色方案：经典 blue/green/warm/monochrome/purple，"
+                    "或旅行杂志预设 teal/iceblue/desert/vintage/midnight/pureblack/"
+                    "mistsage/mistblue/duskmauve/lotuspink/dunesand/smokegray；"
+                    "也支持直接传颜色（如 红色/#E74C3C/rgb(...)）自动派生整套配色；"
+                    "不传时系统按 prompt 场景自动选择"
+                ),
             },
             "theme_colors": {
                 "type": "object",
                 "description": (
-                    "可选，自定义主题色。只需传 --color-primary（颜色名或色值，"
-                    "如红色/#E74C3C/rgb(...)）即可自动派生整套配色；"
-                    "也可显式覆盖 --color-accent/--color-accent-light/--bg-highlight/--bg-cover"
+                    "可选，自定义主题色（对所有主题生效）。只需传 --color-primary"
+                    "（颜色名或色值，如红色/#E74C3C/rgb(...)）即可自动派生整套配色；"
+                    "也可显式覆盖 --primary/--accent/--primary-light 等变量"
+                    "（旅行主题对应 --color-accent/--bg-highlight/--bg-cover）"
                 ),
             },
             "paper_size": {
@@ -76,7 +77,11 @@ from ..registry import register_tool
             },
             "images": {
                 "type": "boolean",
-                "description": "是否自动为旅行手册景点配图（从图片源下载内嵌）。默认 false：photo 区域用渐变占位；用户要求配图时传 true",
+                "description": (
+                    "是否为文档配图（下载内嵌网络图片）。默认 false。"
+                    "开启后旅行手册自动为景点配图，其他文档由 LLM 在合适位置插入配图"
+                    "（真实 URL 或按关键词取图），失败自动降级为占位块"
+                ),
             },
             "file_name": {
                 "type": "string",
