@@ -11,7 +11,7 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 
 ## 功能特性
 
-- DeepSeek 流式对话，支持深度思考、会话历史、会话搜索和标题自动生成
+- DeepSeek 流式对话，支持深度思考、会话历史、会话搜索（含拼音检索）和标题自动生成
 - 项目化会话：项目工作区、项目图标、会话按项目组织
 - 本地文件分析：Word、Excel、Markdown、PDF、图片识别、网页抓取
 - 文档生成：Markdown 笔记、Word、PPT、Excel
@@ -21,6 +21,7 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 - 终端工具：可交互终端，高危命令需用户确认
 - Markdown 渲染与 Shiki 代码高亮
 - SQLite 本地存储，数据默认保存在本机
+- 快捷键：应用内统一 keymap（macOS ⌘ / 其他平台 Ctrl），系统级全局快捷键唤起/隐藏窗口
 - Tauri 2 + Rust 桌面壳，启动时自动拉起并监控 FastAPI sidecar
 - 自研 React UI 组件，不引入 AntD
 
@@ -138,6 +139,7 @@ pnpm tauri:dev
 - `active` 为 `true` 的条目是默认模型，同时会镜像到顶层 `provider` / `model` / `base_url` / `api_key` 字段，保持与旧配置兼容。
 - 对话时可在输入框发送按钮左侧的模型选择器中按会话切换模型（每个会话记住各自的模型选择，未选择时用默认模型）。
 - `provider`：`auto`（有 Key 用 DeepSeek，否则本地演示）、`langchain`（LangChain DeepSeek）、`mock`（本地演示）。
+- 网络参数（可选手动编辑 `settings.json`）：`max_retries`（请求重试次数，默认 2）、`timeout`（请求超时秒数，默认跟随 openai 客户端）；可写在顶层或某个模型条目内，provider 初始化时会输出一条含生效值的日志。
 
 桌面端启动 sidecar 时会注入 `DIVINE_DATA_DIR` 和 `DIVINE_WORKSPACE_DIR`，指向系统应用数据目录，因此打包后不会依赖仓库内的 `data/` 和 `workspace/`。
 
