@@ -207,6 +207,78 @@ function firstAxis(value: unknown): Record<string, unknown> | null {
   return isRecord(value) ? value : null;
 }
 
+function axisList(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) return value.filter(isRecord);
+  return isRecord(value) ? [value] : [];
+}
+
+/** Estimate the rendered width of a text string at a given font size (px). */
+function estimateTextWidth(text: string, fontSize: number): number {
+  let width = 0;
+  for (const ch of text) {
+    // CJK/全角字符 ≈ 1em，拉丁/数字 ≈ 0.6em
+    width += ch.charCodeAt(0) > 0x2e7f ? fontSize : fontSize * 0.6;
+  }
+  return Math.ceil(width);
+}
+
+/**
+ * LLM 常把 grid.left 当作 "plot 左边缘" 写一个大数（如 120），但主题注入的
+ * containLabel: true 语义是 "标签外沿"——plot 实际起点还会再右移一个标签宽度，
+ * 整图偏右、左侧大片留白。containLabel 开启时把过大的数值 left 收敛回主题
+ * 边距，让标签贴左、plot 紧跟标签之后（长标签仍由 containLabel 自动撑开）。
+ * 仅处理单网格（Record），多网格（K 线等）不动。
+ */
+function normalizeGridLeft(option: Record<string, unknown>): void {
+  const grid = option.grid;
+  if (!isRecord(grid) || grid.containLabel === false) return;
+  if (typeof grid.left === "number" && grid.left > 32) {
+    grid.left = 12;
+  }
+}
+
+/**
+ * 轴名（axis.name，如 "元（对数）"）在默认 nameLocation:"end" 下渲染在轴
+ * 末端外侧 nameGap(15px) 处且左对齐，网格没预留这个宽度时会伸出画布被裁。
+ * 按轴名估宽为相应边留白；nameLocation:"middle" 时轴名在轴正下方（x 轴）或
+ * 旋转在轴左侧（y 轴），同样补足对应边的最小留白。
+ */
+function reserveAxisNameSpace(option: Record<string, unknown>): void {
+  if (!isRecord(option.grid)) return;
+  const grid = { ...option.grid };
+  const reserve = (edge: "left" | "right" | "top" | "bottom", needed: number) => {
+    const current = grid[edge];
+    if (typeof current !== "number" || current < needed) {
+      grid[edge] = needed;
+    }
+  };
+  const nameGapOf = (axis: Record<string, unknown>) =>
+    typeof axis.nameGap === "number" ? axis.nameGap : 15;
+  const fontSizeOf = (axis: Record<string, unknown>) => {
+    const style = isRecord(axis.nameTextStyle) ? axis.nameTextStyle : {};
+    return typeof style.fontSize === "number" ? style.fontSize : 11;
+  };
+  for (const axis of axisList(option.xAxis)) {
+    if (typeof axis.name !== "string" || axis.name === "") continue;
+    const fontSize = fontSizeOf(axis);
+    if (axis.nameLocation === "middle") {
+      reserve("bottom", nameGapOf(axis) + Math.round(fontSize * 1.6));
+    } else if (axis.nameLocation === undefined || axis.nameLocation === "end") {
+      reserve("right", nameGapOf(axis) + estimateTextWidth(axis.name, fontSize) + 8);
+    }
+  }
+  for (const axis of axisList(option.yAxis)) {
+    if (typeof axis.name !== "string" || axis.name === "") continue;
+    const fontSize = fontSizeOf(axis);
+    if (axis.nameLocation === "middle") {
+      reserve("left", nameGapOf(axis) + Math.round(fontSize * 1.6));
+    } else if (axis.nameLocation === undefined || axis.nameLocation === "end") {
+      reserve("top", nameGapOf(axis) + Math.round(fontSize * 1.6));
+    }
+  }
+  option.grid = grid;
+}
+
 function axisDataCount(value: unknown): number {
   const data = firstAxis(value)?.data;
   return Array.isArray(data) ? data.length : 0;
@@ -445,11 +517,68 @@ function normalizeMultiAxes(
   return next;
 }
 
+/**
+ * LLM 想要"对数轴"时经常写成 `type: "value"` + `logBase: 10`。ECharts 里
+ * logBase 只对 type:"log" 的轴生效，value 轴会静默忽略它。
+ * 但 log 轴对柱类系列不安全：柱子以 log 空间的"零点"（value=1）为基准向两
+ * 侧生长，数值跨过 1 会呈蝴蝶图、全部 <1 时长度反转。因此仅当轴上没有柱类
+ * 系列、且绑定数据全为正时才纠正为 log 轴；柱状图保持线性轴（装饰阶段会强
+ * 制显示数值标签，小值柱子仍可读）。
+ */
+function normalizeLogAxes(option: Record<string, unknown>): void {
+  const series = Array.isArray(option.series) ? option.series : [];
+  const barLike = new Set(["bar", "pictorialBar", "candlestick", "boxplot"]);
+  for (const key of ["xAxis", "yAxis"] as const) {
+    const value = option[key];
+    const axes = Array.isArray(value)
+      ? value.filter(isRecord)
+      : isRecord(value)
+        ? [value]
+        : [];
+    if (axes.length === 0) continue;
+    const indexKey = key === "xAxis" ? "xAxisIndex" : "yAxisIndex";
+    // 记录每个轴索引是否存在柱类系列或非正数值
+    const unsafe = new Set<number>();
+    for (const item of series) {
+      if (!isRecord(item) || typeof item.type !== "string") continue;
+      const idx = typeof item[indexKey] === "number" ? item[indexKey] : 0;
+      if (barLike.has(item.type)) unsafe.add(idx);
+      if (Array.isArray(item.data)) {
+        for (const d of item.data) {
+          const v =
+            typeof d === "number"
+              ? d
+              : isRecord(d) && typeof d.value === "number"
+                ? d.value
+                : null;
+          if (v !== null && v <= 0) unsafe.add(idx);
+        }
+      }
+    }
+    for (const [i, axis] of axes.entries()) {
+      if (axis.type === "value" && axis.logBase != null && !unsafe.has(i)) {
+        axis.type = "log";
+      }
+    }
+  }
+}
+
 function decorateSeries(
   option: Record<string, unknown>,
   palette: ChartPalette
 ): void {
   if (!Array.isArray(option.series)) return;
+  // 未堆叠的柱系列组数（stack 相同的柱系列共用一根柱位）。
+  const barStackCount = new Set(
+    option.series
+      .map((item, idx) => {
+        if (!isRecord(item) || item.type !== "bar") return null;
+        return typeof item.stack === "string" && item.stack !== ""
+          ? item.stack
+          : `#${idx}`;
+      })
+      .filter((key): key is string => key !== null)
+  ).size;
   option.series = option.series.map((item) => {
     if (!isRecord(item)) return item;
     const next = { ...item };
@@ -469,13 +598,25 @@ function decorateSeries(
         (hasSecondaryXAxis &&
           (next.xAxisIndex === 1 || next.yAxisIndex === 1));
       if (isHorizontalCartesian(option)) {
-        next.barWidth = "70%";
+        if (barStackCount > 1) {
+          // 多组柱共用一条类目带：barWidth 是硬宽度（ECharts 不裁剪显式
+          // barWidth，见 echarts#6312），每组都写 70% 会溢出类目带、跨类目
+          // 互相压叠。删掉 barWidth 交给自动布局平分带宽，barMaxWidth 只封顶
+          // 单柱粗细（单系列仍渲染为带宽 70% 的粗柱，视觉不变）。
+          delete next.barWidth;
+          next.barMaxWidth = next.barMaxWidth ?? "70%";
+        } else {
+          next.barWidth = "70%";
+        }
         next.barCategoryGap = "10%";
+        next.barGap = next.barGap ?? "15%";
       } else if (volumeLike) {
+        if (barStackCount > 1) delete next.barWidth;
         next.barMaxWidth = 10;
         next.barCategoryGap = next.barCategoryGap ?? "10%";
         next.barGap = next.barGap ?? "15%";
       } else {
+        if (barStackCount > 1) delete next.barWidth;
         next.barMaxWidth = next.barMaxWidth ?? 30;
         next.barCategoryGap = next.barCategoryGap ?? "10%";
         next.barGap = next.barGap ?? "15%";
@@ -1194,6 +1335,12 @@ export function buildChartOption(
       );
     }
   }
+  // 轴数组已定型（mergeAxis/ensureAxisCoverage 之后）再纠正 log 轴
+  normalizeLogAxes(merged);
+  // 网格边距语义修正：containLabel 下过大的 left 会把整图推右；轴名需要
+  // 额外的边缘留白否则会被画布裁掉
+  normalizeGridLeft(merged);
+  reserveAxisNameSpace(merged);
   if (isRecord(merged.tooltip) && merged.tooltip.trigger === undefined) {
     merged.tooltip = {
       ...merged.tooltip,

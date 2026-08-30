@@ -10,6 +10,10 @@ from ..registry import register_tool
     "generate_chart",
     "根据分析结果生成 ECharts 图表配置；当用户要求画图、展示趋势/对比/占比/分布等图表时使用。"
     "option 必须是完整合法的 ECharts option 且包含非空 series 数组，不要在正文输出 HTML、JS 或图表代码。"
+    "多系列柱状图不要设 barWidth（宽度交给布局自动分配）；柱状图不要用对数轴"
+    "（ECharts 柱子在 log 轴上以 value=1 为基准生长，数值跨 1 或全 <1 时图形错误，"
+    "跨数量级数据保持线性轴靠数值标签呈现）；折线/散点需要对数轴时设轴 type:\"log\""
+    "（logBase 仅对 log 轴生效）。"
     "默认只返回 option 由前端内联渲染，不生成 SVG 文件；"
     "只有用户明确要求导出 SVG 或需要嵌入 PDF 时才传 export_svg=true。",
     {
