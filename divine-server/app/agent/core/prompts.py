@@ -13,11 +13,12 @@ from ... import db
 from ...config import settings_store
 from ...localization import language_instruction
 from ...skills import skill_registry
+from .constants import MAX_TOOL_TURNS
 from .context import AgentRunContext
 from ..intent import (
-    build_rule_sections,
     classify_intents,
     intents_from_tool_history,
+    split_rule_sections,
 )
 from .llm import _resolve_model_entry
 from ..rag import _auto_rag_context
@@ -312,7 +313,12 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
             if isinstance(message, HumanMessage)
         )
         is_first_turn = human_count <= 1
-        rule_sections = build_rule_sections(intents, is_first_turn)
+        # 缓存友好排序：稳定节（ALWAYS_SECTIONS）在最前，让 DeepSeek/GLM 的
+        # 前缀缓存命中；按轮变化的项目/计划/记忆/RAG 块随后；意图条件节放
+        # 尾部——意图在轮间变化时不会打断前缀。
+        rule_sections, conditional_sections = split_rule_sections(
+            intents, is_first_turn
+        )
 
         parts = [
             rule_sections.replace("create_plan", "write_todos"),
@@ -348,8 +354,31 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
         skill_catalog = _skill_catalog_prompt()
         if skill_catalog:
             parts.append(skill_catalog)
+        if conditional_sections:
+            parts.append(
+                conditional_sections.replace("create_plan", "write_todos")
+            )
         if ctx.tool_mode == "react":
             parts.append(REACT_FORMAT_PROMPT)
+
+        # 回合预算软着陆：接近 ModelCallLimit/ToolCallLimit 上限时提醒模型
+        # 收尾汇报，而不是被上限静默截断（P3-3c）。
+        ai_count = 0
+        tool_call_count = 0
+        for message in messages:
+            if isinstance(message, AIMessage):
+                ai_count += 1
+                tool_call_count += len(message.tool_calls or [])
+        remaining = min(
+            MAX_TOOL_TURNS - ai_count, MAX_TOOL_TURNS - tool_call_count
+        )
+        if 0 < remaining <= 6:
+            parts.append(
+                f"【回合预算提醒】本任务剩余执行回合约 {remaining} 次。"
+                "请立即收尾：不要再开启新的大步骤，完成手头这一小步后输出进度总结"
+                "（已完成什么、验证结果如何、还剩什么没做），"
+                "并告知用户回复“继续”即可接续执行剩余工作。"
+            )
         return "\n\n".join(parts)
 
     return prompt

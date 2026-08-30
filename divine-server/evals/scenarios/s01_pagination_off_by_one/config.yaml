@@ -1,0 +1,21 @@
+id: s01_pagination_off_by_one
+category: bug_single
+fail_to_pass:
+  - tests/test_pager.py::test_first_page
+  - tests/test_pager.py::test_second_page
+  - tests/test_pager.py::test_last_partial_page
+pass_to_pass:
+  - tests/test_pager.py::test_out_of_range_page
+  - tests/test_pager.py::test_page_count
+  - tests/test_pager.py::test_invalid_args
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 8
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: pager.py
+          search: "    start = page * per_page\n"
+          replace: "    start = (page - 1) * per_page\n"

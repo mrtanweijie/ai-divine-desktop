@@ -1,0 +1,23 @@
+id: s03_threshold_compare
+category: bug_single
+fail_to_pass:
+  - tests/test_pricing.py::test_exactly_100_gets_10_percent_off
+  - tests/test_pricing.py::test_exactly_500_gets_20_percent_off
+pass_to_pass:
+  - tests/test_pricing.py::test_below_first_tier_unchanged
+  - tests/test_pricing.py::test_small_amount_unchanged
+  - tests/test_pricing.py::test_above_second_tier
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 8
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: pricing.py
+          search: "    if total > TIER_20:\n"
+          replace: "    if total >= TIER_20:\n"
+        - path: pricing.py
+          search: "    if total > TIER_10:\n"
+          replace: "    if total >= TIER_10:\n"

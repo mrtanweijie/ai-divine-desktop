@@ -1,0 +1,21 @@
+id: s02_none_guard
+category: bug_single
+fail_to_pass:
+  - tests/test_durations.py::test_none_raises_value_error
+pass_to_pass:
+  - tests/test_durations.py::test_hours
+  - tests/test_durations.py::test_minutes
+  - tests/test_durations.py::test_seconds
+  - tests/test_durations.py::test_empty_raises_value_error
+  - tests/test_durations.py::test_garbage_raises_value_error
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 8
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: durations.py
+          search: "    text = text.strip().lower()\n"
+          replace: "    if not text:\n        raise ValueError(\"invalid duration\")\n    text = text.strip().lower()\n"

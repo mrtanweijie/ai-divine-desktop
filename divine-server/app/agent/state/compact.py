@@ -48,15 +48,19 @@ _MODEL_CONTEXT_WINDOWS: dict[str, int] = {
 }
 
 # Summary prompt template; {locale} is replaced with a language hint.
+# 编码导向：摘要必须能让下一轮对话"接上任务"，重点是代码状态与验证结果，
+# 而不只是聊天偏好。
 _SUMMARY_SYSTEM = (
-    "你是对话摘要助手。把用户与 AI 助手的对话压缩为要点摘要。"
+    "你是对话摘要助手。把用户与 AI 助手的对话压缩为要点摘要，"
+    "供后续对话恢复上下文（尤其是进行中的开发任务）。"
     "必须保留：\n"
-    "- 用户透露的偏好、身份、个人信息\n"
-    "- 已做出的决定和选择\n"
-    "- 正在进行的任务及其进度\n"
-    "- 关键事实、数字、约束条件\n"
-    "- 用户明确要求记住的内容\n"
-    "忽略：寒暄、临时指令、工具执行细节、重复内容。\n"
+    "- 当前任务：用户要做什么、进行到哪一步\n"
+    "- 代码状态：已修改/创建/删除的文件及每个文件的改动要点\n"
+    "- 问题与验证：遇到过的报错及原因、已运行的测试/检查与结果\n"
+    "- 下一步：尚未完成的步骤、悬而未决的决定\n"
+    "- 关键事实：路径、命令、参数、版本号、约束条件、关键数字\n"
+    "- 用户透露的偏好、身份、个人信息，以及明确要求记住的内容\n"
+    "忽略：寒暄、工具原始输出、重复内容。\n"
     "如果提供了已有摘要，请与新内容合并、去重并保持连贯。\n"
     "输出 {lang} 摘要，不超过 {budget} 个 token，不要客套话和列表编号。"
 )
@@ -101,9 +105,9 @@ def _system_prompt_preview(
     from ..core import SYSTEM_PROMPT
     from ...localization import language_instruction
     from ..intent import (
-        build_rule_sections,
         classify_intents,
         intents_from_tool_history,
+        split_rule_sections,
     )
 
     settings = settings_store.load()
@@ -117,6 +121,8 @@ def _system_prompt_preview(
         model_line = f"当前模型：{model_name}"
     locale = settings.get("locale") or "zh-CN"
 
+    stable_sections = SYSTEM_PROMPT
+    conditional_sections = ""
     if history:
         user_messages = [
             message
@@ -131,18 +137,21 @@ def _system_prompt_preview(
         intents, _ = classify_intents(last_user_text)
         if not intents and session_id:
             intents = intents_from_tool_history(session_id, limit=5)
-        rule_sections = build_rule_sections(
-            intents, is_first_turn=len(user_messages) <= 1
-        )
-    else:
-        rule_sections = SYSTEM_PROMPT
+        (
+            stable_sections,
+            conditional_sections,
+        ) = split_rule_sections(intents, is_first_turn=len(user_messages) <= 1)
 
     parts = [
-        rule_sections.replace("create_plan", "write_todos"),
+        stable_sections.replace("create_plan", "write_todos"),
         language_instruction(locale),
         "当前会话所属项目工作目录：{workspace}\n请以该目录作为方案设计和文件操作的工作区。",
         model_line,
     ]
+    if conditional_sections:
+        parts.append(
+            conditional_sections.replace("create_plan", "write_todos")
+        )
     return "\n\n".join(parts)
 
 

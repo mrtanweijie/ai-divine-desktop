@@ -129,6 +129,7 @@ _SUBAGENT_FORBIDDEN_TOOLS = frozenset(
         "create_plan",
         "write_todos",
         "run_subagents",
+        "undo_last_turn",
     }
 )
 

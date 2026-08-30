@@ -1,0 +1,36 @@
+id: s12_rename_refactor
+category: refactor
+fail_to_pass:
+  - tests/test_rename.py::test_new_api_exists
+  - tests/test_rename.py::test_old_name_gone
+pass_to_pass:
+  - tests/test_rename.py::test_callers_still_work
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 10
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: store.py
+          search: "def fetch_data(table: str) -> list[dict]:"
+          replace: "def load_records(table: str) -> list[dict]:"
+        - path: api.py
+          search: "from store import fetch_data\n"
+          replace: "from store import load_records\n"
+        - path: api.py
+          search: "    return fetch_data(\"users\")"
+          replace: "    return load_records(\"users\")"
+        - path: report.py
+          search: "from store import fetch_data\n"
+          replace: "from store import load_records\n"
+        - path: report.py
+          search: "    rows = fetch_data(\"logs\")"
+          replace: "    rows = load_records(\"logs\")"
+        - path: cache_layer.py
+          search: "from store import fetch_data\n"
+          replace: "from store import load_records\n"
+        - path: cache_layer.py
+          search: "            self._cache[table] = fetch_data(table)"
+          replace: "            self._cache[table] = load_records(table)"

@@ -1,10 +1,11 @@
 # Agent Code 支持优化规划（项目开发基线）
 
-> 版本：v1.4
-> 日期：2026-08-27
+> 版本：v1.6
+> 日期：2026-08-30
 > 状态：P0 全部 6 项 + P1 全部 5 项 + P2-1 可写子 Agent + P2-2 轻量代码索引（list_definitions）已实现，P2-3/4 待实施。另完成性能优化（SQLite WAL + ToolMessage 压缩 + 异步 I/O + SSE 截断）与编码工具补全（edit_lines/apply_patch/move_file/glob_files/format_code/lint_check/run_tests）。
+> **P3-0 评测体系 + P3-1 快赢四项 + P3-2 上下文工程 + P3-3 质量闭环已实现（2026-08-30）**：eval harness（12 场景，夹具自检与剧本模型端到端均 12/12）；token 预算裁剪 + 工具结果置换 + 编码导向摘要；项目指令文件（.divine.md/AGENTS.md/CLAUDE.md）；编辑后自动语法检查；turn 级 checkpoint + undo_last_turn；终端命令审批记忆 + 回合预算软着陆。全套件 618 测试通过。
 > 目标：把 Divine Agent 从"文档生成 + 轻量文件操作"提升到"能流畅用于真实软件项目开发"的基础能力。
-> 范围：`divine-server/app/agent/*`、`divine-server/app/tools/*`、`divine-app/src/pages/chat/*`、`divine-server/tests/*`。
+> 范围：`divine-server/app/agent/*`、`divine-server/app/tools/*`、`divine-app/src/pages/chat/*`、`divine-server/tests/*`、`divine-server/evals/*`。
 
 ---
 
@@ -150,6 +151,59 @@
 - **P2-2 轻量代码索引** ✅ 已实现（list_definitions）：Python AST 解析 + ts/js/rs/go/java 正则启发式，输出类/函数/接口大纲与行号
 - **P2-3 MCP 支持**：接入外部工具生态（浏览器、数据库客户端等），复用现有工具注册表抽象
 - **P2-4 自动 code review**：`git_diff` 结果交给只读子 Agent 做审查，输出问题清单与修改建议
+
+---
+
+## 2.5 P3 — 对照 Codex / Claude Code 的下一阶段（2026-08-30 起）
+
+> 完整差距分析见会话记录；优先级按"执行架构 → 上下文工程 → 自主性闭环"排列。
+
+### P3-0 评测体系（度量先行）✅ 已实现
+
+- 新增 `divine-server/evals/`：harness（场景加载/临时工作区+git 基线/生产栈接管/pytest 评分/JSON 报告）
+  + `evals_pytest_plugin.py`（精确 nodeid 采集）+ `fake_model.py`（剧本模型，零 API 成本验证全链路）
+- 首批 12 个场景：单文件 bug ×4 / 跨文件 bug ×3 / 小功能 ×2 / 排障 ×2 / 重构 ×1；
+  每个场景含 repo/隐藏测试/task.md/config.yaml（fail_to_pass + pass_to_pass + forbidden_paths + 预算 + solution）
+- 验收：`check` 夹具自检 12/12（基线 fail_to_pass 全红、pass_to_pass 全绿）；
+  `run --fake` 端到端 12/12 resolved；隔离运行（DB_PATH/DIVINE_DATA_DIR 指向 .runs/，真实 settings 只读加载）
+- 后续：真实模型跑分基线（`--model <id> --runs 3`）、补充大文件/长任务上下文压力场景
+
+### P3-1 快赢四项 ✅ 已实现
+
+| 项 | 改动 | 文件 |
+| --- | --- | --- |
+| 工具锁细粒度化 | 只读工具（grep/read/glob/lint 等）免锁并行，可变工具保持串行 | `app/agent/tools/tools.py`（`_LOCK_FREE_TOOLS`） |
+| plan_first 只读放行 | 等待方案确认期间允许 read_file/grep 等只读探索，杜绝"盲写方案" | `app/agent/tools/execution.py` |
+| 中断线程修复 | 崩溃/取消后合成 ToolMessage 补齐未完成 tool_calls，不再整线清零（补齐失败才回退清零） | `app/agent/orchestrator.py`（`_pending_tool_call_ids` + 修复路径，`tests/test_thread_repair.py` 6 用例） |
+| prompt 稳定前缀 | 稳定节（ALWAYS_SECTIONS）前置、意图条件节移尾部，保 DeepSeek/GLM 前缀缓存命中 | `app/agent/intent/intent.py`（`split_rule_sections`）、`app/agent/core/prompts.py`、`app/agent/state/compact.py` |
+
+### P3-2 上下文工程 ✅ 已实现（2026-08-30）
+
+- **token 预算裁剪**：thread trim 从"按条数 30"改为"按 token（窗口 70%，最低 12k）"，
+  删除边界仍对齐 HumanMessage；`limit` 语义变为"最近 N 条完整保留"，另有
+  limit*4 条数硬上限防结构性膨胀（`orchestrator.py::_thread_context_actions`，6 测试）
+- **旧工具结果置换（stub）**：滑出最近尾部（12 条外）的长 ToolMessage（>600 字符）
+  用同 id 占位消息原位替换——结构保留、字节缩小，需要时重新调用工具（同上）
+- **编码导向摘要模板**：compact 摘要必含 当前任务/代码状态（改了哪些文件）/
+  问题与验证（报错与测试结果）/下一步（`state/compact.py::_SUMMARY_SYSTEM`）
+- **项目指令文件**：`.divine.md` / `AGENTS.md` / `CLAUDE.md`（按优先级取第一个）
+  注入 prompt 顶部，参与缓存指纹，编辑即时生效（`project_context.py`，6 测试）
+
+### P3-3 质量闭环 ✅ 已实现（2026-08-30）
+
+- **编辑后自动语法检查**：edit_files/write_file/edit_lines/apply_patch 成功后
+  自动跑 py_compile（批量单进程）/JSON/YAML 检查，错误文本回灌给模型立即修复；
+  检查失败绝不影响工具结果（`tools/syntax_check.py` + `execution.py`，8 测试）
+- **turn 级 checkpoint + undo_last_turn 工具**：每轮开始前快照工作区
+  （gitignore 感知、单文件 ≤512KB/总量 ≤32MB/超限标记 incomplete），
+  `undo_last_turn` 恢复最近一个与当前不同的快照——连续调用即 undo→redo
+  （恢复前自动存档）；.git 永不触碰；incomplete 快照只覆盖不删除
+  （`tools/checkpoint.py` + `adapters/undo_turn.py` + orchestrator 钩子，5 测试）
+- **终端命令审批记忆**：用户批准过的命令（规范化空白后精确匹配，不做前缀
+  匹配防止 `git push` 放行 `git push --force`）本会话内不再重复确认；
+  仅内存存储，重启即清空（`execution.py`，4 测试）
+- **回合预算软着陆**：接近 96 回合上限（≤6 剩余）时 prompt 注入收尾指令
+  （总结进度/告知用户可"继续"接续），不再被上限静默截断（`prompts.py`）
 
 ---
 

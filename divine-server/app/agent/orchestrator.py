@@ -25,6 +25,7 @@ from .core import (
     _resolve_tool_mode,
     _stream_agent_run,
     canonical_path,
+    estimate_tokens,
     generate_session_title,
 )
 from .intent import classify_intents, is_question_like
@@ -55,10 +56,15 @@ def _can_handle_locally(
         return bool(intents & _LOCAL_INTENTS)
     return False
 
-def _has_incomplete_tool_calls(messages: list[Any]) -> bool:
+def _pending_tool_call_ids(messages: list[Any]) -> list[tuple[str, str]]:
+    """Unanswered tool calls as (call_id, tool_name), in thread order.
+
+    Occurs after a crash/cancel between an AIMessage with tool_calls and its
+    ToolMessages; providers reject such threads, so callers repair them.
+    """
     from langchain_core.messages import AIMessage, ToolMessage
 
-    pending: dict[str, int] = {}
+    pending: dict[str, str] = {}
     for message in messages:
         if isinstance(message, AIMessage):
             for call in message.tool_calls or []:
@@ -67,41 +73,136 @@ def _has_incomplete_tool_calls(messages: list[Any]) -> bool:
                     if isinstance(call, dict)
                     else getattr(call, "id", "")
                 )
+                name = (
+                    call.get("name")
+                    if isinstance(call, dict)
+                    else getattr(call, "name", "")
+                )
                 if call_id:
-                    pending[call_id] = pending.get(call_id, 0) + 1
+                    pending[call_id] = str(name or "")
         elif isinstance(message, ToolMessage):
             call_id = getattr(message, "tool_call_id", "") or ""
             if call_id in pending:
-                pending[call_id] -= 1
-                if pending[call_id] <= 0:
-                    del pending[call_id]
-    return bool(pending)
+                del pending[call_id]
+    return list(pending.items())
 
-def _thread_trim_removals(
-    messages: list[Any], limit: int
-) -> list[Any]:
-    """RemoveMessage entries dropping the oldest thread messages beyond limit.
 
-    The kept suffix always starts at a HumanMessage boundary so tool-call
-    pairs (AIMessage -> ToolMessage) are never split, which would otherwise
-    make DeepSeek reject the request with a 400.
+def _has_incomplete_tool_calls(messages: list[Any]) -> bool:
+    return bool(_pending_tool_call_ids(messages))
+
+_TOOL_STUB_MIN_CHARS = 600
+_TOOL_STUB_KEEP_RECENT = 12
+_TOOL_STUB_TEXT = (
+    "[早期工具结果已清理：{name}，原 {chars} 字符。如需该信息请重新调用工具]"
+)
+
+
+def _thread_token_budget() -> int:
+    """Message-token budget for the thread: ~70% of the model context window.
+
+    system prompt + tool schemas + 当前轮回复落在剩余 30% 里。按 token 而不是
+    按消息条数裁剪，长编码任务早期读过的文件/计划不会在几十条消息后被丢掉。
     """
-    from langchain_core.messages import HumanMessage, RemoveMessage
+    try:
+        from .state import context_window
 
-    if limit <= 0 or len(messages) <= limit:
-        return []
-    keep_from = len(messages) - limit
-    while keep_from < len(messages) and not isinstance(
-        messages[keep_from], HumanMessage
+        window = context_window()
+    except Exception:  # noqa: BLE001 — 预算计算失败时保守取小窗口
+        window = 128_000
+    return max(int(window * 0.7), 12_000)
+
+
+def _message_tokens(message: Any) -> int:
+    content = _content_text(getattr(message, "content", ""))
+    tokens = estimate_tokens(content)
+    tool_calls = getattr(message, "tool_calls", None)
+    if tool_calls:
+        tokens += estimate_tokens(
+            json.dumps(tool_calls, ensure_ascii=False, default=str)
+        )
+    return tokens
+
+
+def _thread_context_actions(
+    messages: list[Any],
+    limit: int,
+    token_budget: int | None = None,
+) -> tuple[list[Any], list[Any]]:
+    """Token-budget trim + old tool-result stubbing for the agent thread.
+
+    返回 ``(removals, stubs)``，一次 ``aupdate_state`` 同时提交：
+
+    - removals：超出保留窗口的旧消息整体删除（RemoveMessage）。删除边界
+      仍是 HumanMessage 起点，不会拆散 AIMessage→ToolMessage 配对。
+    - stubs：保留窗口内、但已滑出最近尾部（limit 条之外）的长 ToolMessage
+      用同 id 的占位消息置换，结构保留、字节缩小——旧文件内容不再长期
+      占用上下文，需要时可重新读取。
+
+    ``limit`` 语义变为"最近 N 条完整保留"（默认 30）；硬删除由 token 预算
+    （窗口 70%）和条数上限（limit*4，防结构性膨胀）触发。
+    """
+    from langchain_core.messages import (
+        HumanMessage,
+        RemoveMessage,
+        ToolMessage,
+    )
+
+    if not messages:
+        return [], []
+    budget = token_budget or _thread_token_budget()
+    max_count = max(limit * 4, 80)
+
+    # 1. token 预算：从最新往旧累计，超出预算处为删除边界
+    total = 0
+    cut_by_tokens = 0
+    for index in range(len(messages) - 1, -1, -1):
+        total += _message_tokens(messages[index])
+        if total > budget:
+            cut_by_tokens = index + 1
+            break
+
+    # 2. 条数硬上限：防纯结构膨胀（stub 保留条数，条数本身不缩）
+    cut = cut_by_tokens
+    if len(messages) > max_count:
+        cut = max(cut, len(messages) - max_count)
+
+    # 删除边界推进到 HumanMessage 起点，保证不拆散 tool-call 配对
+    while cut < len(messages) and not isinstance(
+        messages[cut], HumanMessage
     ):
-        keep_from += 1
-    if keep_from >= len(messages):
-        return []
-    return [
+        cut += 1
+    if cut >= len(messages):
+        # 兜底：全删会丢掉当前任务，至少保留最后两条（AI+工具结果 或 问答对）
+        cut = max(0, len(messages) - 2)
+
+    removals = [
         RemoveMessage(id=message.id)
-        for message in messages[:keep_from]
+        for message in messages[:cut]
         if getattr(message, "id", None)
     ]
+
+    # 3. 旧工具结果置换：保留窗口内、最近 _TOOL_STUB_KEEP_RECENT 条之外
+    stub_zone_end = len(messages) - _TOOL_STUB_KEEP_RECENT
+    stubs: list[Any] = []
+    for index in range(cut, stub_zone_end):
+        message = messages[index]
+        if not isinstance(message, ToolMessage):
+            continue
+        text = _content_text(message.content) if message.content else ""
+        if len(text) <= _TOOL_STUB_MIN_CHARS:
+            continue
+        stubs.append(
+            ToolMessage(
+                content=_TOOL_STUB_TEXT.format(
+                    name=getattr(message, "name", None) or "tool",
+                    chars=len(text),
+                ),
+                tool_call_id=getattr(message, "tool_call_id", "") or "",
+                name=getattr(message, "name", None) or "tool",
+                id=message.id,
+            )
+        )
+    return removals, stubs
 
 def _parse_stream_event(event: str) -> tuple[str, dict[str, Any]] | None:
     event_name = ""
@@ -173,6 +274,23 @@ async def run_agent(
         ctx.plan_choice_resolved = True
         ctx.plan_first_pending = True
 
+    # 回合开始前快照工作区（P3-3b）：供 undo_last_turn 撤销本轮改动。
+    # 快照失败绝不阻断对话；大仓库/超限场景在 create_checkpoint 内部跳过。
+    try:
+        from ..tools.checkpoint import create_checkpoint
+
+        checkpoint_info = await asyncio.to_thread(
+            create_checkpoint, workspace_path, session_id
+        )
+        if checkpoint_info.get("skipped"):
+            logger.info(
+                "turn checkpoint skipped session=%s reason=%s",
+                session_id,
+                checkpoint_info["skipped"],
+            )
+    except Exception as exc:  # noqa: BLE001 — 快照失败绝不阻断对话
+        logger.warning("turn checkpoint failed session=%s: %s", session_id, exc)
+
     # 意图识别（提前到工具构建前——工具按意图裁减需要，见 tools._CONTENT_TOOLS）。
     # 从 history 取当前用户消息做分类，与后文线程化 question_text 等价。
     settings = settings_store.load()
@@ -212,29 +330,61 @@ async def run_agent(
     thread_messages = (snapshot.values or {}).get("messages") or []
     has_thread = bool(thread_messages)
     if has_thread and _has_incomplete_tool_calls(thread_messages):
-        logger.warning(
-            "agent thread has incomplete tool calls, resetting session=%s",
-            session_id,
-        )
-        await reset_agent_thread(session_id)
-        has_thread = False
+        # 上次运行在工具调用中途被中断（崩溃/取消/超时）。整线清零会把长任务
+        # 的全部上下文丢掉，改为合成 ToolMessage 补齐未完成的调用让线程恢复
+        # 一致；补齐失败才退回清零。
+        pending = _pending_tool_call_ids(thread_messages)
+        try:
+            from langchain_core.messages import ToolMessage
+
+            repairs = [
+                ToolMessage(
+                    content=(
+                        "上一轮工具调用被中断，没有返回结果。"
+                        "如需该信息请重新调用工具。"
+                    ),
+                    tool_call_id=call_id,
+                    name=name or "tool",
+                )
+                for call_id, name in pending
+            ]
+            await agent.aupdate_state(config, {"messages": repairs})
+            logger.warning(
+                "repaired interrupted tool calls session=%s count=%d",
+                session_id,
+                len(pending),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "agent thread repair failed, resetting session=%s: %s",
+                session_id,
+                exc,
+            )
+            await reset_agent_thread(session_id)
+            has_thread = False
     if has_thread:
-        # Keep only the newest `context_limit` messages in the thread so long
-        # sessions do not grow unbounded; trimming happens before this turn.
+        # 上下文整理（本轮开始前）：token 预算硬裁剪 + 旧工具结果占位置换。
+        # limit 语义为"最近 N 条完整保留"；硬删除由 token 预算与条数上限触发。
         limit = int(context_limit or 20)
-        removals = _thread_trim_removals(thread_messages, limit)
-        if removals:
+        removals, stubs = _thread_context_actions(thread_messages, limit)
+        if removals or stubs:
             try:
-                await agent.aupdate_state(config, {"messages": removals})
+                await agent.aupdate_state(
+                    config, {"messages": removals + stubs}
+                )
                 logger.info(
-                    "agent thread trimmed session=%s removed=%d kept<=%d",
+                    "agent thread compacted session=%s removed=%d stubbed=%d "
+                    "recent_keep=%d",
                     session_id,
                     len(removals),
+                    len(stubs),
                     limit,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
-                    "agent thread trim failed session=%s: %s", session_id, exc
+                    "agent thread compact failed session=%s: %s",
+                    session_id,
+                    exc,
                 )
         user_messages = [
             message

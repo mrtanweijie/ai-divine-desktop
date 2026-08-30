@@ -62,6 +62,7 @@ from .web_fetch import WebFetchAdapter  # noqa: F401
 from .web_fetch_batch import WebFetchBatchAdapter  # noqa: F401
 from .web_search import WebSearchAdapter  # noqa: F401
 from .write_calendar import WriteCalendarAdapter  # noqa: F401
+from .undo_turn import UndoLastTurnAdapter  # noqa: F401
 from .write_file import WriteFileAdapter  # noqa: F401
 from .word_document import WordDocumentAdapter  # noqa: F401
 

@@ -1,0 +1,20 @@
+id: s07_cache_key
+category: bug_cross
+fail_to_pass:
+  - tests/test_cache.py::test_key_includes_sorted_params
+  - tests/test_cache.py::test_different_params_different_entries
+pass_to_pass:
+  - tests/test_cache.py::test_key_without_params
+  - tests/test_cache.py::test_same_params_share_entry
+  - tests/test_cache.py::test_no_params_share_entry
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 8
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: cache.py
+          search: "        if not params:\n            return url\n        return url\n"
+          replace: "        if not params:\n            return url\n        query = \"&\".join(f\"{k}={v}\" for k, v in sorted(params.items()))\n        return f\"{url}?{query}\"\n"

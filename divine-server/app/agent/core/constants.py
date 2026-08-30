@@ -93,6 +93,7 @@ _NO_PLAN_TOOLS = {
     "git_commit",
     "git_revert",
     "bg_kill",
+    "undo_last_turn",
 }
 
 MAX_TOOL_TURNS = 96

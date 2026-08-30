@@ -13,6 +13,7 @@ from .intent import (
     estimate_rule_sections_tokens,
     intents_from_tool_history,
     is_question_like,
+    split_rule_sections,
     strip_abs_paths,
 )
 from .local_actions import execute_local_action
@@ -25,5 +26,6 @@ __all__ = [
     "estimate_rule_sections_tokens",
     "intents_from_tool_history",
     "is_question_like",
+    "split_rule_sections",
     "execute_local_action",
 ]

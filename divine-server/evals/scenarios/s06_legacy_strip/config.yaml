@@ -1,0 +1,19 @@
+id: s06_legacy_strip
+category: bug_cross
+fail_to_pass:
+  - tests/test_pipeline.py::test_tabs_trimmed
+  - tests/test_pipeline.py::test_document_mixed_whitespace
+pass_to_pass:
+  - tests/test_pipeline.py::test_spaces_trimmed
+  - tests/test_pipeline.py::test_internal_spaces_collapsed
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 8
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: pipeline.py
+          search: "    line = strip_spaces(line)\n"
+          replace: "    line = line.strip()\n"

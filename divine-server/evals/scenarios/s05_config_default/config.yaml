@@ -1,0 +1,19 @@
+id: s05_config_default
+category: bug_cross
+fail_to_pass:
+  - tests/test_service.py::test_default_timeout_used
+  - tests/test_service.py::test_default_timeout_is_30
+pass_to_pass:
+  - tests/test_service.py::test_explicit_timeout_wins
+  - tests/test_service.py::test_other_config_values_intact
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 8
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: service.py
+          search: "        timeout = 10\n"
+          replace: "        timeout = config.DEFAULT_TIMEOUT\n"

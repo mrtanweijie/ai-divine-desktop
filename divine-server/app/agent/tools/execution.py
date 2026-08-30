@@ -26,6 +26,32 @@ logger = logging.getLogger("divine.agent.execution")
 # 与 terminal 共用命令安全策略的工具（adapter 需实现 build_command）。
 _COMMAND_TOOLS = {"lint_check", "run_tests"}
 
+# 会改写文件内容的编辑工具：成功后自动做轻量语法检查（P3-3a）。
+_EDIT_TOOLS = {"edit_files", "write_file", "edit_lines", "apply_patch"}
+
+# 会话内已获用户批准的终端命令（精确匹配，规范化空白后存储）。
+# 用户批准过的同一条命令在同一会话内不再重复弹确认；仅内存存储，
+# 应用重启即清空（失效方向安全）。只做"同一条命令"级记忆，
+# 不做前缀匹配——批准过 `git push` 绝不能自动放行 `git push --force`。
+_SESSION_APPROVED_COMMANDS: dict[str, set[str]] = {}
+
+
+def _normalized_command(command: str) -> str:
+    return " ".join((command or "").split())
+
+
+def _is_session_approved(session_id: str, command: str) -> bool:
+    return _normalized_command(command) in _SESSION_APPROVED_COMMANDS.get(
+        session_id, set()
+    )
+
+
+def _remember_approved_command(session_id: str, command: str) -> None:
+    normalized = _normalized_command(command)
+    if not normalized:
+        return
+    _SESSION_APPROVED_COMMANDS.setdefault(session_id, set()).add(normalized)
+
 _CONTEXT_STRING_LIMIT = 12_000
 _CONTEXT_STRING_KEEP = 10_000
 _CONTEXT_LIST_LIMIT = 50
@@ -115,10 +141,18 @@ async def _handle_adapter_call(
                 "请先调用 create_plan 制定计划，不要直接执行其他工具。"
             )
 
-    if name != "create_plan" and ctx.plan_first_pending:
+    if (
+        name != "create_plan"
+        and ctx.plan_first_pending
+        and name not in _READ_ONLY_TOOLS
+    ):
+        # 只读探索（read_file/grep_files/directory_tree 等）放行：方案要基于
+        # 真实代码情况制定，禁止的只是写文件/命令等会改变状态的工具。
         return (
             "用户选择先出一份方案。"
-            "请先调用 create_plan 制定计划，不要直接执行其他工具。"
+            "可以继续用只读工具（read_file/grep_files/directory_tree/git_status 等）"
+            "了解项目情况，收集足够信息后调用 create_plan 制定计划；"
+            "方案确认前不要执行写文件、编辑或终端命令。"
         )
 
     todo = None
@@ -615,6 +649,18 @@ async def _handle_adapter_call(
             policy = "safe"
         elif is_terminal and policy == "confirm" and ctx.plan_approved:
             policy = "safe"
+        elif (
+            is_terminal
+            and policy == "confirm"
+            and _is_session_approved(ctx.session_id, command)
+        ):
+            # 用户本会话已批准过完全相同的命令，不再重复弹确认
+            policy = "safe"
+            logger.info(
+                "terminal command session-approved session=%s command=%s",
+                ctx.session_id,
+                command[:200],
+            )
 
         logger.info(
             "tool policy session=%s tool=%s policy=%s command=%s",
@@ -671,6 +717,9 @@ async def _handle_adapter_call(
                 if isinstance(decision, dict)
                 else bool(decision)
             )
+            if allowed:
+                # 记入会话级已批准集合：同一命令本轮对话内不再重复确认
+                _remember_approved_command(ctx.session_id, command)
             if not allowed:
                 if todo is not None:
                     _finish_todo(todo, False, "用户拒绝执行")
@@ -779,7 +828,8 @@ async def _handle_adapter_call(
 
         # Background process tools are scoped by session: inject the session
         # id so bg_manager can isolate processes per conversation.
-        if name == "terminal" or name in {"bg_status", "bg_output", "bg_kill"}:
+        # undo_last_turn 用 session_id 定位该会话的工作区快照。
+        if name == "terminal" or name in {"bg_status", "bg_output", "bg_kill", "undo_last_turn"}:
             arguments.setdefault("session_id", ctx.session_id)
 
         # 图片识别：注入当前会话实际使用的模型，让 read_image 优先用它
@@ -805,6 +855,26 @@ async def _handle_adapter_call(
             context_view, ensure_ascii=False
         )
         tool_content = _compact_for_context(tool_content)
+
+        # 编辑后自动语法检查（P3-3a）：把语法错误回灌给模型立即修复，
+        # 不让坏改动悄悄落盘等用户运行时才发现。
+        if name in _EDIT_TOOLS and output.get("success"):
+            try:
+                from ...tools.syntax_check import (
+                    edited_paths,
+                    syntax_check_paths,
+                )
+
+                problems = syntax_check_paths(
+                    edited_paths(name, arguments, ctx.workspace)
+                )
+            except Exception:  # noqa: BLE001 — 检查失败不影响工具结果
+                problems = []
+            if problems:
+                tool_content += (
+                    "\n\n[语法检查警告] 刚写入的文件存在语法错误，"
+                    "请立即修复后再继续其他步骤：\n" + "\n".join(problems)
+                )
         payload: dict[str, Any] = {
             "event": "tool",
             "tool": name,

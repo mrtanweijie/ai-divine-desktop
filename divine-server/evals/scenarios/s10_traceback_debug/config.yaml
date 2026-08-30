@@ -1,0 +1,18 @@
+id: s10_traceback_debug
+category: debug
+fail_to_pass:
+  - tests/test_shop_cli.py::test_main_returns_locations
+  - tests/test_shop_cli.py::test_unknown_item_raises_key_error
+pass_to_pass:
+  - tests/test_shop_cli.py::test_warehouse_locate_direct
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 8
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: shop/cli.py
+          search: "        out.append(f\"{item} -> {warehouse.locaton(item)}\")\n"
+          replace: "        out.append(f\"{item} -> {warehouse.locate(item)}\")\n"

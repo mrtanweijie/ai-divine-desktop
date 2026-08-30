@@ -1,0 +1,18 @@
+id: s11_import_cycle
+category: debug
+fail_to_pass:
+  - tests/test_domains.py::test_order_and_payment_link
+  - tests/test_domains.py::test_status_enum_values
+pass_to_pass:
+  - tests/test_domains.py::test_order_total_unaffected
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 10
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: payments.py
+          search: "import enum\n\nfrom orders import Order\n"
+          replace: "import enum\n"

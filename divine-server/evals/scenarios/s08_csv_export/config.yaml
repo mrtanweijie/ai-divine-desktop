@@ -1,0 +1,22 @@
+id: s08_csv_export
+category: feature
+fail_to_pass:
+  - tests/test_csv_export.py::test_to_csv_header_and_order
+  - tests/test_csv_export.py::test_export_csv_dispatch
+pass_to_pass:
+  - tests/test_csv_export.py::test_export_json_still_works
+  - tests/test_csv_export.py::test_unknown_format_raises
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 8
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: inventory.py
+          search: "    def to_json(self) -> str:\n        return json.dumps(self.sorted_items(), ensure_ascii=False)\n"
+          replace: "    def to_json(self) -> str:\n        return json.dumps(self.sorted_items(), ensure_ascii=False)\n\n    def to_csv(self) -> str:\n        lines = [\"name,qty,price\"]\n        for item in self.sorted_items():\n            lines.append(f\"{item['name']},{item['qty']},{item['price']}\")\n        return \"\\n\".join(lines)\n"
+        - path: exporters.py
+          search: "    if fmt == \"json\":\n        return inv.to_json()\n"
+          replace: "    if fmt == \"json\":\n        return inv.to_json()\n    if fmt == \"csv\":\n        return inv.to_csv()\n"

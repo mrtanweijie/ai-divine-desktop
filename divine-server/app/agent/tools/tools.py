@@ -19,7 +19,7 @@ from langgraph.prebuilt import ToolRuntime
 
 from ...skills import skill_registry
 from ...tools.registry import registry
-from ..core import MAX_TOOL_TURNS
+from ..core import MAX_TOOL_TURNS, _READ_ONLY_TOOLS
 from ..core import AgentRunContext
 from .execution import _handle_adapter_call
 from ..middleware import TodoSyncMiddleware
@@ -29,6 +29,12 @@ from ..core import _make_args_model, _run_skill_script, _skill_args_model, _skil
 _CHECKPOINTER = InMemorySaver()
 
 _TOOL_LOCKS: dict[str, asyncio.Lock] = {}
+
+# 免锁（可并行执行）的工具 = 只读工具 + 明确无副作用的辅助工具。
+# lint_check 只读分析；run_tests 会跑项目代码（可能占端口/写缓存），保持加锁。
+_LOCK_FREE_TOOLS: frozenset[str] = frozenset(
+    _READ_ONLY_TOOLS | {"glob_files", "list_definitions", "lint_check", "load_skill"}
+)
 
 # 内容创作/技能类工具：仅当对应意图命中时注入（其余工具常驻）。
 # 这类工具 schema 大（pdf_generate 889 token、run_subagents 738 等）且只服务
@@ -66,9 +72,20 @@ def _make_tool_call(
     ctx: AgentRunContext,
     adapter: Any,
     name: str,
-    lock: asyncio.Lock,
+    lock: asyncio.Lock | None,
 ):
+    """Wrap one adapter for the LangGraph tool node.
+
+    ``lock`` 为 None 时（只读工具）不加锁：LangGraph 对同一条 AI 消息里的
+    多个 tool_calls 并发执行，只读工具并行可以显著降低探索阶段的延迟；
+    可变工具（写文件/终端/git 写等）仍串行，避免并发改动互相踩踏。
+    """
+
     async def call(runtime: ToolRuntime, **kwargs: Any) -> Any:
+        if lock is None:
+            return await _handle_adapter_call(
+                ctx, runtime, adapter, name, kwargs
+            )
         async with lock:
             return await _handle_adapter_call(
                 ctx, runtime, adapter, name, kwargs
@@ -99,7 +116,10 @@ def _build_tools(ctx: AgentRunContext) -> list[StructuredTool]:
         tools.append(
             StructuredTool.from_function(
                 coroutine=_make_tool_call(
-                    ctx, adapter, meta["name"], lock
+                    ctx,
+                    adapter,
+                    meta["name"],
+                    None if name in _LOCK_FREE_TOOLS else lock,
                 ),
                 name=meta["name"],
                 description=meta["description"],

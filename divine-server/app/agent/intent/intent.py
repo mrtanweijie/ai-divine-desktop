@@ -457,6 +457,37 @@ def intents_from_tool_history(
     }
 
 
+def split_rule_sections(
+    intents: set[str],
+    is_first_turn: bool,
+) -> tuple[str, str]:
+    """把规则节拆成（稳定节，易变节）两段。
+
+    稳定节在会话内逐字节不变（ALWAYS_SECTIONS），放在 system prompt 最前面
+    可以让 DeepSeek/GLM 等的前缀缓存命中；易变节（按意图选择的条件节）放在
+    prompt 尾部，避免意图变化打断缓存前缀。
+
+    返回 (stable, variable)；variable 可能为空字符串。
+    """
+    if is_first_turn and not intents:
+        return SYSTEM_PROMPT, ""
+
+    stable = "\n".join(ALWAYS_SECTIONS)
+    variable_parts: list[str] = []
+    if intents:
+        variable_parts.append(_OPTIONS_CARD_RULES)
+    seen: set[str] = set()
+    for intent in _INTENT_ORDER:
+        if intent not in intents:
+            continue
+        for section in CONDITIONAL_SECTIONS[intent]:
+            if section in seen:
+                continue
+            seen.add(section)
+            variable_parts.append(section)
+    return stable, "\n".join(variable_parts)
+
+
 def build_rule_sections(
     intents: set[str],
     is_first_turn: bool,
@@ -468,22 +499,10 @@ def build_rule_sections(
     只要命中任一条件意图，就同时注入完整 options 卡片规范
     （条件流程都涉及让用户选择/确认）。
     """
-    if is_first_turn and not intents:
-        return SYSTEM_PROMPT
-
-    parts: list[str] = list(ALWAYS_SECTIONS)
-    if intents:
-        parts.append(_OPTIONS_CARD_RULES)
-    seen: set[str] = set()
-    for intent in _INTENT_ORDER:
-        if intent not in intents:
-            continue
-        for section in CONDITIONAL_SECTIONS[intent]:
-            if section in seen:
-                continue
-            seen.add(section)
-            parts.append(section)
-    return "\n".join(parts)
+    stable, variable = split_rule_sections(intents, is_first_turn)
+    if not variable:
+        return stable
+    return f"{stable}\n{variable}"
 
 
 def estimate_rule_sections_tokens(

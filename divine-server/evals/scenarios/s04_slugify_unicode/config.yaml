@@ -1,0 +1,23 @@
+id: s04_slugify_unicode
+category: bug_single
+fail_to_pass:
+  - tests/test_slugs.py::test_accents_folded_to_ascii
+  - tests/test_slugs.py::test_strips_edges
+pass_to_pass:
+  - tests/test_slugs.py::test_basic
+  - tests/test_slugs.py::test_collapses_dashes
+  - tests/test_slugs.py::test_drops_cjk
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 8
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: slugs.py
+          search: "import re\n"
+          replace: "import re\nimport unicodedata\n"
+        - path: slugs.py
+          search: "    text = text.lower()\n"
+          replace: "    text = unicodedata.normalize(\"NFKD\", text)\n    text = \"\".join(ch for ch in text if not unicodedata.combining(ch))\n    text = text.lower()\n"

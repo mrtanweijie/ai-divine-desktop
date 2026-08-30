@@ -1,0 +1,24 @@
+id: s09_user_validation
+category: feature
+fail_to_pass:
+  - tests/test_user_email.py::test_missing_at_raises
+  - tests/test_user_email.py::test_two_at_raises
+  - tests/test_user_email.py::test_empty_local_raises
+  - tests/test_user_email.py::test_domain_without_dot_raises
+  - tests/test_user_email.py::test_domain_leading_dot_raises
+  - tests/test_user_email.py::test_domain_trailing_dot_raises
+  - tests/test_user_email.py::test_space_in_email_raises
+  - tests/test_user_email.py::test_is_valid_email_true
+pass_to_pass:
+  - tests/test_user_email.py::test_valid_email_ok
+forbidden_paths:
+  - "tests/**"
+budget:
+  max_minutes: 10
+solution:
+  - tool: edit_files
+    args:
+      files:
+        - path: models.py
+          search: "class User:\n    def __init__(self, name: str, email: str) -> None:\n        self.name = name\n        self.email = email\n"
+          replace: "class User:\n    @staticmethod\n    def is_valid_email(email: str) -> bool:\n        if email.count(\"@\") != 1:\n            return False\n        local, _, domain = email.partition(\"@\")\n        if not local or not domain or \" \" in local or \" \" in domain:\n            return False\n        if \".\" not in domain or domain.startswith(\".\") or domain.endswith(\".\"):\n            return False\n        return True\n\n    def __init__(self, name: str, email: str) -> None:\n        if not User.is_valid_email(email):\n            raise ValueError(f\"invalid email: {email!r}\")\n        self.name = name\n        self.email = email\n"

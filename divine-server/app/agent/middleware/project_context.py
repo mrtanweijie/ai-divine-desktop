@@ -33,6 +33,11 @@ _MANIFEST_NAMES = (
     "go.mod",
 )
 
+# 项目指令文件（等价 CLAUDE.md/AGENTS.md 约定）：用户在仓库里写构建命令、
+# 代码规范、已知坑，agent 每轮自动读取。按优先级取第一个存在的文件。
+_INSTRUCTION_NAMES = (".divine.md", "AGENTS.md", "CLAUDE.md")
+_INSTRUCTION_MAX_CHARS = 8000
+
 
 def _looks_like_project(workspace: Path) -> bool:
     if not workspace.is_dir():
@@ -40,6 +45,24 @@ def _looks_like_project(workspace: Path) -> bool:
     if (workspace / ".git").exists():
         return True
     return any((workspace / name).is_file() for name in _MANIFEST_NAMES)
+
+
+def _instruction_block(workspace: Path) -> str | None:
+    """读取项目指令文件（.divine.md / AGENTS.md / CLAUDE.md）的正文。"""
+    for name in _INSTRUCTION_NAMES:
+        path = workspace / name
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            return None
+        if not text:
+            return None
+        if len(text) > _INSTRUCTION_MAX_CHARS:
+            text = text[:_INSTRUCTION_MAX_CHARS] + "\n...(项目指令已截断)"
+        return f"### {name}（项目指令，必须遵循其中的约定）\n{text}"
+    return None
 
 
 def _readme_summary(workspace: Path) -> str | None:
@@ -216,10 +239,13 @@ def build_project_context(workspace: Any, session_id: str) -> str | None:
     return text
 
 
-def _fingerprint(workspace: Path) -> tuple[int, int]:
-    """Cheap change detector: newest mtime among key files + dir mtime."""
+def _fingerprint(workspace: Path) -> tuple[int, int, int]:
+    """Cheap change detector: newest mtime among key files + dir mtime.
+
+    项目指令文件也参与指纹：用户编辑 .divine.md 后缓存立刻失效。
+    """
     newest = 0
-    for name in _MANIFEST_NAMES:
+    for name in (*_MANIFEST_NAMES, *_INSTRUCTION_NAMES):
         try:
             newest = max(newest, (workspace / name).stat().st_mtime_ns)
         except OSError:
@@ -233,6 +259,9 @@ def _fingerprint(workspace: Path) -> tuple[int, int]:
 
 def _build_block(workspace: Path) -> str | None:
     parts: list[str] = []
+    instruction = _instruction_block(workspace)
+    if instruction:
+        parts.append(instruction)
     readme = _readme_summary(workspace)
     if readme:
         parts.append(f"README：{readme}")
