@@ -16,7 +16,7 @@ def _init(tmp_path, monkeypatch):
 
 
 def test_estimate_tokens():
-    from app.agent.compact import estimate_tokens
+    from app.agent.state import estimate_tokens
 
     assert estimate_tokens("") == 0
     assert estimate_tokens("你好世界") == 4
@@ -33,7 +33,7 @@ def test_build_context_breakdown(tmp_path, monkeypatch):
         db.add_message(session["id"], "user", f"问题 {i}：" + "很长的内容" * 20)
         db.add_message(session["id"], "assistant", f"回答 {i}：" + "详细说明" * 20)
 
-    from app.agent.compact import build_context_breakdown
+    from app.agent.state import build_context_breakdown
 
     usage = build_context_breakdown(session["id"])
     assert usage["contextWindow"] > 0
@@ -72,7 +72,7 @@ def test_compact_should_compact_after_enough_new_messages(tmp_path, monkeypatch)
         db.add_message(session["id"], "user", f"问题 {i}")
         db.add_message(session["id"], "assistant", f"回答 {i}")
 
-    from app.agent.compact import _should_compact
+    from app.agent.state import _should_compact
 
     # No summary yet -> cutoff 0 -> 6 user rows >= 4 turns and 12 rows -> compactable
     assert _should_compact(session["id"], 20, None) is True

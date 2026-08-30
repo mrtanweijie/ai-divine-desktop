@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 from langchain_core.language_models.chat_models import SimpleChatModel
 
-from app.agent.react import (
+from app.agent.tools.react import (
     REACT_MAX_ACTION_INPUT_LEN,
     ReActParseMiddleware,
     ReActStreamProcessor,
@@ -14,7 +14,7 @@ from app.agent.react import (
     _clean_react_text,
     parse_react_trace,
 )
-from app.agent.llm import _resolve_tool_mode
+from app.agent.core import _resolve_tool_mode
 from app.config import merge_model_updates, normalize_models
 
 
@@ -372,7 +372,7 @@ def test_react_loop_executes_tool(tmp_path, monkeypatch):
 
     from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-    from app.agent.context import AgentRunContext
+    from app.agent.core import AgentRunContext
     from app.agent.tools import _build_agent, _build_tools
 
     session_id = _init_db(tmp_path, monkeypatch)
@@ -432,8 +432,8 @@ def test_react_sse_pipeline(tmp_path, monkeypatch):
 
     from langchain_core.messages import HumanMessage
 
-    from app.agent.context import AgentRunContext
-    from app.agent.sse import _stream_agent_run
+    from app.agent.core import AgentRunContext
+    from app.agent.core import _stream_agent_run
     from app.agent.tools import _build_agent, _build_tools
 
     session_id = _init_db(tmp_path, monkeypatch)

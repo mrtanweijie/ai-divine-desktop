@@ -8,7 +8,7 @@ from __future__ import annotations
 
 
 def _tokens(messages: list[dict[str, str]]) -> int:
-    from app.agent.compact import estimate_tokens
+    from app.agent.state import estimate_tokens
 
     return sum(estimate_tokens(m["content"]) for m in messages)
 

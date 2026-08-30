@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ..tools.gitignore import SKIP_DIR_NAMES, load_gitignore_rules, is_ignored
+from ...tools.gitignore import SKIP_DIR_NAMES, load_gitignore_rules, is_ignored
 
 logger = logging.getLogger("divine.agent.project_context")
 

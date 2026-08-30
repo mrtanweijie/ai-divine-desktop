@@ -1,11 +1,31 @@
-"""Runtime context shared by prompt building, tool execution, and streaming."""
+"""Runtime context shared by prompt building, tool execution, and streaming.
+
+Also hosts the local token estimator: it is a pure function with no agent
+dependencies, and keeping it here (instead of in ``compact``) breaks the
+``intent ↔ compact`` lazy import cycle — both sides can import it from the
+shared core leaf.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
+
+# Rough local token estimation: CJK ~1 token/char, other text ~4 chars/token.
+_CJK_RE = re.compile(r"[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff]")
+_NON_CJK_RE = re.compile(r"[^\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff\s]")
+
+
+def estimate_tokens(text: str) -> int:
+    """Local token estimate: CJK chars ≈ 1 token, other chars ≈ 0.25 token."""
+    if not text:
+        return 0
+    cjk = len(_CJK_RE.findall(text))
+    other = len(_NON_CJK_RE.findall(text))
+    return cjk + round(other / 4)
 
 
 def canonical_path(path: str | Path, workspace: Path) -> str:

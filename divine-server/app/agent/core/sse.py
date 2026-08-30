@@ -7,7 +7,7 @@ from typing import Any, AsyncIterator
 
 from langgraph.stream.transformers import CustomTransformer
 
-from ..sse import sse_event
+from ...sse import sse_event
 
 def _custom_sse(payload: Any) -> str:
     if not isinstance(payload, dict):
@@ -235,7 +235,7 @@ async def _consume_message(
     reasoning_parts: list[str] = []
     react_processor = None
     if react:
-        from .react import ReActStreamProcessor
+        from ..tools.react import ReActStreamProcessor
 
         react_processor = ReActStreamProcessor()
 
@@ -243,7 +243,7 @@ async def _consume_message(
         if react_processor is None:
             # 普通文本流：用 <think> 标签分离器把推理模型的思考块
             # （如 MiniMax-M3、GLM-5.x）拆成 think 事件，正文保持 message。
-            from ..llm.think_tags import ThinkTagProcessor
+            from ...llm.think_tags import ThinkTagProcessor
 
             think_processor = ThinkTagProcessor()
             async for delta in message.text:
@@ -316,7 +316,7 @@ async def _consume_message(
     try:
         content = getattr(output, "content", None)
         if isinstance(content, str) and "<think>" in content:
-            from ..llm.think_tags import strip_think_tags
+            from ...llm.think_tags import strip_think_tags
 
             output = output.model_copy(update={"content": strip_think_tags(content)})
     except Exception:  # noqa: BLE001 — 清理失败不影响主流程

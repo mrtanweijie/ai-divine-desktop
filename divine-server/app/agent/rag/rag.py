@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..rag_store import (
+from ...rag_store import (
     index_workspace as rag_index_workspace,
     search_workspace as rag_search_workspace,
 )

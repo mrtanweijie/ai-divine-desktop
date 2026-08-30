@@ -17,7 +17,7 @@ import re
 import time
 from pathlib import Path
 
-from .intent import _ABS_PATH_RE, _looks_like_abs_path, strip_abs_paths
+from ..intent import _ABS_PATH_RE, _looks_like_abs_path, strip_abs_paths
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ def _looks_like_table(text: str) -> bool:
 
 
 def _token_estimate(text: str) -> int:
-    from .compact import estimate_tokens
+    from ..state import estimate_tokens
 
     return estimate_tokens(text)
 
@@ -201,7 +201,7 @@ def maybe_preprocess(
     if not text or not text.strip():
         return text, None, False, False
 
-    from ..config import settings_store
+    from ...config import settings_store
 
     settings = settings_store.load()
     if not settings.get("local_llm_preprocess_enabled", True):
@@ -263,7 +263,7 @@ def _start_local_model(manager) -> bool:
             logger.info("本地预整理需要模型，但未安装任何模型，降级云端")
             return False
 
-        from ..config import settings_store
+        from ...config import settings_store
 
         preferred = settings_store.load().get("local_llm_model") or ""
         model = None
@@ -322,7 +322,7 @@ def _organize_text(
     (None, None)。``write_original=False`` 时不写新附件（附件自身即原文，
     如 paste-*.txt），由调用方传回附件路径。
     """
-    from .local_llm import get_manager
+    from ..core.local_llm import get_manager
 
     manager = get_manager()
     if not manager.is_ready():
@@ -410,7 +410,7 @@ def maybe_preprocess_attachment(
     if not content or not content.strip():
         return content, None, False, False
 
-    from ..config import settings_store
+    from ...config import settings_store
 
     settings = settings_store.load()
     if not settings.get("local_llm_preprocess_enabled", True):

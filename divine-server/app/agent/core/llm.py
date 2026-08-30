@@ -9,9 +9,9 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from ..config import settings_store
-from ..localization import normalize_locale
-from ..llm import ChatDeepSeekProvider, MockChatModel, OpenAIChatProvider
+from ...config import settings_store
+from ...localization import normalize_locale
+from ...llm import ChatDeepSeekProvider, MockChatModel, OpenAIChatProvider
 
 logger = logging.getLogger("divine.agent.llm")
 

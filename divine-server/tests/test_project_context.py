@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from app.agent.project_context import (
+from app.agent.middleware import (
     build_project_context,
     clear_project_context_cache,
     _looks_like_project,

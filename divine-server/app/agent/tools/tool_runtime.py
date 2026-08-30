@@ -9,8 +9,8 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from .. import db
-from ..tools.base import ToolExecutionError
+from ... import db
+from ...tools.base import ToolExecutionError
 
 logger = logging.getLogger("divine.agent.tool_runtime")
 

@@ -41,14 +41,14 @@ from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.errors import GraphRecursionError
 
-from .. import db
-from ..localization import language_instruction
-from ..skills import skill_registry
-from ..tools.registry import registry
-from .context import AgentRunContext, canonical_path
-from .llm import _build_llm
-from .persistence import _extract_final_content
-from .schema import _make_args_model
+from ... import db
+from ...localization import language_instruction
+from ...skills import skill_registry
+from ...tools.registry import registry
+from ..core import AgentRunContext, canonical_path
+from ..core import _build_llm
+from ..state import _extract_final_content
+from ..core import _make_args_model
 
 logger = logging.getLogger("divine.agent.subagents")
 
@@ -281,7 +281,7 @@ async def _run_subagent_tool(
     """
     if name == "terminal":
         command = str(arguments.get("command") or "")
-        from ..tools.terminal_policy import terminal_command_policy
+        from ...tools.terminal_policy import terminal_command_policy
 
         policy = terminal_command_policy(command)
         if policy != "safe":

@@ -34,6 +34,14 @@ async def lifespan(_: FastAPI):
     logger.info("=== 侧边端启动 ===")
     ensure_directories()
     db.init_db()
+    # 用户插件：加载 data/plugins/ 下的工具（幂等，坏插件跳过不影响启动）
+    try:
+        from .config import plugins_dir
+        from .tools.registry import load_plugins_from
+
+        load_plugins_from(plugins_dir())
+    except Exception:  # noqa: BLE001 — 插件加载失败不影响服务启动
+        logger.exception("插件加载失败")
     await scheduler.start()
     logger.info("=== 侧边端就绪 ===")
     yield
@@ -45,7 +53,7 @@ async def lifespan(_: FastAPI):
     await bg_manager.shutdown_all()
     # 停止 llama-server
     try:
-        from .agent.local_llm import get_manager
+        from .agent.core import get_manager
 
         get_manager().stop()
     except Exception:
@@ -109,7 +117,7 @@ app.include_router(terminal.router)
 
 @app.get("/api/health")
 def health():
-    from .agent.llm import _resolve_tool_mode
+    from .agent.core import _resolve_tool_mode
 
     current = settings_store.load()
     provider = "mock" if not current.get("api_key") else current.get("provider", "auto")

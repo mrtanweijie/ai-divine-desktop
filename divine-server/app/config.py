@@ -443,3 +443,9 @@ def ensure_directories() -> None:
     ):
         (output_root / category).mkdir(parents=True, exist_ok=True)
     db_path().parent.mkdir(parents=True, exist_ok=True)
+    plugins_dir().mkdir(parents=True, exist_ok=True)
+
+
+def plugins_dir() -> Path:
+    """Directory for user-installed tool plugins (loaded at startup)."""
+    return data_root() / "plugins"

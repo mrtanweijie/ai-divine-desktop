@@ -181,7 +181,7 @@ async def stream_chat(request: StreamChatRequest):
     organized = False
     attempted_question = False
     try:
-        from ..agent.preprocess import maybe_preprocess
+        from ..agent.middleware import maybe_preprocess
 
         final_question, original_attachment, organized, attempted_question = (
             await asyncio.to_thread(
@@ -269,7 +269,7 @@ async def stream_chat(request: StreamChatRequest):
         # 显式："帮我整理" + 附件（附件即指代对象）；自动：内容超阈值且非代码/表格。
         if isinstance(meta.get("content"), str) and meta["content"]:
             try:
-                from ..agent.preprocess import maybe_preprocess_attachment
+                from ..agent.middleware import maybe_preprocess_attachment
 
                 original_text = meta["content"]
                 att_original_path = (
@@ -352,7 +352,7 @@ async def stream_chat(request: StreamChatRequest):
         try:
             # 本地模型：不走 agent（系统提示词 + 工具 schema 超过 0.5B 的
             # 上下文），直接与 llama-server 对话
-            from ..agent.llm import _resolve_model_entry
+            from ..agent.core import _resolve_model_entry
 
             entry = _resolve_model_entry(settings, request.model_id)
             if entry.get("provider") == "local":
@@ -392,8 +392,8 @@ async def stream_chat(request: StreamChatRequest):
                 if not request.attachments:
                     task = _detect_local_task(model_question)
                 if task:
-                    from ..agent.local_llm import get_manager
-                    from ..agent.preprocess import _start_local_model
+                    from ..agent.core import get_manager
+                    from ..agent.middleware import _start_local_model
 
                     manager = get_manager()
                     if not manager.is_ready():
@@ -713,7 +713,7 @@ def _local_answer(question: str, system_prompt: str) -> str | None:
     知识问答（qa）任务用——需要先看完整回答判断是否"不确定"再决定
     本地交付还是回退云端，流式无法前置判断。
     """
-    from ..agent.local_llm import get_manager
+    from ..agent.core import get_manager
 
     manager = get_manager()
     if not manager.is_ready():
@@ -758,7 +758,7 @@ def _build_local_chat_messages(
     从新到旧挑选历史，预算 = ctx - 系统提示 - 输出预留（1100 token）。
     ``system_prompt`` 可传任务专用提示（本地能力路由），默认通用助手提示。
     """
-    from ..agent.compact import estimate_tokens
+    from ..agent.state import estimate_tokens
 
     lang = "中文" if str(locale or "").startswith("zh") else "English"
     if system_prompt is None:
@@ -1439,7 +1439,7 @@ async def stream_local_chat(
     ``defer_emit`` 为 True 时不边生成边发 message 事件（攒完整回复后
     一次性回调），避免本地拒答文本在转云端前闪现到气泡里。
     """
-    from ..agent.local_llm import get_manager
+    from ..agent.core import get_manager
 
     manager = get_manager()
     if not manager.is_ready():

@@ -37,7 +37,7 @@ from uuid import uuid4
 from langchain.agents.middleware import AgentMiddleware, ModelResponse
 from langchain_core.messages import AIMessage
 
-from .schema import _content_text
+from ..core import _content_text
 
 logger = logging.getLogger("divine.agent.react")
 
@@ -48,18 +48,9 @@ REACT_MAX_THOUGHT_LEN = 2000
 
 # --- prompt ---------------------------------------------------------------
 
-REACT_FORMAT_PROMPT = """【ReAct 文本工具调用模式】
-当前模型不启用原生函数调用，需要调用工具时按以下格式逐行输出（关键词固定为英文）：
-Thought: 推理
-Action: 工具名
-Action Input: {"参数": 值}
-工具执行结果会以 Observation 形式返回给你；根据结果继续 Thought → Action，直到完成；
-完成时以 “Final Answer: ” 开头输出最终回答。
-规则：
-- Action 只能使用系统提供的工具名，Action Input 必须是合法 JSON 且与工具参数定义一致；
-  参数不确定时先用 read_file / search_files 了解情况，不要编造；
-- 每轮只输出一个 Action；不要输出 XML/伪代码形式的调用；不要杜撰工具；
-- 正文中的普通解释文字可以正常输出，但不要与 Action 格式混淆。"""
+# REACT_FORMAT_PROMPT 已移至 core 层 prompts.py（消除 prompts↔react 惰性环）。
+# 此处保留别名兼容历史引用（若未来直接 import 本模块的该常量）。
+from ..core.prompts import REACT_FORMAT_PROMPT  # noqa: F401  (re-exported alias)
 
 # --- trace model ----------------------------------------------------------
 

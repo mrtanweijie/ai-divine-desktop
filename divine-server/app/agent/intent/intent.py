@@ -14,9 +14,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .. import db
-from .constants import SYSTEM_PROMPT
-from .prompt_sections import (
+from ... import db
+from ..core import SYSTEM_PROMPT
+from ..core.prompt_sections import (
     _CHART_RULES,
     _DATA_TOOL_RULES,
     _DOCUMENT_RULES,
@@ -419,7 +419,7 @@ def classify_intents(
         # local / hybrid 都始终调用本地模型（"双重判断"）；keyword 模式不调。
         # 本地意图与关键词意图取并集，_can_handle_locally 再决定是否短路本地。
         try:
-            from .local_llm import get_manager
+            from ..core.local_llm import get_manager
 
             manager = get_manager()
             if manager.is_ready():
@@ -491,6 +491,6 @@ def estimate_rule_sections_tokens(
     is_first_turn: bool,
 ) -> int:
     """估算组装后规则节文本的 token 数（供 usage 环展示）。"""
-    from .compact import estimate_tokens
+    from ..core import estimate_tokens
 
     return estimate_tokens(build_rule_sections(intents, is_first_turn))

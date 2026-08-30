@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from app.agent.context import AgentRunContext
-from app.agent.subagents import (
+from app.agent.core import AgentRunContext
+from app.agent.tools.subagents import (
     _SUBAGENT_WRITE_TOOLS,
     _build_subagent_tools,
     _record_change,
@@ -234,7 +234,7 @@ def test_record_change_dedupes_unchanged():
 
 
 def test_interrupt_sse_maps_subagents_write():
-    from app.agent.sse import _interrupt_sse
+    from app.agent.core import _interrupt_sse
 
     event = _interrupt_sse(
         {

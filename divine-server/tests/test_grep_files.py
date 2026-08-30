@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from app.agent.constants import _READ_ONLY_TOOLS
-from app.agent.subagents import _SUBAGENT_READ_ONLY_TOOLS
+from app.agent.core import _READ_ONLY_TOOLS
+from app.agent.tools.subagents import _SUBAGENT_READ_ONLY_TOOLS
 from app.tools.adapters.grep_files import GrepFilesAdapter
 from app.tools.registry import get_tool
 

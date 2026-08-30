@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from app.agent.context import AgentRunContext
-from app.agent.subagents import (
+from app.agent.core import AgentRunContext
+from app.agent.tools.subagents import (
     MAX_SUBAGENTS,
     _SUBAGENT_COMMAND_TOOLS,
     _SUBAGENT_FORBIDDEN_TOOLS,
@@ -318,7 +318,7 @@ def test_cancel_event_aborts_batch(tmp_path, monkeypatch):
 
 
 def test_timeout_marks_error(tmp_path, monkeypatch):
-    import app.agent.subagents as module
+    import app.agent.tools.subagents as module
 
     session_id = _init_db(tmp_path, monkeypatch)
 

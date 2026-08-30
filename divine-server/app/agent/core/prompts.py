@@ -9,22 +9,38 @@ from typing import Any
 from langchain.agents.middleware import ModelRequest, dynamic_prompt
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from .. import db
-from ..config import settings_store
-from ..localization import language_instruction
-from ..skills import skill_registry
+from ... import db
+from ...config import settings_store
+from ...localization import language_instruction
+from ...skills import skill_registry
 from .context import AgentRunContext
-from .intent import (
+from ..intent import (
     build_rule_sections,
     classify_intents,
     intents_from_tool_history,
 )
 from .llm import _resolve_model_entry
-from .plans import _plan_progress
-from .rag import _auto_rag_context
+from ..rag import _auto_rag_context
 from .schema import _content_text, _skill_tool_name
+from ..state import _plan_progress
 
 logger = logging.getLogger("divine.agent.prompts")
+
+# ReAct 文本工具调用模式提示词。定义在 core（prompts）而非 react：prompts
+# 是 core 层、react 属于 tools 子包，若常量留在 react，core → tools 与
+# tools → core 会构成包级循环导入（消除 prompts↔react 惰性环）。
+REACT_FORMAT_PROMPT = """【ReAct 文本工具调用模式】
+当前模型不启用原生函数调用，需要调用工具时按以下格式逐行输出（关键词固定为英文）：
+Thought: 推理
+Action: 工具名
+Action Input: {"参数": 值}
+工具执行结果会以 Observation 形式返回给你；根据结果继续 Thought → Action，直到完成；
+完成时以 “Final Answer: ” 开头输出最终回答。
+规则：
+- Action 只能使用系统提供的工具名，Action Input 必须是合法 JSON 且与工具参数定义一致；
+  参数不确定时先用 read_file / search_files 了解情况，不要编造；
+- 每轮只输出一个 Action；不要输出 XML/伪代码形式的调用；不要杜撰工具；
+- 正文中的普通解释文字可以正常输出，但不要与 Action 格式混淆。"""
 
 _PLAN_CONTINUATION_KEYWORDS = (
     "继续",
@@ -308,7 +324,7 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
             model_line,
         ]
         try:
-            from .project_context import build_project_context
+            from ..middleware import build_project_context
 
             project_block = build_project_context(ctx.workspace, ctx.session_id)
             if project_block:
@@ -333,8 +349,6 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
         if skill_catalog:
             parts.append(skill_catalog)
         if ctx.tool_mode == "react":
-            from .react import REACT_FORMAT_PROMPT
-
             parts.append(REACT_FORMAT_PROMPT)
         return "\n\n".join(parts)
 

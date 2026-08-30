@@ -46,12 +46,12 @@ class FakeManager:
 
 def _patch_manager(monkeypatch, manager: FakeManager) -> None:
     monkeypatch.setattr(
-        "app.agent.local_llm.get_manager", lambda: manager
+        "app.agent.core.local_llm.get_manager", lambda: manager
     )
 
 
 def _maybe_preprocess(text, session_id="s1", workspace=None):
-    from app.agent.preprocess import maybe_preprocess
+    from app.agent.middleware import maybe_preprocess
 
     final, path, organized, _attempted = maybe_preprocess(
         text, session_id, workspace
@@ -296,7 +296,7 @@ def test_chunked_relabel_keeps_heading(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 def _maybe_preprocess_attachment(question, content, workspace, orig=None):
-    from app.agent.preprocess import maybe_preprocess_attachment
+    from app.agent.middleware import maybe_preprocess_attachment
 
     new_content, path, organized, _attempted = maybe_preprocess_attachment(
         question, content, "s1", workspace, orig
@@ -375,7 +375,7 @@ def test_chat_attachment_parts_and_history(tmp_path, monkeypatch):
     _patch_manager(monkeypatch, manager)
 
     from app import db
-    from app.agent.preprocess import maybe_preprocess_attachment
+    from app.agent.middleware import maybe_preprocess_attachment
 
     session = db.create_session(title="t")["id"]
     original = "1. 需求评审：讨论第一项。\n2. 技术选型：讨论第二项。\n" * 60
@@ -584,7 +584,7 @@ def test_not_triggered_reports_not_attempted(tmp_path, monkeypatch):
 
 
 def _maybe_preprocess_full(text, session_id="s1", workspace=None):
-    from app.agent.preprocess import maybe_preprocess
+    from app.agent.middleware import maybe_preprocess
 
     return maybe_preprocess(text, session_id, workspace)
 
@@ -609,12 +609,12 @@ def _make_choice(content: str, finish_reason: str = "stop") -> dict:
 
 
 def _manager_with_post(monkeypatch, tmp_path, payload):
-    from app.agent.local_llm import LocalLLMManager
+    from app.agent.core import LocalLLMManager
 
     manager = LocalLLMManager(str(tmp_path / "data"), port=8016)
     monkeypatch.setattr(manager, "is_ready", lambda: True)
     monkeypatch.setattr(
-        "app.agent.local_llm.requests.post",
+        "app.agent.core.local_llm.requests.post",
         lambda *a, **k: _FakeResponse(payload),
     )
     return manager
@@ -669,7 +669,7 @@ def test_organize_rejects_verbose_unstructured(tmp_path, monkeypatch):
 
 
 def test_organize_returns_none_when_not_ready(tmp_path, monkeypatch):
-    from app.agent.local_llm import LocalLLMManager
+    from app.agent.core import LocalLLMManager
 
     manager = LocalLLMManager(str(tmp_path / "data"), port=8016)
     monkeypatch.setattr(manager, "is_ready", lambda: False)
@@ -687,7 +687,7 @@ def test_chat_message_parts_and_history(tmp_path, monkeypatch):
     _patch_manager(monkeypatch, manager)
 
     from app import db
-    from app.agent.preprocess import maybe_preprocess
+    from app.agent.middleware import maybe_preprocess
 
     session = db.create_session(title="t")["id"]
     original = "今天开会讨论了三个议题。" * 120  # 超阈值，触发自动整理

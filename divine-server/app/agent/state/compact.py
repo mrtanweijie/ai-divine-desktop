@@ -14,15 +14,12 @@ import logging
 import re
 from typing import Any
 
-from .. import db
-from ..config import settings_store
-from .llm import _build_llm
+from ... import db
+from ...config import settings_store
+from ..core import estimate_tokens
+from ..core import _build_llm
 
 logger = logging.getLogger("divine.agent.compact")
-
-# Rough local token estimation: CJK ~1 token/char, other text ~4 chars/token.
-_CJK_RE = re.compile(r"[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff]")
-_NON_CJK_RE = re.compile(r"[^\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff\s]")
 
 # Default context windows per model; extend as needed.
 _DEFAULT_CONTEXT_WINDOW = 1_000_000
@@ -70,15 +67,6 @@ _COMPACT_MIN_NEW_ROWS = 12
 _COMPACT_MIN_NEW_TURNS = 4
 
 
-def estimate_tokens(text: str) -> int:
-    """Local token estimate: CJK chars ≈ 1 token, other chars ≈ 0.25 token."""
-    if not text:
-        return 0
-    cjk = len(_CJK_RE.findall(text))
-    other = len(_NON_CJK_RE.findall(text))
-    return cjk + round(other / 4)
-
-
 def context_window(model: str | None = None) -> int:
     entry = _resolve_model_entry()
     name = model or str(entry.get("model") or "")
@@ -110,9 +98,9 @@ def _system_prompt_preview(
     rule sections are selected by the same intent classification used at
     runtime; otherwise the full SYSTEM_PROMPT is assumed (conservative).
     """
-    from .constants import SYSTEM_PROMPT
-    from ..localization import language_instruction
-    from .intent import (
+    from ..core import SYSTEM_PROMPT
+    from ...localization import language_instruction
+    from ..intent import (
         build_rule_sections,
         classify_intents,
         intents_from_tool_history,
@@ -160,7 +148,7 @@ def _system_prompt_preview(
 
 def _tools_preview() -> str:
     """Serialized tool schemas used by the agent, for token estimation."""
-    from ..tools.registry import registry
+    from ...tools.registry import registry
 
     try:
         return json.dumps(
@@ -289,7 +277,7 @@ def _rows_to_text(rows: list[dict[str, Any]]) -> str:
 
 def _messages_since(session_id: str, cutoff_rowid: int) -> list[dict[str, Any]]:
 
-    from ..db.connection import get_conn
+    from ...db.connection import get_conn
 
     with get_conn() as conn:
         rows = conn.execute(
@@ -315,7 +303,7 @@ async def _summarize(
 
     # 本地模型压缩优先
     try:
-        from .local_llm import get_manager
+        from ..core.local_llm import get_manager
 
         manager = get_manager()
         if manager.is_ready():

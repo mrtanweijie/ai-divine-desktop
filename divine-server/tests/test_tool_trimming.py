@@ -10,7 +10,7 @@ import asyncio
 
 
 def _ctx(tmp_path, monkeypatch):
-    from app.agent.context import AgentRunContext
+    from app.agent.core import AgentRunContext
 
     monkeypatch.setenv("DIVINE_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("DIVINE_WORKSPACE_DIR", str(tmp_path / "ws"))

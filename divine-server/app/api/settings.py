@@ -77,7 +77,7 @@ def get_settings():
     # 本地模型运行时，动态注入"本地模型"条目（不持久化，先注入再经 _public
     # 白名单转换，保证 has_api_key 等字段齐全），聊天模型切换器即可选它直接对话
     try:
-        from ..agent.local_llm import get_manager, local_model_entry
+        from ..agent.core import get_manager, local_model_entry
 
         manager = get_manager()
         if manager.is_ready():

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .. import db
+from ... import db
 
 _PLAN_STATUS_LABELS = {
     "pending": "待办",

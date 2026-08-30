@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from app.agent.constants import _NO_PLAN_TOOLS, _READ_ONLY_TOOLS
+from app.agent.core import _NO_PLAN_TOOLS, _READ_ONLY_TOOLS
 from app.tools.registry import get_tool
 
 SCRIPT = Path(__file__).resolve().parents[1] / "app" / "tools" / "scripts" / "git_tool.py"

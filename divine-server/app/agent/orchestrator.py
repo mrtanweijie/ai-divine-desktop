@@ -17,17 +17,23 @@ from ..api.terminal import create_terminal_decision, remove_terminal_decision
 from ..config import settings_store
 from ..localization import default_session_title, normalize_locale
 from ..sse import error_event, sse_event
-from .context import AgentRunContext, canonical_path
-from .llm import _build_llm, _resolve_tool_mode, generate_session_title
+from .core import (
+    AgentRunContext,
+    _build_llm,
+    _content_text,
+    _interrupt_sse,
+    _resolve_tool_mode,
+    _stream_agent_run,
+    canonical_path,
+    generate_session_title,
+)
 from .intent import classify_intents, is_question_like
-from .persistence import (
+from .state import (
     _extract_final_content,
     _extract_token_usage,
     _persist_new_messages,
     _sync_todos_from_state,
 )
-from .schema import _content_text
-from .sse import _interrupt_sse, _stream_agent_run
 from .tools import _build_agent, _build_tools, reset_agent_thread
 
 logger = logging.getLogger("divine.agent.orchestrator")
@@ -285,7 +291,7 @@ async def run_agent(
         # 本地动作，直接交给云端回答
         if not is_question_like(question_text):
             try:
-                from .local_actions import execute_local_action
+                from .intent import execute_local_action
 
                 # 截图保存到当前会话工作区 screenshots/，方便用户在工作区里
                 # 直接找到/管理截图文件
@@ -557,7 +563,7 @@ async def run_agent(
     # never fail the turn on compaction errors, and keep it off the critical
     # path by emitting a dedicated SSE event after "done".
     try:
-        from .compact import compact_session
+        from .state import compact_session
 
         saved = await compact_session(session_id, context_limit)
         if saved and saved.get("summary"):

@@ -56,7 +56,7 @@ class RegisterLocalRequest(BaseModel):
 async def get_status():
     """获取本地模型状态（硬件 + 推荐 + 已安装）。"""
     try:
-        from ..agent.local_llm import get_manager
+        from ..agent.core import get_manager
 
         manager = get_manager()
         return manager.get_status()
@@ -68,7 +68,7 @@ async def get_status():
 async def get_hardware():
     """获取硬件信息。"""
     try:
-        from ..agent.model_registry import detect_hardware
+        from ..agent.core import detect_hardware
 
         hw = detect_hardware()
         return {
@@ -90,7 +90,7 @@ async def get_hardware():
 async def get_recommended():
     """获取推荐模型列表。"""
     try:
-        from ..agent.model_registry import detect_hardware, get_recommended_models
+        from ..agent.core import detect_hardware, get_recommended_models
 
         hardware = detect_hardware()
         models = get_recommended_models(hardware)
@@ -132,7 +132,7 @@ async def set_mode(req: ModeRequest):
 async def start_model(req: StartRequest):
     """启动指定模型。"""
     try:
-        from ..agent.local_llm import get_manager
+        from ..agent.core import get_manager
 
         manager = get_manager()
 
@@ -190,7 +190,7 @@ async def start_model(req: StartRequest):
 async def stop_model():
     """停止 llama-server。"""
     try:
-        from ..agent.local_llm import get_manager
+        from ..agent.core import get_manager
 
         manager = get_manager()
         manager.stop()
@@ -209,7 +209,7 @@ async def stop_model():
 async def install_model(req: InstallRequest):
     """安装模型（从仓库下载）。"""
     try:
-        from ..agent.local_llm import get_manager
+        from ..agent.core import get_manager
 
         manager = get_manager()
 
@@ -237,7 +237,7 @@ async def install_model(req: InstallRequest):
 async def uninstall_model(req: UninstallRequest):
     """卸载模型。"""
     try:
-        from ..agent.local_llm import get_manager
+        from ..agent.core import get_manager
 
         manager = get_manager()
         ok = manager.uninstall_model(req.model_id)
@@ -257,7 +257,7 @@ async def install_custom_model(req: CustomInstallRequest):
     if not req.url.strip():
         raise HTTPException(400, "URL 不能为空")
     try:
-        from ..agent.local_llm import get_manager
+        from ..agent.core import get_manager
 
         manager = get_manager()
         key = req.key or f"custom-{int(time.time())}"
@@ -283,7 +283,7 @@ async def register_local_model(req: RegisterLocalRequest):
     if not req.path.strip():
         raise HTTPException(400, "路径不能为空")
     try:
-        from ..agent.local_llm import get_manager
+        from ..agent.core import get_manager
 
         manager = get_manager()
         ok, message = await asyncio.to_thread(
@@ -302,7 +302,7 @@ async def register_local_model(req: RegisterLocalRequest):
 async def get_download_progress(model_id: str):
     """获取下载进度。"""
     try:
-        from ..agent.local_llm import get_manager
+        from ..agent.core import get_manager
 
         manager = get_manager()
         progress = manager._download_progress.get(model_id)

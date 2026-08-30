@@ -147,7 +147,7 @@ def test_recent_tool_runs_order_and_limit(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_first_turn_without_intent_injects_full_system_prompt():
-    from app.agent.constants import SYSTEM_PROMPT
+    from app.agent.core import SYSTEM_PROMPT
     from app.agent.intent import build_rule_sections
 
     assert build_rule_sections(set(), is_first_turn=True) == SYSTEM_PROMPT
@@ -158,7 +158,7 @@ def test_later_turn_without_intent_injects_only_core():
         ALWAYS_SECTIONS,
         build_rule_sections,
     )
-    from app.agent.prompt_sections import (
+    from app.agent.core.prompt_sections import (
         _PDF_STYLE_RULES,
         _PDF_TRAVEL_RULES,
         _RESUME_RULES,
@@ -172,14 +172,14 @@ def test_later_turn_without_intent_injects_only_core():
     for section in (_PDF_STYLE_RULES, _PDF_TRAVEL_RULES, _RESUME_RULES, _SKILL_RULES):
         assert section not in text
     # 完整 options 规范不应出现（只有精简版常驻）
-    from app.agent.prompt_sections import _OPTIONS_CARD_RULES
+    from app.agent.core.prompt_sections import _OPTIONS_CARD_RULES
 
     assert _OPTIONS_CARD_RULES not in text
 
 
 def test_intent_injects_conditional_sections_only():
     from app.agent.intent import ALWAYS_SECTIONS, build_rule_sections
-    from app.agent.prompt_sections import (
+    from app.agent.core.prompt_sections import (
         _OPTIONS_CARD_RULES,
         _PDF_STYLE_RULES,
         _PDF_TRAVEL_RULES,
@@ -198,7 +198,7 @@ def test_intent_injects_conditional_sections_only():
 
 def test_multi_intent_assembles_all_and_dedupes():
     from app.agent.intent import build_rule_sections
-    from app.agent.prompt_sections import (
+    from app.agent.core.prompt_sections import (
         _CHART_RULES,
         _PDF_STYLE_RULES,
         _RESUME_RULES,
@@ -216,7 +216,7 @@ def test_multi_intent_assembles_all_and_dedupes():
 def test_options_mini_kept_in_core_and_full_only_conditional():
     """P2：精简版常驻，完整版仅条件注入。"""
     from app.agent.intent import ALWAYS_SECTIONS, build_rule_sections
-    from app.agent.prompt_sections import (
+    from app.agent.core.prompt_sections import (
         _OPTIONS_CARD_MINI_RULES,
         _OPTIONS_CARD_RULES,
     )
@@ -232,8 +232,8 @@ def test_options_mini_kept_in_core_and_full_only_conditional():
 
 def test_full_system_prompt_regression():
     """回归：SYSTEM_PROMPT 保持旧版逐字节一致——含全部 20 节、不含新加的迷你版。"""
-    from app.agent import prompt_sections as ps
-    from app.agent.constants import SYSTEM_PROMPT
+    from app.agent.core import prompt_sections as ps
+    from app.agent.core import SYSTEM_PROMPT
 
     section_names = [
         name

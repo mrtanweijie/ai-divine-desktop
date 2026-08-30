@@ -147,7 +147,7 @@ def session_context_usage(session_id: str):
     session = db.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
-    from ..agent.compact import build_context_breakdown
+    from ..agent.state import build_context_breakdown
 
     return build_context_breakdown(session_id)
 
@@ -158,11 +158,11 @@ async def compact_session(session_id: str):
     session = db.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
-    from ..agent.compact import compact_session as run_compact
+    from ..agent.state import compact_session as run_compact
 
     saved = await run_compact(session_id)
     if saved is None:
-        from ..agent.compact import build_context_breakdown
+        from ..agent.state import build_context_breakdown
 
         return {
             "ok": True,
@@ -175,7 +175,7 @@ async def compact_session(session_id: str):
         session_id,
         saved.get("saved_tokens", 0),
     )
-    from ..agent.compact import build_context_breakdown
+    from ..agent.state import build_context_breakdown
 
     return {
         "ok": True,

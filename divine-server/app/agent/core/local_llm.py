@@ -202,7 +202,7 @@ class LocalLLMManager:
         model_id = self.active_model_id
         if model_id is None:
             try:
-                from ..config import settings_store
+                from ...config import settings_store
 
                 model_id = settings_store.load().get("local_llm_model") or None
             except Exception:
@@ -253,7 +253,7 @@ class LocalLLMManager:
     def _persist_active_model(self, model_id: str) -> None:
         """记录当前运行模型到设置，sidecar 重启后仍能识别模型名。"""
         try:
-            from ..config import settings_store
+            from ...config import settings_store
 
             settings = settings_store.load()
             if settings.get("local_llm_model") != model_id:
@@ -683,7 +683,7 @@ class LocalLLMManager:
         
         # 读取设置（mode / threshold 等）
         try:
-            from ..config import settings_store
+            from ...config import settings_store
 
             settings = settings_store.load()
         except Exception:
@@ -872,7 +872,7 @@ def get_manager(data_dir: str | None = None, port: int = 8016) -> LocalLLMManage
     """获取全局单例。"""
     global _manager
     if _manager is None:
-        from ..config import data_root
+        from ...config import data_root
 
         _manager = LocalLLMManager(
             data_dir=data_dir or str(data_root()),
