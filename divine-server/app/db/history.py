@@ -40,6 +40,37 @@ def conn_summary(session_id: str) -> dict[str, Any] | None:
         ).fetchone()
     return dict(row) if row else None
 
+def _fetch_window(
+    conn,
+    session_id: str,
+    limit: int,
+    until_message_id: str | None,
+) -> list[dict[str, Any]]:
+    """按模型上下文顺序取尾部消息窗口（升序返回）。
+
+    复合键倒序取 limit 条再反转，与旧实现（升序全量加载后
+    ``messages[-limit:]``）选中的行集逐条一致，但避免每轮全表解码。
+    """
+    params: list[Any] = [session_id]
+    where = "session_id = ?"
+    if until_message_id:
+        target = conn.execute(
+            "SELECT rowid FROM messages WHERE id = ? AND session_id = ?",
+            (until_message_id, session_id),
+        ).fetchone()
+        # 目标不存在时与旧实现一致：不截断（旧的线性扫描同样查不到就整段返回）
+        if target:
+            where += " AND rowid <= ?"
+            params.append(target["rowid"])
+    params.append(limit)
+    rows = conn.execute(
+        f"SELECT * FROM messages WHERE {where} "
+        "ORDER BY created_at DESC, rowid DESC LIMIT ?",
+        params,
+    ).fetchall()
+    return [dict(row) for row in reversed(rows)]
+
+
 def history_for_model(
     session_id: str,
     limit: int = 20,
@@ -55,18 +86,7 @@ def history_for_model(
     在目标用户问题处截断，丢弃其后（本地回答）的消息。
     """
     with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT * FROM messages WHERE session_id = ? "
-            "ORDER BY created_at ASC, rowid ASC",
-            (session_id,),
-        ).fetchall()
-        messages = [dict(row) for row in rows]
-        if until_message_id:
-            for index, message in enumerate(messages):
-                if message["id"] == until_message_id:
-                    messages = messages[: index + 1]
-                    break
-        messages = messages[-limit:]
+        messages = _fetch_window(conn, session_id, limit, until_message_id)
         parts_by_message: dict[str, list[dict[str, Any]]] = defaultdict(list)
         if messages:
             ids = [message["id"] for message in messages]

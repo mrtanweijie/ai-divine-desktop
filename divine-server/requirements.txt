@@ -22,3 +22,4 @@ weasyprint>=65,<67
 markdown>=3.5,<4
 resvg_py>=0.3.3; python_version >= "3.10"
 zhipuai>=2.1,<3
+pypinyin>=0.53

@@ -78,9 +78,13 @@ def update_project(
     return get_project(project_id)
 
 def delete_project(project_id: str) -> None:
+    from . import fts as fts_index
+
     with get_conn() as conn:
         conn.execute("DELETE FROM sessions WHERE project_id = ?", (project_id,))
         conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        # 级联删除的会话不逐个走 remove_session 钩子，这里批量清孤儿索引行
+        fts_index.purge_orphans(conn)
         conn.commit()
 
 

@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from .connection import get_conn, _new_id, _now
+from . import fts as fts_index
 
 # 本地拒答转云端回答的"待标记"会话：本地拒答后挂标记，
 # 下一条落库的 assistant 消息自动带 source='local_fallback'（留痕）。
@@ -34,6 +35,7 @@ def clear_messages(session_id: str) -> None:
             "UPDATE sessions SET title = '新对话', updated_at = ? WHERE id = ?",
             (_now(), session_id),
         )
+        fts_index.sync_session(conn, session_id)
         conn.commit()
 
 def add_message(
@@ -61,6 +63,7 @@ def add_message(
         conn.execute(
             "UPDATE sessions SET updated_at = ? WHERE id = ?", (now, session_id)
         )
+        fts_index.sync_session(conn, session_id)
         conn.commit()
     return get_message(message_id)
 

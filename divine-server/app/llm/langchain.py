@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from typing import Any
 
@@ -13,6 +14,34 @@ from .content import _content_text
 from .dsml import DsmlStreamProcessor
 from .legacy import MockLLM
 from .thinking import normalize_reasoning_effort, thinking_extra_body
+
+logger = logging.getLogger(__name__)
+
+
+def _resolve_int(value: Any, default: int) -> int:
+    """Best-effort positive-int coercion for settings fields (max_retries 等)。"""
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _network_kwargs(entry: dict[str, Any]) -> dict[str, Any]:
+    """Explicit network-level kwargs shared by all real providers.
+
+    ``max_retries`` 显式化（LangChain/OpenAI 客户端默认 2，避免随版本漂移）；
+    ``timeout`` 未配置时不下发，保留 openai 客户端自身默认，行为零变化。
+    """
+    kwargs: dict[str, Any] = {
+        "max_retries": _resolve_int(entry.get("max_retries"), 2),
+    }
+    timeout = entry.get("timeout")
+    if timeout not in (None, ""):
+        try:
+            kwargs["request_timeout"] = float(timeout)
+        except (TypeError, ValueError):
+            logger.warning("忽略非法的 timeout 设置: %r", timeout)
+    return kwargs
 
 
 def _dedupe_tool_call_ids(messages: list[dict[str, Any]]) -> None:
@@ -203,6 +232,17 @@ class ChatDeepSeekProvider:
         base_url = str(entry.get("base_url") or "").strip()
         if base_url:
             llm_kwargs["base_url"] = base_url
+        llm_kwargs.update(_network_kwargs(entry))
+        logger.info(
+            "LLM provider 初始化: provider=deepseek model=%s base_url=%s "
+            "think=%s effort=%s max_retries=%s timeout=%s",
+            model,
+            base_url or "(默认)",
+            think,
+            self.effort,
+            llm_kwargs["max_retries"],
+            llm_kwargs.get("request_timeout"),
+        )
         self.llm = ReasoningChatDeepSeek(**llm_kwargs)
 
     async def stream(
@@ -377,6 +417,15 @@ class OpenAIChatProvider:
         }
         if base_url:
             llm_kwargs["base_url"] = base_url
+        llm_kwargs.update(_network_kwargs(entry))
+        logger.info(
+            "LLM provider 初始化: provider=openai model=%s base_url=%s "
+            "max_retries=%s timeout=%s",
+            model,
+            base_url or "(默认)",
+            llm_kwargs["max_retries"],
+            llm_kwargs.get("request_timeout"),
+        )
         # GLM-5.x 文本旗舰始终启用思考，必须显式附带 thinking 参数，
         # 否则请求会被拒绝（官方文档：迁移时需将 thinking.type 设为 enabled）。
         if _is_glm_always_think(model):

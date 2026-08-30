@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_messages_session_time
+    ON messages(session_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_parts_message ON message_parts(message_id);
 CREATE INDEX IF NOT EXISTS idx_tool_runs_session ON tool_runs(session_id);
 CREATE INDEX IF NOT EXISTS idx_todos_session ON agent_todos(session_id);
@@ -110,6 +112,12 @@ CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status)
 CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_session ON scheduled_tasks(session_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_task ON calendar_events(task_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_start ON calendar_events(start_at);
+
+-- FTS 增量维护的水位线（见 db/fts.py）
+CREATE TABLE IF NOT EXISTS fts_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS user_memories (
     id TEXT PRIMARY KEY,
@@ -151,12 +159,16 @@ CREATE INDEX IF NOT EXISTS idx_token_usage_message ON token_usage(message_id);
 """
 
 # FTS5 全文搜索：独立执行，不放在 SCHEMA 中（避免重复执行报错）
+# tokenize 用 trigram：unicode61 会把连续中文整段当成一个 token，
+# 中文短语搜索实际从未生效；trigram 支持 ≥3 字符的中英文子串匹配
+# （2 字符查询由 search_sessions 的 LIKE 兜底）。需要 SQLite ≥ 3.34，
+# 建表失败时 search_sessions 自动降级为标题 LIKE。
 FTS5_SCHEMA = """
 CREATE VIRTUAL TABLE IF NOT EXISTS sessions_fts USING fts5(
     session_id UNINDEXED,
     title,
     content,
-    tokenize='unicode61'
+    tokenize='trigram'
 );
 """
 
@@ -266,14 +278,16 @@ def init_db() -> None:
 
 
 def _init_fts5() -> None:
-    """初始化 FTS5 全文搜索索引。"""
+    """初始化 FTS5 全文搜索索引（增量维护，见 db/fts.py）。
+
+    当前 FTS 表由 search_sessions 惰性创建，此函数仅保留给显式初始化场景。
+    """
+    from . import fts as fts_index
+
     with get_conn() as conn:
-        # 检查 FTS5 是否已初始化
         exists = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='sessions_fts'"
         ).fetchone()
         if not exists:
-            # 创建 FTS5 表
             conn.executescript(FTS5_SCHEMA)
-        # 重建索引
-        rebuild_fts5(conn)
+        fts_index.catchup(conn)

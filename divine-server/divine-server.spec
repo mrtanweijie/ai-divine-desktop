@@ -25,6 +25,7 @@ a = Analysis(
         "eval_type_backport",
         "anydoc",
         "pymupdf",
+        "pypinyin",
         "docx",
         "pptx",
         "bs4",
