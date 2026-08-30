@@ -1,11 +1,11 @@
 # Agent Code 支持优化规划（项目开发基线）
 
-> 版本：v1.6
+> 版本：v1.7
 > 日期：2026-08-30
-> 状态：P0 全部 6 项 + P1 全部 5 项 + P2-1 可写子 Agent + P2-2 轻量代码索引（list_definitions）已实现，P2-3/4 待实施。另完成性能优化（SQLite WAL + ToolMessage 压缩 + 异步 I/O + SSE 截断）与编码工具补全（edit_lines/apply_patch/move_file/glob_files/format_code/lint_check/run_tests）。
-> **P3-0 评测体系 + P3-1 快赢四项 + P3-2 上下文工程 + P3-3 质量闭环已实现（2026-08-30）**：eval harness（12 场景，夹具自检与剧本模型端到端均 12/12）；token 预算裁剪 + 工具结果置换 + 编码导向摘要；项目指令文件（.divine.md/AGENTS.md/CLAUDE.md）；编辑后自动语法检查；turn 级 checkpoint + undo_last_turn；终端命令审批记忆 + 回合预算软着陆。全套件 618 测试通过。
+> 状态：P0 全部 6 项 + P1 全部 5 项 + P2-1 可写子 Agent + P2-2 轻量代码索引（list_definitions）已实现，**P2-3 MCP 支持已实现（v0 stdio + 设置页）**，P2-4 待实施。另完成性能优化（SQLite WAL + ToolMessage 压缩 + 异步 I/O + SSE 截断）与编码工具补全（edit_lines/apply_patch/move_file/glob_files/format_code/lint_check/run_tests）。
+> **P3-0 评测体系 + P3-1 快赢四项 + P3-2 上下文工程 + P3-3 质量闭环 + P4 MCP 接入已实现（2026-08-30）**：eval harness（12 场景，真实模型基线 36/36）；token 预算裁剪 + 工具结果置换 + 编码导向摘要；项目指令文件；编辑后自动语法检查；turn 级 checkpoint + undo_last_turn；终端命令审批记忆 + 回合预算软着陆；MCP 客户端（keeper 任务连接管理、动态工具注入、审批复用、设置页 MCP tab、Claude Desktop 配置导入）。全套件 629 测试通过 + 前端 tsc/vite 构建通过。
 > 目标：把 Divine Agent 从"文档生成 + 轻量文件操作"提升到"能流畅用于真实软件项目开发"的基础能力。
-> 范围：`divine-server/app/agent/*`、`divine-server/app/tools/*`、`divine-app/src/pages/chat/*`、`divine-server/tests/*`、`divine-server/evals/*`。
+> 范围：`divine-server/app/agent/*`、`divine-server/app/tools/*`、`divine-server/app/mcp/*`、`divine-app/src/pages/chat/*`、`divine-server/tests/*`、`divine-server/evals/*`。
 
 ---
 
@@ -149,7 +149,22 @@
   - 前端：`subagents_write` 确认卡片（列出任务与路径）、子 Agent 面板显示"改动 N 个文件"、历史恢复保留 changed_files
   - **测试**：`divine-server/tests/test_subagents_write.py`（12 个用例：校验/越界拒绝/diff 记录/工具集/SSE 映射）✅ 通过
 - **P2-2 轻量代码索引** ✅ 已实现（list_definitions）：Python AST 解析 + ts/js/rs/go/java 正则启发式，输出类/函数/接口大纲与行号
-- **P2-3 MCP 支持**：接入外部工具生态（浏览器、数据库客户端等），复用现有工具注册表抽象
+- **P2-3 MCP 支持** ✅ 已实现（v0，2026-08-30）：
+  - `app/mcp/manager.py`：keeper-task 连接管理——每个 server 一个常驻任务持有
+    AsyncExitStack（连接/调用/关闭同任务，规避 anyio cancel-scope 跨任务限制），
+    懒连接 + 失败冷却 + 配置指纹变更自动重连 + TTL 工具索引
+  - `_build_tools` 动态注入：`mcp_<server>_<tool>` 注册名，inputSchema →
+    args_model 复用现有转换；执行走 `_execute_tool` 同一条审批/持久化管线；
+    未信任 server 复用 terminal 确认卡片（`mcp:server.tool`），trusted 跳过
+  - REST：`GET /api/mcp/servers`（状态+工具清单）、`POST /api/mcp/servers/{id}/test`；
+    settings 新增 `mcp_servers`（env 密钥回显置空、回传空值保留已存值）
+  - 前端设置页新增 MCP tab（`McpSection.tsx`）：服务器卡片（状态点/启停/
+    测试连接/工具清单展开/编辑删除）+ Claude Desktop JSON 配置整段导入 +
+    三语言 i18n；`requirements.txt`/`divine-server.spec` 补 mcp 依赖与 hiddenimports
+  - 测试：`tests/test_mcp_manager.py` 用真实 stdio fixture server（`tests/fixtures/`）
+    走完整协议——发现/调用/复用连接/禁用隔离/坏 server 隔离/配置变更重连/密钥合并
+  - 已知边界：v0 仅 stdio（HTTP 传输待后续）；PyInstaller 打包环境 spawn 外部
+    server（npx/uvx）需实机验证
 - **P2-4 自动 code review**：`git_diff` 结果交给只读子 Agent 做审查，输出问题清单与修改建议
 
 ---

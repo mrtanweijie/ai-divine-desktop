@@ -13,6 +13,7 @@ import {
   getEntryProvider,
   getProviderConfig
 } from "@/config/providers";
+import "./ModelSection.less";
 
 function toolModeOptions(t: (key: string, fallback: string) => string) {
   return [

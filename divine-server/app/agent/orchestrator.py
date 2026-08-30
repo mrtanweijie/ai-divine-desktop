@@ -319,6 +319,13 @@ async def run_agent(
     ctx.local_intent_result = local_result
 
     llm = _build_llm(think=think, effort=effort, model_id=model_id)
+    # MCP 工具索引刷新（带 TTL 缓存，失败容忍）：在 _build_tools 同步读取前更新
+    try:
+        from ..mcp.manager import mcp_manager
+
+        await mcp_manager.refresh_tool_index()
+    except Exception as exc:  # noqa: BLE001 — MCP 不可用不影响本地工具
+        logger.warning("MCP tool index refresh failed: %s", exc)
     tools = _build_tools(ctx)
     agent = _build_agent(llm, tools, ctx)
     config = {

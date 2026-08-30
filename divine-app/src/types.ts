@@ -282,6 +282,29 @@ export type SettingsSaveBody = Partial<Omit<Settings, "models">> & {
   models?: ModelConfigPayload[];
 };
 
+/** MCP 外部服务器配置（env 密钥：后端只回空串占位，回传空串=保留已存值） */
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  transport: "stdio" | "http";
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string;
+  enabled: boolean;
+  /** true 时跳过执行前逐次确认 */
+  trusted?: boolean;
+}
+
+/** MCP server 实时状态（/api/mcp/servers 返回） */
+export interface McpServerStatus {
+  id: string;
+  name?: string;
+  status: "connected" | "error" | "disabled";
+  error?: string;
+  tools?: { name: string; description: string; inputSchema?: unknown }[];
+}
+
 export interface Settings {
   provider: string;
   base_url: string;
@@ -297,6 +320,8 @@ export interface Settings {
   global_shortcut_enabled: boolean;
   tools: ToolDefinition[];
   models: ModelConfig[];
+  // MCP 外部服务器
+  mcp_servers?: McpServerConfig[];
   // 本地模型配置
   local_llm_enabled: boolean;
   local_llm_mode: "keyword" | "local" | "hybrid";

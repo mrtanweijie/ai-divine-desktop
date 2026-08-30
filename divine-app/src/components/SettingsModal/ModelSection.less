@@ -1,0 +1,45 @@
+/* ModelSection 专属样式 */
+
+/* 列表容器：固定高度内部滚动，不撑高弹窗；隐藏滚动条 */
+.settings-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 350px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.settings-model-list::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-model-more {
+  color: var(--color-text-muted);
+}
+
+.settings-model-more:hover {
+  color: var(--color-text);
+}
+
+.settings-model-add {
+  align-self: flex-start;
+}
+
+/* 模型工具调用方式的说明文案：比正文弱化一档，视觉上更轻 */
+.settings-model-tool-mode-hint {
+  margin: 2px 0 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
+/* 自定义提供商折叠展开后的字段容器：在 toggle 内部自然延伸，不再单独设置边框 */
+.settings-custom-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 10px 10px;
+}

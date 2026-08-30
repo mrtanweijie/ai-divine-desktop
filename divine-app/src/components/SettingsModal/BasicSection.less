@@ -1,0 +1,109 @@
+/* BasicSection 专属样式：全局快捷键折叠卡片 */
+
+.settings-shortcut-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface-2);
+  transition: border-color 120ms ease;
+}
+
+.settings-shortcut-card:hover,
+.settings-shortcut-card--open {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+}
+
+:root[data-theme="light"] .settings-shortcut-card {
+  background: transparent;
+}
+
+.settings-shortcut-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.settings-shortcut-summary:focus-visible {
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px var(--color-accent-soft);
+}
+
+.settings-shortcut-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.settings-shortcut-title {
+  font-weight: 500;
+}
+
+.settings-shortcut-count {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.settings-shortcut-chevron {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  transition: transform 150ms ease;
+}
+
+.settings-shortcut-chevron.open {
+  transform: rotate(180deg);
+}
+
+.settings-shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.settings-shortcut-label {
+  color: var(--color-text);
+}
+
+.settings-shortcut-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-shortcut-keys {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--color-bg-muted, rgba(128, 128, 128, 0.12));
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.settings-shortcut-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 2px 0;
+}
+
+.settings-shortcut-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}

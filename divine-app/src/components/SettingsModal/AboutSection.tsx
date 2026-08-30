@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "@/components/ui/Toast";
 import { openUrl } from "@/services/tauri";
 import { copyText } from "@/utils";
+import "./AboutSection.less";
 
 function GithubIcon({ size = 15 }: { size?: number }) {
   return (

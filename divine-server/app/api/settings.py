@@ -18,6 +18,48 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 logger = logging.getLogger("divine.settings")
 
 
+def _public_mcp_servers(servers: Any) -> list[dict]:
+    """Mask MCP env values (secrets) but keep keys for UI editing."""
+    output: list[dict] = []
+    for entry in servers if isinstance(servers, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        item = {k: v for k, v in entry.items() if k != "env"}
+        env = entry.get("env")
+        item["env"] = (
+            {str(k): "" for k in env} if isinstance(env, dict) else {}
+        )
+        output.append(item)
+    return output
+
+
+def merge_mcp_updates(stored: Any, submitted: Any) -> list[dict[str, Any]]:
+    """Merge MCP server entries; empty env values keep the saved secrets."""
+    stored_list = stored if isinstance(stored, list) else []
+    stored_by_id: dict[str, dict[str, Any]] = {}
+    for entry in stored_list:
+        if isinstance(entry, dict) and entry.get("id"):
+            stored_by_id[str(entry["id"])] = entry
+    merged: list[dict[str, Any]] = []
+    for item in submitted or []:
+        if not isinstance(item, dict) or not str(item.get("id") or "").strip():
+            continue
+        entry_id = str(item["id"]).strip()
+        prev = stored_by_id.get(entry_id) or {}
+        prev_env = prev.get("env") or {}
+        env = dict(item.get("env") or {})
+        for key, value in list(env.items()):
+            if value in (None, ""):
+                if key in prev_env:
+                    env[key] = prev_env[key]
+                else:
+                    env.pop(key, None)
+        cleaned = {k: v for k, v in item.items() if k != "env"}
+        cleaned["env"] = env
+        merged.append(cleaned)
+    return merged
+
+
 def _public(settings: dict) -> dict:
     models = settings.get("models") or []
     return {
@@ -31,6 +73,7 @@ def _public(settings: dict) -> dict:
         "think_default": bool(settings.get("think_default", False)),
         "reasoning_effort": settings.get("reasoning_effort", "high"),
         "context_limit": int(settings.get("context_limit", 20)),
+        "mcp_servers": _public_mcp_servers(settings.get("mcp_servers")),
         # 桌面全局快捷键
         "global_shortcut_enabled": bool(
             settings.get("global_shortcut_enabled", True)
@@ -79,20 +122,44 @@ def _public(settings: dict) -> dict:
 def get_settings():
     settings = settings_store.load()
     # 本地模型运行时，动态注入"本地模型"条目（不持久化，先注入再经 _public
-    # 白名单转换，保证 has_api_key 等字段齐全），聊天模型切换器即可选它直接对话
+    # 白名单转换，保证 has_api_key 等字段齐全），聊天模型切换器即可选它直接对话。
+    # 历史版本曾把注入条目持久化过（与下次注入叠加造成重复），读取时兜底剔除。
     try:
         from ..agent.core import get_manager, local_model_entry
+        from ..agent.core.local_llm import LOCAL_MODEL_ID
 
         manager = get_manager()
+        stored_models = [
+            m
+            for m in (settings.get("models") or [])
+            if isinstance(m, dict) and m.get("id") != LOCAL_MODEL_ID
+        ]
         if manager.is_ready():
-            models = settings.get("models") or []
             settings = dict(settings)
             # 用当前运行的模型名展示（如 Qwen2.5-0.5B-Instruct）
             entry = local_model_entry(manager.port, manager.active_model_name() or "本地模型")
-            settings["models"] = models + [entry]
+            settings["models"] = stored_models + [entry]
+        else:
+            settings["models"] = stored_models
     except Exception:
         pass
     return _public(settings)
+
+
+def _strip_local_model_entries(models) -> list[dict]:
+    """剔除本地模型虚拟条目（id="local"）。
+
+    该条目在 GET /settings 时动态注入，只存在于响应里；一旦被保存回
+    settings["models"]，下次读取会再注入一条，列表按保存次数成倍膨胀
+    （且 UI 删除后重新出现）。提交列表和已存列表都要剔除。
+    """
+    from ..agent.core.local_llm import LOCAL_MODEL_ID
+
+    return [
+        m
+        for m in (models or [])
+        if isinstance(m, dict) and m.get("id") != LOCAL_MODEL_ID
+    ]
 
 
 @router.put("")
@@ -103,14 +170,20 @@ def update_settings(body: SettingsUpdate):
     if updates.get("models") is not None:
         # Multi-model save: merge the submitted list, keeping stored api keys
         # for entries whose key field was left empty.
-        submitted = updates.pop("models")
+        submitted = _strip_local_model_entries(updates.pop("models"))
         current["models"] = merge_model_updates(
-            current.get("models") or [], submitted
+            _strip_local_model_entries(current.get("models")), submitted
         )
     else:
         # Legacy single-model save: apply to the active entry as well, so old
         # clients keep working against the new layout.
         current = apply_legacy_to_active(current, updates)
+
+    if updates.get("mcp_servers") is not None:
+        submitted_mcp = updates.pop("mcp_servers")
+        current["mcp_servers"] = merge_mcp_updates(
+            current.get("mcp_servers"), submitted_mcp
+        )
 
     if updates.get("api_key") == "":
         updates["api_key"] = ""

@@ -181,6 +181,29 @@ def _build_tools(ctx: AgentRunContext) -> list[StructuredTool]:
             ),
         )
     )
+
+    # MCP 外部工具（动态注入）：执行/审批/持久化复用同一条 adapter 管线，
+    # 会话级锁不加（网络 IO，且单 server 内部由 keeper 任务天然串行）。
+    try:
+        from ...mcp.adapter import McpToolAdapter
+        from ...mcp.manager import mcp_manager
+
+        for info in mcp_manager.snapshot_tools():
+            adapter = McpToolAdapter(info)
+            description = (
+                f"[MCP:{info.server_name}] {info.description or info.tool_name}。"
+                "来自外部 MCP 服务器，调用前确认参数与该服务器的能力描述一致。"
+            )
+            tools.append(
+                StructuredTool.from_function(
+                    coroutine=_make_tool_call(ctx, adapter, info.key, None),
+                    name=info.key,
+                    description=description[:1000],
+                    args_schema=_make_args_model(info.key, info.input_schema),
+                )
+            )
+    except Exception:  # noqa: BLE001 — MCP 不可用绝不影响本地工具
+        logger.exception("MCP 工具注入失败")
     return tools
 
 async def reset_agent_thread(thread_id: str) -> None:

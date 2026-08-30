@@ -1,0 +1,138 @@
+/* McpSection 专属样式：MCP 服务器卡片与表单 */
+
+/* 提示文字占满剩余宽度，把右侧操作按钮推到行尾 */
+.settings-mcp-hint {
+  flex: 1;
+}
+
+.settings-mcp-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &.settings-mcp-dot--ok {
+    background: #22c55e;
+  }
+
+  &.settings-mcp-dot--error {
+    background: #ef4444;
+  }
+
+  &.settings-mcp-dot--off {
+    background: #9ca3af;
+  }
+
+  &.settings-mcp-dot--pending {
+    background: #d1d5db;
+  }
+}
+
+.settings-mcp-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(127, 127, 127, 0.12);
+  color: inherit;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.settings-mcp-summary {
+  font-size: 12px;
+  opacity: 0.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  direction: rtl;
+  text-align: left;
+}
+
+.settings-mcp-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.settings-mcp-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #ef4444;
+  word-break: break-all;
+}
+
+.settings-mcp-tools {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  opacity: 0.85;
+
+  code {
+    font-size: 11px;
+  }
+}
+
+.settings-mcp-row {
+  display: flex;
+  gap: 10px;
+
+  > label {
+    flex: 1;
+  }
+}
+
+/* 类型下拉固定宽度：选项切换（本地进程/HTTP）不引起布局跳动 */
+.settings-mcp-transport {
+  flex: 0 0 170px;
+  width: 170px;
+}
+
+.settings-mcp-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-mcp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-mcp-json {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// 标题与操作按钮分行：提示一行、按钮一行
+.settings-mcp-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// 头部按钮行独立成行后改为左对齐（表单里的 取消/保存 仍靠右）
+.settings-mcp-head .settings-mcp-toolbar {
+  justify-content: flex-start;
+}
+
+/* MCP 列表容器：内容少时高度自适应，超出才内部滚动（区别于模型的固定高） */
+.settings-mcp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 450px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.settings-mcp-list::-webkit-scrollbar {
+  display: none;
+}

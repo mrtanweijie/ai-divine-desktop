@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { AudioWaveform, Cpu, Info, Save, Settings2, X } from "lucide-react";
+import {
+  AudioWaveform,
+  Blocks,
+  Cpu,
+  Info,
+  Save,
+  Settings2,
+  X,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
 import type {
@@ -26,6 +34,7 @@ import {
 } from "@/services/theme";
 import { AboutSection } from "./AboutSection";
 import { BasicSection } from "./BasicSection";
+import { McpSection } from "./McpSection";
 import { ModelSection } from "./ModelSection";
 import { LocalLLMSection } from "./LocalLLMSection";
 import "./index.less";
@@ -63,7 +72,7 @@ interface SettingsModalProps {
   onSilentSave?: (body: SettingsSaveBody) => Promise<void> | void;
   onConfirm?: (title: string, description: string, action: () => void) => void;
   /** 打开时定位到的 tab（默认"通用"） */
-  initialSection?: "basic" | "model" | "local" | "about";
+  initialSection?: "basic" | "model" | "mcp" | "local" | "about";
 }
 
 export function SettingsModal({
@@ -90,7 +99,7 @@ export function SettingsModal({
   const [showGlmKey, setShowGlmKey] = useState(false);
   const [version, setVersion] = useState(`v${tauriConfig.version}`);
   const [themePreference, setThemePreferenceState] = useThemePreference();
-  const [section, setSection] = useState<"basic" | "model" | "local" | "about">(initialSection);
+  const [section, setSection] = useState<"basic" | "model" | "mcp" | "local" | "about">(initialSection);
   const [localLLMEnabled, setLocalLLMEnabled] = useState(settings.local_llm_enabled ?? false);
   const [localLLMMode, setLocalLLMMode] = useState<"keyword" | "local" | "hybrid">(
     settings.local_llm_mode ?? "keyword"
@@ -216,9 +225,9 @@ export function SettingsModal({
           <X size={16} />
         </Button>
       }
-      footer={
-        // 意图 tab 的操作（模式切换/模型启停）即时生效，无需底部保存按钮
-        section !== "about" && section !== "local" ? (
+        footer={
+          // 意图 tab 的操作（模式切换/模型启停）即时生效，无需底部保存按钮
+          section !== "about" && section !== "local" && section !== "mcp" ? (
           <>
             <Button variant="secondary" onClick={onClose}>
               {t("common.cancel", "取消")}
@@ -252,6 +261,16 @@ export function SettingsModal({
           >
             <Cpu size={15} />
             <span>{t("settings.sectionModel", "模型")}</span>
+          </button>
+          <button
+            type="button"
+            className={`settings-nav-item${
+              section === "mcp" ? " active" : ""
+            }`}
+            onClick={() => setSection("mcp")}
+          >
+            <Blocks size={15} />
+            <span>{t("settings.sectionMcp", "MCP")}</span>
           </button>
           <button
             type="button"
@@ -314,6 +333,13 @@ export function SettingsModal({
               hasGlmKey={settings.has_glm_key}
               onConfirm={onConfirm}
               onAutoSave={handleAutoSaveModels}
+            />
+          ) : section === "mcp" ? (
+            <McpSection
+              initialServers={settings.mcp_servers}
+              onSave={onSave}
+              onSilentSave={onSilentSave}
+              onConfirm={onConfirm}
             />
           ) : section === "local" ? (
             <LocalLLMSection

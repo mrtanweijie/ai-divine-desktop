@@ -10,6 +10,7 @@ import {
   downloadAndInstallUpdate,
   useUpdaterState,
 } from "@/services/updater";
+import "./UpdaterSection.less";
 
 export function UpdaterSection() {
   const { t } = useTranslation();

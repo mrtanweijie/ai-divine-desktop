@@ -15,6 +15,7 @@ import type {
   LocalLLMStatus,
   RecommendedModel,
 } from "@/types";
+import "./LocalLLMSection.less";
 
 // 模型描述：后端 registry 返回中文原文，这里按模型 id 映射到 i18n 词条；
 // 未知模型（如用户自装）回退后端原文。

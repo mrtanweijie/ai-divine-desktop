@@ -4,6 +4,7 @@ import type {
   ChatPreprocess,
   CompactResult,
   ContextUsage,
+  McpServerStatus,
   Message,
   Project,
   Session,
@@ -219,6 +220,18 @@ export function updateSettings(body: SettingsSaveBody): Promise<Settings> {
   return request("/settings", {
     method: "PUT",
     body: JSON.stringify(body),
+  });
+}
+
+/** MCP 服务器实时状态（含连接尝试与工具清单，后端有短缓存） */
+export function getMcpServers(): Promise<{ servers: McpServerStatus[] }> {
+  return request("/mcp/servers");
+}
+
+/** 单个 MCP 服务器连接测试 */
+export function testMcpServer(serverId: string): Promise<McpServerStatus> {
+  return request(`/mcp/servers/${encodeURIComponent(serverId)}/test`, {
+    method: "POST",
   });
 }
 

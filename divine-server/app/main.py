@@ -14,6 +14,7 @@ from .api import (
     files,
     git,
     local_llm,
+    mcp,
     pdf_themes,
     projects,
     scheduled_tasks,
@@ -51,6 +52,13 @@ async def lifespan(_: FastAPI):
     from .tools.bg_process import bg_manager
 
     await bg_manager.shutdown_all()
+    # 关闭 MCP server 连接（stdio 子进程）
+    try:
+        from .mcp.manager import mcp_manager
+
+        await mcp_manager.shutdown()
+    except Exception:  # noqa: BLE001
+        pass
     # 停止 llama-server
     try:
         from .agent.core import get_manager
@@ -111,6 +119,7 @@ app.include_router(pdf_themes.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(local_llm.router, prefix="/api")
 app.include_router(git.router, prefix="/api")
+app.include_router(mcp.router, prefix="/api")
 app.include_router(skills.router)
 app.include_router(terminal.router)
 

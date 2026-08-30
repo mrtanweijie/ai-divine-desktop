@@ -12,6 +12,7 @@ import {
 } from "@/config/keymap";
 import type { ThemePreference } from "@/services/theme";
 import { UpdaterSection } from "./UpdaterSection";
+import "./BasicSection.less";
 
 interface SettingsBasicSectionProps {
   themePreference: ThemePreference;

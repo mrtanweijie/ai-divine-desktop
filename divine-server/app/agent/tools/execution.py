@@ -516,17 +516,33 @@ async def _handle_adapter_call(
 
         # terminal 与命令型工具（lint_check/run_tests）共用同一安全策略：
         # 命令由 adapter.build_command 构造，经 terminal_command_policy 分级。
-        is_terminal = name == "terminal" or (
-            name in _COMMAND_TOOLS
-            and getattr(adapter, "build_command", None) is not None
-        )
-        if name == "terminal":
-            command = str(arguments.get("command") or "")
-        elif is_terminal:
-            built: Any = adapter.build_command(arguments)
-            command = str(built) if built else "(自动构建的检查/测试命令)"
+        # MCP 外部工具复用 terminal 的审批卡片链路（command 展示为
+        # mcp:<server>.<tool>），未标记 trusted 的默认需要用户确认。
+        if name.startswith("mcp_"):
+            try:
+                from ...mcp.manager import mcp_manager as _mcp_manager
+
+                _mcp_info = _mcp_manager.resolve(name)
+            except Exception:  # noqa: BLE001
+                _mcp_info = None
+            is_terminal = True
+            command = (
+                f"mcp:{_mcp_info.server_name}.{_mcp_info.tool_name}"
+                if _mcp_info
+                else name
+            )
         else:
-            command = ""
+            is_terminal = name == "terminal" or (
+                name in _COMMAND_TOOLS
+                and getattr(adapter, "build_command", None) is not None
+            )
+            if name == "terminal":
+                command = str(arguments.get("command") or "")
+            elif is_terminal:
+                built: Any = adapter.build_command(arguments)
+                command = str(built) if built else "(自动构建的检查/测试命令)"
+            else:
+                command = ""
 
         if name in {"git_commit", "git_revert"} and ctx.approval_mode == "ask":
             git_desc = (
@@ -661,6 +677,15 @@ async def _handle_adapter_call(
                 ctx.session_id,
                 command[:200],
             )
+        elif (
+            is_terminal
+            and policy == "confirm"
+            and name.startswith("mcp_")
+            and _mcp_info is not None
+            and _mcp_info.trusted
+        ):
+            # MCP server 在配置里标记了 trusted：跳过逐次确认
+            policy = "safe"
 
         logger.info(
             "tool policy session=%s tool=%s policy=%s command=%s",

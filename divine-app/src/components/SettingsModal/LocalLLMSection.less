@@ -1,0 +1,266 @@
+/* LocalLLMSection 专属样式：意图识别模式 + 本地模型管理 */
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-section h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-field > label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* 模式选择卡片 */
+.mode-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+/* 浅色主题下去掉卡片背景色，避免灰块感 */
+:root[data-theme="light"] .mode-card {
+  background: transparent;
+}
+
+.mode-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: var(--color-accent-soft);
+}
+
+.mode-card.active {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.mode-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+}
+
+.mode-card.active .mode-card-icon {
+  background: transparent;
+  color: var(--color-accent);
+}
+
+.mode-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.mode-card-desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.mode-card.active .mode-card-title {
+  color: var(--color-accent);
+}
+
+/* 模型列表 */
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 350px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.model-list::-webkit-scrollbar {
+  display: none;
+}
+
+.model-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 推荐模型卡片：深色下 --color-accent 是纯白，用柔化强调色描边 + 轻背景，
+   加一条左侧强调条，避免纯白描边太突兀 */
+.local-model-recommended {
+  position: relative;
+}
+
+/* 展开区：描述 + 元信息 */
+.local-model-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.local-model-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.local-model-meta > span {
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.local-model-meta .local-model-tags {
+  color: var(--color-text-muted);
+}
+
+/* 一键安装按钮：loading/禁用时保持实底，不淡出 */
+.local-model-install-btn.ui-button:disabled {
+  opacity: 1;
+}
+
+/* 自定义模型安装 */
+.local-model-custom-card {
+  border-style: dashed;
+  border-color: var(--color-border-strong);
+}
+
+.local-model-custom-card:hover {
+  border-style: dashed;
+}
+
+.local-model-url {
+  width: 100%;
+}
+
+.install-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-bar {
+  width: 80px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width 0.2s ease;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  min-width: 36px;
+}
+
+.empty-state {
+  padding: 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* 意图识别模式标题 + 副标题（误判风险提醒） */
+.local-llm-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.local-llm-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 副标题：误判风险提醒（一直展示，所有模式通用） */
+.local-llm-subtitle {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+/* 未启动 Tag 的占位容器：常驻固定尺寸，Tag 出现/消失不改变标题行高度，
+   避免设置页布局抖动 */
+.local-llm-title-tag {
+  display: inline-flex;
+  align-items: center;
+  min-width: 58px;
+  min-height: 26px;
+}
+
+/* 本地模型启动失败提示：默认收起，点击展开 */
+.local-llm-error {
+  border: 1px solid var(--color-danger, #e5484d);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-danger, #e5484d) 8%, transparent);
+  color: var(--color-danger, #e5484d);
+  font-size: 13px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.local-llm-error-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+}
+
+.local-llm-error-chevron {
+  flex-shrink: 0;
+  transition: transform 150ms ease;
+}
+
+.local-llm-error.open .local-llm-error-chevron {
+  transform: rotate(180deg);
+}
+
+.local-llm-error-body {
+  padding: 0 12px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  word-break: break-all;
+  color: var(--color-text-secondary);
+  padding-top: 8px;
+  margin-top: 0;
+}
