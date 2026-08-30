@@ -305,7 +305,9 @@ _DATA_TOOL_RULES = """只读查询数据库使用 sqlite_query；数学计算使
 安排提醒或定时任务时调用 schedule_task；创建提醒后不要直接写日程，系统会询问用户是否写入日程，
 用户确认后再调用 write_calendar，并把 task_id 传给 write_calendar。
 用户要求记录日程/日历事件时调用 write_calendar，可单独使用，从用户输入中识别标题和起止时间。
-本地资料检索使用 rag_index 建立索引、rag_search 检索相关内容。"""
+本地资料检索使用 rag_index 建立索引、rag_search 检索相关内容。
+生成 Excel 表格（价格对比、数据统计、报表、清单等）必须使用 spreadsheet 工具，禁止写 Python 脚本再用 terminal 执行；
+spreadsheet 支持标题行、主题配色、自动求和，详见工具参数说明。"""
 
 # MERMAID_RULES — Mermaid 图：正文代码块渲染 / mermaid_export 导出
 _MERMAID_RULES = """用户要求查看/绘制/输出流程图、时序图、架构图时，直接在正文输出 ```mermaid ... ```
@@ -399,7 +401,8 @@ _FILE_AND_WEB_RULES = """读取文件内容必须使用 read_file、word_documen
 读取工作区外的本地文件或图片需要用户确认。"""
 
 # TERMINAL_RULES — 终端使用边界：仅系统操作
-_TERMINAL_RULES = """terminal 只能用于系统操作，例如安装依赖、运行命令、管理进程或用户明确要求的终端命令。"""
+_TERMINAL_RULES = """terminal 只能用于系统操作，例如安装依赖、运行命令、管理进程或用户明确要求的终端命令。
+禁止用 terminal 运行 Python 脚本来生成 Excel/Word/PDF 等文档，必须使用对应的专用工具（spreadsheet/word_document/pdf_generate）。"""
 
 # SUBAGENT_RULES — 并行子任务：run_subagents、只读默认与并行写文件
 _SUBAGENT_RULES = """当任务包含多个相互独立的子任务（如同时调研多个主题/产品/来源、并行分析多份资料、

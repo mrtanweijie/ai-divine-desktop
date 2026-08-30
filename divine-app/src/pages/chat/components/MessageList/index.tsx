@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
+import { ArrowDown } from "lucide-react";
 import { MessageItem } from "@/pages/chat/components/MessageItem";
 import type { ChatMessage, PreviewFile } from "@/types";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConversationMinimap } from "./ConversationMinimap";
 
@@ -45,6 +47,7 @@ export function MessageList({
   } | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const virtualizer = useVirtualizer({
     count: messages.length,
@@ -87,6 +90,7 @@ export function MessageList({
     lastScrollTopRef.current = newTop;
     setScrollTop(newTop);
     setViewportHeight(container.clientHeight);
+    setShowScrollToBottom(distance > 120);
     if (container.scrollTop < 40 && hasMoreOlder && !loadingOlder) {
       onLoadOlder?.();
     }
@@ -180,6 +184,16 @@ export function MessageList({
     requestAnimationFrame(scrollToBottom);
   }, [messages, streaming, sessionId]);
 
+  const scrollToBottom = useCallback(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    stickToBottom.current = true;
+    lastScrollTopRef.current = -1;
+    requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+    });
+  }, []);
+
   return (
     <div className="message-stage">
       {minimapVisible && (
@@ -233,6 +247,17 @@ export function MessageList({
           </div>
         )}
       </div>
+      {showScrollToBottom && (
+        <Button
+          variant="icon"
+          className="scroll-to-bottom-btn"
+          onClick={scrollToBottom}
+          title={t("chat.scrollToBottom", "回到底部")}
+          aria-label={t("chat.scrollToBottom", "回到底部")}
+        >
+          <ArrowDown size={16} />
+        </Button>
+      )}
     </div>
   );
 }
