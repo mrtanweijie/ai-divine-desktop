@@ -195,6 +195,48 @@ def test_auto_end_slide(tmp_path):
     assert result2["data"]["slides"] == 3  # 封面 + 内容 + 显式结尾，不重复
 
 
+def test_all_design_presets_render(tmp_path):
+    """7 套现代设计预设全版式冒烟：每种风格生成完整 deck 不报错。"""
+    import pytest
+
+    sample = [
+        {"layout": "toc", "points": ["市场洞察", "增长引擎", "产品路线"]},
+        {"layout": "section", "heading": "产品路线"},
+        {"layout": "two_col", "heading": "智能体平台 2.0",
+         "points": ["多模态理解升级", "零代码编排"]},
+        {"layout": "cards", "heading": "增长引擎",
+         "points": ["企业客户|KA 标杆", "生态合作|200 城", "智能提效|+40%"]},
+        {"layout": "timeline", "heading": "里程碑",
+         "points": ["Q1|联盟成立", "Q2|扩编完成", "Q3|新品发布", "Q4|年度复盘"]},
+        {"layout": "kpi", "heading": "核心指标",
+         "points": ["1,668|营收（万元）|+38%", "91%|复购率|+6pt"]},
+        {"layout": "chart", "heading": "季度营收",
+         "chart": {"type": "column", "categories": ["Q1", "Q2"],
+                   "series": [{"name": "营收", "values": [312, 444]}]}},
+        {"layout": "table", "heading": "区域明细",
+         "table": {"columns": ["区域", "营收"], "rows": [["华东", "634"]]}},
+        {"layout": "compare", "heading": "路径对比",
+         "left": {"title": "自建", "points": ["可控"]},
+         "right": {"title": "合作", "points": ["起量快"]}},
+        {"layout": "quote", "heading": "构建可复用的价值网络", "subtitle": "战略纲要"},
+        {"layout": "bullets", "heading": "风险与应对", "points": ["多元化布局"]},
+    ]
+    for theme in ("aurora", "glass", "brutalist", "swiss", "mesh",
+                  "editorial", "darktech"):
+        result = _run({"title": "预设验证", "theme": theme, "slides": sample},
+                      tmp_path)
+        assert result["success"] is True, f"{theme}: {result}"
+        assert result["data"]["slides"] == 13, theme  # 封面 + 11 + 自动结尾
+
+
+def test_unknown_theme_falls_back(tmp_path):
+    result = _run({"title": "回退验证", "theme": "not-exist",
+                   "slides": [{"layout": "bullets", "heading": "要点",
+                               "points": ["一"]}]}, tmp_path)
+    assert result["success"] is True
+    assert result["data"]["theme"] == "not-exist"  # 原样返回，渲染回退默认
+
+
 def test_textfit_estimation():
     from app.ppt_renderer.textfit import pick_size, text_em_width, wrapped_lines
 
@@ -216,3 +258,125 @@ def test_guess_layout():
     assert guess_layout({"heading": "引擎", "points": list("abcde")}) == "cards"
     assert guess_layout({"heading": "引擎", "points": list("abc")}) == "columns"
     assert guess_layout({"heading": "总结", "body": "长文本"}) == "bullets"
+
+
+def test_overloaded_bullets_upgrade_to_cards():
+    """超密 bullets（≥7 条）自动升级 cards 渲染。"""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from pptx import Presentation as NewPres
+
+    from app.ppt_renderer.layouts import add_slide
+
+    prs = NewPres()
+    item = {"layout": "bullets", "heading": "融资历程",
+            "points": [f"轮次{i}|金额{i}万" for i in range(1, 9)]}
+    used = add_slide(prs, item, "aurora", 2)
+    assert used == "cards"
+    # 卡片面板存在（圆角矩形）
+    rounded = [sh for sh in prs.slides[0].shapes
+               if "ROUND" in str(sh.shape_type).upper()
+               or (sh.shape_type is not None and "AUTO_SHAPE" in str(sh.shape_type))]
+    assert rounded, "cards 面板缺失"
+
+    prs2 = NewPres()
+    used2 = add_slide(prs2, {"layout": "bullets", "heading": "正常页",
+                             "points": ["一", "二", "三"]}, "aurora", 2)
+    assert used2 == "bullets"
+
+
+def test_dict_points_normalized():
+    """LLM 违反 schema 传 dict 数组时按字段语义渲染，不泄漏 dict 原文。"""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from pptx import Presentation as NewPres
+
+    from app.ppt_renderer.layouts import add_slide
+
+    # timeline：{time, desc} → "2015|Seed 种子轮"
+    prs = NewPres()
+    used = add_slide(prs, {
+        "layout": "timeline", "heading": "融资历程",
+        "points": [
+            {"time": "2015", "desc": "Seed 种子轮 · 4:33 Creative Lab"},
+            {"time": "2016", "desc": "两轮 Early VC"},
+            {"time": "2018", "desc": "Early VC · SBVA"},
+            {"time": "2019", "desc": "Late VC · 约 1,000 万美元"},
+        ],
+    }, "aurora", 3)
+    assert used == "timeline"
+    all_text = "\n".join(sh.text_frame.text for sh in prs.slides[0].shapes
+                         if sh.has_text_frame)
+    assert "{'" not in all_text, "dict 原文泄漏"
+    assert "2015" in all_text and "Seed 种子轮" in all_text
+
+    # kpi：{value, label, delta}
+    prs2 = NewPres()
+    add_slide(prs2, {
+        "layout": "kpi", "heading": "核心指标",
+        "points": [{"value": "4,000 万", "label": "月活用户", "delta": "+18%"}],
+    }, "aurora", 2)
+    text2 = "\n".join(sh.text_frame.text for sh in prs2.slides[0].shapes
+                      if sh.has_text_frame)
+    assert "{'" not in text2 and "4,000 万" in text2 and "+18%" in text2
+
+    # cards：{title, desc}
+    prs3 = NewPres()
+    add_slide(prs3, {
+        "layout": "cards", "heading": "优势",
+        "points": [{"title": "数据壁垒", "desc": "17 款游戏全覆盖"}],
+    }, "swiss", 2)
+    text3 = "\n".join(sh.text_frame.text for sh in prs3.slides[0].shapes
+                      if sh.has_text_frame)
+    assert "{'" not in text3 and "数据壁垒" in text3 and "17 款游戏" in text3
+
+
+def test_auto_toc_from_sections(tmp_path):
+    """未传目录页时按章节页自动生成（条目带页码）。"""
+    slides = [
+        {"layout": "section", "heading": "市场洞察"},
+        {"layout": "bullets", "heading": "格局", "points": ["一", "二"]},
+        {"layout": "section", "heading": "增长引擎"},
+        {"layout": "bullets", "heading": "引擎详情", "points": ["一"]},
+        {"layout": "section", "heading": "风险与应对"},
+        {"layout": "bullets", "heading": "风险", "points": ["一"]},
+    ]
+    result = _run({"title": "自动目录", "theme": "aurora", "slides": slides},
+                  tmp_path)
+    assert result["success"] is True, result
+    assert result["data"]["toc"] is True
+    assert result["data"]["slides"] == 9  # 封面 + 目录 + 6 内容 + 结尾
+
+    prs = Presentation(result["filepath"])
+    toc_slide = prs.slides[1]  # 第 2 页应为目录
+    texts = "\n".join(sh.text_frame.text for sh in toc_slide.shapes
+                      if sh.has_text_frame)
+    assert "目录" in texts
+    assert "市场洞察" in texts and "增长引擎" in texts and "风险与应对" in texts
+    assert "P03" in texts  # 第一个 section 在第 3 页
+
+
+def test_toc_disabled_and_explicit(tmp_path):
+    slides = [
+        {"layout": "section", "heading": "章节一"},
+        {"layout": "bullets", "heading": "内容", "points": ["一"]},
+        {"layout": "section", "heading": "章节二"},
+        {"layout": "bullets", "heading": "内容二", "points": ["一"]},
+        {"layout": "section", "heading": "章节三"},
+        {"layout": "bullets", "heading": "内容三", "points": ["一"]},
+    ]
+    # 显式关闭
+    r1 = _run({"title": "无目录", "theme": "aurora", "toc": False,
+               "slides": slides}, tmp_path)
+    assert r1["success"] is True and r1["data"]["toc"] is False
+    assert r1["data"]["slides"] == 8  # 封面 + 6 + 结尾
+
+    # LLM 已自带目录 → 不重复插入
+    slides_with_toc = [{"layout": "toc", "heading": "目录",
+                        "points": ["章节一|P02", "章节二|P04"]}] + slides
+    r2 = _run({"title": "自带目录", "theme": "aurora",
+               "slides": slides_with_toc}, tmp_path)
+    assert r2["success"] is True and r2["data"]["toc"] is False
+    prs = Presentation(r2["filepath"])
+    toc_pages = [i for i, slide in enumerate(prs.slides, 1)
+                 if any(sh.has_text_frame and sh.text_frame.text.strip() == "目录"
+                        for sh in slide.shapes)]
+    assert len(toc_pages) == 1 and toc_pages[0] == 2  # 仅封面后一页

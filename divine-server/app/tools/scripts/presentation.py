@@ -134,6 +134,38 @@ def main() -> None:
     if items and last_layout != "end":
         items = items + [{"layout": "end", "heading": "谢谢观看"}]
 
+    # 目录页兜底：未显式给出且内容量足够时，按章节页自动生成（含页码）
+    def _is_toc(it: dict) -> bool:
+        return (str(it.get("layout") or "").strip().lower() == "toc"
+                or "目录" in str(it.get("heading") or ""))
+
+    want_toc = params.get("toc")
+    has_toc = any(isinstance(it, dict) and _is_toc(it) for it in items)
+    sections = [(i, str(it.get("heading") or it.get("title") or "").strip())
+                for i, it in enumerate(items)
+                if isinstance(it, dict)
+                and str(it.get("layout") or "").strip().lower() == "section"
+                and str(it.get("heading") or it.get("title") or "").strip()]
+    toc_inserted = False
+    if not has_toc and want_toc is not False:
+        if want_toc is True or (len(items) >= 5 and len(sections) >= 2):
+            if len(sections) >= 2:
+                entries = [f"{heading}|P{i + 3:02d}"
+                           for i, heading in sections[:8]]
+            else:  # 强制开启但章节不足：均匀取样内容页标题
+                pool = [str(it.get("heading") or it.get("title") or "").strip()
+                        for it in items
+                        if isinstance(it, dict)
+                        and str(it.get("layout") or "").strip().lower()
+                        not in ("end", "section", "cover")
+                        and str(it.get("heading") or it.get("title") or "").strip()]
+                step = max(1, len(pool) // 8)
+                entries = pool[::step][:8]
+            if entries:
+                items = [{"layout": "toc", "heading": "目录",
+                          "points": entries}] + items
+                toc_inserted = True
+
     from app.ppt_renderer.layouts import add_slide
 
     cover_items[0]["_pages"] = len(items)
@@ -150,13 +182,21 @@ def main() -> None:
         return
 
     prs.save(output_path)
+    from app.ppt_renderer import PPT_THEMES
+    from app.ppt_renderer.themes import STYLES
     print(json.dumps(
         {
             "success": True,
             "message": "PPT 生成完成",
             "file_name": output_path.name,
             "filepath": str(output_path),
-            "data": {"theme": theme_id, "slides": rendered},
+            "data": {
+                "theme": theme_id,
+                "slides": rendered,
+                "toc": toc_inserted,
+                "presets": len(PPT_THEMES),
+                "styles": sorted(STYLES),
+            },
         },
         ensure_ascii=False,
     ))

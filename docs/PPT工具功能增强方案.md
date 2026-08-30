@@ -192,13 +192,17 @@ Pillow 处理：
 | 二期 | 方案二 AI 配图 + 方案四现代设计预设模板 + SVG 矢量双嵌入 | ~1.5 周 | 图文表齐备，设计感跃升 |
 | 三期 | 方案五 pptx 模板体系 + 用户自定义模板 | 1-2 周 | 对齐商业产品形态 |
 
-> **实施状态**：一期已于 2026-08-30 落地 —— `app/ppt_renderer/` 包（themes/textfit/charts/tables/layouts 五模块）
-> 承载 14 种版式、排版自适应、原生简单图表（add_chart，PowerPoint 内可编辑）、主题化表格、
-> 图片插入（png/jpg/svg 自动转 PNG，越界路径降级占位）与结尾页自动补齐；
+> **实施状态**：一期与方案四（现代设计预设）已于 2026-08-30 落地 —— `app/ppt_renderer/` 包
+> （themes/textfit/charts/tables/layouts 五模块）承载 14 种版式、排版自适应、原生简单图表
+> （add_chart，PowerPoint 内可编辑）、主题化表格、图片插入（png/jpg/svg 自动转 PNG，越界路径降级占位）、
+> 结尾页自动补齐，以及 **7 套现代设计预设的装饰语言**（aurora 极光 / glass 玻璃拟态 / brutalist 新粗野 /
+> swiss 瑞士 / mesh 弥散 / editorial 杂志 / darktech 暗黑科技，与 docs/PPT模板设计预览.html 对应；
+> modern→aurora、roadmap→aurora、academic→editorial 映射）；
 > SVG 渲染链下沉 `svg_common.py` 供 svg_to_png / presentation 共用；
 > adapter schema（layout 枚举 / chart / table / image / left / right，timeout 60s）与
-> DOCUMENT_RULES prompt 规则同步更新；测试见 `tests/test_presentation_render.py`（全版式冒烟 + 单元）。
-> 二期（AI 配图、现代设计预设模板、SVG 矢量双嵌入）待用户模板确认后启动。
+> DOCUMENT_RULES prompt 规则（含 7 预设风格映射表）同步更新；
+> 测试见 `tests/test_presentation_render.py`（全版式 + 7 预设冒烟 + 单元），sidecar 已重新编译并做 frozen 实测。
+> 二期剩余项：AI 配图、SVG 矢量双嵌入、pptx 模板文件体系（方案五，待用户模板）。
 
 落地改动点：
 

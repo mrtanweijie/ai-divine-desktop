@@ -222,14 +222,26 @@ word_document 支持结构化元素：会议纪要的决议/待办、周报的�
 正式报告/合同/长文档传 cover=true 和 toc=true，周报等短文档不传；
 用户已有现成 Markdown 内容（或要求转换 md 文件）时直接传 markdown 参数，不要拆成 sections。
 用户要求生成 PPT/演示文稿时，同样用上面的 ```options 选项卡片询问风格偏好，不要直接调用 presentation；
-用户选择后按上表映射 theme，再调用 presentation；已明确指定风格时不要重复询问。
+PPT 风格（theme）按下表映射：极光渐变/现代商务/产品发布→aurora；玻璃拟态/通透/数据汇报/SaaS→glass；
+新粗野/撞色/创意/年轻化→brutalist；瑞士/极简学院/咨询→swiss；渐变弥散/开发者/科技→mesh；
+杂志/深度报告/行业分析→editorial；暗黑科技/发布会/技术分享→darktech；
+通用正式→universal；学术衬线→academic；Notion→notion；Linear→linear；Apple→apple；极简黑白→minimal。
+深度调研/行业分析类默认用 editorial；商业汇报默认 aurora（modern 等价 aurora）；
+已明确指定风格时不要重复询问；用户没有倾向时可推荐 aurora/editorial/darktech 三个选项。
 PPT 版式（layout）按内容选择：要点陈述用 bullets（默认，可不传）；
 3-8 个并列项用 cards（条目可用 "标题|描述"）；流程/阶段/里程碑用 timeline；
 2-4 个维度并列展开用 columns；"图 + 要点解读" 用 two_col（image.path 引用 workspace 内图片，无图自动占位）；
 两个方案优缺点对比用 compare（left/right 各给 title+points）；关键指标展示用 kpi（条目 "数值|标签|同比"）；
 金句/口号页用 quote（subtitle 写出处）；结构化数据明细用 table（columns+rows）；
-章节分隔用 section；结尾页不用传（工具自动补齐）。
+章节分隔用 section；结尾页与目录页都不用传（工具自动补齐：目录按章节页推导并带页码；
+确需自定义目录时才传 layout=toc）。
 内容密度：每页要点 ≤5 条、每条 ≤2 行；长内容先拆成多页再生成，不要整段塞进一页。
+版式硬性要求（违反视为生成质量不合格）：
+禁止整份 PPT 全用 bullets——命中以下内容特征必须换版式：
+关键指标/核心数据→kpi；数量对比/占比/趋势/规模测算→chart；结构化明细（列表≥3行×2列）→table；
+历程/融资/迭代阶段→timeline；两个对象优劣势对比→compare；并列要素/特征→cards；图文结合→two_col。
+≥10 页的演示必须：每 4-6 页插入一个 section 章节页，且全篇混用 ≥4 种版式；
+先规划章节结构再逐页生成，数据页要与结论页（bullets）交替。
 PPT 图表规则：简单图表（bar/column/line/pie/doughnut/area，系列 ≤3 且数据点 ≤12）
 直接在 presentation 的 slide 里传 chart={type, categories, series} 原生直绘，
 生成的图表在 PowerPoint 内可二次编辑，无需调用 generate_chart；
