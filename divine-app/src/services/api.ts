@@ -274,6 +274,18 @@ export async function fetchPdfPreview(path: string): Promise<PdfPreviewResult> {
   });
 }
 
+export interface DocumentPreviewResult {
+  content: string;
+  truncated: boolean;
+}
+
+export async function fetchDocumentPreview(path: string): Promise<DocumentPreviewResult> {
+  return request<DocumentPreviewResult>("/files/document-preview", {
+    method: "POST",
+    body: JSON.stringify({ path }),
+  });
+}
+
 function trimToolResult(result: any): any {
   if (!result || typeof result !== "object") return result;
   const copy: any = { ...result };

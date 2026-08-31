@@ -72,6 +72,9 @@ def image_file(path: str):
 class PdfPreviewRequest(BaseModel):
     path: str
 
+class DocumentPreviewRequest(BaseModel):
+    path: str
+
 ALLOWED_CATEGORIES = {
     "documents",
     "spreadsheets",
@@ -147,6 +150,30 @@ def pdf_preview(request: PdfPreviewRequest):
         "page_count": len(pages),
         "truncated": len(pages) >= MAX_PDF_PREVIEW_PAGES,
     }
+
+
+_DOCUMENT_PREVIEW_EXTENSIONS = {
+    ".doc", ".docx", ".docm",
+    ".xls", ".xlsx", ".xlsm", ".xlsb",
+    ".ppt", ".pptx", ".pptm", ".ppsx", ".ppsm",
+    ".odt", ".ods", ".odp",
+    ".csv", ".rtf", ".epub",
+}
+
+
+@router.post("/document-preview")
+def document_preview(request: DocumentPreviewRequest):
+    path = Path(request.path).expanduser().resolve()
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="文件不存在")
+    if path.suffix.lower() not in _DOCUMENT_PREVIEW_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="不支持的文件格式")
+    try:
+        from ..document_reader import read_file_text
+        content = read_file_text(path)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=422, detail=f"文档预览失败: {exc}") from exc
+    return {"content": content, "truncated": len(content) > 50000}
 
 
 @router.get("/{category}/{filename}")

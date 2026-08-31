@@ -157,6 +157,15 @@ _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
         "word_document",
         "生成word",
         "生成ppt",
+        # Excel/表格族：漏掉会导致 spreadsheet 工具不注入（intent 命中时）
+        "excel",
+        "xlsx",
+        "电子表格",
+        "表格",
+        "对比表",
+        "汇总表",
+        "统计表",
+        "spreadsheet",
     ),
     # 图片生成
     "image": (

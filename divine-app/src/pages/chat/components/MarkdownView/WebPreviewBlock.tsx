@@ -13,6 +13,7 @@ interface WebPreviewBlockProps {
   code: string;
   language: WebPreviewLanguage;
   variant?: WebPreviewVariant;
+  defaultMode?: PreviewMode;
 }
 
 type PreviewMode = "preview" | "source";
@@ -82,11 +83,12 @@ export function WebPreviewBlock({
   code,
   language,
   variant = "chat",
+  defaultMode = "source",
 }: WebPreviewBlockProps) {
   const { t } = useTranslation();
   const cacheKey = `${variant}\u0000${language}\u0000${code}`;
   const [mode, setMode] = useState<PreviewMode>(
-    () => modeCache.get(cacheKey) ?? "source"
+    () => modeCache.get(cacheKey) ?? defaultMode
   );
   const [copied, setCopied] = useState(false);
   const srcDoc = useMemo(

@@ -207,6 +207,7 @@ export function FileContentView({
           code={content}
           language={webLanguage}
           variant="panel"
+          defaultMode="preview"
         />
       ) : (
         <CodePreview code={content} relPath={relPath} />

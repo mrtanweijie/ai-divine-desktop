@@ -260,3 +260,30 @@ def test_estimate_rule_sections_tokens():
     assert full > core
     assert pdf > core
     assert core > 0
+
+
+def test_excel_table_routes_to_document():
+    """Excel/表格族消息必须命中 document 意图（注入 spreadsheet 工具）。
+
+    原缺陷：关键词表漏掉 excel/表格/对比表 → 意图空 → 模型只能写
+    Python 脚本 + pip install openpyxl 生成 xlsx。
+    """
+    from app.agent.intent import classify_intents
+
+    for text in (
+        "生成总价格对比表（含全部档位 Excel）",
+        "生成同行业对比表（宇树/智元/优必选/特斯拉 Excel）",
+        "整理成 Excel 表格",
+        "做一份价格对比表",
+        "帮我做个汇总表",
+    ):
+        intents, _ = classify_intents(text)
+        assert "document" in intents, f"{text!r} 应命中 document：{intents}"
+
+
+def test_spreadsheet_rules_present_in_document_section():
+    """document 规则节必须教模型用 spreadsheet 工具（而非写脚本生成 xlsx）。"""
+    from app.agent.core.prompt_sections import _DOCUMENT_RULES
+
+    assert "spreadsheet" in _DOCUMENT_RULES
+    assert "openpyxl" in _DOCUMENT_RULES  # 禁止绕路的明确指令

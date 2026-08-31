@@ -265,6 +265,7 @@ PPT 图表规则：简单图表（bar/column/line/pie/doughnut/area，系列 ≤
 复杂图表（sankey/treemap/heatmap/组合图/大数据点）才先调用 generate_chart（export_svg=true），
 把返回的 SVG 路径填入对应页的 image.path。
 表格规则：结构化明细直接传 table={columns, rows}，最多 6 列 10 行，超出先做聚合。
+用户要求生成 Excel/表格/对比表/汇总表时，必须使用 spreadsheet 工具（结构化数据直接传 sheets/rows，支持公式、格式、多 sheet），禁止为了生成 xlsx 编写 Python 脚本或用 terminal 安装 openpyxl 等库绕路——内置工具一次成型且带格式；用户说“对比表/价格表/清单”默认就是 Excel，先选 spreadsheet 再考虑其他格式；
 kind 按报告/旅行手册/学习路线/电子书手册/讲义/简历自动识别或显式指定；"""
 
 # RESUME_RULES — 个人简历：resume_data 结构、主题选择、简历优化规范
