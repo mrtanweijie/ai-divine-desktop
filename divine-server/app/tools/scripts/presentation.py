@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from app.ppt_renderer import get_ppt_theme  # noqa: E402
+from app.docgen.ppt.renderer import get_ppt_theme  # noqa: E402
 from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
 from app.tools.scripts.svg_common import render_svg_to_png  # noqa: E402
 
@@ -109,7 +109,7 @@ def main() -> None:
 
     from pptx import Presentation
 
-    from app.ppt_renderer import SLIDE_H, SLIDE_W
+    from app.docgen.ppt.renderer import SLIDE_H, SLIDE_W
 
     prs = Presentation()
     prs.slide_width = SLIDE_W
@@ -166,7 +166,7 @@ def main() -> None:
                           "points": entries}] + items
                 toc_inserted = True
 
-    from app.ppt_renderer.layouts import add_slide
+    from app.docgen.ppt.renderer.layouts import add_slide
 
     cover_items[0]["_pages"] = len(items)
     rendered = 0
@@ -182,8 +182,8 @@ def main() -> None:
         return
 
     prs.save(output_path)
-    from app.ppt_renderer import PPT_THEMES
-    from app.ppt_renderer.themes import STYLES
+    from app.docgen.ppt.renderer import PPT_THEMES
+    from app.docgen.ppt.renderer.themes import STYLES
     print(json.dumps(
         {
             "success": True,

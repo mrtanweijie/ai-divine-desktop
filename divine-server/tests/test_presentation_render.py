@@ -238,7 +238,7 @@ def test_unknown_theme_falls_back(tmp_path):
 
 
 def test_textfit_estimation():
-    from app.ppt_renderer.textfit import pick_size, text_em_width, wrapped_lines
+    from app.docgen.ppt.renderer.textfit import pick_size, text_em_width, wrapped_lines
 
     assert text_em_width("中文") == 2.0
     assert text_em_width("ab") == 1.1
@@ -251,7 +251,7 @@ def test_textfit_estimation():
 
 
 def test_guess_layout():
-    from app.ppt_renderer.layouts import guess_layout
+    from app.docgen.ppt.renderer.layouts import guess_layout
 
     assert guess_layout({"heading": "目录"}) == "toc"
     assert guess_layout({"heading": "2026 路线图"}) == "timeline"
@@ -265,7 +265,7 @@ def test_overloaded_bullets_upgrade_to_cards():
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from pptx import Presentation as NewPres
 
-    from app.ppt_renderer.layouts import add_slide
+    from app.docgen.ppt.renderer.layouts import add_slide
 
     prs = NewPres()
     item = {"layout": "bullets", "heading": "融资历程",
@@ -289,7 +289,7 @@ def test_dict_points_normalized():
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from pptx import Presentation as NewPres
 
-    from app.ppt_renderer.layouts import add_slide
+    from app.docgen.ppt.renderer.layouts import add_slide
 
     # timeline：{time, desc} → "2015|Seed 种子轮"
     prs = NewPres()
