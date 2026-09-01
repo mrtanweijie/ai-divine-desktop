@@ -409,19 +409,27 @@ function ProjectActionMenu({
               onMouseEnter={cancelClose}
               onMouseLeave={scheduleClose}
             >
-            <button
-              type="button"
+            <div
               role="menuitem"
+              tabIndex={0}
               className="project-action-item"
               onClick={(event) => {
                 event.stopPropagation();
                 setOpen(false);
                 onNewConversation();
               }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setOpen(false);
+                  onNewConversation();
+                }
+              }}
             >
               <Plus size={13} />
               <span>{t("session.newConversation", "新建对话")}</span>
-            </button>
+            </div>
             <div
               className="project-action-item project-action-count"
               role="presentation"
@@ -446,27 +454,43 @@ function ProjectActionMenu({
                 </span>
               </div>
             )}
-            <button
-              type="button"
+            <div
               role="menuitem"
+              tabIndex={0}
               className="project-action-item project-action-path"
               onClick={(event) => {
                 event.stopPropagation();
                 setOpen(false);
                 void openFolder(project.path);
               }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setOpen(false);
+                  void openFolder(project.path);
+                }
+              }}
             >
               <FolderOpen size={13} />
               <span>{project.path}</span>
-            </button>
-            <button
-              type="button"
+            </div>
+            <div
               role="menuitem"
+              tabIndex={0}
               className="project-action-item"
               onClick={(event) => {
                 event.stopPropagation();
                 setOpen(false);
                 void handlePin();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setOpen(false);
+                  void handlePin();
+                }
               }}
               title={project.pinned ? t("session.unpinProject", "取消置顶") : t("session.pinProject", "置顶项目")}
             >
@@ -476,33 +500,49 @@ function ProjectActionMenu({
                   ? t("session.unpinProject", "取消置顶")
                   : t("session.pinProject", "置顶项目")}
               </span>
-            </button>
-            <button
-              type="button"
+            </div>
+            <div
               role="menuitem"
+              tabIndex={0}
               className="project-action-item"
               onClick={(event) => {
                 event.stopPropagation();
                 setOpen(false);
                 onRename();
               }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setOpen(false);
+                  onRename();
+                }
+              }}
             >
               <Settings size={13} />
               <span>{t("session.editProject", "编辑项目")}</span>
-            </button>
-            <button
-              type="button"
+            </div>
+            <div
               role="menuitem"
+              tabIndex={0}
               className="project-action-item project-action-delete"
               onClick={(event) => {
                 event.stopPropagation();
                 setOpen(false);
                 onDelete();
               }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setOpen(false);
+                  onDelete();
+                }
+              }}
             >
               <Trash2 size={13} />
               <span>{t("session.deleteProject", "删除项目")}</span>
-            </button>
+            </div>
             </div>
           </div>,
           document.body

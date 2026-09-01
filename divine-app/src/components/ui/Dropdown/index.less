@@ -65,7 +65,9 @@
   background: #eef1f4;
 }
 
-.ui-menu-item:disabled {
+.ui-menu-item:disabled,
+.ui-menu-item--disabled,
+.ui-menu-item[aria-disabled="true"] {
   opacity: 0.45;
   cursor: not-allowed;
 }

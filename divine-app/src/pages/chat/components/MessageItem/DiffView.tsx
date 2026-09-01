@@ -53,11 +53,18 @@ export function DiffView({
 
   return (
     <div className="diff-view">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         className="diff-view-toggle"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setOpen((value) => !value);
+          }
+        }}
       >
         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         <span>
@@ -67,7 +74,7 @@ export function DiffView({
             <span className="diff-stat-del">−{delCount}</span>
           </span>
         </span>
-      </button>
+      </div>
       {open && (
         <pre className="diff-view-body">
           {visible.map((line, index) => (

@@ -93,30 +93,46 @@ export function ProjectPicker({
               </div>
             ) : (
               filtered.map((project) => (
-                <button
+                <div
                   key={project.id}
-                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  tabIndex={0}
                   className="project-picker-item"
                   onClick={() => select(project.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      select(project.id);
+                    }
+                  }}
                 >
                   <ProjectIcon icon={project.icon} size={13} />
                   <span>{project.name}</span>
-                </button>
+                </div>
               ))
             )}
           </div>
           <div className="project-picker-footer">
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               className="project-picker-new"
               onClick={() => {
                 setOpen(false);
                 onNewProject();
               }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setOpen(false);
+                  onNewProject();
+                }
+              }}
             >
               <Plus size={13} />
               {t("chat.newProject", "新建项目")}
-            </button>
+            </div>
           </div>
         </div>
       )}

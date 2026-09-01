@@ -95,6 +95,22 @@ a:focus-visible {
   outline-offset: 1px;
 }
 
+/* div 化的可交互元素（替代原生 button）：保持 button 的不可选中行为，
+   避免点击时文字闪选中高亮。覆盖 ProjectActionMenu/DateTimePicker/Select/
+   Dropdown/skills 筛选等所有 role 化交互元素。 */
+[role="button"],
+[role="menuitem"],
+[role="option"],
+[role="combobox"],
+[role="tab"],
+[role="gridcell"],
+[role="link"],
+[role="radio"],
+[role="checkbox"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .app-shell {
   height: 100vh;
   display: flex;

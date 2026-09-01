@@ -27,31 +27,37 @@ export function AboutSection() {
         <h4>{t("about.sourceLicenseTitle", "开源协议")}</h4>
         <p>
           <GithubIcon />
-          <button
-            type="button"
+          <a
             className="settings-about-link"
-            onClick={() =>
+            href="https://github.com/mrtanweijie/ai-divine-desktop"
+            target="_blank"
+            rel="noreferrer"
+            onClick={(event) => {
+              event.preventDefault();
               void openUrl(
                 "https://github.com/mrtanweijie/ai-divine-desktop"
-              )
-            }
+              );
+            }}
           >
             github.com/mrtanweijie/ai-divine-desktop
-          </button>
+          </a>
         </p>
         <p>
           {t("about.licenseText", "本项目采用 MIT License。")}
-          <button
-            type="button"
+          <a
             className="settings-about-link"
-            onClick={() =>
+            href="https://github.com/mrtanweijie/ai-divine-desktop/blob/main/LICENSE"
+            target="_blank"
+            rel="noreferrer"
+            onClick={(event) => {
+              event.preventDefault();
               void openUrl(
                 "https://github.com/mrtanweijie/ai-divine-desktop/blob/main/LICENSE"
-              )
-            }
+              );
+            }}
           >
             MIT License
-          </button>
+          </a>
         </p>
       </section>
       <section className="settings-about-section">
@@ -93,17 +99,18 @@ export function AboutSection() {
         <h4>{t("about.contactTitle", "联系方式")}</h4>
         <p>
           {t("about.contactText", "问题反馈或合作请联系：")}
-          <button
-            type="button"
+          <a
             className="settings-about-link"
-            onClick={() => {
+            href="mailto:tanweijie@outlook.com"
+            onClick={(event) => {
+              event.preventDefault();
               void copyText("tanweijie@outlook.com").then(() => {
                 toast.success(t("common.copied", "已复制"));
               });
             }}
           >
             tanweijie@outlook.com
-          </button>
+          </a>
         </p>
       </section>
     </div>

@@ -130,11 +130,19 @@ export function ProjectModal({
             <span className="ui-field-label">
               {t("project.sourceFolder", "源文件夹")}
             </span>
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={isTauri() ? 0 : undefined}
               className="project-source-box"
               onClick={() => void pickFolder()}
-              disabled={!isTauri()}
+              aria-disabled={!isTauri()}
+              onKeyDown={(event) => {
+                if (!isTauri()) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  void pickFolder();
+                }
+              }}
             >
               {pathChosen ? (
                 <>
@@ -148,7 +156,7 @@ export function ProjectModal({
                   <span>{t("project.addFolder", "添加可读取和编辑的文件夹")}</span>
                 </>
               )}
-            </button>
+            </div>
             {!pathChosen && (
               <p className="project-default-hint">
                 {t("project.willCreate", "将创建：{{path}}", {
@@ -172,18 +180,26 @@ export function ProjectModal({
           </span>
           <div className="project-icon-grid">
             {PROJECT_ICON_OPTIONS.map((option) => (
-              <button
+              <div
                 key={option}
-                type="button"
+                role="radio"
+                aria-checked={icon === option}
+                tabIndex={0}
                 className={`project-icon-option${
                   icon === option ? " active" : ""
                 }`}
                 onClick={() => setIcon(option)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setIcon(option);
+                  }
+                }}
                 aria-label={option}
                 title={option}
               >
                 <ProjectIcon icon={option} size={16} />
-              </button>
+              </div>
             ))}
           </div>
         </div>

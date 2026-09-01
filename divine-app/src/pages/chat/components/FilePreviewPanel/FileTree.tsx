@@ -207,11 +207,18 @@ function TreeNode({
 
   return (
     <div className="file-tree-branch">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         className={`file-tree-node${selected ? " selected" : ""}`}
         style={{ paddingLeft: 6 + depth * 14 }}
         onClick={() => void handleClick()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            void handleClick();
+          }
+        }}
         title={node.path}
       >
         {node.isDir ? (
@@ -234,7 +241,7 @@ function TreeNode({
         <span className="file-tree-name">{node.name}</span>
         {loading && <span className="file-tree-loading" />}
         {changed && <span className="file-tree-changed-dot" />}
-      </button>
+      </div>
       {open && children && (
         <div className="file-tree-children">
           {children.map((child) => (

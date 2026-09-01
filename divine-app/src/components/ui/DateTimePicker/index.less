@@ -69,9 +69,15 @@
   align-items: stretch;
 }
 
-.datetime-picker-calendar {
+/* 日历的包裹层：承接 body 的 flex 空间，避免 .datetime-picker-calendar
+   的 flex:1 被中间层截断导致日历不撑满剩余宽度。 */
+.datetime-picker-calendar-wrap {
   flex: 1;
   min-width: 0;
+}
+
+.datetime-picker-calendar {
+  width: 100%;
 }
 
 .datetime-picker-weekdays,
@@ -125,6 +131,7 @@
 .datetime-picker-time {
   display: flex;
   flex-direction: row;
+  flex-shrink: 0;
   gap: 8px;
   width: 90px;
   padding-left: 12px;

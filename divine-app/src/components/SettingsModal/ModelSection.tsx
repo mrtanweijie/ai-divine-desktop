@@ -197,12 +197,19 @@ export function ModelSection({
             }${expanded ? " settings-model-card--expanded" : ""}`}
           >
             <div className="settings-model-card-header">
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 className="settings-model-summary"
                 onClick={() => toggleExpanded(entry.id)}
                 aria-expanded={expanded}
                 title={expanded ? t("settings.collapseModel", "收起") : t("settings.expandModel", "展开编辑")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggleExpanded(entry.id);
+                  }
+                }}
               >
                 <span className="settings-model-name">
                   {entry.name ||
@@ -223,7 +230,7 @@ export function ModelSection({
                     ¥{balances[entry.id].balance}
                   </Tag>
                 )}
-              </button>
+              </div>
               {models.length > 1 && (
                 <Dropdown
                   align="end"
@@ -298,8 +305,9 @@ export function ModelSection({
                   ]}
                 />
               )}
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 className={`settings-model-chevron${
                   expanded ? " open" : ""
                 }`}
@@ -309,9 +317,15 @@ export function ModelSection({
                     ? t("settings.collapseModel", "收起")
                     : t("settings.expandModel", "展开编辑")
                 }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggleExpanded(entry.id);
+                  }
+                }}
               >
                 <ChevronDown size={14} />
-              </button>
+              </div>
             </div>
             {expanded && (
               <div className="settings-model-card-body">

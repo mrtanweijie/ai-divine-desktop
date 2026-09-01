@@ -80,16 +80,23 @@ export function CalendarPanel({
       <div className="datetime-picker-days">
         {days.map((day, index) =>
           day ? (
-            <button
+            <div
               key={`${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`}
-              type="button"
+              role="gridcell"
+              tabIndex={0}
               className={`datetime-picker-day${
                 draft && sameDay(draft, day) ? " selected" : ""
               }${sameDay(today, day) ? " today" : ""}`}
               onClick={() => onPickDay(day)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onPickDay(day);
+                }
+              }}
             >
               {day.getDate()}
-            </button>
+            </div>
           ) : (
             <span key={`blank-${index}`} />
           )

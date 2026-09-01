@@ -90,16 +90,23 @@ export function Select({
             />
           </div>
         ) : (
-          <button
-            type="button"
+          <div
+            role="combobox"
+            tabIndex={0}
             className="ui-select-trigger"
             onClick={() => setOpen((value) => !value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setOpen((value) => !value);
+              }
+            }}
             aria-haspopup="listbox"
             aria-expanded={open}
           >
             <span>{current?.label ?? resolvedPlaceholder}</span>
             <ChevronDown size={14} className={open ? "open" : ""} />
-          </button>
+          </div>
         )}
         {open && (
           createPortal(
@@ -110,10 +117,10 @@ export function Select({
               style={menuStyle}
             >
               {options.map((option) => (
-                <button
+                <div
                   key={option.value}
-                  type="button"
                   role="option"
+                  tabIndex={0}
                   aria-selected={option.value === value}
                   className={`ui-select-option${
                     option.value === value ? " selected" : ""
@@ -122,10 +129,17 @@ export function Select({
                     onChange(option.value);
                     setOpen(false);
                   }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onChange(option.value);
+                      setOpen(false);
+                    }
+                  }}
                   onMouseDown={(event) => event.preventDefault()}
                 >
                   {option.label}
-                </button>
+                </div>
               ))}
             </div>,
             document.body

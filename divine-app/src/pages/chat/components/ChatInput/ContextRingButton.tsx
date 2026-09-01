@@ -11,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import type { CompactResult, ContextUsage } from "@/types";
 import { compactSession, getContextUsage } from "@/services/api";
+import { Button } from "@/components/ui/Button";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { formatTokens } from "@/utils";
 
@@ -107,13 +108,20 @@ export function ContextRingButton({
           percent,
         })}
       >
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           className="context-ring-button"
           aria-label={t("chat.contextUsage", "上下文用量")}
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setOpen((value) => !value);
+            }
+          }}
           title={t("chat.contextUsageDetail", "点击查看上下文用量")}
         >
           <svg
@@ -145,7 +153,7 @@ export function ContextRingButton({
               style={{ transition: "stroke-dashoffset 0.3s ease, stroke 0.3s ease" }}
             />
           </svg>
-        </button>
+        </div>
       </Tooltip>
 
       {open &&
@@ -201,7 +209,9 @@ export function ContextRingButton({
                 <span>{`~${formatTokens(usage?.breakdown.messages ?? 0)}`}</span>
               </div>
             </div>
-            <button
+            <Button
+              variant="ghost"
+              size="small"
               type="button"
               className="context-ring-compact"
               onClick={() => void handleCompact()}
@@ -219,7 +229,7 @@ export function ContextRingButton({
                   ? t("chat.contextCompacted", "已压缩")
                   : t("chat.compactContext", "压缩上下文")}
               </span>
-            </button>
+            </Button>
           </div>,
           document.body
         )}

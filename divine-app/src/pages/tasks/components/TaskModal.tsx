@@ -216,14 +216,22 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
             </span>
             <Flex gap={6} wrap className="weekday-picker">
               {weekdayLabels().map((label, day) => (
-                <button
+                <div
                   key={label}
-                  type="button"
+                  role="checkbox"
+                  aria-checked={daysOfWeek.includes(day)}
+                  tabIndex={0}
                   className={daysOfWeek.includes(day) ? "active" : ""}
                   onClick={() => toggleDay(day)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      toggleDay(day);
+                    }
+                  }}
                 >
                   {label}
-                </button>
+                </div>
               ))}
             </Flex>
           </div>

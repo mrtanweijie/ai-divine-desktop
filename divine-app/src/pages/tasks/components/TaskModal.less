@@ -17,7 +17,7 @@
   margin-top: 8px;
 }
 
-.weekday-picker button {
+.weekday-picker > div {
   height: 28px;
   min-width: 40px;
   padding: 0 8px;
@@ -27,9 +27,12 @@
   color: var(--color-text-secondary);
   font-size: 12px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.weekday-picker button.active {
+.weekday-picker > div.active {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
   color: var(--color-text);

@@ -188,16 +188,23 @@ export function DateTimePicker({
     <div className="ui-field">
       {resolvedLabel && <span className="ui-field-label">{resolvedLabel}</span>}
       <div className="datetime-picker" ref={wrapRef}>
-        <button
-          type="button"
+        <div
+          role="combobox"
+          tabIndex={0}
           className="datetime-picker-trigger"
           onClick={() => setOpen((value) => !value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setOpen((value) => !value);
+            }
+          }}
           aria-haspopup="dialog"
           aria-expanded={open}
         >
           <span>{formatDisplay(selected)}</span>
           <Clock3 size={14} />
-        </button>
+        </div>
       </div>
       {open &&
         createPortal(
@@ -209,7 +216,7 @@ export function DateTimePicker({
             aria-label={t("time.pickDateTime", "选择日期和时间")}
           >
             <div className="datetime-picker-body">
-              <div ref={calendarRef}>
+              <div ref={calendarRef} className="datetime-picker-calendar-wrap">
                 <CalendarPanel
                   view={view}
                   draft={draft}

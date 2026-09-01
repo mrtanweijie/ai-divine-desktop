@@ -243,16 +243,24 @@ export function SkillsPage({
               ["executable", t("skills.filterExecutable", "能力型")],
             ] as const
           ).map(([value, label]) => (
-            <button
+            <div
               key={value}
-              type="button"
+              role="tab"
+              aria-selected={filter === value}
+              tabIndex={0}
               className={`skills-filter-item${
                 filter === value ? " active" : ""
               }`}
               onClick={() => setFilter(value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setFilter(value);
+                }
+              }}
             >
               {label}
-            </button>
+            </div>
           ))}
         </div>
       </div>

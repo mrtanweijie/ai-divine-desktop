@@ -164,15 +164,24 @@ export function Dropdown({
             onMouseLeave={supportsHover ? scheduleClose : undefined}
           >
             {items.map((item) => (
-              <button
+              <div
                 key={item.key}
-                type="button"
                 role="menuitem"
-                className={`ui-menu-item${item.danger ? " ui-menu-item--danger" : ""}`}
-                disabled={item.disabled}
+                tabIndex={item.disabled ? -1 : 0}
+                aria-disabled={item.disabled || undefined}
+                className={`ui-menu-item${item.danger ? " ui-menu-item--danger" : ""}${item.disabled ? " ui-menu-item--disabled" : ""}`}
                 onClick={() => {
+                  if (item.disabled) return;
                   setOpen(false);
                   item.onClick?.();
+                }}
+                onKeyDown={(event) => {
+                  if (item.disabled) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setOpen(false);
+                    item.onClick?.();
+                  }
                 }}
               >
                 {item.icon && <span className="ui-menu-icon">{item.icon}</span>}
@@ -184,7 +193,7 @@ export function Dropdown({
                     </small>
                   )}
                 </span>
-              </button>
+              </div>
             ))}
           </div>,
           document.body

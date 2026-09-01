@@ -242,56 +242,96 @@ export function SettingsModal({
     >
       <div className="settings-layout">
         <div className="settings-sidebar">
-          <button
-            type="button"
+          <div
+            role="tab"
+            aria-selected={section === "basic"}
+            tabIndex={0}
             className={`settings-nav-item${
               section === "basic" ? " active" : ""
             }`}
             onClick={() => setSection("basic")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSection("basic");
+              }
+            }}
           >
             <Settings2 size={15} />
             <span>{t("settings.sectionGeneral", "通用")}</span>
-          </button>
-          <button
-            type="button"
+          </div>
+          <div
+            role="tab"
+            aria-selected={section === "model"}
+            tabIndex={0}
             className={`settings-nav-item${
               section === "model" ? " active" : ""
             }`}
             onClick={() => setSection("model")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSection("model");
+              }
+            }}
           >
             <Cpu size={15} />
             <span>{t("settings.sectionModel", "模型")}</span>
-          </button>
-          <button
-            type="button"
+          </div>
+          <div
+            role="tab"
+            aria-selected={section === "mcp"}
+            tabIndex={0}
             className={`settings-nav-item${
               section === "mcp" ? " active" : ""
             }`}
             onClick={() => setSection("mcp")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSection("mcp");
+              }
+            }}
           >
             <Blocks size={15} />
             <span>{t("settings.sectionMcp", "MCP")}</span>
-          </button>
-          <button
-            type="button"
+          </div>
+          <div
+            role="tab"
+            aria-selected={section === "local"}
+            tabIndex={0}
             className={`settings-nav-item${
               section === "local" ? " active" : ""
             }`}
             onClick={() => setSection("local")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSection("local");
+              }
+            }}
           >
             <AudioWaveform size={15} />
             <span>{t("settings.sectionLocal", "意图")}</span>
-          </button>
-          <button
-            type="button"
+          </div>
+          <div
+            role="tab"
+            aria-selected={section === "about"}
+            tabIndex={0}
             className={`settings-nav-item${
               section === "about" ? " active" : ""
             }`}
             onClick={() => setSection("about")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSection("about");
+              }
+            }}
           >
             <Info size={15} />
             <span>{t("about.title", "关于")}</span>
-          </button>
+          </div>
         </div>
         <div className="settings-main">
           {section === "basic" ? (
