@@ -36,3 +36,7 @@ bin/
 
 .pnpm-store/
 *test.mjs
+
+.workbuddy/*
+.claude/*
+.qoder/*
