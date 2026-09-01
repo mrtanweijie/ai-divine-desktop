@@ -162,10 +162,10 @@ a = Analysis(
         "app.docgen.pdf.renderer.reportlab",
         "app.docgen.pdf.renderer.renderer",
         "app.docgen.pdf.renderer.weasyprint",
-        "app.resume_themes",
-        "app.resume_themes.renderer",
-        "app.resume_themes.theme_manager",
-        "app.resume_themes.themes",
+        "app.docgen.resume",
+        "app.docgen.resume.renderer",
+        "app.docgen.resume.theme_manager",
+        "app.docgen.resume.themes",
         # ppt_renderer：presentation 脚本（data 形式子进程运行）依赖的渲染包，
         # 不在 entry.py 主导入图里，必须显式编入 PYZ
         "app.docgen.ppt.renderer",

@@ -1,4 +1,4 @@
-from app.resume_themes.models import ResumeData
+from app.docgen.resume.models import ResumeData
 
 
 def test_resume_data_from_dict_normalizes_basics_and_work():

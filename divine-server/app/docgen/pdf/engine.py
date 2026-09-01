@@ -216,7 +216,7 @@ class PDFTool:
         llm = llm or build_llm()
 
         if recipe_name == "resume" and resume_data:
-            from ...resume_themes.renderer import render_resume
+            from ..resume.renderer import render_resume
 
             resume_theme = "professional"
             if theme in (
