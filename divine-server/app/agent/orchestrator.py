@@ -309,7 +309,8 @@ async def run_agent(
             else ""
         )
         history_context = str(last_ai)[:500]
-    intents, local_result = classify_intents(
+    intents, local_result = await asyncio.to_thread(
+        classify_intents,
         str((_hist_user or {}).get("content") or ""),
         history_context=history_context,
         local_llm_enabled=local_llm_enabled,

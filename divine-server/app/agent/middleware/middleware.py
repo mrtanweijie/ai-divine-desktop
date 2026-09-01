@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from langchain.agents.middleware import AgentMiddleware
 
 from ... import db
@@ -22,13 +24,15 @@ class TodoSyncMiddleware(AgentMiddleware):
         if request.tool_call.get("name") != "write_todos":
             return result
         self.ctx.plan_first_pending = False
-        db.update_session(self.ctx.session_id, plan_mode="direct")
+        await asyncio.to_thread(
+            db.update_session, self.ctx.session_id, plan_mode="direct"
+        )
         raw_todos = (request.tool_call.get("args") or {}).get("todos") or []
         titles = [
             str(todo.get("content") or "").strip()
             for todo in raw_todos
             if str(todo.get("content") or "").strip()
         ]
-        items = db.replace_todos(self.ctx.session_id, titles)
+        items = await asyncio.to_thread(db.replace_todos, self.ctx.session_id, titles)
         request.runtime.stream_writer({"event": "plan", "items": items})
         return result
