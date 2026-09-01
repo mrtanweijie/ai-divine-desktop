@@ -128,7 +128,7 @@ _PDF_STYLE_RULES = """用户要求生成 PDF 文档时，如果内容是旅行�
 resume_data 后直接调用 pdf_generate（kind=resume）；
 用户需求属于以下典型场景、且用户没有指定风格时，不要弹选项卡片，直接按场景选择 theme 调用 pdf_generate：
 周报/日报/站会/晨会→minimal（加封面，不加目录）；季度/月度汇报、给高管/老板/领导的总结→universal（color_scheme=blue、cover=true、toc=true）；
-客户提案/技术方案/商务合作/投标→modern（cover=true、toc=true）；PRD/需求文档/技术文档/API 文档→linear（toc=true、cover=true）；
+客户提案/技术方案/商务合作/投标→modern（cover=true、toc=true）；商业分析报告/品牌诊断/竞品对标→universal（cover=true、toc=true，kind=business）；PRD/需求文档/技术文档/API 文档→linear（toc=true、cover=true）；
 作品集/个人展示→apple（cover=true）；行业洞察/深度长文/白皮书/观点文章→academic（cover=true、toc=true）；学习路线/路线图→roadmap（封面目录按需求）。
 用户输入里出现风格词时，直接按风格词映射主题，不要弹卡片：
 商务/正式/稳重/专业→universal；极简/黑白/简洁/素→minimal；科技/技术/现代/蓝灰→modern；
@@ -266,7 +266,11 @@ PPT 图表规则：简单图表（bar/column/line/pie/doughnut/area，系列 ≤
 把返回的 SVG 路径填入对应页的 image.path。
 表格规则：结构化明细直接传 table={columns, rows}，最多 6 列 10 行，超出先做聚合。
 用户要求生成 Excel/表格/对比表/汇总表时，必须使用 spreadsheet 工具（结构化数据直接传 sheets/rows，支持公式、格式、多 sheet），禁止为了生成 xlsx 编写 Python 脚本或用 terminal 安装 openpyxl 等库绕路——内置工具一次成型且带格式；用户说“对比表/价格表/清单”默认就是 Excel，先选 spreadsheet 再考虑其他格式；
-kind 按报告/旅行手册/学习路线/电子书手册/讲义/简历自动识别或显式指定；"""
+kind 按报告/商业分析报告/旅行手册/学习路线/电子书手册/讲义/简历自动识别或显式指定；
+商业分析报告（kind=business）围绕价值主张、数字化成本结构、私域联名增长策略、品牌竞争壁垒四大维度展开，
+强调推导逻辑而非信息堆砌，自动整理行业对标表格与品牌经营核心数据；
+用户给出品牌/行业/对标竞品时，调用 pdf_generate 前把品牌名、行业、对标品牌清单写进 prompt，
+供商业分析报告拆解使用；"""
 
 # RESUME_RULES — 个人简历：resume_data 结构、主题选择、简历优化规范
 _RESUME_RULES = """用户要求生成个人简历时，按一页简历数据结构整理 resume_data：

@@ -107,6 +107,16 @@ async def parse_intent(
             for part in re.split(r"[,、×xX/]", tags_value)
             if part.strip()
         ]
+    # 商业分析报告：品牌/行业/对标品牌，供内容生成 prompt 使用
+    brand_value = str(data.get("brand") or "").strip()
+    industry_value = str(data.get("industry") or "").strip()
+    competitors_value = data.get("competitors")
+    if isinstance(competitors_value, str):
+        competitors_value = [
+            part.strip()
+            for part in re.split(r"[,、/]", competitors_value)
+            if part.strip()
+        ]
     raw_title = str(data.get("title") or "").strip()
     if not raw_title:
         raw_title = user_input[:40]
@@ -128,6 +138,12 @@ async def parse_intent(
     design_value = data.get("design")
     if isinstance(design_value, dict):
         meta["design"] = design_value
+    if brand_value:
+        meta["brand"] = brand_value
+    if industry_value:
+        meta["industry"] = industry_value
+    if isinstance(competitors_value, list) and competitors_value:
+        meta["competitors"] = competitors_value
     return PDFIntent(
         title=title or "旅行攻略",
         topic=str(data.get("topic") or user_input),

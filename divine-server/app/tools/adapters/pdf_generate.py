@@ -8,7 +8,9 @@ from ..registry import register_tool
 
 @register_tool(
     "pdf_generate",
-    "统一 PDF 生成入口：按需求选择 Report/Travel/Roadmap/Book/Slide 配方并渲染。"
+    "统一 PDF 生成入口：按需求选择 Report/Business/Travel/Roadmap/Book/Slide 配方并渲染。"
+    "商业分析报告（kind=business）围绕价值主张、数字化成本结构、私域联名增长策略、"
+    "品牌竞争壁垒四大维度推导，自动整理行业对标表格与品牌经营核心数据；"
     "简历场景用 resume_data 传结构化 JSON；prompt 传需求；"
     "kind/style/theme/color_scheme 均可省略（系统按场景自动识别 + LLM 设计师决策，用户风格词优先）；"
     "默认保存到应用输出目录 pdf，指定项目内目录时传 path。",
@@ -25,8 +27,8 @@ from ..registry import register_tool
             },
             "kind": {
                 "type": "string",
-                "enum": ["report", "travel", "roadmap", "book", "slide", "resume"],
-                "description": "文档配方；不传时自动识别",
+                "enum": ["report", "business", "travel", "roadmap", "book", "slide", "resume"],
+                "description": "文档配方；business 为商业分析报告（价值主张/数字化成本结构/私域联名增长策略/品牌竞争壁垒四大维度）；不传时自动识别",
             },
             "style": {
                 "type": "string",

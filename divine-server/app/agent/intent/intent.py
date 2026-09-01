@@ -123,7 +123,7 @@ _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
         "find file",
         "search file",
     ),
-    # PDF 相关（旅行手册 / 攻略 / 封面 / 风格 / 配色）
+    # PDF 相关（旅行手册 / 攻略 / 封面 / 风格 / 配色 / 商业分析）
     "pdf": (
         "pdf",
         "旅行手册",
@@ -137,6 +137,10 @@ _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
         "生成手册",
         "攻略",
         "行程单",
+        "商业分析",
+        "商业报告",
+        "品牌分析",
+        "竞品分析",
     ),
     # 简历
     "resume": (

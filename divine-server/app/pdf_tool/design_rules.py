@@ -70,6 +70,7 @@ STYLE_TO_THEME: dict[str, str] = {
 SCENE_PRIORITY: list[str] = [
     "proposal",
     "quarterly",
+    "business",
     "prd",
     "portfolio",
     "editorial",
@@ -140,6 +141,32 @@ SCENES: dict[str, dict[str, Any]] = {
         "cover_style": "left-aligned",
         "description": "客户提案/技术方案：科技感蓝灰",
     },
+    "business": {
+        "keywords": (
+            "商业分析",
+            "商业模式",
+            "商业计划",
+            "商业报告",
+            "经营分析",
+            "商业画布",
+            "品牌分析",
+            "品牌战略",
+            "品牌诊断",
+            "品牌定位",
+            "竞品",
+            "对标",
+            "护城河",
+            "私域",
+            "联名",
+            "增长策略",
+        ),
+        "theme": "universal",
+        "color_scheme": "blue",
+        "cover": True,
+        "toc": True,
+        "cover_style": "split",
+        "description": "商业分析报告：咨询风格，蓝灰稳重",
+    },
     "portfolio": {
         "keywords": (
             "作品集",
@@ -201,6 +228,7 @@ SCENES: dict[str, dict[str, Any]] = {
 SCENE_LABELS: dict[str, str] = {
     "weekly": "周报",
     "quarterly": "季度汇报",
+    "business": "商业分析",
     "proposal": "方案提案",
     "portfolio": "作品集",
     "prd": "需求文档",

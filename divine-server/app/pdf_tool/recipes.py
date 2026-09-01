@@ -26,6 +26,111 @@ class ReportRecipe(PDFRecipe):
         )
 
 
+class BusinessAnalysisRecipe(PDFRecipe):
+    name = "business"
+    display_name = "商业分析报告"
+    css_template = "universal"
+    color_scheme = "blue"
+    intent_json_hint = (
+        '{"title": "报告标题", "topic": "品牌/行业与要回答的商业问题", '
+        '"brand": "分析的品牌名（未知可省略）", "industry": "所属行业（可省略）", '
+        '"competitors": ["对标品牌1", "对标品牌2"], '
+        '"sections": [{"title": "章节", "key_points": ["要点"]}]}'
+    )
+
+    def content_system_prompt(self, intent: PDFIntent) -> str:
+        meta = intent.meta or {}
+        brand = str(meta.get("brand") or "").strip()
+        industry = str(meta.get("industry") or "").strip()
+        competitors = meta.get("competitors")
+        competitor_text = (
+            "、".join(str(item) for item in competitors)
+            if isinstance(competitors, list) and competitors
+            else ""
+        )
+        subject = "、".join(
+            part for part in (brand, industry, competitor_text) if part
+        )
+        return (
+            "你是资深商业战略顾问，撰写一份有推导深度的品牌商业分析报告 Markdown。\n"
+            "\n【核心要求：推导逻辑，不是信息堆砌】\n"
+            "每个维度按「事实/数据 → 归因 → 推导链条 → 结论判断」展开，"
+            "显式写出推导链条（因为…所以…因此…）；"
+            "前一维度的结论必须作为下一维度的输入，环环相扣：\n"
+            "用户痛点 → 价值主张；成本结构 → 数字化降本路径；"
+            "私域/联名动作 → 营销效果数据 → 增长策略取舍；壁垒评估 → 护城河判断。\n"
+            "\n【必须完整覆盖的四大维度】\n"
+            "1. 价值主张：先做目标用户画像与痛点剖析（按严重程度排序），"
+            "再从痛点推导本品牌为谁、解决什么问题、凭什么优于替代方案；"
+            "用对比表格呈现「用户痛点 → 现有方案缺陷 → 本品牌主张」。\n"
+            "2. 数字化成本结构：拆解成本大头（获客/履约/人工/库存/营销等），"
+            "给出数字化降本路径（自动化工具、私域复购摊薄获客成本、数据驱动选品等），"
+            "每条路径注明预期降本幅度与实现前提；"
+            "用对比表格呈现「成本项 → 现状 → 数字化后 → 降幅」。\n"
+            "3. 私域联名增长策略：私域打法按引流-留存-转化-复购链路展开，"
+            "联名策略说明选谁联名、交换什么资源、成本如何分摊；"
+            "用数据评估私域营销效果：私域用户占比、复购率、客单价、CAC/LTV、联名活动 ROI，"
+            "用表格对比策略上线前后的核心指标变化，并据此说明策略取舍。\n"
+            "4. 品牌竞争壁垒：从供应链、渠道、数据资产、用户心智、切换成本等维度评估护城河，"
+            "明确判断哪些壁垒真实成立、哪些易被对手复制，并给出加固建议。\n"
+            "\n【必出的数据产物】\n"
+            "- 行业对标表格：本品牌 vs 主要对标品牌，维度至少含定价、核心渠道、"
+            "获客成本、复购率、内容/私域运营打法、差异化优势；\n"
+            "- 品牌经营核心数据表：营收/GMV、毛利率、复购率、获客成本、LTV、"
+            "私域用户占比等核心指标，其中最关键的 3-4 个建议用大数字指标模块（hero-stat）呈现。\n"
+            "\n【数据规范】\n"
+            "不得编造无依据的精确数据：公开可查的数据注明来源；"
+            "无公开数据时用行业合理区间并标注「行业估算」，或改用定性判断；"
+            "严禁输出“待补充”等占位词。\n"
+            + (f"\n分析对象：{subject}\n" if subject else "")
+            + MODULE_GUIDE
+        )
+
+    def fallback_intent(self, user_input: str) -> PDFIntent:
+        title = user_input.strip().splitlines()[0][:40] or "商业分析报告"
+        return PDFIntent(
+            title=title,
+            topic=user_input,
+            style=self.css_template,
+            color_scheme=self.color_scheme,
+            sections=[
+                {
+                    "title": "执行摘要",
+                    "key_points": ["核心判断", "关键数据速览", "结论预告"],
+                },
+                {
+                    "title": "行业对标与经营现状",
+                    "key_points": ["行业对标表格", "品牌经营核心数据", "竞争格局"],
+                },
+                {
+                    "title": "用户痛点剖析",
+                    "key_points": ["目标用户画像", "核心痛点排序", "现有方案缺陷"],
+                },
+                {
+                    "title": "价值主张",
+                    "key_points": ["痛点到主张的推导", "差异化卖点", "验证依据"],
+                },
+                {
+                    "title": "数字化成本结构与降本路径",
+                    "key_points": ["成本结构拆解", "数字化降本路径", "预期降幅与前提"],
+                },
+                {
+                    "title": "私域联名增长策略与效果",
+                    "key_points": ["私域运营打法", "联名合作策略", "效果数据与 ROI"],
+                },
+                {
+                    "title": "品牌竞争壁垒与护城河",
+                    "key_points": ["壁垒维度评估", "可复制性判断", "加固建议"],
+                },
+                {
+                    "title": "结论与行动建议",
+                    "key_points": ["推导链条回顾", "优先级排序", "下一步动作"],
+                },
+            ],
+            meta={"recipe": self.name},
+        )
+
+
 class TravelRecipe(PDFRecipe):
     name = "travel"
     display_name = "旅行手册"
@@ -462,6 +567,7 @@ RECIPE_REGISTRY: dict[str, type[PDFRecipe]] = {
     recipe.name: recipe
     for recipe in (
         ReportRecipe,
+        BusinessAnalysisRecipe,
         TravelRecipe,
         RoadmapRecipe,
         BookRecipe,
@@ -494,6 +600,16 @@ def detect_recipe(user_input: str) -> str:
         for word in ("学习路线", "路线图", "学习路径", "从入门到", "roadmap")
     ):
         return "roadmap"
+    if any(
+        word in text
+        for word in (
+            "商业分析", "商业模式", "商业计划", "商业报告", "经营分析",
+            "商业画布", "品牌分析", "品牌战略", "品牌诊断", "品牌定位",
+            "竞品", "对标", "护城河", "私域", "联名", "增长策略",
+            "business analysis", "business plan",
+        )
+    ):
+        return "business"
     if any(
         word in text
         for word in ("报告", "周报", "月报", "分析", "调研", "总结")
