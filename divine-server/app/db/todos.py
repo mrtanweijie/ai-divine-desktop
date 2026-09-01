@@ -43,3 +43,17 @@ def update_todo_status(
             (status, result, _now(), todo_id),
         )
         conn.commit()
+
+def add_todo(session_id: str, title: str) -> dict[str, Any]:
+    """Append a single todo to the end of a session's plan."""
+    now = _now()
+    index = len(list_todos(session_id))
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO agent_todos "
+            "(id, session_id, \"index\", title, status, result, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, 'pending', NULL, ?, ?)",
+            (_new_id(), session_id, index, title, now, now),
+        )
+        conn.commit()
+    return list_todos(session_id)[-1]

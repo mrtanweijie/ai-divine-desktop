@@ -18,7 +18,7 @@ from ..core import _NO_PLAN_TOOLS, _READ_ONLY_TOOLS
 from ..core import AgentRunContext, canonical_path
 from ..state import _frontend_tool_result
 from ..core.prompts import _should_ask_plan
-from ..state import _claim_next_todo, _finish_todo
+from ..state import _claim_next_todo, _finish_todo, _spawn_recovery_todo
 from . import _ask_interrupt, _execute_tool
 
 logger = logging.getLogger("divine.agent.execution")
@@ -990,6 +990,14 @@ async def _handle_adapter_call(
                 bool(output.get("success")),
                 str(output.get("message") or ""),
             )
+            if not bool(output.get("success")):
+                # 事故回流：失败落库后追加一条复盘 todo 挂回当前计划。
+                # 只写待办、不触发执行，双闸（同类去重 + 总量上限）防循环/防烧 token。
+                _spawn_recovery_todo(
+                    ctx.session_id,
+                    todos,
+                    {"tool_name": name, "reason": str(output.get("message") or "")},
+                )
             writer(
                 {
                     "event": "todo_update",
@@ -1002,6 +1010,11 @@ async def _handle_adapter_call(
     except Exception:
         if todo is not None:
             _finish_todo(todo, False, "工具执行异常")
+            _spawn_recovery_todo(
+                ctx.session_id,
+                todos,
+                {"tool_name": name, "reason": "工具执行异常"},
+            )
             writer(
                 {
                     "event": "todo_update",
