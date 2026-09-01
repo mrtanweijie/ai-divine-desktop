@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from ..config import output_dir, projects_root, workspace_dir
-from ..pdf_preview import (
+from ..docgen.pdf.preview import (
     MAX_PDF_PREVIEW_BYTES,
     MAX_PDF_PREVIEW_PAGES,
     render_pdf_pages,

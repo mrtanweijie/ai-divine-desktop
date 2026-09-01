@@ -14,7 +14,7 @@ import html as html_lib
 import re
 from typing import Any
 
-from ..pdf_theme_manager import _image_data_uri, _keyword_to_image_url
+from .theme_manager import _image_data_uri, _keyword_to_image_url
 
 # ![alt](src)：alt 允许嵌套一层方括号，src 不含右括号与空白
 _MD_IMG_RE = re.compile(r"(!\[(?:[^\[\]]|\[[^\]]*\])*\]\()\s*([^)\s]+)\s*\)")

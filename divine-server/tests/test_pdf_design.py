@@ -1,14 +1,14 @@
 """设计决策层（DesignSpec / 色板派生 / 扩展配色）测试。"""
 
-from app.pdf_renderer.weasyprint import _color_scheme_overrides
-from app.pdf_theme_manager import (
+from app.docgen.pdf.renderer.weasyprint import _color_scheme_overrides
+from app.docgen.pdf.theme_manager import (
     SCHEME_PRIMARY_COLORS,
     derive_universal_palette,
     universal_color_overrides,
 )
-from app.pdf_tool.design_enforcer import enforce_design
-from app.pdf_tool.design_rules import DesignDecision, resolve_design
-from app.pdf_tool.recipes import ReportRecipe
+from app.docgen.pdf.design_enforcer import enforce_design
+from app.docgen.pdf.design_rules import DesignDecision, resolve_design
+from app.docgen.pdf.recipes import ReportRecipe
 
 
 def test_derive_universal_palette_hex():

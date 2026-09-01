@@ -155,7 +155,7 @@ class TravelRecipe(PDFRecipe):
     )
 
     def content_system_prompt(self, intent: PDFIntent) -> str:
-        from ..pdf_theme_manager import travel_template_skeleton
+        from .theme_manager import travel_template_skeleton
 
         meta = intent.meta or {}
         theme = str(meta.get("theme") or "travel")

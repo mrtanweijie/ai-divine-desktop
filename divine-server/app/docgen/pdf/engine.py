@@ -7,11 +7,11 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from ..config import settings_store
-from ..llm import DeepSeekLLM, MockLLM
-from ..pdf_renderer import render_html_to_pdf, render_markdown_to_pdf
-from ..pdf_renderer.qa import inspect_pdf, render_with_qa
-from ..pdf_theme_manager import (
+from ...config import settings_store
+from ...llm import DeepSeekLLM, MockLLM
+from .renderer import render_html_to_pdf, render_markdown_to_pdf
+from .renderer.qa import inspect_pdf, render_with_qa
+from .theme_manager import (
     derive_universal_palette,
     travel_color_overrides,
     universal_color_overrides,
@@ -67,7 +67,7 @@ def _hero_stat_from_markdown(markdown: str) -> dict[str, Any] | None:
     )
     if not match:
         return None
-    from ..pdf_renderer.markdown import _parse_table_rows
+    from .renderer.markdown import _parse_table_rows
 
     rows = _parse_table_rows(match.group(1))
     if not rows:
@@ -216,7 +216,7 @@ class PDFTool:
         llm = llm or build_llm()
 
         if recipe_name == "resume" and resume_data:
-            from ..resume_themes.renderer import render_resume
+            from ...resume_themes.renderer import render_resume
 
             resume_theme = "professional"
             if theme in (

@@ -2,16 +2,16 @@
 
 import asyncio
 
-from app.pdf_tool.base import PDFIntent
-from app.pdf_tool.design_enforcer import enforce_design
-from app.pdf_tool.design_rules import (
+from app.docgen.pdf.base import PDFIntent
+from app.docgen.pdf.design_enforcer import enforce_design
+from app.docgen.pdf.design_rules import (
     DesignDecision,
     classify_scene,
     parse_cover_style,
     parse_override,
     resolve_design,
 )
-from app.pdf_tool.recipes import ReportRecipe, TravelRecipe
+from app.docgen.pdf.recipes import ReportRecipe, TravelRecipe
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +157,7 @@ def test_resolve_cover_toc_words():
 
 
 def test_resolve_recipe_fallback():
-    from app.pdf_tool.recipes import BookRecipe
+    from app.docgen.pdf.recipes import BookRecipe
 
     recipe = BookRecipe()
     d = resolve_design(
@@ -225,7 +225,7 @@ def test_enforce_travel_consistency():
 # ---------------------------------------------------------------------------
 
 def _patch_render(monkeypatch, tmp_path):
-    import app.pdf_renderer.renderer as renderer_module
+    import app.docgen.pdf.renderer.renderer as renderer_module
 
     captured: dict[str, object] = {}
 
@@ -257,7 +257,7 @@ def _patch_render(monkeypatch, tmp_path):
 
 
 def test_engine_applies_scene_theme(monkeypatch, tmp_path):
-    from app.pdf_tool.engine import PDFTool
+    from app.docgen.pdf.engine import PDFTool
 
     captured = _patch_render(monkeypatch, tmp_path)
 
@@ -278,7 +278,7 @@ def test_engine_applies_scene_theme(monkeypatch, tmp_path):
 
 
 def test_engine_override_wins_over_scene(monkeypatch, tmp_path):
-    from app.pdf_tool.engine import PDFTool
+    from app.docgen.pdf.engine import PDFTool
 
     captured = _patch_render(monkeypatch, tmp_path)
 
@@ -296,7 +296,7 @@ def test_engine_override_wins_over_scene(monkeypatch, tmp_path):
 
 
 def test_engine_explicit_theme_wins(monkeypatch, tmp_path):
-    from app.pdf_tool.engine import PDFTool
+    from app.docgen.pdf.engine import PDFTool
 
     captured = _patch_render(monkeypatch, tmp_path)
 

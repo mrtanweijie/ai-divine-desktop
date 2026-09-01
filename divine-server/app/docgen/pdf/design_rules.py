@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from ..pdf_theme_manager import resolve_color
+from .theme_manager import resolve_color
 
 # ---------------------------------------------------------------------------
 # 已知主题 / 配色（与 pdf_theme_manager.THEMES、渲染器保持一致）

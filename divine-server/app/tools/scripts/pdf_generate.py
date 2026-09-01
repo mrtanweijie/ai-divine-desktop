@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
-from app.pdf_tool import PDFTool  # noqa: E402
+from app.docgen.pdf import PDFTool  # noqa: E402
 
 
 def safe_name(name: str, fallback: str) -> str:
@@ -64,7 +64,7 @@ async def main() -> None:
             return
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    from app.pdf_tool.intent import _clean_title
+    from app.docgen.pdf.intent import _clean_title
 
     file_name = str(params.get("file_name") or "").strip()
     if not file_name:

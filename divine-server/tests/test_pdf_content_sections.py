@@ -2,9 +2,9 @@
 
 import asyncio
 
-from app.pdf_tool.base import PDFIntent
-from app.pdf_tool.content import generate_content
-from app.pdf_tool.recipes import ReportRecipe, ResumeRecipe
+from app.docgen.pdf.base import PDFIntent
+from app.docgen.pdf.content import generate_content
+from app.docgen.pdf.recipes import ReportRecipe, ResumeRecipe
 
 
 class FakeLLM:

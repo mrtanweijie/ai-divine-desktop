@@ -1,4 +1,4 @@
-from app.pdf_renderer.markdown import _build_toc, _markdown_to_html
+from app.docgen.pdf.renderer.markdown import _build_toc, _markdown_to_html
 from app.tools.scripts.pdf_render import (
     _extract_leading_cover,
     _strip_own_toc,

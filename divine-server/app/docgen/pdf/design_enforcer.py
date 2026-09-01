@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..pdf_theme_manager import resolve_color
+from .theme_manager import resolve_color
 from .base import PDFRecipe
 from .design_rules import (
     KNOWN_COLOR_SCHEMES,

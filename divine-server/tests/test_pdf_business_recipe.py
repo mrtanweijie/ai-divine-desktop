@@ -3,10 +3,10 @@
 import asyncio
 import json
 
-from app.pdf_tool.content import generate_content
-from app.pdf_tool.design_rules import resolve_design
-from app.pdf_tool.intent import parse_intent
-from app.pdf_tool.recipes import (
+from app.docgen.pdf.content import generate_content
+from app.docgen.pdf.design_rules import resolve_design
+from app.docgen.pdf.intent import parse_intent
+from app.docgen.pdf.recipes import (
     BusinessAnalysisRecipe,
     detect_recipe,
     get_recipe,
@@ -61,7 +61,7 @@ def test_business_recipe_registered():
 
 def test_content_prompt_covers_four_dimensions_and_logic():
     recipe = BusinessAnalysisRecipe()
-    from app.pdf_tool.base import PDFIntent
+    from app.docgen.pdf.base import PDFIntent
 
     intent = PDFIntent(
         title="测试报告",
@@ -97,7 +97,7 @@ def test_content_prompt_covers_four_dimensions_and_logic():
 
 def test_content_prompt_without_subject_meta():
     recipe = BusinessAnalysisRecipe()
-    from app.pdf_tool.base import PDFIntent
+    from app.docgen.pdf.base import PDFIntent
 
     intent = PDFIntent(
         title="测试报告",

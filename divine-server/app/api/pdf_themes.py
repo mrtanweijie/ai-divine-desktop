@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..pdf_theme_manager import (
+from ..docgen.pdf.theme_manager import (
     build_cover_html,
     list_available_themes,
     load_theme_css,

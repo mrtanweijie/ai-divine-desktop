@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
-from app.pdf_renderer import render_html_to_pdf, render_markdown_to_pdf  # noqa: E402
+from app.docgen.pdf.renderer import render_html_to_pdf, render_markdown_to_pdf  # noqa: E402
 
 
 _COVER_START_RE = re.compile(r"^\s*(<div\b[^>]*>)", re.IGNORECASE)
@@ -190,8 +190,8 @@ def main() -> None:
         ):
             theme = "travel"
         if theme in ("travel", "travel_mag"):
-            from app.pdf_theme_manager import travel_color_overrides
-            from app.pdf_tool.travel_html import (
+            from app.docgen.pdf.theme_manager import travel_color_overrides
+            from app.docgen.pdf.travel_html import (
                 looks_like_travel_html,
                 travel_markdown_to_html,
             )
@@ -217,7 +217,7 @@ def main() -> None:
                 overrides=overrides,
             )
         else:
-            from app.pdf_theme_manager import universal_color_overrides
+            from app.docgen.pdf.theme_manager import universal_color_overrides
 
             meta = render_markdown_to_pdf(
                 content,

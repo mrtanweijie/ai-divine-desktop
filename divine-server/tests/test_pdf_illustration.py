@@ -1,10 +1,10 @@
 """通用配图（illustration.py）与配图提示注入测试。"""
 
-from app.pdf_tool import illustration
-from app.pdf_tool.base import PDFIntent, PDFRecipe
-from app.pdf_tool.content import _system_prompt
-from app.pdf_tool.illustration import inline_markdown_images, placeholder_html
-from app.pdf_tool.recipes import ReportRecipe, TravelRecipe
+from app.docgen.pdf import illustration
+from app.docgen.pdf.base import PDFIntent, PDFRecipe
+from app.docgen.pdf.content import _system_prompt
+from app.docgen.pdf.illustration import inline_markdown_images, placeholder_html
+from app.docgen.pdf.recipes import ReportRecipe, TravelRecipe
 
 
 def test_placeholder_html_escapes_caption():

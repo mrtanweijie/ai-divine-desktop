@@ -1,22 +1,22 @@
 import asyncio
 import re
 
-from app.pdf_theme_manager import (
+from app.docgen.pdf.theme_manager import (
     build_cover_html,
     load_theme_css,
     travel_color_overrides,
 )
-from app.pdf_tool.base import PDFIntent
-from app.pdf_tool.content import generate_content
-from app.pdf_tool.engine import (
+from app.docgen.pdf.base import PDFIntent
+from app.docgen.pdf.content import generate_content
+from app.docgen.pdf.engine import (
     PDFTool,
     _looks_like_generic_travel_fallback,
     _route_from_markdown,
     _summary_from_markdown,
     _title_from_markdown,
 )
-from app.pdf_tool.recipes import TravelRecipe
-from app.pdf_tool.travel_html import (
+from app.docgen.pdf.recipes import TravelRecipe
+from app.docgen.pdf.travel_html import (
     travel_markdown_to_html,
     travel_prompt_to_html,
 )
@@ -32,7 +32,7 @@ def test_travel_theme_css_uses_handbook_style():
 
 
 def test_travel_template_skeleton_matches_handbook_pages():
-    from app.pdf_theme_manager import travel_template_skeleton
+    from app.docgen.pdf.theme_manager import travel_template_skeleton
 
     skeleton = travel_template_skeleton()
     # 不含样式、注释、页脚
@@ -136,7 +136,7 @@ def test_travel_color_overrides_switch_palette():
 
 
 def test_travel_derive_palette_from_primary_color():
-    from app.pdf_theme_manager import derive_travel_palette
+    from app.docgen.pdf.theme_manager import derive_travel_palette
 
     palette = derive_travel_palette("#E74C3C")
     assert palette is not None
@@ -229,7 +229,7 @@ def test_travel_fallback_content_keeps_handbook_structure():
 
 
 def test_travel_render_forces_cover_on_and_toc_off(monkeypatch, tmp_path):
-    import app.pdf_renderer.renderer as renderer_module
+    import app.docgen.pdf.renderer.renderer as renderer_module
 
     captured: dict[str, bool] = {}
 
@@ -448,7 +448,7 @@ def test_travel_generates_pdf_without_html_output(tmp_path, monkeypatch):
             }
 
     monkeypatch.setattr(
-        "app.pdf_tool.engine.build_llm", lambda: FakeLLM()
+        "app.docgen.pdf.engine.build_llm", lambda: FakeLLM()
     )
 
     async def run():

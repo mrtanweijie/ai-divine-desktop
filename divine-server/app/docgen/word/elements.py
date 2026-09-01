@@ -167,7 +167,7 @@ def add_image(document, src: str, workspace: Path, theme_id: str, caption: str |
         return False
     data: bytes | None = None
     if src.startswith(("http://", "https://")):
-        from app.pdf_theme_manager import _fetch_image_data  # 复用 PDF 侧下载器
+        from app.docgen.pdf.theme_manager import _fetch_image_data  # 复用 PDF 侧下载器
 
         fetched = _fetch_image_data(src)
         if not fetched:

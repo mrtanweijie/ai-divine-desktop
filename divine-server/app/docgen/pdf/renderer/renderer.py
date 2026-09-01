@@ -35,7 +35,7 @@ def render_markdown_to_pdf(
     if raw_scheme.lower() in COLOR_KEYS:
         normalized_color = raw_scheme.lower()
     else:
-        from ..pdf_theme_manager import SCHEME_PRIMARY_COLORS, resolve_color
+        from ..theme_manager import SCHEME_PRIMARY_COLORS, resolve_color
 
         normalized_color = (
             raw_scheme
@@ -109,7 +109,7 @@ def render_html_to_pdf(
         raise RuntimeError("HTML 转 PDF 需要 WeasyPrint，当前环境不可用")
     from weasyprint import HTML
 
-    from ..pdf_theme_manager import build_travel_html_document
+    from ..theme_manager import build_travel_html_document
 
     document = build_travel_html_document(
         html_body,

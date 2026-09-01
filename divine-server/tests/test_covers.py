@@ -2,8 +2,8 @@
 
 import asyncio
 
-from app.pdf_theme_manager import build_cover_html, load_theme_css
-from app.pdf_tool.design_rules import resolve_design
+from app.docgen.pdf.theme_manager import build_cover_html, load_theme_css
+from app.docgen.pdf.design_rules import resolve_design
 
 
 def test_all_cover_styles_render():
@@ -135,7 +135,7 @@ def test_travel_decision_has_no_cover_style():
 
 
 def test_engine_injects_cover_style(monkeypatch, tmp_path):
-    import app.pdf_renderer.renderer as renderer_module
+    import app.docgen.pdf.renderer.renderer as renderer_module
 
     captured: dict[str, object] = {}
 
@@ -149,7 +149,7 @@ def test_engine_injects_cover_style(monkeypatch, tmp_path):
     monkeypatch.setattr(renderer_module, "_render_with_weasyprint", fake_render)
     monkeypatch.setattr(renderer_module, "_weasyprint_available", lambda: True)
 
-    from app.pdf_tool.engine import PDFTool
+    from app.docgen.pdf.engine import PDFTool
 
     async def run():
         return await PDFTool().run(
@@ -167,7 +167,7 @@ def test_engine_injects_cover_style(monkeypatch, tmp_path):
 
 
 def test_title_from_markdown_only_h1():
-    from app.pdf_tool.engine import _title_from_markdown
+    from app.docgen.pdf.engine import _title_from_markdown
 
     assert _title_from_markdown("# 文档标题\n\n## 章节") == "文档标题"
     # ## 章节名不再被误认为文档标题
@@ -175,7 +175,7 @@ def test_title_from_markdown_only_h1():
 
 
 def test_hero_stat_extraction_for_split_cover():
-    from app.pdf_tool.engine import _hero_stat_from_markdown
+    from app.docgen.pdf.engine import _hero_stat_from_markdown
 
     md = """| 指标 | 数值 | 变化 |
 | --- | --- | --- |

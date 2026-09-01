@@ -264,7 +264,7 @@ def _render_rich_reportlab(
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import Paragraph, SimpleDocTemplate
 
-    from .. import pdf_export
+    from .. import export
 
     pdf_export._register_font()
     styles = _reportlab_styles(pdf_export.FONT_NAME)
@@ -301,6 +301,6 @@ def _render_with_reportlab(
     try:
         _render_rich_reportlab(markdown, output, title, base_dir)
     except Exception:
-        from ..pdf_export import render_markdown_pdf
+        from ..export import render_markdown_pdf
 
         output.write_bytes(render_markdown_pdf(markdown, title))

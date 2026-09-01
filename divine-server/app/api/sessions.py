@@ -14,7 +14,7 @@ from ..localization import (
     export_labels,
     normalize_locale,
 )
-from ..pdf_export import render_markdown_pdf
+from ..docgen.pdf.export import render_markdown_pdf
 from ..schemas import ChoiceStateUpdate, SessionCreate, SessionUpdate
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])

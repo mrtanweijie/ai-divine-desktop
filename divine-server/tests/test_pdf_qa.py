@@ -3,7 +3,7 @@
 import pymupdf
 import pytest
 
-from app.pdf_renderer import qa
+from app.docgen.pdf.renderer import qa
 
 
 def _make_pdf(path, *, pages: list[str]) -> None:

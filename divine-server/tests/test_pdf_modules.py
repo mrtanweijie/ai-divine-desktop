@@ -1,13 +1,13 @@
 """测试布局模块：markdown 约定转换、主题 CSS 挂载、Agent prompt 接入。"""
 
-from app.pdf_theme_manager import load_theme_css
-from app.pdf_renderer.markdown import (
+from app.docgen.pdf.theme_manager import load_theme_css
+from app.docgen.pdf.renderer.markdown import (
     _build_toc,
     _convert_modules,
     _prepare_markdown,
 )
-from app.pdf_tool.base import MODULE_GUIDE
-from app.pdf_tool.recipes import ReportRecipe
+from app.docgen.pdf.base import MODULE_GUIDE
+from app.docgen.pdf.recipes import ReportRecipe
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +183,7 @@ def test_travel_css_skips_module_styles():
 def test_report_prompt_embeds_module_guide():
     recipe = ReportRecipe()
     prompt = recipe.content_system_prompt(
-        __import__("app.pdf_tool.base", fromlist=["PDFIntent"]).PDFIntent(
+        __import__("app.docgen.pdf.base", fromlist=["PDFIntent"]).PDFIntent(
             title="测试", topic="测试主题", style="universal", color_scheme="blue"
         )
     )

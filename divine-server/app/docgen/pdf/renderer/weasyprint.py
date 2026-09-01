@@ -34,7 +34,7 @@ def _color_scheme_overrides(color_scheme: str) -> dict[str, str]:
             "--primary-dark": colors.get("dark", accent),
             "--accent": accent,
         }
-    from ..pdf_theme_manager import (
+    from ..theme_manager import (
         SCHEME_PRIMARY_COLORS,
         derive_universal_palette,
     )
@@ -84,7 +84,7 @@ def _render_with_weasyprint(
 
     import markdown as markdown_lib
 
-    from ..pdf_theme_manager import build_cover_html, load_theme_css
+    from ..theme_manager import build_cover_html, load_theme_css
 
     # 合并链：color_scheme 预设 → 调用方 overrides（DesignSpec 派生色 /
     # theme_colors 显式值，后者优先）
