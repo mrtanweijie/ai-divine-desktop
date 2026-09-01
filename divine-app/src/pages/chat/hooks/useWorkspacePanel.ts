@@ -2,6 +2,7 @@
 // open/width/expand/layout + localStorage persistence + resize handling.
 import { useCallback, useEffect, useState } from "react";
 import { isTauri, unwatchWorkspace, watchWorkspace } from "@/services/tauri";
+import { storageGet, storageGetRaw, storageSetRaw } from "@/services/storage";
 import {
   acceptedFilesKey,
   expandedWorkspaceWidth,
@@ -42,14 +43,7 @@ export function useWorkspacePanel({
       setWorkspaceExpanded(false);
       setWorkspaceExpandedLayout(false);
       if (selectedId) {
-        try {
-          localStorage.setItem(
-            `divine:workspace-expanded:${selectedId}`,
-            "0"
-          );
-        } catch {
-          // localStorage unavailable, state stays in memory
-        }
+        storageSetRaw(`divine:workspace-expanded:${selectedId}`, "0");
       }
     } else {
       setNormalWorkspacePanelWidth(workspacePanelWidth);
@@ -57,14 +51,7 @@ export function useWorkspacePanel({
       setWorkspaceExpanded(true);
       setWorkspaceExpandedLayout(true);
       if (selectedId) {
-        try {
-          localStorage.setItem(
-            `divine:workspace-expanded:${selectedId}`,
-            "1"
-          );
-        } catch {
-          // localStorage unavailable, state stays in memory
-        }
+        storageSetRaw(`divine:workspace-expanded:${selectedId}`, "1");
       }
     }
     window.setTimeout(() => setWorkspaceExpandTransitioning(false), 220);
@@ -79,30 +66,17 @@ export function useWorkspacePanel({
   // 项目切换：重置预览/接受状态、恢复面板开关与已接受文件、监听工作区。
   useEffect(() => {
     setPreviewFile(null);
-    try {
-      const saved = currentProject?.path
-        ? localStorage.getItem(
-            `divine:workspace-panel-open:${currentProject.path}`
+    const saved = currentProject?.path
+      ? storageGetRaw(`divine:workspace-panel-open:${currentProject.path}`)
+      : null;
+    setWorkspacePanelOpen(saved === "1");
+    setAcceptedFiles(
+      currentProject?.path
+        ? new Set(
+            storageGet<string[]>(acceptedFilesKey(currentProject.path), [])
           )
-        : null;
-      setWorkspacePanelOpen(saved === "1");
-    } catch {
-      setWorkspacePanelOpen(false);
-    }
-    try {
-      setAcceptedFiles(
-        currentProject?.path
-          ? new Set(
-              JSON.parse(
-                localStorage.getItem(acceptedFilesKey(currentProject.path)) ??
-                  "[]"
-              ) as string[]
-            )
-          : new Set()
-      );
-    } catch {
-      setAcceptedFiles(new Set());
-    }
+        : new Set()
+    );
     if (!isTauri() || !currentProject?.path) return;
     void watchWorkspace(currentProject.path).catch(() => undefined);
     return () => {
@@ -113,14 +87,10 @@ export function useWorkspacePanel({
   // 面板开关状态持久化（按项目路径）。
   useEffect(() => {
     if (!currentProject?.path) return;
-    try {
-      localStorage.setItem(
-        `divine:workspace-panel-open:${currentProject.path}`,
-        workspacePanelOpen ? "1" : "0"
-      );
-    } catch {
-      // localStorage unavailable, state stays in memory
-    }
+    storageSetRaw(
+      `divine:workspace-panel-open:${currentProject.path}`,
+      workspacePanelOpen ? "1" : "0"
+    );
   }, [currentProject?.path, workspacePanelOpen]);
 
   // 窗口尺寸变化时按比例调整面板宽度（保持可用最小宽度 320）。

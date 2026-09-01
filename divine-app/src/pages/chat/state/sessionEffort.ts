@@ -2,15 +2,13 @@
 // 深度思考 level (off | low | high | max) across reloads and session switches.
 // Falls back to nothing (caller applies the global default) when unset.
 
+import { storageGetRaw, storageSetRaw } from "@/services/storage";
+
 const EFFORT_KEY_PREFIX = "divine:session-effort:";
 
 export function getSessionEffort(sessionId: string | null): string | null {
   if (!sessionId) return null;
-  try {
-    return localStorage.getItem(EFFORT_KEY_PREFIX + sessionId);
-  } catch {
-    return null;
-  }
+  return storageGetRaw(EFFORT_KEY_PREFIX + sessionId);
 }
 
 export function setSessionEffort(
@@ -18,9 +16,5 @@ export function setSessionEffort(
   effort: string
 ): void {
   if (!sessionId) return;
-  try {
-    localStorage.setItem(EFFORT_KEY_PREFIX + sessionId, effort);
-  } catch {
-    // ignore quota / privacy-mode errors
-  }
+  storageSetRaw(EFFORT_KEY_PREFIX + sessionId, effort);
 }

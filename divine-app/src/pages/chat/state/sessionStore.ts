@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { storageGetRaw, storageRemove, storageSetRaw } from "@/services/storage";
 import type { Project, Session } from "@/types";
 
 const LAST_PROJECT_ID_KEY = "divine:last-project-id";
@@ -10,33 +11,25 @@ export interface LastSessionSelection {
 }
 
 export function readLastSessionSelection(): LastSessionSelection {
-  try {
-    return {
-      projectId: localStorage.getItem(LAST_PROJECT_ID_KEY),
-      sessionId: localStorage.getItem(LAST_SESSION_ID_KEY),
-    };
-  } catch {
-    return { projectId: null, sessionId: null };
-  }
+  return {
+    projectId: storageGetRaw(LAST_PROJECT_ID_KEY),
+    sessionId: storageGetRaw(LAST_SESSION_ID_KEY),
+  };
 }
 
 export function writeLastSessionSelection(
   projectId: string | null,
   sessionId: string | null
 ): void {
-  try {
-    if (projectId) {
-      localStorage.setItem(LAST_PROJECT_ID_KEY, projectId);
-    } else {
-      localStorage.removeItem(LAST_PROJECT_ID_KEY);
-    }
-    if (sessionId) {
-      localStorage.setItem(LAST_SESSION_ID_KEY, sessionId);
-    } else {
-      localStorage.removeItem(LAST_SESSION_ID_KEY);
-    }
-  } catch {
-    // localStorage unavailable, selection stays in memory
+  if (projectId) {
+    storageSetRaw(LAST_PROJECT_ID_KEY, projectId);
+  } else {
+    storageRemove(LAST_PROJECT_ID_KEY);
+  }
+  if (sessionId) {
+    storageSetRaw(LAST_SESSION_ID_KEY, sessionId);
+  } else {
+    storageRemove(LAST_SESSION_ID_KEY);
   }
 }
 

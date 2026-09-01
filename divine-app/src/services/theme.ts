@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { STORAGE_KEYS } from "@/constant/storage";
+import { storageGetRaw, storageSetRaw } from "@/services/storage";
 
 export type ThemePreference = "dark" | "light" | "system";
 export type ResolvedTheme = "dark" | "light";
@@ -13,7 +14,7 @@ function systemTheme(): ResolvedTheme {
 }
 
 export function readThemePreference(): ThemePreference {
-  const value = window.localStorage.getItem(STORAGE_KEYS.theme);
+  const value = storageGetRaw(STORAGE_KEYS.theme);
   return value === "dark" || value === "light" || value === "system"
     ? value
     : "system";
@@ -28,7 +29,7 @@ export function applyTheme(preference: ThemePreference): void {
 }
 
 export function setThemePreference(preference: ThemePreference): void {
-  window.localStorage.setItem(STORAGE_KEYS.theme, preference);
+  storageSetRaw(STORAGE_KEYS.theme, preference);
   applyTheme(preference);
   window.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: preference }));
 }

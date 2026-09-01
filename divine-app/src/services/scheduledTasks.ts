@@ -10,6 +10,7 @@ import {
 } from "@tauri-apps/plugin-notification";
 import { request } from "@/services/request";
 import { isMacosDesktop, isTauri } from "@/services/tauri";
+import { storageGetRaw, storageSet, storageSetRaw } from "@/services/storage";
 import type { CalendarEvent, ScheduledTask } from "@/types";
 import i18next from "@/i18n";
 
@@ -174,20 +175,12 @@ let reminderPollTimer: ReturnType<typeof setInterval> | null = null;
 const seenReminderRuns = new Set<string>();
 
 function reminderSeenAt(taskId: string): string | null {
-  try {
-    return localStorage.getItem(`${REMINDER_SEEN_PREFIX}${taskId}`);
-  } catch {
-    return null;
-  }
+  return storageGetRaw(`${REMINDER_SEEN_PREFIX}${taskId}`);
 }
 
 function markReminderSeen(taskId: string, lastRunAt: string): void {
   seenReminderRuns.add(`${taskId}:${lastRunAt}`);
-  try {
-    localStorage.setItem(`${REMINDER_SEEN_PREFIX}${taskId}`, lastRunAt);
-  } catch {
-    // The in-memory set still prevents duplicate notifications this session.
-  }
+  storageSetRaw(`${REMINDER_SEEN_PREFIX}${taskId}`, lastRunAt);
 }
 
 export async function notifyDueReminders(
@@ -293,24 +286,17 @@ export async function syncTaskNotifications(
   tasks: ScheduledTask[]
 ): Promise<{ scheduled: number; cancelled: number }> {
   if (!isTauri()) return { scheduled: 0, cancelled: 0 };
-  try {
-    localStorage.setItem(
-      "divine:notification-debug",
-      JSON.stringify({
-        hasNotification:
-          typeof window !== "undefined" && "Notification" in window,
-        permission:
-          typeof window !== "undefined" && "Notification" in window
-            ? window.Notification.permission
-            : null,
-        isMacosDesktop: isMacosDesktop(),
-        nativePermission: nativePermissionCache,
-        time: new Date().toISOString(),
-      })
-    );
-  } catch {
-    // Diagnostic only.
-  }
+  storageSet("divine:notification-debug", {
+    hasNotification:
+      typeof window !== "undefined" && "Notification" in window,
+    permission:
+      typeof window !== "undefined" && "Notification" in window
+        ? window.Notification.permission
+        : null,
+    isMacosDesktop: isMacosDesktop(),
+    nativePermission: nativePermissionCache,
+    time: new Date().toISOString(),
+  });
   if (isMacosDesktop()) {
     // The Tauri plugin cannot schedule desktop notifications, so macOS shows
     // them from the frontend as soon as the sidecar advances a reminder.
@@ -364,24 +350,17 @@ export function startTaskReminderPolling(): () => void {
   const poll = async () => {
     try {
       const granted = await ensureNotificationPermission();
-      try {
-        localStorage.setItem(
-          "divine:notification-debug",
-          JSON.stringify({
-            hasNotification:
-              typeof window !== "undefined" && "Notification" in window,
-            permission:
-              typeof window !== "undefined" && "Notification" in window
-                ? window.Notification.permission
-                : null,
-            granted,
-            nativePermission: nativePermissionCache,
-            time: new Date().toISOString(),
-          })
-        );
-      } catch {
-        // Diagnostic only; polling should keep running without it.
-      }
+      storageSet("divine:notification-debug", {
+        hasNotification:
+          typeof window !== "undefined" && "Notification" in window,
+        permission:
+          typeof window !== "undefined" && "Notification" in window
+            ? window.Notification.permission
+            : null,
+        granted,
+        nativePermission: nativePermissionCache,
+        time: new Date().toISOString(),
+      });
       const { tasks } = await listScheduledTasks();
       await syncTaskNotifications(tasks);
     } catch (error) {

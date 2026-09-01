@@ -6,6 +6,7 @@ import {
   listSessions,
   messagesToChatMessages,
 } from "@/services/api";
+import { storageGetRaw } from "@/services/storage";
 import {
   changedFilePathsFromResult,
   changedFileRel,
@@ -80,12 +81,8 @@ export function useSessionLoader({
         setSelectedId(id);
       }
       let savedExpanded = false;
-      try {
-        savedExpanded =
-          localStorage.getItem(`divine:workspace-expanded:${id}`) === "1";
-      } catch {
-        savedExpanded = false;
-      }
+      savedExpanded =
+        storageGetRaw(`divine:workspace-expanded:${id}`) === "1";
       setWorkspaceExpanded(savedExpanded);
       setWorkspaceExpandedLayout(savedExpanded);
 

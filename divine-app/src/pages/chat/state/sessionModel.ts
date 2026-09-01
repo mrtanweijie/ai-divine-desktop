@@ -3,15 +3,13 @@
 // Falls back to nothing (caller applies the global default = the active
 // model in Settings) when unset.
 
+import { storageGetRaw, storageSetRaw } from "@/services/storage";
+
 const MODEL_KEY_PREFIX = "divine:session-model:";
 
 export function getSessionModelId(sessionId: string | null): string | null {
   if (!sessionId) return null;
-  try {
-    return localStorage.getItem(MODEL_KEY_PREFIX + sessionId);
-  } catch {
-    return null;
-  }
+  return storageGetRaw(MODEL_KEY_PREFIX + sessionId);
 }
 
 export function setSessionModelId(
@@ -19,9 +17,5 @@ export function setSessionModelId(
   modelId: string
 ): void {
   if (!sessionId) return;
-  try {
-    localStorage.setItem(MODEL_KEY_PREFIX + sessionId, modelId);
-  } catch {
-    // ignore quota / privacy-mode errors
-  }
+  storageSetRaw(MODEL_KEY_PREFIX + sessionId, modelId);
 }

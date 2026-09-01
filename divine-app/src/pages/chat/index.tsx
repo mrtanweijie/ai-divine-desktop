@@ -66,10 +66,9 @@ import {
   expandModelId,
   expandModelsForSwitcher,
 } from "@/config/providers";
+import { storageSet } from "@/services/storage";
 import "./index.less";
-import {
-  acceptedFilesKey,
-} from "@/pages/chat/chatUtils";
+import { acceptedFilesKey } from "@/pages/chat/chatUtils";
 
 export default function ChatPage() {
   const { t } = useTranslation();
@@ -826,14 +825,7 @@ export default function ChatPage() {
         const next = new Set(prev);
         next.add(relPath);
         if (currentProject?.path) {
-          try {
-            localStorage.setItem(
-              acceptedFilesKey(currentProject.path),
-              JSON.stringify([...next])
-            );
-          } catch {
-            // localStorage unavailable, accepted state stays in memory
-          }
+          storageSet(acceptedFilesKey(currentProject.path), [...next]);
         }
         return next;
       });
