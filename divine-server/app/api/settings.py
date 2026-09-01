@@ -6,6 +6,8 @@ import httpx
 from fastapi import APIRouter
 
 from ..config import (
+    DEFAULT_LOCAL_LLM_PORT,
+    DEFAULT_LOCAL_LLM_THRESHOLD,
     apply_legacy_to_active,
     merge_model_updates,
     settings_store,
@@ -81,10 +83,14 @@ def _public(settings: dict) -> dict:
         # 本地模型配置（意图识别模式等）
         "local_llm_enabled": bool(settings.get("local_llm_enabled", False)),
         "local_llm_mode": settings.get("local_llm_mode", "keyword"),
-        "local_llm_port": int(settings.get("local_llm_port", 8016)),
+        "local_llm_port": int(
+            settings.get("local_llm_port", DEFAULT_LOCAL_LLM_PORT)
+        ),
         "local_llm_model": settings.get("local_llm_model", ""),
         "local_llm_ctx_size": int(settings.get("local_llm_ctx_size", 4096)),
-        "local_llm_threshold": float(settings.get("local_llm_threshold", 0.75)),
+        "local_llm_threshold": float(
+            settings.get("local_llm_threshold", DEFAULT_LOCAL_LLM_THRESHOLD)
+        ),
         # 本地预整理（输入侧预处理）
         "local_llm_preprocess_enabled": bool(
             settings.get("local_llm_preprocess_enabled", True)

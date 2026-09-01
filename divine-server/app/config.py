@@ -31,6 +31,10 @@ def workspace_root() -> Path:
 DEFAULT_MODEL = "deepseek-v4-flash"
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 
+# 本地 LLM 默认配置（settings_store 默认值与此处常量同源，禁止散落魔法值）
+DEFAULT_LOCAL_LLM_PORT = 8016
+DEFAULT_LOCAL_LLM_THRESHOLD = 0.75
+
 # Tool-calling paradigm per model entry:
 # - "auto":   resolve to native function calling (current behavior)
 # - "native": force native function calling (bind_tools)
@@ -298,10 +302,10 @@ class SettingsStore:
             # 本地模型配置
             "local_llm_enabled": False,
             "local_llm_mode": "keyword",  # "keyword" | "local" | "hybrid"
-            "local_llm_port": 8016,
+            "local_llm_port": DEFAULT_LOCAL_LLM_PORT,
             "local_llm_model": "",
             "local_llm_ctx_size": 4096,
-            "local_llm_threshold": 0.75,
+            "local_llm_threshold": DEFAULT_LOCAL_LLM_THRESHOLD,
             # 本地预整理（输入侧预处理）
             "local_llm_preprocess_enabled": True,
             "local_llm_preprocess_auto": True,

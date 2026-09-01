@@ -15,6 +15,7 @@ import re
 from typing import Any
 
 from ... import db
+from ...config import DEFAULT_LOCAL_LLM_THRESHOLD
 from ..core import SYSTEM_PROMPT
 from ..core.prompt_sections import (
     _CHART_RULES,
@@ -378,7 +379,7 @@ def classify_intents(
     history_context: str = "",
     local_llm_enabled: bool = False,
     local_llm_mode: str = "keyword",  # "keyword" | "local" | "hybrid"
-    local_llm_threshold: float = 0.75,
+    local_llm_threshold: float = DEFAULT_LOCAL_LLM_THRESHOLD,
 ) -> tuple[set[str], dict[str, Any] | None]:
     """从用户消息（+ 上一条 AI 回复上下文）中提取意图标签集合。
 

@@ -27,6 +27,8 @@ from typing import Any, Callable
 
 import requests
 
+from ...config import DEFAULT_LOCAL_LLM_PORT, DEFAULT_LOCAL_LLM_THRESHOLD
+
 from .model_registry import (
     MODEL_REGISTRY,
     ModelEntry,
@@ -75,7 +77,9 @@ def custom_model_display_name(filename: str) -> str:
     return stem
 
 
-def local_model_entry(port: int = 8016, model_name: str = "本地模型") -> dict[str, Any]:
+def local_model_entry(
+    port: int = DEFAULT_LOCAL_LLM_PORT, model_name: str = "本地模型"
+) -> dict[str, Any]:
     """本地模型虚拟条目：llama-server 运行时由 settings API 动态注入模型列表。
 
     model_name 传当前运行的模型名（如 Qwen2.5-0.5B-Instruct），
@@ -122,7 +126,7 @@ _manager: LocalLLMManager | None = None
 class LocalLLMManager:
     """llama-server 进程管理 + 意图分类。"""
 
-    def __init__(self, data_dir: str, port: int = 8016) -> None:
+    def __init__(self, data_dir: str, port: int = DEFAULT_LOCAL_LLM_PORT) -> None:
         self.data_dir = Path(data_dir)
         self.models_dir = self.data_dir / "models"
         self.models_dir.mkdir(parents=True, exist_ok=True)
@@ -690,7 +694,9 @@ class LocalLLMManager:
             settings = {}
         enabled = bool(settings.get("local_llm_enabled", False))
         mode = settings.get("local_llm_mode", "keyword")
-        threshold = settings.get("local_llm_threshold", 0.75)
+        threshold = settings.get(
+            "local_llm_threshold", DEFAULT_LOCAL_LLM_THRESHOLD
+        )
         running = self.is_ready()
         
         # 安全调用 detect_hardware（打包环境可能失败）
@@ -868,7 +874,9 @@ class LocalLLMManager:
         return True, str(dest)
 
 
-def get_manager(data_dir: str | None = None, port: int = 8016) -> LocalLLMManager:
+def get_manager(
+    data_dir: str | None = None, port: int = DEFAULT_LOCAL_LLM_PORT
+) -> LocalLLMManager:
     """获取全局单例。"""
     global _manager
     if _manager is None:

@@ -14,7 +14,7 @@ from langgraph.types import Command
 
 from .. import db
 from ..api.terminal import create_terminal_decision, remove_terminal_decision
-from ..config import settings_store
+from ..config import DEFAULT_LOCAL_LLM_THRESHOLD, settings_store
 from ..localization import default_session_title, normalize_locale
 from ..sse import error_event, sse_event
 from .core import (
@@ -46,7 +46,7 @@ _LOCAL_INTENTS = {"open_app", "screenshot", "lock_screen", "search_file"}
 def _can_handle_locally(
     intents: set[str],
     local_result: dict | None,
-    threshold: float = 0.75,
+    threshold: float = DEFAULT_LOCAL_LLM_THRESHOLD,
 ) -> bool:
     """判断是否可以本地直接处理（不调云端 LLM）。"""
     if not intents:
@@ -297,7 +297,9 @@ async def run_agent(
     settings = settings_store.load()
     local_llm_enabled = settings.get("local_llm_enabled", False)
     local_llm_mode = settings.get("local_llm_mode", "keyword")
-    local_llm_threshold = settings.get("local_llm_threshold", 0.75)
+    local_llm_threshold = settings.get(
+        "local_llm_threshold", DEFAULT_LOCAL_LLM_THRESHOLD
+    )
     _hist_user = next(
         (m for m in reversed(history) if m.get("role") == "user"), None
     )
