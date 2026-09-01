@@ -133,10 +133,17 @@ a = Analysis(
         "app.llm.langchain",
         "app.llm.legacy",
         "app.github_skills",
-        "app.chart_svg",
-        "app.pdf_theme_manager",
+        # docgen：文档生成域（PDF / PPT / Word / 简历 / 图表），工具脚本以
+        # subprocess + runpy 运行，其内部 import 不在 entry.py 主导入图里，
+        # 必须全部显式编入 PYZ
+        "app.docgen",
+        "app.docgen.chart.svg",
+        "app.docgen.word.themes",
+        "app.docgen.word.elements",
+        "app.docgen.word.markdown",
         "app.api.pdf_themes",
         "app.skills",
+        "app.pdf_theme_manager",
         "app.pdf_tool",
         "app.pdf_tool.base",
         "app.pdf_tool.content",
@@ -149,7 +156,6 @@ a = Analysis(
         "app.resume_themes.renderer",
         "app.resume_themes.theme_manager",
         "app.resume_themes.themes",
-        "app.word_themes",
         "app.ppt_themes",
         # ppt_renderer：presentation 脚本（data 形式子进程运行）依赖的新渲染包，
         # 不在 entry.py 主导入图里，必须显式编入 PYZ

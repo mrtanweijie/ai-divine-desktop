@@ -10,7 +10,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 
-from app.word_themes import add_styled_table, resolve_theme
+from .themes import add_styled_table, resolve_theme
 
 CODE_FONT = "Consolas"
 CODE_BG = "F3F4F6"

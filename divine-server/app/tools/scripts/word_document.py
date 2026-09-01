@@ -8,15 +8,15 @@ from docx import Document
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
-from app.word_elements import (  # noqa: E402
+from app.docgen.word.elements import (  # noqa: E402
     add_body_text,
     add_code_block,
     add_image,
     add_quote,
     add_rich_text,
 )
-from app.word_markdown import markdown_to_document  # noqa: E402
-from app.word_themes import (  # noqa: E402
+from app.docgen.word.markdown import markdown_to_document  # noqa: E402
+from app.docgen.word.themes import (  # noqa: E402
     add_footer,
     add_styled_table,
     add_title_page,

@@ -13,7 +13,7 @@ from typing import Any
 import markdown as _markdown
 from docx.shared import Pt
 
-from app.word_elements import (
+from .elements import (
     CODE_BG,
     CODE_FONT,
     add_code_block,
@@ -23,7 +23,7 @@ from app.word_elements import (
     set_run_fonts,
     shade_run,
 )
-from app.word_themes import add_styled_table, resolve_theme
+from .themes import add_styled_table, resolve_theme
 
 _HEADING_LEVELS = {"h1": 1, "h2": 2, "h3": 3, "h4": 3, "h5": 3, "h6": 3}
 

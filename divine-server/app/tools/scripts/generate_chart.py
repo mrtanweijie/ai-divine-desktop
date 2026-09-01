@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from app.chart_svg import render_chart_svg
+from app.docgen.chart.svg import render_chart_svg
 
 
 _ALLOWED_SERIES_TYPES = {
