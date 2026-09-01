@@ -7,13 +7,10 @@ import {
   createProject,
   deleteProject,
   deleteSession,
-  getSession,
   getGitInfo,
   getSettings,
   getWorkspace,
   listProjects,
-  listSessions,
-  messagesToChatMessages,
   renameSession,
   updateProject,
   updateSessionApprovalMode,
@@ -31,14 +28,10 @@ import { SessionList } from "@/pages/chat/components/SessionList";
 import { SettingsModal } from "@/components/SettingsModal";
 import {
   isMacosDesktop,
-  isTauri,
-  unwatchWorkspace,
-  watchWorkspace,
 } from "@/services/tauri";
 import type {
   ApprovalMode,
   ChatFile,
-  PreviewFile,
   Project,
   SettingsSaveBody,
 } from "@/types";
@@ -67,6 +60,8 @@ import { ProjectModal } from "@/pages/chat/components/ProjectModal";
 import { ProjectPicker } from "@/pages/chat/components/ProjectPicker";
 import { useChatStream } from "@/pages/chat/hooks/useChatStream";
 import { ChatStreamContext } from "@/pages/chat/hooks/ChatStreamContext";
+import { useSessionLoader } from "@/pages/chat/hooks/useSessionLoader";
+import { useWorkspacePanel } from "@/pages/chat/hooks/useWorkspacePanel";
 import {
   expandModelId,
   expandModelsForSwitcher,
@@ -74,9 +69,6 @@ import {
 import "./index.less";
 import {
   acceptedFilesKey,
-  changedFilePathsFromResult,
-  changedFileRel,
-  expandedWorkspaceWidth,
 } from "@/pages/chat/chatUtils";
 
 export default function ChatPage() {
@@ -119,13 +111,6 @@ export default function ChatPage() {
     return { input_tokens: input, output_tokens: output, total_tokens: total, turns };
   }, [messages]);
   const streaming = selectedId ? streamingSessions.has(selectedId) : false;
-  // After a stream finishes, refresh the composer context ring usage.
-  useEffect(() => {
-    if (lastStreamingRef.current && !streaming) {
-      setContextRefreshKey((key) => key + 1);
-    }
-    lastStreamingRef.current = streaming;
-  }, [streaming]);
   const { settings, setSettings, setWorkspace } = useConfigState();
   // 只把已配置 API Key 的模型条目按提供商 list 展开，供对话框模型切换使用。
   // 未配置 Key 的提供商不会出现在切换列表里。
@@ -186,54 +171,103 @@ export default function ChatPage() {
     text: string;
     nonce: number;
   } | null>(null);
-  const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
   const [isGit, setIsGit] = useState(false);
-  const [agentChangedFiles, setAgentChangedFiles] = useState<Set<string>>(
-    new Set()
-  );
-  const [acceptedFiles, setAcceptedFiles] = useState<Set<string>>(new Set());
-  const [workspacePanelOpen, setWorkspacePanelOpen] = useState(false);
-  const [workspacePanelWidth, setWorkspacePanelWidth] = useState(420);
-  const [normalWorkspacePanelWidth, setNormalWorkspacePanelWidth] =
-    useState(420);
-  const [workspaceExpanded, setWorkspaceExpanded] = useState(false);
-  const [workspaceExpandedLayout, setWorkspaceExpandedLayout] =
-    useState(false);
-  const [workspaceExpandTransitioning, setWorkspaceExpandTransitioning] =
-    useState(false);
   const [selectionReady, setSelectionReady] = useState(false);
-  const [workspaceTreeWidth, setWorkspaceTreeWidth] = useState(172);
-  const [hasMoreOlder, setHasMoreOlder] = useState(false);
-  const [oldestMessageId, setOldestMessageId] = useState<string | null>(null);
-  const [loadingOlder, setLoadingOlder] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
-  const projectPathsRef = useRef<Record<string, string>>({});
   // 会话切换序号：快速连点时丢弃过期的 loadSession fetch 结果
-  const loadSessionSeqRef = useRef(0);
-  const workspacePanelOpenRef = useRef(workspacePanelOpen);
+  const workspacePanelOpenRef = useRef(false);
 
+  // After a stream finishes, refresh the composer context ring usage.
   useEffect(() => {
-    projectPathsRef.current = Object.fromEntries(
-      projects.map((project) => [project.id, project.path])
-    );
-  }, [projects]);
+    if (lastStreamingRef.current && !streaming) {
+      setContextRefreshKey((key) => key + 1);
+    }
+    lastStreamingRef.current = streaming;
+  }, [streaming]);
+
+  const currentSession = useMemo(
+    () => sessions.find((session) => session.id === selectedId) ?? null,
+    [selectedId, sessions]
+  );
+
+  const currentProject = useMemo(
+    () =>
+      projects.find(
+        (project) =>
+          project.id === (currentSession?.project_id ?? selectedProjectId)
+      ) ?? null,
+    [currentSession?.project_id, projects, selectedProjectId]
+  );
+
+  const workspace = useWorkspacePanel({
+    selectedId,
+    currentProject,
+    sidebarOpen,
+  });
+  const {
+    previewFile,
+    setPreviewFile,
+    workspacePanelOpen,
+    setWorkspacePanelOpen,
+    workspacePanelWidth,
+    setWorkspacePanelWidth,
+    workspaceExpanded,
+    setWorkspaceExpanded,
+    workspaceExpandedLayout,
+    setWorkspaceExpandedLayout,
+    workspaceExpandTransitioning,
+    workspaceTreeWidth,
+    setWorkspaceTreeWidth,
+    acceptedFiles,
+    setAcceptedFiles,
+    handlePreviewFile,
+    handleToggleWorkspaceExpand,
+  } = workspace;
 
   useEffect(() => {
     workspacePanelOpenRef.current = workspacePanelOpen;
   }, [workspacePanelOpen]);
 
+  // 项目切换：重置分页与变更文件状态（工作区面板自身状态在 useWorkspacePanel
+  // 内重置，previewFile 也由其处理；这里补回分页相关的 4 个）。
+  useEffect(() => {
+    setAgentChangedFiles(new Set());
+    setHasMoreOlder(false);
+    setOldestMessageId(null);
+    setLoadingOlder(false);
+  }, [currentProject?.path]);
+
+  const sessionLoader = useSessionLoader({
+    selectedId,
+    setSelectedId,
+    setSelectedProjectId,
+    setSessions,
+    setSessionMessages,
+    getCachedSessionMessages,
+    setApprovalMode,
+    setWorkspaceExpanded,
+    setWorkspaceExpandedLayout,
+    workspacePanelOpen,
+    projects,
+  });
+  const {
+    refreshSessions,
+    loadSession,
+    loadOlderMessages,
+    loadChangedFiles,
+    hasMoreOlder,
+    setHasMoreOlder,
+    setOldestMessageId,
+    setLoadingOlder,
+    loadingOlder,
+    agentChangedFiles,
+    setAgentChangedFiles,
+  } = sessionLoader;
+
   const refreshProjects = useCallback(async () => {
     const data = await listProjects();
     setProjects(data.projects);
     return data.projects;
-  }, []);
-
-  const refreshSessions = useCallback(async (projectId?: string | null) => {
-    const data = await listSessions();
-    setSessions(data.sessions);
-    return projectId
-      ? data.sessions.filter((session) => session.project_id === projectId)
-      : data.sessions;
   }, []);
 
   const refreshWorkspace = useCallback(async () => {
@@ -244,135 +278,6 @@ export default function ChatPage() {
       setWorkspace([]);
     }
   }, []);
-
-  const loadSession = useCallback(async (id: string) => {
-    const cached = getCachedSessionMessages(id);
-    const hasCache = !!cached && cached.length > 0;
-    // 有缓存：立即切换视图（消息即时显示），元信息由下方 fetch 补齐；
-    // 无缓存：等 fetch 完成再切换（保持原有行为）。
-    const seq = ++loadSessionSeqRef.current;
-    if (hasCache) {
-      setSelectedId(id);
-    }
-    let savedExpanded = false;
-    try {
-      savedExpanded =
-        localStorage.getItem(`divine:workspace-expanded:${id}`) === "1";
-    } catch {
-      savedExpanded = false;
-    }
-    setWorkspaceExpanded(savedExpanded);
-    setWorkspaceExpandedLayout(savedExpanded);
-
-    const data = await getSession(id, { limit: 80 });
-    // 已被更新的点击取代时丢弃本次结果，避免旧请求覆盖新会话的元信息。
-    if (seq !== loadSessionSeqRef.current) return;
-    setSelectedProjectId(data.session.project_id);
-    setApprovalMode(data.session.approval_mode ?? "ask");
-    if (!hasCache) {
-      setSessionMessages(
-        id,
-        messagesToChatMessages(
-          data.messages,
-          data.tool_runs ?? [],
-          data.todos
-        )
-      );
-      setSelectedId(id);
-    } else {
-      // 有缓存：保留缓存消息（含流式），但把 API 返回的 choice_state 合并进去，
-      // 使选项卡片的已选状态（DB 持久化）在刷新/重开会话后仍能恢复。
-      const fresh = new Map(
-        messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos)
-          .map((m) => [m.id, m])
-      );
-      setSessionMessages(id, (prev) =>
-        (prev || []).map((m) => {
-          const apiMsg = fresh.get(m.id);
-          return apiMsg?.choice_state ? { ...m, choice_state: apiMsg.choice_state } : m;
-        })
-      );
-    }
-    setHasMoreOlder(Boolean(data.has_more));
-    setOldestMessageId(data.messages.length > 0 ? data.messages[0].id : null);
-    setLoadingOlder(false);
-  }, [getCachedSessionMessages, setSessionMessages]);
-
-  const loadOlderMessages = useCallback(async () => {
-    if (
-      !selectedId ||
-      !oldestMessageId ||
-      loadingOlder ||
-      !hasMoreOlder
-    ) {
-      return;
-    }
-    setLoadingOlder(true);
-    try {
-      const data = await getSession(selectedId, {
-        limit: 80,
-        beforeId: oldestMessageId,
-      });
-      const older = messagesToChatMessages(
-        data.messages,
-        data.tool_runs ?? [],
-        data.todos
-      );
-      setSessionMessages(
-        selectedId,
-        (prev) => [...older, ...prev]
-      );
-      setHasMoreOlder(Boolean(data.has_more));
-      if (data.messages.length > 0) {
-        setOldestMessageId(data.messages[0].id);
-      }
-    } catch {
-      // keep current list and allow retry on next scroll
-    } finally {
-      setLoadingOlder(false);
-    }
-  }, [
-    hasMoreOlder,
-    loadingOlder,
-    oldestMessageId,
-    selectedId,
-  ]);
-
-  const loadChangedFiles = useCallback(async (id: string) => {
-    if (!id) {
-      setAgentChangedFiles(new Set());
-      return;
-    }
-    try {
-      const data = await getSession(id);
-      const projectPath = data.session.project_id
-        ? projectPathsRef.current[data.session.project_id]
-        : null;
-      const changedFiles = new Set<string>();
-      if (projectPath) {
-        for (const run of data.tool_runs ?? []) {
-          if (run.status !== "done" || !run.output) continue;
-          try {
-            const result = JSON.parse(run.output) as unknown;
-            for (const filePath of changedFilePathsFromResult(result)) {
-              const rel = changedFileRel(projectPath, filePath);
-              if (rel) changedFiles.add(rel);
-            }
-          } catch {
-            // malformed tool output is not a file marker
-          }
-        }
-      }
-      setAgentChangedFiles(changedFiles);
-    } catch {
-      setAgentChangedFiles(new Set());
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!workspacePanelOpen || !selectedId) return;
-    void loadChangedFiles(selectedId);
-  }, [loadChangedFiles, selectedId, workspacePanelOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -910,25 +815,6 @@ export default function ChatPage() {
     [sendMessage, composerEffort]
   );
 
-  const currentSession = useMemo(
-    () => sessions.find((session) => session.id === selectedId) ?? null,
-    [selectedId, sessions]
-  );
-
-  const currentProject = useMemo(
-    () =>
-      projects.find(
-        (project) =>
-          project.id === (currentSession?.project_id ?? selectedProjectId)
-      ) ?? null,
-    [currentSession?.project_id, projects, selectedProjectId]
-  );
-
-  const handlePreviewFile = useCallback((file: PreviewFile) => {
-    setPreviewFile(file);
-    setWorkspacePanelOpen(true);
-  }, []);
-
   const handleAcceptFile = useCallback(
     (relPath: string) => {
       setAgentChangedFiles((prev) => {
@@ -954,100 +840,6 @@ export default function ChatPage() {
     },
     [currentProject?.path]
   );
-
-  const handleToggleWorkspaceExpand = useCallback(() => {
-    setWorkspaceExpandTransitioning(true);
-    if (workspaceExpanded) {
-      setWorkspacePanelWidth(normalWorkspacePanelWidth);
-      setWorkspaceExpanded(false);
-      setWorkspaceExpandedLayout(false);
-      if (selectedId) {
-        try {
-          localStorage.setItem(
-            `divine:workspace-expanded:${selectedId}`,
-            "0"
-          );
-        } catch {
-          // localStorage unavailable, state stays in memory
-        }
-      }
-    } else {
-      setNormalWorkspacePanelWidth(workspacePanelWidth);
-      setWorkspacePanelWidth(
-        expandedWorkspaceWidth(sidebarOpen ? 244 : 0)
-      );
-      setWorkspaceExpanded(true);
-      setWorkspaceExpandedLayout(true);
-      if (selectedId) {
-        try {
-          localStorage.setItem(
-            `divine:workspace-expanded:${selectedId}`,
-            "1"
-          );
-        } catch {
-          // localStorage unavailable, state stays in memory
-        }
-      }
-    }
-    window.setTimeout(
-      () => setWorkspaceExpandTransitioning(false),
-      220
-    );
-  }, [
-    normalWorkspacePanelWidth,
-    selectedId,
-    workspaceExpanded,
-    workspacePanelWidth,
-  ]);
-
-  useEffect(() => {
-    setPreviewFile(null);
-    setAgentChangedFiles(new Set());
-    setHasMoreOlder(false);
-    setOldestMessageId(null);
-    setLoadingOlder(false);
-    try {
-      const saved = currentProject?.path
-        ? localStorage.getItem(
-            `divine:workspace-panel-open:${currentProject.path}`
-          )
-        : null;
-      setWorkspacePanelOpen(saved === "1");
-    } catch {
-      setWorkspacePanelOpen(false);
-    }
-    try {
-      setAcceptedFiles(
-        currentProject?.path
-          ? new Set(
-              JSON.parse(
-                localStorage.getItem(acceptedFilesKey(currentProject.path)) ??
-                  "[]"
-              ) as string[]
-            )
-          : new Set()
-      );
-    } catch {
-      setAcceptedFiles(new Set());
-    }
-    if (!isTauri() || !currentProject?.path) return;
-    void watchWorkspace(currentProject.path).catch(() => undefined);
-    return () => {
-      void unwatchWorkspace(currentProject.path).catch(() => undefined);
-    };
-  }, [currentProject?.path]);
-
-  useEffect(() => {
-    if (!currentProject?.path) return;
-    try {
-      localStorage.setItem(
-        `divine:workspace-panel-open:${currentProject.path}`,
-        workspacePanelOpen ? "1" : "0"
-      );
-    } catch {
-      // localStorage unavailable, state stays in memory
-    }
-  }, [currentProject?.path, workspacePanelOpen]);
 
   // Git 项目检测（从 ChatHeader 上移到 ChatPage，避免级联渲染 FileTree）
   const gitFetchIdRef = useRef(0);
@@ -1087,35 +879,6 @@ export default function ChatPage() {
 
   const trafficSafe =
     isMacosDesktop() && workspaceExpandedLayout && !sidebarOpen;
-
-  useEffect(() => {
-    if (!workspacePanelOpen) return;
-    const updateWidth = () => {
-      const leftWidth = sidebarOpen ? 244 : 0;
-      setWorkspacePanelWidth((prev) => {
-        const available = Math.max(
-          320,
-          window.innerWidth - leftWidth - 900 - 48
-        );
-        if (workspaceExpandedLayout) {
-          return expandedWorkspaceWidth(leftWidth);
-        }
-        const current = Math.max(320, Math.min(760, prev));
-        const ratio = current / available;
-        const next = Math.max(320, Math.min(760, ratio * available));
-        return Math.round(next);
-      });
-    };
-    window.addEventListener("resize", updateWidth);
-    return () => window.removeEventListener("resize", updateWidth);
-  }, [sidebarOpen, workspaceExpandedLayout, workspacePanelOpen]);
-
-  useEffect(() => {
-    if (!workspacePanelOpen || !workspaceExpandedLayout) return;
-    setWorkspacePanelWidth(
-      expandedWorkspaceWidth(sidebarOpen ? 244 : 0)
-    );
-  }, [sidebarOpen, workspaceExpandedLayout, workspacePanelOpen]);
 
   return (
     <Flex
