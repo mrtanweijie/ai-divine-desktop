@@ -11,26 +11,30 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 
 ## 功能特性
 
-- DeepSeek 流式对话，支持深度思考、会话历史、会话搜索（含拼音检索）和标题自动生成
-- 项目化会话：项目工作区、项目图标、会话按项目组织
-- 本地文件分析：Word、Excel、Markdown、PDF、图片识别、网页抓取
-- 文档生成：Markdown 笔记、Word、PPT、Excel
-- 本地 RAG：工作区文档向量索引与检索
-- 计划与审批：复杂任务先创建待办计划，高危操作请求用户确认
+- 多模型对话：DeepSeek 流式对话（深度思考），支持多模型配置与按会话切换；无 Key 时自动降级本地演示 Agent
+- 会话能力：会话历史、标题自动生成、会话搜索（含拼音检索）、项目化组织（项目工作区/图标）
+- 会话记忆：长期记忆（偏好/事实/事件，写入时去重、纠正时自动过期）+ 会话内历史回溯（提问窗口外问题时自动检索早期对话并注入）
+- 本地文件分析：Word、Excel、Markdown、PDF、图片识别（GLM 视觉）、网页抓取（JS 动态页自动浏览器兜底）、批量抓取、联网搜索
+- 文档与可视化生成：Word、PPT、Excel、PDF（报告/商业分析/旅行/路线图/书/幻灯片配方）、Markdown、SVG 矢量图、ECharts 图表、Mermaid 图、完整 UX 交互 HTML
+- 本地 RAG：工作区文档自研 SQLite 倒排索引检索（词频 + doc_freq，无需 embedding 模型）
+- 技能系统：安装/迁移/预览第三方 SKILL.md 技能（GitHub/Gitee），内置技能中心
+- MCP 连接器：配置并连接外部 MCP server，工具自动并入 Agent（隐私：连接结果需信任授权）
+- 本地模型（可选）：llama-server 驱动的意图识别、长文本预整理与本地问答，数据不出本机
+- 计划与审批：复杂任务先建待办计划，高危操作（终端命令、git 提交、文件改动）请求用户确认
 - 定时任务与日程：提醒、定时任务、日历事件，macOS 可同步系统日历
-- 终端工具：可交互终端，高危命令需用户确认
-- Markdown 渲染与 Shiki 代码高亮
-- SQLite 本地存储，数据默认保存在本机
+- 后台任务与子代理：dev server/长任务后台运行并可查状态；大任务并行拆分给多个子 Agent
+- 交互式终端、Markdown 渲染与 Shiki 代码高亮
+- SQLite 本地存储，数据默认保存在本机，不依赖云端账号
 - 快捷键：应用内统一 keymap（macOS ⌘ / 其他平台 Ctrl），系统级全局快捷键唤起/隐藏窗口
-- Tauri 2 + Rust 桌面壳，启动时自动拉起并监控 FastAPI sidecar
+- Tauri 2 + Rust 桌面壳：启动自动拉起并监控 FastAPI sidecar（掉线重启）
 - 自研 React UI 组件，不引入 AntD
 
 ## 技术栈
 
 | 层 | 技术 |
 | --- | --- |
-| 后端 | FastAPI、Uvicorn、SQLite、LangChain DeepSeek、GLM 视觉模型、PyInstaller |
-| 前端 | Vite、React 19、TypeScript、react-markdown、Shiki、自研组件 |
+| 后端 | FastAPI、Uvicorn、SQLite（自研倒排索引检索）、LangChain + LangGraph Agent、多模型（DeepSeek/GLM/MiniMax）、llama-server 本地模型、PyInstaller |
+| 前端 | Vite、React 19、TypeScript、react-markdown、Shiki、ECharts、自研组件 |
 | 桌面壳 | Tauri 2 + Rust，sidecar 生命周期管理、托盘、macOS Calendar 桥接 |
 
 ## 目录结构
@@ -38,11 +42,16 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 | 目录 | 说明 |
 | --- | --- |
 | `divine-server` | FastAPI sidecar：API、Agent、SSE、SQLite、工具系统 |
-| `divine-server/app/agent` | Agent 编排、prompt、工具执行与 SSE 流拆分的子模块 |
-| `divine-server/app/db` | SQLite 连接、迁移与按领域拆分的仓储 |
+| `divine-server/app/agent` | Agent 编排（LangGraph）、prompt、工具执行、意图裁剪与 SSE 拆分 |
+| `divine-server/app/api` | HTTP/SSE/WebSocket 路由（chat、settings、mcp、skills、local_llm 等） |
+| `divine-server/app/db` | SQLite 连接、迁移与按领域拆分的仓储（含自研检索原语） |
+| `divine-server/app/docgen` | 文档生成（PDF/Word/PPT/图表/简历等渲染器） |
 | `divine-server/app/llm` | LLM provider、DSML 流解析与 LangChain 适配 |
+| `divine-server/app/mcp` | MCP server 连接管理（stdio/SSE） |
+| `divine-server/app/skills` | SKILL.md 技能注册与执行 |
 | `divine-server/app/tools/adapters` | 工具注册与参数定义 |
 | `divine-server/app/tools/scripts` | 工具子进程脚本 |
+| `divine-server/evals` | 独立评测 harness（fake_model + scenarios，agent 离线验证） |
 | `divine-app` | Vite + React + TypeScript 前端，自研组件 |
 | `divine-app/src-tauri` | Tauri 2 + Rust 桌面壳 |
 | `docs` | 项目方案文档 |
@@ -52,7 +61,7 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 
 ### 1. 启动后端
 
-需要 Python 3.11+，开发环境当前使用 Python 3.14.6。
+需要 Python 3.12+（代码使用了 3.12 f-string 语法），开发环境当前使用 Python 3.14。
 
 ```bash
 cd divine-server
@@ -162,47 +171,66 @@ pnpm tauri:dev
 
 ## 工具系统
 
+当前注册 62 个工具（随 MCP/技能动态增减），按名称排序：
+
 | 工具 | 用途 |
 | --- | --- |
-| `apply_patch` | 应用标准 unified diff 补丁（多文件、支持新建文件），上下文定位允许行号漂移与空白容错 |
+| `apply_patch` | 应用 unified diff 补丁（多文件/新建），允许行号漂移与空白容错 |
+| `bg_kill` / `bg_output` / `bg_status` | 后台任务：停止、读取最近输出、查看状态 |
 | `calculator` | 安全计算数学表达式 |
 | `clipboard` | 读取、写入、清空系统剪贴板 |
 | `create_plan` | 为复杂任务创建待办计划 |
-| `directory_tree` | 查看目录树结构 |
-| `format_code` | 代码格式化（ruff format/prettier 自动识别），返回变更统计；与 terminal 同一安全策略 |
-| `git` | 读写 git 状态（status/diff/log 只读，commit/revert 需确认） |
-| `describe_svg` | 读取现有 SVG，返回画布、元素、关键 id 和结构摘要 |
-| `draw_svg` | 从零生成 SVG 矢量图/图标/插画，默认保存到 `svg/`；正文中的 SVG 代码块会在前端自动渲染预览 |
-| `edit_files` | 按 SEARCH/REPLACE 批量修改或创建多个文本文件；SEARCH 必须精确匹配，创建新文件时 search 传空字符串 |
-| `edit_lines` | 按行号范围精确编辑单个文件（替换/删除/插入），作为 SEARCH/REPLACE 的备选；返回变更区间 diff |
-| `edit_svg` | 基于现有 SVG 修改，只改动用户提到的元素并保持其他不变 |
-| `generate_chart` | 根据分析结果生成 ECharts 图表并在对话中内联展示 |
-| `glob_files` | 按 glob 模式匹配文件（支持 `**` 递归），遵循 .gitignore，按修改时间新→旧排序 |
-| `image_resize` | 缩放图片 |
-| `lint_check` | 静态检查（ruff/mypy/eslint/tsc 自动识别），返回结构化问题列表；与 terminal 同一安全策略 |
-| `list_definitions` | 代码文件结构大纲（类/函数/接口+起始行号）：Python 语法解析，ts/js/rs/go/java 启发式 |
-| `move_file` | workspace 内移动/重命名文件或目录，自动创建目标父目录，覆盖需确认参数 |
-| `mermaid_export` | 把 Mermaid 流程图源码保存为 `.mmd` 文件 |
+| `describe_svg` | 读取现有 SVG，返回画布、元素、关键 id 与结构摘要 |
+| `directory_tree` | 查看目录树结构（忽略 .gitignore/node_modules） |
+| `discover_importable_skills` | 扫描本机其他 AI 工具已安装的技能，列出可迁移候选 |
+| `draw_svg` | 从零生成 SVG 矢量图/图标/插画 |
+| `edit_files` | 按 SEARCH/REPLACE 批量修改/创建文件（SEARCH 需精确匹配） |
+| `edit_lines` | 按行号范围精确编辑单个文件 |
+| `edit_svg` | 基于现有 SVG 局部修改，只动用户提到的元素 |
+| `forget_memory` | 删除一条长期记忆（用户纠正"记错了"时） |
+| `format_code` | 代码格式化（ruff format / prettier 自动识别） |
+| `generate_chart` | 生成 ECharts 图表并在对话中内联展示 |
+| `git_commit` / `git_revert` | 提交改动 / 还原未提交改动（均需确认） |
+| `git_diff` / `git_log` / `git_status` | 查看未提交 diff / 提交历史 / 仓库状态 |
+| `glob_files` | 按 glob 模式匹配文件（`**` 递归），新→旧排序 |
+| `grep_files` | 按内容搜索文本文件（正则），返回行级命中 |
+| `image_generate` | 文生图/图生图（MiniMax 与 GLM-Image 后端） |
+| `image_resize` | 缩放本地图片 |
+| `install_skill` | 从 GitHub/Gitee 安装 SKILL.md 技能 |
+| `lint_check` | 静态检查（ruff/mypy/eslint/tsc 自动识别），返回结构化问题 |
+| `list_definitions` | 代码文件结构大纲（类/函数 + 起始行号） |
+| `mermaid_export` | 把 Mermaid 源码保存为 `.mmd` 文件 |
+| `migrate_skill` / `migrate_skills` | 把本机发现的技能迁移到 AI Divine（单个/批量） |
+| `move_file` | workspace 内移动/重命名文件或目录 |
 | `notes` | 生成 Markdown 笔记 |
+| `pdf_generate` | 统一 PDF 生成入口（报告/商业/旅行/路线图/书/幻灯片配方） |
+| `pdf_render` | 把 Markdown 渲染为排版 PDF（weasyprint，失败自动转 reportlab 富渲染） |
 | `pdf_split_merge` | 拆分、合并 PDF |
-| `presentation` | 生成 PPT 演示文稿 |
-| `rag_index` | 建立工作区本地向量索引 |
-| `rag_search` | 检索工作区本地资料 |
-| `read_file` | 读取文本、Office、PDF、表格等文件；支持 start_line/end_line 分段读取 |
-| `read_image` | 用 GLM 视觉模型识别图片 |
-| `run_subagents` | 把大任务拆成多个相互独立的子任务，并行委托给多个只读子 Agent 执行并汇总结果 |
-| `run_tests` | 运行项目测试（pytest/jest/vitest/npm test 自动识别），返回失败用例列表与计数；与 terminal 同一安全策略 |
-| `ux_html` | 保存 Agent 按用户选择的风格与需求文档自定义设计的完整 UX 交互 HTML，默认写入项目工作区 `html/`；HTML/SVG 文件可在文件面板直接预览 |
-| `schedule_task` | 创建和管理定时提醒/定时任务 |
-| `search_files` | 按文件名搜索工作区文件 |
-| `spreadsheet` | 生成 Excel 表格 |
-| `sqlite_query` | 只读查询本地 SQLite 数据库 |
-| `svg_to_png` | 将最终 SVG 导出为 PNG 位图 |
-| `terminal` | 执行终端命令，高危命令需确认 |
-| `web_fetch` | 抓取网页内容，JS 动态渲染页面自动浏览器兜底，可监听数据接口直取 JSON |
-| `web_fetch_batch` | 批量抓取多个网页/数据源并汇总返回，JS 页面自动浏览器兜底 |
-| `word_document` | 生成 Word 文档 |
-| `write_calendar` | 创建和管理日程/日历事件 |
+| `presentation` | 生成 PPT（14 种版式） |
+| `preview_skill_repo` | 只读预览远程仓库中的 SKILL.md 后再决定安装 |
+| `rag_index` | 扫描工作区文本并建立本地索引 |
+| `rag_search` | 在工作区本地索引中检索相关内容（自研倒排，非向量库） |
+| `read_file` | 读取文本/Office/PDF/表格等；支持行号分段 |
+| `read_image` | 用 GLM 视觉模型识别图片（本地路径或 URL） |
+| `remember` | 保存用户稳定的偏好/事实/事件到长期记忆（自动去重与过期） |
+| `review_changes` | 对工作区未提交改动做自动 code review，输出问题清单 |
+| `run_subagents` | 把大任务拆成独立子任务，并行委托子 Agent 并汇总 |
+| `run_tests` | 运行自动化测试（pytest/jest/vitest 自动识别），返回失败列表 |
+| `schedule_task` | 创建定时提醒/定时任务 |
+| `search_files` | 按文件名/路径关键字搜索工作区文件 |
+| `spreadsheet` | 生成带专业样式的 Excel（主题/斑马纹/冻结表头/自动筛选） |
+| `sqlite_query` | 只读查询本地 SQLite（仅 SELECT/PRAGMA/WITH） |
+| `svg_to_png` / `svg_to_png_batch` | SVG 导出 PNG / 批量导出多尺寸（iOS/Android 图标） |
+| `terminal` | 执行终端命令，高危命令需确认；会话内工作目录延续 |
+| `undo_last_turn` | 撤销 Agent 最近的文件改动（恢复快照） |
+| `ux_html` | 保存 Agent 设计的完整 UX 交互 HTML，可文件面板预览 |
+| `web_fetch` / `web_fetch_batch` | 抓取网页/批量抓取，JS 动态页自动浏览器兜底，可监听数据接口取 JSON |
+| `web_search` | 联网搜索，返回标题/链接/摘要 |
+| `word_document` | 生成 Word 文档（标题/表格/图片/代码块等元素） |
+| `write_calendar` | 写入日程/日历事件 |
+| `write_file` | 创建/写入 workspace 内文本文件 |
+
+工具行为的两条默认：输出路径必须落在 workspace 内（越界拒绝）；高危操作（terminal、git 提交/还原、文件改动等）一律先征求用户确认。
 
 ## API
 
@@ -215,9 +243,16 @@ pnpm tauri:dev
 | `/api/scheduled-tasks` | 定时任务管理 |
 | `/api/calendar-events` | 日程管理 |
 | `/api/files` | 工作区文件列表与下载 |
-| `/api/settings` | 运行时设置 |
+| `/api/settings` | 运行时设置（含多模型、MCP 配置） |
+| `/api/mcp` | MCP server 状态查询与连接测试 |
+| `/api/skills` | 技能（SKILL.md）安装与管理 |
+| `/api/local_llm` | 本地模型（llama-server）状态、启停与模型管理 |
+| `/api/pdf-themes` | PDF 主题管理 |
+| `/api/git` | git 操作入口 |
 | `WS /api/terminal` | 交互式终端 |
 | `POST /api/terminal/decide` | 审批待确认的终端命令 |
+
+错误响应统一为 `{"detail": ...}`：业务校验 4xx（HTTPException），未捕获异常 500（全局 exception handler 兜底，detail 截断可读信息）。
 
 ## 数据目录
 
@@ -292,7 +327,7 @@ unset TAURI_SIGNING_PRIVATE_KEY
 export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/divine.key"
 ```
 
-本地打包并上传 GitHub Release：
+本地打包并上传 Release：
 
 ```bash
 bash scripts/publish-macos.sh \
