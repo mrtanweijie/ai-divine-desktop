@@ -387,6 +387,8 @@ async def stream_chat(request: StreamChatRequest):
                 )
                 model_history = _replace_last_user(history, model_question)
             else:
+                # 带附件时不做本地能力路由（task=None → 走云端 agent）
+                task = None
                 if not request.attachments:
                     task = _detect_local_task(
                         model_question, _ai_asking_hint(history)
