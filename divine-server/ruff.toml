@@ -1,0 +1,17 @@
+# ruff 配置：显式声明规则集，仓库内自包含（不依赖上级目录/环境默认）。
+#
+# 用法：.venv/bin/python -m ruff check app/
+# 门禁基线（2026-09-02 首跑，select E/F、ignore E501）：
+#   app/ 下 F 类错误若干（未使用 import、未定义名等）——清理目标见 git 备注。
+# 后续可逐步加入 E501 之外更宽的规则（I/BLE/UP 等）并收紧 ignore。
+line-length = 88
+# 代码使用了 3.12+ 的 f-string 语法（反斜杠/引号复用），实际运行环境为 3.14
+target-version = "py312"
+exclude = ["build", "dist", "bin", ".venv"]
+
+[lint]
+# E = pycodestyle（错误级），F = pyflakes（未使用 import/未定义名/重复定义等）
+select = ["E", "F"]
+ignore = [
+    "E501",  # 行长——历史代码大量超长，先不设门禁
+]
