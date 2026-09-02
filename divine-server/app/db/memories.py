@@ -1,44 +1,25 @@
 """Long-term user memory repository.
 
 Memories are lightweight, single-user, SQLite-persisted preference/fact
-entries that outlive any single session. Retrieval reuses the local
-tokenize + TF-IDF + cosine scoring approach from ``app.rag_store`` so no
-embedding model or FTS5 dependency is required.
+entries that outlive any single session. Retrieval reuses the shared local
+tokenize + TF-IDF + cosine scoring primitives from ``app.db.retrieval`` so
+no embedding model or FTS5 dependency is required.
 """
 
 from __future__ import annotations
 
 import math
-import re
 from typing import Any
 
 from .connection import get_conn, _new_id, _now
-
-_TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
-_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+from .retrieval import term_frequency as _term_frequency
+from .retrieval import tokenize as _tokenize
 
 _ACTIVE = "active"
 _SUPERSEDED = "superseded"
 
 # Soft-deletion keeps audit history; only active rows are returned by default.
 _ALLOWED_CATEGORIES = ("preference", "fact", "event")
-
-
-def _tokenize(text: str) -> list[str]:
-    words = [word.lower() for word in _TOKEN_RE.findall(text)]
-    cjk_chars = _CJK_RE.findall(text)
-    bigrams = [
-        cjk_chars[index] + cjk_chars[index + 1]
-        for index in range(len(cjk_chars) - 1)
-    ]
-    return words + cjk_chars + bigrams
-
-
-def _term_frequency(tokens: list[str]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for token in tokens:
-        counts[token] = counts.get(token, 0) + 1
-    return counts
 
 
 def _row_to_dict(row: Any) -> dict[str, Any]:

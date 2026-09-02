@@ -11,6 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ... import db
 from ...config import settings_store
+from ...db.retrieval import rank_documents
 from ...localization import language_instruction
 from ...skills import skill_registry
 from .constants import MAX_TOOL_TURNS
@@ -64,6 +65,37 @@ _MEMORY_CATEGORY_LABELS = {
 # Hard cap for the injected memory block (tokens ≈ chars / 1.5 for CJK).
 _MEMORY_BLOCK_CHAR_LIMIT = 2200
 
+# 回溯提问快路径关键词：命中时放宽触发条件（无需显著优于窗口）。
+# 关键词只作加速，不承担召回完整性——未命中的表达由"检索对比"兜底。
+_BACKTRACK_KEYWORDS = (
+    "之前",
+    "刚才",
+    "以前",
+    "前面",
+    "第一次",
+    "那时",
+    "原来",
+    "一开始",
+    "说过",
+    "聊过",
+    "上次",
+    "还记得",
+)
+
+# 会话历史回溯块预算（与记忆块同量级，token ≈ chars / 1.5）。
+_HISTORY_BACKTRACK_CHAR_LIMIT = 1200
+# 单条命中片段上限，超出截断。
+_HISTORY_SNIPPET_CHAR_LIMIT = 200
+# 最低相关度：低于此值的 TF-IDF 余弦视为噪声，不注入（宁可漏，不可污染）。
+_HISTORY_BACKTRACK_MIN_SCORE = 0.08
+# 窗口大小：与上下文治理的"最近 12 条完整保留"对齐——窗口内内容本就在
+# LLM 上下文里，回溯只关心窗口外命中的早期片段。
+_HISTORY_WINDOW_SIZE = 12
+# 无关键词时，早期命中须显著优于窗口内命中才注入（否则窗口内上下文已足够）。
+_HISTORY_BACKTRACK_MARGIN = 0.08
+# 无关键词且窗口内已足够贴切（当前话题直接能答）时，跳过全历史检索省成本。
+_HISTORY_WINDOW_SKIP_THRESHOLD = 0.6
+
 def _memory_context(messages: list[Any]) -> str | None:
     """Build a compact 'known user info' block from long-term memories.
 
@@ -98,6 +130,86 @@ def _memory_context(messages: list[Any]) -> str | None:
     if not lines:
         return None
     header = "## 关于你已知的用户信息（自然运用，不要刻意提及；若与用户当前说法冲突，以用户当前说法为准）"
+    return header + "\n" + "\n".join(lines)
+
+
+def _top_score(query: str, docs: list[str]) -> float:
+    """TF-IDF 余弦 top1 得分；无命中返回 0。"""
+    hits = rank_documents(query, docs, top_k=1)
+    return hits[0][0] if hits else 0.0
+
+
+def _history_backtrack_context(
+    session_id: str, query: str, limit: int = 3
+) -> str | None:
+    """回溯提问时，从本会话全量历史中检索相关片段并注入。
+
+    触发逻辑（B 方案：关键词快路径 + 检索对比兜底）：
+    - 关键词命中（"之前/刚才/说过/还记得"等）：历史检索 top1 高于噪声阈值即注入
+      ——快路径，但最终仍由相关度把关，避免误触发。
+    - 未命中关键词：早期片段须**显著优于窗口内命中**（差值 margin）才注入——
+      因为窗口内容本就在 LLM 上下文里，只有"窗口外的答案"才值得补。
+    - 窗口内已足够贴切（top ≥ 0.6）且无关键词：跳过全历史检索，省成本。
+
+    数据源是 ``db.list_messages``（全量历史，含窗口外消息），TF-IDF 余弦打分
+    （``app.db.retrieval``），注入时跳过窗口内片段（避免重复占用预算），输出
+    受预算约束的参考块。任何异常都不应打断对话，返回 None。
+    """
+    query = (query or "").strip()
+    if not session_id or not query:
+        return None
+    keyword_hit = any(
+        keyword in query for keyword in _BACKTRACK_KEYWORDS
+    )
+    try:
+        rows = db.list_messages(session_id)
+    except Exception:  # noqa: BLE001 — retrieval must never break a turn
+        logger.exception("history backtrack load failed")
+        return None
+    docs: list[str] = []
+    for row in rows:
+        role = str(row.get("role") or "")
+        content = str(row.get("content") or "").strip()
+        if role not in ("user", "assistant") or not content:
+            continue
+        docs.append(content)
+    if len(docs) < 2:
+        return None
+
+    window = docs[-_HISTORY_WINDOW_SIZE:]
+    window_top = _top_score(query, window)
+    if not keyword_hit and window_top >= _HISTORY_WINDOW_SKIP_THRESHOLD:
+        return None  # 当前话题贴切，直接能答，无需回溯
+
+    hits = rank_documents(query, docs, top_k=max(1, limit * 2))
+    if not hits:
+        return None
+    history_top = hits[0][0]
+    if history_top < _HISTORY_BACKTRACK_MIN_SCORE:
+        return None
+    if not keyword_hit and not (
+        history_top > window_top + _HISTORY_BACKTRACK_MARGIN
+    ):
+        return None  # 早期没有显著优于窗口的答案
+
+    # 注入：跳过窗口内 index（已在 LLM 上下文里，避免重复占用预算）。
+    window_indices = set(range(len(docs) - len(window), len(docs)))
+    lines: list[str] = []
+    used = 0
+    for score, index in hits:
+        if score < _HISTORY_BACKTRACK_MIN_SCORE:
+            break  # 降序排列，后续只会更低
+        if index in window_indices:
+            continue
+        snippet = docs[index].replace("\n", " ")[:_HISTORY_SNIPPET_CHAR_LIMIT]
+        line = f"- (相关度 {score:.2f}) {snippet}"
+        if used + len(line) > _HISTORY_BACKTRACK_CHAR_LIMIT:
+            break
+        lines.append(line)
+        used += len(line)
+    if not lines:
+        return None
+    header = "## 会话历史中与回溯提问相关的片段（供参考，可能来自早期对话）"
     return header + "\n" + "\n".join(lines)
 
 def _auto_rag_context_lc(
@@ -346,6 +458,9 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
         memory_block = _memory_context(request.state.get("messages") or [])
         if memory_block:
             parts.append(memory_block)
+        history_block = _history_backtrack_context(ctx.session_id, last_user_text)
+        if history_block:
+            parts.append(history_block)
         rag_context = _auto_rag_context_lc(
             request.state.get("messages") or [], ctx.workspace
         )
