@@ -540,7 +540,7 @@ class ResumeRecipe(PDFRecipe):
                 f'<span class="skill-tag">{html_lib.escape(str(skill))}</span>'
                 for skill in skills
             )
-            lines.append(f'<div class="resume-section-title">核心技能</div>')
+            lines.append('<div class="resume-section-title">核心技能</div>')
             lines.append(f'<div class="skill-tags">{tags}</div>')
 
         for section in intent.sections:

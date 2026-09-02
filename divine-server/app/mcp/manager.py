@@ -399,7 +399,7 @@ class McpManager:
             raise RuntimeError(
                 f"MCP 工具 {info.tool_name} 执行超时（{_TOOL_CALL_TIMEOUT:.0f}s）"
             ) from exc
-        except Exception as exc:  # noqa: BLE001 — 调用失败后标记，下次重连
+        except Exception:  # noqa: BLE001 — 调用失败后标记，下次重连
             self._last_failure[info.server_id] = time.monotonic()
             raise
 

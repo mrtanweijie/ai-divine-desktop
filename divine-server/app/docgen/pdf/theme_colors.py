@@ -600,23 +600,23 @@ def derive_teal_scale(primary_color: str) -> dict[str, str] | None:
         ),
     }
     # 浅色档：50→500 逐步接近白（亮度递增）
-    for idx, l in enumerate(
+    for idx, lightness in enumerate(
         [min(base_l + 0.62, 0.97), min(base_l + 0.50, 0.93),
          min(base_l + 0.38, 0.87), min(base_l + 0.27, 0.80),
          min(base_l + 0.15, 0.72), base_l + 0.05]
     ):
         key = "--teal-50" if idx == 0 else f"--teal-{idx * 100}"
         scale[key] = _rgb_to_hex(
-            (round(c * 255) for c in colorsys.hls_to_rgb(hue, l, saturation))
+            (round(c * 255) for c in colorsys.hls_to_rgb(hue, lightness, saturation))
         )
     # 深色档：700→900 逐步接近黑
-    for idx, l in enumerate(
+    for idx, lightness in enumerate(
         [max(base_l - 0.06, 0.06), max(base_l - 0.12, 0.04),
          max(base_l - 0.18, 0.02)]
     ):
         key = f"--teal-{700 + idx * 100}"
         scale[key] = _rgb_to_hex(
-            (round(c * 255) for c in colorsys.hls_to_rgb(hue, l, saturation))
+            (round(c * 255) for c in colorsys.hls_to_rgb(hue, lightness, saturation))
         )
     return scale
 

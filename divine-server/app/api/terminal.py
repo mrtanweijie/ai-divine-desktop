@@ -11,7 +11,6 @@ from typing import Any
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from ..tools.terminal_policy import terminal_command_policy
 
 router = APIRouter(prefix="/api", tags=["terminal"])
 

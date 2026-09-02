@@ -6,7 +6,6 @@
 """
 
 from pathlib import Path
-from typing import Any
 
 try:
     from .renderers import _RENDERERS

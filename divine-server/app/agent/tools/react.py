@@ -50,7 +50,7 @@ REACT_MAX_THOUGHT_LEN = 2000
 
 # REACT_FORMAT_PROMPT 已移至 core 层 prompts.py（消除 prompts↔react 惰性环）。
 # 此处保留别名兼容历史引用（若未来直接 import 本模块的该常量）。
-from ..core.prompts import REACT_FORMAT_PROMPT  # noqa: F401  (re-exported alias)
+from ..core.prompts import REACT_FORMAT_PROMPT  # noqa: E402, F401  (re-exported alias)
 
 # --- trace model ----------------------------------------------------------
 

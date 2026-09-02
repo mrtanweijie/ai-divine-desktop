@@ -31,7 +31,6 @@ from ...config import DEFAULT_LOCAL_LLM_PORT, DEFAULT_LOCAL_LLM_THRESHOLD
 
 from .model_registry import (
     MODEL_REGISTRY,
-    ModelEntry,
     delete_model,
     download_custom_model,
     download_model,

@@ -15,3 +15,12 @@ select = ["E", "F"]
 ignore = [
     "E501",  # 行长——历史代码大量超长，先不设门禁
 ]
+
+[lint.per-file-ignores]
+# __init__.py 的 import 是包的 re-export 聚合层（如 db/__init__.py 79 条），
+# 是公开 API 的一部分，不报 F401。
+"**/__init__.py" = ["F401"]
+# chat.py 拆分后保留 re-export 块以兼容 `from app.api.chat import _xxx`（测试依赖）
+"app/api/chat.py" = ["F401", "E402"]
+# 简历模板渲染器：`if x: html += ...` 单行紧凑风格（HTML 拼接可读性不受影响）
+"app/docgen/resume/renderers/professional.py" = ["E701"]

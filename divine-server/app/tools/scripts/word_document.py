@@ -13,7 +13,6 @@ from app.docgen.word.elements import (  # noqa: E402
     add_code_block,
     add_image,
     add_quote,
-    add_rich_text,
 )
 from app.docgen.word.markdown import markdown_to_document  # noqa: E402
 from app.docgen.word.themes import (  # noqa: E402

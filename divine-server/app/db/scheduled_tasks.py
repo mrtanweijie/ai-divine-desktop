@@ -93,7 +93,6 @@ def update_scheduled_task(
     task = get_scheduled_task(task_id)
     if not task:
         raise KeyError(task_id)
-    merged = {**task, **{k: v for k, v in fields.items() if v is not None}}
     columns = [
         "title",
         "description",

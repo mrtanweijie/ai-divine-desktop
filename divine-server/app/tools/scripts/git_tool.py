@@ -117,7 +117,7 @@ def _action_log(workspace: Path, params: dict) -> dict:
     output = result.get("stdout") or ""
     return {
         "success": True,
-        "message": f"最近 {len([l for l in output.splitlines() if l])} 条提交",
+        "message": f"最近 {len([line for line in output.splitlines() if line])} 条提交",
         "content": output,
     }
 

@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from .theme_manager import resolve_color
 from .base import PDFRecipe

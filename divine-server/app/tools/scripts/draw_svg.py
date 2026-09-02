@@ -54,7 +54,7 @@ def main() -> None:
         )
         return
     try:
-        root = parse_svg(content)
+        parse_svg(content)  # 校验 SVG 合法性（解析结果无需使用）
     except Exception as exc:  # noqa: BLE001
         print(
             json.dumps(

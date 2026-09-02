@@ -22,7 +22,6 @@ from urllib.parse import urlparse
 # 加入 sys.path，需显式加入以支持兄弟模块 web_common 的导入。
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import web_common
 from web_common import (
     MAX_SINGLE_CONTENT,
     SPARSE_TEXT_THRESHOLD,

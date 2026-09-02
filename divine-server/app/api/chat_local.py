@@ -862,7 +862,6 @@ async def stream_local_chat(
         )
         return
 
-    lang = "中文" if str(locale or "").startswith("zh") else "English"
     from ..config import settings_store
 
     ctx_size = int(settings_store.load().get("local_llm_ctx_size") or 4096)

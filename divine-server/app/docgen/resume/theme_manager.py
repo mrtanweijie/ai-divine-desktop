@@ -5,9 +5,6 @@
 - 缓存编译后的 CSS
 """
 
-import hashlib
-import json
-from pathlib import Path
 from typing import Optional
 
 

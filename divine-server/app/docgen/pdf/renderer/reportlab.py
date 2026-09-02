@@ -264,10 +264,12 @@ def _render_rich_reportlab(
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import Paragraph, SimpleDocTemplate
 
-    from .. import export
 
-    pdf_export._register_font()
-    styles = _reportlab_styles(pdf_export.FONT_NAME)
+    # TODO(docgen): pdf_export 模块在 docgen 重构后已不存在，此富渲染路径每次
+    # 都会失败并 fallback 到 export.render_markdown_pdf（见 _render_with_reportlab）。
+    # 属重构遗留专项，待决定保留（需补字体注册）或删除该函数。
+    pdf_export._register_font()  # noqa: F821
+    styles = _reportlab_styles(pdf_export.FONT_NAME)  # noqa: F821
     prepared = _prepare_markdown(markdown)
     html_doc = markdown_lib.markdown(
         prepared,

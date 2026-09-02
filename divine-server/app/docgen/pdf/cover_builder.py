@@ -526,7 +526,6 @@ _PLACEHOLDER_RE = re.compile(
 def _fetch_image_data(src: str) -> tuple[bytes, str] | None:
     """下载图片，返回 (data, content_type)；失败/非图片/超限返回 None。"""
     try:
-        import base64
         import urllib.request
 
         request = urllib.request.Request(

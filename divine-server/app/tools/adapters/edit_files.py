@@ -342,7 +342,8 @@ class EditFilesAdapter(ToolAdapter):
                         "SEARCH 必须与文件现有内容完全一致（含缩进、空行和结尾换行），"
                         f"可先调用 read_file 查看文件内容。{hint}"
                     )
-                if count != -1 and occurrences < count:                    raise ToolExecutionError(
+                if count != -1 and occurrences < count:
+                    raise ToolExecutionError(
                         f"编辑项在 {target} 中只出现 {occurrences} 次，"
                         f"少于请求的 {count} 次"
                     )
