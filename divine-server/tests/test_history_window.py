@@ -176,3 +176,97 @@ def test_empty_session(monkeypatch, tmp_path):
     from app.db.history import history_for_model
 
     assert history_for_model(session["id"], limit=10) == []
+
+def _add_tool_result(db, session_id, call_id, output="ok"):
+    """真实写入路径：tool 消息 + tool_result part（history 从 part 解析 call_id）。"""
+    tool_msg = db.add_message(
+        session_id, "tool", json.dumps({"tool_call_id": call_id, "output": output})
+    )
+    db.add_message_part(
+        tool_msg["id"], "tool_result", json.dumps({"tool_call_id": call_id}), order=0
+    )
+    return tool_msg
+
+
+# ---- 残缺 tool_calls 组兜底（会话中断/工具失败残留） ----
+
+def _orphan_session(db, partial: bool):
+    """构造含中断 tool_calls 的会话。
+
+    partial=False：assistant(tool_calls) 后完全无 tool 响应（中断）。
+    partial=True：assistant(tool_calls A+B) 只有 tool(A) 入库（部分执行）。
+    """
+    session = db.create_session("残缺组测试")
+    db.add_message(session["id"], "user", "帮我做两件事")
+    if partial:
+        assistant = db.add_message(session["id"], "assistant", "")
+        calls = [
+            {"id": "call-a", "name": "read_file", "args": {}},
+            {"id": "call-b", "name": "grep_files", "args": {}},
+        ]
+        db.add_message_part(
+            assistant["id"], "tool_calls", json.dumps(calls), order=0
+        )
+        # 只有 call-a 有响应，call-b 缺失（模拟中断/执行失败）
+        _add_tool_result(db, session["id"], "call-a")
+    else:
+        assistant = db.add_message(session["id"], "assistant", "")
+        calls = [{"id": "call-x", "name": "read_file", "args": {}}]
+        db.add_message_part(
+            assistant["id"], "tool_calls", json.dumps(calls), order=0
+        )
+        # 无 tool 响应直接结束
+    return session
+
+
+def test_interrupted_tool_calls_dropped(monkeypatch, tmp_path):
+    """完全中断：尾部 assistant tool_calls 无响应 → 从发给模型的历史中剔除。"""
+    db = _setup_db(monkeypatch, tmp_path)
+    session = _orphan_session(db, partial=False)
+
+    from app.db.history import history_for_model
+
+    result = history_for_model(session["id"], limit=50)
+    assert result, "历史不应为空"
+    assert result[-1]["role"] == "user", (
+        "末尾不应残留未配对的 assistant tool_calls，实际末尾: "
+        f"{result[-1].get('role')}"
+    )
+    assert not any(msg.get("tool_calls") for msg in result), (
+        "残缺的 assistant tool_calls 不应出现在模型历史中"
+    )
+
+
+def test_partial_tool_calls_group_dropped(monkeypatch, tmp_path):
+    """部分执行：并行 tool_calls 只回了 A → 残缺组（assistant + tool A）整体剔除。"""
+    db = _setup_db(monkeypatch, tmp_path)
+    session = _orphan_session(db, partial=True)
+
+    from app.db.history import history_for_model
+
+    result = history_for_model(session["id"], limit=50)
+    assert result[-1]["role"] == "user", (
+        "残缺组应被整体剔除（assistant tool_calls + 已回的单条 tool），"
+        f"实际末尾: {result[-1].get('role')}"
+    )
+    assert not any(msg.get("role") == "tool" for msg in result), (
+        "残缺组的 tool 结果不应孤立存在（其 assistant 已被剔除）"
+    )
+
+
+def test_complete_tool_group_kept(monkeypatch, tmp_path):
+    """对照组：完整配对的 tool_calls 组不受影响（防误删回归）。"""
+    db = _setup_db(monkeypatch, tmp_path)
+    session = _orphan_session(db, partial=True)
+    # 补齐 call-b 的响应 → 组变完整
+    _add_tool_result(db, session["id"], "call-b")
+    db.add_message(session["id"], "assistant", "都完成了")
+
+    from app.db.history import history_for_model
+
+    result = history_for_model(session["id"], limit=50)
+    assert any(msg.get("tool_calls") for msg in result), "完整组应保留"
+    assert sum(1 for msg in result if msg.get("role") == "tool") == 2, (
+        "两个 tool 响应都应保留"
+    )
+    assert result[-1]["role"] == "assistant"

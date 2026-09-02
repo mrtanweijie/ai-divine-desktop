@@ -230,6 +230,16 @@ def history_for_model(
             continue
         if content:
             result.append({"role": message["role"], "content": content})
+    if pending_tool_call_ids:
+        # 会话中断/工具执行失败会在 DB 里留下"assistant tool_calls 缺 tool 响应"
+        # 的残缺组（例如并行调用只回了一部分）。OpenAI 兼容 API 对此返回 400
+        # （assistant tool_calls 必须被 tool 消息逐条接续），这里从尾部回退删除：
+        # 先丢弃残缺组的 tool 结果，再丢弃未配对的 assistant tool_calls，
+        # 让模型在下一轮重新规划而不是带着非法序列请求。
+        while result and result[-1].get("role") == "tool":
+            result.pop()
+        if result and result[-1].get("tool_calls"):
+            result.pop()
     if summary_row and summary_row.get("summary"):
         result.insert(
             0,
