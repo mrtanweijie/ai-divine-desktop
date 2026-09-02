@@ -8,8 +8,9 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
+import { pad } from "@/utils";
 import { CalendarPanel } from "./CalendarPanel";
-import { formatDisplay, HOURS, MINUTES, pad, parseValue } from "./dateTimeUtils";
+import { formatDisplay, HOURS, MINUTES, parseValue } from "./dateTimeUtils";
 import "./index.less";
 
 interface DateTimePickerProps {

@@ -1,5 +1,6 @@
 import type { ScheduledTask } from "@/types";
 import i18next from "@/i18n";
+import { pad } from "@/utils";
 
 export function weekdayLabels(): string[] {
   return [
@@ -11,10 +12,6 @@ export function weekdayLabels(): string[] {
     i18next.t("tasks.weekday.saturday", "周六"),
     i18next.t("tasks.weekday.sunday", "周日"),
   ];
-}
-
-export function pad(value: number): string {
-  return String(value).padStart(2, "0");
 }
 
 export function weekdayText(days: number[]): string {

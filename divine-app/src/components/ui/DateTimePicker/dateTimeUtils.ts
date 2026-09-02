@@ -1,12 +1,9 @@
 // Date/time formatting helpers shared by the picker and calendar panel.
 import i18next from "@/i18n";
+import { pad } from "@/utils";
 
 export const HOURS = Array.from({ length: 24 }, (_, index) => index);
 export const MINUTES = Array.from({ length: 12 }, (_, index) => index * 5);
-
-export function pad(value: number): string {
-  return String(value).padStart(2, "0");
-}
 
 export function parseValue(value: string): Date | null {
   if (!value) return null;

@@ -481,7 +481,8 @@
       "tuesday": "二",
       "wednesday": "三"
     },
-    "yesterday": "昨天"
+    "yesterday": "昨天",
+    "dayBefore": "前天"
   },
   "tool": {
     "actionFailed": "工具执行失败，请重试",

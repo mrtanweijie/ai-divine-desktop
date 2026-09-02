@@ -494,7 +494,8 @@
       "tuesday": "T",
       "wednesday": "W"
     },
-    "yesterday": "Yesterday"
+    "yesterday": "Yesterday",
+    "dayBefore": "2 days ago"
   },
   "tool": {
     "actionFailed": "Tool execution failed. Please try again.",

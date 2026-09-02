@@ -236,7 +236,8 @@ export function LocalLLMSection({
     }
   };
 
-  const formatSize = (gb: number) => {
+  // GB 数转可读展示；注意与 utils.formatSize（字节）语义不同，故独立命名。
+  const formatModelSize = (gb: number) => {
     if (gb < 1) {
       return `${Math.round(gb * 1024)} MB`;
     }
@@ -319,11 +320,11 @@ export function LocalLLMSection({
             </p>
             <div className="local-model-meta">
               <span>
-                {t("settings.modelSize", "大小")} {formatSize(model.size_gb)}
+                {t("settings.modelSize", "大小")} {formatModelSize(model.size_gb)}
               </span>
               <span>
                 {t("settings.modelRam", "需要内存")}{" "}
-                {formatSize(model.required_ram_gb)}
+                {formatModelSize(model.required_ram_gb)}
               </span>
               <span>
                 {t("settings.modelQuant", "量化")} {model.quantization}

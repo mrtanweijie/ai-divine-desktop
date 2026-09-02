@@ -5,24 +5,28 @@ export function formatTime(value: string): string {
   if (Number.isNaN(date.getTime())) return "";
   const locale = i18next.language || "zh-CN";
   const now = new Date();
-  const sameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
-  if (sameDay) {
-    return date.toLocaleTimeString(locale, {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  }
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startYesterday = new Date(startToday);
+  startYesterday.setDate(startYesterday.getDate() - 1);
+  const startDayBefore = new Date(startToday);
+  startDayBefore.setDate(startDayBefore.getDate() - 2);
+  const hhmm = date.toLocaleTimeString(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  if (date >= startToday) return hhmm; // 今天：只显时分
+  if (date >= startYesterday)
+    return `${i18next.t("time.yesterday", "昨天")} ${hhmm}`; // 昨天
+  if (date >= startDayBefore)
+    return `${i18next.t("time.dayBefore", "前天")} ${hhmm}`; // 前天
   return date.toLocaleDateString(locale, {
     month: "numeric",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-  });
+  }); // 更早：月日+时分
 }
 
 export function formatSize(bytes: number | undefined): string {
@@ -43,15 +47,9 @@ export function formatTokens(count: number): string {
   return `${text}${suffix}`;
 }
 
-export function groupLabel(value: string): string {
-  const date = new Date(value);
-  const now = new Date();
-  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startYesterday = new Date(startToday);
-  startYesterday.setDate(startYesterday.getDate() - 1);
-  if (date >= startToday) return i18next.t("time.today", "今天");
-  if (date >= startYesterday) return i18next.t("time.yesterday", "昨天");
-  return i18next.t("time.earlier", "更早");
+/** 数字补零到两位：3 → "03"。 */
+export function pad(value: number): string {
+  return String(value).padStart(2, "0");
 }
 
 export async function copyText(text: string): Promise<void> {
