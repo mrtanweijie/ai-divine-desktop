@@ -2,17 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 import logging
 from pathlib import Path
-from typing import Any, AsyncIterator, Callable
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from .. import db
 from ..agent import run_agent
-from ..config import settings_store
+from ..config import settings_store, workspace_dir
 from ..document_reader import read_file_text
 from ..file_types import is_image_path
 from ..localization import default_session_title, normalize_locale

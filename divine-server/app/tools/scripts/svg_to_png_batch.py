@@ -6,13 +6,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from svg_common import parse_svg, svg_metadata  # noqa: E402
-from svg_to_png import (  # noqa: E402
-    _apply_size,
+from svg_common import (  # noqa: E402
     _render_with_cairosvg,
     _render_with_qlmanage,
     _render_with_resvg,
     _render_with_svglib,
+    parse_svg,
+    svg_metadata,
+)
+from svg_to_png import (  # noqa: E402
+    _apply_size,
     _resolve_source,
 )
 

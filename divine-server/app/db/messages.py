@@ -67,13 +67,6 @@ def add_message(
         conn.commit()
     return get_message(message_id)
 
-def get_message(message_id: str) -> dict[str, Any]:
-    with get_conn() as conn:
-        row = conn.execute(
-            "SELECT * FROM messages WHERE id = ?", (message_id,)
-        ).fetchone()
-    return dict(row)
-
 def _attach_token_usage(message: dict[str, Any], row) -> None:
     """Attach token_usage (if any) from a LEFT JOIN row onto the message dict."""
     usage_total = row["usage_total"]

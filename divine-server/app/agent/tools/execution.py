@@ -11,9 +11,9 @@ from typing import Any
 from langgraph.prebuilt import ToolRuntime
 
 from ... import db
-from ...api.terminal import terminal_command_policy
 from ...github_skills import preview_skill_repo
 from ...skills import discover_importable_skills, find_importable_skill
+from ...tools.terminal_policy import terminal_command_policy
 from ..core import _NO_PLAN_TOOLS, _READ_ONLY_TOOLS
 from ..core import AgentRunContext, canonical_path
 from ..state import _frontend_tool_result

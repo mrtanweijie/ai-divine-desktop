@@ -8,7 +8,6 @@ from typing import Any
 from langchain.agents.middleware import AgentMiddleware
 
 from ... import db
-from ...sse import sse_event
 from ..core import AgentRunContext
 
 class TodoSyncMiddleware(AgentMiddleware):

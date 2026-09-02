@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from langchain.agents import create_agent
@@ -27,6 +28,8 @@ from ..core.prompts import _build_dynamic_prompt, _should_ask_plan
 from ..core import _make_args_model, _run_skill_script, _skill_args_model, _skill_tool_name
 
 _CHECKPOINTER = InMemorySaver()
+
+logger = logging.getLogger("divine.agent.tools")
 
 _TOOL_LOCKS: dict[str, asyncio.Lock] = {}
 

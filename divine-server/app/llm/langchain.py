@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from typing import Any
+from typing import Any, AsyncIterator
 
 from langchain_core.language_models.chat_models import SimpleChatModel
 
