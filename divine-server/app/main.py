@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import db
 from .api import (
@@ -81,6 +83,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def register_exception_handlers(app: FastAPI) -> None:
+    """统一 API 错误响应格式为 ``{"detail": ...}``。
+
+    - HTTPException：FastAPI 默认已返回 ``{"detail"}``，显式注册保证跨版本一致。
+    - 未捕获异常：原本会走 Starlette 默认 500（detail 固定英文、无上下文），
+      这里统一为 500 + 截断的错误信息（本地桌面应用，返回可读 detail 便于
+      前端展示与排查；日志由 log_requests middleware 记录，避免重复）。
+    """
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_exception_handler(
+        request: Request, exc: StarletteHTTPException
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code, content={"detail": exc.detail}
+        )
+
+    @app.exception_handler(Exception)
+    async def _unhandled_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
+        detail = str(exc)[:500] or "服务器内部错误"
+        return JSONResponse(status_code=500, content={"detail": detail})
+
+
+register_exception_handlers(app)
 
 
 @app.middleware("http")
