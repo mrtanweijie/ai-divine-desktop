@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowLeftRight,
+  ArrowUpRight,
   Check,
   ChevronDown,
   Copy,
@@ -18,6 +19,7 @@ import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
 import type { ChatMessage, PreviewFile, TodoItem } from "@/types";
 import { copyText, formatSize, formatTime, formatTokens } from "@/utils";
+import { parseSupplement } from "@/pages/chat/chatUtils";
 import { ToolStatusCard } from "./ToolStatusCard";
 import { SubAgentPanel } from "./SubAgentPanel";
 import { groupToolCards } from "./MessageHelpers";
@@ -55,6 +57,8 @@ export const MessageItem = memo(function MessageItem({
 }: MessageItemProps) {
   const { t } = useTranslation();
   const isUser = message.role === "user";
+  // 执行中插话（[用户补充] 前缀）：气泡内显示去前缀正文 + "补充"徽标
+  const supplementText = parseSupplement(message.content);
   return (
     <article className={`message-row ${isUser ? "user-message" : "assistant-message"}`}>
       <Flex
@@ -119,7 +123,13 @@ export const MessageItem = memo(function MessageItem({
           onDoubleClick={() => void copyUserContent(message.content, t)}
           title={t("message.doubleClickCopy", "双击复制")}
         >
-          <div className="user-text">{message.content}</div>
+          {supplementText !== null && (
+            <div className="user-supplement-badge">
+              <ArrowUpRight size={11} />
+              {t("chat.supplementBadge", "补充")}
+            </div>
+          )}
+          <div className="user-text">{supplementText ?? message.content}</div>
           {message.preprocess?.organized && (
             <div className="user-preprocess">
               <span className="user-preprocess-badge">

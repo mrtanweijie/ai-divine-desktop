@@ -11,6 +11,7 @@ import {
   cancelSessionGeneration,
   createSession,
   getSession,
+  injectSupplement,
   messagesToChatMessages,
 } from "@/services/api";
 import { requestRaw } from "@/services/request";
@@ -25,6 +26,7 @@ import {
   changedFilePathsFromResult,
   changedFileRel,
   mergeLocalTools,
+  SUPPLEMENT_PREFIX,
   upsertSubAgent,
   upsertTool,
 } from "@/pages/chat/chatUtils";
@@ -552,5 +554,36 @@ export function useChatStream(options: UseChatStreamOptions) {
     [selectedId]
   );
 
-  return { sendMessage, stopStreaming, retryCloud };
+  // 用户插话（steering）：agent 执行中主动补充信息。乐观渲染带
+  // SUPPLEMENT_PREFIX 前缀的用户气泡后走 /inject 通道；后端无活跃流
+  // （409）或请求失败时移除乐观气泡并返回 false，由调用方降级常规发送
+  // （此时插话语义上就是新一轮消息）。
+  const sendSupplement = useCallback(
+    async (sessionId: string, content: string): Promise<boolean> => {
+      const trimmed = content.trim();
+      if (!trimmed) return false;
+      const optimisticId = `local-user-${Date.now()}`;
+      const optimistic: ChatMessage = {
+        id: optimisticId,
+        role: "user",
+        content: `${SUPPLEMENT_PREFIX} ${trimmed}`,
+        created_at: new Date().toISOString(),
+        tools: [],
+      };
+      setSessionMessages(sessionId, (prev) => [...prev, optimistic]);
+      try {
+        const result = await injectSupplement(sessionId, trimmed);
+        if (!result?.ok) throw new Error("inject rejected");
+        return true;
+      } catch {
+        setSessionMessages(sessionId, (prev) =>
+          prev.filter((item) => item.id !== optimisticId)
+        );
+        return false;
+      }
+    },
+    [setSessionMessages]
+  );
+
+  return { sendSupplement, sendMessage, stopStreaming, retryCloud };
 }

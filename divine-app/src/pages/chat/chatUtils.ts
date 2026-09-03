@@ -2,6 +2,17 @@
 import type { ChatMessage, SubAgentItem, ToolEvent } from "@/types";
 import { toWorkspaceRelative } from "@/services/workspace";
 
+/** 用户插话标记：与后端落库/注入格式一致，MessageItem 据此渲染"补充"徽标 */
+export const SUPPLEMENT_PREFIX = "[用户补充]";
+
+/** 判断消息是否为执行中插话（[用户补充] 前缀），返回去除前缀的正文 */
+export function parseSupplement(content: string): string | null {
+  if (content.startsWith(`${SUPPLEMENT_PREFIX} `)) {
+    return content.slice(SUPPLEMENT_PREFIX.length + 1);
+  }
+  return null;
+}
+
 export function acceptedFilesKey(path: string): string {
   return `divine:accepted-files:${path}`;
 }

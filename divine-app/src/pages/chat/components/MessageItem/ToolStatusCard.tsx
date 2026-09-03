@@ -133,7 +133,9 @@ export function ToolStatusCard({
           <span className="tool-name">
             {tool.tool === "preprocess_fallback"
               ? t("tool.preprocessFallbackTitle", "本地整理失败")
-              : tool.tool}
+              : tool.tool === "ask_user"
+                ? t("tool.askUserTitle", "向用户提问")
+                : tool.tool}
           </span>
           <span
             className={`tool-message${

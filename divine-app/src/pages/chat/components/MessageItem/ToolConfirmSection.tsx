@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
 import type { ToolEvent } from "@/types";
+import { AskUserForm } from "./AskUserForm";
 
 function ConfirmButtons({
   deciding,
@@ -58,6 +59,22 @@ export function ToolConfirmSection({
   const confirmDisabled = !targetSessionId;
 
   if (tool.status !== "confirm") return null;
+
+  // ask_user：agent 主动提问，内联收集补充信息（text / single_choice）
+  if (tool.confirm_type === "ask_user") {
+    return (
+      <div className="terminal-confirm ask-user-confirm">
+        <AskUserForm
+          question={tool.question || tool.message}
+          options={tool.options ?? []}
+          inputType={tool.input_type === "single_choice" ? "single_choice" : "text"}
+          callId={tool.call_id}
+          targetSessionId={targetSessionId}
+          disabled={confirmDisabled}
+        />
+      </div>
+    );
+  }
 
   // 终端命令确认（external_file 特殊处理，见下）
   if (tool.confirm_type !== "external_file" && tool.command) {

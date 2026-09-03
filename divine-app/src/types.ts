@@ -80,7 +80,14 @@ export interface ToolEvent {
     | "skill_migrate_batch"
     | "skill_install"
     | "subagents_write"
-    | "preprocess_fallback";
+    | "preprocess_fallback"
+    | "ask_user";
+  /** ask_user 问题（confirm_type=ask_user 时） */
+  question?: string;
+  /** ask_user 候选选项 */
+  options?: string[];
+  /** ask_user 输入类型 */
+  input_type?: "text" | "single_choice" | "multi_choice";
   skill_migrate?: SkillMigrationCandidate;
   skill_migrations?: SkillMigrationCandidate[];
   skill_install?: SkillInstallPreview;

@@ -761,7 +761,8 @@ export default function ChatPage() {
     }
   }, []);
 
-  const { sendMessage, stopStreaming, retryCloud } = useChatStream({
+  const { sendSupplement, sendMessage, stopStreaming, retryCloud } =
+    useChatStream({
     selectedId,
     selectedProjectId,
     projects,
@@ -790,6 +791,18 @@ export default function ChatPage() {
     setSessionStreaming(selectedId, false);
     stopStreaming(selectedId);
   }, [selectedId, setSessionStreaming, stopStreaming]);
+
+  // 用户插话（steering）：流式执行中主动补充信息。后端无活跃流（409）
+  // 或注入失败时降级为常规发送（语义即新一轮消息）。
+  const handleSupplement = useCallback(
+    (text: string) => {
+      if (!selectedId) return;
+      void sendSupplement(selectedId, text).then((ok) => {
+        if (!ok) void sendMessage(text, [], composerEffort);
+      });
+    },
+    [selectedId, sendSupplement, sendMessage, composerEffort]
+  );
 
   // 本地模型回答的【重答】：用云端重答同一条问题（复用当前思考档位）。
   const handleRetryCloud = useCallback(
@@ -996,7 +1009,9 @@ export default function ChatPage() {
             <ChatInput
               key={composerKey}
               ref={composerRef}
-              disabled={streaming || !selectedProjectId}
+              disabled={!selectedProjectId}
+              streaming={streaming}
+              onSupplement={handleSupplement}
               approvalMode={approvalMode}
               onApprovalModeChange={handleApprovalModeChange}
               effort={composerEffort}

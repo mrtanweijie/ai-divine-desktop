@@ -653,7 +653,15 @@
     "preprocessContinueCloud": "繼續走雲端",
     "preprocessCancel": "取消",
     "preprocessCancelled": "已取消",
-    "preprocessConfirmed": "已確認，繼續處理"
+    "preprocessConfirmed": "已確認，繼續處理",
+    "askUserTitle": "向使用者提問",
+    "askUserHint": "回答後 Agent 會帶著你的補充繼續任務",
+    "askUserSubmit": "傳送回答",
+    "askUserPlaceholder": "輸入補充資訊…",
+    "askUserAnswered": "已收到補充資訊",
+    "askUserTimeout": "使用者未回應，Agent 已依最佳判斷繼續",
+    "answerFailed": "回答傳送失敗，請重試",
+    "askUserAnswerLabel": "你的回答"
   },
   "updater": {
     "available": "發現新版本 v{{version}}",

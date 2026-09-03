@@ -101,6 +101,20 @@ export function cancelSessionGeneration(id: string): Promise<{ ok: boolean }> {
   return request(`/sessions/${id}/cancel`, { method: "POST" });
 }
 
+/**
+ * 用户插话（steering）：agent 执行中主动补充信息。
+ * 409（无活跃流）等失败会 reject，由调用方降级为常规发送。
+ */
+export function injectSupplement(
+  id: string,
+  content: string
+): Promise<{ ok: boolean }> {
+  return request(`/sessions/${id}/inject`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
 /** Token usage breakdown for the composer context ring. */
 export function getContextUsage(id: string): Promise<ContextUsage> {
   return request(`/sessions/${id}/context-usage`);

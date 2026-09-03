@@ -99,6 +99,21 @@
 .user-text {
   white-space: pre-wrap;
 }
+.user-supplement-badge {
+  /* .user-content 是 inline-block：fit-content + margin-left:auto 右对齐 */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  margin-left: auto;
+  margin-bottom: 6px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  white-space: normal;
+}
 .preprocess-hint {
   /* 覆盖 .loading-cursor span 的加载圆点样式（5px 圆点），
      否则提示文本会被压成小圆点 */
@@ -1375,4 +1390,125 @@
   border-top-color: var(--color-text-secondary);
   border-radius: 50%;
   animation: plan-spin 0.8s linear infinite;
+}
+
+/* ---------- ask_user（agent 主动提问）内联回答表单 ---------- */
+.ask-user-confirm {
+  display: flex;
+  flex-direction: column;
+}
+.ask-user-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.ask-user-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.ask-user-form .ask-user-input {
+  /* TextArea 组件的 .ui-textarea 同优先级按加载序覆盖，这里以更高特异性
+     （.ask-user-form 前缀）稳定维持 ask 卡片内的紧凑形态 */
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-input, var(--color-surface));
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.ask-user-form .ask-user-input:focus {
+  border-color: var(--color-accent);
+  background: var(--color-surface-2);
+}
+.ask-user-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ask-user-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: 13px;
+  /* 低饱和选中态：主题色 8% 透明度填充，不用描边 */
+  transition: background-color 0.15s ease;
+}
+.ask-user-option:hover {
+  background: var(--color-fill-quaternary, rgba(128, 128, 128, 0.06));
+}
+.ask-user-option.active {
+  background: var(--color-accent-soft, rgba(0, 122, 255, 0.08));
+}
+.ask-user-option-radio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-strong, var(--color-border));
+  flex: none;
+  color: var(--color-accent);
+}
+.ask-user-option.active .ask-user-option-radio {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+}
+.ask-user-option-text {
+  white-space: normal;
+}
+.ask-user-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 28px;
+}
+.ask-user-error {
+  margin-right: auto;
+  font-size: 12px;
+  color: #ef4444;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* 已提交：问答引用块（冻结态，历史重建时同样复用） */
+.ask-user-answered {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ask-user-answered-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-accent);
+}
+.ask-user-answer-quote {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 2px solid var(--color-accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--color-accent-soft, rgba(0, 122, 255, 0.06));
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }

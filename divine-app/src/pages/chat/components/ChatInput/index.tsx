@@ -50,6 +50,10 @@ const RASTER_IMAGE_MIMES = new Set([
 
 interface ComposerProps {
   disabled: boolean;
+  /** agent 正在流式执行：输入保持可用，发送走"插话"通道而非新消息 */
+  streaming?: boolean;
+  /** 流式执行中用户主动补充信息（steering）；纯文本，附件不参与 */
+  onSupplement?: (text: string) => void;
   onSend: (question: string, files: ChatFile[]) => void;
   onStop?: () => void;
   onPreviewFile?: (file: PreviewFile) => void;
@@ -72,6 +76,8 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
   function ChatInput(
     {
       disabled,
+      streaming,
+      onSupplement,
       onSend,
       onStop,
       onPreviewFile,
@@ -159,7 +165,15 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
 
     const send = () => {
       const question = value.trim();
-      if ((!question && attached.length === 0) || disabled) return;
+      if (!question && attached.length === 0) return;
+      // 流式执行中：Enter/发送按钮 = 向执行中的任务补充信息（纯文本）
+      if (streaming) {
+        if (!question || !onSupplement) return;
+        onSupplement(question);
+        setValue("");
+        return;
+      }
+      if (disabled) return;
       onSend(question, attached);
       setValue("");
       setAttached([]);
@@ -284,6 +298,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
     };
 
     const pickAttachment = async () => {
+      if (streaming) return;
       if (isTauri()) {
         const selected = await open({ multiple: false });
         if (typeof selected === "string") {
@@ -445,7 +460,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
             </Flex>
             <Flex align="center" gap={8}>
               <ModelEffortControl
-                disabled={disabled || models.length === 0}
+                disabled={disabled || streaming || models.length === 0}
                 models={models}
                 modelId={modelId}
                 onModelChange={onModelChange}
@@ -458,7 +473,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                   refreshKey={contextRefreshKey}
                 />
               )}
-              {disabled && onStop ? (
+              {streaming && onStop && (
                 <Button
                   variant="secondary"
                   className="send-button stop-button"
@@ -468,13 +483,23 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                 >
                   <Square size={14} />
                 </Button>
-              ) : (
+              )}
+              {!disabled && (
                 <Button
                   variant="primary"
                   className="send-button"
                   onClick={send}
-                  disabled={(!value.trim() && attached.length === 0) || disabled}
-                  aria-label={t("chat.send", "发送")}
+                  disabled={!value.trim() || (streaming && !onSupplement)}
+                  aria-label={
+                    streaming
+                      ? t("chat.supplement", "补充到当前任务")
+                      : t("chat.send", "发送")
+                  }
+                  title={
+                    streaming
+                      ? t("chat.supplement", "补充到当前任务")
+                      : t("chat.send", "发送")
+                  }
                 >
                   <ArrowUp size={16} />
                 </Button>
