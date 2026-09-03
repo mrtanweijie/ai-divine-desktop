@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="JlHc2GDPCvxHccfr05JVWW">
+<head data-page-node-id="8dc49oMLbhkwR066SKdOEw">
+<meta charset="UTF-8" data-page-node-id="2Jjw5CSZm4lsZsCjQ6gHKL">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="14UeMgI4htCEvf5FtquVPr">
+<title>UX HTML 设计基线 · 规范前 / 规范后</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --bg: #0B0C0F;
+    --surface: #14161A;
+    --surface-2: #1A1D22;
+    --border: #23262D;
+    --border-strong: #2E323A;
+    --text: #E8EAED;
+    --text-2: #9AA0A6;
+    --text-3: #6B7280;
+    --good: #4ADE80;
+    --bad: #F87171;
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+  }
+
+  body {
+    margin: 0;
+    padding: 48px 32px 80px;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  /* ---------- 页头 ---------- */
+  .head { margin-bottom: 40px; }
+  .head h1 {
+    margin: 0 0 8px;
+    font-size: 28px; font-weight: 600; line-height: 1.25; letter-spacing: -0.02em;
+  }
+  .head p { margin: 0; color: var(--text-2); font-size: 14px; }
+  .head .meta {
+    margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;
+  }
+  @media (max-width: 720px) { .head .meta { grid-template-columns: repeat(2, 1fr); } }
+  .meta div { font-size: 12px; color: var(--text-3); }
+  .meta b {
+    display: block; font-size: 24px; font-weight: 600; color: var(--text);
+    margin-bottom: 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+
+  /* ---------- 对比组 ---------- */
+  .group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .group-head { margin-bottom: 16px; }
+  .group-head h2 {
+    margin: 0 0 4px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .group-head h2 .idx {
+    width: 20px; height: 20px; border-radius: var(--radius-sm);
+    background: var(--surface-2); color: var(--text-3);
+    font-size: 11px; font-weight: 600; display: inline-flex;
+    align-items: center; justify-content: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .group-head p { margin: 0; font-size: 13px; color: var(--text-2); }
+
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+
+  .sample {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .sample-label {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px; font-weight: 500; color: var(--text-2);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-bad { background: var(--bad); }
+  .dot-good { background: var(--good); }
+
+  /* ---------- 规范前（模型自由发挥的典型产物） ---------- */
+  .old {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+  }
+  .old .card { background: #fff; border-radius: 4px; box-shadow: 0 10px 30px rgba(0,0,0,.3); padding: 7px; }
+  .old .swatch-row { display: flex; gap: 5px; margin-bottom: 5px; }
+  .old .sw { width: 32px; height: 24px; border-radius: 4px; }
+  .old .t { font-size: 20px; font-weight: 700; color: #667eea; margin-bottom: 5px; }
+  .old .d { font-size: 16px; color: #333; }
+  .old .btnrow { margin-top: 7px; display: flex; gap: 5px; }
+  .old button { padding: 5px 13px; font-size: 13px; background: #667eea; color: #fff; border: none; border-radius: 4px; }
+  .old .btn2 { background: #764ba2; }
+
+  .old.gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 12px; }
+
+  .old.type { background: #fff; padding: 12px; }
+  .old.type .x1 { font-size: 26px; color: #333; margin-bottom: 7px; }
+  .old.type .x2 { font-size: 16px; color: #333; line-height: 1.4; margin-bottom: 5px; }
+  .old.type .x3 { font-size: 13px; color: #666; line-height: 1.4; }
+  .old.type .x4 { font-size: 18px; color: #333; margin-top: 7px; }
+
+  .old.cards { background: #fff; padding: 12px; }
+  .old.cards .row { display: flex; gap: 5px; }
+  .old.cards .c { flex: 1; padding: 7px; border: 1px solid #667eea; border-radius: 4px; box-shadow: 0 4px 12px rgba(102,126,234,.35); }
+  .old.cards .c .n { font-size: 22px; font-weight: 700; color: #667eea; }
+  .old.cards .c .l { font-size: 13px; color: #667eea; }
+
+  .old.table { background: #fff; padding: 12px; }
+  .old table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .old th, .old td { border: 1px solid #ccc; padding: 5px; text-align: left; }
+  .old th { background: #667eea; color: #fff; padding: 7px 5px; }
+  .old .p { display: inline-block; padding: 2px 5px; font-size: 13px; border-radius: 4px; background: #667eea; color: #fff; }
+
+  .old.btns { background: #fff; padding: 12px; }
+  .old.btns .row { display: flex; gap: 5px; align-items: center; margin-bottom: 7px; }
+  .old.btns .row:last-child { margin-bottom: 0; }
+  .old.btns button { padding: 5px 13px; font-size: 13px; color: #fff; border: none; border-radius: 4px; }
+  .old.btns .b1 { background: #667eea; }
+  .old.btns .b2 { background: #764ba2; }
+  .old.btns .b3 { background: #f5576c; }
+  .old.btns .p1 { background: #667eea; }
+  .old.btns .p2 { background: #43e97b; }
+  .old.btns .p3 { background: #fa709a; }
+
+  /* ---------- 规范后（Linear 风格 + 设计基线） ---------- */
+  .new {
+    --bg:#F9F9FB; --surface:#FFFFFF; --surface-2:#F4F4F6;
+    --border:#E6E6EB; --border-strong:#D4D4DA;
+    --text:#08090A; --text-2:#6E6D77; --text-3:#8A8F98;
+    --primary:#5E6AD2; --primary-weak:#EEF0FD; --primary-ink:#FFFFFF;
+    --ok:#0F7B6C; --ok-weak:#DDF2ED; --warn:#CB912F; --warn-weak:#FBF3DB;
+    --danger:#D64545; --danger-weak:#FBE9E9;
+    background: var(--bg);
+    padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+  }
+  .new .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+    padding: 20px 24px;
+  }
+  .new .swatch-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .new .sw { width: 32px; height: 24px; border-radius: 6px; }
+  .new .t { font-size: 24px; font-weight: 600; line-height: 1.3; letter-spacing: -0.02em; color: var(--text); margin-bottom: 4px; }
+  .new .d { font-size: 14px; line-height: 1.7; color: var(--text-2); }
+  .new .btnrow { margin-top: 16px; display: flex; gap: 8px; }
+  .new button {
+    height: 36px; padding: 0 14px; border-radius: 8px;
+    font-size: 14px; font-weight: 500; border: 1px solid transparent;
+  }
+  .new .b-primary { background: var(--primary); color: var(--primary-ink); }
+  .new .b-ghost { background: var(--surface); color: var(--text); border-color: var(--border); }
+
+  .new.type { background: var(--surface); padding: 20px 24px; }
+  .new.type .x1 { font-size: 24px; font-weight: 600; line-height: 1.3; letter-spacing: -0.02em; color: var(--text); margin-bottom: 8px; }
+  .new.type .x2 { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 4px; }
+  .new.type .x3 { font-size: 12px; line-height: 1.6; color: var(--text-3); }
+  .new.type .x4 { font-size: 15px; font-weight: 600; color: var(--text); margin-top: 16px; }
+
+  .new.cards { padding: 16px; }
+  .new.cards .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .new.cards .c {
+    padding: 20px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+  }
+  .new.cards .c .l { font-size: 12px; color: var(--text-3); }
+  .new.cards .c .n {
+    margin-top: 8px; font-size: 24px; font-weight: 600; line-height: 1.25;
+    letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums;
+  }
+
+  .new.table { background: var(--surface); padding: 20px 24px; }
+  .new table { width: 100%; border-collapse: collapse; }
+  .new th {
+    font-size: 12px; font-weight: 500; color: var(--text-2);
+    text-align: left; padding: 0 12px 8px; border-bottom: 1px solid var(--border-strong);
+  }
+  .new td { height: 44px; padding: 0 12px; font-size: 14px; color: var(--text); border-bottom: 1px solid var(--border); }
+  .new tbody tr:last-child td { border-bottom: none; }
+  .new .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-2); }
+  .new .pill {
+    display: inline-flex; align-items: center; height: 22px; padding: 0 8px;
+    font-size: 12px; border-radius: 6px;
+  }
+  .new .pill-ok { background: var(--ok-weak); color: var(--ok); }
+  .new .pill-warn { background: var(--warn-weak); color: var(--warn); }
+
+  .new.btns { background: var(--surface); padding: 20px 24px; }
+  .new.btns .row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .new.btns .row:last-child { margin-bottom: 0; }
+  .new.btns button {
+    height: 36px; padding: 0 14px; border-radius: 8px;
+    font-size: 14px; font-weight: 500; border: 1px solid transparent;
+  }
+  .new.btns .b-primary { background: var(--primary); color: var(--primary-ink); }
+  .new.btns .b-ghost { background: var(--surface); color: var(--text); border-color: var(--border); }
+  .new.btns .b-danger { background: var(--surface); color: var(--danger); border-color: var(--danger); }
+
+  /* ---------- 说明 ---------- */
+  .notes {
+    margin: 16px 0 0; padding: 0; list-style: none;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  @media (max-width: 900px) { .notes { grid-template-columns: 1fr; } }
+  .notes .col {
+    padding: 12px 16px; border-radius: var(--radius-md);
+    background: var(--surface-2);
+  }
+  .notes .col.bad { border-left: 2px solid var(--bad); }
+  .notes .col.good { border-left: 2px solid var(--good); }
+  .notes li { font-size: 13px; line-height: 1.6; color: var(--text-2); padding: 2px 0; }
+  .notes li b { color: var(--text); font-weight: 500; }
+  .notes code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 4px;
+    background: rgba(255,255,255,.07); color: var(--text);
+  }
+
+  .foot {
+    margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);
+    color: var(--text-3); font-size: 13px;
+  }
+  .foot code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; padding: 2px 6px; border-radius: 4px;
+    background: var(--surface-2); color: var(--text-2);
+  }
+</style>
+</head>
+<body data-page-node-id="TsuP4Ez6FIq9vBcF9DGHx8">
+<div class="wrap" data-page-node-id="cZpRWYxCJ158cMuNUUW3Mq">
+
+  <div class="head" data-page-node-id="RUccenDnbx6SCqZU8k3DHS">
+    <h1 data-page-node-id="YhDKKR2UBkgHhoL8uHgLWM">UX HTML 设计基线 · 规范前 / 规范后</h1>
+    <p data-page-node-id="RE2sJCN6djfvgS5std6zkZ">同一份「任务管理后台」需求。左：模型自由发挥的典型产物；右：套用设计基线后的输出。全部 1:1 真实尺寸。</p>
+    <div class="meta" data-page-node-id="lErSGKKQzG658HO2SynPxN">
+      <div data-page-node-id="jLyXPYtIl4UXKm2RkEuKJR"><b data-page-node-id="GbVOjI8jelhJ1eGHDih3bF">6</b>字号档位（原 7 种以上混用）</div>
+      <div data-page-node-id="SlGHA7C5q7iYUYEoCo61T0"><b data-page-node-id="bHZLErbJwjGDmFrkMvuOVy">4px</b>间距基准（原 5/7/13 手调值）</div>
+      <div data-page-node-id="n97FjKFXcWewOpcWMIorLK"><b data-page-node-id="TmHfIxoB8Ao6pYx8QIFEev">3</b>主色用途上限（原 6 处以上）</div>
+      <div data-page-node-id="zrI8iCHE3v1xrWMWEL7cIb"><b data-page-node-id="H7ZfKnnDkgo4e0GS4OGGmC">2</b>阴影档位（原 1 档重投影）</div>
+    </div>
+  </div>
+
+  <!-- ========== 组 1 ========== -->
+  <section class="group" data-page-node-id="waBJsZrWOBLGvyIN7D4yZ1">
+    <div class="group-head" data-page-node-id="4FIro5l7JQMrJh90TZfFLp">
+      <h2 data-page-node-id="1evpoT0iNpgIAOnzyOIRPD"><span class="idx" data-page-node-id="Qjx4BNFodPt6qjCU0tPamq">1</span>配色与设计 token</h2>
+      <p data-page-node-id="YhbDMx4cqSFIAkUv2IGIJn">层次靠灰阶与留白建立，主色只留给真正需要强调的地方</p>
+    </div>
+    <div class="pair" data-page-node-id="X5fyVL278XEktS0DzhP5gw">
+      <div class="sample" data-page-node-id="UhteLxb2mdoPNWSSH6YZOn">
+        <div class="sample-label" data-page-node-id="he4ZbC0li6T2z1jLjRpk9V"><span class="dot dot-bad" data-page-node-id="5JUUXMAsADpmpBjBvokDip"></span>规范前</div>
+        <div class="old gradient" data-page-node-id="vGF4RywU73Ffi18Xcg2NMq">
+          <div class="card" data-page-node-id="zayRGSX7bM23zqOde3ZsVX">
+            <div class="swatch-row" data-page-node-id="xfZrIuAurEX03SwngU29aU">
+              <div class="sw" style="background:#667eea" data-page-node-id="YTFpxEAimHmbHnebKBAiKl"></div>
+              <div class="sw" style="background:#764ba2" data-page-node-id="j0CDb4KTcEpm6wi6Pgkxr7"></div>
+              <div class="sw" style="background:#f5576c" data-page-node-id="VELhLFPnfELuGdFFVBkWZu"></div>
+              <div class="sw" style="background:#43e97b" data-page-node-id="efamyiuhJJum6hNbwAL5B9"></div>
+              <div class="sw" style="background:#fa709a" data-page-node-id="IOELQ5UqAeHhalmn50S3hD"></div>
+              <div class="sw" style="background:#4facfe" data-page-node-id="TLdw3oFfffY17we4820t8U"></div>
+            </div>
+            <div class="t" data-page-node-id="9R1Crc19C1yRkPL6UhTQCE">任务看板</div>
+            <div class="d" data-page-node-id="6XtD5Sv08O3InmxZOzdnK9">共 128 个任务 · 本周新增 14</div>
+            <div class="btnrow" data-page-node-id="XAd6bE5LC7xvBlCRMCzUxo">
+              <button data-page-node-id="tXjxFECkF4Q1M8VIWlyg6k">新建任务</button>
+              <button class="btn2" data-page-node-id="oATy4WmGm76vWasZyGfjCJ">导出</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sample" data-page-node-id="EfSUGZkPZRKUGVAUXSvdKS">
+        <div class="sample-label" data-page-node-id="vWtZvhtp0Z6PuNXyeWIITX"><span class="dot dot-good" data-page-node-id="O802AkMUZBdnYxXyrelk55"></span>规范后</div>
+        <div class="new" data-page-node-id="yonBw4rlWhVZHpYJ72dsL9">
+          <div class="card" data-page-node-id="BZMS8p360mAEFMCYYX65H1">
+            <div class="swatch-row" data-page-node-id="lAbL0CwblaNYgeHhxQ21Pd">
+              <div class="sw" style="background:var(--text)" data-page-node-id="vkDHmYHgQrF1ByxvLWg63u"></div>
+              <div class="sw" style="background:var(--text-2)" data-page-node-id="7G7iaOeXZNKdMryM3djYKp"></div>
+              <div class="sw" style="background:var(--text-3)" data-page-node-id="Wm4wqSWUn18w8sCtVoexBu"></div>
+              <div class="sw" style="background:var(--border)" data-page-node-id="xduOR45Mqea6Oqm0GosdQg"></div>
+              <div class="sw" style="background:var(--surface-2)" data-page-node-id="RBQV4kkTAmNx5432SWQCx6"></div>
+              <div class="sw" style="background:var(--primary)" data-page-node-id="w75YV0iZFyE75ht0Sir4Mf"></div>
+            </div>
+            <div class="t" data-page-node-id="yPOS2tr4qXGj4HWog1otWB">任务看板</div>
+            <div class="d" data-page-node-id="cIpCud5rBKzequafFBFo0e">共 128 个任务 · 本周新增 14</div>
+            <div class="btnrow" data-page-node-id="2lp6asCAznMMVv5LoznaWp">
+              <button class="b-primary" data-page-node-id="afZ1UGLCwTyfYVRsFnn6NO">新建任务</button>
+              <button class="b-ghost" data-page-node-id="pWiGlpxRyyBUnIyVYqUKSx">导出</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="notes" data-page-node-id="cav7fZ8pLxPn1YSM2R2Xc7">
+      <li class="col bad" data-page-node-id="Pgc3QLwXs1Bm9V1PCdt5m6">
+        <div data-page-node-id="aokUAWgjAiCp2uiwbt9mZj">整页<b data-page-node-id="zAEvSe2tBN12lD1UhY4lJe">紫蓝渐变</b>背景，内容被背景色抢戏</div>
+        <div data-page-node-id="aaloMy7sKYNJAC9H4eKUtt"><b data-page-node-id="Too1B8ukwchcedbZ8H0qg9">6 种互不相干的颜色</b>平铺，没有主次</div>
+        <div data-page-node-id="TzskWPNDsiVS8EiZGbGtc3">两个按钮都是实心彩底，主次不分</div>
+      </li>
+      <li class="col good" data-page-node-id="G1yX72h2a3F6UyGxOODDNP">
+        <div data-page-node-id="gekDD6ptbb2gnE0JDOe41H">色板 = <b data-page-node-id="zsvrj7AdjO9MMhRQKREHY4">三级灰阶 + 边框 + 面 + 单一主色</b></div>
+        <div data-page-node-id="WgtHlBxFp4IInbAMrYgNZc">层次用 <code data-page-node-id="lzSeMfH0c9tHi8Oopcpfvh">--text / --text-2 / --text-3</code> 拉开</div>
+        <div data-page-node-id="H7kTNBFEUiLqXLEKJKAugU">主按钮实心、次级按钮描边，<b data-page-node-id="gQDcPd9aPSOWL2UlzBC6dJ">主次一眼可辨</b></div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ========== 组 2 ========== -->
+  <section class="group" data-page-node-id="g4QDHllvPVDkF3cDuwvqxG">
+    <div class="group-head" data-page-node-id="7fZPTMcEryLFAzCBH0WVMp">
+      <h2 data-page-node-id="CEX1IqsgCFjtGAnlRe4GxX"><span class="idx" data-page-node-id="lirgs8fWw6lqqWxV8FP0gV">2</span>排版层级与行高</h2>
+      <p data-page-node-id="FcwQC7KImrgUbeLQXhnhcb">字号收敛到 6 档，中文行高不低于 1.7</p>
+    </div>
+    <div class="pair" data-page-node-id="fBlh40nUDPWghJDioOIa5P">
+      <div class="sample" data-page-node-id="GzuTRv6oAzz0XkpVBrKaQx">
+        <div class="sample-label" data-page-node-id="C0f7JnvUEUpYHqOHFVEneK"><span class="dot dot-bad" data-page-node-id="zqGbboX9PVs0qgDi756YfA"></span>规范前</div>
+        <div class="old type" data-page-node-id="BDAG0AzfMoU025sX8TTLQf">
+          <div class="x1" data-page-node-id="AlFzMHdFmlrSZBzQ2bwJ8L">任务看板</div>
+          <div class="x2" data-page-node-id="zCLEys5hb7qtfq5BvEd9HD">共 128 个任务 · 本周新增 14 个，其中 9 个已逾期</div>
+          <div class="x3" data-page-node-id="K1VynnrXoeNXRx3PwZxTZ6">数据更新于 09-03 16:20，由系统每 5 分钟同步一次</div>
+          <div class="x4" data-page-node-id="wTuZ4l5jaWVDewB4c6mvFA">进行中 42</div>
+        </div>
+      </div>
+      <div class="sample" data-page-node-id="3CjF470GGUzwaZbfhT5ilc">
+        <div class="sample-label" data-page-node-id="uUNaBhqbdpBMfLnBu5JBHF"><span class="dot dot-good" data-page-node-id="efIFQqbAAup7Q3BWMqhZc5"></span>规范后</div>
+        <div class="new type" data-page-node-id="NfjClSXTmMYCWCOAPCJgaM">
+          <div class="x1" data-page-node-id="bAK6t7ngUL6AiKAHFfm2Ag">任务看板</div>
+          <div class="x2" data-page-node-id="5NDkcXp0nmBqSq6a3rkAwD">共 128 个任务 · 本周新增 14 个，其中 9 个已逾期</div>
+          <div class="x3" data-page-node-id="ssiuaRbA6OfOCniAlC9oEm">数据更新于 09-03 16:20，由系统每 5 分钟同步一次</div>
+          <div class="x4" data-page-node-id="haet9PSrzsF11QgDEB9v6y">进行中 42</div>
+        </div>
+      </div>
+    </div>
+    <ul class="notes" data-page-node-id="xIdZBZ6yBqODPHXf1RQlxh">
+      <li class="col bad" data-page-node-id="xMNLE0318hEVmJeOi8ZDT0">
+        <div data-page-node-id="L3ViEky9g1AAyLdOGdmWxb">字号用了 <b data-page-node-id="uMxWMaiJ2Rb1hA81gULt3D">26 / 16 / 13 / 18</b> 四种，层级靠大小硬堆</div>
+        <div data-page-node-id="7pcg4O8jdWrjU4Bd2VHHTD">正文行高 <code data-page-node-id="XiRQlqTvZLLQiGNv77jwyx">1.4</code>，中文方块字<b data-page-node-id="GdCZfB9LGiCWUVBZRS0uBx">粘连成片</b></div>
+        <div data-page-node-id="7ucLnYHFSK9tn1VBlpqvfR">辅助说明与正文同为深灰，<b data-page-node-id="QRs64NyjAWlPhw40tWC65u">弱不下去</b></div>
+      </li>
+      <li class="col good" data-page-node-id="cCRVRXOkR0D8zOfqipEBQv">
+        <div data-page-node-id="HYApwcAtDpPb4nbbYKUyyV">只取 <b data-page-node-id="tqUmugInH83C0nC1QhqxKZ">24 / 15 / 14 / 12</b> 四档，层级靠字重 + 灰阶</div>
+        <div data-page-node-id="QIp4MCUOqEa0xbsZHA0zGu">正文行高 <code data-page-node-id="0g9e3kossUcZ1a1XFDUpZM">1.7</code>，辅助文字 <code data-page-node-id="EJpNBK46JcGmI7rEIFlGxN">1.6</code></div>
+        <div data-page-node-id="ljmavOGTEWkFBBFbhIALes">标题 <code data-page-node-id="gzF7LZzXxFov1VeDg1DXkK">-0.02em</code> 字距，大字号不松散</div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ========== 组 3 ========== -->
+  <section class="group" data-page-node-id="1ioy3PkfZWTzV07VzZO1E7">
+    <div class="group-head" data-page-node-id="4B9KxQqKEytuATtcKq6De8">
+      <h2 data-page-node-id="NXvsKc6Ma5Lei8WlCp0N9x"><span class="idx" data-page-node-id="cZQSskeH2jlTMi434ENO38">3</span>卡片、间距与阴影</h2>
+      <p data-page-node-id="eD5QXBLiPYHPUdgUk50gWw">4px 基准间距，圆角三档收敛，阴影只留两档</p>
+    </div>
+    <div class="pair" data-page-node-id="1KUQjgd1Hv8PNk2C4oKhqB">
+      <div class="sample" data-page-node-id="kceS3xteONdcG5rR4QywGK">
+        <div class="sample-label" data-page-node-id="PIUgSttZVtuQD4BDKv3qZo"><span class="dot dot-bad" data-page-node-id="lfd87xpp8tNo77XJWdleJU"></span>规范前</div>
+        <div class="old cards" data-page-node-id="5Rkkhkr1jjKaTfcpLZla3D">
+          <div class="row" data-page-node-id="C1ITbMFH9JVDqEgCMTO2hd">
+            <div class="c" data-page-node-id="wsb0JiG1VOlzQUAGEDCFAZ"><div class="n" data-page-node-id="XfTnqziIGUqEAKmBugRSZt">128</div><div class="l" data-page-node-id="8aAeOip5FMZfeINwSLLLEd">总任务</div></div>
+            <div class="c" data-page-node-id="g8uqFyftbZkebpPljnHekJ"><div class="n" data-page-node-id="rPnx04W5gA9OlpXs7nEjCF">42</div><div class="l" data-page-node-id="naBlYCvxLsOBm1uIHw0GsF">进行中</div></div>
+            <div class="c" data-page-node-id="EycyrHxJw528HS2tlRo9vo"><div class="n" data-page-node-id="uR8DDCN2j43vcE2Lg72dYW">9</div><div class="l" data-page-node-id="e5ajcwUVbKb3ISQyF9X5EV">已逾期</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="sample" data-page-node-id="3EpHpdqhPvMzRHYDonqAmH">
+        <div class="sample-label" data-page-node-id="FPEeZ3a06U9DDTUAQIDZnk"><span class="dot dot-good" data-page-node-id="qJCCSKZTwCMzpuDPBXuIAx"></span>规范后</div>
+        <div class="new cards" data-page-node-id="7poTAWMtM6jdceLzQtPjyv">
+          <div class="row" data-page-node-id="HYzTp1DA5Ibz1iUx7HZkqJ">
+            <div class="c" data-page-node-id="nMK9RAANV7MK8Ufnsq1NGg"><div class="l" data-page-node-id="3H6MwLdXPT0Cm5yXsdBKq7">总任务</div><div class="n" data-page-node-id="hORAmtHiQB37h7DWk3ZVwt">128</div></div>
+            <div class="c" data-page-node-id="x1PstmsZVAnlUfSrPsSc9k"><div class="l" data-page-node-id="4QP3Glr2CxzOPZOHd7dAxu">进行中</div><div class="n" data-page-node-id="E37xVqywHzCqP5cMHyXsPF">42</div></div>
+            <div class="c" data-page-node-id="X4BrfqvVS0vZTVkZWUxVYh"><div class="l" data-page-node-id="qRhl0h4XwdoJda1ArGKyFA">已逾期</div><div class="n" data-page-node-id="pogWEBJAMyf4RWGH8pik7v">9</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="notes" data-page-node-id="J9fLhuYjCuFKlZsApald4a">
+      <li class="col bad" data-page-node-id="hBMgUvRRhXgbm0axE96Z1Q">
+        <div data-page-node-id="Z5jM9PLfJXPDUnLK1Noait">间距 <code data-page-node-id="a8M44jXTTiuY4LJQbDgdfv">5px / 7px</code> 手调值，卡片挤在一起</div>
+        <div data-page-node-id="pvR3psvjsYO89e7d8q1UJx">圆角 <code data-page-node-id="6fsGgwAGShtLtwRkvFQVZD">4px</code> + 彩色投影，卡片<b data-page-node-id="TQ8IWrS6ZxBCiYOFG9MQzT">浮得过头</b></div>
+        <div data-page-node-id="zsLI9s20zoTxBZ3fG0o8u7">标签在上数字在下，<b data-page-node-id="Q3zAXDot8tsh1Rmga9lPEK">视觉重心颠倒</b></div>
+      </li>
+      <li class="col good" data-page-node-id="heEofeyBNPoBmRQOi0p1Er">
+        <div data-page-node-id="nUN134J31odu1MzDFEFftU">间距 <code data-page-node-id="wLRUKyjKSLTGp4SltsK79L">16px</code> gap、<code data-page-node-id="vkNimJQHXLLJjxMLD8rEag">20px</code> 内边距，全 4 的倍数</div>
+        <div data-page-node-id="wiBAHHaRZqlDWqfIg03O61">圆角 <code data-page-node-id="3HMhuN2ZPlrSjiST54aFck">12px</code> + 双层极淡阴影，贴合页面</div>
+        <div data-page-node-id="Ea4qcKALfnbHz7fxoym2Jr">标签 12px 弱化在上，数字 24px 等宽在下</div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ========== 组 4 ========== -->
+  <section class="group" data-page-node-id="MMG7dFgNOOtHBj3HY3oSbH">
+    <div class="group-head" data-page-node-id="L1ShUeBSLPgs9ayzddEKe5">
+      <h2 data-page-node-id="ZtsBHCLMn1HCl8AfAYz5SE"><span class="idx" data-page-node-id="xGnRM8q9iqSlxWWhb868Ni">4</span>表格</h2>
+      <p data-page-node-id="AkkiHvf2fgT1nLANIFb2dK">去竖线、放行高、弱化表头、数字右对齐</p>
+    </div>
+    <div class="pair" data-page-node-id="W5FxbwoQ1S7CZNq6uhJAbu">
+      <div class="sample" data-page-node-id="Q3HBTq5qUeehm0VGHbmUrn">
+        <div class="sample-label" data-page-node-id="yiNDNrY0ItpUUv7qI6AxLI"><span class="dot dot-bad" data-page-node-id="4ART9A7McBfz1Tv6IgufrX"></span>规范前</div>
+        <div class="old table" data-page-node-id="5xHCUOOhbcPCz9V6rvhLIW">
+          <table data-page-node-id="RB2goGtpLh8MkdsmXfGiGa">
+            <thead data-page-node-id="nStHmcarYdQ4Nq7HTwfPjK"><tr data-page-node-id="PDWr5bfqU2f9AbVaKlf9h0"><th data-page-node-id="UflANCX5YlfBRXTckm3jsR">任务</th><th data-page-node-id="AiB3rxAj8DFBNsHubHqn5Z">负责人</th><th data-page-node-id="frjmnw0cmENCrElIIRj5vm">状态</th><th data-page-node-id="XIQYo3ipOEIa51AcZXt4AH">截止</th></tr></thead>
+            <tbody data-page-node-id="cAjPIqVpZXkS5HjhzPrlOt">
+              <tr data-page-node-id="tl3IvGTKEM3vJBQ2BIV3ph"><td data-page-node-id="3S3uITl03cMEYVdNp5vmE8">支付网关联调</td><td data-page-node-id="Ge5Ja2ML5UDX3OCHqgXX0D">陈叙</td><td data-page-node-id="28cCqGvSEZpBVqX4dqIBo0"><span class="p" data-page-node-id="BuL6Uvs6KLaiWRHBrB4CKc">进行中</span></td><td data-page-node-id="b0Rud5GVhqp2mj6urG0hYU">09-12</td></tr>
+              <tr data-page-node-id="SA8CRwWGVPJ1fWnuxKhFWC"><td data-page-node-id="siDbB5TaYRAjob9qmDlVOQ">风控规则引擎</td><td data-page-node-id="VHT0tM2ZZTNe197qG9K9qc">林昭</td><td data-page-node-id="8u7KmyEFCvOGOJXbwog1oI"><span class="p" style="background:#764ba2" data-page-node-id="pUWPKdZJkggKmj5SFJu64O">评审</span></td><td data-page-node-id="X1FtLR2ufFYE0yygOzDb2B">09-15</td></tr>
+              <tr data-page-node-id="DEN5RXeaU3XnmlW5Oc1xBj"><td data-page-node-id="3povBZj981BoHrCxGJMswo">结算对账脚本</td><td data-page-node-id="docTGHKtMYiZ3BtYzSCKpL">陈叙</td><td data-page-node-id="IY8NQJk5y4PhlvQlm3ug3H"><span class="p" style="background:#43e97b" data-page-node-id="HyGYBwJGyeMvxBapxl7JyN">完成</span></td><td data-page-node-id="3ngf1ysycGt8PZeo0BOFkQ">09-02</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="sample" data-page-node-id="pmCVaihqLkk9ZxAr3TO9JB">
+        <div class="sample-label" data-page-node-id="mRXRnQheM33bvxCOXEzxZa"><span class="dot dot-good" data-page-node-id="vW2k4cEkAfULpGBZmfIWIx"></span>规范后</div>
+        <div class="new table" data-page-node-id="elfhoraApFvR5AANzm0VFZ">
+          <table data-page-node-id="a9kfuhPXK0HH9i20Q62fgx">
+            <thead data-page-node-id="3JLG3esSpJtvp5BOeZQ01Z"><tr data-page-node-id="pDxRyBmmIKmD9RpjOjA4wR">
+              <th data-page-node-id="JcHowDEfAz14dqWcXRZQqW">任务</th><th data-page-node-id="e8dHMKdGQhYvmucbW90Rri">负责人</th><th data-page-node-id="azdAPIgEByTg99OIuxAwcy">状态</th><th class="num" data-page-node-id="BzHEWDbcsMbz0faFG99U8a">截止</th>
+            </tr></thead>
+            <tbody data-page-node-id="3MqUYBWP5ujhlrXvYS7K1I">
+              <tr data-page-node-id="Q5uFODtA7zngqPq6GD9ReF">
+                <td data-page-node-id="VtXSsmLmHPxCNZHiwJfl1D">支付网关联调</td><td style="color:var(--text-2)" data-page-node-id="waKmRCRoyke2NBo6LmvnUD">陈叙</td>
+                <td data-page-node-id="1LoKktQEMZycDMDigOoHrD"><span class="pill pill-ok" data-page-node-id="j6G84YlrQB8qSNAIykWgnJ">进行中</span></td>
+                <td class="num" data-page-node-id="HISTL25bq2xqqmmsgTGE6E">09-12</td>
+              </tr>
+              <tr data-page-node-id="bAcRr1puZ3blacpTahYeBB">
+                <td data-page-node-id="Nxy74qnx8VSTSlcd21h0MC">风控规则引擎</td><td style="color:var(--text-2)" data-page-node-id="RCrWGbz4BY6bNeHqTxogZC">林昭</td>
+                <td data-page-node-id="7EmKjZGOljD8EqxMzzIMVd"><span class="pill pill-warn" data-page-node-id="K5okGd7bkGCqeq7aAL4dt4">待评审</span></td>
+                <td class="num" data-page-node-id="hhFPjz14LR0HlmPeVaZojR">09-15</td>
+              </tr>
+              <tr data-page-node-id="c7ez2RbzMLQufJWTqfDsjE">
+                <td data-page-node-id="0PFBk26Ca9NrrYmOiq92HZ">结算对账脚本</td><td style="color:var(--text-2)" data-page-node-id="0DBQDFEGdv8bvY8akDkprR">陈叙</td>
+                <td data-page-node-id="y1xnRyv41FO3M4pvuOwTh8"><span class="pill" style="background:var(--surface-2);color:var(--text-2)" data-page-node-id="gloKzlElgRS6znHAWTZrP7">已完成</span></td>
+                <td class="num" data-page-node-id="092BJ2gHXH9i1DeQeRkGI9">09-02</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <ul class="notes" data-page-node-id="hBJTpysnQU47pgAEpgG3TJ">
+      <li class="col bad" data-page-node-id="b66EDUGRdiKvla0lr4vpDa">
+        <div data-page-node-id="ZClZWIyOmVboTexZAOoNU4"><b data-page-node-id="llu6mZfS5lGmZ8v09TgXRS">满屏 1px 灰线</b>，典型 Excel 感</div>
+        <div data-page-node-id="UAPrlTvj7Bi0SvHpW7fD3v">表头紫底白字，<b data-page-node-id="fpgTZsgfjZS4pGOugqHVGv">权重压过内容</b></div>
+        <div data-page-node-id="j3LCUV7CDIXAfD4Zoy6iNG">状态标签三种随机色，<b data-page-node-id="gm4eppGCyWuHX9kDdHyMzz">无语义</b></div>
+      </li>
+      <li class="col good" data-page-node-id="9bGCB0zMYa3fj2qlgS0xxF">
+        <div data-page-node-id="HFXZXU5PYhtdlJ8JsFAnFn">只留横向分隔线，行高 <code data-page-node-id="BB4ONo65ogV4guRrh4af3m">44px</code></div>
+        <div data-page-node-id="1m7HbhDnMqkuvM4B44j2DO">表头 <code data-page-node-id="aJ15FeaQIFf9DFXUFWLCAj">12px / 500 / --text-2</code>，只做弱化标注</div>
+        <div data-page-node-id="ZCArvgcltkHeuiNBX27892">状态用语义色，日期右对齐 + <code data-page-node-id="resgEZwRG5ucXg9yyaGEBN">tabular-nums</code></div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ========== 组 5 ========== -->
+  <section class="group" data-page-node-id="1CsjtIF6X04MUAsOHyJTZn">
+    <div class="group-head" data-page-node-id="e7njlMP4R3iGYaKJQ2wwTx">
+      <h2 data-page-node-id="XCtn9rIcT3LNh6MUHB0BHI"><span class="idx" data-page-node-id="hsaxF0cDJKcr99mpwjJT3N">5</span>按钮与标签</h2>
+      <p data-page-node-id="n8bmx1k2sIytMmKvoH4Pxo">按语义分级，而不是按颜色分级</p>
+    </div>
+    <div class="pair" data-page-node-id="8bK058KvEOZkV6mvTDE4c9">
+      <div class="sample" data-page-node-id="DWE023GBtGgfANSX58wGQY">
+        <div class="sample-label" data-page-node-id="a9xDrQ3XHvoT2CoBCVRI7E"><span class="dot dot-bad" data-page-node-id="vzTe70jBvTUODkDWGI7fVr"></span>规范前</div>
+        <div class="old btns" data-page-node-id="cPpasS5okVyA92lFrN1AtF">
+          <div class="row" data-page-node-id="9nwL3C8IqBLAsRB0rtUe1I">
+            <button class="b1" data-page-node-id="jreIEr2EWNWNN2wqDITBio">新建任务</button>
+            <button class="b2" data-page-node-id="Sq9vVIAAI3o4Ht12qbVG8H">导出报表</button>
+            <button class="b3" data-page-node-id="EHsB3kRZo2QIL4z7xnCETY">删除项目</button>
+          </div>
+          <div class="row" data-page-node-id="RP3qfNyquPHCGp6YpM4e9r">
+            <span class="p1" style="padding:2px 5px;font-size:13px;border-radius:4px;color:#fff" data-page-node-id="BjCQUhVa4U8iwzF3TM6NUw">进行中</span>
+            <span class="p2" style="padding:2px 5px;font-size:13px;border-radius:4px;color:#fff" data-page-node-id="rbDYv88SwUGd1mii8oDVwI">已完成</span>
+            <span class="p3" style="padding:2px 5px;font-size:13px;border-radius:4px;color:#fff" data-page-node-id="1xJcn4f6waq2g9pjFPX4Tf">已逾期</span>
+          </div>
+        </div>
+      </div>
+      <div class="sample" data-page-node-id="yR4O91QVDf2UbBqCyshnIU">
+        <div class="sample-label" data-page-node-id="vuukBjkNYb3mOasc1IQlGz"><span class="dot dot-good" data-page-node-id="fZ2g6gVBTWbJdTk8CGqXdT"></span>规范后</div>
+        <div class="new btns" data-page-node-id="vE5KffNES5VyU9W4VfdL9v">
+          <div class="row" data-page-node-id="DqJ9wmAzPbUC1igQCKvoVE">
+            <button class="b-primary" data-page-node-id="FFmhkbUVFiyyYoriFgvrdc">新建任务</button>
+            <button class="b-ghost" data-page-node-id="VF9yQpofpzFArGS9yclGEY">导出报表</button>
+            <button class="b-danger" data-page-node-id="xp7s3xfVOPvKrS2CKNwIoU">删除项目</button>
+          </div>
+          <div class="row" data-page-node-id="PZltfCcleXWDstmn7Bvkrd">
+            <span class="pill pill-ok" data-page-node-id="otBILBCCOCJzCKMwAmbRSF">进行中</span>
+            <span class="pill" style="background:var(--surface-2);color:var(--text-2)" data-page-node-id="RbecpwlHqfBmM5fBuUcpLD">已完成</span>
+            <span class="pill" style="background:var(--danger-weak);color:var(--danger)" data-page-node-id="k43h6HWIynGuRfcDb5hi4q">已逾期</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="notes" data-page-node-id="19l2cLnHe5b8XKGC9AIwsc">
+      <li class="col bad" data-page-node-id="MZTlhaNepwUqO2aOufQocH">
+        <div data-page-node-id="CT3XWQ6t1hED5wEmLoYzhq">三个操作<b data-page-node-id="ZSf9AUw9tNh3nvGzFWnBQl">全是实心彩底</b>，危险操作不突出</div>
+        <div data-page-node-id="iMKkYwgJBWSgFhCDQ4UYo2">标签颜色随机，<b data-page-node-id="lzWrpr6P7ViW7YqFdGD5S5">红绿蓝各说各话</b></div>
+        <div data-page-node-id="6jOILCWmrgTHLvpSRiowmi">按钮高度、圆角、内边距随手写</div>
+      </li>
+      <li class="col good" data-page-node-id="P1cUuVKO3wbel6yjrTPvMJ">
+        <div data-page-node-id="Dz7gmWA95BLbaeqjA1nzGc">主操作实心 / 次级描边 / 危险<b data-page-node-id="Rn5KOxFX521FTSgwIrEk4F">仅描边红</b></div>
+        <div data-page-node-id="ijMfFhbaiWg3fD1BQ4fgE8">标签统一 <code data-page-node-id="UBsJLDaKEO0yEs5Yq1QbHp">22px</code> 高，底色走 <code data-page-node-id="L3trd0qjjjXRfNnQ2Dc2hM">--*-weak</code> 语义色</div>
+        <div data-page-node-id="n9m1l1NZl9a2Kqt9FRrTOO">按钮统一高 <code data-page-node-id="rin73yeJb7fVrGYZk5PAZU">36px</code>、padding <code data-page-node-id="nVx6LfvwFGlHE3DitQwqOX">0 14px</code>、圆角 <code data-page-node-id="mx9zkYmQBARdBrmmYF1y5t">8px</code></div>
+      </li>
+    </ul>
+  </section>
+
+  <div class="foot" data-page-node-id="bmLpi7ZPhIs0qcHXHuT0Dc">
+    规范全文见 <code data-page-node-id="BwRNzGGKiWzj39GRDcFyvC">docs/ux-html-design-baseline.md</code>；唯一事实来源是
+    <code data-page-node-id="LesDbgw4DT2EatYCLQKJCH">app/agent/core/prompt_sections.py</code> 的 <code data-page-node-id="nGr9wuBy7XZzq2bOdMS5JP">_UX_HTML_RULES</code>，
+    静态校验逻辑在 <code data-page-node-id="Ph6AqYe9gcl3K8QohMtRj6">app/tools/scripts/ux_html.py</code> 的 <code data-page-node-id="j668o7vvXOkrxCamEt3LCQ">lint_html()</code>。
+  </div>
+
+</div>
+</body>
+</html>

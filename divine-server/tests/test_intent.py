@@ -287,3 +287,53 @@ def test_spreadsheet_rules_present_in_document_section():
 
     assert "spreadsheet" in _DOCUMENT_RULES
     assert "openpyxl" in _DOCUMENT_RULES  # 禁止绕路的明确指令
+
+
+def test_html_routes_to_html_intent():
+    """HTML 文件产出请求必须命中 html 意图（注入 _HTML_PAGE_RULES）。
+
+    原缺陷：模型用 write_file 直接写 .html，绕过 html_generate 的 token 基座
+    注入与静态校验——「单页 HTML」这类请求零关键词命中，既无规范节、
+    也无对应工具信号。新增 html 意图后应命中。
+    """
+    from app.agent.intent import classify_intents
+
+    for text in (
+        "帮我做一份「持仓体检」单页 HTML",
+        "生成一个数据看板",
+        "写一个落地页",
+        "做个仪表盘",
+    ):
+        intents, _ = classify_intents(text)
+        assert "html" in intents, f"{text!r} 应命中 html：{intents}"
+
+
+def test_html_generate_resident_not_trimmed():
+    """html_generate 必须常驻（不进 _CONTENT_TOOLS），避免意图漏判导致工具缺失。
+
+    与 ux_html 的定位差异：ux_html 是纯内容创作、按 ux 意图裁剪；html_generate
+    覆盖「产出一个 HTML 文件」的普适场景，必须像 write_file 一样常驻。
+    """
+    from app.agent.tools.tools import _CONTENT_TOOLS
+
+    assert "html_generate" not in _CONTENT_TOOLS
+    assert "ux_html" in _CONTENT_TOOLS  # 对照：UX 原型仍按意图裁剪
+
+
+def test_html_generate_tool_history_backfills_html():
+    """工具历史回补：调用过 html_generate 后，「继续/换个风格」等短指令能回补 html 意图。"""
+    from app.agent.intent.intent import _TOOL_TO_INTENT
+
+    assert _TOOL_TO_INTENT.get("html_generate") == "html"
+
+
+def test_html_intent_injects_html_generate_rules():
+    """html 意图命中时，_HTML_PAGE_RULES 应注入；未命中时不注入。"""
+    from app.agent.intent import build_rule_sections
+    from app.agent.core.prompt_sections import _HTML_PAGE_RULES
+
+    hit = build_rule_sections({"html"}, is_first_turn=False)
+    assert _HTML_PAGE_RULES in hit
+
+    miss = build_rule_sections(set(), is_first_turn=False)
+    assert _HTML_PAGE_RULES not in miss

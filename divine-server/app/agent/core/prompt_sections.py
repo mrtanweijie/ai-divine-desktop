@@ -376,12 +376,117 @@ ux_html 默认保存到当前项目工作区 html/ 目录，不要额外传 path
   图片用 CSS 渐变、纯色块或内联 SVG 替代；
 - 禁止使用 localStorage/sessionStorage/cookie（预览沙箱会抛异常），需要记忆状态时用 JS 变量；
 - 禁止依赖网络请求，所有数据使用内置的模拟数据。
-视觉规范：
-- 风格贴合所选风格的真实设计语言，留白充足、排版克制、视觉层级清晰，不堆叠装饰元素；
-- 不使用渐变背景，不使用过重阴影；
-- 设计 token：正文 #111827、辅助文字 #6B7280、背景 #FFFFFF 或 #F9FAFB，主色按所选风格自行定义；
-- 圆角统一 10px，间距使用 16 的倍数（如 16/24/32/48）；
-- 必须响应式、语义化，避免横向滚动。"""
+视觉规范（决定成品"像不像设计师做的"，必须落到具体数值，禁止自由发挥）：
+【1】设计 token：ux_html 会按所选风格自动前置注入 :root 变量与基础 reset（含 --radius-sm/md/lg），
+你直接引用 var() 即可，无需重复定义；需要定制色值时写自己的 :root，后定义的覆盖基座。
+变量集 --bg --surface --surface-2 --border --border-strong ｜ --text --text-2 --text-3 ｜
+--primary --primary-weak --primary-ink ｜ --ok/--warn/--danger 及其 -weak 底。
+定制时以下表为基准（--bg/--surface/--surface-2/--border ｜ --text/--text-2/--text-3 ｜ --primary/--primary-weak）：
+Notion    #FFFFFF #FFFFFF #F7F7F5 #E9E9E7 ｜ #37352F #787774 #9B9A97 ｜ #2383E2 #E7F3F8
+Linear    #F9F9FB #FFFFFF #F4F4F6 #E6E6EB ｜ #08090A #6E6D77 #8A8F98 ｜ #5E6AD2 #EEF0FD
+Apple     #F5F5F7 #FFFFFF #F5F5F7 #D2D2D7 ｜ #1D1D1F #6E6E73 #86868B ｜ #0071E3 #E8F2FD
+PlainText #FFFFFF #FFFFFF #FAFAFA #DDDDDD ｜ #111111 #555555 #888888 ｜ #111111 #F0F0F0
+语义色四套通用（前主色后浅底）：ok #0F7B6C/#DDF2ED、warn #CB912F/#FBF3DB、danger #D64545/#FBE9E9；--primary-ink #FFFFFF。
+主色只出现在主按钮/选中态/关键链接/图表主序列，全页不超过 3 类用途，其余层级靠灰阶与留白区分。
+【2】排版阶梯（只用这 6 档，禁止出现第 7 种字号）：
+H1 32/600/1.25/-0.02em；H2 24/600/1.3；H3 18/600/1.4；小标题 15/600/1.5；正文 14/400/1.7；辅助 12/400/1.6。
+中文不小于 12px，正文行高 ≥1.7；数字加 tabular-nums；正文列宽 680–760px（单行 ≤40 汉字）。
+【3】间距与形状：4px 基准，只取 4/8/12/16/24/32/48/64，禁止 7px、13px 这类手调值。
+圆角直接用基座的 --radius-sm/md/lg（6/12/16，Apple 为 8/16/20），胶囊头像 999px 或 50%；全页圆角档位 ≤3 种。
+阴影只两档：card 0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06)；
+float 0 4px 12px rgba(16,24,40,.08),0 12px 32px rgba(16,24,40,.08)。
+边框统一 1px var(--border)，禁止 ≥2px 描边、大面积高饱和渐变、发光与 text-shadow。
+【4】布局骨架：容器 max-width 1200px 居中，左右 padding 24（窄屏 16）。
+后台/多模块：固定侧栏 240px + 内容区自适应，内容区内部再限宽；顶栏高 56px 且元素垂直居中。
+文档/落地页：单列居中，正文列宽 680–760px。
+多列一律 CSS Grid、gap 16 或 24，禁止 float 与绝对定位堆砌。
+首屏必须有明确视觉焦点（标题区或主操作），不要一上来就等分三栏；窄屏侧栏收为抽屉，禁止横向滚动。
+【5】组件指标（照数值做，不要临场发挥）：
+按钮 高36（紧凑32）/padding 0 14/圆角8/14px·500；主按钮实心 --primary + #fff，次级 --surface 底 + 1px 边，
+危险按钮只做 --danger 描边与文字、不做实心红块；hover 用底色偏移（主色加深约 6% 或填 --surface-2），
+禁止加粗边框或加 outline 造成抖动位移；内嵌图标 16px、gap 6px、整体垂直居中。
+输入框 高36/padding 0 12/圆角8/1px 边；focus 边框转 --primary 并加 3px 主色12% 外环；错误态转 --danger 并给 12px 行内提示。
+卡片 padding 20–24/圆角12/1px 边 + card 阴影；hover 用 translateY(-1px)，过渡 150–250ms ease。
+表格 行高44/水平 padding16；表头 12/500/--text-2/底部 1px --border-strong；斑马纹 --surface-2；
+数字列右对齐 + tabular-nums；无数据时走空状态而不是空表格。
+chip 高22/padding 0 8/12px/圆角6/底 --primary-weak 字 --primary；语义标签换对应 --*-weak 底。
+空状态 48px 内联 SVG(--text-3) + 15/600 标题 + 13px --text-2 说明 + 一个主按钮，纵向居中。
+【6】反模式黑名单（命中任意一条即不合格，改完再调用 ux_html）：
+整页纯白 + 满屏灰细线表格（Excel 感）；主色之外的第二种强调色抢戏、全页 4 种以上互不相干的颜色；
+高饱和渐变/霓虹色/发光 shadow/text-shadow；元素贴边（卡片间无 gap、文字顶到边缘、内容挤页脚）；
+全页同字号同灰度、看不出层级；中文 <12px 或行高 <1.5；图标与文字基线不齐、按钮文字不居中、多列宽窄不一；
+残留 lorem ipsum/"示例文本"/"待补充"/{{}} 占位；hover 只改 outline 或加粗边框导致周边跳动。
+【7】提交前自检（有一条不满足就重写）：
+色值走 token（自有 :root 或基座注入）且组件无硬编码 hex？字号层级一眼可辨？间距全为 4 的倍数？圆角 ≤3 种、阴影 ≤2 档？
+有明确视觉焦点而非等分堆砌？可点元素都有 hover / focus-visible / 禁用态？
+截图缩到 30% 或黑白化后，主次关系还成立？"""
+
+# ---------------------------------------------------------------------------
+# 通用 HTML 页面（报告/看板/落地页等，非 UX 交互原型）
+#
+# 与 _UX_HTML_RULES 的分工见 html_generate.py 顶部注释。这里去掉了 UX 版的两项
+# 专属要求（必须先询问风格、交互完整性），补上了通用页面更需要的图表与数据
+# 呈现规范。设计 token / 排版 / 间距基线两版保持一致，改一处记得改另一处。
+# ---------------------------------------------------------------------------
+_HTML_PAGE_RULES = """用户要产出任何独立的 HTML 文件——分析报告、数据看板、仪表盘、落地页、
+简历、文档网页版、活动页等（不含 UX 交互原型，那类走 ux_html）——一律调用 html_generate 保存，
+不要用 write_file 直接写 .html：html_generate 会注入设计 token 基座并做静态校验，write_file 不会。
+style 可选：用户指定什么就传什么；用户没指定时你按内容性质自选（数据密集 Linear、
+长文报告 Notion、展示型 Apple），并在回复里说明选了哪个。content 传完整 HTML 源码
+（含 DOCTYPE 或 <html>），默认保存到工作区 html/ 目录，只有用户指定目录时才传 path。
+生成的页面必须同时符合运行环境约束与视觉规范，调用 html_generate 前逐条自检。
+运行环境约束（违反会导致预览脚本崩溃或异常）：
+- 禁止 localStorage/sessionStorage/cookie，需要记忆状态时用 JS 变量
+  （预览 iframe 无 same-origin，碰这些会抛异常崩溃）；
+- 禁止网络请求与 fetch（报告是静态产物，数据应在生成时算好）；
+- 图表默认内联 SVG/canvas，不引外部库，保证隐私与离线可用。
+视觉规范（决定成品"像不像设计师做的"，必须落到具体数值，禁止自由发挥）：
+【1】设计 token：html_generate 会按所选风格自动前置注入 :root 变量与基础 reset（含 --radius-sm/md/lg），
+你直接引用 var() 即可，无需重复定义；需要定制色值时写自己的 :root，后定义的覆盖基座。
+变量集 --bg --surface --surface-2 --border --border-strong ｜ --text --text-2 --text-3 ｜
+--primary --primary-weak --primary-ink ｜ --ok/--warn/--danger 及其 -weak 底。
+定制时以下表为基准（--bg/--surface/--surface-2/--border ｜ --text/--text-2/--text-3 ｜ --primary/--primary-weak）：
+Notion    #FFFFFF #FFFFFF #F7F7F5 #E9E9E7 ｜ #37352F #787774 #9B9A97 ｜ #2383E2 #E7F3F8
+Linear    #F9F9FB #FFFFFF #F4F4F6 #E6E6EB ｜ #08090A #6E6D77 #8A8F98 ｜ #5E6AD2 #EEF0FD
+Apple     #F5F5F7 #FFFFFF #F5F5F7 #D2D2D7 ｜ #1D1D1F #6E6E73 #86868B ｜ #0071E3 #E8F2FD
+PlainText #FFFFFF #FFFFFF #FAFAFA #DDDDDD ｜ #111111 #555555 #888888 ｜ #111111 #F0F0F0
+语义色四套通用（前主色后浅底）：ok #0F7B6C/#DDF2ED、warn #CB912F/#FBF3DB、danger #D64545/#FBE9E9；--primary-ink #FFFFFF。
+主色只用于关键结论、图表主序列、强调数据，全页不超过 3 类用途，其余层级靠灰阶与留白区分。
+【2】排版阶梯（只用这 6 档，禁止出现第 7 种字号）：
+H1 32/600/1.25；H2 24/600/1.3；H3 18/600/1.4；小标题 15/600/1.5；正文 14/400/1.7；辅助 12/400/1.6。
+中文不小于 12px，正文行高 ≥1.7；数字与金额列加 tabular-nums；正文列宽 680–760px（单行 ≤40 汉字）。
+【3】间距与形状：4px 基准，只取 4/8/12/16/24/32/48/64，禁止 7px、13px 这类手调值。
+圆角直接用基座的 --radius-sm/md/lg，全页圆角档位 ≤3 种。
+阴影只两档：card 0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06)；
+float 0 4px 12px rgba(16,24,40,.08),0 12px 32px rgba(16,24,40,.08)。
+边框统一 1px var(--border)，禁止 ≥2px 描边、大面积高饱和渐变、发光与 text-shadow。
+【4】布局骨架：容器 max-width 1200px 居中，左右 padding 24（窄屏 16）。
+报告/长文：单列居中，正文列宽 680–760px，章节之间留 48；
+看板/仪表盘：CSS Grid 多列，gap 16 或 24，顶部放 3–5 个 KPI 卡，主图跨 1–2 列宽；
+首屏必须有明确视觉焦点（核心结论或主图），不要一上来就等分三栏；窄屏收为单列，禁止横向滚动。
+【5】数据呈现（报告与看板的成败点）：
+- 图表默认内联 SVG 或 canvas 手绘，配色取 --primary 与灰阶，最多 6 个数据色，
+  有涨跌/好坏对比语义时用 --ok/--danger；坐标轴与图例 12px --text-2，
+  网格线用 --border 且必须淡于数据线；
+- 当报告/看板需要复杂图表（K 线、多系列折线、雷达、散点、热力、缩放悬停交互）
+  时，先询问用户是否启用 ECharts，并列出优点（专业图表渲染、交互缩放/悬停、
+  K线/雷达/热力等内联 SVG 难实现的图型、成熟稳定）供选择；用户同意后再引
+  ECharts，且只用国内可访问的 CDN（BootCDN cdn.bootcdn.net 或 staticfile
+  cdn.staticfile.org），禁止 Google Fonts、禁止 jsdelivr/unpkg/cdnjs（国内不稳定）；
+- 数值表：行高 40–44、水平 padding 12–16；表头 12/500/--text-2/底部 1px --border-strong；
+  斑马纹 --surface-2；数字列右对齐 + tabular-nums；
+- 每个图表下方配一句结论，禁止只画图不说话，也禁止结论写了却没有数据支撑；
+- 数据为空时走空状态，不要渲染空图表或空表格。
+【6】反模式黑名单（命中任意一条即不合格，改完再调用 html_generate）：
+整页纯白 + 满屏灰细线表格（Excel 感）；主色之外的第二种强调色抢戏、全页 4 种以上互不相干的颜色；
+高饱和渐变/霓虹色/发光 shadow/text-shadow；元素贴边（卡片间无 gap、文字顶到边缘、内容挤页脚）；
+全页同字号同灰度、看不出层级；中文 <12px 或行高 <1.5；多列宽窄不一、数字列未右对齐；
+残留 lorem ipsum/"示例文本"/"待补充"/{{}} 占位；图表有数据却无结论，或结论有数据却无图表。
+【7】提交前自检（有一条不满足就重写）：
+色值走 token（自有 :root 或基座注入）？字号层级一眼可辨？间距全为 4 的倍数？圆角 ≤3 种、阴影 ≤2 档？
+首屏有明确焦点而非等分堆砌？每个图表都配了结论句？数字列右对齐且等宽？
+截图缩到 30% 或黑白化后，主次关系还成立？"""
+
 
 # CHART_RULES — 数据图表：generate_chart、导出 SVG、批量汇总与嵌入 PDF
 _CHART_RULES = """当用户要求画图、展示趋势/对比/占比/分布等图表时，调用 generate_chart 生成 ECharts option；
