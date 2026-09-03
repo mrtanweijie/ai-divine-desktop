@@ -35,6 +35,12 @@ _EDIT_TOOLS = {"edit_files", "write_file", "edit_lines", "apply_patch"}
 # 不做前缀匹配——批准过 `git push` 绝不能自动放行 `git push --force`。
 _SESSION_APPROVED_COMMANDS: dict[str, set[str]] = {}
 
+# ask_user 超时/空回答时的降级工具结果，提示模型按最佳判断继续。
+_ASK_USER_FALLBACK = (
+    "（用户未在限时内回应。请基于当前已有信息按最佳判断继续，"
+    "不要再次向用户提问。）"
+)
+
 
 def _normalized_command(command: str) -> str:
     return " ".join((command or "").split())
@@ -77,6 +83,102 @@ def _compact_for_context(value: Any) -> Any:
             compacted.append(f"...({omitted} more items omitted)")
         return compacted
     return value
+
+async def _handle_ask_user(
+    ctx: AgentRunContext,
+    runtime: ToolRuntime,
+    name: str,
+    arguments: dict[str, Any],
+    call_id: str,
+    writer: Any,
+) -> Any:
+    """ask_user 特判：以 interrupt 暂停收集用户答案，作为工具结果回传。
+
+    - 每轮（每次 run）最多一次：再次调用直接返回提示文本，不再 interrupt。
+    - 超时/空答案降级为指引文本（orchestrator 180s 未等到即 resume 空值），
+      会话不卡死；答案截断 2000 字符。
+    - approval_mode == "full"（含定时任务调度）无人在线可应答，直接跳过
+      提问并提示模型按最佳判断继续。
+    - 重要：langgraph 对工具内 interrupt 的 resume 是"整体重放该工具调用"，
+      resume 值在重放帧的 interrupt() 处返回。因此守卫不能只靠计数器——
+      计数器在 interrupt 前已自增，重放会误命中守卫。用 _ACTIVE_INTERRUPTS
+      的 marker 区分：同 marker 仍存活 = 重放（放行到 interrupt 消费 resume）；
+      计数>0 且 marker 不存活 = 本轮第二次真提问（拦截）。
+    """
+    if ctx.approval_mode == "full":
+        return (
+            "（当前为自动执行模式（如定时任务），无法向用户提问。"
+            "请基于已有信息按最佳判断继续。）"
+        )
+    marker = f"ask_user:{call_id}"
+    from .interrupts import _ACTIVE_INTERRUPTS
+
+    replaying = (ctx.session_id, marker) in _ACTIVE_INTERRUPTS
+    if ctx.ask_user_count > 0 and not replaying:
+        return (
+            "（本轮已向用户提问过，请基于已有信息继续执行，"
+            "不要再次打断用户重复提问。）"
+        )
+    ctx.ask_user_count += 1
+    question = str(arguments.get("question") or "").strip()[:500]
+    if not question:
+        return "（ask_user 需要 question 参数）"
+    raw_options = arguments.get("options") or []
+    options = [
+        str(option).strip()
+        for option in raw_options[:8]
+        if str(option).strip()
+    ]
+    input_type = str(arguments.get("input_type") or "text")
+    if input_type not in {"text", "single_choice"}:
+        input_type = "text"
+    if input_type == "single_choice" and not options:
+        input_type = "text"
+
+    decision = _ask_interrupt(
+        ctx.session_id,
+        f"ask_user:{call_id}",
+        {
+            "type": "ask_user",
+            "session_id": ctx.session_id,
+            "tool": name,
+            "call_id": call_id,
+            "question": question,
+            "options": options,
+            "input_type": input_type,
+        },
+    )
+    raw_answer = (
+        decision.get("answer") if isinstance(decision, dict) else decision
+    )
+    answer = str(raw_answer).strip() if raw_answer is not None else ""
+    if len(answer) > 2000:
+        answer = answer[:2000] + "…"
+
+    timed_out = not answer
+    if timed_out:
+        answer = _ASK_USER_FALLBACK
+    writer(
+        {
+            "event": "tool",
+            "tool": "ask_user",
+            "status": "done",
+            "message": (
+                "用户未回应，已按最佳判断继续"
+                if timed_out
+                else "已收到补充信息"
+            ),
+            "messageKey": (
+                "tool.askUserTimeout" if timed_out else "tool.askUserAnswered"
+            ),
+            "messageParams": {},
+            "confirm_type": "ask_user",
+            "session_id": ctx.session_id,
+            "call_id": call_id,
+        }
+    )
+    return answer
+
 
 async def _handle_adapter_call(
     ctx: AgentRunContext,
@@ -153,6 +255,11 @@ async def _handle_adapter_call(
             "可以继续用只读工具（read_file/grep_files/directory_tree/git_status 等）"
             "了解项目情况，收集足够信息后调用 create_plan 制定计划；"
             "方案确认前不要执行写文件、编辑或终端命令。"
+        )
+
+    if name == "ask_user":
+        return await _handle_ask_user(
+            ctx, runtime, name, arguments, call_id, writer
         )
 
     todo = None

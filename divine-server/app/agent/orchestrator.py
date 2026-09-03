@@ -575,6 +575,15 @@ async def run_agent(
                             allowed = False
                         finally:
                             remove_terminal_decision(session_id)
+                        if payload.get("type") == "ask_user":
+                            # ask_user：resume 值即用户答案（180s 超时 answer 为空，
+                            # 由 execution 侧降级为"按最佳判断继续"）；不参与
+                            # approve/reject 与 action_requests 的组装。
+                            resume_values[item.id] = {
+                                "allowed": True,
+                                "answer": pending.get("answer"),
+                            }
+                            continue
                         if (
                             allowed
                             and payload.get("type")

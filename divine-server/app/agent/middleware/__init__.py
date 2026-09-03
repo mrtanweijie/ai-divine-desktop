@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .injection import UserInjectionMiddleware
 from .middleware import TodoSyncMiddleware
 from .preprocess import (
     _start_local_model,
@@ -16,6 +17,7 @@ from .project_context import (
 
 __all__ = [
     "TodoSyncMiddleware",
+    "UserInjectionMiddleware",
     "build_project_context",
     "clear_project_context_cache",
     "maybe_preprocess",

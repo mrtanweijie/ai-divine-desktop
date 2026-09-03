@@ -52,6 +52,7 @@ SYSTEM_PROMPT = "\n".join((
 ))
 
 _READ_ONLY_TOOLS = {
+    "ask_user",
     "discover_importable_skills",
     "load_skill",
     "preview_skill_repo",
@@ -77,6 +78,7 @@ _READ_ONLY_TOOLS = {
 }
 
 _NO_PLAN_TOOLS = {
+    "ask_user",
     "discover_importable_skills",
     "install_skill",
     "migrate_skill",

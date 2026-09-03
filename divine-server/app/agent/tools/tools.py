@@ -23,7 +23,7 @@ from ...tools.registry import registry
 from ..core import MAX_TOOL_TURNS, _READ_ONLY_TOOLS
 from ..core import AgentRunContext
 from .execution import _handle_adapter_call
-from ..middleware import TodoSyncMiddleware
+from ..middleware import TodoSyncMiddleware, UserInjectionMiddleware
 from ..core.prompts import _build_dynamic_prompt, _should_ask_plan
 from ..core import _make_args_model, _run_skill_script, _skill_args_model, _skill_tool_name
 
@@ -241,6 +241,7 @@ def _build_agent(
             }
         ),
         TodoSyncMiddleware(ctx),
+        UserInjectionMiddleware(ctx),
         TodoListMiddleware(),
         ToolErrorMiddleware(
             on_error=lambda exc, request: (

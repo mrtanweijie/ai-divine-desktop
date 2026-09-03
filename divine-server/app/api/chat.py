@@ -5,17 +5,32 @@ import json
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from .. import db
 from ..agent import run_agent
+from ..agent.core.injection import (
+    MAX_CONTENT_LENGTH,
+    MAX_PENDING_INJECTIONS,
+    SUPPLEMENT_PREFIX,
+    discard_injections,
+    enqueue_injection,
+    pending_count,
+)
 from ..config import settings_store, workspace_dir
 from ..document_reader import read_file_text
 from ..file_types import is_image_path
 from ..localization import default_session_title, normalize_locale
-from ..schemas import Attachment, RetryCloudRequest, StreamChatRequest
+from ..schemas import (
+    Attachment,
+    ChatAnswer,
+    InjectRequest,
+    RetryCloudRequest,
+    StreamChatRequest,
+)
 from ..sse import error_event, sse_event
+from .terminal import resolve_terminal_answer
 
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger("divine.chat")
@@ -695,6 +710,7 @@ async def retry_cloud(request: RetryCloudRequest):
             )
             yield error_event("server_error", str(exc))
         finally:
+            discard_injections(request.session_id)
             _CANCEL_EVENTS.pop(request.session_id, None)
             db.touch_session(request.session_id)
 
@@ -711,6 +727,52 @@ async def cancel_session(session_id: str) -> dict[str, object]:
     if cancel_event is None:
         return {"ok": False, "message": "没有正在运行的会话"}
     cancel_event.set()
+    return {"ok": True}
+
+
+@router.post("/chat/answer")
+async def answer_question(request: ChatAnswer) -> dict[str, object]:
+    """ask_user：提交用户对执行中问题的回答，唤醒等待中的 agent。
+
+    内部转写为对同一 session pending 槽位的 set（复用 terminal/decide 的
+    asyncio.Event 生命周期，按 session 单槽位——orchestrator 逐 item
+    串行 await，同刻仅一个未决）。call_id 由前端配对展示，不参与寻址。
+    """
+    if db.get_session(request.session_id) is None:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    if not resolve_terminal_answer(request.session_id, request.answer):
+        raise HTTPException(status_code=409, detail="no_pending_ask")
+    return {"ok": True}
+
+
+@router.post("/sessions/{session_id}/inject")
+async def inject_message(session_id: str, request: InjectRequest) -> object:
+    """用户插话（steering）：agent 执行中主动补充信息。
+
+    无活跃流时返回 409，前端降级为常规发送（语义即新一轮消息）。
+    有活跃流时落库 + 入队，由 UserInjectionMiddleware 在下一次
+    模型调用前注入 state；run 收尾若仍未消费则 discard（消息已在
+    DB，下一轮 history 自然携带，不跨 run 泄漏、不重复注入）。
+    """
+    content = request.content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="内容不能为空")
+    if len(content) > MAX_CONTENT_LENGTH:
+        raise HTTPException(status_code=400, detail="内容过长")
+    if db.get_session(session_id) is None:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    if _CANCEL_EVENTS.get(session_id) is None:
+        raise HTTPException(status_code=409, detail="no_active_stream")
+    if pending_count(session_id) >= MAX_PENDING_INJECTIONS:
+        raise HTTPException(status_code=429, detail="待处理补充过多")
+
+    await asyncio.to_thread(
+        db.add_message, session_id, "user", f"{SUPPLEMENT_PREFIX} {content}"
+    )
+    if not enqueue_injection(session_id, content):
+        # 理论不可达（pending_count 已挡），双保险避免消息丢失
+        raise HTTPException(status_code=429, detail="待处理补充过多")
+    db.touch_session(session_id)
     return {"ok": True}
 
 # --- 本地聊天子系统（已拆分至 chat_local.py，此处 re-export 兼容既有引用） ---

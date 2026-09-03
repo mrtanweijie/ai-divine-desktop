@@ -45,6 +45,8 @@ class AgentRunContext:
     plan_choice_resolved: bool = False
     plan_first_pending: bool = False
     plan_approved: bool = False
+    # ask_user 每轮（每次 run）最多一次的硬限计数。
+    ask_user_count: int = 0
     # Files the user explicitly attached (selected or pasted): tool access to
     # these exact paths is pre-approved and needs no external-file confirm.
     approved_paths: frozenset[str] = frozenset()

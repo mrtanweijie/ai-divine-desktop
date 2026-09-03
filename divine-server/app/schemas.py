@@ -47,6 +47,24 @@ class RetryCloudRequest(BaseModel):
     tool_mode: str | None = None
 
 
+class InjectRequest(BaseModel):
+    """用户插话（steering）：agent 执行中用户主动补充的信息。
+
+    落库为带 [用户补充] 前缀的 user 消息并入队，由当前 agent run
+    的 UserInjectionMiddleware 在下一次模型调用前注入 state。
+    """
+
+    content: str = Field(min_length=1)
+
+
+class ChatAnswer(BaseModel):
+    """ask_user 的用户回答：session_id + call_id 配对，answer 为文本。"""
+
+    session_id: str
+    call_id: str
+    answer: str = Field(min_length=1, max_length=2000)
+
+
 class SessionCreate(BaseModel):
     title: str | None = None
     project_id: str | None = None

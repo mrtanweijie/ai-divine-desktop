@@ -19,13 +19,35 @@ _PENDING_TERMINAL: dict[str, dict[str, Any]] = {}
 
 
 def create_terminal_decision(session_id: str) -> dict[str, Any]:
-    pending: dict[str, Any] = {"event": asyncio.Event(), "allowed": None}
+    pending: dict[str, Any] = {
+        "event": asyncio.Event(),
+        "allowed": None,
+        # ask_user 通道：用户答案（str | None）。复用同一 pending 槽位，
+        # 与 allowed 互不干扰——ask_user resume 值取 answer，其余取 allowed。
+        "answer": None,
+    }
     _PENDING_TERMINAL[session_id] = pending
     return pending
 
 
 def remove_terminal_decision(session_id: str) -> None:
     _PENDING_TERMINAL.pop(session_id, None)
+
+
+def resolve_terminal_answer(session_id: str, answer: str) -> bool:
+    """写用户对 ask_user 的答案并唤醒等待中的 orchestrator。
+
+    与 decide_terminal 共用按 session 单槽位的 pending：同一 session 同一
+    时刻只有一个未决 interrupt（orchestrator 逐 item 串行 await），
+    因此不需要按 call_id 建索引；call_id 由前端配对展示。
+    """
+    pending = _PENDING_TERMINAL.get(session_id)
+    if pending is None:
+        return False
+    pending["answer"] = answer
+    pending["allowed"] = True
+    pending["event"].set()
+    return True
 
 
 class TerminalDecision(BaseModel):

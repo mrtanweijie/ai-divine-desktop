@@ -1,6 +1,7 @@
 from .code_review import ReviewChangesAdapter  # noqa: F401
 from .calculator import CalculatorAdapter  # noqa: F401
 from .apply_patch import ApplyPatchAdapter  # noqa: F401
+from .ask_user import AskUserAdapter  # noqa: F401
 from .bg_tool import (  # noqa: F401
     BgKillAdapter,
     BgOutputAdapter,

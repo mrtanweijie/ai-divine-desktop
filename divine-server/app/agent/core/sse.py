@@ -35,6 +35,21 @@ def _interrupt_sse(
                 "session_id": session_id,
             },
         )
+    if kind == "ask_user":
+        return sse_event(
+            "tool",
+            {
+                "tool": "ask_user",
+                "status": "confirm",
+                "message": payload.get("question", "需要你补充信息"),
+                "confirm_type": "ask_user",
+                "question": payload.get("question", ""),
+                "options": payload.get("options") or [],
+                "input_type": payload.get("input_type") or "text",
+                "call_id": payload.get("call_id", ""),
+                "session_id": session_id,
+            },
+        )
     if kind == "plan":
         return (
             sse_event("plan", {"items": payload.get("todos") or []})
