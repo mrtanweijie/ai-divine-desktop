@@ -473,37 +473,43 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
                   refreshKey={contextRefreshKey}
                 />
               )}
-              {streaming && onStop && (
-                <Button
-                  variant="secondary"
-                  className="send-button stop-button"
-                  onClick={onStop}
-                  aria-label={t("chat.stop", "停止生成")}
-                  title={t("chat.stop", "停止生成")}
-                >
-                  <Square size={14} />
-                </Button>
-              )}
-              {!disabled && (
-                <Button
-                  variant="primary"
-                  className="send-button"
-                  onClick={send}
-                  disabled={!value.trim() || (streaming && !onSupplement)}
-                  aria-label={
-                    streaming
-                      ? t("chat.supplement", "补充到当前任务")
-                      : t("chat.send", "发送")
-                  }
-                  title={
-                    streaming
-                      ? t("chat.supplement", "补充到当前任务")
-                      : t("chat.send", "发送")
-                  }
-                >
-                  <ArrowUp size={16} />
-                </Button>
-              )}
+              {(() => {
+                const hasText = value.trim().length > 0;
+                // 单按钮槽位自适应，避免"停止+发送"双按钮并排：
+                // 流式执行中且输入框为空 → 停止；其余 → 发送（流式中即"补充到当前任务"）。
+                if (streaming && onStop && !hasText) {
+                  return (
+                    <Button
+                      variant="primary"
+                      className="send-button"
+                      onClick={onStop}
+                      aria-label={t("chat.stop", "停止生成")}
+                      title={t("chat.stop", "停止生成")}
+                    >
+                      <Square size={14} />
+                    </Button>
+                  );
+                }
+                if (disabled) return null;
+                const enabled = streaming
+                  ? hasText && Boolean(onSupplement)
+                  : hasText || attached.length > 0;
+                const label = streaming
+                  ? t("chat.supplement", "补充到当前任务")
+                  : t("chat.send", "发送");
+                return (
+                  <Button
+                    variant="primary"
+                    className="send-button"
+                    onClick={send}
+                    disabled={!enabled}
+                    aria-label={label}
+                    title={label}
+                  >
+                    <ArrowUp size={16} />
+                  </Button>
+                );
+              })()}
             </Flex>
           </Flex>
         </Flex>

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import base64
 import logging
-import zlib
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -30,21 +29,25 @@ def render_pdf_pages(path: Path) -> list[str]:
 
     try:
         doc = fitz.open(str(path))
-    except zlib.error as exc:
-        # fitz.open 阶段解压失败时，用 bytes 重试一次
-        logger.warning("fitz.open zlib error, retrying from bytes: %s", exc)
-        doc = fitz.open(stream=path.read_bytes(), filetype="pdf")
+    except Exception as exc:
+        # fitz.open 阶段解压失败（zlib.error 或 PyMuPDF 包装的 RuntimeError），
+        # 用 bytes 重试一次
+        logger.warning("fitz.open error, retrying from bytes: %s", exc)
+        try:
+            doc = fitz.open(stream=path.read_bytes(), filetype="pdf")
+        except Exception:
+            raise RuntimeError(f"PDF 文件损坏或格式不支持: {exc}") from exc
     try:
         pages: list[str] = []
         for i, page in enumerate(doc):
             try:
                 pix = page.get_pixmap(dpi=PDF_RENDER_DPI)
-            except zlib.error as exc:
+            except Exception as exc:
                 # PyMuPDF 某些压缩流解压失败时降级为低 DPI 渲染
-                logger.warning("Page %d zlib error at default DPI, retrying at 72dpi: %s", i, exc)
+                logger.warning("Page %d render error at default DPI, retrying at 72dpi: %s", i, exc)
                 try:
                     pix = page.get_pixmap(dpi=72)
-                except zlib.error:
+                except Exception:
                     logger.warning("Page %d also failed at 72dpi, skipping", i)
                     continue
             data = pix.tobytes("png")
