@@ -609,6 +609,22 @@
   flex: 1;
   min-height: 0;
 }
+/* Markdown 预览块：复用 web-preview-block 骨架，仅替换预览态容器 */
+.web-preview-block.md .web-preview-frame {
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+.web-preview-block.panel.md .web-preview-frame {
+  min-height: 240px;
+}
+.md-preview-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 12px 18px 16px;
+  background: var(--color-surface);
+}
 .think-block {
   margin: 10px 0;
   overflow: hidden;

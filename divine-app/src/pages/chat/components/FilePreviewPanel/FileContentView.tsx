@@ -12,6 +12,7 @@ import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import type { FileDiff } from "@/types";
 import { useTheme } from "@/services/theme";
 import { normalizeLanguage } from "@/pages/chat/components/MarkdownView/language";
+import { MarkdownPreviewBlock } from "@/pages/chat/components/MarkdownView/MarkdownPreviewBlock";
 import { WebPreviewBlock } from "@/pages/chat/components/MarkdownView/WebPreviewBlock";
 import { BinaryPreview, isPreviewableBinary } from "./BinaryPreview";
 
@@ -47,6 +48,12 @@ function webPreviewLanguage(filePath: string): "html" | "svg" | null {
   if (ext === "html" || ext === "htm") return "html";
   if (ext === "svg") return "svg";
   return null;
+}
+
+function isMarkdownFile(filePath: string): boolean {
+  const name = filePath.split("/").pop() ?? filePath;
+  const ext = name.toLowerCase().split(".").pop() || "";
+  return ext === "md" || ext === "markdown" || ext === "mdown" || ext === "mkd";
 }
 
 function tokenStyle(token: ThemedToken): CSSProperties {
@@ -202,6 +209,12 @@ export function FileContentView({
             </span>
           </div>
         )
+      ) : isMarkdownFile(relPath) && !preview.contentTruncated ? (
+        <MarkdownPreviewBlock
+          code={content}
+          variant="panel"
+          defaultMode="preview"
+        />
       ) : webLanguage && !preview.contentTruncated ? (
         <WebPreviewBlock
           code={content}

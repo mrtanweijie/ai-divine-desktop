@@ -141,6 +141,7 @@
     "copy": "Copy",
     "copyCode": "Copy code",
     "htmlPreview": "HTML preview",
+    "mdPreview": "Markdown preview",
     "svgPreview": "SVG",
     "viewPreview": "View preview",
     "viewSource": "View source",
