@@ -1,5 +1,6 @@
 // ECharts option normalization and theme decoration, kept separate from React.
 import type { EChartsOption } from "echarts";
+import { UI_COLORS } from "@/styles/uiPalette";
 
 const UI_FONT =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif';
@@ -89,21 +90,22 @@ interface ChartPalette {
 
 const CHART_PALETTES: Record<ChartTheme, ChartPalette> = {
   dark: {
-    text: "#e8ecf1",
-    muted: "#a4adba",
-    label: "#e8ecf1",
+    text: UI_COLORS.dark.text,
+    muted: UI_COLORS.dark.textSecondary,
+    label: UI_COLORS.dark.text,
     labelBg: "rgba(15, 18, 21, 0.78)",
-    border: "#121517",
+    border: UI_COLORS.dark.surface,
     axisLine: "rgba(255,255,255,0.12)",
     splitLine: "rgba(255,255,255,0.07)",
     tooltipBg: "rgba(18,21,23,0.96)",
     tooltipBorder: "rgba(255,255,255,0.12)",
   },
   light: {
-    text: "#1f2937",
-    muted: "#5b6472",
-    label: "#1f2937",
+    text: UI_COLORS.light.text,
+    muted: UI_COLORS.light.textSecondary,
+    label: UI_COLORS.light.text,
     labelBg: "rgba(255,255,255,0.92)",
+    // 浅色分割线灰：CSS token 无对应实体档，保留独立值
     border: "#e5e7eb",
     axisLine: "rgba(15,23,42,0.25)",
     splitLine: "rgba(15,23,42,0.10)",
@@ -985,8 +987,9 @@ function decorateCandlestick(
   option: Record<string, unknown>,
   palette: ChartPalette
 ): void {
-  const upColor = "#00da3c";
-  const downColor = "#ec0000";
+  // A 股惯例：涨红跌绿
+  const upColor = "#ec0000";
+  const downColor = "#00da3c";
   const series = Array.isArray(option.series)
     ? option.series.map((item) => (isRecord(item) ? { ...item } : item))
     : [];

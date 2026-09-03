@@ -86,7 +86,7 @@
   max-width: min(72%, 640px);
   min-width: 0;
   padding: 10px 14px;
-  border-radius: 8px 8px 2px 8px;
+  border-radius: var(--radius-md) var(--radius-md) 2px var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-surface-2);
   color: var(--color-text);
@@ -122,9 +122,9 @@
 .user-preprocess-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   font-size: 11px;
   color: var(--color-accent);
   background: var(--color-accent-soft);
@@ -133,14 +133,14 @@
   width: 100%;
   max-width: 420px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-1);
   font-size: 12px;
 }
 .user-preprocess-original summary {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   padding: 7px 9px;
   cursor: pointer;
   color: var(--color-text-muted);
@@ -179,7 +179,7 @@
   align-items: center;
   gap: 8px;
   padding: 7px 9px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-accent-soft);
   font-size: 12px;
 }
@@ -215,7 +215,7 @@
   max-width: 50%;
   height: auto;
   margin: 8px 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 /* 本地文件路径链接：点击在 Finder 中显示所在位置 */
@@ -226,7 +226,7 @@
   margin: 0 2px;
   padding: 1px 6px;
   border: 1px solid var(--color-border);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--color-surface-2);
   color: var(--color-text-secondary);
   font-size: 0.92em;
@@ -286,7 +286,7 @@
   margin: 12px 0;
   overflow-x: auto;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   line-height: 1.75;
 }
 .markdown-table-wrap table {
@@ -327,7 +327,7 @@
 }
 .inline-code {
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--color-accent-soft);
   color: var(--color-code-text);
   font-family: var(--font-mono);
@@ -339,7 +339,7 @@
 }
 .code-block {
   margin: 12px 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-code-bg);
   border: 1px solid var(--color-border);
@@ -374,7 +374,7 @@
   height: 26px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: #94a3b8;
   cursor: pointer;
@@ -410,7 +410,7 @@
 .mermaid-block {
   margin: 12px 0;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-surface);
 }
@@ -437,7 +437,7 @@
   height: 26px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -495,7 +495,7 @@
   margin: 12px 0;
   overflow: hidden;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 .web-preview-header {
@@ -535,7 +535,7 @@
   height: 26px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -613,7 +613,7 @@
   margin: 10px 0;
   overflow: hidden;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 .think-summary {
@@ -661,7 +661,7 @@
   margin: 10px 0;
   overflow: hidden;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 .plan-summary {
@@ -748,7 +748,7 @@
   margin: 10px 0;
   overflow: hidden;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 .tool-status-card.confirm {
@@ -764,7 +764,7 @@
 .tool-status-main {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   min-height: 40px;
   padding: 8px 12px;
 }
@@ -793,11 +793,11 @@
 .tool-url-link {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   width: 100%;
   padding: 6px 9px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-2);
   color: var(--color-text-secondary);
   font-size: 12px;
@@ -828,7 +828,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-accent-soft);
   color: var(--color-accent);
 }
@@ -871,11 +871,11 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
   flex: 1;
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text);
   font-size: 12.5px;
@@ -903,7 +903,7 @@
   gap: 4px;
   margin: 10px 12px 12px;
   padding: 4px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-surface-2);
 }
 .file-actions.file-list {
@@ -928,7 +928,7 @@
   align-self: flex-start;
   padding: 4px 8px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-2);
   color: var(--color-text-secondary);
   font-size: 11px;
@@ -941,7 +941,7 @@
 .file-preview-button {
   flex-shrink: 0;
   height: 30px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
 }
 .file-actions .file-preview-button:hover:not(:disabled) {
@@ -1090,7 +1090,7 @@
   margin: 8px 12px 10px;
   padding: 6px 10px;
   background: var(--color-code-bg);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: var(--font-mono);
   font-size: 12px;
 }
@@ -1110,7 +1110,7 @@
   align-self: flex-start;
   padding: 4px 8px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-2);
   color: var(--color-text-secondary);
   font-size: 11px;
@@ -1133,7 +1133,7 @@
   margin: 8px 10px 10px;
   padding: 10px 12px;
   border: 1px solid rgba(111, 120, 131, 0.55);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: rgba(111, 120, 131, 0.14);
 }
 .terminal-confirm-head {
@@ -1153,7 +1153,7 @@
   padding: 6px 8px;
   overflow-x: auto;
   background: var(--color-code-bg);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--color-code-text);
   font-family: var(--font-mono);
   font-size: 12px;
@@ -1176,7 +1176,7 @@
   gap: 2px;
   padding: 6px 8px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-2);
 }
 .subagents-write-item-name {
@@ -1221,7 +1221,7 @@
   gap: 6px;
   padding: 7px 9px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-2);
   font-size: 12px;
 }
@@ -1244,11 +1244,11 @@
 .message-error {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   margin-top: 8px;
   padding: 8px 10px;
   border: 1px solid rgba(244, 123, 110, 0.3);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: rgba(244, 123, 110, 0.08);
   color: var(--color-danger);
   font-size: 13px;
@@ -1262,7 +1262,7 @@
   margin: 10px 0;
   overflow: hidden;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 .subagent-summary {
@@ -1335,7 +1335,7 @@
 .subagent-item-changed {
   flex: none;
   padding: 1px 6px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--color-accent-soft);
   color: var(--color-accent);
   font-size: 11px;

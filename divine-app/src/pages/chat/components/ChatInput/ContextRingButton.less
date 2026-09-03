@@ -12,7 +12,7 @@
   height: 26px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   cursor: pointer;
   transition: background 0.12s ease;
@@ -30,7 +30,7 @@
   width: 280px;
   padding: 12px 14px;
   border: 1px solid var(--color-border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
   color: var(--color-text);
@@ -76,7 +76,7 @@
 
 .context-ring-bar {
   height: 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--color-border);
   overflow: hidden;
   margin-bottom: 10px;
@@ -84,14 +84,14 @@
 
 .context-ring-bar-fill {
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   transition: width 0.3s ease, background 0.3s ease;
 }
 
 .context-ring-breakdown {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   padding: 8px 0;
   border-top: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
@@ -130,7 +130,7 @@
   width: 100%;
   padding: 6px 10px;
   border: 1px solid var(--color-border-strong);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-2);
   color: var(--color-text);
   font-size: 12px;

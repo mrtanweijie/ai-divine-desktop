@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { toast } from "@/components/ui/Toast";
+import { UI_COLORS } from "@/styles/uiPalette";
 import { copyText } from "@/utils";
 
 type MermaidApi = (typeof import("mermaid"))["default"];
@@ -25,35 +26,35 @@ const FONT_STACK =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif';
 
 const DARK_THEME_VARIABLES = {
-  primaryColor: "#171b1f",
-  primaryTextColor: "#f2f4f6",
+  primaryColor: UI_COLORS.dark.surface2,
+  primaryTextColor: UI_COLORS.dark.text,
   primaryBorderColor: "#3f4a56",
   lineColor: "#7c8794",
   fontSize: "12px",
   titleFontSize: "14px",
-  secondaryColor: "#121517",
-  tertiaryColor: "#0d1013",
-  clusterBkg: "#121517",
+  secondaryColor: UI_COLORS.dark.surface,
+  tertiaryColor: UI_COLORS.dark.codeBg,
+  clusterBkg: UI_COLORS.dark.surface,
   clusterBorder: "#3f4a56",
-  edgeLabelBackground: "#121517",
-  nodeTextColor: "#f2f4f6",
+  edgeLabelBackground: UI_COLORS.dark.surface,
+  nodeTextColor: UI_COLORS.dark.text,
   fontFamily: FONT_STACK,
   nodeBorderRadius: "8px",
 };
 
 const LIGHT_THEME_VARIABLES = {
-  primaryColor: "#ffffff",
-  primaryTextColor: "#1f2937",
+  primaryColor: UI_COLORS.light.surface,
+  primaryTextColor: UI_COLORS.light.text,
   primaryBorderColor: "#cbd5e1",
   lineColor: "#64748b",
   fontSize: "12px",
   titleFontSize: "14px",
-  secondaryColor: "#f8fafc",
-  tertiaryColor: "#f1f5f9",
-  clusterBkg: "#f8fafc",
+  secondaryColor: UI_COLORS.light.surface2,
+  tertiaryColor: UI_COLORS.light.codeBg,
+  clusterBkg: UI_COLORS.light.surface2,
   clusterBorder: "#cbd5e1",
-  edgeLabelBackground: "#ffffff",
-  nodeTextColor: "#1f2937",
+  edgeLabelBackground: UI_COLORS.light.surface,
+  nodeTextColor: UI_COLORS.light.text,
   fontFamily: FONT_STACK,
   nodeBorderRadius: "8px",
 };

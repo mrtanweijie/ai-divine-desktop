@@ -107,13 +107,13 @@
 .file-tree-node {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   width: 100%;
   height: 28px;
   min-width: 0;
   padding-right: 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--color-text-secondary);
   font-size: 12px;
@@ -188,7 +188,7 @@
   height: 6px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--status-blue);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.16);
 }
 
@@ -276,11 +276,11 @@
 }
 
 .diff-view-add {
-  color: #22c55e;
+  color: var(--status-green);
 }
 
 .diff-view-del {
-  color: #ef4444;
+  color: var(--status-red);
 }
 
 .diff-view-state {
@@ -321,7 +321,7 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .binary-preview.pdf-preview {
@@ -342,7 +342,7 @@
   height: 100%;
   min-height: 480px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: #fff;
 }
 
@@ -405,7 +405,7 @@
   margin: 10px auto 0;
   padding: 5px 12px;
   border: 1px solid var(--color-border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: 11.5px;
@@ -512,7 +512,7 @@
 }
 
 .diff-add .diff-sign {
-  color: #22c55e;
+  color: var(--status-green);
 }
 
 .diff-del {
@@ -520,7 +520,7 @@
 }
 
 .diff-del .diff-sign {
-  color: #ef4444;
+  color: var(--status-red);
 }
 
 .diff-hunk {
@@ -528,7 +528,7 @@
   min-width: max-content;
   padding: 2px 12px;
   background: rgba(59, 130, 246, 0.1);
-  color: #60a5fa;
+  color: var(--status-blue);
   white-space: pre;
 }
 

@@ -1,3 +1,13 @@
+/* ============ 圆角 / 形状 token（主题无关，light/dark 共用） ============ */
+:root {
+  --radius-xs: 4px; /* tag / checkbox / 代码行 */
+  --radius-sm: 6px; /* 按钮 / 输入框 / 图标按钮 */
+  --radius-md: 8px; /* 卡片 / 弹窗 / 下拉 */
+  --radius-lg: 12px; /* 大卡片 / 浮层 */
+  --radius-xl: 16px; /* 面板头部 */
+  --radius-full: 999px; /* 胶囊 / 圆形（头像仍用 50% 更稳妥） */
+}
+
 :root,
 :root[data-theme="dark"] {
   --color-bg: #0b0d0f;
@@ -12,14 +22,21 @@
   --color-accent-hover: #d1d5db;
   --color-on-accent: #0b0d0f;
   --color-accent-soft: rgba(255, 255, 255, 0.08);
-  --color-success: #e5e7eb;
+  --color-success: #34d399;
   --color-danger: #f47b6e;
-  --color-warning: #cbd5e1;
+  --color-warning: #fbbf24;
   --color-code-bg: #0d1013;
   --color-code-text: #d8dee6;
   --color-switch-off: rgba(255, 255, 255, 0.14);
   --color-switch-thumb: #ffffff;
   --color-hover-soft: var(--color-surface-2);
+  /* 状态指示色（状态点/图标/状态文字）：dark 用 400 亮档保证深底可见 */
+  --status-green: #4ade80;
+  --status-red: #ef4444;
+  --status-blue: #60a5fa;
+  --status-orange: #fb923c;
+  --status-amber: #facc15;
+  --status-violet: #a78bfa;
   --focus-ring: 0 0 0 2px rgba(255, 255, 255, 0.35);
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
     "PingFang SC", sans-serif;
@@ -47,6 +64,13 @@
   --color-switch-off: rgba(15, 23, 42, 0.22);
   --color-switch-thumb: #ffffff;
   --color-hover-soft: rgba(15, 23, 42, 0.04);
+  /* 状态指示色：light 用 600-700 深档保证浅底对比度 */
+  --status-green: #16a34a;
+  --status-red: #dc2626;
+  --status-blue: #2563eb;
+  --status-orange: #d97706;
+  --status-amber: #ca8a04;
+  --status-violet: #7c3aed;
   --focus-ring: 0 0 0 2px rgba(17, 24, 39, 0.28);
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
     "PingFang SC", sans-serif;
@@ -153,7 +177,7 @@ a:focus-visible {
   align-items: center;
   justify-content: center;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -173,7 +197,7 @@ a:focus-visible {
 .icon-button.small {
   width: 26px;
   height: 26px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
 }
 
 .icon-button.danger:hover {
@@ -196,7 +220,7 @@ a:focus-visible {
   padding: 6px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
@@ -298,7 +322,7 @@ a:focus-visible {
   max-height: calc(100vh - 48px);
   overflow-y: auto;
   background: var(--color-surface);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
 }
 
@@ -325,7 +349,7 @@ a:focus-visible {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   font-size: 12px;
   color: var(--color-text-secondary);
   min-width: 0;
@@ -333,10 +357,10 @@ a:focus-visible {
 
 .field input,
 .field select {
-  height: 34px;
+  height: 40px;
   padding: 0 10px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   outline: 0;
   background: var(--color-surface);
   color: var(--color-text);
@@ -411,7 +435,7 @@ a:focus-visible {
   gap: 6px;
   height: 34px;
   padding: 0 14px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -447,7 +471,7 @@ a:focus-visible {
   width: min(380px, calc(100vw - 32px));
   padding: 20px;
   background: var(--color-surface);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
 }
 
@@ -458,7 +482,7 @@ a:focus-visible {
   align-items: center;
   justify-content: center;
   margin-bottom: 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: #fef3f2;
   color: var(--color-danger);
 }
@@ -490,7 +514,7 @@ a:focus-visible {
   width: 32px !important;
   height: 32px !important;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text-secondary);
 }

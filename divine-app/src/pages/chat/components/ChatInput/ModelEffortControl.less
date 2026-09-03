@@ -8,11 +8,11 @@
 .model-effort-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   height: 28px;
   padding: 0 6px 0 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
   font-size: 12px;
@@ -41,7 +41,7 @@
   z-index: 200;
   width: 260px;
   border: 1px solid var(--color-border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--color-surface-2);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
@@ -59,7 +59,7 @@
   padding: 12px;
   border: 0;
   border-bottom: 1px solid var(--color-border);
-  border-radius: 10px 10px 0 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: transparent;
   color: var(--color-text-secondary);
   font-size: 12px;
@@ -110,7 +110,7 @@
   gap: 8px;
   min-height: 38px;
   padding: 6px 10px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   color: var(--color-text);
   font-size: 13px;

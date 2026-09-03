@@ -7,7 +7,7 @@
   width: 24px;
   height: 24px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -26,7 +26,7 @@
   max-height: 420px;
   overflow-y: auto;
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   animation: git-info-fade-in 0.15s ease;
@@ -89,7 +89,7 @@
 .git-info-branch {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-weight: 600;
   color: var(--color-text);
   font-size: 13px;
@@ -103,10 +103,10 @@
   font-weight: 500;
 }
 .git-info-ahead {
-  color: #4ade80;
+  color: var(--status-green);
 }
 .git-info-behind {
-  color: #f87171;
+  color: var(--status-red);
 }
 
 /* Commit */
@@ -173,7 +173,7 @@
   display: block;
   padding: 2px 4px;
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   transition: background 0.1s ease;
 }
 .git-info-file:hover {
