@@ -255,6 +255,24 @@ function buildComponents(
         </div>
       );
     },
+    p(props: any) {
+      const { children, ...rest } = props;
+      const text = extractText(children).trim();
+      // 检测裸 JSON（LLM 未用 ```options 包裹的情况）：以 { 开头、含 "options" 数组
+      if (text.startsWith("{") && text.includes('"options"')) {
+        const data = parseOptionsBlock(text);
+        if (data) {
+          return (
+            <ChoiceBlock
+              data={data}
+              messageId={messageId}
+              persistedChoice={choiceState}
+            />
+          );
+        }
+      }
+      return <p {...rest}>{children}</p>;
+    },
     a(props: any) {
       const href = props.href as string | undefined;
       // 本地文件路径链接：目录直接打开文件夹；文件则在其所在文件夹中显示

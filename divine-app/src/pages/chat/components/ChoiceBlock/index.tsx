@@ -23,52 +23,103 @@ export interface ChoiceBlockData {
   multiple?: boolean;
 }
 
-/** 从 ```options 代码块中解析选项数据；解析失败返回 null。 */
+/**
+ * 修复 LLM 生成的 JSON 中未转义的内部引号。
+ * 逐字符扫描，区分 JSON 字符串边界和字符串内的裸引号。
+ */
+function sanitizeJsonQuotes(raw: string): string {
+  const out: string[] = [];
+  let inString = false;
+  let i = 0;
+  while (i < raw.length) {
+    const ch = raw[i];
+    if (inString) {
+      if (ch === "\\") {
+        out.push(ch, raw[i + 1] ?? "");
+        i += 2;
+        continue;
+      }
+      if (ch === '"') {
+        // 判断这个 " 是否是字符串结束符：
+        // 如果后面跟 , } ] : 或空白+这些字符，视为正常结束
+        const rest = raw.slice(i + 1).trimStart();
+        if (!rest || /^[,\}\]:]/.test(rest)) {
+          inString = false;
+          out.push(ch);
+        } else {
+          // 字符串内的裸引号，转义为 \u0022
+          out.push("\u0022");
+        }
+      } else {
+        out.push(ch);
+      }
+    } else {
+      if (ch === '"') {
+        inString = true;
+      }
+      out.push(ch);
+    }
+    i++;
+  }
+  return out.join("");
+}
+
+/**
+ * 从 ```options 代码块中解析选项数据；解析失败返回 null。
+ * 自动修复 LLM 生成的常见 JSON 格式问题（如字符串值内未转义的引号）。
+ */
 export function parseOptionsBlock(code: string): ChoiceBlockData | null {
   const text = (code || "").trim();
   let start = text.indexOf("{");
   let end = text.lastIndexOf("}");
   if (start < 0 || end <= start) return null;
+  const raw = text.slice(start, end + 1);
+  let data: Record<string, unknown> | null = null;
   try {
-    const data = JSON.parse(text.slice(start, end + 1));
-    if (!data || !Array.isArray(data.options) || data.options.length === 0) {
+    data = JSON.parse(raw);
+  } catch {
+    // LLM 常在 desc/label 中生成未转义的中文引号，尝试逐字符修复
+    try {
+      data = JSON.parse(sanitizeJsonQuotes(raw));
+    } catch {
       return null;
     }
-    const options: ChoiceOption[] = data.options
-      .filter(
-        (item: unknown): item is ChoiceOption =>
-          !!item &&
-          typeof item === "object" &&
-          typeof (item as ChoiceOption).label === "string"
-      )
-      .map((item: ChoiceOption) => ({
-        label: String(item.label).trim(),
-        theme: item.theme ? String(item.theme) : undefined,
-        color_scheme: item.color_scheme
-          ? String(item.color_scheme)
-          : undefined,
-        desc: item.desc ? String(item.desc) : undefined,
-      }));
-    if (options.length === 0) return null;
-    // 含「暂时不用」选项 = 后续询问卡片（下一步做什么/是否生成产物）：
-    // 纯点选，禁用自定义输入框（模型即使写了 other:true 也强制关闭）；
-    // 副标题兜底：模型漏写 desc 时统一补「后续有需求再继续任务」
-    const declineDesc = "后续有需求再继续任务";
-    const optionsFilled = options.map((item) =>
-      item.label === "暂时不用"
-        ? { ...item, desc: item.desc || declineDesc }
-        : item
-    );
-    const hasDecline = optionsFilled.some((item) => item.label === "暂时不用");
-    return {
-      title: data.title ? String(data.title) : undefined,
-      options: optionsFilled,
-      other: hasDecline ? false : Boolean(data.other),
-      multiple: hasDecline ? false : Boolean(data.multiple),
-    };
-  } catch {
+  }
+  if (!data || !Array.isArray(data.options) || data.options.length === 0) {
     return null;
   }
+  const options: ChoiceOption[] = data.options
+    .filter(
+      (item: unknown): item is ChoiceOption =>
+        !!item &&
+        typeof item === "object" &&
+        typeof (item as ChoiceOption).label === "string"
+    )
+    .map((item: ChoiceOption) => ({
+      label: String(item.label).trim(),
+      theme: item.theme ? String(item.theme) : undefined,
+      color_scheme: item.color_scheme
+        ? String(item.color_scheme)
+        : undefined,
+      desc: item.desc ? String(item.desc) : undefined,
+    }));
+  if (options.length === 0) return null;
+  // 含「暂时不用」选项 = 后续询问卡片（下一步做什么/是否生成产物）：
+  // 纯点选，禁用自定义输入框（模型即使写了 other:true 也强制关闭）；
+  // 副标题兜底：模型漏写 desc 时统一补「后续有需求再继续任务」
+  const declineDesc = "后续有需求再继续任务";
+  const optionsFilled = options.map((item) =>
+    item.label === "暂时不用"
+      ? { ...item, desc: item.desc || declineDesc }
+      : item
+  );
+  const hasDecline = optionsFilled.some((item) => item.label === "暂时不用");
+  return {
+    title: data.title ? String(data.title) : undefined,
+    options: optionsFilled,
+    other: hasDecline ? false : Boolean(data.other),
+    multiple: hasDecline ? false : Boolean(data.multiple),
+  };
 }
 
 // 主题色副标题（前端兜底覆盖：卡片 desc 由 LLM 自由生成，

@@ -87,6 +87,7 @@ _OPTIONS_CARD_RULES = """【用户决策卡片（通用）】任何需要用户�
 ```
 规则：
 - options 是选择项数组，label 必填（即用户点击后发回的文本）、desc 可选；
+- JSON 必须严格合法：字符串值内的引号必须用 \\" 转义（如 "desc": "补\\"股价表现\\"页"），禁止出现未转义的裸引号；
 - other: true 表示允许用户自定义输入（单选时默认 true；多选时默认 false，
   多选界面只有勾选和确认按钮，需要补充选项外内容时才传 other: true）；
 - 选项 2-5 个，desc 写一句具体说明帮助用户决策，不要输出完整说明列表；
@@ -324,7 +325,7 @@ content 传 Mermaid 源码（不要带围栏代码块）。"""
 _SVG_RULES = """用户要求生成/绘制 SVG 矢量图、图标、插画、角色或自定义图形时，按以下规则执行：
 - 首轮从零生成使用 draw_svg，content 传完整合法 SVG 源码（以 <svg 开头，不要带围栏代码块）；
   后续修改必须使用 edit_svg，不要重新生成；需要先理解当前 SVG 时可用 describe_svg；
-  用户说“导出/转 PNG/我要位图”时使用 svg_to_png；
+  用户说“导出/转 PNG/我要位图”时使用 svg_to_png（禁止用 terminal 跑 rsvg-convert/inkscape/chrome headless）；
   用户要 iOS/Android 多尺寸图标或一次导出多个 PNG 尺寸时，使用 svg_to_png_batch，
   一次性传入 sizes 列表，不要逐个调用 svg_to_png。
 - edit_svg 的 file_path 传当前 SVG 文件路径，content 传完整更新后的 SVG 源码；
@@ -407,7 +408,8 @@ _FILE_AND_WEB_RULES = """读取文件内容必须使用 read_file、word_documen
 
 # TERMINAL_RULES — 终端使用边界：仅系统操作
 _TERMINAL_RULES = """terminal 只能用于系统操作，例如安装依赖、运行命令、管理进程或用户明确要求的终端命令。
-禁止用 terminal 运行 Python 脚本来生成 Excel/Word/PDF 等文档，必须使用对应的专用工具（spreadsheet/word_document/pdf_generate）。"""
+禁止用 terminal 运行 Python 脚本来生成 Excel/Word/PDF 等文档，必须使用对应的专用工具（spreadsheet/word_document/pdf_generate）。
+禁止用 terminal 转换 SVG→PNG（如 rsvg-convert/inkscape/chrome headless），必须使用 svg_to_png 工具。"""
 
 # SUBAGENT_RULES — 并行子任务：run_subagents、只读默认与并行写文件
 _SUBAGENT_RULES = """当任务包含多个相互独立的子任务（如同时调研多个主题/产品/来源、并行分析多份资料、

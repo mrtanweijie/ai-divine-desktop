@@ -390,8 +390,10 @@ async def stream_chat(request: StreamChatRequest):
                 # 带附件时不做本地能力路由（task=None → 走云端 agent）
                 task = None
                 if not request.attachments:
+                    # 用原始文本检测本地任务（扩展后文本可能超长导致误判），
+                    # 但传给模型的仍是扩展后文本（含上下文补全）。
                     task = _detect_local_task(
-                        model_question, _ai_asking_hint(history)
+                        final_question, _ai_asking_hint(history)
                     )
                 if task:
                     from ..agent.core import get_manager
