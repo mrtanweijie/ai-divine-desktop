@@ -4,6 +4,19 @@
   min-height: 0;
   position: relative;
 }
+/* 底部渐变蒙版：消息接近输入框（composer-wrap）时柔和淡出，避免硬切。
+   颜色取自 --color-bg（与 main-area 同底色），内容不足时蒙版天然不可见。 */
+.message-stage::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--color-bg));
+}
 .conversation-minimap {
   position: absolute;
   left: 6px;
