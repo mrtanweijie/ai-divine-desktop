@@ -410,6 +410,10 @@ export function messagesToChatMessages(
               messageParams: result?.messageParams,
               command,
               result,
+              turn: run.turn ?? undefined,
+              run_id: run.id,
+              started_at: run.started_at,
+              duration_ms: run.duration_ms ?? undefined,
             } satisfies ToolEvent;
           })
       );

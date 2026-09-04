@@ -97,6 +97,18 @@ export interface ToolEvent {
   target?: "project" | "user";
   paths?: string[];
   session_id?: string;
+  /** 模型调用轮次（ReAct 第几轮），TurnCounterMiddleware 维护 */
+  turn?: number;
+  /** 合并卡的起始轮次（重试链/白名单组的第一条） */
+  turn_start?: number;
+  /** 合并卡内失败次数（重试链聚合） */
+  failed_count?: number;
+  /** tool_runs.id，done/error 时携带 */
+  run_id?: string;
+  /** 工具开始时间（ISO8601），done/error 时携带 */
+  started_at?: string;
+  /** 工具耗时（毫秒），done/error 时携带 */
+  duration_ms?: number;
   result?: {
     file_name?: string;
     filepath?: string;
@@ -176,6 +188,10 @@ export interface ToolRun {
   output: string | null;
   started_at: string;
   finished_at: string | null;
+  /** 模型调用轮次（新数据才有；旧库行为 NULL） */
+  turn?: number | null;
+  /** 工具耗时毫秒（新数据才有；旧库行为 NULL） */
+  duration_ms?: number | null;
 }
 
 export interface TodoItem {

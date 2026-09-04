@@ -90,11 +90,25 @@ export const GROUPABLE_TOOLS = new Set([
 /**
  * Merge consecutive runs of the same tool into one card while keeping
  * aggregated URLs, files, commands, and a localized summary message.
+ *
+ * 两条合并规则：
+ * 1. 白名单工具（GROUPABLE_TOOLS）：跨位置全局合并，聚合消息。
+ * 2. 失败重试链（所有工具）：相邻同工具且链上出现过失败即合并——
+ *    连续重试失败刷屏是明确的体验伤害；纯成功链不合，
+ *    多次成功调用可能有各自结果（如多张图表），不应吞掉。
  */
 export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
   const grouped: ToolEvent[] = [];
   for (const tool of tools) {
+    const last = grouped[grouped.length - 1];
     if (!GROUPABLE_TOOLS.has(tool.tool)) {
+      // 仅当上一张卡以失败收尾时才续链：error→error 续链、error→done 收链。
+      // 成功卡永远开新卡——多次成功调用可能有各自结果（如多张图表），
+      // 不能被之前的重试历史永久吸附（已踩坑：多图表只显示最后一张）。
+      if (last && last.tool === tool.tool && last.status === "error") {
+        grouped[grouped.length - 1] = mergeRetryChain(last, tool);
+        continue;
+      }
       grouped.push(tool);
       continue;
     }
@@ -106,6 +120,8 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
       grouped.push({
         ...tool,
         count: 1,
+        turn_start: tool.turn,
+        failed_count: tool.status === "error" ? 1 : 0,
         urls,
         files: toolFiles(tool),
         commands: toolCommands(tool),
@@ -114,6 +130,9 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
     }
     const existing = grouped[index];
     const count = (existing.count ?? 1) + 1;
+    const failed =
+      (existing.failed_count ?? (existing.status === "error" ? 1 : 0)) +
+      (tool.status === "error" ? 1 : 0);
     const urls = [
       ...new Set([
         ...(existing.urls ?? []),
@@ -136,7 +155,10 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
     grouped[index] = {
       ...existing,
       ...tool,
+      result: tool.result ?? existing.result,
       count,
+      failed_count: failed,
+      turn_start: existing.turn_start ?? existing.turn,
       urls,
       files,
       commands,
@@ -196,6 +218,34 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
     };
   }
   return grouped;
+}
+
+/**
+ * 失败重试链合并：保留最终结果的 result（重试成功后图表/文件正常展示），
+ * 消息区分「重试后成功」与「仍在失败」两种终态。
+ */
+function mergeRetryChain(
+  existing: ToolEvent,
+  tool: ToolEvent
+): ToolEvent {
+  const count = (existing.count ?? 1) + 1;
+  const failed =
+    (existing.failed_count ?? (existing.status === "error" ? 1 : 0)) +
+    (tool.status === "error" ? 1 : 0);
+  const succeeded = tool.status !== "error" && failed > 0;
+  return {
+    ...existing,
+    ...tool,
+    result: tool.result ?? existing.result,
+    count,
+    failed_count: failed,
+    turn_start: existing.turn_start ?? existing.turn,
+    message: succeeded
+      ? i18next.t("tool.retriedSuccess", "重试 {{count}} 次后成功", {
+          count: failed,
+        })
+      : tool.message,
+  };
 }
 
 export function toolUrls(tool: ToolEvent): string[] {

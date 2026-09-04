@@ -141,6 +141,16 @@ export function useChatStream(options: UseChatStreamOptions) {
           )
         );
       },
+      plan_sync: (data: { items?: unknown }) => {
+        // run 正常结束后的终态收敛全量同步（running→done、pending→skipped），
+        // 保证流式期间与刷新后的计划进度一致。
+        const items = (data.items ?? []) as unknown as TodoItem[];
+        setSessionMessages(sessionId, (prev) =>
+          prev.map((message) =>
+            message.id === assistantId ? { ...message, todos: items } : message
+          )
+        );
+      },
       todo_update: (data: {
         id: string;
         status: string;

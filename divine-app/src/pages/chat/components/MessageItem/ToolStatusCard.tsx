@@ -145,6 +145,35 @@ export function ToolStatusCard({
             {statusMessage}
           </span>
         </div>
+        {(typeof tool.turn === "number" && tool.turn > 0) ||
+        tool.duration_ms != null ||
+        (tool.failed_count ?? 0) > 0 ? (
+          <span className="tool-meta">
+            {typeof tool.turn === "number" && tool.turn > 0
+              ? (() => {
+                  const start = tool.turn_start ?? tool.turn;
+                  return start != null && start !== tool.turn
+                    ? t("tool.turnRangeBadge", "第 {{start}}–{{end}} 轮", {
+                        start,
+                        end: tool.turn,
+                      })
+                    : t("tool.turnBadge", "第 {{turn}} 轮", { turn: tool.turn });
+                })()
+              : ""}
+            {tool.duration_ms != null
+              ? `${tool.turn != null && tool.turn > 0 ? " · " : ""}${
+                  tool.duration_ms < 1000
+                    ? `${tool.duration_ms}ms`
+                    : `${(tool.duration_ms / 1000).toFixed(1)}s`
+                }`
+              : ""}
+            {(tool.failed_count ?? 0) > 0
+              ? ` · ${t("tool.failedBadge", "失败 ×{{count}}", {
+                  count: tool.failed_count,
+                })}`
+              : ""}
+          </span>
+        ) : null}
         {hasUrls && (
           <>
             <span className="tool-url-count">

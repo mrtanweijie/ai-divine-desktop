@@ -12,6 +12,10 @@ export interface SSEHandlers {
   think_done?: () => void;
   message?: (data: { content: string }) => void;
   plan?: (data: { items: Record<string, unknown>[] }) => void;
+  plan_sync?: (data: {
+    items?: unknown;
+    settled?: number;
+  }) => void;
   todo_update?: (data: {
     id: string;
     status: string;

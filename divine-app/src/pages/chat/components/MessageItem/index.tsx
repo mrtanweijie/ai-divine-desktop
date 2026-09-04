@@ -8,6 +8,7 @@ import {
   Copy,
   Eye,
   FileText,
+  Minus,
   Sparkles,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -22,6 +23,7 @@ import { copyText, formatSize, formatTime, formatTokens } from "@/utils";
 import { parseSupplement } from "@/pages/chat/chatUtils";
 import { ToolStatusCard } from "./ToolStatusCard";
 import { SubAgentPanel } from "./SubAgentPanel";
+import { TracePanel } from "./TracePanel";
 import { groupToolCards } from "./MessageHelpers";
 
 import "./index.less";
@@ -225,6 +227,9 @@ export const MessageItem = memo(function MessageItem({
               onPreviewFile={onPreviewFile}
             />
           ))}
+          {!streaming && message.tools.length > 0 && (
+            <TracePanel tools={message.tools} />
+          )}
           {message.content ? (
             <MarkdownView
               content={message.content}
@@ -430,6 +435,8 @@ function PlanCard({ todos }: { todos: TodoItem[] }) {
                 <Check size={13} />
               ) : todo.status === "error" ? (
                 <AlertCircle size={13} />
+              ) : todo.status === "skipped" ? (
+                <Minus size={13} />
               ) : todo.status === "running" ? (
                 <span className="plan-spinner" />
               ) : (
