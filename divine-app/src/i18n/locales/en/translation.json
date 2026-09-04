@@ -98,6 +98,8 @@
     "collapsePanel": "Collapse panel",
     "desktopTreeOnly": "File tree is available in the desktop app",
     "dragResizeTree": "Drag to resize file tree",
+    "dragExpandTree": "Drag right to expand file tree",
+    "expandTree": "Expand file tree",
     "dragResizeWidth": "Drag to resize width",
     "emptyContent": "File content is empty",
     "emptyDirectory": "Empty directory",

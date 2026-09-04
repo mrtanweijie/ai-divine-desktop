@@ -97,6 +97,8 @@
     "collapsePanel": "收起面板",
     "desktopTreeOnly": "桌面端支持文件树",
     "dragResizeTree": "拖拽调整文件树宽度",
+    "dragExpandTree": "向右拖拽展开文件树",
+    "expandTree": "展开文件树",
     "dragResizeWidth": "拖拽调整宽度",
     "emptyContent": "文件内容为空",
     "emptyDirectory": "空目录",

@@ -20,9 +20,6 @@ interface FilePreviewProps {
   content?: string;
   fileName?: string;
   changed: boolean;
-  onAcceptFile?: (relPath: string) => void;
-  expanded: boolean;
-  onToggleExpand: () => void;
 }
 
 function normalizePath(value: string): string {
@@ -36,9 +33,6 @@ export function FilePreview({
   content,
   fileName,
   changed,
-  onAcceptFile,
-  expanded,
-  onToggleExpand,
 }: FilePreviewProps) {
   const { t } = useTranslation();
   const [preview, setPreview] = useState<FileDiff | null>(null);
@@ -116,9 +110,6 @@ export function FilePreview({
   if (loading) {
     return (
       <div className="diff-view">
-        <div className="diff-view-head">
-          <span className="diff-view-file">{fileName ?? relPath}</span>
-        </div>
         <div className="diff-view-state">
           <LoadingOrb state="searching" size={20} speed={2} />
           <span>{t("file.readingFile", "读取文件...")}</span>
@@ -144,9 +135,6 @@ export function FilePreview({
   if (!preview) {
     return (
       <div className="diff-view">
-        <div className="diff-view-head">
-          <span className="diff-view-file">{fileName ?? relPath}</span>
-        </div>
         <div className="diff-view-state">
           <span>{t("file.noReadableContent", "没有可读取的内容")}</span>
         </div>
@@ -173,9 +161,6 @@ export function FilePreview({
         fileName={fileName}
         path={filePath}
         changed={changed}
-        onAcceptFile={onAcceptFile}
-        expanded={expanded}
-        onToggleExpand={onToggleExpand}
       />
     );
   }
@@ -185,8 +170,6 @@ export function FilePreview({
       relPath={relPath}
       fileName={fileName}
       path={filePath}
-      expanded={expanded}
-      onToggleExpand={onToggleExpand}
     />
   );
 }

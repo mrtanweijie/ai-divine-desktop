@@ -65,6 +65,17 @@
   gap: 4px;
 }
 
+// 头部图标静默色统一：插槽注册的动作按钮（Button--icon，来自文档/MD/SVG/HTML
+// 预览块）与 IconButton（扩缩/收起）默认色不同（secondary vs muted），
+// 面板作用域内统一为 muted；hover 两边本就同为 surface-2 + text
+.file-inspector-actions .ui-button.ui-button--icon {
+  color: var(--color-text-muted);
+}
+
+.file-inspector-actions .ui-button.ui-button--icon:hover:not(:disabled) {
+  color: var(--color-text);
+}
+
 .file-inspector-body {
   display: flex;
   flex: 1;
@@ -98,6 +109,59 @@
 
 .file-tree-resizer:hover {
   background: var(--color-accent-soft);
+}
+
+// 文件树收起态：宽度到 0 时把内边距与右边框一并归零（避免残留 9px 缝隙）；
+// 收起/展开动画期间由 is-tree-animating 提供过渡，拖拽跟手时无过渡
+.file-inspector-body.is-tree-collapsed .file-tree {
+  padding-left: 0;
+  padding-right: 0;
+  border-right-width: 0;
+}
+
+.file-inspector-body.is-tree-animating .file-tree {
+  overflow: hidden;
+  transition:
+    width 200ms ease,
+    min-width 200ms ease,
+    padding 200ms ease,
+    border-right-width 200ms ease;
+}
+
+// 收起后 body 左上角的悬浮展开按钮
+// 视觉对齐 MessageList 的「回到底部」按钮：圆形毛玻璃，避免透明底被内容透底
+.file-tree-expand-fab {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 11;
+  animation: file-tree-fab-in 160ms ease 120ms backwards;
+}
+
+.file-tree-expand-fab .ui-button.icon-button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  color: var(--color-text-secondary);
+}
+
+.file-tree-expand-fab .ui-button.icon-button:hover {
+  color: var(--color-accent);
+  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+}
+
+@keyframes file-tree-fab-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .file-tree-branch {
@@ -235,55 +299,31 @@
   min-height: 0;
 }
 
-.diff-view-head {
+// 面板头部面包屑：文件 > 文件名（文件名由 selectedFile 提供，见 index.tsx）
+.file-inspector-title-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 0 0 38px;
+  gap: 4px;
   min-width: 0;
-  padding: 0 10px;
-  border-bottom: 1px solid var(--color-border);
 }
 
-.diff-view-file {
+.file-inspector-crumb-sep {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.file-inspector-crumb {
   min-width: 0;
-  flex: 1;
   overflow: hidden;
   color: var(--color-text);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.diff-view-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-text-muted);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.diff-expand-button {
-  flex-shrink: 0;
-}
-
 .diff-accept-button {
   flex-shrink: 0;
-}
-
-.diff-view-counts {
-  display: inline-flex;
-  gap: 4px;
-}
-
-.diff-view-add {
-  color: var(--status-green);
-}
-
-.diff-view-del {
-  color: var(--status-red);
 }
 
 .diff-view-state {
@@ -352,29 +392,12 @@
 .binary-preview.document-preview {
   flex-direction: column;
   align-items: stretch;
-  align-items: stretch;
   gap: 0;
   padding: 0;
 }
-.document-preview-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-.document-preview-header span {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.document-preview-actions {
+// 文档预览的动作按钮注册到外层 diff-view-head 渲染（见 PreviewHeaderSlot），
+// 原内层 document-preview-header 已合并移除
+.diff-view-head-actions {
   display: flex;
   align-items: center;
   gap: 2px;

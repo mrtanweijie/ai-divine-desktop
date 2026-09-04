@@ -8,6 +8,7 @@ import { copyText } from "@/utils";
 import { fetchPdfPreview, fetchDocumentPreview } from "@/services/api";
 import { getBinaryPreview } from "@/services/tauri";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
+import { PreviewHeaderActions } from "./PreviewHeaderSlot";
 
 const PREVIEWABLE_EXTENSIONS = new Set([
   "png",
@@ -67,9 +68,9 @@ function DocumentPreview({
 
   return (
     <div className="binary-preview document-preview">
-      <div className="document-preview-header">
-        <span>{t("file.preview", "预览")}</span>
-        <div className="document-preview-actions">
+      {/* 动作按钮注册到外层 diff-view-head，避免双行头部 */}
+      <PreviewHeaderActions>
+        <span className="diff-view-head-actions">
           <Button
             variant="icon"
             size="small"
@@ -100,8 +101,8 @@ function DocumentPreview({
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
           </Button>
-        </div>
-      </div>
+        </span>
+      </PreviewHeaderActions>
       <div className="document-preview-content">
         {mode === "preview" ? (
           <MarkdownView content={content} streaming={false} />

@@ -4,10 +4,9 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { FileText, Maximize2, Minimize2, Scissors } from "lucide-react";
+import { FileText, Scissors } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ThemedToken } from "shiki";
-import { Button } from "@/components/ui/Button";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import type { FileDiff } from "@/types";
 import { useTheme } from "@/services/theme";
@@ -21,8 +20,6 @@ interface FileContentViewProps {
   relPath: string;
   fileName?: string;
   path?: string;
-  expanded: boolean;
-  onToggleExpand: () => void;
 }
 
 /** Rows rendered at most for preview; beyond this the content is cut with a notice. */
@@ -166,8 +163,6 @@ export function FileContentView({
   relPath,
   fileName,
   path,
-  expanded,
-  onToggleExpand,
 }: FileContentViewProps) {
   const { t } = useTranslation();
   const content = preview.newContent || preview.oldContent || "";
@@ -175,29 +170,6 @@ export function FileContentView({
   const displayName = fileName ?? relPath;
   return (
     <div className="diff-view file-content-view">
-      <div className="diff-view-head">
-        <span className="diff-view-file" title={relPath}>
-          {displayName}
-        </span>
-        <Button
-          variant="icon"
-          size="small"
-          className="diff-expand-button"
-          onClick={onToggleExpand}
-          title={
-            expanded
-              ? t("file.shrinkArea", "缩小文件区域")
-              : t("file.expandArea", "扩大文件区域")
-          }
-          aria-label={
-            expanded
-              ? t("file.shrinkArea", "缩小文件区域")
-              : t("file.expandArea", "扩大文件区域")
-          }
-        >
-          {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-        </Button>
-      </div>
       {preview.isBinary ? (
         path && isPreviewableBinary(displayName) ? (
           <BinaryPreview path={path} fileName={displayName} />

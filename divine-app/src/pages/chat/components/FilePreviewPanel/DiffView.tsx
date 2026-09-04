@@ -1,6 +1,5 @@
-import { Check, FileText, Maximize2, Minimize2, Scissors } from "lucide-react";
+import { FileText, Scissors } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/Button";
 import type { FileDiff } from "@/types";
 import { BinaryPreview, isPreviewableBinary } from "./BinaryPreview";
 
@@ -10,9 +9,6 @@ interface DiffViewProps {
   fileName?: string;
   path?: string;
   changed?: boolean;
-  onAcceptFile?: (relPath: string) => void;
-  expanded: boolean;
-  onToggleExpand: () => void;
 }
 
 interface DiffRow {
@@ -99,9 +95,6 @@ export function DiffView({
   fileName,
   path,
   changed = false,
-  onAcceptFile,
-  expanded,
-  onToggleExpand,
 }: DiffViewProps) {
   const { t } = useTranslation();
   const rawDiff = !preview.isBinary ? preview.diffText.trim() : "";
@@ -125,42 +118,6 @@ export function DiffView({
 
   return (
     <div className="diff-view">
-      <div className="diff-view-head">
-        <span className="diff-view-file" title={relPath}>
-          {fileName ?? relPath}
-        </span>
-        {changed && onAcceptFile && (
-          <Button
-            variant="ghost"
-            size="small"
-            className="diff-accept-button"
-            onClick={() => onAcceptFile(relPath)}
-            title={t("file.acceptChanges", "接受变更，清除蓝点")}
-          >
-            <Check size={13} />
-            {t("common.accept", "接受")}
-          </Button>
-        )}
-        <Button
-          variant="icon"
-          size="small"
-          className="diff-expand-button"
-          onClick={onToggleExpand}
-          title={
-            expanded
-              ? t("file.shrinkArea", "缩小文件区域")
-              : t("file.expandArea", "扩大文件区域")
-          }
-          aria-label={
-            expanded
-              ? t("file.shrinkArea", "缩小文件区域")
-              : t("file.expandArea", "扩大文件区域")
-          }
-        >
-          {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-        </Button>
-      </div>
-
       {preview.isBinary &&
         (path && isPreviewableBinary(fileName ?? relPath) ? (
           <BinaryPreview path={path} fileName={fileName ?? relPath} />
