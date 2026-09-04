@@ -132,6 +132,53 @@ function normalizeMermaidSource(code: string): string {
     .replace(/\\'/g, "'");
 }
 
+/** 显式 style 的 fill 与主题默认文字对比冲突时的兜底文字色 */
+const AUTO_CONTRAST_TEXT = {
+  dark: UI_COLORS.light.text, // 浅色底 -> 补深色字（#1f2937）
+  light: UI_COLORS.dark.text, // 深色底 -> 补浅色字（#f2f4f6）
+} as const;
+
+function hexLuma(hex: string): number {
+  let h = hex.replace("#", "");
+  if (h.length === 3) {
+    h = h
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  const value = parseInt(h.slice(0, 6), 16);
+  if (Number.isNaN(value)) return 0;
+  const r = ((value >> 16) & 0xff) / 255;
+  const g = ((value >> 8) & 0xff) / 255;
+  const b = (value & 0xff) / 255;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * 深色模式下，图表里常见的 `style X fill:#c6e0b4`（作者按浅底习惯写的浅色块，
+ * 却不写 color）会让文字沿用主题的浅白色，浅底白字不可读。
+ * 这里对未显式写 color 的 style 行按 fill 亮度自动补对比文字色：
+ * 亮底补深字（dark 主题）、暗底补浅字（light 主题），与主题默认文字方向相反才注入。
+ */
+function ensureContrastingText(code: string, theme: "dark" | "light"): string {
+  const force =
+    theme === "dark"
+      ? { above: true, color: AUTO_CONTRAST_TEXT.dark }
+      : { above: false, color: AUTO_CONTRAST_TEXT.light };
+  return code.replace(
+    /^(\s*style\s+)([^;\n]*?)(\s*;?\s*)$/gm,
+    (whole, head: string, body: string, tail: string) => {
+      if (/\bcolor\s*:/i.test(body)) return whole;
+      const fill = body.match(/(?:^|[, ])fill\s*:\s*(#[0-9a-fA-F]{3,8})/i);
+      if (!fill) return whole;
+      const isLight = hexLuma(fill[1]) >= 0.5;
+      if (isLight !== force.above) return whole;
+      const trimmed = body.replace(/,\s*$/, "").replace(/\s+$/, "");
+      return `${head}${trimmed},color:${force.color}${tail}`;
+    }
+  );
+}
+
 interface MermaidBlockProps {
   code: string;
   streaming: boolean;
@@ -174,7 +221,10 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
       .then((mermaid) => {
         if (cancelled) return null;
         mermaid.initialize(mermaidConfig(theme));
-        return mermaid.render(`${instanceId}-${seq}`, normalizedCode);
+        return mermaid.render(
+          `${instanceId}-${seq}`,
+          ensureContrastingText(normalizedCode, theme)
+        );
       })
       .then((result) => {
         if (cancelled || !result || seq !== renderSeq.current) return;
