@@ -1,9 +1,37 @@
 # Agent 执行过程可观测性实施方案
 
-> 状态：**待评审，未改码**
-> 日期：2026-09-04
+> 状态：**已实施（P0-A / P0-B / P2 落地；P1 已回退），待审查，未提交**
+> 实施日期：2026-09-04
 > 范围：`divine-server`（SSE 事件层 / 计划状态层）+ `divine-app`（chat 页渲染层）
 > 起因：外部 LangGraph 教程（画流程图 + 实时追踪）对照本项目后的差距分析
+>
+> ## 实施记录（与原方案的偏差）
+>
+> 1. **P1（phase 意图标签）实施后被用户否决，已全链路回退**。实测结论：
+>    意图标签本质是 prompt 裁剪用的内部路由信息，实体化成对话内的 chips
+>    与消息内容无从属关系，是视觉噪音。`ctx.intents` 数据仍在，若将来
+>    需要「本轮能力提示」（如输入框上方轻量提示），从后端重新出网约半天。
+> 2. **phase 事件**：曾按「后端只发 intents、前端 i18n 翻译」实施，随 P1
+>    一并回退。
+> 3. **abort 收敛确认**：取消路径走 `orchestrator.py` 的 `cancel_event` 分支
+>    提前 return，不经过 `_sync_todos_from_state`。已在取消 / GraphRecursionError /
+>    agent_error 三个 return 点前调 `db.abort_todos`（running→skipped，
+>    pending 保留）。Q1 按「选项 a」落地。
+> 4. **TurnCounterMiddleware 可用性**：`awrap_model_call` 钩子在已装
+>    langchain 版本中存在（`model_retry.py` 等内置中间件在用），按方案正常落地。
+> 5. **Q2（settled 字段）**：事件保留 `settled`，前端暂未消费（留作「N 步未
+>    执行」提示的扩展点）。
+> 6. **P2 补充决策**：轨迹面板仅 `!streaming` 且调用数 ≥2 时渲染（单次调用
+>    无对比价值；流式期间卡片列表本身就是实时进度）。
+> 7. **追加实施（用户实测反馈驱动，超出原方案）**：
+>    - **失败重试链合并**（`MessageHelpers.tsx`）：相邻同工具且上一卡以
+>      error 收尾时合并（error→error 续链、error→done 收链），`result`
+>      保留最后非空（重试成功后图表正常展示）。纯成功链不合——多次成功
+>      调用有各自结果，不能吞。第一版条件含 `failed_count > 0` 导致合并卡
+>      永久吸附后续调用（多图表只显示一张），已被实测抓出并修正。
+>    - **轨迹持久化**：turn/duration_ms 落库 tool_runs 表（migration + 写入
+>      + api.ts 恢复映射），修复 TracePanel 刷新消失。历史恢复走
+>      `history.py` 的 tool_runs 时间窗口归属，不走 message_parts。
 
 ---
 
