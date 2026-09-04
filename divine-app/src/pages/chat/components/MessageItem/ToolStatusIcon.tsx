@@ -38,6 +38,7 @@ import {
   LibraryBig,
   ListOrdered,
   ListTree,
+  MessageCircleQuestionMark,
   Orbit,
   Package,
   Paintbrush,
@@ -53,6 +54,7 @@ import {
 } from "lucide-react";
 
 export function toolIcon(tool: string) {
+  if (tool === "ask_user") return <MessageCircleQuestionMark size={16} />;
   if (tool === "edit_files") return <Group size={16} />;
   if (tool === "write_file") return <FilePlus2 size={16} />;
   if (tool === "edit_lines") return <ListOrdered size={16} />;
