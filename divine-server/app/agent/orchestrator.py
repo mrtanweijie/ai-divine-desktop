@@ -90,6 +90,101 @@ def _pending_tool_call_ids(messages: list[Any]) -> list[tuple[str, str]]:
 def _has_incomplete_tool_calls(messages: list[Any]) -> bool:
     return bool(_pending_tool_call_ids(messages))
 
+
+def _repair_tool_groups(
+    messages: list[Any],
+) -> tuple[list[Any], list[Any]]:
+    """Compute thread repairs for orphan tool-call groups (protocol semantics).
+
+    返回 ``(removes, appends)``，一次 ``aupdate_state`` 提交：
+
+    - removes：**中段**孤儿组整组删除（RemoveMessage）。append 无法给中段
+      孤儿原位补齐——LangGraph messages 通道只能追加，若把占位 ToolMessage
+      补到尾部，重放时该 assistant(tool_calls) 之后仍缺紧跟的 tool 响应，
+      OpenAI 兼容 API 依旧 400。删除整组，让模型在下一轮重新规划。
+    - appends：**尾部**孤儿组缺失的 tool 响应用占位 ToolMessage 补齐
+      （原位即尾部，追加即修复），尽量保留线程上下文。
+
+    孤儿判定遵循协议语义而非全局 id 配对：assistant(tool_calls) 之后
+    连续出现的 tool 消息必须覆盖全部 call id，到下一条非 tool 消息仍未
+    覆盖即为残缺组（与 db.history._sanitize_tool_groups 同规则）。这与
+    ``_pending_tool_call_ids`` 的"全局按 id 配对"不同——后者会把
+    [A(c1), A(c2), tool(c1), tool(c2)] 判为完整，但 API 校验要求 tool 紧跟
+    assistant，交错序列同样会被 400 拒绝。
+    """
+    from langchain_core.messages import AIMessage, RemoveMessage, ToolMessage
+
+    removes: list[Any] = []
+    appends: list[Any] = []
+    count = len(messages)
+    index = 0
+    while index < count:
+        message = messages[index]
+        calls = getattr(message, "tool_calls", None) or []
+        if not isinstance(message, AIMessage) or not calls:
+            index += 1
+            continue
+        pending: dict[str, str] = {}
+        for call in calls:
+            cid = (
+                call.get("id")
+                if isinstance(call, dict)
+                else getattr(call, "id", "")
+            )
+            name = (
+                call.get("name")
+                if isinstance(call, dict)
+                else getattr(call, "name", "")
+            )
+            if cid:
+                pending[str(cid)] = str(name or "")
+        if not pending:
+            index += 1
+            continue
+        group_tools: list[Any] = []
+        cursor = index + 1
+        while cursor < count and isinstance(messages[cursor], ToolMessage):
+            cid = getattr(messages[cursor], "tool_call_id", "") or ""
+            if cid in pending:
+                del pending[cid]
+            group_tools.append(messages[cursor])
+            cursor += 1
+        if pending:
+            if cursor >= count:
+                # 尾部残缺：占位补齐缺失的 tool 响应（保留线程上下文）
+                for call in calls:
+                    cid = (
+                        call.get("id")
+                        if isinstance(call, dict)
+                        else getattr(call, "id", "")
+                    )
+                    if cid in pending:
+                        name = (
+                            call.get("name")
+                            if isinstance(call, dict)
+                            else getattr(call, "name", "")
+                        )
+                        appends.append(
+                            ToolMessage(
+                                content=(
+                                    "上一轮工具调用被中断，没有返回结果。"
+                                    "如需该信息请重新调用工具。"
+                                ),
+                                tool_call_id=cid,
+                                name=name or "tool",
+                            )
+                        )
+            else:
+                # 中段残缺：无原位补齐手段，整组删除（assistant + 已落结果）
+                for tool_message in group_tools:
+                    if getattr(tool_message, "id", None):
+                        removes.append(RemoveMessage(id=tool_message.id))
+                if getattr(message, "id", None):
+                    removes.append(RemoveMessage(id=message.id))
+        index = cursor
+    return removes, appends
+
+
 _TOOL_STUB_MIN_CHARS = 600
 _TOOL_STUB_KEEP_RECENT = 12
 _TOOL_STUB_TEXT = (
@@ -340,39 +435,32 @@ async def run_agent(
     snapshot = await agent.aget_state(config)
     thread_messages = (snapshot.values or {}).get("messages") or []
     has_thread = bool(thread_messages)
-    if has_thread and _has_incomplete_tool_calls(thread_messages):
-        # 上次运行在工具调用中途被中断（崩溃/取消/超时）。整线清零会把长任务
-        # 的全部上下文丢掉，改为合成 ToolMessage 补齐未完成的调用让线程恢复
-        # 一致；补齐失败才退回清零。
-        pending = _pending_tool_call_ids(thread_messages)
-        try:
-            from langchain_core.messages import ToolMessage
-
-            repairs = [
-                ToolMessage(
-                    content=(
-                        "上一轮工具调用被中断，没有返回结果。"
-                        "如需该信息请重新调用工具。"
-                    ),
-                    tool_call_id=call_id,
-                    name=name or "tool",
+    if has_thread:
+        # 上次运行在工具调用中途被中断（崩溃/取消/超时），或历史里残留了
+        # 中段孤儿组（tool 消息未紧跟其 assistant）。按协议语义修复：
+        # 尾部残缺合成 ToolMessage 补齐让线程恢复一致；中段孤儿组整组删除
+        # （append 无法原位补齐中段，重放时 API 仍会 400）。修复失败才清零。
+        removes, appends = _repair_tool_groups(thread_messages)
+        if removes or appends:
+            try:
+                await agent.aupdate_state(
+                    config, {"messages": removes + appends}
                 )
-                for call_id, name in pending
-            ]
-            await agent.aupdate_state(config, {"messages": repairs})
-            logger.warning(
-                "repaired interrupted tool calls session=%s count=%d",
-                session_id,
-                len(pending),
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "agent thread repair failed, resetting session=%s: %s",
-                session_id,
-                exc,
-            )
-            await reset_agent_thread(session_id)
-            has_thread = False
+                logger.warning(
+                    "repaired interrupted tool calls session=%s "
+                    "appended=%d removed=%d",
+                    session_id,
+                    len(appends),
+                    len(removes),
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "agent thread repair failed, resetting session=%s: %s",
+                    session_id,
+                    exc,
+                )
+                await reset_agent_thread(session_id)
+                has_thread = False
     if has_thread:
         # 上下文整理（本轮开始前）：token 预算硬裁剪 + 旧工具结果占位置换。
         # limit 语义为"最近 N 条完整保留"；硬删除由 token 预算与条数上限触发。

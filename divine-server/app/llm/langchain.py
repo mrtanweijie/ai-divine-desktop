@@ -167,6 +167,16 @@ class ChatDeepSeekProvider:
                         if isinstance(original, ToolMessage)
                     }
                     messages = payload.get("messages", [])
+                    if len(messages) != len(originals):
+                        # payload 与原始消息错位会导致下面的逐条过滤作用到
+                        # 错误的消息上，孤儿 tool_calls 可能漏网直达 API（400）。
+                        # 版本漂移时 LangChain 内部可能增删消息——显式告警。
+                        logger.warning(
+                            "deepseek payload/original mismatch "
+                            "payload=%d originals=%d — sanitize may misalign",
+                            len(messages),
+                            len(originals),
+                        )
                     drop_indices: set[int] = set()
                     for index, (item, original) in enumerate(
                         zip(messages, originals)
@@ -203,8 +213,14 @@ class ChatDeepSeekProvider:
                             for index, message in enumerate(messages)
                             if index not in drop_indices
                         ]
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001
+                    # 过滤失败绝不能静默：孤儿 tool_calls 会原样直达 API 触发
+                    # 400（insufficient tool messages）。记日志便于对账。
+                    logger.warning(
+                        "deepseek payload tool-call sanitize failed — "
+                        "orphan groups may reach the API: %s",
+                        exc,
+                    )
                 return payload
 
         self.settings = settings_store.load()

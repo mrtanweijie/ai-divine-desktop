@@ -230,16 +230,15 @@ def history_for_model(
             continue
         if content:
             result.append({"role": message["role"], "content": content})
-    if pending_tool_call_ids:
-        # 会话中断/工具执行失败会在 DB 里留下"assistant tool_calls 缺 tool 响应"
-        # 的残缺组（例如并行调用只回了一部分）。OpenAI 兼容 API 对此返回 400
-        # （assistant tool_calls 必须被 tool 消息逐条接续），这里从尾部回退删除：
-        # 先丢弃残缺组的 tool 结果，再丢弃未配对的 assistant tool_calls，
-        # 让模型在下一轮重新规划而不是带着非法序列请求。
-        while result and result[-1].get("role") == "tool":
-            result.pop()
-        if result and result[-1].get("tool_calls"):
-            result.pop()
+    # 会话中断/工具执行失败会在历史里留下"assistant tool_calls 缺 tool 响应"
+    # 的残缺组（例如并行调用只回了一部分）。OpenAI 兼容 API 对此返回 400
+    # （assistant tool_calls 必须被 tool 消息逐条接续）。旧实现只清理尾部，
+    # 但残缺组一旦被后续 user 消息顶到中段就会漏掉；改为全序列清洗：
+    # 每条 assistant(tool_calls) 必须在遇到下一条非 tool 消息前被连续的
+    # tool 消息覆盖全部 call id——未覆盖的 id 从 calls 剔除，剔除后既无
+    # calls 也无 content 的 assistant 整条删除。让模型在下一轮重新规划
+    # 而不是带着非法序列请求。
+    result = _sanitize_tool_groups(result)
     if summary_row and summary_row.get("summary"):
         result.insert(
             0,
@@ -252,6 +251,90 @@ def history_for_model(
             },
         )
     return result
+
+
+def _sanitize_tool_groups(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Full-sequence orphan tool-call cleanup (mid-sequence and tail alike).
+
+    OpenAI-compatible chat APIs validate that any ``assistant`` message
+    carrying ``tool_calls`` is immediately followed by ``tool`` messages that
+    respond to each ``tool_call_id`` — otherwise the whole request is rejected
+    with 400. Interrupted/failed tool rounds (crash, cancel, timeout, an
+    exception that ends the graph before tool results were written) leave
+    orphan groups in the persisted history. The old tail-only cleanup missed
+    groups that a later ``user`` message pushed into the middle of the
+    sequence.
+
+    Strategy per group (all-or-nothing): an ``assistant(tool_calls)`` group is
+    kept only when the consecutive ``tool`` messages that follow it cover
+    every call id; otherwise the assistant and its collected tool results are
+    dropped together, letting the model re-plan cleanly next turn. Partial
+    groups are NOT shrunk here on purpose — history assembly favors dropping
+    half-finished tool rounds (the request-level sanitize in the LLM adapters
+    is the place that keeps whatever is still valid). Unmatched tool messages
+    (no pending group ahead) are dropped. Message order is preserved.
+    """
+    cleaned: list[dict[str, Any]] = []
+    pending: dict[str, Any] | None = None
+    pending_ids: set[str] = set()
+    tools: list[dict[str, Any]] = []
+
+    def settle() -> None:
+        nonlocal pending, pending_ids, tools
+        if pending is None:
+            tools = []
+            return
+        group_call_ids = {
+            str(call.get("id"))
+            for call in pending.get("tool_calls") or []
+            if isinstance(call, dict) and call.get("id")
+        }
+        # 仅保留归属于本组的 tool 结果：他组残留（脏数据）不参与配对。
+        kept_tools = [
+            tool
+            for tool in tools
+            if str(tool.get("tool_call_id") or "") in group_call_ids
+        ]
+        answered = {str(t.get("tool_call_id") or "") for t in kept_tools}
+        if group_call_ids and group_call_ids <= answered:
+            cleaned.append(pending)
+            cleaned.extend(kept_tools)
+        # 残缺组（含只回了部分 tool 的并行组）：整组丢弃，不残留孤儿消息。
+        pending = None
+        pending_ids = set()
+        tools = []
+
+    for message in messages:
+        role = message.get("role")
+        if role == "tool":
+            if pending is not None:
+                tools.append(message)
+                cid = str(message.get("tool_call_id") or "")
+                if cid in pending_ids:
+                    pending_ids.discard(cid)
+                continue
+            # 无主 tool 消息（其 assistant 已被剔除/本就不完整）直接丢弃
+            continue
+        settle()
+        if (
+            role == "assistant"
+            and message.get("tool_calls")
+            and pending is None
+        ):
+            pending = message
+            pending_ids = {
+                str(call.get("id"))
+                for call in message["tool_calls"]
+                if isinstance(call, dict) and call.get("id")
+            }
+            tools = []
+            continue
+        cleaned.append(message)
+    settle()
+    return cleaned
+
 
 def load_session(session_id: str) -> dict[str, Any]:
     """Full message view used by the frontend when restoring history."""
