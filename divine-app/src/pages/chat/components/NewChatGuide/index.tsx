@@ -44,7 +44,7 @@ export function NewChatGuide({
         icon: <FolderTree size={20} />,
         tone: "blue",
         title: t("guide.analyze", "分析项目"),
-        description: t("guide.analyzeDescription", "目录、架构、关键文件"),
+        description: t("guide.analyzeDescription", "功能与项目架构"),
         prompt: t(
           "guide.analyzePrompt",
           "请分析当前项目的工作空间目录结构、技术架构和关键文件，并给出总结。"
@@ -55,10 +55,10 @@ export function NewChatGuide({
         icon: <FileCode2 size={20} />,
         tone: "purple",
         title: t("guide.modify", "修改代码"),
-        description: t("guide.modifyDescription", "定位问题并批量修改"),
+        description: t("guide.modifyDescription", "定位问题、改代码并验证"),
         prompt: t(
           "guide.modifyPrompt",
-          "请先查看相关文件，定位问题，再用 edit_files 批量修改并总结改动。"
+          "请先查看相关文件，定位问题，再用 edit_files 批量修改并运行测试验证。"
         ),
       },
       {
@@ -66,7 +66,7 @@ export function NewChatGuide({
         icon: <GraduationCap size={20} />,
         tone: "green",
         title: t("guide.document", "生成文档"),
-        description: t("guide.documentDescription", "Word / PDF / PPT / Excel"),
+        description: t("guide.documentDescription", "Word / PDF / PPT / Excel / Markdown"),
         prompt: t(
           "guide.documentPrompt",
           "请根据我的需求生成一份合适的文档（Word、PDF、PPT、Excel 或 Markdown）。"
@@ -77,7 +77,7 @@ export function NewChatGuide({
         icon: <Compass size={20} />,
         tone: "orange",
         title: t("guide.research", "查资料总结"),
-        description: t("guide.researchDescription", "多来源抓取并汇总"),
+        description: t("guide.researchDescription", "联网检索、多源汇总"),
         prompt: t(
           "guide.researchPrompt",
           "请帮我批量抓取多个相关来源，整理关键信息并给出带链接的总结。"
@@ -88,10 +88,10 @@ export function NewChatGuide({
         icon: <ChartNetwork size={20} />,
         tone: "cyan",
         title: t("guide.visual", "图表与原型"),
-        description: t("guide.visualDescription", "图表、SVG、交互页面"),
+        description: t("guide.visualDescription", "图表 / SVG / 网页原型"),
         prompt: t(
           "guide.visualPrompt",
-          "请根据主题生成图表、示意图或可交互的产品原型。"
+          "请根据主题生成图表、示意图或可交互的产品原型（网页）。"
         ),
       },
       {
@@ -99,7 +99,7 @@ export function NewChatGuide({
         icon: <CalendarClock size={20} />,
         tone: "rose",
         title: t("guide.automate", "提醒与技能"),
-        description: t("guide.automateDescription", "提醒、日程、技能迁移"),
+        description: t("guide.automateDescription", "提醒、日程、技能库"),
         prompt: t(
           "guide.automatePrompt",
           "请帮我设置定时提醒或日程，或扫描可迁移的 AI 工具技能。"
