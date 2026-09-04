@@ -224,6 +224,9 @@
   text-align: center;
 }
 
+// FilePreviewPanel 内部的 diff 样式全部嵌套在 .file-inspector-panel 下，
+// 避免与 MessageItem/DiffView 的 .diff-view / .diff-line 全局类冲突。
+.file-inspector-panel {
 .diff-view {
   display: flex;
   min-width: 0;
@@ -538,4 +541,5 @@
   padding: 2px 12px;
   color: var(--color-text-muted);
   white-space: pre;
+}
 }
