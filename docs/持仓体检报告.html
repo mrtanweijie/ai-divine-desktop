@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="RW5Tml442qjLPd3TFoqT8f">
+<head data-page-node-id="ufuO4dzGlKHYDP2xz3Vune">
+<style id="divine-scaffold">:root{--bg:#F9F9FB;--surface:#FFFFFF;--surface-2:#F4F4F6;--border:#E6E6EB;--border-strong:#D4D4DA;
+--text:#08090A;--text-2:#6E6D77;--text-3:#8A8F98;
+--primary:#5E6AD2;--primary-weak:#EEF0FD;--primary-ink:#FFFFFF;
+--ok:#0F7B6C;--ok-weak:#DDF2ED;--warn:#CB912F;--warn-weak:#FBF3DB;--danger:#D64545;--danger-weak:#FBE9E9;
+--radius-sm:6px;--radius-md:12px;--radius-lg:16px}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+font-size:14px;line-height:1.7;background:var(--bg);color:var(--text)}
+h1,h2,h3,h4,p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+a{color:var(--primary);text-decoration:none}
+table{border-collapse:collapse}
+</style>
+
+<meta charset="UTF-8" data-page-node-id="7ZqCyysyJi70gJlzayB7CT">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="MElH4FGWpUiqYPiBAGhpjc">
+<title>持仓体检报告</title>
+<style>
+:root{
+  --bg:#F9F9FB; --surface:#FFFFFF; --surface-2:#F4F4F6;
+  --border:#E6E6EB; --border-strong:#D5D5DE;
+  --text:#08090A; --text-2:#6E6D77; --text-3:#8A8F98;
+  --primary:#5E6AD2; --primary-weak:#EEF0FD; --primary-ink:#FFFFFF;
+  --up:#D64545; --up-weak:#FBE9E9;      /* A股：涨/净流入/正增长 = 红 */
+  --down:#0F7B6C; --down-weak:#DDF2ED;  /* A股：跌/净流出/负增长 = 绿 */
+  --radius-sm:6px; --radius-md:12px; --radius-lg:16px;
+  --shadow-card:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+  --shadow-float:0 4px 12px rgba(16,24,40,.08),0 12px 32px rgba(16,24,40,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",sans-serif;
+  font-size:14px; line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1100px;margin:0 auto;padding:32px 24px 64px}
+h1{font-size:32px;font-weight:600;line-height:1.25;letter-spacing:-0.02em}
+h2{font-size:24px;font-weight:600;line-height:1.3}
+h3{font-size:18px;font-weight:600;line-height:1.4}
+.sub{font-size:15px;font-weight:600;line-height:1.5}
+.aux{font-size:12px;line-height:1.6;color:var(--text-3)}
+.muted{color:var(--text-2)}
+.mono{font-variant-numeric:tabular-nums}
+
+/* 页头 */
+.header{padding:8px 0 24px;border-bottom:1px solid var(--border)}
+.header .meta{margin-top:8px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:var(--radius-sm);
+  background:var(--primary-weak);color:var(--primary);font-size:12px}
+
+/* 卡片 */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+  box-shadow:var(--shadow-card);padding:20px 24px}
+.grid{display:grid;gap:16px}
+.cols-2{grid-template-columns:repeat(2,1fr)}
+.cols-3{grid-template-columns:repeat(3,1fr)}
+.cols-6{grid-template-columns:repeat(6,1fr)}
+.section{margin-top:40px}
+.section-head{margin-bottom:16px}
+.section-head h2{display:inline-block}
+.section-head .aux{margin-top:4px}
+
+/* TL;DR 结论卡 */
+.tldr{background:linear-gradient(180deg,var(--surface),var(--surface-2));border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-float)}
+.tldr h3{margin-bottom:12px}
+.tldr ul{list-style:none}
+.tldr li{position:relative;padding:8px 0 8px 24px;border-bottom:1px dashed var(--border)}
+.tldr li:last-child{border-bottom:none}
+.tldr li::before{content:"";position:absolute;left:0;top:15px;width:8px;height:8px;border-radius:50%;background:var(--primary)}
+.tldr .verdict{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:999px;
+  font-size:14px;font-weight:600;margin-right:8px}
+
+/* KPI 概览 */
+.kpi{display:flex;flex-direction:column;gap:12px}
+.kpi .name{font-size:14px;color:var(--text-2);display:flex;align-items:center;gap:8px;justify-content:space-between}
+.kpi .code{font-size:12px;color:var(--text-3)}
+.kpi .price{font-size:18px;font-weight:600;line-height:1.3}
+.kpi .chg{font-size:14px;font-weight:600}
+.kpi .row{display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);padding:2px 0}
+.up{color:var(--up)}.down{color:var(--down)}
+
+/* 图表 */
+.chart-block{display:flex;flex-direction:column;gap:12px}
+.chart{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px 24px}
+.chart h4{font-size:14px;font-weight:600;margin-bottom:16px}
+.bar-row{display:grid;grid-template-columns:112px 1fr 64px;align-items:center;gap:12px;margin-bottom:8px}
+.bar-row .label{font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-row .val{font-size:12px;font-weight:600;text-align:right;white-space:nowrap}
+.bar-track{height:18px;background:var(--surface-2);border-radius:4px;overflow:hidden;position:relative}
+.bar-fill{height:100%;border-radius:4px;min-width:2px}
+.bar-fill.up{background:var(--up)}
+.bar-fill.down{background:var(--down)}
+.bar-fill.primary{background:var(--primary)}
+.bar-fill.warn{background:#CB912F}
+.chart-note{font-size:12px;color:var(--text-2);margin-top:4px;line-height:1.6}
+
+/* 逐只体检卡 */
+.stock-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+  box-shadow:var(--shadow-card);padding:20px 24px;display:flex;flex-direction:column;gap:16px}
+.stock-card .head{display:flex;justify-content:space-between;align-items:flex-start}
+.stock-card .title{font-size:15px;font-weight:600}
+.stock-card .badge{font-size:12px;font-weight:600;height:24px;padding:0 8px;border-radius:999px;display:inline-flex;align-items:center}
+.badge.keep{background:var(--down-weak);color:var(--down)}
+.badge.watch{background:#FBF3DB;color:#CB912F}
+.badge.cut{background:var(--up-weak);color:var(--up)}
+.badge.core{background:var(--primary-weak);color:var(--primary)}
+.dim-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.dim{background:var(--surface-2);border-radius:var(--radius-sm);padding:12px 16px}
+.dim .k{font-size:12px;color:var(--text-3);margin-bottom:4px}
+.dim .v{font-size:14px;line-height:1.55}
+.stock-card .concl{font-size:14px;color:var(--text-2);border-top:1px solid var(--border);padding-top:12px;line-height:1.65}
+.stock-card .concl b{color:var(--text)}
+
+/* 表格 */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:12px;font-weight:500;color:var(--text-2);text-align:left;padding:8px 12px;border-bottom:1px solid var(--border-strong)}
+td{padding:8px 12px;border-bottom:1px solid var(--border)}
+tbody tr:nth-child(even){background:var(--surface-2)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+
+/* 分层 */
+.layer{display:flex;gap:16px;align-items:flex-start;padding:16px 16px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface)}
+.layer .icon{flex:none;width:32px;height:32px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px}
+.layer.core .icon{background:var(--primary-weak);color:var(--primary)}
+.layer.keep .icon{background:var(--down-weak);color:var(--down)}
+.layer.watch .icon{background:#FBF3DB;color:#CB912F}
+.layer.cut .icon{background:var(--up-weak);color:var(--up)}
+.layer h4{font-size:14px;font-weight:600;margin-bottom:4px}
+.layer p{font-size:14px;color:var(--text-2);line-height:1.6}
+
+/* 优先级 */
+.priority{list-style:none;counter-reset:p}
+.priority li{position:relative;padding:12px 0 12px 40px;border-bottom:1px dashed var(--border);counter-increment:p}
+.priority li:last-child{border-bottom:none}
+.priority li::before{content:counter(p);position:absolute;left:0;top:12px;width:24px;height:24px;border-radius:var(--radius-sm);
+  background:var(--primary);color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.priority .who{font-weight:600}
+.priority .what{color:var(--text-2)}
+
+.disclaimer{margin-top:40px;padding:16px 20px;border:1px solid var(--border);border-radius:var(--radius-md);
+  background:var(--surface-2);font-size:12px;color:var(--text-2);line-height:1.7}
+.src{margin-top:12px;font-size:12px;color:var(--text-3);line-height:1.6}
+
+@media (max-width:760px){
+  .cols-2,.cols-3,.cols-6{grid-template-columns:1fr}
+  .dim-grid{grid-template-columns:1fr}
+  .wrap{padding:24px 16px 48px}
+  .bar-row{grid-template-columns:80px 1fr 56px}
+}
+</style>
+</head>
+<body data-page-node-id="tQF9FaGLy5vCAUTW1eTVt6">
+<div class="wrap" data-page-node-id="aTagVbNWVhdKRkmqKuRxmX">
+
+  <div class="header" data-page-node-id="KGATytb0KQnhEqEf16OlGQ">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px" data-page-node-id="Q1XBza83QLOBV3u3pej5pk">
+      <div data-page-node-id="aziAXSYvsEyk6leGkCXCQd">
+        <h1 data-page-node-id="TEMp2cH71aCbvpg3vhG8Ai">持仓体检报告</h1>
+        <div class="muted sub" style="margin-top:8px" data-page-node-id="grrhAD3qYbEDdOAzi9CFvp">六只核心持仓 · 四维诊断 · 组合视角</div>
+      </div>
+      <div class="tag" data-page-node-id="oL4gLItYt85LlyrEaF8ef1">数据基准日 2026-09-03 收盘</div>
+    </div>
+    <div class="meta aux" data-page-node-id="RjI5jFYxTF2aV5EbffGOTo">
+      <span data-page-node-id="ekHezwlGf6AngYY4agkz6K">贵州茅台 600519</span><span data-page-node-id="pnHj0vHqwFaGJt9UCEiD2h">·</span><span data-page-node-id="neKZ8pspYWCyQrm4fk2zMc">宁德时代 300750</span><span data-page-node-id="UEaotoOePswnTAbjan1fo4">·</span><span data-page-node-id="scFqfSaPVix6RtGBFmrRAi">比亚迪 002594</span><span data-page-node-id="vb4v19Gdr1CsEyBorxK681">·</span>
+      <span data-page-node-id="2jUDJ1DosnHlqkX0eyDIeD">恒瑞医药 600276</span><span data-page-node-id="xUb63vD5cyaWTMzncX2Pac">·</span><span data-page-node-id="V6QLM9o0BZFC0tNRXgYimV">立讯精密 002475</span><span data-page-node-id="gRCGxWDtWsL4DG7DJmQIkT">·</span><span data-page-node-id="L232UAYTN0oJ2Dk6VTGX1n">中国平安 601318</span>
+    </div>
+  </div>
+
+  <!-- 首屏结论 -->
+  <div class="section tldr" data-page-node-id="jFbcrGJSwgeKXlkIihXoC3">
+    <h3 data-page-node-id="JeawbKHmyL8lidfuGEwdCi">体检结论（先说判断）</h3>
+    <ul data-page-node-id="gkEgWCdVxY6rLDXlsrBV1q">
+      <li data-page-node-id="KUJCychzSCnjckz5COcUPo"><span class="verdict" style="background:var(--up-weak);color:var(--up)" data-page-node-id="KZ3U7mbR8qZHfXnECXMTlB">优先减仓</span><b data-page-node-id="2SXEecZFjQXZ8V8i47smPI">恒瑞医药</b>——估值最高（PE 39.5×）叠加扣非净利下滑、主力 20 日净流出 45.9 亿、年内回撤最深（-22.6%），属「业绩兑现不及预期 + 筹码出清中」的左侧承压标的。</li>
+      <li data-page-node-id="IyyLqWd4e4M9mS2Hy760JC"><span class="verdict" style="background:#FBF3DB;color:#CB912F" data-page-node-id="3C1G5f6lUB29v2PHjAsBrY">次减观察</span><b data-page-node-id="S7W8zZVgVTDmTMjFJsNFX2">比亚迪</b>——归母净利同比 -20.5%（价格战挤压毛利），估值因盈利下滑反而不便宜，技术面跌破均线，需等销量/盈利拐点信号。</li>
+      <li data-page-node-id="VTHpLSyOL3bW35z7B7nKIp"><span class="verdict" style="background:#FBF3DB;color:#CB912F" data-page-node-id="UXz7o9SKpGl3eNQxGE9Qft">持有待企稳</span><b data-page-node-id="vsCQphQorUFSvyU3GDG2EX">宁德时代</b>——基本面最强（净利 +42%）但趋势最弱（20 日净流出 74.8 亿、技术超卖），不追涨、等企稳再定。</li>
+      <li data-page-node-id="OzCDOvFEBK5BzMLMX4ZHRH"><span class="verdict" style="background:var(--down-weak);color:var(--down)" data-page-node-id="V34BkqEiC2FC2ktaRJHk7G">稳健压舱</span><b data-page-node-id="aBv5dDRhcxekxH8sJjmoFO">贵州茅台</b>——质地最硬、估值安全边际好、股息率 4.01%，盈利虽停滞，可作底仓保留。</li>
+      <li data-page-node-id="k84N2YbSA0QjlTWxqTFVA5"><span class="verdict" style="background:var(--primary-weak);color:var(--primary)" data-page-node-id="GLirD2Ig1ZsKYqNmW3OuAz">核心健康</span><b data-page-node-id="qC5zkx5QtLYFlRcB97nBgj">中国平安、立讯精密</b>——资金与技术共振改善（平安 10 日净流入 10.4 亿、突破 MA60；立讯 10 日净流入 13.9 亿、企稳蓄势），若加仓优先这两只。</li>
+    </ul>
+  </div>
+
+  <!-- 组合概览 -->
+  <div class="section" data-page-node-id="yqOuOFNdFwRkTvQOh7XYi0">
+    <div class="section-head" data-page-node-id="PPuFB1Bt4fnBF3Tcexaql8"><h2 data-page-node-id="15fwgwaRhFowWn6wuV5Bb2">组合概览</h2><div class="aux" data-page-node-id="F7UkUCHvOBgXVNP5Cp1lOU">按等权假设（未提供实际仓位）；涨跌均按 A 股红涨绿跌口径</div></div>
+    <div class="grid cols-6" data-page-node-id="f1wmlSUqCdfruInaTjVyd1">
+      <div class="card kpi" data-page-node-id="V0knEokBHNgRrdEVpKrTFv">
+        <div class="name" data-page-node-id="kPwKmk1hjPi0FYULstHbkA"><span data-page-node-id="JIJDHP9GFxfp0w6ftpyVto">贵州茅台</span><span class="code" data-page-node-id="XCAIROo2JHKmUmZTnYHJ8U">600519</span></div>
+        <div class="price mono" data-page-node-id="CmYgQkwny6Zo1LAbcHKnR3">1298.88</div>
+        <div class="chg down" data-page-node-id="q0Y7HqmTCgPl4fy3g2IABW">-3.73% <span class="aux" data-page-node-id="NRW1dtNDFBtSPxlorOkM0y">YTD</span></div>
+        <div class="row" data-page-node-id="rJOMY2kB3Q86yRn70EjOW7"><span data-page-node-id="XF8MuFWXmCKuOR0z77TdOO">PE(TTM)</span><span class="mono" data-page-node-id="rN8z5gDgeSNiUau5rOUcs0">19.9</span></div>
+        <div class="row" data-page-node-id="CEYpSW4t6wY5FfVjuTiC7v"><span data-page-node-id="exmKjZVnvlcTuJ8wXfLiE6">股息率</span><span class="mono" data-page-node-id="TE8GE22rp6zh3wfX2MxeCf">4.01%</span></div>
+      </div>
+      <div class="card kpi" data-page-node-id="WvGxXtIPYgnLHxZ9zWTpZB">
+        <div class="name" data-page-node-id="EGEjowmBnznDllATGqrzwo"><span data-page-node-id="tgPhsfUXEY11h9FUnMMy75">宁德时代</span><span class="code" data-page-node-id="knz9VJHZ7WzYmCQQrpLwWE">300750</span></div>
+        <div class="price mono" data-page-node-id="EyoLRS3nKP4UygVEilFfNE">349.50</div>
+        <div class="chg down" data-page-node-id="gK22MgDqd4WlTYPCXLtGxD">-2.63% <span class="aux" data-page-node-id="bGki2mPAd0B0piaQEyAwBI">YTD</span></div>
+        <div class="row" data-page-node-id="lHQlG0khna82i6BnxxfBCg"><span data-page-node-id="aVBLekHyP9X6RHlAYDL7EI">PE(TTM)</span><span class="mono" data-page-node-id="VUPQ3tj4KILcIBmTivQqxB">19.0</span></div>
+        <div class="row" data-page-node-id="sKZKUPUFb3D1QcebOraZPK"><span data-page-node-id="NjiAetK9ny5LrseMuomaPg">净利同比</span><span class="mono up" data-page-node-id="HuhpMKVcKNTOPQtvRLTJti">+42.0%</span></div>
+      </div>
+      <div class="card kpi" data-page-node-id="fXjC2XAmfbf48p2brfrItQ">
+        <div class="name" data-page-node-id="CwzBqYYhKq3qlvRCp7zyfO"><span data-page-node-id="p4O2CexhVIvDz01SwgRcf1">比亚迪</span><span class="code" data-page-node-id="E7OB9dJOGTPJeDSDTwXWHy">002594</span></div>
+        <div class="price mono" data-page-node-id="ZB3UAVziUYQDelNdXCiBGt">87.31</div>
+        <div class="chg down" data-page-node-id="ZHCFKb1VNZuK2UNsyxM4eN">-10.32% <span class="aux" data-page-node-id="zFChB4yZQ2UxXZZwjBnKFH">YTD</span></div>
+        <div class="row" data-page-node-id="QY2f41BCiOpSHu9fjtZLxt"><span data-page-node-id="djPPRfnWIvr3U4bk2T8m42">PE(TTM)</span><span class="mono" data-page-node-id="tJFHM7jJ4RFMoEeUbqJ30F">27.0</span></div>
+        <div class="row" data-page-node-id="FxcfbvEQCl0tMa2dDROwIG"><span data-page-node-id="PHEoHLK00arS88qu56datE">净利同比</span><span class="mono down" data-page-node-id="0BE8fwqC4vdWIrVatctiSv">-20.5%</span></div>
+      </div>
+      <div class="card kpi" data-page-node-id="HdCR0xZGHUj4wPN9ULjRHl">
+        <div class="name" data-page-node-id="2Ni7ItDtKrA2MS0PiddPma"><span data-page-node-id="XWjXID9S9sCbBlhJX3fW8p">恒瑞医药</span><span class="code" data-page-node-id="wnW9zTDsQx7fnRuMHcrkAk">600276</span></div>
+        <div class="price mono" data-page-node-id="vdacOEGrfdHPwFVqiBlZEf">45.96</div>
+        <div class="chg down" data-page-node-id="GBIi6w8bwyKOPKKPWXAlHV">-22.59% <span class="aux" data-page-node-id="wtPSTFYy8OGI5zFjcKfaVF">YTD</span></div>
+        <div class="row" data-page-node-id="q9qhRww5gdw9zodAxfYAbz"><span data-page-node-id="dsSAN1eKENThU8V6ThzSbg">PE(TTM)</span><span class="mono" data-page-node-id="EEKQ7s0Gj81WV9PwT9Kcmj">39.5</span></div>
+        <div class="row" data-page-node-id="fgWCkTWJRxCof63bnivdAq"><span data-page-node-id="pX0sqhRRDrjwaGr5HOfsV0">扣非同比</span><span class="mono down" data-page-node-id="XknVtLsWzg6iqC0MvZrHqE">-12.7%</span></div>
+      </div>
+      <div class="card kpi" data-page-node-id="bds5qxPKUiqcWcU9CLHc6g">
+        <div class="name" data-page-node-id="4ZrW8bZ5ZODGr4B17jX8jO"><span data-page-node-id="O5ywE2HF3KO40sHcV1fxcr">立讯精密</span><span class="code" data-page-node-id="ZCHD62YIWDF7GoFNP5Xusm">002475</span></div>
+        <div class="price mono" data-page-node-id="K1fdiBN4Bzs0c2CveoCaJ1">56.17</div>
+        <div class="chg down" data-page-node-id="BMhWJlcigvfhaaB6kVVNsa">-0.43% <span class="aux" data-page-node-id="t74ZFfG4WAidFzMPBVPzCq">YTD</span></div>
+        <div class="row" data-page-node-id="vlyt1JIKPEYhRGknwAEKoN"><span data-page-node-id="E6G6RRtHBcCGAqTMA8JLpv">PE(TTM)</span><span class="mono" data-page-node-id="sn1BA1KXu0GKub9QgxlW8A">24.4</span></div>
+        <div class="row" data-page-node-id="LKG7pKXhGTqnAKpxNr3tN2"><span data-page-node-id="h2cBpeprsasrclXosver0t">净利同比</span><span class="mono up" data-page-node-id="pwDchV1vAIbBSrvtOHWymG">+18.0%</span></div>
+      </div>
+      <div class="card kpi" data-page-node-id="HCpd36HEbiQVhNMNARXnSk">
+        <div class="name" data-page-node-id="byCsZbNFDQBT0TUQRDZgpH"><span data-page-node-id="o8IVhziXPyXmJGAzncqS4x">中国平安</span><span class="code" data-page-node-id="mRJCjUmUvHr5ZPEZpsZ5BF">601318</span></div>
+        <div class="price mono" data-page-node-id="u5XEcSzQYY0ItcOng7qJ8f">58.00</div>
+        <div class="chg down" data-page-node-id="HgPjCAiTL82b43DoEIXmiB">-12.98% <span class="aux" data-page-node-id="0mhyHBHKKukdY7c65vn4Vc">YTD</span></div>
+        <div class="row" data-page-node-id="I7VmfGFEWt16GHug2z46qJ"><span data-page-node-id="upt6RyhNCufH8vU0Dy28uX">PE(TTM)</span><span class="mono" data-page-node-id="O1WeHuclgXxkV4Qqa7GArP">6.6</span></div>
+        <div class="row" data-page-node-id="D5Y8i8RX2m4FgmVg9nYabL"><span data-page-node-id="lvpYQ0mKVtDyPeekGWxdpn">净利同比</span><span class="mono up" data-page-node-id="N5VO8MMSm20nUUs8AaYfwy">+36.1%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图表区 -->
+  <div class="section" data-page-node-id="Bh3DCRVLaLqW7veZFmNY31">
+    <div class="section-head" data-page-node-id="GHu1iA97pIUdYdBGB8fTF6"><h2 data-page-node-id="glxrwltP5LGqZOstIdcPFC">关键对比</h2><div class="aux" data-page-node-id="MZZg9oAIVr9USmtqSygf75">图下均附一句结论；净流入/正增长标红，净流出/负增长标绿</div></div>
+    <div class="grid cols-2" data-page-node-id="IWCfeVcHedJtAkHsGxxVAf">
+      <div class="chart" data-page-node-id="KAnIH7Hvo2cMnRHNKTiEIk">
+        <h4 data-page-node-id="UMFuyqxHdxzJCEnk9Y1zUv">估值：PE(TTM) 横向对比</h4>
+        <div class="bar-row" data-page-node-id="pEzrKSSghEYeDrfw2WChuM"><div class="label" data-page-node-id="iExzTpYcds41wUBRa3uApi">中国平安</div><div class="bar-track" data-page-node-id="0Weye26PUraaUYgkuy7vNe"><div class="bar-fill primary" style="width:16.7%" data-page-node-id="x2Yu4NnR8Pcdvn0DKDBAcE"></div></div><div class="val mono" data-page-node-id="7vwc8ggdToxYaJuGO3JBvt">6.6</div></div>
+        <div class="bar-row" data-page-node-id="xZfjFJvZfnbxUsIryFWhm7"><div class="label" data-page-node-id="RHBWQ3OHJDLEvd9rbgHS4F">宁德时代</div><div class="bar-track" data-page-node-id="XvKM6dbthRGgy4csezNC7o"><div class="bar-fill primary" style="width:48.2%" data-page-node-id="0EoH3CXHzM52lvtcznKeEC"></div></div><div class="val mono" data-page-node-id="W5SFfJMSYWiUEBPmbXuxwC">19.0</div></div>
+        <div class="bar-row" data-page-node-id="mGDJnYsP80AdvIsN0dGsin"><div class="label" data-page-node-id="sF1WFHJRbJmydR6E0isStM">贵州茅台</div><div class="bar-track" data-page-node-id="StzcJCATFtfMJVhfJZqX27"><div class="bar-fill primary" style="width:50.5%" data-page-node-id="SnjvEnOSt5vjeiC7FO3KOd"></div></div><div class="val mono" data-page-node-id="D21dqCC8yyNgy8zvlLvIK9">19.9</div></div>
+        <div class="bar-row" data-page-node-id="CWZDGWmNtfTuOKQzCeNb0C"><div class="label" data-page-node-id="j2zvZJNRWdWDm5hUlYkRZr">立讯精密</div><div class="bar-track" data-page-node-id="8Ckv0FaMvE5CfQexwGXKLk"><div class="bar-fill primary" style="width:61.8%" data-page-node-id="UG5emIvRiDJgfoA6ObJinv"></div></div><div class="val mono" data-page-node-id="awFewTOHvQONlSS0asesfX">24.4</div></div>
+        <div class="bar-row" data-page-node-id="vZH933bqWQ0I1d54PRhO0q"><div class="label" data-page-node-id="bwoPZmmREOSqaUgD9LuraP">比亚迪</div><div class="bar-track" data-page-node-id="og9xt8syCakZWz06wCDALO"><div class="bar-fill primary" style="width:68.5%" data-page-node-id="8LC2nxDXKEkHnOstcPxNir"></div></div><div class="val mono" data-page-node-id="EoNZBgk44Pq0YyI7xKjyTO">27.0</div></div>
+        <div class="bar-row" data-page-node-id="7meqo79G3sg9aJrMarlFTD"><div class="label" data-page-node-id="q8u3FUSfWq7wvRfAngKCyb">恒瑞医药</div><div class="bar-track" data-page-node-id="l20cFcdyXlGfofxAsnA4wL"><div class="bar-fill warn" style="width:100%" data-page-node-id="GDkeMvwOMUOaCgqC5SLOMT"></div></div><div class="val mono" data-page-node-id="J85TNWO5HlRn9vlL4UBwR0">39.5</div></div>
+        <div class="chart-note" data-page-node-id="DBeJ9lpYvK2TME7AajzCKn">恒瑞 PE 39.5× 全组最高（含创新药转型溢价），平安 PE 6.6× / PB 1.02× 全组最低、接近破净。估值分化极大，需分别看待：平安是「便宜」，恒瑞是「贵但含预期」。</div>
+      </div>
+      <div class="chart" data-page-node-id="fvjAu2aPSbfLBwJpipbfZr">
+        <h4 data-page-node-id="jH9oPWlnVhDbonWvVawZS0">盈利：2026H1 归母净利同比</h4>
+        <div class="bar-row" data-page-node-id="JrlEVUg1nIGKKTS0yFZm3J"><div class="label" data-page-node-id="Fii0cANcCLPxAz8u9IanI1">宁德时代</div><div class="bar-track" data-page-node-id="nI7gjG4t4imGzuefsx8rqZ"><div class="bar-fill up" style="width:100%" data-page-node-id="1YDQiTihrxEGBkwm6sZyb8"></div></div><div class="val mono up" data-page-node-id="JHiwMXyPHZnzdjWoNzDbzx">+42.0%</div></div>
+        <div class="bar-row" data-page-node-id="JsCamJBFoQKd43rzsxWWnN"><div class="label" data-page-node-id="X4rGJLk8RrpD84UadszWkL">中国平安</div><div class="bar-track" data-page-node-id="7s5GA1pGD7rWoEvdwOL2Mh"><div class="bar-fill up" style="width:85.9%" data-page-node-id="M8O9EHCIXoFqPL2YHPj5mE"></div></div><div class="val mono up" data-page-node-id="c5zBz9q9LxUf5V6O2aivpQ">+36.1%</div></div>
+        <div class="bar-row" data-page-node-id="IPxmRXn2KfQdVxnxgpRVLs"><div class="label" data-page-node-id="hkeowEOY2ooqZxvjLFiKGD">立讯精密</div><div class="bar-track" data-page-node-id="1EFDFixOaRHPIF0cJFWkR1"><div class="bar-fill up" style="width:43.0%" data-page-node-id="H13IvPCdApLOMhukCutnOc"></div></div><div class="val mono up" data-page-node-id="xHsf8Ct4L1s7DzhzBBbHq9">+18.0%</div></div>
+        <div class="bar-row" data-page-node-id="g7m0bF14Xzdx6h08yI8s1V"><div class="label" data-page-node-id="p740ikZEZPUH0p993og5zL">恒瑞医药</div><div class="bar-track" data-page-node-id="3bJy9Tyiq9xif0tYKr1ofU"><div class="bar-fill up" style="width:0.8%" data-page-node-id="9xrCw9GnfC112cK9DBmH6b"></div></div><div class="val mono" data-page-node-id="56zBQkcUe2vtB6jfc2NThZ">+0.3%</div></div>
+        <div class="bar-row" data-page-node-id="Cv9CLdEs4PUJoLDAsLdtVU"><div class="label" data-page-node-id="qHFPsrvkbIcNR4fdUcI2il">贵州茅台</div><div class="bar-track" data-page-node-id="HK8WKrCk525XuizbBkfmDD"><div class="bar-fill down" style="width:4.6%" data-page-node-id="CaewS2J4otQILZhRJuXwzN"></div></div><div class="val mono down" data-page-node-id="efIHt1SQJuju9zJbViyrbM">-2.0%</div></div>
+        <div class="bar-row" data-page-node-id="8ITCxKyO9CR3wu7iLuRCkq"><div class="label" data-page-node-id="gdpeJctDQlp1K7SGr8Gu2S">比亚迪</div><div class="bar-track" data-page-node-id="3E19BMNxU4OFreIz5PTd7D"><div class="bar-fill down" style="width:48.9%" data-page-node-id="hBJt0DW7Kn2vsalTUcJ6HQ"></div></div><div class="val mono down" data-page-node-id="riqsr9rMd2zmWyOHMuTJEB">-20.5%</div></div>
+        <div class="chart-note" data-page-node-id="B2AWD1u08iB68AI8EJdKWl">盈利分化是组合最大变量：宁德/平安净利高增，比亚迪下滑两成、茅台罕见负增长、恒瑞扣非下滑。恒瑞归母持平但扣非 -12.7%，「归母好看、扣非难看」需警惕。</div>
+      </div>
+      <div class="chart" data-page-node-id="K8zzrLp3ZxtrUP1xGhmHMt">
+        <h4 data-page-node-id="MghU1tf0gbaVwwYBnKf6rF">资金：主力 20 日净流入（亿元）</h4>
+        <div class="bar-row" data-page-node-id="LPeB9dHuuCBjfXdRb1d4nb"><div class="label" data-page-node-id="kL2ywfRo2dpkioff1Bm8Dn">中国平安</div><div class="bar-track" data-page-node-id="RPRnN15gBXrh3HEvchNeTX"><div class="bar-fill down" style="width:3.9%" data-page-node-id="9HoFBPuvELNLm4UnY8I8dQ"></div></div><div class="val mono down" data-page-node-id="sarbrU2J8lfGMb9iNnT57D">-2.9</div></div>
+        <div class="bar-row" data-page-node-id="o0wgvDds4jJjptJd7ujRuy"><div class="label" data-page-node-id="gH8ml0c5Fnl7hPoME4g7Uo">立讯精密</div><div class="bar-track" data-page-node-id="Ia2HP1nSf0xj5JkYfokMwO"><div class="bar-fill down" style="width:7.6%" data-page-node-id="CxrCVWk1BccBlylXFRzACq"></div></div><div class="val mono down" data-page-node-id="XXMGiWJg8QQcGfqPofOIOL">-5.7</div></div>
+        <div class="bar-row" data-page-node-id="RrF6y7yyjGxXiAtLkd9nma"><div class="label" data-page-node-id="TnjAOXTowXMInTEQe89PP9">贵州茅台</div><div class="bar-track" data-page-node-id="GLKIO8NpBYHxGCjQNuDOam"><div class="bar-fill down" style="width:16.7%" data-page-node-id="NqkmfHWDT4w1VmiIyGbESs"></div></div><div class="val mono down" data-page-node-id="ppvGfkJuTVhQvEHKcIuXaZ">-12.5</div></div>
+        <div class="bar-row" data-page-node-id="fsofdgawD0jpC3zDtSXA5P"><div class="label" data-page-node-id="DLcK7iZ1nUlqL0gEq0KRZB">比亚迪</div><div class="bar-track" data-page-node-id="dbL7b2cVrBpC66sENagIGD"><div class="bar-fill down" style="width:21.5%" data-page-node-id="WzNHDr76FuHS3Xvrfq0PgB"></div></div><div class="val mono down" data-page-node-id="6Ltzk75csw0jTF9DRBIXB7">-16.1</div></div>
+        <div class="bar-row" data-page-node-id="nbkuZ37eDwI6aw3ZsEYLGp"><div class="label" data-page-node-id="FekLWP2QOp4kK7OWCBJcq1">恒瑞医药</div><div class="bar-track" data-page-node-id="GYIk75SCjhZYdM9PAHn1fB"><div class="bar-fill down" style="width:61.4%" data-page-node-id="z8uZE0oNSbv1DpIILJoFew"></div></div><div class="val mono down" data-page-node-id="1gWbcHUtE1FPMf2JExAUYT">-45.9</div></div>
+        <div class="bar-row" data-page-node-id="8Add7WdYyA52035lBMxjkR"><div class="label" data-page-node-id="1ruiFEaFMiTMKu1zdTP8xQ">宁德时代</div><div class="bar-track" data-page-node-id="p5fmtOtbEJ9AcEXJS8DkCB"><div class="bar-fill down" style="width:100%" data-page-node-id="zGMeJq9gCHw1iEj0UFd2dO"></div></div><div class="val mono down" data-page-node-id="K4ovZEYLOCWW5NFthCRGrE">-74.8</div></div>
+        <div class="chart-note" data-page-node-id="wxemPGeoRT3APGfYXMWbiF">六只票主力 20 日全部净流出，但分化明显：宁德、恒瑞是重灾区（-74.8 / -45.9 亿），平安、立讯流出已大幅收窄且 10 日转正（+10.4 / +13.9 亿），资金在「高低切换、再平衡」。</div>
+      </div>
+      <div class="chart" data-page-node-id="ALi2gdOK6MVj6LX7Nrto3Q">
+        <h4 data-page-node-id="GgfqkBMbRTeUEEUjbZIuub">赛道分布（按持仓数量，等权）</h4>
+        <div class="bar-row" data-page-node-id="KEQhAFmTxUe1MktebNktTd"><div class="label" data-page-node-id="8bxXGTor5UwkuckbWZZFl8">新能源链</div><div class="bar-track" data-page-node-id="NoTodsHML4kSB1xTrw4rMP"><div class="bar-fill primary" style="width:66.7%" data-page-node-id="hPOmSsLzCEwj58dUP9hqDY"></div></div><div class="val mono" data-page-node-id="n7vxZExu1PuIlr9M3BOwNr">2 只</div></div>
+        <div class="bar-row" data-page-node-id="I5OcRkZSyYhqmslYITbOc2"><div class="label" data-page-node-id="0ZuLs6Dqpow4yvs6TXmUm1">消费电子</div><div class="bar-track" data-page-node-id="QyJyZdcdxtHyTp9VTCLEAp"><div class="bar-fill primary" style="width:33.3%" data-page-node-id="4cdNH19iAADg29Nrt23T2C"></div></div><div class="val mono" data-page-node-id="GTsgLuWtGPlQSJS97a2Y4j">1 只</div></div>
+        <div class="bar-row" data-page-node-id="ksA2QvyG5IACSXhq9dHJ2f"><div class="label" data-page-node-id="2YUa8RfuLBQlp7W0fYaacW">白酒</div><div class="bar-track" data-page-node-id="OI8OKAzvHwv3IIVQKKpknV"><div class="bar-fill primary" style="width:33.3%" data-page-node-id="abxLO9XeLHMsmQkf2qymVZ"></div></div><div class="val mono" data-page-node-id="BjK0xjxH5i7FTeygFmwch0">1 只</div></div>
+        <div class="bar-row" data-page-node-id="AoCy5XVXyu7GweFZ2hSmB5"><div class="label" data-page-node-id="u1ljf8Cw6IkgpCb813aghY">医药</div><div class="bar-track" data-page-node-id="gIWyWu2jWrcU01oHasFznR"><div class="bar-fill primary" style="width:33.3%" data-page-node-id="jerecl5I5YU8lAOrqFVTG0"></div></div><div class="val mono" data-page-node-id="iAQl6o8PbD4plsEgzYKpR3">1 只</div></div>
+        <div class="bar-row" data-page-node-id="GRM6AFIMTZkP0nvP3VRjm4"><div class="label" data-page-node-id="iynotpFk4QwhaEnlqiDxEk">金融保险</div><div class="bar-track" data-page-node-id="okNBRLlSll52cGSyoitcCE"><div class="bar-fill primary" style="width:33.3%" data-page-node-id="xUEQrKs1pD2MCIGJC6jJ1c"></div></div><div class="val mono" data-page-node-id="6B0gUPsazQJTte7CVmQ22X">1 只</div></div>
+        <div class="chart-note" data-page-node-id="p0SjFVA6dwonh6GbAt0joC">宁德时代 + 比亚迪同属新能源车产业链，两只高度相关（需求、锂价、价格战同频），等于把 1/3 仓位押在一个赛道上——这是组合最需要警惕的集中度风险。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 逐只体检 -->
+  <div class="section" data-page-node-id="S5kXuggH1rgfR42oYRaLpE">
+    <div class="section-head" data-page-node-id="NuMMR63L2N57I4DAa6hhJA"><h2 data-page-node-id="IFJtKWuby2JYtDUlN3uPus">逐只四维体检</h2><div class="aux" data-page-node-id="NbfyvsdJOSNv1dF9S1QjHm">估值 / 财务质量 / 主力资金 / 技术面；机构目标价为「一致预期」，属非一手数据、需核实</div></div>
+    <div class="grid cols-2" data-page-node-id="eVoTtzuOZIc8W1K5TqPJM1">
+
+      <div class="stock-card" data-page-node-id="3XWXrmT4kHP4AHqIShO2GD">
+        <div class="head" data-page-node-id="P6VC5MUKErAKDk9u83T50a"><div class="title" data-page-node-id="yF0el7nGFEspKmFdzr3Sc8">贵州茅台 <span class="aux" data-page-node-id="VOac5cb3sK2vw5wvu1jYTu">600519</span></div><span class="badge keep" data-page-node-id="IOqmLkhhMoAPJg35QBORd0">稳健压舱</span></div>
+        <div class="dim-grid" data-page-node-id="m5LACx5o0pRuez5iRAsOSk">
+          <div class="dim" data-page-node-id="6053iAJvLaHPQSyZIFXhr9"><div class="k" data-page-node-id="jZECjz4QECHeATQPghjdAl">估值</div><div class="v" data-page-node-id="L2oF3NfX4d3DWVHsZ6cQ2U">PE 19.9× / PB 6.46×，股息率 4.01%，处历史偏低区间</div></div>
+          <div class="dim" data-page-node-id="lQ4zFHE1BD61kIcgpyBcsb"><div class="k" data-page-node-id="clARhD2RdXPVg8z9wDKpjO">财务质量</div><div class="v" data-page-node-id="8OUcnaGlpaH5EP200Ad8ZW">ROE(TTM) 32.4% 顶级；毛利率 89.6%；负债率仅 15.2%；但 26H1 归母净利同比 -2.0%</div></div>
+          <div class="dim" data-page-node-id="5mLzpzE3YPATcJdP66aKPm"><div class="k" data-page-node-id="CrsIScGIR07yIc9j9MdaMu">主力资金</div><div class="v down" data-page-node-id="JVeyEcFWxLKncyWRSBFcXb">5 日 -2.0 亿 / 20 日 -12.5 亿，中期净流出</div></div>
+          <div class="dim" data-page-node-id="a4N19uKCjkpOW5Av9D4Rv1"><div class="k" data-page-node-id="DNGjj6YkJznCt0AUbXTFAg">技术面</div><div class="v" data-page-node-id="judJCmlwIIdNbeAhr7bYxO">贴近 MA20 下方、BOLL 中轨上方，MACD 绿柱收窄近金叉，中性略偏弱</div></div>
+        </div>
+        <div class="concl" data-page-node-id="BNNC5reoSDzUQRRhTylejz"><b data-page-node-id="1nA3yPJSOQnZGdxOYeysE6">结论</b>：质地最硬、估值安全、股息托底，盈利停滞是唯一瑕疵。作稳健底仓可继续持有，回调至 MA60（约 1269）附近可关注。</div>
+      </div>
+
+      <div class="stock-card" data-page-node-id="MFFrBpBSDWFtL8pZ5ncG25">
+        <div class="head" data-page-node-id="I1rVgmKZzIbcPa79NrGvbv"><div class="title" data-page-node-id="IDn8ZF9mfR464F0SZVXwjL">宁德时代 <span class="aux" data-page-node-id="gGkFhc4NAOYo55aQ3iyU9O">300750</span></div><span class="badge watch" data-page-node-id="xHQaW8e4ZLBEjoYg1lfXVa">持有待企稳</span></div>
+        <div class="dim-grid" data-page-node-id="RaTT2sx0AfyZoB0Y6ypYo3">
+          <div class="dim" data-page-node-id="Cq6Ma0FzzdKpRMME8foTNk"><div class="k" data-page-node-id="aICG6eJXogN8ab0xmGbp7G">估值</div><div class="v" data-page-node-id="5arrEtao6jciHZTEy4ev5J">PE 19.0× / PB 4.34×，相对 +42% 增速并不贵；一致目标价 543 元（隐含 +56%）</div></div>
+          <div class="dim" data-page-node-id="v4V1MGtRSVqkE9Zu0CYdLX"><div class="k" data-page-node-id="ti0dBgRaYNYQZ0CFQxbWMO">财务质量</div><div class="v" data-page-node-id="YuGvrDKz4OrLabS691ogOO">ROE(TTM) 22.4%；26H1 净利 +42.0%（六股最强）；但负债率 63.7% 偏高</div></div>
+          <div class="dim" data-page-node-id="wCjPgu8bLEuK6UuB9PS7dV"><div class="k" data-page-node-id="1POhjIJElFXzcegRHXq6VK">主力资金</div><div class="v down" data-page-node-id="DBzG6dFkTsnPOGn9HtNf4o">5 日 -43.9 亿 / 20 日 -74.8 亿，六股流出最凶</div></div>
+          <div class="dim" data-page-node-id="UC2G3EJQ6HhYXDioDhGg82"><div class="k" data-page-node-id="RaUXHSarlzQ5fKdjG6ZQkZ">技术面</div><div class="v" data-page-node-id="okGFbjG1D6HkNBGAe0mdvr">跌破所有均线、击穿 BOLL 下轨，KDJ 6.7 / RSI6 15.8 极度超卖，年内高点回落约 25%</div></div>
+        </div>
+        <div class="concl" data-page-node-id="5EuueMMxfh1zHWDLqYQEti"><b data-page-node-id="j3QH6t3By7G6TJK2UCJqly">结论</b>：基本面最强但趋势最弱，「业绩强、股价弱」的背离由资金面主导。超卖或有技术反弹，但趋势未反转前不追涨，等企稳信号再决定去留。</div>
+      </div>
+
+      <div class="stock-card" data-page-node-id="GILTGG62AqmIgKfZam3UmV">
+        <div class="head" data-page-node-id="NW4FpFSTiOSsS4whq8ERQC"><div class="title" data-page-node-id="FOOeWj8eEDmZGSG0jrvVSC">比亚迪 <span class="aux" data-page-node-id="9gMCJIzPagA4VqV4PJO85y">002594</span></div><span class="badge cut" data-page-node-id="TXJ7lN9lKB1CGdlEvdG5fx">减仓候选</span></div>
+        <div class="dim-grid" data-page-node-id="CkGQ2qPu9tqQ7yi4mvB359">
+          <div class="dim" data-page-node-id="LwmV3x41qz0oIIPBuOIIZx"><div class="k" data-page-node-id="pLahSVc4UgD8Tuy4WIDbNv">估值</div><div class="v" data-page-node-id="PoZLeybybJGOHkVNrZwSB5">PE 27.0× / 动态 32.3×（动态高于静态），因盈利下滑估值反而不便宜；股息率仅 0.41%</div></div>
+          <div class="dim" data-page-node-id="mZ35vbAHttyRGHY2Tu0m6g"><div class="k" data-page-node-id="JkmSH5CGGGJYWKuUK0m8TW">财务质量</div><div class="v" data-page-node-id="QiOWv5q63j8Ll3u89Gmr7s">26H1 净利 -20.5%（价格战挤压，毛利率降至 18.8%）；ROE(TTM) 11.3%；负债率 71%</div></div>
+          <div class="dim" data-page-node-id="CpO2tAMVOsOLR2iuvHmE9r"><div class="k" data-page-node-id="fveIbjpAku15iTXS5aJ8ps">主力资金</div><div class="v down" data-page-node-id="5rKJQ4OK0pUqadTn40p8AM">5 日 -18.8 亿 / 20 日 -16.1 亿，持续流出</div></div>
+          <div class="dim" data-page-node-id="JPttytmeaMTQ7dj3xU2H1y"><div class="k" data-page-node-id="2VsDhhloiQM8wHJtB5OiM1">技术面</div><div class="v" data-page-node-id="h8s0BAXR1y1OMUzwBHwqJM">跌破 MA20 / MA60，MACD 绿柱，重心下移，弱市整理</div></div>
+        </div>
+        <div class="concl" data-page-node-id="f33dTeldn1xUcqeImbX3Ai"><b data-page-node-id="atF2jkgr1Mzq49UZF6z0UU">结论</b>：盈利下滑是硬伤（价格战未止），叠加资金流出与技术偏弱，是六股中基本面压力较大的一只。需等销量/盈利拐点信号，在此之前建议降权。</div>
+      </div>
+
+      <div class="stock-card" data-page-node-id="e0bigZwUCNzYs8F5kA5cSf">
+        <div class="head" data-page-node-id="gAyjPQ1JGx6iAgnheLZkSG"><div class="title" data-page-node-id="Sf361FGkVaIARlUbHb1q2a">恒瑞医药 <span class="aux" data-page-node-id="dFHFg27K8UjfFooDcboTeM">600276</span></div><span class="badge cut" data-page-node-id="5GEmHKxhxy7JF5ZsEldvZP">优先减仓</span></div>
+        <div class="dim-grid" data-page-node-id="ttfeaaDkG7cprKLIvAjr5H">
+          <div class="dim" data-page-node-id="KKI0filcbL2Oqidc8dOPJW"><div class="k" data-page-node-id="9kikSfEzf0M7mI0BZMzYEe">估值</div><div class="v" data-page-node-id="yhK8ccUNA1D9767VCUZrVG">PE 39.5× / PB 4.73× 全组最高，含创新药转型溢价；一致目标价 69.7 元（隐含 +53%）</div></div>
+          <div class="dim" data-page-node-id="BrmaDTxLy4GFpjDLFUDw8D"><div class="k" data-page-node-id="UHh7uCqMrGReanengJoKcQ">财务质量</div><div class="v" data-page-node-id="uy8hnraaceNY9EDfDi2tqy">26H1 归母净利 +0.3% 持平，但扣非 -12.7%、Q2 单季扣非 -35%、现金流腰斩；负债率仅 8.2%</div></div>
+          <div class="dim" data-page-node-id="AyXTruWtOcpjulBUFErEBz"><div class="k" data-page-node-id="LAoHxe7g6ogsUKwRVRh2V5">主力资金</div><div class="v down" data-page-node-id="ysKU0JJwsTrFFLMOFEMmdK">5 日 -14.1 亿 / 20 日 -45.9 亿，医药板块被调仓卖出的主力方向</div></div>
+          <div class="dim" data-page-node-id="ZOPZB1x3L5MmPNtV3vHQNN"><div class="k" data-page-node-id="m0yEnfN3pgcOqXR6gjinlA">技术面</div><div class="v" data-page-node-id="qWqL2DsIrPNJPQ11c2Orfq">从 73.84 高点回撤近 38%，跌破所有均线，KDJ 11.7 / RSI6 28.5 超卖，YTD -22.6% 最深</div></div>
+        </div>
+        <div class="concl" data-page-node-id="czAmfQHQ0dbhyBI9dwMSr0"><b data-page-node-id="H5tOcEBcWsLh0KKuYzReu0">结论</b>：创新药转型逻辑未破坏，但短期业绩兑现不及预期 + 估值最高 + 资金流出最凶 + 深度下跌，属左侧承压。需等三季报验证与筹码出清，不建议急于加仓，是减仓优先级最高的一只。</div>
+      </div>
+
+      <div class="stock-card" data-page-node-id="noDUfCZcNHIW543dI8rG5B">
+        <div class="head" data-page-node-id="K7fJFfNXRaGb4fnfxnoYUP"><div class="title" data-page-node-id="LZinotyFaDNABdAuspVBBC">立讯精密 <span class="aux" data-page-node-id="FFbAtDSUsgwv15EDx83rE8">002475</span></div><span class="badge core" data-page-node-id="3flmz404TzXAIxWQtF4wy8">核心健康</span></div>
+        <div class="dim-grid" data-page-node-id="B2O7er5iG36TeAXanDyvZV">
+          <div class="dim" data-page-node-id="8TgzOs3FD7nmDlqCTiAbYG"><div class="k" data-page-node-id="5JlekLUGGZOFYxcU5hGqKY">估值</div><div class="v" data-page-node-id="oZbE7e0EfbaVO14xJKw5I7">PE 24.4× / PB 4.67×；一致目标价 80.6 元（隐含 +41%），近 6 月评级全买入/增持</div></div>
+          <div class="dim" data-page-node-id="SC3Hs8Un2Dgs85OISLouBB"><div class="k" data-page-node-id="RoszFBGNCblROZZgYEAI3S">财务质量</div><div class="v" data-page-node-id="z63TSc1G6CHZycpsZpiE0T">26H1 净利 +18.0%、ROE(TTM) 19.0%；毛利率 11.8% 偏低（代工特性）；负债率 67.4%</div></div>
+          <div class="dim" data-page-node-id="lAKV648qbIiagoiwuLFkR9"><div class="k" data-page-node-id="uU4H3d9e1APPbicIvTGI3o">主力资金</div><div class="v up" data-page-node-id="UuthuU1N9DjEpsqlUelqXU">5 日 +5.9 亿 / 10 日 +13.9 亿，六股中资金回流最明显</div></div>
+          <div class="dim" data-page-node-id="95MmUuK0UZwsmTtdtW7PB7"><div class="k" data-page-node-id="9xCxKHBxkoQTZGTis2kfI0">技术面</div><div class="v" data-page-node-id="sv6mbYB4qE9o1Rz7bfNTGu">贴近 MA20 企稳，MACD 红柱、KDJ 70 偏强，蓄势特征，近 10 日 +5.3%</div></div>
+        </div>
+        <div class="concl" data-page-node-id="XMdLtZ5m3buviT4uAc5RAE"><b data-page-node-id="uvf3hwbjSMm9yIr5uRrZVQ">结论</b>：盈利稳增 + 资金回流 + 技术企稳，是六股中基本面与股价匹配度最均衡、技术资金共振改善最好的一只，仓位结构中属健康标的。</div>
+      </div>
+
+      <div class="stock-card" data-page-node-id="CM02fMeUpvrKniWWHi7fzu">
+        <div class="head" data-page-node-id="mK0Sa2PbpSY6LFlB023PYd"><div class="title" data-page-node-id="WLhkgz0poyonT9BFijtllI">中国平安 <span class="aux" data-page-node-id="RtmYNl4bet9Ad5AKvp5gtF">601318</span></div><span class="badge core" data-page-node-id="xf6N92JThuy74UWBrDzcOw">核心健康</span></div>
+        <div class="dim-grid" data-page-node-id="fx1cG5s6yvxQYp74dkcobl">
+          <div class="dim" data-page-node-id="zPjon1uHe5ZqWXcQbJ4PWo"><div class="k" data-page-node-id="NaLFNDgwFC7alY7VjDHFeD">估值</div><div class="v" data-page-node-id="mZ0gs7UMIAl0jWosqfThVp">PE 6.59× / PB 1.02× 全组最低、接近破净；股息率 4.66% 最高；估值处自身历史低位</div></div>
+          <div class="dim" data-page-node-id="r7XwpUeOTpevcvC8HrwxU2"><div class="k" data-page-node-id="j5q29PjfbfgbFzYopL09gH">财务质量</div><div class="v" data-page-node-id="KKCXPseDL3WuifCtHQ0iIF">26H1 归母净利 +36.1%（弹性最强）；ROE 9.0%（险企口径）；负债率 89.8% 为金融杠杆特性</div></div>
+          <div class="dim" data-page-node-id="jhSrSlCz6VZqO8N3GTVjYF"><div class="k" data-page-node-id="WHqkHpMukwY1wjsbwWsdf6">主力资金</div><div class="v up" data-page-node-id="jtEbDluSlIot32IRMa4oXx">当日 +5.1 亿 / 10 日 +10.4 亿，资金持续回流，最受主力青睐</div></div>
+          <div class="dim" data-page-node-id="wC7k51i1S0mME80sltKGVV"><div class="k" data-page-node-id="8c2lLClAQ49MufFiyntXjW">技术面</div><div class="v" data-page-node-id="HdF0VEGCcUbefcuSvNV06D">当日 +2.42% 突破 MA60，逼近 BOLL 上轨，MACD 红柱、KDJ 87.8 / RSI6 80 短线超买，趋势最强</div></div>
+        </div>
+        <div class="concl" data-page-node-id="mA4NhDQAgPr1Ov7wEiCfBK"><b data-page-node-id="wtp3z1pH3Y8VkBUJUU38bZ">结论</b>：低估值 + 高股息 + 盈利大幅反转 + 资金与趋势共振向上，是六股中综合体检最健康的标的。短线 KDJ/RSI 已超买，追高需防回调，但中期趋势健康。</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 组合风险 -->
+  <div class="section" data-page-node-id="ZR7AITExWwIUxwsXsBHfgT">
+    <div class="section-head" data-page-node-id="6WqqV6YPUiY03gh8DEe0xy"><h2 data-page-node-id="iRRf1NUZDYbCPb4L3KHGOp">组合风险与结构问题</h2></div>
+    <div class="grid cols-3" data-page-node-id="iKnnFiFGF38QDyLwPBmydz">
+      <div class="card" data-page-node-id="IS2QKqeXeDjdFbHh5YIA7t">
+        <div class="sub" style="margin-bottom:8px" data-page-node-id="BvbmbWL5sGezdud5npBcOx">① 赛道集中</div>
+        <p class="muted" style="font-size:14px" data-page-node-id="qaEt0w26HunYnst6Gtx8pX">宁德时代 + 比亚迪同属新能源车产业链，两只高度相关（需求 / 锂价 / 价格战同频），等权下占组合 1/3，等于半仓押注单一赛道。若新能源景气下行，两只会一起跌。</p>
+      </div>
+      <div class="card" data-page-node-id="tsG718H2UoFnaJMrABtd6B">
+        <div class="sub" style="margin-bottom:8px" data-page-node-id="xOM3ElzqR2BbVru45xCR6t">② 风格偏左侧</div>
+        <p class="muted" style="font-size:14px" data-page-node-id="KL2g4CqBMfXOQsIXEpRVv7">六只里四只 YTD 负收益，且主力 20 日全部净流出——组合整体偏「高位套牢 / 左侧承压」结构，缺「趋势向上」的进攻头寸，需靠再平衡提升组合弹性。</p>
+      </div>
+      <div class="card" data-page-node-id="6KFrfQvka4VTGuQuZEtR0t">
+        <div class="sub" style="margin-bottom:8px" data-page-node-id="yKFqSUHX8tJ0d0ffkwGMoz">③ 逻辑待统一</div>
+        <p class="muted" style="font-size:14px" data-page-node-id="PxOFrEGtAiR1bbarmxG7Ou">组合既有防守（茅台 / 平安高股息）又有高弹性（宁德 / 恒瑞），但缺少统一框架：哪些是「看 3 年逻辑」、哪些是「看 1 个季度」，需要先分清再决定去留。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 分层与优先级 -->
+  <div class="section" data-page-node-id="SbkAViFc3h8iEl8LuzZJrs">
+    <div class="section-head" data-page-node-id="9jE3EIaTvrsgHhtIDMdCXP"><h2 data-page-node-id="B9H6CPPvx6IPGARjlbfXb6">持仓分层与加减仓优先级</h2></div>
+    <div class="grid cols-2" style="margin-bottom:24px" data-page-node-id="WUeOXego3qQyWS4Zsk2moY">
+      <div class="layer core" data-page-node-id="HWJu5i1SBChNSFEzkOotpf"><div class="icon" data-page-node-id="Tbu0djJpL3b87uCMHNXu4d">核</div><div data-page-node-id="9T6ueeU8hneL4HermjCttC"><h4 data-page-node-id="pV40YZhE4K2PDmlDHh1ha3">核心仓（可加）</h4><p data-page-node-id="gKqLwt130omhQahqaBAAPM">中国平安、立讯精密——逻辑强 + 资金技术共振，若加仓优先。</p></div></div>
+      <div class="layer keep" data-page-node-id="l2EUverLBclD80rdcWWCIb"><div class="icon" data-page-node-id="LQ5XJFKtDg0uwUALOBGhG1">稳</div><div data-page-node-id="ok5mQGLk2HwCGIW4xM8fhf"><h4 data-page-node-id="FlMe1YMwAHpmvGCqbjXQdI">稳定器仓（保留）</h4><p data-page-node-id="UNrH7JB5OUJl1O3UvqYHWR">贵州茅台——质地最硬、股息托底，作压舱石不动。</p></div></div>
+      <div class="layer watch" data-page-node-id="ElqbJDjkbBIbeiXITePBzZ"><div class="icon" data-page-node-id="9jAbHSB70ZZ60goTqysJgX">观</div><div data-page-node-id="QTELUd0MfsClxhCHy0Ccqx"><h4 data-page-node-id="6EHnADQyajIWmCgLQKN2uj">观察仓（待验证）</h4><p data-page-node-id="luDacpQNOHp0b35PYkVc0F">宁德时代——基本面强但趋势未反转，等企稳信号。</p></div></div>
+      <div class="layer cut" data-page-node-id="AVACcmOxpE70feBVicGNTJ"><div class="icon" data-page-node-id="PqoWLJJCBL224Yt8IEGNgl">减</div><div data-page-node-id="Df1WkhKxaRC5GUwFgLonmh"><h4 data-page-node-id="q1rKNH0k8TrmhV0RKfUWQk">问题仓（减仓）</h4><p data-page-node-id="yaxOJKnQ7c3POwuhlaf3np">比亚迪、恒瑞医药——盈利承压 / 兑现不及预期，优先降权。</p></div></div>
+    </div>
+    <ol class="priority" data-page-node-id="M5HA9f1Z6qUrvPimHmzynF">
+      <li data-page-node-id="HnM2DUQZPkZBvRc4wabC2y"><span class="who" data-page-node-id="dQ7jyA8GcpZZHyKthN14FB">先砍逻辑最弱的跟风/承压仓</span> <span class="what" data-page-node-id="WlYylfZFXRVpJQjqTHEefw">——恒瑞医药（业绩兑现不及预期 + 估值最高 + 资金流出最凶），比亚迪（价格战挤压盈利、估值不便宜）。</span></li>
+      <li data-page-node-id="Vmp8aqHAHWg7YJnoGANMCc"><span class="who" data-page-node-id="NdTXS46eetOaZPZBd5wab8">再优化重复暴露</span> <span class="what" data-page-node-id="uxudEDVB3OuxvMROAHeI1R">——宁德与比亚迪二选一降低新能源链集中度，保留基本面更强的宁德、待其企稳。</span></li>
+      <li data-page-node-id="kSNVYQVFM1X3ugg91XsoRp"><span class="who" data-page-node-id="GHbTgjACNimOUuAxK2Ljgf">再提高核心仓位</span> <span class="what" data-page-node-id="bbE3NmJ8DA9XIdQDJQDEY7">——腾出的资金优先补中国平安、立讯精密（资金技术共振，趋势健康）。</span></li>
+      <li data-page-node-id="dAyxX9EMzyEldVdJcmqCR3"><span class="who" data-page-node-id="rEWnuU6dHdXTtZLGpkRiup">最后才考虑加新标的</span> <span class="what" data-page-node-id="FSieIsFAcUiW9wyB89HtD4">——若需分散，可向组合缺的「趋势向上」方向（如 AI/科技主线）补充，而非继续加新能源。</span></li>
+    </ol>
+  </div>
+
+  <div class="disclaimer" data-page-node-id="cCEFo2pk9YJH3hsArPgR1F">
+    <b data-page-node-id="aHgza3En0GksB7jImAkBCc">免责声明</b>：以上内容基于公开数据和量化分析，仅供参考，不构成投资建议。市场有风险，投资需谨慎。任何投资决策应结合个人风险承受能力、资金状况和投资目标独立判断，必要时咨询持牌专业机构。过往表现不预示未来收益。
+    <div class="src" data-page-node-id="epFstcr30GJbjZrJIisPoo">数据来源：腾讯自选股行情 / 财务 / 资金接口（westock）与 NeoData 机构一致预期，时点 2026-09-03 收盘。机构目标价为「一致预期」，属非一手数据，需核实原文；估值历史分位为定性判断（精确分位数数据源未覆盖）。本报告按等权假设生成，未计入用户实际仓位与成本，实际调仓请结合个人持仓成本独立判断。</div>
+  </div>
+
+</div>
+</body>
+</html>
