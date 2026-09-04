@@ -620,6 +620,7 @@ async def run_agent(
                 react=(resolved_tool_mode == "react"),
             ):
                 if cancel_event is not None and cancel_event.is_set():
+                    await asyncio.to_thread(db.abort_todos, session_id)
                     await _persist_partial_generation(
                         session_id,
                         "".join(partial_content),
@@ -747,6 +748,7 @@ async def run_agent(
             if not interrupted:
                 break
     except GraphRecursionError:
+        await asyncio.to_thread(db.abort_todos, session_id)
         yield error_event(
             "recursion_limit",
             "任务步骤过多，已停止。请拆分成更小的请求，或减少重复工具调用。",
@@ -755,6 +757,7 @@ async def run_agent(
         return
 
     if final_state is None:
+        await asyncio.to_thread(db.abort_todos, session_id)
         yield error_event(
             "agent_error",
             "Agent 未返回结果",
@@ -764,6 +767,26 @@ async def run_agent(
 
     messages = final_state.get("messages") or []
     _sync_todos_from_state(session_id, final_state)
+    # run 正常结束：终态收敛（running→done、pending→skipped）并推全量计划。
+    # 修复 D1 的前端半边——DB 收敛后前端实时同步，刷新不再归零。
+    items, settled = await asyncio.to_thread(db.settle_todos, session_id)
+    if items:
+        yield sse_event(
+            "plan_sync",
+            {
+                "items": [
+                    {
+                        "id": item["id"],
+                        "index": item["index"],
+                        "title": item["title"],
+                        "status": item["status"],
+                        "result": item["result"],
+                    }
+                    for item in items
+                ],
+                "settled": settled,
+            },
+        )
 
     # 演示模式（未配置 API Key，走 Mock 模型）：在回答后追加引导提示，
     # 提示用户安装免费本地模型或配置 API Key（追加进消息内容，持久化与

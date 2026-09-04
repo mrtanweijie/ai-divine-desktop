@@ -51,13 +51,14 @@ def add_tool_run(
     status: str,
     input_data: dict[str, Any],
     output: dict[str, Any] | None = None,
+    turn: int | None = None,
 ) -> dict[str, Any]:
     run_id = _new_id()
     now = _now()
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO tool_runs (id, session_id, tool_name, status, input, output, started_at, finished_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO tool_runs (id, session_id, tool_name, status, input, output, started_at, finished_at, turn) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 run_id,
                 session_id,
@@ -67,18 +68,22 @@ def add_tool_run(
                 _json(output) if output else None,
                 now,
                 now if status in ("done", "error") else None,
+                turn,
             ),
         )
         conn.commit()
     return get_tool_run(run_id)
 
 def update_tool_run(
-    run_id: str, status: str, output: dict[str, Any] | None = None
+    run_id: str,
+    status: str,
+    output: dict[str, Any] | None = None,
+    duration_ms: int | None = None,
 ) -> None:
     with get_conn() as conn:
         conn.execute(
-            "UPDATE tool_runs SET status = ?, output = ?, finished_at = ? WHERE id = ?",
-            (status, _json(output) if output else None, _now(), run_id),
+            "UPDATE tool_runs SET status = ?, output = ?, finished_at = ?, duration_ms = ? WHERE id = ?",
+            (status, _json(output) if output else None, _now(), duration_ms, run_id),
         )
         conn.commit()
 

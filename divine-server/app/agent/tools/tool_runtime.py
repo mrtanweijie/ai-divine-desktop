@@ -14,6 +14,12 @@ from ...tools.base import ToolExecutionError
 
 logger = logging.getLogger("divine.agent.tool_runtime")
 
+# 超时自动重试白名单：幂等只读的网络类工具。超时多为瞬时抖动，
+# 自动重试一次的成本远低于"把错误丢回模型、指望它自觉重试"。
+# 写操作/终端类绝不自动重试——副作用不可撤销。
+_RETRYABLE_TOOLS = {"web_search", "web_fetch", "web_fetch_batch", "rag_search"}
+_MAX_TIMEOUT_ATTEMPTS = 2
+
 def _summarize_arguments(arguments: dict[str, Any]) -> str:
     parts: list[str] = []
     for key, value in arguments.items():
@@ -198,14 +204,38 @@ async def _execute_tool(
     workspace: Any,
     locale: str | None = None,
     progress_callback: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+    run_meta: dict[str, Any] | None = None,
+    turn: int | None = None,
+    on_retry: Callable[[int], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
-    """Run one adapter call with timeout, logging, and persistent tool runs."""
+    """Run one adapter call with timeout, logging, and persistent tool runs.
+
+    ``run_meta`` 是调用方持有的旁路字典：这里回填 run_id / started_at /
+    duration_ms，供 tool SSE 事件携带。刻意不走返回值——output 会进入
+    tool_content 喂给模型，运行时元数据不应混入模型上下文。
+    ``turn``（模型调用轮次）与 ``duration_ms`` 一并落库，供刷新后恢复
+    执行轨迹（TracePanel）使用。
+    ``on_retry(attempt)``：幂等只读工具超时自动重试时回调（发 SSE 提示）。
+    重试仅针对 TimeoutError——它是明确的瞬时故障；其余错误不重试，
+    避免放大失败延迟。重试对落库透明：一次调用仍是一条 tool_run，
+    duration 为所有 attempt 的总耗时。
+    """
+
+    def _record(duration_ms_value: int) -> None:
+        if run_meta is None:
+            return
+        run_meta["run_id"] = run["id"]
+        run_meta["started_at"] = run.get("started_at")
+        run_meta["duration_ms"] = duration_ms_value
+
     run = await asyncio.to_thread(
         db.add_tool_run,
         session_id,
         name,
         "start",
         _compact_for_storage(arguments),
+        None,
+        turn,
     )
     started = time.monotonic()
     logger.info("tool start session=%s name=%s", session_id, name)
@@ -215,72 +245,108 @@ async def _execute_tool(
         name,
         _summarize_arguments(arguments),
     )
-    try:
-        effective_timeout = (
-            adapter.effective_timeout(arguments)
-            if hasattr(adapter, "effective_timeout")
-            else adapter.timeout
-        )
-        result = await asyncio.wait_for(
-            adapter.run(
-                workspace,
-                arguments,
-                locale=locale or "zh-CN",
-                progress_callback=progress_callback,
-            ),
-            timeout=effective_timeout,
-        )
+    effective_timeout = (
+        adapter.effective_timeout(arguments)
+        if hasattr(adapter, "effective_timeout")
+        else adapter.timeout
+    )
+    result = None
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            result = await asyncio.wait_for(
+                adapter.run(
+                    workspace,
+                    arguments,
+                    locale=locale or "zh-CN",
+                    progress_callback=progress_callback,
+                ),
+                timeout=effective_timeout,
+            )
+        except ToolExecutionError as exc:
+            output = {
+                "success": False,
+                "message": str(exc),
+                "messageKey": exc.message_key,
+                "messageParams": exc.message_params or {},
+            }
+            if not output["messageKey"]:
+                output.pop("messageKey")
+            if not output["messageParams"]:
+                output.pop("messageParams")
+            error_duration_ms = round((time.monotonic() - started) * 1000)
+            await asyncio.to_thread(
+                db.update_tool_run, run["id"], "error", output, error_duration_ms
+            )
+            _record(error_duration_ms)
+            logger.warning(
+                "tool error session=%s name=%s duration=%.2fs error=%s",
+                session_id,
+                name,
+                time.monotonic() - started,
+                exc,
+            )
+            return output
+        except asyncio.TimeoutError:
+            if (
+                name in _RETRYABLE_TOOLS
+                and attempt < _MAX_TIMEOUT_ATTEMPTS
+            ):
+                logger.warning(
+                    "tool timeout, retrying session=%s name=%s "
+                    "attempt=%d timeout=%ss",
+                    session_id,
+                    name,
+                    attempt,
+                    effective_timeout,
+                )
+                if on_retry is not None:
+                    await on_retry(attempt)
+                continue
+            output = {
+                "success": False,
+                "message": f"工具执行超时（{effective_timeout}s）",
+                "messageKey": "tool.toolTimeout",
+                "messageParams": {"timeout": effective_timeout},
+            }
+            timeout_duration_ms = round((time.monotonic() - started) * 1000)
+            await asyncio.to_thread(
+                db.update_tool_run,
+                run["id"],
+                "error",
+                output,
+                timeout_duration_ms,
+            )
+            _record(timeout_duration_ms)
+            logger.warning(
+                "tool timeout session=%s name=%s duration=%.2fs "
+                "timeout=%s attempts=%d",
+                session_id,
+                name,
+                time.monotonic() - started,
+                effective_timeout,
+                attempt,
+            )
+            return output
         output = result.as_dict()
         output = _annotate_tool_output(name, output, arguments)
+        duration_ms = round((time.monotonic() - started) * 1000)
         await asyncio.to_thread(
-            db.update_tool_run, run["id"], "done", _compact_for_storage(output)
+            db.update_tool_run,
+            run["id"],
+            "done",
+            _compact_for_storage(output),
+            duration_ms,
         )
+        _record(duration_ms)
         logger.info(
-            "tool done session=%s name=%s duration=%.2fs success=%s",
+            "tool done session=%s name=%s duration=%.2fs success=%s "
+            "attempts=%d",
             session_id,
             name,
             time.monotonic() - started,
             output.get("success"),
-        )
-        return output
-    except asyncio.TimeoutError:
-        effective_timeout = (
-            adapter.effective_timeout(arguments)
-            if hasattr(adapter, "effective_timeout")
-            else adapter.timeout
-        )
-        output = {
-            "success": False,
-            "message": f"工具执行超时（{effective_timeout}s）",
-            "messageKey": "tool.toolTimeout",
-            "messageParams": {"timeout": effective_timeout},
-        }
-        await asyncio.to_thread(db.update_tool_run, run["id"], "error", output)
-        logger.warning(
-            "tool timeout session=%s name=%s duration=%.2fs timeout=%s",
-            session_id,
-            name,
-            time.monotonic() - started,
-            effective_timeout,
-        )
-        return output
-    except ToolExecutionError as exc:
-        output = {
-            "success": False,
-            "message": str(exc),
-            "messageKey": exc.message_key,
-            "messageParams": exc.message_params or {},
-        }
-        if not output["messageKey"]:
-            output.pop("messageKey")
-        if not output["messageParams"]:
-            output.pop("messageParams")
-        await asyncio.to_thread(db.update_tool_run, run["id"], "error", output)
-        logger.warning(
-            "tool error session=%s name=%s duration=%.2fs error=%s",
-            session_id,
-            name,
-            time.monotonic() - started,
-            exc,
+            attempt,
         )
         return output

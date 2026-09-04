@@ -64,3 +64,6 @@ class AgentRunContext:
     # 本地意图识别结果
     intents: set[str] | None = None
     local_intent_result: dict | None = None
+    # 当前 run 的模型调用轮次（TurnCounterMiddleware 维护）。
+    # tool 事件携带它，前端据此把工具调用按轮次分组展示。
+    turn_index: int = 0

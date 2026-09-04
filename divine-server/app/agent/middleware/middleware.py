@@ -36,3 +36,19 @@ class TodoSyncMiddleware(AgentMiddleware):
         items = await asyncio.to_thread(db.replace_todos, self.ctx.session_id, titles)
         request.runtime.stream_writer({"event": "plan", "items": items})
         return result
+
+
+class TurnCounterMiddleware(AgentMiddleware):
+    """Count model turns per run so tool events can carry a turn index.
+
+    ReAct 的每一轮 = 一次模型调用 + 其触发的工具调用。tool SSE 事件带上
+    turn 后，前端可把工具调用按轮次分组、画出执行轨迹。
+    """
+
+    def __init__(self, ctx: AgentRunContext) -> None:
+        super().__init__()
+        self.ctx = ctx
+
+    async def awrap_model_call(self, request: Any, handler: Any) -> Any:
+        self.ctx.turn_index += 1
+        return await handler(request)

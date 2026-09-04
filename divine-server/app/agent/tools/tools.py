@@ -23,7 +23,7 @@ from ...tools.registry import registry
 from ..core import MAX_TOOL_TURNS, _READ_ONLY_TOOLS
 from ..core import AgentRunContext
 from .execution import _handle_adapter_call
-from ..middleware import TodoSyncMiddleware, UserInjectionMiddleware
+from ..middleware import TodoSyncMiddleware, TurnCounterMiddleware, UserInjectionMiddleware
 from ..core.prompts import _build_dynamic_prompt, _should_ask_plan
 from ..core import _make_args_model, _run_skill_script, _skill_args_model, _skill_tool_name
 
@@ -217,6 +217,7 @@ def _build_agent(
 ) -> Any:
     """Build the LangGraph agent with prompts, limits, and approval middleware."""
     middleware = [
+        TurnCounterMiddleware(ctx),
         _build_dynamic_prompt(ctx),
         ModelCallLimitMiddleware(
             run_limit=MAX_TOOL_TURNS,

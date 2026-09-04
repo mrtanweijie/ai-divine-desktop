@@ -917,6 +917,7 @@ async def _handle_adapter_call(
                 "message": f"正在调用 {name}",
                 "messageKey": "tool.runningTool",
                 "messageParams": {"tool": name},
+                "turn": ctx.turn_index,
                 "command": command if is_terminal else None,
                 **(
                     {
@@ -969,6 +970,23 @@ async def _handle_adapter_call(
         if name == "read_image" and ctx.model_id:
             arguments.setdefault("model_id", ctx.model_id)
 
+        run_meta: dict[str, Any] = {}
+
+        async def _on_timeout_retry(attempt: int) -> None:
+            writer(
+                {
+                    "event": "tool",
+                    "tool": name,
+                    "status": "running",
+                    "message": f"第 {attempt} 次超时，正在重试",
+                    "messageKey": "tool.retryingAfterTimeout",
+                    "messageParams": {"attempt": attempt},
+                    "turn": ctx.turn_index,
+                    "call_id": call_id,
+                    "session_id": ctx.session_id,
+                }
+            )
+
         output = await _execute_tool(
             ctx.session_id,
             adapter,
@@ -981,6 +999,9 @@ async def _handle_adapter_call(
                 if name == "web_fetch_batch"
                 else None
             ),
+            run_meta=run_meta,
+            turn=ctx.turn_index,
+            on_retry=_on_timeout_retry,
         )
         context_view = _compact_for_context(output)
         tool_content = context_view.get("content") or json.dumps(
@@ -1015,8 +1036,13 @@ async def _handle_adapter_call(
             "messageKey": output.get("messageKey"),
             "messageParams": output.get("messageParams") or {},
             "result": _frontend_tool_result(output),
+            "turn": ctx.turn_index,
             "call_id": call_id,
         }
+        if run_meta.get("run_id"):
+            payload["run_id"] = run_meta["run_id"]
+            payload["started_at"] = run_meta.get("started_at")
+            payload["duration_ms"] = run_meta.get("duration_ms")
         if is_terminal:
             payload["command"] = command
         writer(payload)

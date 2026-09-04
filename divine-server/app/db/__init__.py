@@ -81,7 +81,15 @@ from .sessions import (
     update_session,
 )
 from .summaries import delete_summary, get_summary, save_summary
-from .todos import add_todo, list_todos, replace_todos, update_todo_status
+from .todos import (
+    abort_todos,
+    add_todo,
+    list_todos,
+    replace_todos,
+    settle_todos,
+    sync_todos,
+    update_todo_status,
+)
 from .tool_runs import (
     add_tool_run,
     get_tool_run,

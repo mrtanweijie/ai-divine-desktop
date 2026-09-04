@@ -53,7 +53,9 @@ CREATE TABLE IF NOT EXISTS tool_runs (
     input TEXT NOT NULL DEFAULT '{}',
     output TEXT,
     started_at TEXT,
-    finished_at TEXT
+    finished_at TEXT,
+    turn INTEGER,
+    duration_ms INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS agent_todos (
@@ -241,6 +243,15 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE messages ADD COLUMN choice_state TEXT "
                 "NOT NULL DEFAULT '{}'"
+            )
+        tool_run_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(tool_runs)")
+        }
+        if "turn" not in tool_run_columns:
+            conn.execute("ALTER TABLE tool_runs ADD COLUMN turn INTEGER")
+        if "duration_ms" not in tool_run_columns:
+            conn.execute(
+                "ALTER TABLE tool_runs ADD COLUMN duration_ms INTEGER"
             )
         if "source" not in message_columns:
             conn.execute(

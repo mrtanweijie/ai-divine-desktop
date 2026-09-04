@@ -145,15 +145,34 @@ def _extract_token_usage(
 def _sync_todos_from_state(
     session_id: str, final_state: dict[str, Any]
 ) -> None:
+    """把 agent state 的 todos 合并进本地计划，保留已判定状态。
+
+    修复（D1）：旧实现只取 content 后整表重建为 pending，导致 run 结束后
+    进度归零、前端与 DB 分叉。state 为空时不动本地——空只说明本 run 未
+    使用 todo（计划重建走 TodoSyncMiddleware 的 replace 路径），不能据此
+    清空本地计划。
+    """
     todos = final_state.get("todos")
     if todos is None:
         return
-    titles = [
-        str(todo.get("content") or "").strip()
-        for todo in todos
-        if str(todo.get("content") or "").strip()
-    ]
-    db.replace_todos(session_id, titles)
+    state_status = {
+        "pending": "pending",
+        "in_progress": "running",
+        "completed": "done",
+        "cancelled": "skipped",
+    }
+    items: list[dict[str, Any]] = []
+    for todo in todos:
+        title = str(todo.get("content") or "").strip()
+        if not title:
+            continue
+        status = state_status.get(
+            str(todo.get("status") or "").strip(), "pending"
+        )
+        items.append({"title": title, "status": status})
+    if not items:
+        return
+    db.sync_todos(session_id, items)
 
 _FRONTEND_STRING_LIMIT = 4000
 
