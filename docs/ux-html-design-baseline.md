@@ -83,9 +83,34 @@ hex 计数；且基座已注入时不再提示"未定义 :root"——基座兜�
 | Linear | `#F9F9FB` `#FFFFFF` `#F4F4F6` `#E6E6EB` | `#08090A` `#6E6D77` `#8A8F98` | `#5E6AD2` `#EEF0FD` |
 | Apple | `#F5F5F7` `#FFFFFF` `#F5F5F7` `#D2D2D7` | `#1D1D1F` `#6E6E73` `#86868B` | `#0071E3` `#E8F2FD` |
 | PlainText | `#FFFFFF` `#FFFFFF` `#FAFAFA` `#DDDDDD` | `#111111` `#555555` `#888888` | `#111111` `#F0F0F0` |
+| Obsidian | `#FAF7F1` `#FFFDF8` `#F0EBE0` `#E5DECE` | `#3D3730` `#756D5F` `#A89F8F` | `#0E6E63` `#E1EFEB` |
 
-语义色四套通用（前主色后浅底）：ok `#0F7B6C`/`#DDF2ED`、warn `#CB912F`/`#FBF3DB`、danger `#D64545`/`#FBE9E9`。
-`--primary-ink` 统一 `#FFFFFF`。
+**Apple 深浅同源**（官方深色语言）：深色层定义在 `_DARK_TOKENS["Apple"]`，取值依据 Apple 官网/系统
+深色规范——纯黑底 `#000000`、灰卡分层 `#1D1D1F`/`#2C2C2E`、正文 `#F5F5F7`、次要 `#86868B`、
+链接蓝 `#2997FF`（官方深色链接色，黑底上 6.96:1）、语义色用 iOS 系统深色变体
+ok `#30D158` / warn `#FF9F0A` / danger `#FF453A`。注意 `--primary-ink` 用深墨 `#04121F`：
+`#2997FF` 上白字仅 3.02:1 不达标，深墨 6.27:1。
+
+**Obsidian 深浅同源**（暖棕·冷锚 / 暖白纸张）：浅色为默认层，深色层定义在 `_DARK_TOKENS["Obsidian"]`，
+经 `@media(prefers-color-scheme:dark)` 注入并随系统自动切换，模型零额外代码；media query 不影响
+specificity，模型后写的 `:root` 仍可整体覆盖（想固定深/浅时自写即可）。深色层：
+bg `#262322` surface `#2E2A28` surface-2 `#38332F` border `#3E3833` ｜ text `#CFC7BD` text-2 `#948D83`
+text-3 `#7E7669` ｜ primary `#6DB3A3` primary-weak `#28423C` primary-ink `#10312B`（浅青上放深墨而非白字）。
+标题色相谱（按需自写、不属基座公共变量）：浅 `#1D345C→#52377A→#0E6E63→#B8445A→#8A5E17`；
+深 `#4F74AF→#8567BD→#4E9A8A→#D98A99→#C99B5E`。色相谱仅限标题层级，正文与组件禁止挪用；
+H4/H5 字号小，必须用上述修正值保证 ≥4.5:1。
+
+语义色：Notion/Linear/Apple/PlainText 四套通用（前主色后浅底）ok `#0F7B6C`/`#DDF2ED`、
+warn `#CB912F`/`#FBF3DB`、danger `#D64545`/`#FBE9E9`；Obsidian 用自己的
+ok `#4A704F`/`#E6EFE5`、warn `#8A5E17`/`#F5EBD6`、danger `#B8445A`/`#F9E6E9`（随基座注入）。
+`--primary-ink` 浅色层统一 `#FFFFFF`；Obsidian 深色层为深墨。
+
+**可访问性实测（WCAG AA）**：正文深 9.33:1 / 浅 10.99:1（超 AAA）；锚点 6.41 / 5.73。
+修正记录：深 text-3 `#6E675E`→`#7E7669`（2.80→3.48，仅限禁用态/装饰用途）；
+浅 text-2 `#857D70`→`#756D5F`（3.80→4.78）；浅 warn/danger 与标题四/五级共用修正值
+`#8A5E17`（5.32）/`#B8445A`（4.89）；深标题四级 `#C0765E`→`#D98A99`（4.45→5.98，
+同时修复浅玫红/深砖红的色相漂移，回到「同色相提亮」原则）。
+另：中文禁用合成斜体（汉字无真斜体，强调用颜色+字重替代），已入反模式黑名单。
 
 **主色预算**：只出现在主按钮 / 选中态 / 关键链接 / 图表主序列，全页不超过 3 类用途。
 其余层级一律靠灰阶与留白区分。
@@ -146,6 +171,8 @@ hex 计数；且基座已注入时不再提示"未定义 :root"——基座兜�
 - 全页同字号同灰度、看不出层级
 - 中文 <12px 或行高 <1.5
 - 图标与文字基线不齐、按钮文字不居中、多列宽窄不一
+- **用 emoji 充当 UI 图标**——跨平台渲染不一致、颜色与对齐失控，Tab/导航/按钮图标一律内联 SVG
+  （24×24 viewBox、stroke 1.5–2、currentColor）；正文内容里的 emoji 属内容本身，不受此限
 - 残留 `lorem ipsum` / "示例文本" / "待补充" / `{{}}` 占位
 - hover 只改 outline 或加粗边框，导致周边跳动
 
@@ -158,6 +185,34 @@ hex 计数；且基座已注入时不再提示"未定义 :root"——基座兜�
 5. 有明确视觉焦点而非等分堆砌？
 6. 可点元素都有 hover / focus-visible / 禁用态？
 7. 截图缩到 30% 或黑白化后，主次关系还成立？
+
+### 【8】移动端 App 原型分支（2026-09-04 新增）
+
+桌面基线（6 档字号、4px 间距、1200px 容器）套在手机 App 原型上会产出「桌面感的 App」——
+小红书原型实战暴露的系统性错配。需求为手机 App 时切换移动端基线，`ux_html` 传 `canvas="mobile"`：
+
+- **画布**：深色中性背景 + 居中手机画布（390 逻辑分辨率、圆角外壳、状态栏 + Home 指示条），触摸目标 ≥44px
+- **图标**：一律内联 SVG（24×24 viewBox、stroke 1.5–2、currentColor），Tab 栏/导航/功能入口
+  禁止 emoji 充当图标（emoji 是彩色字形：颜色、描边、对齐全部失控且跨平台不一致）；
+  笔记正文等内容里的 emoji 属内容本身，可保留
+- **字号**：核心阶梯 28/20/17/15/13/11（行高 1.4–1.6），全页 ≤10 种，禁止 0.5px 值
+- **间距**：偶数档 4/6/8/10/12/16/20/24，禁止奇数手调值
+- **封面色块**：≤10 个预设渐变轮换
+- **品牌原生风**（如小红书）：style=Custom + style_note 记录品牌色 + 自写完整 `:root`
+
+lint 对应放宽（`lint_html(mobile=True)`）：字号上限 10、间距只禁奇数、色值上限 30。
+桌面/移动是**显式参数切换**而非自动检测——检测特征（viewport 等）不可靠，宁可让模型多传一个参数。
+
+### 【9】行业感知层（2026-09-04 新增）
+
+完整版见《移动端 App UI 设计规范》手册（`docs/移动端App_UI设计规范.html`）。prompt 层压缩注入 9 行业
+mini token：社交内容 / 电商零售 / 金融支付 / 效率工具 / 生活出行 / 健康运动 / 教育学习 / 媒体娱乐 /
+企业 B 端，每行业一行（色彩基调 + 排印侧重 + 组件策略 + 反模式）。
+
+- **识别靠模型语义判断**，不做关键词匹配——「记账/钱包/基金」都是金融，关键词表穷举不完
+- **作用于内容组件策略与自定义 `:root`**；用户选了具名风格（Apple 等）时风格优先，行业气质叠加
+  （金融的金额 tabular 排印在任何风格下都成立）
+- 不动 token 基座（基座是风格级，行业是气质层）；lint 不加行业参数
 
 ---
 
@@ -181,7 +236,7 @@ hex 计数；且基座已注入时不再提示"未定义 :root"——基座兜�
 | 想改什么 | 改哪里 |
 |----------|--------|
 | 视觉规范数值 | `app/agent/core/prompt_sections.py` → `_UX_HTML_RULES`（UX 原型）/ `_HTML_PAGE_RULES`（通用页面）的【1】-【7】 |
-| 各风格 token 取值 | `app/tools/scripts/ux_html.py` → `_TOKENS`（改完记得同步两个 prompt 节里的速查表） |
+| 各风格 token 取值 | `app/tools/scripts/ux_html.py` → `_TOKENS`；深浅同源风格的深色层在 `_DARK_TOKENS`（改完记得同步两个 prompt 节里的速查表） |
 | 基础 reset | `app/tools/scripts/ux_html.py` → `_RESET` |
 | 静态校验规则 | `app/tools/scripts/ux_html.py` → `lint_html()` 与 `_HARD_FAILS` |
 | html_generate 工具脚本 | `app/tools/scripts/html_generate.py`（复用 ux_html 的基座与校验） |

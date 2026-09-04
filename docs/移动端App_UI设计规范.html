@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="H1FTgvThUchfXaYoPmzAG8">
+<head data-page-node-id="iolVEPQpENibdjPZHUm55P">
+<style id="divine-scaffold">:root{--bg:#FFFFFF;--surface:#FFFFFF;--surface-2:#F7F7F5;--border:#E9E9E7;--border-strong:#DFDFDC;
+--text:#37352F;--text-2:#787774;--text-3:#9B9A97;
+--primary:#2383E2;--primary-weak:#E7F3F8;--primary-ink:#FFFFFF;
+--ok:#0F7B6C;--ok-weak:#DDF2ED;--warn:#CB912F;--warn-weak:#FBF3DB;--danger:#D64545;--danger-weak:#FBE9E9;
+--radius-sm:6px;--radius-md:12px;--radius-lg:16px}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+font-size:14px;line-height:1.7;background:var(--bg);color:var(--text)}
+h1,h2,h3,h4,p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+a{color:var(--primary);text-decoration:none}
+table{border-collapse:collapse}
+</style>
+
+<meta charset="UTF-8" data-page-node-id="ZrHJ4GQ3T1quVe31bGGpOe">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="yhakrUPm60FWbaXCh7rmwG">
+<title>移动端 App UI 设计规范</title>
+<style>
+:root{
+  --bg:#FAFAF8; --surface:#FFFFFF; --surface-2:#F4F4F1;
+  --border:#E8E8E3; --border-strong:#D9D9D2;
+  --text:#1C1C1A; --text-2:#6B6B64; --text-3:#98988F;
+  --primary:#0E6E63; --primary-weak:#E1EFEB; --primary-ink:#FFFFFF;
+  --ok:#4A704F; --warn:#8A5E17; --danger:#B8445A;
+  --r-sm:6px; --r-md:12px; --r-lg:16px;
+  --sh-card:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.7}
+a{color:var(--primary);text-decoration:none}
+h1{font-size:32px;font-weight:600;line-height:1.25;letter-spacing:-0.02em}
+h2{font-size:24px;font-weight:600;line-height:1.3}
+h3{font-size:18px;font-weight:600;line-height:1.4}
+.sub{font-size:15px;font-weight:600}
+.aux{font-size:12px;line-height:1.6;color:var(--text-3)}
+.muted{color:var(--text-2)}
+.mono{font-variant-numeric:tabular-nums}
+
+.layout{display:grid;grid-template-columns:200px 1fr;gap:32px;max-width:1160px;margin:0 auto;padding:32px 24px 96px}
+nav.toc{position:sticky;top:32px;align-self:start;max-height:calc(100vh - 64px);overflow:auto}
+nav.toc .grp{font-size:12px;color:var(--text-3);margin:16px 0 4px;font-weight:600}
+nav.toc a{display:block;font-size:13px;color:var(--text-2);padding:4px 8px;border-radius:var(--r-sm)}
+nav.toc a:hover{background:var(--surface-2);color:var(--text)}
+.content{min-width:0}
+
+.head{padding:8px 0 24px;border-bottom:1px solid var(--border);margin-bottom:32px}
+.head .desc{margin-top:8px;color:var(--text-2);font-size:15px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chip{font-size:12px;height:22px;padding:0 8px;border-radius:var(--r-sm);background:var(--primary-weak);color:var(--primary);display:inline-flex;align-items:center}
+
+section{margin-bottom:48px}
+section>h2{margin-bottom:4px}
+.lead{color:var(--text-2);margin-bottom:16px}
+h3{margin:24px 0 8px}
+p{margin-bottom:8px}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--sh-card);padding:20px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media (max-width:900px){.grid2,.grid3,.grid4{grid-template-columns:1fr}.layout{grid-template-columns:1fr}nav.toc{display:none}}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:12px;font-weight:500;color:var(--text-2);text-align:left;padding:8px 12px;border-bottom:1px solid var(--border-strong)}
+td{padding:8px 12px;border-bottom:1px solid var(--border)}
+tbody tr:nth-child(even){background:var(--surface-2)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;margin:12px 0}
+
+ul.pts{list-style:none}
+ul.pts li{position:relative;padding:4px 0 4px 20px}
+ul.pts li::before{content:"";position:absolute;left:4px;top:14px;width:6px;height:6px;border-radius:50%;background:var(--primary)}
+ul.pts li b{font-weight:600}
+
+/* 色板 */
+.sw-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.sw{display:flex;flex-direction:column;gap:4px;align-items:center}
+.sw .chip{width:56px;height:40px;border-radius:var(--r-sm);border:1px solid var(--border)}
+.sw .lb{font-size:12px;color:var(--text-2)}
+.sw .cd{font-size:12px;color:var(--text-3);font-variant-numeric:tabular-nums}
+
+/* type scale 实物演示 */
+.ts-row{display:flex;align-items:baseline;gap:16px;padding:8px 0;border-bottom:1px dashed var(--border)}
+.ts-row:last-child{border-bottom:none}
+.ts-row .demo{color:var(--text)}
+.ts-row .spec{font-size:12px;color:var(--text-3);margin-left:auto;white-space:nowrap}
+
+/* 手机实物演示（组件示例通用壳） */
+.phone-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:280px;background:#17171A;border-radius:28px;padding:10px;flex:none}
+.screen{background:#FFFFFF;border-radius:20px;overflow:hidden;min-height:420px;display:flex;flex-direction:column;font-size:13px}
+.screen.dark{background:#0B0B0D;color:#F5F5F7}
+.statusbar{display:flex;justify-content:space-between;padding:10px 16px 4px;font-size:11px;font-weight:600}
+.navbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;font-weight:600}
+.tabbar{margin-top:auto;display:flex;border-top:1px solid rgba(128,128,128,.25);padding:6px 8px 14px}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:#8E8E93}
+.tab.on{color:#0E6E63;font-weight:600}
+.demo-body{flex:1;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.cell{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid rgba(128,128,128,.15)}
+.cell .ic{width:32px;height:32px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex:none}
+.cell .tt{font-weight:500}
+.cell .ds{font-size:12px;color:#8E8E93}
+.cell .chev{margin-left:auto;color:#C7C7CC}
+.btn-pri{display:block;text-align:center;background:#0E6E63;color:#fff;border-radius:999px;padding:12px;font-weight:600}
+.btn-sec{display:block;text-align:center;background:#F2F2F4;color:#1C1C1E;border-radius:999px;padding:12px;font-weight:600}
+.input-demo{border:1.5px solid #D9D9DE;border-radius:10px;padding:10px 12px;color:#8E8E93}
+.input-demo.bad{border-color:#B8445A}
+.toast-demo{background:rgba(28,28,30,.92);color:#fff;border-radius:999px;padding:10px 16px;font-size:12px;text-align:center;align-self:center}
+.kpi{display:flex;gap:12px}
+.kpi .box{flex:1;background:#F2F2F4;border-radius:12px;padding:10px}
+.kpi .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi .k{font-size:11px;color:#8E8E93}
+
+/* 行业卡 */
+.ind-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;box-shadow:var(--sh-card);display:flex;flex-direction:column}
+.ind-card .band{height:8px}
+.ind-card .bd{padding:16px;display:flex;flex-direction:column;gap:8px;flex:1}
+.ind-card .nm{font-size:15px;font-weight:600}
+.ind-card .apps{font-size:12px;color:var(--text-3)}
+.ind-card .tok{font-size:12px;color:var(--text-2);background:var(--surface-2);border-radius:var(--r-sm);padding:6px 10px}
+.ind-card ul{list-style:none;font-size:13px}
+.ind-card ul li{position:relative;padding:2px 0 2px 16px}
+.ind-card ul li::before{content:"";position:absolute;left:2px;top:11px;width:5px;height:5px;border-radius:50%;background:var(--text-3)}
+.ind-card .anti{font-size:12px;color:var(--danger);background:var(--surface-2);border-radius:var(--r-sm);padding:6px 10px;margin-top:auto}
+
+.checklist{list-style:none}
+.checklist li{position:relative;padding:8px 0 8px 32px;border-bottom:1px dashed var(--border)}
+.checklist li::before{content:"";position:absolute;left:0;top:12px;width:18px;height:18px;border:1.5px solid var(--primary);border-radius:5px}
+</style>
+</head>
+<body data-page-node-id="BnWnVOl4iXNqv0XAvhJKSH">
+<div class="layout" data-page-node-id="OGS1fgvytyRWBpCroUPwvI">
+
+<nav class="toc" data-page-node-id="2vjPCsQmrAvLMGUUGxx8mV">
+  <div class="grp" data-page-node-id="ON4N6Dlq5ASMfIawxDsKGH"> principles 原则</div>
+  <a href="#p1" data-page-node-id="Enhfjs9kLzDo5NP8xs72XF">五条设计原则</a>
+  <div class="grp" data-page-node-id="mU5JLRtkhxoObAi3lihZxw">foundations 基础体系</div>
+  <a href="#f1" data-page-node-id="CFOpSwKs02Zwn7KJcunTZp">画布与布局</a>
+  <a href="#f2" data-page-node-id="qES9wm6t36EiOqsruQVS7U">色彩系统</a>
+  <a href="#f3" data-page-node-id="GyUsREGCVvrN4EQFsQeApH">字体排印</a>
+  <a href="#f4" data-page-node-id="nwFCoPMDAoimnXJZ4EFbQG">间距·圆角·层级</a>
+  <a href="#f5" data-page-node-id="jWx1JEiYhoQMOBCHotMl59">图标体系</a>
+  <a href="#f6" data-page-node-id="aAt0u9MdDRxvkZHBK6oUqZ">动效与手势</a>
+  <div class="grp" data-page-node-id="SozxwsTWqFeUOu0GPL2VzR">components 组件</div>
+  <a href="#c1" data-page-node-id="q8cz0Td2LVJCHSn6olV5Cp">导航组件</a>
+  <a href="#c2" data-page-node-id="1ZUWsTS9euMOF6I8HhB4NW">内容组件</a>
+  <a href="#c3" data-page-node-id="z3JzEQIRg9Sq62BPyb0zjw">输入与操作</a>
+  <a href="#c4" data-page-node-id="5qQneyBRBWhZWC4s2D5ADT">反馈与状态</a>
+  <div class="grp" data-page-node-id="kZED6N63JdXaLOzeaantdJ">industries 行业分支</div>
+  <a href="#i1" data-page-node-id="MCIcELVispDnbfXwTtym6u">社交 / 内容社区</a>
+  <a href="#i2" data-page-node-id="ybejUJ9aVlBP0XGXE74DXC">电商 / 零售</a>
+  <a href="#i3" data-page-node-id="KCa2Ffu12bDhnnVj21FlAH">金融 / 支付</a>
+  <a href="#i4" data-page-node-id="ZcC22wriuVVMnf5kO8WBdk">效率 / 工具</a>
+  <a href="#i5" data-page-node-id="EQlO1MqDlTV1PK502yvnZD">生活服务 / 出行</a>
+  <a href="#i6" data-page-node-id="YMtSsXMU3exdHmLi6JfPPv">健康 /运动</a>
+  <a href="#i7" data-page-node-id="BDR8gGfMr4riSTBQEAQ0VP">教育 / 学习</a>
+  <a href="#i8" data-page-node-id="oKJxQ6CuqtG0q2xm5oBCmu">媒体 / 娱乐</a>
+  <a href="#i9" data-page-node-id="37DsaJIztnRgi12YfIYEgW">企业服务 / B 端</a>
+  <div class="grp" data-page-node-id="X8zEpstFEv8H8cH63bcoPd">quality 质量底线</div>
+  <a href="#q1" data-page-node-id="8rcVoNHtBOsn7usekb0DV1">可访问性</a>
+  <a href="#q2" data-page-node-id="tvpvGEdgeIFtzWfLFq0Alt">设计自检清单</a>
+</nav>
+
+<div class="content" data-page-node-id="R1IeRUZod1FEKv7CF2m0pt">
+
+<div class="head" data-page-node-id="LEEvogj270fBYcqR7tJ4TP">
+  <h1 data-page-node-id="EbHoR4sZb5lB5HvV4qdG5R">移动端 App UI 设计规范</h1>
+  <div class="desc" data-page-node-id="BuevUvW89ZwMxdn7iCovVE">一份跨行业的移动端设计体系：通用基础 + 9 个行业分支。以 iOS HIG 与 Material 3 为根基，结合中文产品实践。</div>
+  <div class="chips" data-page-node-id="gwEsC9xhZVn91KAYmj91t9"><span class="chip" data-page-node-id="38eMKIArdgMCfIoiCLuOf2">iOS HIG 对齐</span><span class="chip" data-page-node-id="GxJku9abInjSubO4fAUsd3">WCAG AA</span><span class="chip" data-page-node-id="T33mNyrxXv3O7at9YBlqGm">9 行业分支</span><span class="chip" data-page-node-id="4Ro9cYT4bRQMiMLflmuBzD">示例即规范</span></div>
+</div>
+
+<!-- ============ 原则 ============ -->
+<section id="p1" data-page-node-id="a6DafV4MZkEUacnbauKcyB">
+  <h2 data-page-node-id="rhEPvhCzsSmC03IrXAMFIX">五条设计原则</h2>
+  <p class="lead" data-page-node-id="0DGFCx9t9G55qOm8vhGlpk">所有行业通用的判断依据；行业分支只在此之上做倾向调整，不推翻。</p>
+  <div class="grid2" data-page-node-id="UTyyCF3F1PHs9MgBSp4Km7">
+    <div class="card" data-page-node-id="JRm8ZPPbTPDlUFTsnOTISn"><div class="sub" data-page-node-id="7KZC0kX4mmnleh6L8UtFyw">① 清晰优先</div><p class="muted" data-page-node-id="h0ofzpB2ju4NuXZ2HhHzGy">任何界面 3 秒内能回答三件事：我在哪、我能做什么、下一步是什么。层级靠字号/字重/灰阶建立，不靠颜色堆砌。</p></div>
+    <div class="card" data-page-node-id="oxt2E9GG0mrEMUNg7XTehg"><div class="sub" data-page-node-id="SXmiVMXsZQVZVVSMEsmeAH">② 内容即界面</div><p class="muted" data-page-node-id="8oYdxxNAG6zrAA00N6kqS9">导航与控件（chrome）占屏不超过 25%；让内容成为主角，工具栏能收进手势就收进手势。</p></div>
+    <div class="card" data-page-node-id="h1R5eZa4NHIdmz5Pg22ct9"><div class="sub" data-page-node-id="tVTI4GRtvxwBthA6Pz0B87">③ 一致性降低认知</div><p class="muted" data-page-node-id="1kofhYBLABlsdt7qNfGDAC">同一种操作在任何页面长得一样、行为一样。破坏一致性的「创新」默认驳回，除非可量化收益。</p></div>
+    <div class="card" data-page-node-id="ulGj41ZJJGmTFdoTumMsk9"><div class="sub" data-page-node-id="PzTLUY4oQrcw3PXJCTr0nc">④ 反馈即时</div><p class="muted" data-page-node-id="2rKnQTT2WAn2dDgXV3aDlN">每个触点 100ms 内有视觉响应；网络操作必须有 loading / 成功 / 失败 / 重试四态，禁止无响应死点。</p></div>
+    <div class="card" data-page-node-id="qxtkBDgFsLz85fJVMN74Eb"><div class="sub" data-page-node-id="gGFU0vUnKXkZxmiGs52sby">⑤ 包容性</div><p class="muted" data-page-node-id="qIqSLEvz0f6EMIhqAm4Ibq">44pt 触控目标、正文对比度 ≥4.5:1、支持动态字体、不只靠颜色传达信息。这不是可选项。</p></div>
+  </div>
+</section>
+
+<!-- ============ 画布 ============ -->
+<section id="f1" data-page-node-id="sHvTXEkNG6qizGY8eRYOmo">
+  <h2 data-page-node-id="NfXI0TLxCpEVrrwNHimAxW">画布与布局</h2>
+  <div class="tbl" data-page-node-id="pIzYIXywJzC5bI7tzB3d96"><table data-page-node-id="tb1WleQean524Zvyf6lDjA">
+    <thead data-page-node-id="yXslj1o10MTtqkYfWRBQA9"><tr data-page-node-id="9LnKcJSqHGz1BSHbNORevG"><th data-page-node-id="3fmuDbdJMUs4TGM0Alr5B1">项</th><th data-page-node-id="Q4iu9iucH3JecxQH1U3zQi">规格</th><th data-page-node-id="94hvQNHkMM1vmI9Zuzg0oE">说明</th></tr></thead>
+    <tbody data-page-node-id="FWIhUyhLvrEqnO3JifjrHP">
+      <tr data-page-node-id="r6Gmzi0CjXtoMbDjtrE8Ex"><td data-page-node-id="d5ih5ZS7hs2mGFWFekKb2I">设计画布</td><td class="num" data-page-node-id="zmvFgXuExNduJTUnsm7eDH">390 × 844</td><td data-page-node-id="3lnT2c5GrFOv2YKW7OTUN3">iPhone 逻辑分辨率；Android 以 360×800 对应，组件按弹性布局适配</td></tr>
+      <tr data-page-node-id="PTaFPJTddx7CVG7ZF4BdrX"><td data-page-node-id="Lx3s6Ex4jZ8S94fEnJwNLX">页边距</td><td class="num" data-page-node-id="nQUdb2thaGqu85qK2IBEU9">16</td><td data-page-node-id="ReDrwsvxwAAZDyNx04g3JU">全局左右安全边距；全屏沉浸内容（图片/地图）可为 0</td></tr>
+      <tr data-page-node-id="XgcDnprVuz7015T4LrnAPF"><td data-page-node-id="Fg2h0ewCtd4UQ3Znbm8BOZ">4pt 网格</td><td class="num" data-page-node-id="jcVms5vIEWo8TqLVB8vkLe">所有尺寸为 4 的倍数</td><td data-page-node-id="xp9wjQConcVVFBGc7ud8jV">偶数档 4/6/8/10/12/16/20/24/32；禁止奇数手调值</td></tr>
+      <tr data-page-node-id="Ljc38hjRQanlBmkrdRsIXU"><td data-page-node-id="MWRZ81RSx9DSFuNLIVc4sU">导航栏</td><td class="num" data-page-node-id="IIipx9fkADk8A0krynODae">44（大标题态 96）</td><td data-page-node-id="IQAWeRv0bHPtu5BWpziMPG">大标题滚动折叠为标准导航</td></tr>
+      <tr data-page-node-id="ufXSZ6J790as6xbNPLoQzg"><td data-page-node-id="5Abn5qysN9DFHB4DXQLSLH">Tab 栏</td><td class="num" data-page-node-id="t4E7dhpkF1Fx8qOjYoudD7">49 + 底部安全区</td><td data-page-node-id="8YA1bVRvggBenDpe8LPoX4">图标 25×25 + 11px 标签；上限 5 个</td></tr>
+      <tr data-page-node-id="MMSPuOamuv7vEmfP1cud3P"><td data-page-node-id="FfwdWow1bMVKFcSwe6yqxG">列表行高</td><td class="num" data-page-node-id="Z4Hh7SkLfov3C36z5ysjbQ">44 / 56 / 68</td><td data-page-node-id="nYcz3xGrzM83SCKBoHNnUB">单行 / 双行 / 带缩略图</td></tr>
+      <tr data-page-node-id="3WDNLrKgPBBfM3S8OYrb7Y"><td data-page-node-id="mGGuoqGjBIeGVrN71pTFjs">安全区</td><td class="num" data-page-node-id="pqbFjhoXxwMUAlkZVZ8zzP">顶部 59 · 底部 34</td><td data-page-node-id="hZSNJTkl2I3Jmk52rCbACo">灵动岛机型顶部 59；内容不越过安全区</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ 色彩 ============ -->
+<section id="f2" data-page-node-id="N5OuIJdfj19I1xb7TorUZw">
+  <h2 data-page-node-id="e6OUwhuaddmJuHW3Ss6VHr">色彩系统</h2>
+  <p class="lead" data-page-node-id="BaJe0QUecNusYm10ucasDX">先建中性骨架，再上品牌色。主色预算：全页不超过 3 类用途（主操作 / 选中态 / 关键链接），其余层级靠灰阶。</p>
+
+  <h3 data-page-node-id="FNZill8bmQ4fYTLho98fLa">中性灰阶（12 级，跨行业通用）</h3>
+  <div class="sw-row" data-page-node-id="vi9qoyaXqWfQeTAucUALAa">
+    <div class="sw" data-page-node-id="TtWHBKWen832PdGQFBWzHk"><div class="chip" style="background:#FFFFFF" data-page-node-id="E7PGWjsVb98lHJ6BJhlpMS"></div><div class="cd" data-page-node-id="6gMAxm54dJsosZDzRp4q4s">N0</div></div>
+    <div class="sw" data-page-node-id="396bTIiCzQaa5IBVcMFQwI"><div class="chip" style="background:#FAFAF8" data-page-node-id="FXAdczbGLh04JgpM5uNxnR"></div><div class="cd" data-page-node-id="ZCFKwI0sub3WUGi2UpZZQO">N50</div></div>
+    <div class="sw" data-page-node-id="KA5nqUIKmWNuAHfD9xf5SJ"><div class="chip" style="background:#F4F4F1" data-page-node-id="M7Ls1JFxaX5HdbuuzUgA8k"></div><div class="cd" data-page-node-id="dM5S7526tADiOuRlqEuUij">N100</div></div>
+    <div class="sw" data-page-node-id="ke8XI423vXyvjDCUad8edR"><div class="chip" style="background:#E8E8E3" data-page-node-id="RyVjlgcG3CSfuJHhHxC8AT"></div><div class="cd" data-page-node-id="zoAMEGOOEdLgMT3lfL9mFm">N200</div></div>
+    <div class="sw" data-page-node-id="KOzv8ZqTRqsY9jdNEg4hIA"><div class="chip" style="background:#D9D9D2" data-page-node-id="IDGSfyyDFo3eOQO987Hg3B"></div><div class="cd" data-page-node-id="67DMoFpXlsl9TCZSLovNAO">N300</div></div>
+    <div class="sw" data-page-node-id="PASG8eENrZ0g9YBvyNI6ou"><div class="chip" style="background:#B8B8AF" data-page-node-id="sVr74TUNRynLc6IcWpgK2e"></div><div class="cd" data-page-node-id="Q78rtfodPCWTaEKf6X3310">N400</div></div>
+    <div class="sw" data-page-node-id="V5rAIt5qFZP79L3AgvUB4G"><div class="chip" style="background:#8A8A80" data-page-node-id="MYqufbMTFvMvUVyJAWypRW"></div><div class="cd" data-page-node-id="0HXoCtGHXXiMg9ufNeQz4m">N500</div></div>
+    <div class="sw" data-page-node-id="ml5IKaW1mPDA4AtZ9R2QGq"><div class="chip" style="background:#6B6B64" data-page-node-id="wxwmq3hYe8nQDZ2SV1kqF5"></div><div class="cd" data-page-node-id="oLG8e5c0ClWtYeatpDj9H3">N600</div></div>
+    <div class="sw" data-page-node-id="d2McUcaDhDEQdpq2B4V1f2"><div class="chip" style="background:#4A4A44" data-page-node-id="QH6VrzRHniO6Sj68tag2tH"></div><div class="cd" data-page-node-id="F2xfc6HPa6A2zONecADwU4">N700</div></div>
+    <div class="sw" data-page-node-id="yOz7PaOFSNOU7iKG8DIo0Q"><div class="chip" style="background:#33332F" data-page-node-id="ooDlZAQl7s5eUScFqKSuPH"></div><div class="cd" data-page-node-id="uDs0ucjYButNsA0gWHAhbr">N800</div></div>
+    <div class="sw" data-page-node-id="qgi0BLDOmA8EEZSc2LP8Hv"><div class="chip" style="background:#1C1C1A" data-page-node-id="DBZBW6fYI9NdCXZN4tFbpn"></div><div class="cd" data-page-node-id="pwwptFZS7ygMlCy3CBL2xA">N900</div></div>
+    <div class="sw" data-page-node-id="MFf6yQxRWjlleJLwWCORh4"><div class="chip" style="background:#0A0A0A" data-page-node-id="SOBS3WjLHbSGRmpQkmJEfB"></div><div class="cd" data-page-node-id="Rt29Lb7nJ2FcIMw2s9Xu4c">N1000</div></div>
+  </div>
+
+  <h3 data-page-node-id="aFK6zuaGaJE3jiCyP1A8so">语义色（前主色后浅底）</h3>
+  <div class="sw-row" data-page-node-id="xyR4mKqFTG3seTNDEYKl5s">
+    <div class="sw" data-page-node-id="LXaHpTXU0GlzSrPK1vhlw3"><div class="chip" style="background:#4A704F" data-page-node-id="fwmpWT5c9pNWWf2miNbyTC"></div><div class="lb" data-page-node-id="2jOkUNinRzI3DJmCVniLoY">成功</div><div class="cd" data-page-node-id="RX3g3O3T7w51hCzOSOeos5">#4A704F</div></div>
+    <div class="sw" data-page-node-id="o5DKHUbQD1uoOMiOFtcCeG"><div class="chip" style="background:#8A5E17" data-page-node-id="AR24ngdHJVzpoMDBUGkC6Z"></div><div class="lb" data-page-node-id="JQLtsjC81mxLmxDoq6P5jQ">警示</div><div class="cd" data-page-node-id="fOWwrW6XV3J6spmoR1KSRX">#8A5E17</div></div>
+    <div class="sw" data-page-node-id="ByyJPx8n2ltqjkKp2zUdqh"><div class="chip" style="background:#B8445A" data-page-node-id="7Bne7nlccg4fIBTUFaKk1S"></div><div class="lb" data-page-node-id="BWXhmPOPyWYKcfrLMEfVjC">危险</div><div class="cd" data-page-node-id="GOok3J5bkj0qDHpoE4V7A0">#B8445A</div></div>
+    <div class="sw" data-page-node-id="tZYWVOa6cNpOtADyw2lHjx"><div class="chip" style="background:#0E6E63" data-page-node-id="zHDrG3YQNEZH1mN1Ox56Rm"></div><div class="lb" data-page-node-id="mPEQqvRMgCYNNUiYcFkZbF">品牌（示例）</div><div class="cd" data-page-node-id="aGUV70BEwQeQNt1yDVqOaF">#0E6E63</div></div>
+  </div>
+  <p class="aux" data-page-node-id="I1PnHPQfAihpQkxA64ulpU">语义色必须同时提供 −weak 浅底（如成功底 #E6EFE5）用于状态条、标签、提示卡。A股/涨跌语境红涨绿跌，另建 up/down 对，不复用 ok/danger。</p>
+
+  <h3 data-page-node-id="1kOApFCPo1F6eQ9bvhzoJX">暗色模式规则（映射而非反转）</h3>
+  <ul class="pts" data-page-node-id="T8U2yixyD97WeWI0IQ91mk">
+    <li data-page-node-id="eyHh7yjEuRlqp1qynBEaYC"><b data-page-node-id="l11TC7JcjGWXsRDUguozqF">背景分层</b>：bg 最深（#000–#1A1A1C）→ surface 提亮一级 → elevated 再提亮；层级靠表面明度，不靠阴影（阴影在暗底不可见）</li>
+    <li data-page-node-id="vGGGQRAIfIjgagoxFyILTW"><b data-page-node-id="EPnMDxoula5kq6H15uUgNf">主色提亮降饱和</b>：浅色 #0E6E63 → 深色 #6DB3A3 一类；保证暗底对比 ≥4.5:1</li>
+    <li data-page-node-id="GE6eyjxxB7aHJB57bmyJPX"><b data-page-node-id="XJ3vuioOWPe5p5PdpfGc8J">primary 上文字色重算</b>：亮色 primary 上禁止默认白字，实测对比不足时用深墨</li>
+    <li data-page-node-id="yoQCIuqQBqFeLywrgw2pdm"><b data-page-node-id="1NQH5WBbNEKxuQNBlEM55m">同色相提亮</b>：深浅两套共色相，只动明度饱和——「换光线，不换皮肤」</li>
+  </ul>
+</section>
+
+<!-- ============ 字体 ============ -->
+<section id="f3" data-page-node-id="4lbWYjroab67qMxqBhTGe4">
+  <h2 data-page-node-id="JbBxZILraRR3aDa1nZHyHV">字体排印（iOS 11 级阶梯）</h2>
+  <p class="lead" data-page-node-id="kAv3Nki0yUos9HSFSXMgnA">中文场景正文 15–17px，最小 11px；数字场景（金融/数据）启用 tabular-nums。</p>
+  <div class="card" data-page-node-id="lGG0EVRro92nIv7sqpQQf6">
+    <div class="ts-row" data-page-node-id="XCDEH0yRhM0H7Q6HKga4kG"><span class="demo" style="font-size:34px;font-weight:700;line-height:1.2" data-page-node-id="80W1cWLPzyBsgenPgQV2oi">大标题</span><span class="spec" data-page-node-id="qKG1icAHLjNZMQHwfncUjT">LargeTitle 34/40 · bold</span></div>
+    <div class="ts-row" data-page-node-id="ijRustCdP7FjncCSM2A6Sz"><span class="demo" style="font-size:28px;font-weight:700" data-page-node-id="jG4fbjUpByqkT36U0rxwsw">标题一</span><span class="spec" data-page-node-id="obiWAeYnCxLkxqzs84eNq3">Title1 28/34 · bold</span></div>
+    <div class="ts-row" data-page-node-id="yJ6ACTvOGaGVRPQHCMP3g2"><span class="demo" style="font-size:22px;font-weight:600" data-page-node-id="jAZawv2acy2rcBm2AHqSSk">标题二</span><span class="spec" data-page-node-id="gIgTAEISuxwY6w3gdaRT86">Title2 22/28 · semibold</span></div>
+    <div class="ts-row" data-page-node-id="eSHAVaMxAfWOfhRE5B0OFc"><span class="demo" style="font-size:20px;font-weight:600" data-page-node-id="Zl3PKoFDjrlP80tKOvEkRC">标题三</span><span class="spec" data-page-node-id="s1U8JA5va8DJ2swjOxujtq">Title3 20/25 · semibold</span></div>
+    <div class="ts-row" data-page-node-id="raz7mvVESPZQCeHabKXtIk"><span class="demo" style="font-size:17px;font-weight:600" data-page-node-id="BzVZvKqepQFx0IeiVyWjyo">栏目标题</span><span class="spec" data-page-node-id="dMq4VHa27lvme7Io5rR1Oe">Headline 17/22 · semibold</span></div>
+    <div class="ts-row" data-page-node-id="r1Vlo5m0bCh3Gr7OSD0QB0"><span class="demo" style="font-size:17px" data-page-node-id="bBBhdohcMJOGMriimJVWXq">正文内容，行高 22，中文阅读的黄金档。</span><span class="spec" data-page-node-id="P4uBAwSDAz0KhHQ9E8QGqA">Body 17/22 · regular</span></div>
+    <div class="ts-row" data-page-node-id="I9yGhlMq4h0EQAXkpyxkpR"><span class="demo" style="font-size:15px" data-page-node-id="mD6l8pOV1KgFKMgZkHyXcW">次级正文与列表描述。</span><span class="spec" data-page-node-id="DNc5k9eb0ir5wjDPHyIMRw">Subhead 15/20 · regular</span></div>
+    <div class="ts-row" data-page-node-id="C1WQEgd8VMgijuMyFoy3uO"><span class="demo" style="font-size:13px" data-page-node-id="we9SIGso6wNbFSx2mqLRVJ">脚注与辅助说明文字。</span><span class="spec" data-page-node-id="iaHsklub7Sm8vHQ0BvfKrk">Footnote 13/18 · regular</span></div>
+    <div class="ts-row" data-page-node-id="3a3KGuG40NK3cO449mRDtA"><span class="demo" style="font-size:12px" data-page-node-id="AYO3zpeaZYxhKZFYd3JMeo">标签与时间戳。</span><span class="spec" data-page-node-id="Cpdv4KJECLavMkY1Ja4RlU">Caption1 12/16</span></div>
+    <div class="ts-row" data-page-node-id="DDebac4ZAI1a0TM1PQRy0c"><span class="demo" style="font-size:11px" data-page-node-id="s9mGFXjwWk2j2rLyunYuTp">Tab 标签与最小可读文字。</span><span class="spec" data-page-node-id="LbIAjCylKT6UZfvpHokMRb">Caption2 11/13</span></div>
+  </div>
+  <ul class="pts" style="margin-top:12px" data-page-node-id="VRx2J15SNEH2covmq6L7It">
+    <li data-page-node-id="vVl52D8CjwFALYFI9bDtHh">全页字号种类 ≤6 档核心 + 少量组件变体；禁止 0.5px 级手调值</li>
+    <li data-page-node-id="q7eNyF69SQMTgY4kN27Q3F">标题截断：单行省略；卡片标题最多 2 行；正文按容器截断 + 展开</li>
+    <li data-page-node-id="syGEePhqKWooZIS85wMy83">支持动态字体（用户调大字号时布局弹性换行，不截断）</li>
+  </ul>
+</section>
+
+<!-- ============ 间距形状 ============ -->
+<section id="f4" data-page-node-id="vHu17gxHzNucWG0k5ofkeM">
+  <h2 data-page-node-id="ELpJZ0k5r4bRh6RZo6grR9">间距 · 圆角 · 层级</h2>
+  <div class="grid3" data-page-node-id="eCMq59VjaLIS7UgdjFgPVr">
+    <div class="card" data-page-node-id="GIpfei3JKfIndrZfQdjhBA">
+      <div class="sub" data-page-node-id="nyY4Lz3oaJAJJQvUoSy7bg">间距档</div>
+      <p class="muted" style="font-size:13px" data-page-node-id="N6Ri2RcNGmvm9HSBHto1rv">2 / 4 / 8 / 12 / 16 / 20 / 24 / 32 / 48。<br data-page-node-id="lMpoQv515Xc34LcE8Jr23o">元素内 8–12，元素间 12–16，分组间 24–32，页面级留白 32–48。</p>
+    </div>
+    <div class="card" data-page-node-id="JQ28C3IK32YwUP95ckwqlD">
+      <div class="sub" data-page-node-id="RLeU2A3AkU66PR3BQsYGFt">圆角档（≤3 种）</div>
+      <p class="muted" style="font-size:13px" data-page-node-id="ltiGbuHQZpVMpHRFrnrihD">控件 8 · 卡片 12 · Sheet/大卡 16–20 · 胶囊 999。<br data-page-node-id="z0TMTMKOCF3IjygYALh2W0">圆角不一致是「手工感」的最大来源。</p>
+    </div>
+    <div class="card" data-page-node-id="1wzXJfsAUAcXduq4I10Ca0">
+      <div class="sub" data-page-node-id="RCNQ3Vuu1XJW5AcU1Vz30g">层级（elevation）</div>
+      <p class="muted" style="font-size:13px" data-page-node-id="FcisWKTriBQTX4EhJeooiL">浅色：表面 + 双层极淡阴影。<br data-page-node-id="gWeJ37yS0vcTCI4OVS6kVA">暗色：表面明度分层 + 1px 描边，阴影降权。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 图标 ============ -->
+<section id="f5" data-page-node-id="dGUt4n2YHznrJFsAktnARn">
+  <h2 data-page-node-id="C6nRG5esx11qI17CI311ju">图标体系</h2>
+  <div class="grid2" data-page-node-id="2g10xKWV4G5bQsrW1Gxppa">
+    <div class="card" data-page-node-id="0bBp06BAcTcY7uuWAxtljb">
+      <div class="sub" data-page-node-id="EEZ9gSrCbfDhlzcOEoABOF">规格</div>
+      <ul class="pts" style="margin-top:8px" data-page-node-id="dkeTEKZK51gUPf2s3L0iyS">
+        <li data-page-node-id="eEDEEEhs9kBIzLeKPE33BS">24×24 viewBox 网格绘制，实际渲染 20–24px</li>
+        <li data-page-node-id="ELVAObBsda1latu5LmMeXG">stroke 1.5–2、圆头圆角、颜色 currentColor（跟随文字）</li>
+        <li data-page-node-id="7qdrUAkwv82JhsMQKY1Ntf">Tab 图标 25×25，具备线性（默认）/ 填充（选中）双态</li>
+        <li data-page-node-id="4RhYkYfgZiNzTPyVxKMojv"><b data-page-node-id="HaC5FApsNBBStx1XhbPwf2">禁止 emoji 充当图标</b>——彩色字形无法控色对齐、跨平台不一致</li>
+      </ul>
+    </div>
+    <div class="card" data-page-node-id="3CdmoCyC0j0xtyWjHTsxze">
+      <div class="sub" data-page-node-id="WUWNizAFwL5BaAj9b2vN7C">内联 SVG 示例（Home / Search / User）</div>
+      <div class="sw-row" style="margin-top:12px" data-page-node-id="BblgaAasF9Cveqj9It5ClS">
+        <div class="sw" data-page-node-id="QMfYiNVSfj9KpGrZvxPCE1"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0E6E63" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="v3UxfhU3quXCYsTCj2WoeD"><path d="M3 10.5 12 3l9 7.5" data-page-node-id="jpcT98eJQO0gAVmpFuKwQe"/><path d="M5 9.5V21h5v-6h4v6h5V9.5" data-page-node-id="JiXRDBDqMXDE3EofbhwLbL"/></svg><div class="lb" data-page-node-id="N0BHXfgDMM3LkvG41YKvzQ">home</div></div>
+        <div class="sw" data-page-node-id="Wb9KmDtBsyTwinwdAB7pPt"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B6B64" stroke-width="1.8" stroke-linecap="round" data-page-node-id="EzeWZK7L0rioMcmmjtKYqx"><circle cx="11" cy="11" r="7" data-page-node-id="CSFtejafgZ6ybFjxisSxiM"/><path d="m20 20-3.8-3.8" data-page-node-id="K83pWAXvbuVkdpi7oABCM1"/></svg><div class="lb" data-page-node-id="k0r8EfjP3pCNtmqFZsP0jT">search</div></div>
+        <div class="sw" data-page-node-id="lMdvuVM2kRNxsm16RlNPaL"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B6B64" stroke-width="1.8" stroke-linecap="round" data-page-node-id="XvYtFd7c1q8puLabB4C1Sq"><circle cx="12" cy="8" r="4" data-page-node-id="l3yYl1JpgqtfDoUkywzlgD"/><path d="M4 21c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" data-page-node-id="4CieJSMA9sBg2LfIAd6Udu"/></svg><div class="lb" data-page-node-id="mN4j3b1CD5fHOCPkUw7iAT">user</div></div>
+        <div class="sw" data-page-node-id="YPh60Ck9EwyHcQlYFXk5LG"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B6B64" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="t57K2kPrZjw6OzPPydCb7C"><path d="M21 12a9 9 0 1 1-9-9" data-page-node-id="nEG1hbZGIfHLPkI6PO0UvB"/><path d="M21 3v6h-6" data-page-node-id="mN4IcBXVFY5WiqjDZsESkw"/></svg><div class="lb" data-page-node-id="73SOOFFAXI7vwe4w4HSoK7">refresh</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 动效 ============ -->
+<section id="f6" data-page-node-id="4tqbhlnHP3u0FwTtBmv7Je">
+  <h2 data-page-node-id="GCIBlRoG58ARrw8iFKpyGf">动效与手势</h2>
+  <div class="tbl" data-page-node-id="TaloqHozpDCMA4jE9Yzdv9"><table data-page-node-id="r8p8YyQQGxLmz6ybkiWrbu">
+    <thead data-page-node-id="d42VvnqarPCsFSfhYNyux1"><tr data-page-node-id="7tL6I7kTVXFsBbxiGDF36c"><th data-page-node-id="e3NyxRhAU1AA5oPwlJqmhq">类型</th><th data-page-node-id="jTNIeFTESUAmWRrBdV07Q4">时长</th><th data-page-node-id="K3UJhyTQ3GD48Nv5PQKLhI">曲线</th><th data-page-node-id="QiES8tW9wM2ersZnDUQile">说明</th></tr></thead>
+    <tbody data-page-node-id="A5IcBOUo3xuQNC9xPqfBBd">
+      <tr data-page-node-id="syHvzvxJTbWMx9KJtHQNsu"><td data-page-node-id="nn6M6lfJZvtypJZBSjxcDT">微交互（按压/勾选/红点）</td><td class="num" data-page-node-id="EJ7kHNR5cPwsGIRQ2Tmhe2">150–200ms</td><td data-page-node-id="O7RFILmMd5QtP7fH7zAOxS">ease-out</td><td data-page-node-id="EsfrLx4EHFwDlYDjjUXrAS">透明度 + 轻微缩放（0.96↔1）</td></tr>
+      <tr data-page-node-id="NlrOnilqVcJftCVKxKBG7G"><td data-page-node-id="C0VG06ET9XakDBmMgCXnOv">组件进出场（Sheet/弹层）</td><td class="num" data-page-node-id="LbJfcwfaDTON5sSsqwlCCW">250–350ms</td><td data-page-node-id="hKfwa2EWuokEtZYkw3K8Ci">ease-out 进 / ease-in 出</td><td data-page-node-id="BzVdWBj7trnJn7KPOqm82v">Sheet 自底部滑入 + 遮罩淡入</td></tr>
+      <tr data-page-node-id="srKw3PEC4ICFczEEtjHJxA"><td data-page-node-id="zmaCduUCITTmCN78GmN9kH">页面转场</td><td class="num" data-page-node-id="PBHHDmw9TrTbu6BpcQfkQy">300–400ms</td><td data-page-node-id="qLBDqShr7Gz67ulQwUSvwq">平台惯例</td><td data-page-node-id="wJ5hyi53UZ46d9GUerOCyT">iOS 右滑返回、Android 预测式返回</td></tr>
+      <tr data-page-node-id="qH3pSxez84cktRW2KoY3aq"><td data-page-node-id="DGHF0drBrSTcZEODaI8Xyp">手势跟随</td><td class="num" data-page-node-id="cu2GSLYkcMlNr00FOASlxj">spring</td><td data-page-node-id="VRPdfG1R97fFcdVkktrTmz">阻尼弹性</td><td data-page-node-id="RgxnvgETUqEf0zi31Rzp1j">拖拽跟手，松手归位/完成</td></tr>
+    </tbody>
+  </table></div>
+  <ul class="pts" style="margin-top:12px" data-page-node-id="KLilbdBEVaMO53aFlk5Eec">
+    <li data-page-node-id="Dvz3yfVraUNFrhgRKa7yL2">手势约定：右滑返回、下拉刷新、长按预览/多选、左滑暴露次要操作（删除需二次确认）</li>
+    <li data-page-node-id="Q5OQJcPaYzh80RnjA7aAxj">尊重「减弱动态效果」系统设置：转场退化为淡入淡出</li>
+    <li data-page-node-id="60YHAuK4FlC3bkasSkT5s2">动效服务于空间连续性（元素从哪来往哪去），装饰性动效一律砍掉</li>
+  </ul>
+</section>
+
+<!-- ============ 组件：导航 ============ -->
+<section id="c1" data-page-node-id="4XbfmG87TKCsYqb0OTdqgF">
+  <h2 data-page-node-id="NbqgRdfkRsGpMsE0sJsdkz">组件：导航</h2>
+  <div class="phone-row" data-page-node-id="GUy2V3WQ82wZbZ4df0FSo5">
+    <div class="phone" data-page-node-id="26O8BGldtAsBRiRmWKwlCi"><div class="screen" data-page-node-id="nrgKG6w5mcRAxcAs3IJKjN">
+      <div class="statusbar" data-page-node-id="CGKbSFW8dk84mFl2jBXQsz"><span data-page-node-id="QEZwFwaWkraKggkwuUmeRb">9:41</span><span data-page-node-id="7GBuT9x28p8g18B8VxzIVk">●●●</span></div>
+      <div class="navbar" data-page-node-id="MWzeZpyujcglJD1qPXqYom"><span data-page-node-id="40yzGTCl65XpkkOQDqtvsx">首页</span><span style="color:#0E6E63" data-page-node-id="3B5p63R84qmVe7zXJbZTbz">筛选</span></div>
+      <div class="demo-body" data-page-node-id="cZkvBSIhy3eebYBHM16292"><p class="muted" style="font-size:12px" data-page-node-id="FTN6EFFBQuFctBmF5RNxfw">Tab 栏：上限 5 个；图标 25×25 + 11px 标签；选中用品牌色，未选中 N500。</p>
+        <div class="cell" data-page-node-id="fYZEBHUfNdh7eTSf1ZN7wm"><div class="ic" data-page-node-id="an3oWJjh6mw4x1Rl05zpNA">A</div><div data-page-node-id="H8UeC47bjmGLwQeV6R1lu8"><div class="tt" data-page-node-id="sjYTlORvFiB5JXlqs5Q9HH">大标题折叠</div><div class="ds" data-page-node-id="xqgoL0SyRheUsY1AiS73wh">滚动后收起为 44px 标准导航</div></div><span class="chev" data-page-node-id="XvbzqBPaRMSWoKhpQYw09i">›</span></div>
+      </div>
+      <div class="tabbar" data-page-node-id="oTG8WbDNAoZeLbiEfPDx5Y">
+        <div class="tab on" data-page-node-id="8gslShlWZ18xNhRc3BNl4V"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="HtryyRXAvwg59GCCOVTtaB"><path d="M3 10.5 12 3l9 7.5" data-page-node-id="sPfZ3vCWW6JlkTHAjveEsn"/><path d="M5 9.5V21h5v-6h4v6h5V9.5" data-page-node-id="F2d905h5STkiTxxBRBE128"/></svg>首页</div>
+        <div class="tab" data-page-node-id="wVhQfy47rKF05O2FsDY0iG"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" data-page-node-id="KkuyD4N2RnMAJYtEMkCeko"><circle cx="11" cy="11" r="7" data-page-node-id="kNSTDJRzHDdjYE18lv6YqL"/><path d="m20 20-3.8-3.8" data-page-node-id="oKuVhlANINidSCEpfYa32i"/></svg>发现</div>
+        <div class="tab" data-page-node-id="vfjs90yHVeU782DsJddPx5"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" data-page-node-id="BjmBcxkTy9eLZ6y7j5WI0T"><path d="M12 5v14M5 12h14" data-page-node-id="k66IAW2s4DkCUehlNC5CX5"/></svg>发布</div>
+        <div class="tab" data-page-node-id="ODf2ECMSn3KsxTbJMBf0bD"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="Ba4GQFXGllouh7oCM0WaNH"><path d="M21 12c0 4-4 7-9 7-1 0-2 -.1-2.9 -.3L4 20l1.2-3.1C3.8 15.6 3 13.9 3 12c0-4 4-7 9-7s9 3 9 7Z" data-page-node-id="IPoFsSKENyjEEri6yLflYt"/></svg>消息</div>
+        <div class="tab" data-page-node-id="nlD1WAJ5n5FfBaLslE0PJ6"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" data-page-node-id="hu2em0JbTppEmORMhajd2Z"><circle cx="12" cy="8" r="4" data-page-node-id="hm11NvBJybS2klSp9FnsEK"/><path d="M4 21c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" data-page-node-id="u0iEi2r3bkyelsxTOutPs9"/></svg>我的</div>
+      </div>
+    </div></div>
+    <div style="flex:1;min-width:260px" data-page-node-id="PuOC2LpWgbgMTNNW9zVKaO">
+      <ul class="pts" data-page-node-id="wmI81MdmMFQLckY7pRpYPR">
+        <li data-page-node-id="ekvnLpW7M1mmFEFwVuHH6z"><b data-page-node-id="HLItwHMwUPgHPGVS59EESV">Tab 栏</b>：3–5 个；「发布」类核心动作可做中央凸起大按钮；红点表示异步更新，点击后清除</li>
+        <li data-page-node-id="BiUYsrFwtnUo3sMCH84MTF"><b data-page-node-id="01D9SU2CLTuVZCH6IqTmWn">导航栏</b>：左返回（图标 ≥40×40 热区）· 中标题 · 右最多 2 个文字/图标动作</li>
+        <li data-page-node-id="2bAjK8dhENfHG2sb9cc8ac"><b data-page-node-id="clI2kMSiZR46SvxXyeZF5w">分段控件</b>（Segmented）：同层平级视图切换 ≤4 段；更多层级用下拉</li>
+        <li data-page-node-id="izJ4MBS0MB2GoaPz5aL9j8"><b data-page-node-id="CQKrbeArzrhmeK7FnAvyif">抽屉/侧边栏</b>：低频功能收纳，不放核心路径</li>
+        <li data-page-node-id="OMEqLYACPaP0cjJXGbtNbg">导航层级 ≤3 层；超过 3 层考虑面包屑或重组信息架构</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 组件：内容 ============ -->
+<section id="c2" data-page-node-id="eFp5OkFDiAUxd3ncATZ0iZ">
+  <h2 data-page-node-id="JkfRhuh8ehiW44FC6BxKG7">组件：内容</h2>
+  <div class="phone" data-page-node-id="mzgEHVI53xz2SPlfNt0HXq"><div class="screen" data-page-node-id="5CDa4yzT5sT0npsgUbjBnV">
+    <div class="statusbar" data-page-node-id="iP6flcuEjaAlgolyOQ9F7G"><span data-page-node-id="V5qsj5hQ7qA0683eimMqJO">9:41</span><span data-page-node-id="FSd0fWB7lBngWYjhbL6OJm">●●●</span></div>
+    <div class="demo-body" data-page-node-id="FE8YOwuA8FYRSfvsF9FnJN">
+      <div class="cell" data-page-node-id="T4YMBEpvkYAFHnJotMAbum"><div class="ic" style="background:#E1EFEB;color:#0E6E63;font-weight:700" data-page-node-id="AQ5pCcL24o2y43wKSzGNAL">证</div><div data-page-node-id="CkumYbpk9hEPtdV50UTsb6"><div class="tt" data-page-node-id="zw2vuUItMHqViP6RWZdj9v">单元格 56pt：图标 + 双行</div><div class="ds" data-page-node-id="vZkEsDE24AGTZgHDyTURmX">副标题一行截断，说明辅助信息</div></div><span class="chev" data-page-node-id="M5N7EbEILOwmlkfiXpE839">›</span></div>
+      <div class="cell" data-page-node-id="74MuDrMyuXPlJbU9VCM1py"><div class="ic" style="background:#FBE9E9;color:#B8445A;font-weight:700" data-page-node-id="dYcbgMWG77bhSRZ6NJC4Y2">!</div><div data-page-node-id="Gwg6iW338IkudxPss3JGkx"><div class="tt" data-page-node-id="Bm47jGG4G6OpAsfBEw3ZbC">危险操作单元格</div><div class="ds" data-page-node-id="qsYUek4bqtebzLIy0IJKdC">删除 / 注销，放列表最底</div></div><span class="chev" data-page-node-id="omQfZLnV6B72BVSsvt0D6g">›</span></div>
+      <div class="kpi" style="margin-top:4px" data-page-node-id="cwlHtRsJ1cKZ9D7lWoramZ">
+        <div class="box" data-page-node-id="VBxReEX2y4DiCo1TohHdTM"><div class="v" data-page-node-id="ma12rNimcDJhBWc15FaZ1F">128.4<span style="font-size:12px" data-page-node-id="9G6ZjcxXVFOGG1GJLtP9FL">亿</span></div><div class="k" data-page-node-id="FqrfO3XhUc4EzS9XRzNOwP">金额（tabular-nums）</div></div>
+        <div class="box" data-page-node-id="jNm7xaRZdGCmTNOWD1cVey"><div class="v" data-page-node-id="wFRVijiJr1cB12rW7zAcSr">+8.6<span style="font-size:12px" data-page-node-id="9Q16lauatAbCtDMRtt7uii">%</span></div><div class="k" data-page-node-id="Q8bGvI6s9VW1wFkMhmsVsR">同比（右对齐）</div></div>
+      </div>
+    </div>
+  </div></div>
+  <ul class="pts" style="margin-top:12px" data-page-node-id="o6Yfhb5CGCH4dX1HIWYOhZ">
+    <li data-page-node-id="fYjD1ijaosG2StvbkiWqDK"><b data-page-node-id="0AxshNX3cnkjUejxJFMuMa">单元格</b>：行高 44/56/68；分隔线从文字起点内缩 16；整行可点，热区不小于行高</li>
+    <li data-page-node-id="fxJTNZdyedxXfGHGezmbJF"><b data-page-node-id="VFWnCVs4aF2WiP7kg1BQcu">卡片</b>：圆角 12、内边距 12–16；图 3:4 或 1:1；标题 ≤2 行截断；阴影极淡或纯描边</li>
+    <li data-page-node-id="iLwPiRcHRhrs16U8i8xHPM"><b data-page-node-id="gdh335LkPjN2ccYhyMy4Sb">瀑布流</b>：2 列（内容社区）/ 1 列沉浸（视频）；卡片高度随内容，禁止强等高</li>
+    <li data-page-node-id="CQPWq43YnHPNRkotL2f37w"><b data-page-node-id="ImFkjdW7TfEkzlPsXF4pP9">数字排印</b>：金额/统计用 tabular-nums；大额数字 22–28px；涨跌用 up/down 语义色</li>
+  </ul>
+</section>
+
+<!-- ============ 组件：输入 ============ -->
+<section id="c3" data-page-node-id="7LG71hgGGiNJJV7oQrgCFX">
+  <h2 data-page-node-id="DN196gnKf2u5QnWYh27B47">组件：输入与操作</h2>
+  <div class="phone" data-page-node-id="rAL3nzAm4JEQMgXFDFYvA5"><div class="screen" data-page-node-id="NgDfGjJlR51gLevEbwY5Uy">
+    <div class="statusbar" data-page-node-id="Pq6iP2DCGLAwJMh0R41gRd"><span data-page-node-id="pVCfGtB85PMZi4P0sxnuJj">9:41</span><span data-page-node-id="hx1BQAEgPGPfzk42c8NmyH">●●●</span></div>
+    <div class="demo-body" data-page-node-id="EmnK8YpqcrQpNgM4aSa6ax">
+      <div style="font-size:12px;color:#8E8E93" data-page-node-id="peCL7IfhkJvn9fdAoFWPS3">标签上置 · 高 48</div>
+      <div class="input-demo" data-page-node-id="DF9xqhhoHymywRnmxVMChn">请输入手机号</div>
+      <div style="font-size:12px;color:#B8445A" data-page-node-id="fX0dBJi3tF6Zr8thKZUCnE">手机号格式不正确，请检查后重试</div>
+      <div class="input-demo bad" data-page-node-id="HIqrmjyxHI7jRtqE0X4a4F">1381234</div>
+      <div class="btn-pri" data-page-node-id="UCSTz9PkJ8ubvHMZ3w52Bv">主按钮：每屏唯一</div>
+      <div class="btn-sec" data-page-node-id="zeT0UfQSOynbpbD81pdptL">次按钮：灰底同字重</div>
+    </div>
+  </div></div>
+  <ul class="pts" style="margin-top:12px" data-page-node-id="MWVDzuqAfIDFKfg7ewGena">
+    <li data-page-node-id="KYjiJLh2b8WzdyJuqaDuQR"><b data-page-node-id="0rWfvpNjJcmWbIdnMBNc9C">按钮层级</b>：每屏至多 1 个实心主按钮；次操作灰底/描边；危险操作红字描边（非实心红块），且必须二次确认</li>
+    <li data-page-node-id="9pztHCIO9EDgnvhgYJT8pL"><b data-page-node-id="k3yy1RAHf4wHJbnvE4pyO4">按钮高度</b>：48（标准）/ 44（紧凑）；宽度优先通栏，双按钮各半留 12 间距</li>
+    <li data-page-node-id="kRR70kFaFIaPt7OnAQbLHR"><b data-page-node-id="BakYXQDDGzHpV21yvBB7Ns">输入</b>：label 上置（不用纯 placeholder 当 label）；校验在失焦时触发，错误信息行内 + 自动聚焦；键盘类型按字段匹配（数字/邮箱）</li>
+    <li data-page-node-id="CFAvOx4NZbfn3aNn04SflV"><b data-page-node-id="sgzLDDeKhFEBFoEPxtSyF7">表单</b>：一屏一个主任务；进度用步骤条；已填内容离开时保存草稿</li>
+  </ul>
+</section>
+
+<!-- ============ 组件：反馈 ============ -->
+<section id="c4" data-page-node-id="hN7axEhmoN5xj4C2l3CYEV">
+  <h2 data-page-node-id="p6TqT5IZvezE8niMTbThPn">组件：反馈与状态</h2>
+  <div class="phone" data-page-node-id="tjIntJJwpwzQhU3yPhakJd"><div class="screen" data-page-node-id="CUFi09vDVmBGg4Rnw00TTE">
+    <div class="statusbar" data-page-node-id="zIAjKvAxzECnzR7M9FINo8"><span data-page-node-id="4QaQtx9J2D7yjw4AriV98u">9:41</span><span data-page-node-id="ZWAGCxv5pXCRFwEQW4yYx0">●●●</span></div>
+    <div class="demo-body" style="gap:12px" data-page-node-id="hAMyCHPZCD8z4QSqDWGiMK">
+      <div class="toast-demo" data-page-node-id="251pnus4hGvS70umfaDpbc">已加入购物车</div>
+      <div style="background:#E6EFE5;color:#4A704F;border-radius:10px;padding:10px 12px;font-size:12px" data-page-node-id="UEQkYuRWknUcjUW9qeucpe">成功 Banner：操作结果 + 补充说明 + 可选行动</div>
+      <div style="border:1.5px dashed #D9D9D2;border-radius:12px;padding:16px;text-align:center" data-page-node-id="m9htWBLJZelczCDNUCVAeW">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#98988F" stroke-width="1.5" stroke-linecap="round" style="margin-bottom:4px" data-page-node-id="M85YIfZ2QP6VzTsRnUG3G9"><circle cx="11" cy="11" r="7" data-page-node-id="sWnrPMlR50cmAT73QsTB3F"/><path d="m20 20-3.8-3.8" data-page-node-id="NIdUXAxCAODC7TDmacSrF8"/></svg>
+        <div class="sub" style="font-size:14px" data-page-node-id="D0svagUfG4q67RHVDFmZiw">暂无订单</div>
+        <div class="aux" data-page-node-id="IwIvSeoapZIFCKcdWWOJHE">去下一单，从首页开始逛逛</div>
+      </div>
+      <div style="display:flex;gap:8px" data-page-node-id="rtEFnsI4SMHz9TtETQ5axj"><div style="flex:1;height:12px;background:#F2F2F4;border-radius:6px" data-page-node-id="r4HAH7ku7ZSHTySMnBp1jT"></div><div style="flex:1;height:12px;background:#F2F2F4;border-radius:6px" data-page-node-id="GiCdcAVRi4ExHT1uCdF4cp"></div></div>
+      <div class="aux" data-page-node-id="vNsh4jjyZdnj38ItQLi2TL">骨架屏：优先于 spinner；形状对应真实内容</div>
+    </div>
+  </div></div>
+  <ul class="pts" style="margin-top:12px" data-page-node-id="An0G7YHjwsPHaX0kYTQ8DF">
+    <li data-page-node-id="ACDcaSYgv53bJdzcQLFXnl"><b data-page-node-id="iUrxxZA0pxJFuESFPu1rNq">Toast</b>：轻结果确认，≤10 字，2s 自动消失，不打断；需要用户行动的用 Banner</li>
+    <li data-page-node-id="bUV4buqbjlfXCuEcvVAkzP"><b data-page-node-id="XJxYhXz4htgzNUSh0xleG4">弹层</b>：底部 Sheet（圆角上 16）承接同上下文的扩展操作；居中 Modal 只用于打断级确认；遮罩黑 40%，点遮罩/ESC 可关</li>
+    <li data-page-node-id="Z2dw3RiYjc0VeavkED8LcE"><b data-page-node-id="qIcI1MNgLEN7ukX154xcnf">加载</b>：首屏骨架屏、局部占位、分页底部 loading；禁白屏等</li>
+    <li data-page-node-id="1k9sOArXBJQ4sJCo8WMemm"><b data-page-node-id="oDmLNe2hxZB6GP6KSABtnV">空状态</b>：图形/图标 + 一句话说清「这里是什么」+ 一个主行动按钮</li>
+    <li data-page-node-id="0vghPCko14vjeMesdMGMgN"><b data-page-node-id="4S8W0e6hYJsAWi6oXAL1JO">错误</b>：说人话（发生了什么 + 怎么办），给重试；禁止裸抛错误码</li>
+  </ul>
+</section>
+
+<!-- ============ 行业分支 ============ -->
+<section id="i1" data-page-node-id="HFb6pIEBlGGY1OFYR4WOub">
+  <h2 data-page-node-id="abbdFsoihfVJM3gX2NTYrU">行业分支</h2>
+  <p class="lead" data-page-node-id="axZolWjysSYhN8DAXquvwo">基础体系不变，每个行业调整四件事：色彩基调、信息密度、排印侧重、组件策略。每张卡给出可直接抄走的 mini token。</p>
+
+  <div class="grid2" style="margin-top:16px" data-page-node-id="RtLEAQQKlhNf2EDmyNriIx">
+
+    <div class="ind-card" id="i1c" data-page-node-id="EuUBQRvCHgZNjLDE2rRe2E"><div class="band" style="background:#FF2442" data-page-node-id="tNwnEjVzOEHyxnF1ffAKnu"></div><div class="bd" data-page-node-id="iscdUhjnYdL8JzNeBOaERi">
+      <div class="nm" data-page-node-id="GCPe7Yxwc0WaWqqx4DAjFB">社交 / 内容社区</div><div class="apps" data-page-node-id="fRr0fuYT1P6JxJHrl7JKoU">小红书 · 抖音 · 微博</div>
+      <div class="tok" data-page-node-id="sKHb3XrFHdAx91rLVBBH4L">bg #FFFFFF · primary #FF2442 · 封面 3:4 · 密度 中 · 圆角 12</div>
+      <ul data-page-node-id="5dJwKZNQEmmFJlvFZbTddC">
+        <li data-page-node-id="BDVr6tixsvwHE479ueiFmn">内容为王：chrome 收敛，封面/标题即界面</li>
+        <li data-page-node-id="6MSmLLUU5uygY59zwxfeAP">主色只给互动动作（赞/关注/发布），品牌红不刷背景</li>
+        <li data-page-node-id="5wxbuNdjHDWvbEPUgp7oGz">双列瀑布流（图文）/ 沉浸单列（视频），卡片高度随内容</li>
+        <li data-page-node-id="nD4j709f7EvPtocPNGRlfj">评论区是核心场景，按热度和时间双序</li>
+      </ul>
+      <div class="anti" data-page-node-id="L248BHFdJQdj02r6HSKqoO">反模式：运营入口做得比内容还抢眼；笔记标题里的内容 emoji 被清理</div>
+    </div></div>
+
+    <div class="ind-card" id="i2c" data-page-node-id="Dg8ic0sQ2DXAnhM6XFbqw2"><div class="band" style="background:#FF6A00" data-page-node-id="8qlsDjzCTOxl2fmolNGys3"></div><div class="bd" data-page-node-id="naumSZLZDj2gulWj6qdEZF">
+      <div class="nm" data-page-node-id="q92rt53ivYI3zjfGgHeLwD">电商 / 零售</div><div class="apps" data-page-node-id="rZjFhwxY6mLd3ml5GloM6z">淘宝 · 京东 · 拼多多</div>
+      <div class="tok" data-page-node-id="nCU6XmABbiQi7SyAYkD27n">bg #F5F5F5 · primary #FF6A00 · 价格 22 tabular · 密度 中高 · 圆角 8</div>
+      <ul data-page-node-id="kHLr1qWLvRGz4ZCtcL8RLC">
+        <li data-page-node-id="MlR85UvFeR9tn7IFGlAL95">转化导向：价格大而醒目（tabular-nums），优惠信息结构化</li>
+        <li data-page-node-id="DFGbLR968anebRbAeGwG5q">主色克制——商品图才是页面主色，品牌色只做按钮与价格</li>
+        <li data-page-node-id="J2XJzhDXWLzLZJoPeMW9b9">金刚区图标宫格 ≤10 个；购物车角标常驻</li>
+        <li data-page-node-id="AhIW73Mqs13pHXoL0DGxBu">促销语义色（红/橙）仅用于价格与倒计时</li>
+      </ul>
+      <div class="anti" data-page-node-id="TqGoAQrV1amfEgnFZoPrCl">反模式：弹窗轰炸、假倒计时、把「立即购买」做成 3 个并列实心按钮</div>
+    </div></div>
+
+    <div class="ind-card" id="i3c" data-page-node-id="SCf9jOpjze8pFNN6fl5vwZ"><div class="band" style="background:#1677FF" data-page-node-id="f1BiN4nfH3TA5y4QG3OBBE"></div><div class="bd" data-page-node-id="MQaExHgpEYiiTehAVBXXTN">
+      <div class="nm" data-page-node-id="yAZxkhEFAr7uwwLj55MmYX">金融 / 支付</div><div class="apps" data-page-node-id="tssuA1yH3qVxbAtJmmAEmr">支付宝 · 银行 App</div>
+      <div class="tok" data-page-node-id="XTboxcltRbEL80mOoCOHqT">bg #F5F6F8 · primary #1677FF · 金额 28 tabular · 密度 中 · 圆角 8</div>
+      <ul data-page-node-id="rCgFF5X9HM4ujQ18VJYDXH">
+        <li data-page-node-id="FVxaLwkIHgMBh8EXnuyG6h">安全感优先：蓝金系、大量留白、动效克制（越动越不可信）</li>
+        <li data-page-node-id="if3le6EXkilerL9ev7kKA2">金额分级排印：资产 28–34、流水 17，全部 tabular-nums 右对齐</li>
+        <li data-page-node-id="10iRW2cvoxjJMaw58L5YiI">关键动作唯一且大（转账按钮），防误触加二次确认</li>
+        <li data-page-node-id="lchVNBiiPyXWCEl89sxwlm">敏感信息支持一键隐藏；合规文案不省略</li>
+      </ul>
+      <div class="anti" data-page-node-id="rWzw7XgZpG84tDs4wY3dkf">反模式：花哨动效损害信任；关键金额小于 17px；红绿含义与涨跌语境冲突</div>
+    </div></div>
+
+    <div class="ind-card" id="i4c" data-page-node-id="QjJ8Iji5Lr5y9AXiBoPNe1"><div class="band" style="background:#3370FF" data-page-node-id="61Qczfja0Tw6tVQnFsan2l"></div><div class="bd" data-page-node-id="Iyv3U2Vtr4BTUHFYSykeoH">
+      <div class="nm" data-page-node-id="TAeXC6MFJ3XOZ82A8dSEny">效率 / 工具</div><div class="apps" data-page-node-id="YNxz23KUO3SBxcsLDLMyI7">Notion · 飞书 · Things</div>
+      <div class="tok" data-page-node-id="n1jMERwWkMInJJQUhA6xzQ">bg #F9F9FB · primary #3370FF · 列表 44 · 密度 高 · 圆角 8</div>
+      <ul data-page-node-id="yREV7hLbAlDHVZ5MtgE3ir">
+        <li data-page-node-id="8VcXv6xIuUSV3niXEqPvje">中性灰阶为主，主色只做状态、选中与链接</li>
+        <li data-page-node-id="5RdW8uGZ0DDVECFDGQve7h">高密度：列表 44 行高、紧凑分段，少插画多留白但信息不稀释</li>
+        <li data-page-node-id="Jl9OnvsyO1STJsmizOmKLY">快捷操作优先：长按、左滑、批量选择</li>
+        <li data-page-node-id="c07ZHqmFt5wAgcpGz4uMAl">空状态引导「第一步怎么开始」</li>
+      </ul>
+      <div class="anti" data-page-node-id="el1tnEMV6HouIMzprFUEtn">反模式：装饰插画与节日皮肤挤占工作区；为好看牺牲单屏信息量</div>
+    </div></div>
+
+    <div class="ind-card" id="i5c" data-page-node-id="DpDfV59EsCU1XEoTDL0fuH"><div class="band" style="background:#00A6FF" data-page-node-id="PKx94Y3o1m6D5icmySP2SV"></div><div class="bd" data-page-node-id="uR1w4SvBBxu3TyeB8qiM0A">
+      <div class="nm" data-page-node-id="qGSZOHaK2XLGKCGJHjFRNP">生活服务 / 出行</div><div class="apps" data-page-node-id="pL7k67Ol0GHWigIhYOVRCi">美团 · 高德 · 滴滴</div>
+      <div class="tok" data-page-node-id="h4zRtGdaAkO9zSSKHGlGBN">bg #FFFFFF · primary #00A6FF · 按钮 52 底部通栏 · 密度 低 · 圆角 12</div>
+      <ul data-page-node-id="OLOCdxLcZlsC8orUrMzO7m">
+        <li data-page-node-id="8RfFBYgGlDmJvGNcqZ6vIR">地图即界面：信息以浮层卡片呈现，浮层 ≤2 层</li>
+        <li data-page-node-id="NyyJekWCrLnCUkaX6vABZE">核心动作大按钮固定在下半屏（单手拇指区）</li>
+        <li data-page-node-id="QSaEpLxCZGiq2ubarTvPE9">状态色清晰：进行中/已完成/取消，各配语义色</li>
+        <li data-page-node-id="Egs2ihlIIeAoCKvihoGx7l">地址与时间等关键信息加大加粗，减少看错成本</li>
+      </ul>
+      <div class="anti" data-page-node-id="0PREC35aiEVwBg1dz7ohzA">反模式：地图上叠 3 层以上浮层；把接驾信息埋进二级页</div>
+    </div></div>
+
+    <div class="ind-card" id="i6c" data-page-node-id="ILV4kVKtX6lZCNp9fHI7gB"><div class="band" style="background:#00C853" data-page-node-id="xXfc5AYDhBujDi04xQ4QcP"></div><div class="bd" data-page-node-id="dvzstqnHU1E5As38UqKjAO">
+      <div class="nm" data-page-node-id="J1FbBpAyKQu0lEEcKLa9xS">健康 / 运动</div><div class="apps" data-page-node-id="hSw0iWiLH6Tf09owwbmqlZ">Keep · Apple 健康</div>
+      <div class="tok" data-page-node-id="Xcks4IG05nxywFff7eHvLe">bg #FAFAF8 · primary #00C853 · 数据环 120 · 密度 低 · 圆角 16</div>
+      <ul data-page-node-id="6eIdHFcaFmjBW9KVyVZ9MB">
+        <li data-page-node-id="rJcLLHTwentXPQbTTwhxHa">数据可视化优先：圆环/趋势图大而醒目，数字即内容</li>
+        <li data-page-node-id="3wRv7Rcot2g6Xbk1IejXe4">柔和浅底 + 高饱和点缀，避免医疗冷感与焦虑感</li>
+        <li data-page-node-id="s77XZvCI8YaXAapxDzQ9Ct">成就与激励用暖色点缀，小面积出现</li>
+        <li data-page-node-id="ZqNgcNmA97FR97aHNIyYvC">隐私敏感（体重/经期）：默认模糊、支持隐藏</li>
+      </ul>
+      <div class="anti" data-page-node-id="I07TGEyQVbGSeWjevWXBNd">反模式：一屏塞 8 个数据卡没有重点；把打卡激励做成弹窗轰炸</div>
+    </div></div>
+
+    <div class="ind-card" id="i7c" data-page-node-id="F6TkFZyBJHI3VX6bMBVn7W"><div class="band" style="background:#7C5CFF" data-page-node-id="o0O1j2zCBTcNtDB8gGvfB1"></div><div class="bd" data-page-node-id="LljnFUzBpUYvrmrKxsKmtw">
+      <div class="nm" data-page-node-id="SupmyN3gUrDYvULRV9iCw0">教育 / 学习</div><div class="apps" data-page-node-id="PAb55zj7MuhGhAj3La32KR">多邻国 · 网易有道</div>
+      <div class="tok" data-page-node-id="EiRNwfIqO5Ct4wPXvBvR9P">bg #FAFAF8 · primary #7C5CFF · 进度环 · 密度 中 · 圆角 16</div>
+      <ul data-page-node-id="EdUuP3QtPubGpsKT7pJoJL">
+        <li data-page-node-id="hEjtgLOvJvjhUEKbvwbMhD">专注优先：学习页无广告无跳转，一次只呈现一道任务</li>
+        <li data-page-node-id="7sTgAIG4YndTm6rS81KeXZ">进度可视化：连续打卡、今日目标，激励但不可怕</li>
+        <li data-page-node-id="QSs4REpbIBGKnEq6VkAAAI">正反馈即时：答对 200ms 内动效+音效，答错引导而非打击</li>
+        <li data-page-node-id="CFtmTE8MEUDgSLWF8Du1Iw">可选护眼暖纸底与夜间模式</li>
+      </ul>
+      <div class="anti" data-page-node-id="vTDy7K0H0c73AywN3AFD70">反模式：游戏化元素（弹窗/排行榜）打断学习流；进度焦虑式红点</div>
+    </div></div>
+
+    <div class="ind-card" id="i8c" data-page-node-id="rXjV4IRCTBbHRdEeWZhrMH"><div class="band" style="background:#1D1D1F" data-page-node-id="7FAVaWG4koB5TLF4opdpV4"></div><div class="bd" data-page-node-id="vZFhuKQeNWEqUnwslv1zxR">
+      <div class="nm" data-page-node-id="9EPCLBZfcmTspgm0uKY6xs">媒体 / 娱乐</div><div class="apps" data-page-node-id="3mYLvszjiRfnCeRTs48XoC">网易云 · 爱奇艺 · B 站</div>
+      <div class="tok" data-page-node-id="iO0og6tzQtzz7q7vIPMiZv">bg #0B0B0D · surface #1D1D1F · primary 品牌色 · 密度 低 · 圆角 12</div>
+      <ul data-page-node-id="kPw4EVXMimVgcWaaNtGx6i">
+        <li data-page-node-id="ddDZ2kSzjw3Bzjq9ZHZvG9">沉浸暗色为默认：内容发光，界面隐形</li>
+        <li data-page-node-id="sFYxbHOQxf7Hvafaj9WJ7L">封面大图 + 悬浮播放控件；控件半透明毛玻璃</li>
+        <li data-page-node-id="SwXWsJTljLSVwnHSVWILGF">弹幕/评论可折叠，还用户一个干净的播放态</li>
+        <li data-page-node-id="OkxaDXwk5IlBnUcGi3maAg">暗色下主色提亮降饱和保证对比</li>
+      </ul>
+      <div class="anti" data-page-node-id="IaccCBi7SU9iE873vqbG1M">反模式：亮色界面看视频；播放页按钮挤在四角触不可及</div>
+    </div></div>
+
+    <div class="ind-card" id="i9c" data-page-node-id="M6agHRhkMGPNydROhcHkAi"><div class="band" style="background:#2456C7" data-page-node-id="Evu4ViA6pUdy9r9vrcGVqY"></div><div class="bd" data-page-node-id="p53vXsrCes3NUsAqv7LeYv">
+      <div class="nm" data-page-node-id="6JkFZsUHJDXFq3Ps5F4HiS">企业服务 / B 端</div><div class="apps" data-page-node-id="3jvSfQHJerXdIcg71TY9tc">钉钉 · 企业微信 · 飞书企版</div>
+      <div class="tok" data-page-node-id="GKssVLaTU6PXEXy2tbUBy9">bg #F5F6F8 · primary #2456C7 · 表格行 44 · 密度 最高 · 圆角 8</div>
+      <ul data-page-node-id="6wcpmJj2aj4WR73xY1Mni3">
+        <li data-page-node-id="Zd5TDf0ipM2jEWj7zCDaEi">信息密度最高：表格/列表为主，一屏多任务</li>
+        <li data-page-node-id="lpynrRtEP4mffpyhe0K10o">结构稳定 > 视觉新颖：员工靠肌肉记忆找功能</li>
+        <li data-page-node-id="KoUia8xO5KDJ1uXuoffgeF">审批流可视化：当前节点高亮、可追溯</li>
+        <li data-page-node-id="2U1jczCTO0zTS9WMUt9jlX">组织架构与权限贯穿每个界面（看得见的由身份决定）</li>
+      </ul>
+      <div class="anti" data-page-node-id="eWnfDWzRXwabkgoZdVVWg8">反模式：把 C 端营销组件（大 banner、弹窗）搬进工作台；表格行高 >52 浪费密度</div>
+    </div></div>
+
+  </div>
+</section>
+
+<!-- ============ 可访问性 ============ -->
+<section id="q1" data-page-node-id="pJHkMNNLMA35T7TIBDH83I">
+  <h2 data-page-node-id="KztMcvyucCz6zRG2IsI0IH">可访问性（底线，非选做）</h2>
+  <div class="grid2" data-page-node-id="8eZxKfUiukXBvwlIndNRRP">
+    <div class="card" data-page-node-id="NVSgmKX0CEXJpsAZiLV8mN">
+      <div class="sub" data-page-node-id="Qs0bo4aCUaLjoSoGyB9Ge9">对比度</div>
+      <ul class="pts" style="margin-top:8px" data-page-node-id="Rdh1hIA3a1lz2Btq6qEMsY">
+        <li data-page-node-id="VDfBIMFhUd29fV6rNkb3Jj">正文与 17px 以下文字 ≥4.5:1；≥24px 大标题 ≥3:1</li>
+        <li data-page-node-id="KHrrHcPFEEKawCcCOpDR3B"><b data-page-node-id="YuqNKcOLLRNBPjkV2v7aiU">移动端陷阱</b>：caption（11–13px）体量小，全按 4.5:1 执行</li>
+        <li data-page-node-id="wfWEDU3oL1hLKaQJaV6uUy">占位文字、禁用态可豁免，但不得用于关键信息</li>
+      </ul>
+    </div>
+    <div class="card" data-page-node-id="c4zCbux2PP6hhYl4BNbBJL">
+      <div class="sub" data-page-node-id="zw2CEU1czAI5kWa4vdxk8o">操作与感知</div>
+      <ul class="pts" style="margin-top:8px" data-page-node-id="sBOtFoQwajGL5rJnUVqmMk">
+        <li data-page-node-id="mAZeTn3UsDe0e0tJ330JtQ">触控目标 ≥44×44，间距 ≥8</li>
+        <li data-page-node-id="iBefF4v8s4pbqS5JqARLPL">不只靠颜色传达（红点配数字、状态配图标）</li>
+        <li data-page-node-id="v1jxpm0Ept8rxcpAYAVnoC">支持动态字体放大；关键图片有替代文本</li>
+        <li data-page-node-id="DorFyYRCuhGCTpXdPKlkEV">色弱场景：红绿配对加形状/图标兜底</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 自检清单 ============ -->
+<section id="q2" data-page-node-id="TXS8u2nAFAv6JmQEjqSS49">
+  <h2 data-page-node-id="BC1V6CCJVnnhfqb0ZcCYWG">设计自检清单</h2>
+  <p class="lead" data-page-node-id="aFgVzin0oZLek27FRmZUD1">交付前逐条过，任何一条不过都回去改。</p>
+  <ul class="checklist" data-page-node-id="zlDkVAFEY1BABnGSILepWX">
+    <li data-page-node-id="pAnHDsSRzzT11sNDqnoWGO">3 秒内能回答：我在哪 / 能做什么 / 下一步是什么</li>
+    <li data-page-node-id="iT0KN83DpqorZPNzT5ydQa">字号全页 ≤6 档核心阶梯（移动端 ≤10），无 0.5px 值</li>
+    <li data-page-node-id="MDNmVINjNWQVCpvFrocDxR">间距全为偶数档，无 5/7/9/11 手调值</li>
+    <li data-page-node-id="BfDJzelpEBiytA76D6ADjG">圆角 ≤3 种；暗色模式已按映射规则单独调校，非自动反转</li>
+    <li data-page-node-id="1x3uM5bCOZ8xRV94tXFwvf">主色用途 ≤3 类；语义色各有 −weak 底</li>
+    <li data-page-node-id="ucxgqpW7L8vswd6IU61jh5">所有图标为内联 SVG，无 emoji 充当图标</li>
+    <li data-page-node-id="xiTCDqygqhueEnQIdwTENa">每个可点元素 ≥44×44，且四态齐全（默认/按压/禁用/选中）</li>
+    <li data-page-node-id="CoQlSqGNHs5YBfiYDkil5D">关键数字 tabular-nums 且右对齐；涨跌语义符合行业惯例</li>
+    <li data-page-node-id="DC60fDTTIDYJvAtRnulQHY">正文对比度 ≥4.5:1；caption 未踩 3:1 陷阱</li>
+    <li data-page-node-id="uJzwhfepy9ozSnhXClb8tc">空/加载/错误/无网络四态都有设计</li>
+  </ul>
+</section>
+
+<div class="aux" style="margin-top:32px" data-page-node-id="sq2qTzAXQ4FwbscLNBQDuz">移动端 App UI 设计规范 · v1.0 · 2026-09-04 · 基础体系对齐 iOS HIG / Material 3，行业分支结合中文头部产品实践。本页自包含可离线查阅。</div>
+
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="dheEdQUz0MAStU186MKhjO">
+<head data-page-node-id="Qfsnp6gCPWT0qwx1S0FPDL">
+<style id="divine-scaffold">:root{--bg:#FAF7F1;--surface:#FFFDF8;--surface-2:#F0EBE0;--border:#E5DECE;--border-strong:#D2C8B4;
+--text:#3D3730;--text-2:#756D5F;--text-3:#A89F8F;
+--primary:#0E6E63;--primary-weak:#E1EFEB;--primary-ink:#FFFFFF;
+--ok:#4A704F;--ok-weak:#E6EFE5;--warn:#8A5E17;--warn-weak:#F5EBD6;--danger:#B8445A;--danger-weak:#F9E6E9;
+--radius-sm:6px;--radius-md:12px;--radius-lg:16px}
+@media(prefers-color-scheme:dark){:root{--bg:#262322;--surface:#2E2A28;--surface-2:#38332F;--border:#3E3833;--border-strong:#544B43;
+--text:#CFC7BD;--text-2:#948D83;--text-3:#7E7669;
+--primary:#6DB3A3;--primary-weak:#28423C;--primary-ink:#10312B;
+--ok:#8FBF94;--ok-weak:#2C3B2C;--warn:#C99B5E;--warn-weak:#3B3222;--danger:#D97F8D;--danger-weak:#432B30}}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+font-size:14px;line-height:1.7;background:var(--bg);color:var(--text)}
+h1,h2,h3,h4,p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+a{color:var(--primary);text-decoration:none}
+table{border-collapse:collapse}
+</style>
+
+<meta charset="UTF-8" data-page-node-id="hOPaqbVXCWNomGaWBvojPX">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="r6E40OQnZMJ6C31lhGwlbh">
+<title>Obsidian 风格样张</title>
+<style>
+/* 页面壳（浅色基调） */
+:root{
+  --page:#F4F1EA; --card:#FFFFFF; --line:#E5DECE;
+  --ink:#3D3730; --ink-2:#857D70;
+  --brand:#0E6E63; --brand-weak:#E1EFEB;
+  --r-sm:6px; --r-md:12px; --r-lg:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--page);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.7}
+.wrap{max-width:1200px;margin:0 auto;padding:32px 24px 64px}
+h1{font-size:32px;font-weight:600;line-height:1.25;letter-spacing:-0.02em}
+h2{font-size:24px;font-weight:600;line-height:1.3}
+h3{font-size:18px;font-weight:600;line-height:1.4}
+.aux{font-size:12px;line-height:1.6;color:var(--ink-2)}
+.sub{font-size:15px;font-weight:600;line-height:1.5}
+
+.head{padding:8px 0 24px;border-bottom:1px solid var(--line);margin-bottom:24px}
+.head .sub{margin-top:8px;color:var(--ink-2)}
+
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media (max-width:860px){.panels{grid-template-columns:1fr}}
+
+/* —— 深浅同源演示：同一份组件 CSS，两套变量作用域 —— */
+.theme-paper{
+  --bg:#FAF7F1; --surface:#FFFDF8; --surface-2:#F0EBE0;
+  --border:#E5DECE; --border-strong:#D2C8B4;
+  --text:#3D3730; --text-2:#756D5F; --text-3:#A89F8F;
+  --primary:#0E6E63; --primary-weak:#E1EFEB; --primary-ink:#FFFFFF;
+  --h1c:#1D345C; --h2c:#52377A; --h3c:#0E6E63; --h4c:#B8445A; --h5c:#8A5E17;
+  --bold:#C2410C; --italic:#4A704F;
+}
+.theme-night{
+  --bg:#262322; --surface:#2E2A28; --surface-2:#38332F;
+  --border:#3E3833; --border-strong:#544B43;
+  --text:#CFC7BD; --text-2:#948D83; --text-3:#6E675E;
+  --primary:#6DB3A3; --primary-weak:#28423C; --primary-ink:#10312B;
+  --h1c:#4F74AF; --h2c:#8567BD; --h3c:#4E9A8A; --h4c:#D98A99; --h5c:#C99B5E;
+  --bold:#E89A60; --italic:#A6BA9D;
+}
+.panel{border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;
+  box-shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06)}
+.panel .cap{display:flex;justify-content:space-between;align-items:center;
+  padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+.panel .cap .sub{font-size:15px}
+.panel .cap .tag{font-size:12px;height:22px;padding:0 8px;border-radius:var(--r-sm);
+  background:var(--brand-weak);color:var(--brand);display:inline-flex;align-items:center}
+
+/* 笔记界面（组件只用 var()，两套光线共用） */
+.note{background:var(--bg);color:var(--text);padding:24px;min-height:560px}
+.note .doc-title{font-size:24px;font-weight:600;line-height:1.3;color:var(--h1c)}
+.props{display:flex;flex-direction:column;gap:8px;background:var(--surface-2);
+  border-radius:var(--r-md);padding:12px 16px;margin:16px 0}
+.props .row{display:flex;gap:8px;font-size:12px}
+.props .k{color:var(--text-2);flex:none}
+.note h3{color:var(--h3c);margin:24px 0 8px}
+.note h4{font-size:15px;color:var(--h4c);margin:16px 0 8px}
+.note h5{font-size:14px;color:var(--h5c);margin:12px 0 8px}
+.note p{margin-bottom:8px}
+.note b{color:var(--bold);font-weight:600}
+.note .acc{color:var(--italic);font-weight:500}
+.note a{color:var(--primary);text-decoration:none}
+.note ul{margin:8px 0 8px 20px}
+.note li{margin-bottom:4px}
+.note blockquote{border-left:3px solid var(--primary);background:var(--primary-weak);
+  padding:8px 16px;border-radius:0 var(--r-sm) var(--r-sm) 0;margin:16px 0;color:var(--text)}
+.swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:16px}
+.sw{display:flex;flex-direction:column;gap:4px}
+.sw .chip{height:32px;border-radius:var(--r-sm);border:1px solid var(--border)}
+.sw .lb{font-size:12px;color:var(--text-2)}
+
+/* 对照表 */
+.tbl-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);
+  margin-top:24px;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:12px;font-weight:500;color:var(--ink-2);text-align:left;
+  padding:8px 16px;border-bottom:1px solid var(--line)}
+td{padding:8px 16px;border-bottom:1px solid var(--line)}
+tbody tr:nth-child(even){background:var(--page)}
+td .dot{display:inline-block;width:12px;height:12px;border-radius:4px;
+  vertical-align:-1px;margin-right:8px;border:1px solid var(--line)}
+.foot{margin-top:24px}
+</style>
+</head>
+<body data-page-node-id="5p55GQaflaQtU9qIV1QQvt">
+<div class="wrap" data-page-node-id="H6UXSNrXgXvp4blOofsQEw">
+
+  <div class="head" data-page-node-id="1HRJ6O0ABZVY1vesAviQit">
+    <h1 data-page-node-id="07BskOYx4aJzeLGxfsVVOX">Obsidian 风格样张</h1>
+    <div class="sub" data-page-node-id="jEV1qVPgUS7m6Jo8eGtKWb">暖棕纸墨 · 深浅同源 —— 同一份组件 CSS、两套变量作用域，换光线不换皮肤</div>
+    <div class="aux" style="margin-top:8px" data-page-node-id="FX5BD9DvE4H5WrOKJWztAC">接入 divine HTML 输出体系后：style=Obsidian 时基座注入浅色默认层，深色经 prefers-color-scheme 跟随系统自动切换，模型零额外代码。</div>
+  </div>
+
+  <div class="panels" data-page-node-id="Ry2RVMLOGeKF3CXDI0NuM1">
+    <div class="panel theme-paper" data-page-node-id="azHzetKfVXBzcUKfDtCZXF">
+      <div class="cap" data-page-node-id="OL0il8UUaaHsVnHAYq0JZe"><span class="sub" data-page-node-id="Sl6ODPCv6rp3qNQV4ePjuL">暖白纸张</span><span class="tag" data-page-node-id="mUvHB8oAhTy2YolXiaLiGe">浅色默认层</span></div>
+      <div class="note" data-page-node-id="PR7BeNQaOEMe6Z6xWZBU3C">
+        <div class="doc-title" data-page-node-id="QhUGMoVqq2kRoHTFFIUpYK">配色思路</div>
+        <div class="props" data-page-node-id="7sXF8wizMsZ9NMB69jlJpp">
+          <div class="row" data-page-node-id="vdSLw6u8H3PjwanOpAx51Y"><span class="k" data-page-node-id="9JhIPW7kSHngpKGbIOHAGc">日期</span><span data-page-node-id="vrP8DlW3XHljHvwZYC3TUY">2026-08-29</span></div>
+          <div class="row" data-page-node-id="Z5oPRCiJEbMsGlSoHWPVVt"><span class="k" data-page-node-id="8cwYVsTZ5be0e5IXDg4Zfv">标签</span><span data-page-node-id="RlZbCmiMraiSPvv3ds3Pre">配色 · 纸墨 · 色相谱</span></div>
+        </div>
+        <p data-page-node-id="3FFb9XuzaDrPsQehMsZ9bL">纯白刺眼，<b data-page-node-id="UPYYDU0iAqbGLLIl4Efk8s">暖白压一点明度再掺黄</b>，像纸在暖光下。加粗落在焦糖橙，<span class="acc" data-page-node-id="zW2GEML2xsbE5iM8uS6Z2b">强调落在鼠尾草绿</span>，链接是<a href="#" data-page-node-id="H74k3l6QJGfLivUn1QLj8z">青绿</a>。</p>
+        <h3 data-page-node-id="MGqh4YN8IlUUzCH1N01KJK">标题按色相排开</h3>
+        <h4 data-page-node-id="NJg2Yx9PBE5hGKpzj70Cc8">扫读时凭颜色定位层级</h4>
+        <h5 data-page-node-id="X6c4av88GZJXIrnGHfwZpl">不用凑近看字号</h5>
+        <ul data-page-node-id="Uu7TwEd23mQJC2jCyhVERA">
+          <li data-page-node-id="Pb12okupZ2vz3K8U5JNzjj">长时间看，靠的是暖纸和深墨</li>
+          <li data-page-node-id="MKksZzsB00kuqVoqxj6nNg">扫一眼，靠的是那条色相谱</li>
+          <li data-page-node-id="yMcdstPmQaeQmFcunXZ3r1">重点只在小面积出现，不铺开</li>
+        </ul>
+        <blockquote data-page-node-id="8yttgl1wHgdWyw3u4Yjze7">「换光线，不换皮肤。」</blockquote>
+        <div class="swatches" data-page-node-id="2CIIoi4HiLqmzzR9RQF8Jx">
+          <div class="sw" data-page-node-id="t5AdMJaWdpP3ynPhoUgN6A"><div class="chip" style="background:#FAF7F1" data-page-node-id="4i3bzgHTkpcURj5hfpWs3j"></div><div class="lb" data-page-node-id="AavR3uRqhTslcx3q83YOKM">纸底</div></div>
+          <div class="sw" data-page-node-id="TtxMln7tpf4467VilHE7EK"><div class="chip" style="background:#3D3730" data-page-node-id="Q3gXwqdBqbqtVssNQFvZor"></div><div class="lb" data-page-node-id="ghT6iTP4ECqq7Vpga3kzSh">墨字</div></div>
+          <div class="sw" data-page-node-id="1VvXcSSw7HcHHDy7HFPzyI"><div class="chip" style="background:#857D70" data-page-node-id="m8v6qINOPEsFp8LdgY1kgh"></div><div class="lb" data-page-node-id="41Z5PIv8tmvVO6lZY2fWAq">弱化</div></div>
+          <div class="sw" data-page-node-id="JSf2c2jL2z0oUAulWmyupX"><div class="chip" style="background:#0E6E63" data-page-node-id="uZ5W0yfFsnqovOoDIL2htV"></div><div class="lb" data-page-node-id="5NDwY2DFpECqDoBpGVcaMP">锚点</div></div>
+          <div class="sw" data-page-node-id="KzYbp5c8B5rYU4R7GyJRmu"><div class="chip" style="background:#C2410C" data-page-node-id="GCqX4DdW9pR3Fq0wyCDsy3"></div><div class="lb" data-page-node-id="LjFj2YQ2FDJ3nS63GtRDEK">加粗</div></div>
+          <div class="sw" data-page-node-id="WckjGYfXcnMm41b1qorCfb"><div class="chip" style="background:#4A704F" data-page-node-id="f43a5PbvSAdrnASEC7nK8S"></div><div class="lb" data-page-node-id="BfVaVvv7DaMDiw64dpLv2L">强调</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel theme-night" data-page-node-id="ePJOT6W8ciYayNxt419XYz">
+      <div class="cap" data-page-node-id="EiBf4WRrc70MxusZXvl1R8"><span class="sub" data-page-node-id="M9LOp6apcTij6KlhjtoBxI">暖棕·冷锚</span><span class="tag" data-page-node-id="1F4H8fHsn8p86FaMt4mxk6">深色跟随系统</span></div>
+      <div class="note" data-page-node-id="KNS9rVEzLtsbCwpfRARn3U">
+        <div class="doc-title" data-page-node-id="7WckzlHbIGGjkIZK4AihSN">配色思路</div>
+        <div class="props" data-page-node-id="KCcx4V2p88v58d5Kv6daLe">
+          <div class="row" data-page-node-id="VQ11SMI2q2GEF1KD6cp4St"><span class="k" data-page-node-id="GIVAvrwQZOalPhqEev6x7E">日期</span><span data-page-node-id="Vi2kVmQ8euOaiD26LblQpP">2026-08-29</span></div>
+          <div class="row" data-page-node-id="mm1v5mvEBiRvGgu4RMt4cD"><span class="k" data-page-node-id="BgyEvAciUp07Xo72QcRX2F">标签</span><span data-page-node-id="fganf2YlxdeecQahr0gSxI">配色 · 纸墨 · 色相谱</span></div>
+        </div>
+        <p data-page-node-id="aZeL5u44nU0jxAvhq9h8OC">暗棕不是纯黑，<b data-page-node-id="Wv4Aw15pxN2oQ33f1NG8Nm">降低眩光、夜里更放松</b>。加粗落在暖橙，<span class="acc" data-page-node-id="AO5x5oQk0nQhqB0U972Wms">强调落在淡绿</span>，链接是<a href="#" data-page-node-id="GqAR4mnwggbblVAUc7q2XZ">冷青</a>。</p>
+        <h3 data-page-node-id="IvCHn7bSP0egH1623AQXZR">标题按色相排开</h3>
+        <h4 data-page-node-id="Jttfd8Y4FpMGAgT4MGk6QV">扫读时凭颜色定位层级</h4>
+        <h5 data-page-node-id="XhAjSYHSSgqW9y8PnF64l3">不用凑近看字号</h5>
+        <ul data-page-node-id="Z2G0lcWyGCd7mh2alAIEXl">
+          <li data-page-node-id="B7cElUGLXyFwAVWBqzFvKY">深夜看，靠的是暗棕和暖亮</li>
+          <li data-page-node-id="USqAD21A3adlw30M7XFHp5">扫一眼，靠的是那条冷色谱</li>
+          <li data-page-node-id="KwtHjYgh9PVM3rNa1OBJQJ">重点只在小面积出现，不铺开</li>
+        </ul>
+        <blockquote data-page-node-id="fiMzl84XLDpCDhQcZEYnzF">「换光线，不换皮肤。」</blockquote>
+        <div class="swatches" data-page-node-id="JsewXxihE5zwNpMCW33yAg">
+          <div class="sw" data-page-node-id="NzcDszGe1iI5BJedUY20G1"><div class="chip" style="background:#262322" data-page-node-id="NF9NFVxfPFECPG6uGhGBLC"></div><div class="lb" data-page-node-id="TCQjWWUBEKzeExCJ0opCEX">暗棕</div></div>
+          <div class="sw" data-page-node-id="fAspj0WYBdWIwyFYbbMBM9"><div class="chip" style="background:#CFC7BD" data-page-node-id="sSU9GmQxFPwlFsp8ha4iex"></div><div class="lb" data-page-node-id="Bcby5r8vLNVAKjdCzXVG9E">暖亮</div></div>
+          <div class="sw" data-page-node-id="IH2GyusyX8dt7s1x4qbegH"><div class="chip" style="background:#948D83" data-page-node-id="tBZoYEuy1ecflPrWiItPh4"></div><div class="lb" data-page-node-id="7Xg3bRuBYzMrw9xsdAvLBE">弱化</div></div>
+          <div class="sw" data-page-node-id="lj0DAgs8DETRI3QjoVctU2"><div class="chip" style="background:#6DB3A3" data-page-node-id="UQZZRFDmEsdGCZLDoUzlIH"></div><div class="lb" data-page-node-id="pTnL4A4TwJTGukHjV2eB1J">锚点</div></div>
+          <div class="sw" data-page-node-id="brW6LMoRdtRJPBaIGs7Wts"><div class="chip" style="background:#E89A60" data-page-node-id="SSv9K8HiWHKIy8xpsfUPzo"></div><div class="lb" data-page-node-id="v8VUZbssz8fEbWfUwqJZIO">加粗</div></div>
+          <div class="sw" data-page-node-id="bZ8y3whIKnqLYIVW1BozCg"><div class="chip" style="background:#A6BA9D" data-page-node-id="NtZn3p70VAmCYGS89gi0lV"></div><div class="lb" data-page-node-id="ArvwDtMUHqcAGZwdq9vs0f">强调</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tbl-card" data-page-node-id="UXiTQssfld6BEsfYzCOctx">
+    <table data-page-node-id="IEOwBTuZqwJnKB96Q1K8I3">
+      <thead data-page-node-id="YbY3yyn7OQQ6QNXJIFQTVz"><tr data-page-node-id="JJRlps0bozTk42v3DnABFC"><th data-page-node-id="2QzIQckCczfmiURtVsKw44">变量</th><th data-page-node-id="mfSV6USiXlSd1V1gWbFO0q">浅色 · 暖白纸张</th><th data-page-node-id="jaekTVwHEbHrReukMGgIhO">深色 · 暖棕·冷锚</th><th data-page-node-id="NEeScieq4n7XJzsmtubClq">语义</th></tr></thead>
+      <tbody data-page-node-id="1wvGkTWUzEuveoMTGBIk5m">
+        <tr data-page-node-id="4HR8Lj1UxMaDDJjjZ5hoLW"><td data-page-node-id="jEUKEjIp4XGhdRdWEGlria">--bg</td><td data-page-node-id="SpJBWGrIcFGF9swYOuBrAP"><span class="dot" style="background:#FAF7F1" data-page-node-id="XKZQNLlj7tnETAepmfa8wu"></span>#FAF7F1</td><td data-page-node-id="HQhWNkY2ylL6TCM2280HTI"><span class="dot" style="background:#262322" data-page-node-id="GLHDuXvYNjjzEuVCwjJNAt"></span>#262322</td><td data-page-node-id="YO2NJWroFinNAoENyAdl3C">底色定冷暖</td></tr>
+        <tr data-page-node-id="wMAUgB34vw9OHsPbIzZTSh"><td data-page-node-id="maLKFcTdRwZX29mivuUFJC">--text</td><td data-page-node-id="EBh9GY2gxvxYcsgBvfjFmA"><span class="dot" style="background:#3D3730" data-page-node-id="gyC7L307A8olYwpSuCPp12"></span>#3D3730</td><td data-page-node-id="cVtoFsMEHc0fLlLaIPSgWi"><span class="dot" style="background:#CFC7BD" data-page-node-id="jz6IrE8HMwZjlNbUqoJkgb"></span>#CFC7BD</td><td data-page-node-id="UvV26qSoh646O4JxIWAUYh">文字定分量</td></tr>
+        <tr data-page-node-id="heAOuB5DnGiueHuixF4Sce"><td data-page-node-id="rgzzwAv3OY9OxeKMFGH5rA">--text-2</td><td data-page-node-id="QAMXR2emD0MGMQuGsQV80n"><span class="dot" style="background:#857D70" data-page-node-id="VN8WaB4KFpgTdAI2JNzb8c"></span>#857D70</td><td data-page-node-id="O9ej1xEpItKtuhX1dwoOqy"><span class="dot" style="background:#948D83" data-page-node-id="X4XD9PEYINUU58Ge9n9FFI"></span>#948D83</td><td data-page-node-id="Bk4iHaooYufuFRVKbElaBR">次要文字</td></tr>
+        <tr data-page-node-id="oRNUa4SAxcGx3qWp6iPRut"><td data-page-node-id="IXuA8XvWPTJNAaPOLisNww">--primary</td><td data-page-node-id="G71vCw1t0r0aTDq5RnzUd5"><span class="dot" style="background:#0E6E63" data-page-node-id="gpZuo4p9BZQVbuoFJBr3mC"></span>#0E6E63</td><td data-page-node-id="sNhLELmDsd129O7RxOEytd"><span class="dot" style="background:#6DB3A3" data-page-node-id="u5Afp7NIhNCdZDMg72LbvI"></span>#6DB3A3</td><td data-page-node-id="v1LiGiLfhCgV9hwbIlAKbU">冷色锚点</td></tr>
+        <tr data-page-node-id="GQvmf76FTcgmN5Vicl1weV"><td data-page-node-id="hPjyL7spdO4xXwskuczoCN">--primary-weak</td><td data-page-node-id="qhq2ieXX3ceYfoVQBttBJz"><span class="dot" style="background:#E1EFEB" data-page-node-id="Cr0DbjrmHXwio5c7Ejm4K1"></span>#E1EFEB</td><td data-page-node-id="BssKFTdSoTzRFw92nV9eco"><span class="dot" style="background:#28423C" data-page-node-id="zbynldbkrNfGrwPXH0yLYx"></span>#28423C</td><td data-page-node-id="yrfxP1fH7W1fPJPtr29fJc">锚点浅底</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="foot aux" data-page-node-id="r1dXALHhVpae42FOnBHoCs">注： 标题色相谱（浅 #1D345C→#52377A→#0E6E63→#B8445A→#8A5E17；深 #4F74AF→#8567BD→#4E9A8A→#D98A99→#C99B5E）按需在组件里自写，不属基座公共变量。生成真实页面时无需任何双主题代码——基座自动深浅切换。</div>
+
+</div>
+</body>
+</html>

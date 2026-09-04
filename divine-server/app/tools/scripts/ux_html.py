@@ -37,7 +37,7 @@ def derive_title(title: str, content: str) -> str:
     return "UX交互原型"
 
 
-ALLOWED_STYLES = {"Notion", "Linear", "Apple", "PlainText", "Custom"}
+ALLOWED_STYLES = {"Notion", "Linear", "Apple", "PlainText", "Obsidian", "Custom"}
 
 # ---------------------------------------------------------------------------
 # 设计 token 基座
@@ -80,9 +80,36 @@ _TOKENS: dict[str, str] = {
 --primary:#111111;--primary-weak:#F0F0F0;--primary-ink:#FFFFFF;
 --ok:#0F7B6C;--ok-weak:#DDF2ED;--warn:#CB912F;--warn-weak:#FBF3DB;--danger:#D64545;--danger-weak:#FBE9E9;
 --radius-sm:4px;--radius-md:8px;--radius-lg:12px""",
+    # 暖白纸张（浅色默认层）。深色层见 _DARK_TOKENS——深浅同源，换光线不换皮肤。
+    "Obsidian": """--bg:#FAF7F1;--surface:#FFFDF8;--surface-2:#F0EBE0;--border:#E5DECE;--border-strong:#D2C8B4;
+--text:#3D3730;--text-2:#756D5F;--text-3:#A89F8F;
+--primary:#0E6E63;--primary-weak:#E1EFEB;--primary-ink:#FFFFFF;
+--ok:#4A704F;--ok-weak:#E6EFE5;--warn:#8A5E17;--warn-weak:#F5EBD6;--danger:#B8445A;--danger-weak:#F9E6E9;
+--radius-sm:6px;--radius-md:12px;--radius-lg:16px""",
 }
 # Custom 没有固定色值：用中性兜底 token，模型按 style_note 自己覆盖即可
 _TOKENS["Custom"] = _TOKENS["Notion"]
+
+# ---------------------------------------------------------------------------
+# 深浅同源风格的深色层（暖棕·冷锚）
+#
+# 浅色层为默认；深色层经 @media(prefers-color-scheme:dark) 注入，跟随系统
+# 深色模式自动切换。media query 不影响 specificity，模型在后写的普通 :root
+# 仍可整体覆盖基座（想强制浅色/深色时写自己的 :root 即可），兜底与自由兼得。
+# 只覆盖颜色变量——圆角不随深浅变，从浅色层继承。
+# ---------------------------------------------------------------------------
+_DARK_TOKENS: dict[str, str] = {
+    "Obsidian": """--bg:#262322;--surface:#2E2A28;--surface-2:#38332F;--border:#3E3833;--border-strong:#544B43;
+--text:#CFC7BD;--text-2:#948D83;--text-3:#7E7669;
+--primary:#6DB3A3;--primary-weak:#28423C;--primary-ink:#10312B;
+--ok:#8FBF94;--ok-weak:#2C3B2C;--warn:#C99B5E;--warn-weak:#3B3222;--danger:#D97F8D;--danger-weak:#432B30""",
+    # Apple 官方深色语言：纯黑底/灰卡分层、#F5F5F7 正文、#2997FF 亮蓝链接、iOS 系统语义色。
+    # 注意 --primary-ink 用深墨而非白字：#2997FF 上白字仅 3.02:1，深墨 6.27:1。
+    "Apple": """--bg:#000000;--surface:#1D1D1F;--surface-2:#2C2C2E;--border:#38383A;--border-strong:#48484A;
+--text:#F5F5F7;--text-2:#86868B;--text-3:#6E6E73;
+--primary:#2997FF;--primary-weak:#0E2A44;--primary-ink:#04121F;
+--ok:#30D158;--ok-weak:#0B2A16;--warn:#FF9F0A;--warn-weak:#2E2306;--danger:#FF453A;--danger-weak:#33110E""",
+}
 
 _HEAD_RE = re.compile(r"<head[^>]*>", re.IGNORECASE)
 _HTML_RE = re.compile(r"<html[^>]*>", re.IGNORECASE)
@@ -99,7 +126,11 @@ def inject_scaffold(content: str, style: str) -> tuple[str, bool]:
     tokens = _TOKENS.get(style)
     if not tokens:
         return content, False
-    block = f'<style id="divine-scaffold">:root{{{tokens}}}\n{_RESET}\n</style>\n'
+    block = f'<style id="divine-scaffold">:root{{{tokens}}}\n'
+    dark = _DARK_TOKENS.get(style)
+    if dark:
+        block += f"@media(prefers-color-scheme:dark){{:root{{{dark}}}}}\n"
+    block += f"{_RESET}\n</style>\n"
     for pattern in (_HEAD_RE, _HTML_RE):
         match = pattern.search(content)
         if match:
@@ -131,12 +162,14 @@ _UNSTABLE_CDN_RE = re.compile(r"jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com"
 _MAX_WARNINGS = 6
 
 
-def lint_html(content: str, scaffolded: bool = False) -> list[str]:
+def lint_html(content: str, scaffolded: bool = False, mobile: bool = False) -> list[str]:
     """静态校验生成的 HTML，返回可读的问题列表（按严重度排序，最多 6 条）。
 
     content 应传**模型原始输出**（注入基座前），否则基座的色值会污染 hex 计数。
     scaffolded 表示本次是否会注入 token 基座：已注入时不再提示"未定义 :root"，
     因为基座已经兜住，提示模型重写属于噪音。
+    mobile=True 时切换移动端 App 原型规则：字号档数放宽到 10（iOS type scale 层级多）、
+    间距只禁奇数（6/10/14 是移动端合理紧凑档）、色值上限放宽到 30（瀑布流封面色块多）。
 
     只做高信噪比检查：硬伤（localStorage 崩溃 / 占位残留）必须修，其余是美观度与
     可访问性信号（token 缺失、字号失控、间距破档、Google Fonts 被墙、国外 CDN 不稳定）。
@@ -155,7 +188,8 @@ def lint_html(content: str, scaffolded: bool = False) -> list[str]:
             soft.append("未定义 :root 设计 token，色值会散落在组件里，请补齐变量层")
     else:
         hex_count = len(set(_HEX_RE.findall(content)))
-        if hex_count > 20:
+        hex_limit = 30 if mobile else 20
+        if hex_count > hex_limit:
             soft.append(
                 f"检测到 {hex_count} 种硬编码色值，超过 token 合理数量，请把色值收敛到 :root 变量"
             )
@@ -164,10 +198,16 @@ def lint_html(content: str, scaffolded: bool = False) -> list[str]:
     if _UNSTABLE_CDN_RE.search(content):
         soft.append("引用了国外 CDN（jsdelivr/unpkg/cdnjs），国内访问不稳定，建议换 BootCDN(cdn.bootcdn.net) 或 staticfile(cdn.staticfile.org) 等国内源")
 
+    size_limit = 10 if mobile else 6
     sizes = sorted({float(v) for v in _FONT_SIZE_RE.findall(content)})
-    if len(sizes) > 6:
+    if len(sizes) > size_limit:
         preview = "/".join(f"{int(s)}" if s.is_integer() else f"{s:g}" for s in sizes[:12])
-        soft.append(f"字号出现 {len(sizes)} 种（{preview}），排版阶梯只允许 6 档，请收敛")
+        hint = (
+            f"移动端核心阶梯 28/20/17/15/13/11 + 组件变体，全页 ≤{size_limit} 档，禁止 0.5px 值"
+            if mobile
+            else f"排版阶梯只允许 {size_limit} 档，请收敛"
+        )
+        soft.append(f"字号出现 {len(sizes)} 种（{preview}），{hint}")
     offenders: set[int] = set()
     for declaration in _SPACING_RE.findall(content):
         for token in re.split(r"[\s]+", declaration.strip()):
@@ -175,14 +215,21 @@ def lint_html(content: str, scaffolded: bool = False) -> list[str]:
             if not match:
                 continue
             value = int(match.group(1))
-            if value % 4 and value not in _SPACING_ALLOWLIST:
+            if mobile:
+                # 移动端取偶数档（6/10/14 是合理紧凑间距），只抓奇数手调值
+                if value % 2 == 1 and value not in _SPACING_ALLOWLIST:
+                    offenders.add(value)
+            elif value % 4 and value not in _SPACING_ALLOWLIST:
                 offenders.add(value)
     if len(offenders) >= 3:
         shown = sorted(offenders)[:6]
+        hint = (
+            "移动端间距取偶数档：4/6/8/10/12/16/20/24，禁止奇数手调值"
+            if mobile
+            else "请对齐 4/8/12/16/24/32/48/64 档位"
+        )
         soft.append(
-            "间距出现非 4 倍数值（"
-            + "/".join(f"{v}px" for v in shown)
-            + "），请对齐 4/8/12/16/24/32/48/64 档位"
+            "间距出现手调数值（" + "/".join(f"{v}px" for v in shown) + f"），{hint}"
         )
     issues.extend(soft)
     return issues[:_MAX_WARNINGS]
@@ -195,13 +242,15 @@ def main() -> None:
     params = data.get("params") or {}
     style = str(params.get("style") or "").strip()
     style_note = str(params.get("style_note") or "").strip()
+    canvas = str(params.get("canvas") or "desktop").strip().lower()
+    mobile = canvas == "mobile"
     content = str(params.get("content") or "").strip()
     if style not in ALLOWED_STYLES:
         print(
             json.dumps(
                 {
                     "success": False,
-                    "message": "style 必须由用户明确选择：Notion/Linear/Apple/PlainText/Custom",
+                    "message": "style 必须由用户明确选择：Notion/Linear/Apple/PlainText/Obsidian/Custom",
                 },
                 ensure_ascii=False,
             )
@@ -264,7 +313,7 @@ def main() -> None:
     # lint 在**原始** content 上跑：注入基座的色值会污染 hex 计数。
     # 基座先注入，落盘的是注入后的内容；模型漏写 :root 时由基座兜底。
     final_content, scaffolded = inject_scaffold(content, style)
-    warnings = lint_html(content, scaffolded=scaffolded)
+    warnings = lint_html(content, scaffolded=scaffolded, mobile=mobile)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = unique_output_path(output_dir, title, "UX交互原型", ".html")
@@ -290,6 +339,7 @@ def main() -> None:
                 "data": {
                     "title": title,
                     "style": style,
+                    "canvas": canvas,
                     "scaffold_injected": scaffolded,
                     "size": output_path.stat().st_size,
                     "generated_at": time.strftime("%Y-%m-%d %H:%M"),

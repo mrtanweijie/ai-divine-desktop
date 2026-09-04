@@ -12,6 +12,7 @@ import re
 from app.agent.core.prompt_sections import _UX_HTML_RULES
 from app.tools.scripts.ux_html import (
     ALLOWED_STYLES,
+    _DARK_TOKENS,
     _TOKENS,
     inject_scaffold,
     lint_html,
@@ -76,10 +77,46 @@ def test_scaffold_injects_style_specific_token():
         ("Notion", "--primary:#2383E2"),
         ("Apple", "--primary:#0071E3"),
         ("PlainText", "--primary:#111111"),
+        ("Obsidian", "--primary:#0E6E63"),
     ):
         out, ok = inject_scaffold(_HEAD_DOC, style)
         assert ok
         assert token in out, f"{style} 未注入 {token}"
+
+
+def test_dark_light_style_injects_prefers_color_scheme():
+    """深浅同源风格（Obsidian、Apple）：浅色默认层 + 深色 media query 层，其他风格不受影响。"""
+    out, ok = inject_scaffold(_HEAD_DOC, "Obsidian")
+    assert ok
+    assert "--bg:#FAF7F1" in out  # 浅色默认层（暖白纸张）
+    assert "@media(prefers-color-scheme:dark)" in out
+    assert "--bg:#262322" in out  # 深色层（暖棕·冷锚）
+    assert "--primary:#6DB3A3" in out
+
+    # Apple 深色层：官方深色语言（纯黑底/亮蓝链接）
+    apple_out, apple_ok = inject_scaffold(_HEAD_DOC, "Apple")
+    assert apple_ok
+    assert "--bg:#F5F5F7" in apple_out and "--bg:#0071E3" not in apple_out  # 浅色默认层
+    assert "--bg:#000000" in apple_out and "--primary:#2997FF" in apple_out
+    assert "@media(prefers-color-scheme:dark)" in apple_out
+
+    # 其他风格不注入深色层
+    notion_out, _ = inject_scaffold(_HEAD_DOC, "Notion")
+    assert "prefers-color-scheme" not in notion_out
+
+    # media query 在浅色 :root 之后、模型 style 之前（后写覆盖语义依然成立）
+    assert out.find(":root{") < out.find("@media(prefers-color-scheme:dark)")
+    assert out.find("@media(prefers-color-scheme:dark)") < out.find("<style>.a{")
+
+
+def test_dark_layer_covers_all_color_variables():
+    """深色层必须覆盖全部颜色变量（radius 不随深浅变，从浅色层继承）。"""
+    radius = {"--radius-sm", "--radius-md", "--radius-lg"}
+    color_vars = {v for v in REQUIRED_VARS if v not in radius}
+    for style, dark in _DARK_TOKENS.items():
+        names = set(re.findall(r"(--[a-z0-9-]+):", dark))
+        missing = color_vars - names
+        assert not missing, f"{style} 深色层缺少变量: {missing}"
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +233,46 @@ def test_detects_off_grid_spacing():
     assert any("间距" in i for i in lint_html(doc))
 
 
+def test_mobile_mode_relaxes_type_and_spacing_rules():
+    """移动端 App 原型规则：字号 ≤10 档、间距只禁奇数（6/10px 是合理紧凑档）。"""
+    # 8 种字号 + 6/10px 偶数间距：桌面会报字号，移动端应全部放过
+    doc = (
+        "<html><head><style>:root{--bg:#fff}"
+        + "".join(f".f{i}{{font-size:{s}px}}" for i, s in enumerate([11, 13, 15, 17, 20, 22, 26, 28]))
+        + ".a{padding:6px}.b{gap:10px}.c{margin:12px}"
+        + "</style></head><body>x</body></html>"
+    )
+    mobile_issues = lint_html(doc, scaffolded=True, mobile=True)
+    assert not any("字号" in i for i in mobile_issues)
+    assert not any("间距" in i for i in mobile_issues)
+    # 同一文档桌面模式仍报字号（确认分支真实存在，不是全局放宽）
+    assert any("字号" in i for i in lint_html(doc, scaffolded=True))
+
+    # 11 种字号：移动端也报（防失控，不是无限放宽）
+    doc11 = (
+        "<html><head><style>"
+        + "".join(f".g{i}{{font-size:{s}px}}" for i, s in enumerate([10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 28]))
+        + "</style></head><body>x</body></html>"
+    )
+    assert any("字号" in i for i in lint_html(doc11, scaffolded=True, mobile=True))
+
+    # 奇数间距 ≥3 处：移动端仍报（5/7/9/11 手调值在哪都是失控）
+    doc_odd = (
+        "<html><head><style>:root{--bg:#fff}"
+        ".a{padding:7px}.b{gap:9px}.c{margin:11px}</style></head><body>x</body></html>"
+    )
+    assert any("间距" in i for i in lint_html(doc_odd, scaffolded=True, mobile=True))
+
+
+def test_mobile_mode_allows_more_content_colors():
+    """瀑布流封面色块多：mobile 色值上限放宽到 30（桌面 20）。"""
+    colors = [f"#{i:02x}4050" for i in range(25)]  # 25 种不同色值
+    style = ":root{" + ";".join(f"--c{i}:{c}" for i, c in enumerate(colors)) + "}"
+    doc = f"<html><head><style>{style}</style></head><body>x</body></html>"
+    assert not any("硬编码色值" in i for i in lint_html(doc, scaffolded=True, mobile=True))
+    assert any("硬编码色值" in i for i in lint_html(doc, scaffolded=True))
+
+
 def test_border_widths_are_not_spacing_offenders():
     """1px/2px/3px 是边框与微调，不应被算作破档间距。"""
     doc = "<html><head><style>.a{border:1px solid #ccc;padding:1px 2px 3px}</style></head><body>x</body></html>"
@@ -253,7 +330,7 @@ def test_prompt_swatch_matches_injected_tokens():
     只改一侧会让模型拿到的色值和它以为的不一样，且这种漂移不会报错，
     只能靠这条测试兜住。
     """
-    for style in ("Notion", "Linear", "Apple", "PlainText"):
+    for style in ("Notion", "Linear", "Apple", "PlainText", "Obsidian"):
         swatch = _prompt_swatch(style)
         assert len(swatch) == len(SWATCH_ORDER), (
             f"{style} 速查表应 {len(SWATCH_ORDER)} 个色值，实际 {len(swatch)}"
@@ -268,3 +345,21 @@ def test_prompt_swatch_matches_injected_tokens():
 def test_prompt_documents_scaffold_injection():
     """prompt 必须告知模型基座的存在，否则模型会重复输出一遍 token。"""
     assert "自动前置注入" in _UX_HTML_RULES
+
+
+def test_prompt_documents_industry_profiles():
+    """行业感知层：9 行业 + 兜底必须齐全，防后续编辑误删。"""
+    for kw in (
+        "行业感知",
+        "社交内容",
+        "电商零售",
+        "金融支付",
+        "效率工具",
+        "生活出行",
+        "健康运动",
+        "教育学习",
+        "媒体娱乐",
+        "企业 B 端",
+        "未明确命中",
+    ):
+        assert kw in _UX_HTML_RULES, f"行业感知缺 {kw}"

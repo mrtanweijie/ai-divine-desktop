@@ -22,11 +22,12 @@ from ..registry import register_tool
             "style": {
                 "type": "string",
                 "description": (
-                    "视觉风格，可选：Notion/Linear/Apple/PlainText/Custom。"
+                    "视觉风格，可选：Notion/Linear/Apple/PlainText/Obsidian/Custom。"
                     "用户明确指定时照用；用户未指定时由你按内容性质自行选择"
-                    "（数据密集用 Linear、长文报告用 Notion、展示型用 Apple），并在回复里说明选了哪个"
+                    "（数据密集用 Linear、长文报告用 Notion、质感优先展示用 Apple（深色随系统切换）、"
+                    "笔记阅读与夜间场景用 Obsidian（深浅同源）），并在回复里说明选了哪个"
                 ),
-                "enum": ["Notion", "Linear", "Apple", "PlainText", "Custom"],
+                "enum": ["Notion", "Linear", "Apple", "PlainText", "Obsidian", "Custom"],
             },
             "style_note": {
                 "type": "string",
