@@ -153,12 +153,10 @@ export function ChatHeaderInner({
             label={t("chat.exportSession", "导出会话")}
             align="center"
             trigger={
-              <Button
-                variant="icon"
+              <IconButton
+                icon={<Download size={13} />}
                 title={t("chat.exportSession", "导出会话")}
-              >
-                <Download size={15} />
-              </Button>
+              />
             }
             items={[
               {

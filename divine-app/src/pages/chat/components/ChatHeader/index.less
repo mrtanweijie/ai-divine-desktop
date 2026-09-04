@@ -27,6 +27,14 @@
   gap: 8px;
   min-width: 0;
 }
+
+// main-area 容器查询（见 pages/chat/index.less）：主区域过窄时隐藏右侧动作群，
+// 避免与标题/徽章重叠；中间 .chat-header-drag 自动补位
+@container main-area (width < 550px) {
+  .chat-header-right {
+    display: none !important;
+  }
+}
 .chat-header-drag {
   flex: 1;
   align-self: stretch;
@@ -41,8 +49,6 @@
   max-width: 170px;
   min-width: 0;
   padding: 0 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: 12px;
