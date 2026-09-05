@@ -7,6 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from app.docgen.ppt.normalize import normalize_slides  # noqa: E402
 from app.docgen.ppt.renderer import get_ppt_theme  # noqa: E402
 from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
 from app.tools.scripts.svg_common import render_svg_to_png  # noqa: E402
@@ -89,21 +90,31 @@ def main() -> None:
     output_root = Path(data.get("output_dir") or workspace)
     params = data.get("params") or {}
     title = str(params.get("title") or "未命名演示文稿")
-    slides = params.get("slides") or []
     theme_id = str(params.get("theme") or params.get("style") or "universal").strip()
     get_ppt_theme(theme_id)  # 未知主题回退默认，不报错
     raw_path = str(params.get("path") or "").strip()
 
+    # 归一化层（docs/fix/001-ppt-empty-slides-20260906.md §4.1）：items/quote/bullets 等别名键
+    # 收敛到渲染器窄键；未识别键进 warnings，不再静默丢弃。
+    slides, warnings = normalize_slides(params.get("slides") or [])
+
     output_dir = output_root / "presentations"
     if raw_path:
-        candidate = _resolve_inside(workspace, raw_path)
-        if candidate is None:
+        # path 语义是"保存目录"，但模型常把它当文件路径传 …xxx.pptx——
+        # 防御性剥离文件名，只取父目录（避免建出名叫 xxx.pptx 的目录）。
+        if raw_path.lower().endswith((".pptx", ".ppt")):
+            parent = str(Path(raw_path).parent)
+            warnings.append(f"path 参数含文件名，已按目录处理：取 {parent or 'workspace 根目录'}")
+            raw_path = parent
+        candidate = _resolve_inside(workspace, raw_path) if raw_path not in ("", ".") else None
+        if raw_path and candidate is None:
             print(json.dumps(
                 {"success": False, "message": f"保存路径越界: {raw_path}"},
                 ensure_ascii=False,
             ))
             return
-        output_dir = candidate
+        if candidate is not None:
+            output_dir = candidate
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = unique_output_path(output_dir, title, "演示文稿", ".pptx")
 
@@ -170,9 +181,12 @@ def main() -> None:
 
     cover_items[0]["_pages"] = len(items)
     rendered = 0
+    rendered_layouts: list[str] = []
     try:
         for item in cover_items + items:
-            add_slide(prs, item, theme_id, rendered + 1, resolve_media=resolve_media)
+            rendered_layouts.append(
+                add_slide(prs, item, theme_id, rendered + 1, resolve_media=resolve_media)
+            )
             rendered += 1
     except ValueError as exc:
         print(json.dumps(
@@ -182,20 +196,33 @@ def main() -> None:
         return
 
     prs.save(output_path)
+
+    # 渲染后质检（docs/fix/001-ppt-empty-slides-20260906.md §4.3）：重开自检 + 内容版式空页检测
+    from app.docgen.ppt.qa import qa_slides
+
+    warnings.extend(qa_slides(output_path, cover_items + items, rendered_layouts))
+    empty_pages = [w for w in warnings if "内容为空" in w]
+    message = "PPT 生成完成"
+    if empty_pages:
+        message = f"PPT 已生成，但检测到 {len(empty_pages)} 页内容为空或过少，建议补充后重新生成"
+
     from app.docgen.ppt.renderer import PPT_THEMES
     from app.docgen.ppt.renderer.themes import STYLES
     print(json.dumps(
         {
             "success": True,
-            "message": "PPT 生成完成",
+            "message": message,
             "file_name": output_path.name,
             "filepath": str(output_path),
+            "content": message
+            + ("。质检提示：" + "；".join(warnings) if warnings else ""),
             "data": {
                 "theme": theme_id,
                 "slides": rendered,
                 "toc": toc_inserted,
                 "presets": len(PPT_THEMES),
                 "styles": sorted(STYLES),
+                "warnings": warnings,
             },
         },
         ensure_ascii=False,

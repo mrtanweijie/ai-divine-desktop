@@ -87,6 +87,39 @@ from ..registry import register_tool
                                 "kpi 条目用 '数值|标签|说明'"
                             ),
                         },
+                        "items": {
+                            "type": "array",
+                            "description": (
+                                "结构化条目（与 points 二选一，工具自动转换）："
+                                "cards 用 {title, desc}；kpi 用 {value, label, desc}；"
+                                "timeline 用 {date, title, desc}；columns 用 {title, points}"
+                            ),
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "title": {"type": "string", "description": "条目标题"},
+                                    "name": {"type": "string", "description": "条目名称（等价 title）"},
+                                    "desc": {"type": "string", "description": "条目说明"},
+                                    "value": {"type": "string", "description": "(kpi) 数值，如 '295亿'"},
+                                    "label": {"type": "string", "description": "(kpi) 指标名，如 'GMV'"},
+                                    "delta": {"type": "string", "description": "(kpi) 同比/环比说明，如 '+173%'"},
+                                    "date": {"type": "string", "description": "(timeline) 时间，如 '2021年'"},
+                                    "points": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "(columns) 该栏要点",
+                                    },
+                                },
+                            },
+                        },
+                        "quote": {
+                            "type": "string",
+                            "description": "(layout=quote) 金句正文（与 heading 二选一）",
+                        },
+                        "note": {
+                            "type": "string",
+                            "description": "演讲者备注，写入 PPT 备注页（不显示在正文）",
+                        },
                         "chart": {
                             "type": "object",
                             "description": (

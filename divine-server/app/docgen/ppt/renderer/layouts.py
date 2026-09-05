@@ -1244,4 +1244,9 @@ def add_slide(prs: Any, item: Any, theme_id: str, index: int,
         _layout_end(slide, theme, st, item, index)
     else:
         _layout_bullets(slide, theme, st, item, index)
+
+    # 演讲备注：模型经 schema 声明的 note 字段落 notes_slide（此前被静默丢弃）
+    note = str(item.get("note") or "").strip()
+    if note:
+        slide.notes_slide.notes_text_frame.text = note
     return layout
