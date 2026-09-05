@@ -165,9 +165,9 @@ def render(r) -> str:
                 + "</div>"
             )
 
-    if r.projects:
+    if r.merged_projects():
         parts.append(_h2("项目经历", "PROJECTS"))
-        for p in r.projects:
+        for p in r.merged_projects():
             name_en = f" <i>{_esc(p.en_name)}</i>" if p.en_name else ""
             points = [str(h) for h in p.highlights if str(h).strip()]
             lis = "".join(

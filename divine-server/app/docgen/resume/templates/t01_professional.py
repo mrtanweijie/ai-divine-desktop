@@ -132,7 +132,7 @@ def render(r) -> str:
     exp_html = _section("职业经历", exp_inner)
 
     proj_inner = ""
-    for p in r.projects:
+    for p in r.merged_projects():
         points = [str(h) for h in p.highlights if str(h).strip()]
         if not points and p.description:
             points = [line.strip() for line in p.description.splitlines() if line.strip()]
@@ -144,7 +144,8 @@ def render(r) -> str:
             + bullets_html(points)
             + "</div>"
         )
-    proj_html = _section("项目经历", proj_inner)
+    # 项目板块非必须：无项目时不渲染标题与空板块
+    proj_html = _section("项目经历", proj_inner) if proj_inner else ""
 
     edu_inner = ""
     for e in r.education:

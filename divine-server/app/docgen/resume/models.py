@@ -157,6 +157,53 @@ class ResumeData:
     def to_dict(self) -> dict:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False))
 
+    def merged_projects(self) -> list["Project"]:
+        """供"项目"独立板块使用：顶层 projects + 各段经历下的嵌套项目。
+
+        母版约定经历只放岗位职责/成果，项目（含 work[].projects 嵌套数据）
+        统一收拢到独立板块；按出现顺序合并、按名称去重（保留首个）。
+        嵌套项目为 dict，支持 name/summary|desc|description/points|highlights|
+        actions|impact/role/kind|type/year/tags/link 等键。
+        """
+        merged: list[Project] = list(self.projects)
+        seen = {p.name.strip().casefold() for p in merged if p.name.strip()}
+        for exp in self.experiences:
+            for item in exp.projects or []:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("name") or "").strip()
+                if not name or name.casefold() in seen:
+                    continue
+                merged.append(
+                    Project(
+                        name=name,
+                        role=str(item.get("role") or ""),
+                        kind=str(item.get("kind") or item.get("type") or ""),
+                        description=str(
+                            item.get("summary")
+                            or item.get("desc")
+                            or item.get("description")
+                            or ""
+                        ),
+                        highlights=_string_list(
+                            item.get("points")
+                            or item.get("highlights")
+                            or item.get("actions")
+                            or ([item.get("impact")] if item.get("impact") else [])
+                        ),
+                        impact=str(item.get("impact") or ""),
+                        tags=(
+                            [str(x) for x in item["tags"]]
+                            if isinstance(item.get("tags"), list)
+                            else []
+                        ),
+                        link=str(item.get("link") or ""),
+                        year=str(item.get("year") or ""),
+                    )
+                )
+                seen.add(name.casefold())
+        return merged
+
 @dataclass
 class Metric:
     """Kami 数字卡片"""

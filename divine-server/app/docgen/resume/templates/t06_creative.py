@@ -126,7 +126,7 @@ def render(r) -> str:
         parts.append(f'<p class="intro" contenteditable="true">{bold_numbers(r.summary)}</p>')
 
     works = r.works or []
-    if not works and r.projects:
+    if not works and r.merged_projects():
         works = [
             type(
                 "W",
@@ -139,7 +139,7 @@ def render(r) -> str:
                     "result": p.impact or (p.highlights[0] if p.highlights else ""),
                 },
             )()
-            for p in r.projects
+            for p in r.merged_projects()
         ]
     if works:
         parts.append(_h2("Selected Works"))

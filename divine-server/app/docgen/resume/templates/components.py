@@ -120,36 +120,37 @@ def exp_bullets(e) -> list[str]:
     return points
 
 
-def exp_content_html(e) -> str:
-    """经历内容块：描述/成果 bullet + 嵌套项目（work[].projects）。
+def exp_content_html(e, *, inline_projects: bool = False) -> str:
+    """经历内容块：仅岗位职责/成果 bullet。
 
-    数据规范允许把项目挂在经历条目内（projects[{name,summary,points}]），
-    各模板统一在此渲染，避免嵌套项目被静默丢弃。项目渲染为
-    「加粗项目名：summary」导语 li + 成果点 li，适配全部模板的 li 样式。
+    母版约定【职业经历】与【项目】分开：嵌套在经历里的 projects 由各模板的
+    "项目"独立板块收拢渲染（ResumeData.merged_projects），不再混排进经历 bullet。
+    inline_projects=True 仅兼容旧 flat_layout 路径（历史行为）。
     """
     lis = [
         f"<li>{bold_numbers(point)}</li>"
         for point in exp_bullets(e)
         if str(point).strip()
     ]
-    for proj in e.projects or []:
-        if not isinstance(proj, dict):
-            continue
-        name = str(proj.get("name") or "").strip()
-        summary = str(proj.get("summary") or proj.get("desc") or "").strip()
-        points = [
-            str(x).strip()
-            for x in (proj.get("points") or proj.get("highlights") or [])
-            if str(x).strip()
-        ]
-        if not name and not points:
-            continue
-        lead = f"<b>{_esc(name)}</b>" if name else ""
-        if summary:
-            lead += ("：" if lead else "") + bold_numbers(summary)
-        if lead:
-            lis.append(f'<li class="lead">{lead}</li>')
-        lis.extend(f'<li class="sub">{bold_numbers(p)}</li>' for p in points)
+    if inline_projects:
+        for proj in e.projects or []:
+            if not isinstance(proj, dict):
+                continue
+            name = str(proj.get("name") or "").strip()
+            summary = str(proj.get("summary") or proj.get("desc") or "").strip()
+            points = [
+                str(x).strip()
+                for x in (proj.get("points") or proj.get("highlights") or [])
+                if str(x).strip()
+            ]
+            if not name and not points:
+                continue
+            lead = f"<b>{_esc(name)}</b>" if name else ""
+            if summary:
+                lead += ("：" if lead else "") + bold_numbers(summary)
+            if lead:
+                lis.append(f'<li class="lead">{lead}</li>')
+            lis.extend(f'<li class="sub">{bold_numbers(p)}</li>' for p in points)
     return f"<ul>{''.join(lis)}</ul>" if lis else ""
 
 

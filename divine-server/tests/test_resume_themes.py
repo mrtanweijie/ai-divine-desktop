@@ -187,6 +187,46 @@ def test_nested_projects_in_work_are_rendered():
         assert "行情延迟" in body and "降至" in body  # 数字会被加粗拆开，验证文案主体
 
 
+def test_projects_are_separate_section_not_inline_in_experience():
+    """母版约定【职业经历】与【项目】分开：work[].projects 并入"项目"独立板块
+    （ResumeData.merged_projects），不再混排进经历 bullet；无项目时不渲染空板块。"""
+    data = {
+        "name": "李铭",
+        "title": "资深前端工程师",
+        "work": [
+            {
+                "company": "某券商",
+                "position": "前端负责人",
+                "period": "2019 - 至今",
+                "highlights": ["负责交易工作台前端架构与技术治理"],
+                "projects": [
+                    {
+                        "name": "机构级实时行情交易工作台",
+                        "summary": "服务 500 家机构客户",
+                        "points": ["行情延迟 P99 降至 80ms"],
+                    }
+                ],
+            }
+        ],
+    }
+    resume = ResumeData.from_dict(data)
+    html = build_html(resume, "tpl_professional", "single", editable=False)
+    body = html.split("<body>", 1)[1]
+    i_exp = body.find("职业经历")
+    i_proj = body.find("项目经历")
+    assert 0 <= i_exp < i_proj, (i_exp, i_proj)  # 经历板块在项目板块之前
+    assert "机构级实时行情交易工作台" in body[i_proj:]  # 项目落入独立板块
+    assert '<li class="lead">' not in body[:i_proj]  # 经历 bullet 不再内嵌项目导语
+
+    # 项目板块非必须：无项目时不渲染空标题
+    no_proj = ResumeData.from_dict(
+        {"name": "张三", "title": "工程师",
+         "work": [{"company": "A", "title": "工程师", "highlights": ["成果 x"]}]}
+    )
+    html_no = build_html(no_proj, "tpl_professional", "single", editable=False)
+    assert "项目经历" not in html_no
+
+
 def test_no_zero_width_ghost_artifacts():
     """回归：content:"" 空伪元素会发射零宽填充矩形（空文本行框），
     在部分 PDF 查看器中显示为标题旁的发丝竖线。空伪元素统一带 font-size:0。"""

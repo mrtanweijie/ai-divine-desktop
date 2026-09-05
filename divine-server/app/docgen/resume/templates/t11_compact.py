@@ -159,10 +159,10 @@ def render(r) -> str:
                 + "</div>"
             )
 
-    if r.projects:
+    if r.merged_projects():
         main.append(_h2("代表项目"))
         cols = []
-        for p in r.projects[:2]:
+        for p in r.merged_projects()[:2]:
             points = [str(h) for h in p.highlights if str(h).strip()]
             if not points and p.impact:
                 points = [p.impact]

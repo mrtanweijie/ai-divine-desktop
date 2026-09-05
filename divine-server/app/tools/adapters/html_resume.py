@@ -22,7 +22,20 @@ from ..registry import register_tool
         "properties": {
             "resume_data": {
                 "type": "object",
-                "description": "简历结构化数据：name/target/contact/summary/metrics/skills/work/education/highlights 等；模板库扩展字段 certifications/languages/honors/publications/works/transferable/pivot/en_* 按需",
+                "description": (
+                    "简历结构化数据：name/title/contact/summary/experiences/projects/education/skills。"
+                    "内容结构规则（按所选模板产出不同板块，勿所有模板套同一份内容）："
+                    "experiences 只放各段岗位职责与成果要点，不要内嵌项目；"
+                    "独立项目放顶层 projects 数组（可选，无项目时整个\"项目\"板块不出现）；"
+                    "源数据若把项目挂在某段 work.projects 下也会自动并入独立\"项目\"板块呈现。"
+                    "模板侧重差异：高管 tpl_executive 用 scale/metrics/public_work；学术 tpl_academic "
+                    "用 publications；数据 tpl_data 量化 impact；跨界 tpl_lateral 用 transferable/pivot；"
+                    "创意 tpl_creative 用 works/skill_groups；应届 tpl_freshgrad 突出课程/竞赛/校园亮点；"
+                    "国际 tpl_global 补 en_* 双语。扩展字段：certifications/languages/honors"
+                    "（字符串数组）、publications（title/venue/year/tags）、works（作品 name/role/year/"
+                    "description/result）、transferable（source/ability/description/mapping）、"
+                    "pivot（转型定位）、en_*（双语）、Education.gpa/courses"
+                ),
             },
             "template": {
                 "type": "string",

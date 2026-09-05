@@ -99,7 +99,23 @@ from ..registry import register_tool
             },
             "resume_data": {
                 "type": "object",
-                "description": "简历结构化数据（仅输出 PDF；可编辑 HTML 版用 html_resume 工具），推荐一页简历结构：name/target/contact/summary/core_skills/work/projects/education。模板库扩展字段：certifications/languages/honors（字符串数组）、publications（论文 title/venue/year/tags）、works（作品 name/role/year/description/result）、transferable（转型 source/ability/description/mapping）、pivot（转型定位一句话）、en_*（双语字段）、Education.gpa/courses",
+                "description": (
+                    "简历结构化数据（仅输出 PDF；可编辑 HTML 版用 html_resume 工具），"
+                    "推荐结构：name/title/contact/summary/experiences/projects/education/skills。"
+                    "内容结构规则（按所选模板产出不同板块，勿让所有模板套同一份内容）："
+                    "experiences 只放各段岗位职责与成果要点，不要在经历里内嵌项目；"
+                    "独立项目放顶层 projects 数组（可选，无项目时整个\"项目\"板块不出现）；"
+                    "若源数据把项目挂在某段 work.projects 下也会自动并入独立的\"项目\"板块呈现。"
+                    "模板侧重差异：高管 tpl_executive 需 scale/metrics/public_work；"
+                    "学术 tpl_academic 用 publications；数据 tpl_data 量化 impact；"
+                    "跨界 tpl_lateral 用 transferable/pivot；创意 tpl_creative 用 works/skill_groups；"
+                    "应届 tpl_freshgrad 突出课程/竞赛/校园亮点；国际 tpl_global 补 en_* 双语；"
+                    "金融 tpl_professional/科技 tpl_modern/工程 tpl_minimal/产品 tpl_product "
+                    "以经历+项目为主。扩展字段：certifications/languages/honors（字符串数组）、"
+                    "publications（title/venue/year/tags）、works（name/role/year/description/result）、"
+                    "transferable（source/ability/description/mapping）、pivot（转型定位一句话）、"
+                    "en_*（双语字段）、Education.gpa/courses"
+                ),
             },
             "path": {
                 "type": "string",

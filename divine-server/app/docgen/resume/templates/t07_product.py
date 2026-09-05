@@ -167,10 +167,10 @@ def render(r) -> str:
                 + "</div>"
             )
 
-    if r.projects:
+    if r.merged_projects():
         inner.append(_h2("代表产品"))
         rows = []
-        for p in r.projects:
+        for p in r.merged_projects():
             actions = "、".join(str(a) for a in p.actions) if p.actions else p.description
             impact = p.impact or (p.highlights[0] if p.highlights else "")
             rows.append(

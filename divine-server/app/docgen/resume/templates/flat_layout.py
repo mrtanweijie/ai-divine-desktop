@@ -61,7 +61,7 @@ def flat_resume_html(resume, style: str) -> str:
             {f'<div class="right">{_esc(item.period)}</div>' if item.period else ''}
           </div>
           {f'<div class="desc">{bold_resume_line(item.description)}</div>' if item.description else ''}
-          {exp_content_html(item)}
+          {exp_content_html(item, inline_projects=True)}
         </div>"""
             )
         exp_html = (

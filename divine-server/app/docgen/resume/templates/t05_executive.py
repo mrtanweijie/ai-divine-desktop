@@ -164,9 +164,9 @@ def render(r) -> str:
                 + "</div>"
             )
 
-    if r.projects:
+    if r.merged_projects():
         inner.append(_h2("关键项目", "KEY PROJECTS"))
-        for p in r.projects:
+        for p in r.merged_projects():
             points = [str(h) for h in p.highlights if str(h).strip()]
             if not points and p.impact:
                 points = [p.impact]

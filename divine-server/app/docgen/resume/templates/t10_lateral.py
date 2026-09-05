@@ -151,7 +151,7 @@ def render(r) -> str:
         inner.append(f'<div class="transfer">{"".join(cards)}</div>')
 
     practice_items: list[str] = []
-    for p in r.projects:
+    for p in r.merged_projects():
         points = [str(h) for h in p.highlights if str(h).strip()]
         if not points and p.description:
             points = [line.strip() for line in p.description.splitlines() if line.strip()]
