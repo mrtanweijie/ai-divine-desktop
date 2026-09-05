@@ -291,278 +291,278 @@
 // FilePreviewPanel 内部的 diff 样式全部嵌套在 .file-inspector-panel 下，
 // 避免与 MessageItem/DiffView 的 .diff-view / .diff-line 全局类冲突。
 .file-inspector-panel {
-.diff-view {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-}
+  .diff-view {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
 
-// 面板头部面包屑：文件 > 文件名（文件名由 selectedFile 提供，见 index.tsx）
-.file-inspector-title-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
+  // 面板头部面包屑：文件 > 文件名（文件名由 selectedFile 提供，见 index.tsx）
+  .file-inspector-title-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
 
-.file-inspector-crumb-sep {
-  flex-shrink: 0;
-  color: var(--color-text-muted);
-}
+  .file-inspector-crumb-sep {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+  }
 
-.file-inspector-crumb {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--color-text);
-  font-size: 12.5px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  .file-inspector-crumb {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text);
+    font-size: 12.5px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
-.diff-accept-button {
-  flex-shrink: 0;
-}
+  .diff-accept-button {
+    flex-shrink: 0;
+  }
 
-.diff-view-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex: 1;
-  padding: 24px;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  text-align: center;
-}
+  .diff-view-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 1;
+    padding: 24px;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    text-align: center;
+  }
 
-.diff-view-state span {
-  min-width: 0;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
+  .diff-view-state span {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
 
-.diff-view-state.error {
-  color: var(--color-danger);
-}
+  .diff-view-state.error {
+    color: var(--color-danger);
+  }
 
-.binary-preview {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-  overflow: auto;
-  background: var(--color-surface);
-}
+  .binary-preview {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    overflow: auto;
+    background: var(--color-surface);
+  }
 
-.binary-preview img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  border-radius: var(--radius-sm);
-}
+  .binary-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+  }
 
-.binary-preview.pdf-preview {
-  flex-direction: column;
-  gap: 10px;
-  align-items: stretch;
-}
+  .binary-preview.pdf-preview {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
 
-.binary-preview.pdf-preview img {
-  width: 100%;
-  height: auto;
-  max-height: none;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
-}
+  .binary-preview.pdf-preview img {
+    width: 100%;
+    height: auto;
+    max-height: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  }
 
-.binary-preview-pdf {
-  width: 100%;
-  height: 100%;
-  min-height: 480px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: #fff;
-}
+  .binary-preview-pdf {
+    width: 100%;
+    height: 100%;
+    min-height: 480px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: #fff;
+  }
 
-.binary-preview.document-preview {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-  padding: 0;
-}
-// 文档预览的动作按钮注册到外层 diff-view-head 渲染（见 PreviewHeaderSlot），
-// 原内层 document-preview-header 已合并移除
-.diff-view-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-.document-preview-content {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 12px 14px;
-}
-.document-preview-source {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--color-text);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
+  .binary-preview.document-preview {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+  }
+  // 文档预览的动作按钮注册到外层 diff-view-head 渲染（见 PreviewHeaderSlot），
+  // 原内层 document-preview-header 已合并移除
+  .diff-view-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .document-preview-content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 12px 14px;
+  }
+  .document-preview-source {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--color-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
 
-.diff-view-truncated {
-  position: sticky;
-  top: 10px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  max-width: calc(100% - 28px);
-  margin: 10px auto 0;
-  padding: 5px 12px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-full);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  font-size: 11.5px;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+  .diff-view-truncated {
+    position: sticky;
+    top: 10px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    max-width: calc(100% - 28px);
+    margin: 10px auto 0;
+    padding: 5px 12px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: 11.5px;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
-.diff-view-truncated-icon {
-  flex-shrink: 0;
-  color: var(--color-text-muted);
-  opacity: 0.85;
-}
+  .diff-view-truncated-icon {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    opacity: 0.85;
+  }
 
-.diff-view-truncated span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  .diff-view-truncated span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
-.diff-view-code {
-  flex: 1;
-  overflow: auto;
-  padding: 6px 0;
-  background: var(--color-code-bg);
-}
+  .diff-view-code {
+    flex: 1;
+    overflow: auto;
+    padding: 6px 0;
+    background: var(--color-code-bg);
+  }
 
-.code-preview {
-  flex: 1;
-  overflow: auto;
-  padding: 6px 0;
-  background: var(--color-code-bg);
-}
+  .code-preview {
+    flex: 1;
+    overflow: auto;
+    padding: 6px 0;
+    background: var(--color-code-bg);
+  }
 
-.file-content-line {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  align-items: start;
-  min-width: max-content;
-  min-height: 20px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  line-height: 20px;
-}
+  .file-content-line {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    align-items: start;
+    min-width: max-content;
+    min-height: 20px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 20px;
+  }
 
-.file-content-line code {
-  min-width: 0;
-  padding-right: 12px;
-  color: inherit;
-  white-space: pre;
-  overflow-wrap: anywhere;
-}
+  .file-content-line code {
+    min-width: 0;
+    padding-right: 12px;
+    color: inherit;
+    white-space: pre;
+    overflow-wrap: anywhere;
+  }
 
-.file-content-line-num {
-  padding-right: 10px;
-  color: var(--color-text-muted);
-  text-align: right;
-  user-select: none;
-}
+  .file-content-line-num {
+    padding-right: 10px;
+    color: var(--color-text-muted);
+    text-align: right;
+    user-select: none;
+  }
 
-.diff-line {
-  display: grid;
-  grid-template-columns: 34px 34px 18px minmax(0, 1fr);
-  align-items: start;
-  min-width: max-content;
-  min-height: 20px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  line-height: 20px;
-}
+  .diff-line {
+    display: grid;
+    grid-template-columns: 34px 34px 18px minmax(0, 1fr);
+    align-items: start;
+    min-width: max-content;
+    min-height: 20px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 20px;
+  }
 
-.diff-line code {
-  min-width: 0;
-  padding-right: 12px;
-  color: inherit;
-  white-space: pre;
-  overflow-wrap: anywhere;
-}
+  .diff-line code {
+    min-width: 0;
+    padding-right: 12px;
+    color: inherit;
+    white-space: pre;
+    overflow-wrap: anywhere;
+  }
 
-.diff-line-num {
-  color: var(--color-text-muted);
-  text-align: right;
-  user-select: none;
-}
+  .diff-line-num {
+    color: var(--color-text-muted);
+    text-align: right;
+    user-select: none;
+  }
 
-.diff-line-num.old {
-  padding-right: 8px;
-}
+  .diff-line-num.old {
+    padding-right: 8px;
+  }
 
-.diff-line-num.new {
-  padding-right: 8px;
-}
+  .diff-line-num.new {
+    padding-right: 8px;
+  }
 
-.diff-sign {
-  color: var(--color-text-muted);
-  text-align: center;
-  user-select: none;
-}
+  .diff-sign {
+    color: var(--color-text-muted);
+    text-align: center;
+    user-select: none;
+  }
 
-.diff-add {
-  background: rgba(34, 197, 94, 0.1);
-}
+  .diff-add {
+    background: rgba(34, 197, 94, 0.1);
+  }
 
-.diff-add .diff-sign {
-  color: var(--status-green);
-}
+  .diff-add .diff-sign {
+    color: var(--status-green);
+  }
 
-.diff-del {
-  background: rgba(239, 68, 68, 0.1);
-}
+  .diff-del {
+    background: rgba(239, 68, 68, 0.1);
+  }
 
-.diff-del .diff-sign {
-  color: var(--status-red);
-}
+  .diff-del .diff-sign {
+    color: var(--status-red);
+  }
 
-.diff-hunk {
-  display: block;
-  min-width: max-content;
-  padding: 2px 12px;
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--status-blue);
-  white-space: pre;
-}
+  .diff-hunk {
+    display: block;
+    min-width: max-content;
+    padding: 2px 12px;
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--status-blue);
+    white-space: pre;
+  }
 
-.diff-meta {
-  display: block;
-  min-width: max-content;
-  padding: 2px 12px;
-  color: var(--color-text-muted);
-  white-space: pre;
-}
+  .diff-meta {
+    display: block;
+    min-width: max-content;
+    padding: 2px 12px;
+    color: var(--color-text-muted);
+    white-space: pre;
+  }
 }

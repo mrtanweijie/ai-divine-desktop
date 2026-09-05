@@ -10,30 +10,25 @@ import type { ChatMessage } from "@/types";
  * 组件/effect 在每次消息更新时级联重建。
  */
 export function useMessageState() {
-  const [messagesBySession, setMessagesBySession] = useState<
-    Record<string, ChatMessage[]>
-  >({});
+  const [messagesBySession, setMessagesBySession] = useState<Record<string, ChatMessage[]>>({});
   const messagesBySessionRef = useRef<Record<string, ChatMessage[]>>({});
-  const [streamingSessions, setStreamingSessions] = useState<Set<string>>(
-    () => new Set()
-  );
+  const [streamingSessions, setStreamingSessions] = useState<Set<string>>(() => new Set());
 
   const setSessionMessages = useCallback(
     (
       sessionId: string | null,
-      messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])
+      messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[]),
     ) => {
       if (!sessionId) return;
       setMessagesBySession((prev) => {
         const current = prev[sessionId] ?? [];
-        const next =
-          typeof messages === "function" ? messages(current) : messages;
+        const next = typeof messages === "function" ? messages(current) : messages;
         const updated = { ...prev, [sessionId]: next };
         messagesBySessionRef.current = updated;
         return updated;
       });
     },
-    []
+    [],
   );
 
   const clearSessionMessages = useCallback((sessionId: string | null) => {
@@ -51,18 +46,15 @@ export function useMessageState() {
     });
   }, []);
 
-  const setSessionStreaming = useCallback(
-    (sessionId: string | null, value: boolean) => {
-      if (!sessionId) return;
-      setStreamingSessions((prev) => {
-        const next = new Set(prev);
-        if (value) next.add(sessionId);
-        else next.delete(sessionId);
-        return next;
-      });
-    },
-    []
-  );
+  const setSessionStreaming = useCallback((sessionId: string | null, value: boolean) => {
+    if (!sessionId) return;
+    setStreamingSessions((prev) => {
+      const next = new Set(prev);
+      if (value) next.add(sessionId);
+      else next.delete(sessionId);
+      return next;
+    });
+  }, []);
 
   // 读取某会话的缓存消息（走 ref，稳定引用；不把 state 放进依赖数组）
   const getCachedSessionMessages = useCallback((sessionId: string | null) => {

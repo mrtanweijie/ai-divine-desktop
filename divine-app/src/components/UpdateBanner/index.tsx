@@ -1,9 +1,4 @@
-import {
-  Download,
-  Loader2,
-  RefreshCw,
-  X,
-} from "lucide-react";
+import { Download, Loader2, RefreshCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import {
@@ -59,11 +54,7 @@ export function UpdateBanner() {
           version: updater.version,
         })}
       </span>
-      <Button
-        variant="primary"
-        size="small"
-        onClick={() => void downloadAndInstallUpdate()}
-      >
+      <Button variant="primary" size="small" onClick={() => void downloadAndInstallUpdate()}>
         {t("updater.downloadAndRestart", "下载并重启")}
       </Button>
       <Button

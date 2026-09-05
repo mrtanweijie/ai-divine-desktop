@@ -61,10 +61,7 @@ export function StartupGate({ children }: StartupGateProps) {
 
   if (!ready || !minTimeElapsed) {
     return (
-      <div
-        className="startup-gate"
-        {...(isTauri() ? { "data-tauri-drag-region": true } : {})}
-      >
+      <div className="startup-gate" {...(isTauri() ? { "data-tauri-drag-region": true } : {})}>
         <LoadingOrb state="connecting" size={64} />
       </div>
     );

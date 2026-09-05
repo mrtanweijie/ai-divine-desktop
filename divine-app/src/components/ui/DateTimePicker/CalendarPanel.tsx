@@ -99,7 +99,7 @@ export function CalendarPanel({
             </div>
           ) : (
             <span key={`blank-${index}`} />
-          )
+          ),
         )}
       </div>
     </div>

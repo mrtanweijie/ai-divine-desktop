@@ -62,10 +62,7 @@ export function GrokBallIdle({
         nx = (event.clientX / window.innerWidth) * 2 - 1;
         ny = (event.clientY / window.innerHeight) * 2 - 1;
       }
-      ball?.setGaze(
-        Math.max(-1, Math.min(1, nx)),
-        Math.max(-1, Math.min(1, ny))
-      );
+      ball?.setGaze(Math.max(-1, Math.min(1, nx)), Math.max(-1, Math.min(1, ny)));
     };
     window.addEventListener("mousemove", onMouseMove);
 
@@ -81,10 +78,6 @@ export function GrokBallIdle({
   }, [color, blush]);
 
   return (
-    <div
-      ref={containerRef}
-      className="grok-ball-idle"
-      style={{ width: size, height: size }}
-    />
+    <div ref={containerRef} className="grok-ball-idle" style={{ width: size, height: size }} />
   );
 }

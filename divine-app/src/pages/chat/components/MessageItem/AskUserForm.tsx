@@ -44,9 +44,7 @@ export function AskUserForm({
     !answered &&
     !disabled &&
     Boolean(targetSessionId) &&
-    (inputType === "single_choice"
-      ? selected !== null
-      : text.trim().length > 0);
+    (inputType === "single_choice" ? selected !== null : text.trim().length > 0);
 
   const submit = async (answer: string) => {
     const trimmed = answer.trim();
@@ -55,23 +53,18 @@ export function AskUserForm({
     setError(null);
     setAnswered(trimmed); // optimistic freeze
     try {
-      const result = await request<{ ok?: boolean; message?: string }>(
-        "/chat/answer",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            session_id: targetSessionId,
-            call_id: callId ?? "",
-            answer: trimmed,
-          }),
-        }
-      );
+      const result = await request<{ ok?: boolean; message?: string }>("/chat/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: targetSessionId,
+          call_id: callId ?? "",
+          answer: trimmed,
+        }),
+      });
       if (result && result.ok === false) {
         setAnswered(null);
-        setError(
-          result.message || t("tool.answerFailed", "回答发送失败，请重试")
-        );
+        setError(result.message || t("tool.answerFailed", "回答发送失败，请重试"));
       }
     } catch {
       setAnswered(null);
@@ -156,11 +149,7 @@ export function AskUserForm({
               size="small"
               loading={submitting}
               disabled={!canSubmit}
-              onClick={() =>
-                void submit(
-                  inputType === "single_choice" ? (selected ?? "") : text
-                )
-              }
+              onClick={() => void submit(inputType === "single_choice" ? (selected ?? "") : text)}
             >
               <ArrowUpRight size={14} />
               {t("tool.askUserSubmit", "发送回答")}

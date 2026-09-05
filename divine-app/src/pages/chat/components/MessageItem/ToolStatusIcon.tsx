@@ -83,30 +83,23 @@ export function toolIcon(tool: string) {
   if (tool.includes("svg")) return <PenTool size={16} />;
   if (tool === "schedule_task") return <CalendarClock size={16} />;
   if (tool === "write_calendar") return <CalendarDays size={16} />;
-  if (tool.includes("spreadsheet") || tool.includes("excel"))
-    return <FileSpreadsheet size={16} />;
+  if (tool.includes("spreadsheet") || tool.includes("excel")) return <FileSpreadsheet size={16} />;
   if (tool.includes("notes")) return <StickyNote size={16} />;
   if (tool === "read_file") return <BookMarked size={16} />;
-  if (tool.includes("read_image") || tool.includes("image"))
-    return <Image size={16} />;
+  if (tool.includes("read_image") || tool.includes("image")) return <Image size={16} />;
   if (tool.includes("calculator")) return <Calculator size={16} />;
   if (tool.includes("clipboard")) return <Copy size={16} />;
-  if (tool.includes("sqlite") || tool.includes("database"))
-    return <Database size={16} />;
+  if (tool.includes("sqlite") || tool.includes("database")) return <Database size={16} />;
   if (tool.includes("rag_index")) return <LibraryBig size={16} />;
   if (tool.includes("rag_search")) return <BookSearch size={16} />;
   if (tool.includes("grep")) return <BookOpenCheck size={16} />;
   if (tool === "web_search") return <Blend size={16} />;
-  if (tool.includes("search_files") || tool.includes("search"))
-    return <FolderSearch2 size={16} />;
+  if (tool.includes("search_files") || tool.includes("search")) return <FolderSearch2 size={16} />;
   if (tool === "create_plan") return <SquareKanban size={16} />;
   if (tool.includes("pdf")) return <BookAudio size={16} />;
-  if (tool.includes("directory") || tool.includes("tree"))
-    return <FolderTree size={16} />;
-  if (tool === "generate_chart" || tool.includes("chart"))
-    return <BarChart3 size={16} />;
-  if (tool.includes("mermaid") || tool.includes("diagram"))
-    return <Workflow size={16} />;
+  if (tool.includes("directory") || tool.includes("tree")) return <FolderTree size={16} />;
+  if (tool === "generate_chart" || tool.includes("chart")) return <BarChart3 size={16} />;
+  if (tool.includes("mermaid") || tool.includes("diagram")) return <Workflow size={16} />;
   if (
     tool.includes("requirements") ||
     tool.includes("html") ||
@@ -114,11 +107,7 @@ export function toolIcon(tool: string) {
     tool.includes("ux")
   )
     return <FileCode2 size={16} />;
-  if (
-    tool.includes("presentation") ||
-    tool.includes("ppt") ||
-    tool.includes("slides")
-  )
+  if (tool.includes("presentation") || tool.includes("ppt") || tool.includes("slides"))
     return <Presentation size={16} />;
   if (tool === "web_fetch_batch") return <Package size={16} />;
   if (tool === "web_fetch") return <Box size={16} />;

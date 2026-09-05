@@ -1,9 +1,4 @@
-import {
-  Clock,
-  MessageSquareQuote,
-  Settings,
-  Sparkles,
-} from "lucide-react";
+import { Clock, MessageSquareQuote, Settings, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Flex } from "@/components/ui/Flex";
 import type { Project, Session } from "@/types";
@@ -61,10 +56,7 @@ export function SessionList({
       className={`session-sidebar${collapsed ? " collapsed" : ""}`}
       aria-label={t("session.list", "会话列表")}
     >
-      <div
-        className="session-sidebar-content"
-        style={collapsed ? { display: "none" } : undefined}
-      >
+      <div className="session-sidebar-content" style={collapsed ? { display: "none" } : undefined}>
         <Flex align="center" gap={8} className="sidebar-header">
           <div
             className="new-chat-link"
@@ -84,9 +76,7 @@ export function SessionList({
         </Flex>
 
         <div
-          className={`tasks-link tasks-nav-link${
-            activeView === "tasks" ? " active" : ""
-          }`}
+          className={`tasks-link tasks-nav-link${activeView === "tasks" ? " active" : ""}`}
           role="button"
           tabIndex={0}
           onClick={onOpenTasks}
@@ -103,9 +93,7 @@ export function SessionList({
         </div>
 
         <div
-          className={`tasks-link skills-nav-link${
-            activeView === "skills" ? " active" : ""
-          }`}
+          className={`tasks-link skills-nav-link${activeView === "skills" ? " active" : ""}`}
           role="button"
           tabIndex={0}
           onClick={onOpenSkills}

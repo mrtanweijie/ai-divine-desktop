@@ -29,8 +29,8 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       // 采纳期策略：存量问题先降为警告，后续逐步清零
-      "@typescript-eslint/no-explicit-any": "warn",  // 存量 ~9 处
-      "@typescript-eslint/no-non-null-assertion": "warn",  // 存量 2 处
+      "@typescript-eslint/no-explicit-any": "warn", // 存量 ~9 处
+      "@typescript-eslint/no-non-null-assertion": "warn", // 存量 2 处
       // react-hooks v7 编译器衍生新规则与现有模式（模块级单例 store、
       // 挂载期数据加载）系统性冲突，共 ~34 处；重构是独立任务，先降为警告
       "react-hooks/set-state-in-effect": "warn",

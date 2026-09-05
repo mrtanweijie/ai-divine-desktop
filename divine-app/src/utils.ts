@@ -16,10 +16,8 @@ export function formatTime(value: string): string {
     hour12: false,
   });
   if (date >= startToday) return hhmm; // 今天：只显时分
-  if (date >= startYesterday)
-    return `${i18next.t("time.yesterday", "昨天")} ${hhmm}`; // 昨天
-  if (date >= startDayBefore)
-    return `${i18next.t("time.dayBefore", "前天")} ${hhmm}`; // 前天
+  if (date >= startYesterday) return `${i18next.t("time.yesterday", "昨天")} ${hhmm}`; // 昨天
+  if (date >= startDayBefore) return `${i18next.t("time.dayBefore", "前天")} ${hhmm}`; // 前天
   return date.toLocaleDateString(locale, {
     month: "numeric",
     day: "numeric",
@@ -42,8 +40,7 @@ export function formatTokens(count: number): string {
   const unit = count < 1_000_000 ? 1000 : 1_000_000;
   const suffix = count < 1_000_000 ? "k" : "m";
   const value = count / unit;
-  const text =
-    value >= 100 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
+  const text = value >= 100 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
   return `${text}${suffix}`;
 }
 

@@ -73,10 +73,7 @@ export function ChartBlock({ option }: ChartBlockProps) {
         <div className="echarts-error">
           <AlertTriangle size={14} />
           <span>
-            {t(
-              "chat.chartRenderFailed",
-              "图表数据格式异常，暂时无法渲染，可重新生成试试"
-            )}
+            {t("chat.chartRenderFailed", "图表数据格式异常，暂时无法渲染，可重新生成试试")}
           </span>
         </div>
       )}

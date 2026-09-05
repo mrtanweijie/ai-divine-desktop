@@ -8,13 +8,7 @@ interface SwitchProps {
   id?: string;
 }
 
-export function Switch({
-  checked,
-  onChange,
-  label,
-  disabled,
-  id,
-}: SwitchProps) {
+export function Switch({ checked, onChange, label, disabled, id }: SwitchProps) {
   return (
     <label className="ui-switch" htmlFor={id}>
       {label && <span className="ui-switch-label">{label}</span>}

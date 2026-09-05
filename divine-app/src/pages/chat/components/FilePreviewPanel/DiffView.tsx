@@ -74,47 +74,30 @@ function fallbackRows(content: string, kind: "add" | "del" | "context"): DiffRow
     .map((text, index) => ({
       type: kind,
       text,
-      oldLine:
-        kind === "add"
-          ? null
-          : kind === "del"
-            ? index + 1
-            : index + 1,
-      newLine:
-        kind === "del"
-          ? null
-          : kind === "add"
-            ? index + 1
-            : index + 1,
+      oldLine: kind === "add" ? null : kind === "del" ? index + 1 : index + 1,
+      newLine: kind === "del" ? null : kind === "add" ? index + 1 : index + 1,
     }));
 }
 
-export function DiffView({
-  preview,
-  relPath,
-  fileName,
-  path,
-  changed = false,
-}: DiffViewProps) {
+export function DiffView({ preview, relPath, fileName, path, changed = false }: DiffViewProps) {
   const { t } = useTranslation();
   const rawDiff = !preview.isBinary ? preview.diffText.trim() : "";
   const diffExceedsLimit =
     rawDiff.split("\n").length > MAX_PREVIEW_ROWS ||
     (!rawDiff && (preview.newContent || preview.oldContent).split("\n").length > MAX_PREVIEW_ROWS);
-  const rows =
-    !preview.isBinary
-      ? rawDiff
-        ? parseDiffRows(preview.diffText)
-        : preview.tracked
-          ? fallbackRows(preview.newContent, "context")
-          : preview.newContent
-            ? preview.isGit || changed
-              ? fallbackRows(preview.newContent, "add")
-              : fallbackRows(preview.newContent, "context")
-            : preview.oldContent
-              ? fallbackRows(preview.oldContent, "del")
-              : []
-      : [];
+  const rows = !preview.isBinary
+    ? rawDiff
+      ? parseDiffRows(preview.diffText)
+      : preview.tracked
+        ? fallbackRows(preview.newContent, "context")
+        : preview.newContent
+          ? preview.isGit || changed
+            ? fallbackRows(preview.newContent, "add")
+            : fallbackRows(preview.newContent, "context")
+          : preview.oldContent
+            ? fallbackRows(preview.oldContent, "del")
+            : []
+    : [];
 
   return (
     <div className="diff-view">
@@ -151,20 +134,12 @@ export function DiffView({
             >
               {row.type !== "hunk" && row.type !== "meta" && (
                 <>
-                  <span className="diff-line-num old">
-                    {row.oldLine ?? ""}
-                  </span>
-                  <span className="diff-line-num new">
-                    {row.newLine ?? ""}
-                  </span>
+                  <span className="diff-line-num old">{row.oldLine ?? ""}</span>
+                  <span className="diff-line-num new">{row.newLine ?? ""}</span>
                 </>
               )}
               <span className="diff-sign">
-                {row.type === "add"
-                  ? "+"
-                  : row.type === "del"
-                    ? "-"
-                    : ""}
+                {row.type === "add" ? "+" : row.type === "del" ? "-" : ""}
               </span>
               <code>{row.text || "\u00a0"}</code>
             </div>

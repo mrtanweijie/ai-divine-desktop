@@ -17,10 +17,7 @@ export function weekdayLabels(): string[] {
 export function weekdayText(days: number[]): string {
   const labels = weekdayLabels();
   const sorted = [...days].sort();
-  if (
-    sorted.length === 5 &&
-    JSON.stringify(sorted) === JSON.stringify([1, 2, 3, 4, 5])
-  ) {
+  if (sorted.length === 5 && JSON.stringify(sorted) === JSON.stringify([1, 2, 3, 4, 5])) {
     return i18next.t("tasks.workday", "工作日");
   }
   if (sorted.length === 1) {
@@ -38,9 +35,7 @@ export function weekdayText(days: number[]): string {
 export function formatTaskSchedule(task: ScheduledTask): string {
   const hhmm = `${pad(task.run_hour ?? 8)}:${pad(task.run_minute ?? 0)}`;
   if (task.frequency === "once") {
-    return task.run_at
-      ? formatDateTime(task.run_at)
-      : i18next.t("tasks.once", "一次性");
+    return task.run_at ? formatDateTime(task.run_at) : i18next.t("tasks.once", "一次性");
   }
   if (task.frequency === "interval") {
     const minutes = task.interval_minutes;
@@ -79,6 +74,6 @@ export function toLocalInputValue(value: string | null | undefined): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-    date.getDate()
+    date.getDate(),
   )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }

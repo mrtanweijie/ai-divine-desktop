@@ -38,8 +38,8 @@
   --status-amber: #facc15;
   --status-violet: #a78bfa;
   --focus-ring: 0 0 0 2px rgba(255, 255, 255, 0.35);
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
-    "PingFang SC", sans-serif;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
@@ -72,8 +72,8 @@
   --status-amber: #ca8a04;
   --status-violet: #7c3aed;
   --focus-ring: 0 0 0 2px rgba(17, 24, 39, 0.28);
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
-    "PingFang SC", sans-serif;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
@@ -96,7 +96,6 @@ body {
   letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
 }
-
 
 button,
 input,
@@ -143,7 +142,6 @@ a:focus-visible {
   background: transparent;
 }
 
-
 .app-shell.workspace-expanded .main-area {
   visibility: hidden;
   opacity: 0;
@@ -168,7 +166,6 @@ a:focus-visible {
 .app-shell.traffic-safe .file-inspector-header {
   padding-left: 76px;
 }
-
 
 .icon-button {
   width: 32px;
@@ -204,7 +201,6 @@ a:focus-visible {
   color: var(--color-danger);
   background: rgba(244, 123, 110, 0.08);
 }
-
 
 .menu-wrap,
 .tool-menu-wrap {
@@ -247,13 +243,11 @@ a:focus-visible {
   }
 }
 
-
 @keyframes plan-spin {
   to {
     transform: rotate(360deg);
   }
 }
-
 
 :root[data-theme="light"] .tool-url-link {
   background: #ffffff;
@@ -274,13 +268,11 @@ a:focus-visible {
   border-color: var(--color-border);
 }
 
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
-
 
 @keyframes blink {
   0%,
@@ -291,7 +283,6 @@ a:focus-visible {
     opacity: 0;
   }
 }
-
 
 @keyframes dots {
   0%,
@@ -304,7 +295,6 @@ a:focus-visible {
     transform: translateY(-2px);
   }
 }
-
 
 .modal-backdrop {
   position: fixed;
@@ -387,7 +377,6 @@ a:focus-visible {
   flex: 1;
   min-width: 0;
 }
-
 
 .password-field {
   position: relative;
@@ -542,15 +531,12 @@ a:focus-visible {
 }
 
 @media (max-width: 760px) {
-
-
 }
 
 @media (min-width: 1100px) {
   .mobile-sidebar-button {
     display: none;
   }
-
 }
 
 :root[data-theme="light"] .session-sidebar,
@@ -604,18 +590,12 @@ a:focus-visible {
   background: transparent;
 }
 
-
 /* 主题色卡网格（选项带 color_scheme 时使用） */
-
 
 /* 选项按钮：覆盖 ui-button 默认横向布局为卡片式（一行等宽） */
 
-
 /* 选中态：半透明强调边框 + 柔和背景，避免深色主题下纯白边框/字体突兀 */
-
 
 /* 多选模式：desc 与 label 文本左对齐（勾选框宽 14 + margin 6 = 20px 缩进） */
 
-
 /* 多选模式：勾选框与 label 文本间距（勾选框样式由 Checkbox 组件自带） */
-

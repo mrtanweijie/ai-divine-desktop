@@ -1,17 +1,5 @@
-import {
-  AlertCircle,
-  BellRing,
-  CalendarX,
-  PanelLeftOpen,
-  Plus,
-  Search,
-} from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { AlertCircle, BellRing, CalendarX, PanelLeftOpen, Plus, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -38,11 +26,7 @@ import { SuggestionCards, type TaskSuggestion } from "./components/SuggestionCar
 import { TaskRow } from "./components/TaskRow";
 import "./index.less";
 
-export function ScheduledTasksPage({
-  onOpenSidebar,
-}: {
-  onOpenSidebar: () => void;
-}) {
+export function ScheduledTasksPage({ onOpenSidebar }: { onOpenSidebar: () => void }) {
   const { t } = useTranslation();
   const suggestions = useMemo<TaskSuggestion[]>(
     () => [
@@ -52,7 +36,7 @@ export function ScheduledTasksPage({
         schedule: t("tasks.suggestionDailySchedule", "工作日 8:00"),
         description: t(
           "tasks.suggestionDailyDescription",
-          "以日历、未读电子邮件和优先事项摘要开启每个工作日"
+          "以日历、未读电子邮件和优先事项摘要开启每个工作日",
         ),
         frequency: "daily",
         run_hour: 8,
@@ -65,7 +49,7 @@ export function ScheduledTasksPage({
         schedule: t("tasks.suggestionWeeklySchedule", "星期五 16:00"),
         description: t(
           "tasks.suggestionWeeklyDescription",
-          "每周五将你最近的工作整理成简明的状态更新"
+          "每周五将你最近的工作整理成简明的状态更新",
         ),
         frequency: "weekly",
         run_hour: 16,
@@ -78,7 +62,7 @@ export function ScheduledTasksPage({
         schedule: t("tasks.suggestionMonitorSchedule", "工作日 9:00"),
         description: t(
           "tasks.suggestionMonitorDescription",
-          "查看最近的电子邮箱和日历活动，并标记需要你关注的事项"
+          "查看最近的电子邮箱和日历活动，并标记需要你关注的事项",
         ),
         frequency: "daily",
         run_hour: 9,
@@ -86,43 +70,30 @@ export function ScheduledTasksPage({
         days_of_week: [1, 2, 3, 4, 5],
       },
     ],
-    [t]
+    [t],
   );
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [notificationGranted, setNotificationGranted] = useState<boolean | null>(
-    null
-  );
+  const [notificationGranted, setNotificationGranted] = useState<boolean | null>(null);
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [creatingSuggestion, setCreatingSuggestion] = useState<string | null>(
-    null
-  );
-  const [createdSuggestion, setCreatedSuggestion] = useState<string | null>(
-    null
-  );
+  const [creatingSuggestion, setCreatingSuggestion] = useState<string | null>(null);
+  const [createdSuggestion, setCreatedSuggestion] = useState<string | null>(null);
   const [taskModal, setTaskModal] = useState<
     { mode: "create" } | { mode: "edit"; task: ScheduledTask } | null
   >(null);
   const [deleteTask, setDeleteTask] = useState<ScheduledTask | null>(null);
-  const [writingCalendarTaskId, setWritingCalendarTaskId] = useState<
-    string | null
-  >(null);
+  const [writingCalendarTaskId, setWritingCalendarTaskId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [taskData, eventData] = await Promise.all([
-        listScheduledTasks(),
-        listCalendarEvents(),
-      ]);
+      const [taskData, eventData] = await Promise.all([listScheduledTasks(), listCalendarEvents()]);
       setTasks(taskData.tasks);
       setEvents(eventData.events);
       await syncTaskNotifications(taskData.tasks);
-      await syncCalendarToSystem(eventData.events, (message) =>
-        setCalendarError(message)
-      );
+      await syncCalendarToSystem(eventData.events, (message) => setCalendarError(message));
       setNotificationGranted(await isNotificationGranted());
     } finally {
       setLoading(false);
@@ -145,7 +116,7 @@ export function ScheduledTasksPage({
     return tasks.filter(
       (task) =>
         task.title.toLowerCase().includes(keyword) ||
-        task.description.toLowerCase().includes(keyword)
+        task.description.toLowerCase().includes(keyword),
     );
   }, [search, tasks]);
 
@@ -167,7 +138,7 @@ export function ScheduledTasksPage({
         toast.success(
           t("tasks.created", "已创建任务：{{title}}", {
             title: suggestion.title,
-          })
+          }),
         );
         setTimeout(() => setCreatedSuggestion(null), 1800);
         const granted = await ensureNotificationPermission();
@@ -175,15 +146,13 @@ export function ScheduledTasksPage({
         await syncTaskNotifications([...tasks, task]).catch(() => undefined);
       } catch (error) {
         setActionError(
-          error instanceof Error
-            ? error.message
-            : t("tasks.createFailed", "创建定时任务失败")
+          error instanceof Error ? error.message : t("tasks.createFailed", "创建定时任务失败"),
         );
       } finally {
         setCreatingSuggestion(null);
       }
     },
-    [t, tasks]
+    [t, tasks],
   );
 
   const handleToggleTask = useCallback(
@@ -194,26 +163,20 @@ export function ScheduledTasksPage({
         const updated = await updateScheduledTask(task.id, {
           status: nextStatus,
         });
-        setTasks((prev) =>
-          prev.map((item) => (item.id === updated.id ? updated : item))
-        );
+        setTasks((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
         toast.success(
           nextStatus === "paused"
             ? t("tasks.paused", "任务已暂停")
-            : t("tasks.resumed", "任务已恢复")
+            : t("tasks.resumed", "任务已恢复"),
         );
-        await syncTaskNotifications(
-          tasks.map((item) => (item.id === updated.id ? updated : item))
-        );
+        await syncTaskNotifications(tasks.map((item) => (item.id === updated.id ? updated : item)));
       } catch (error) {
         setActionError(
-          error instanceof Error
-            ? error.message
-            : t("tasks.actionFailed", "操作失败，请重试")
+          error instanceof Error ? error.message : t("tasks.actionFailed", "操作失败，请重试"),
         );
       }
     },
-    [t, tasks]
+    [t, tasks],
   );
 
   const handleDeleteTask = useCallback(
@@ -228,13 +191,11 @@ export function ScheduledTasksPage({
         await syncTaskNotifications(next);
       } catch (error) {
         setActionError(
-          error instanceof Error
-            ? error.message
-            : t("tasks.deleteFailed", "删除失败，请重试")
+          error instanceof Error ? error.message : t("tasks.deleteFailed", "删除失败，请重试"),
         );
       }
     },
-    [t, tasks]
+    [t, tasks],
   );
 
   const handleWriteCalendar = useCallback(
@@ -252,34 +213,28 @@ export function ScheduledTasksPage({
           const event = await createCalendarEvent({
             title: task.title,
             start_at: task.next_run_at,
-            end_at: new Date(
-              new Date(task.next_run_at).getTime() + 60 * 60 * 1000
-            ).toISOString(),
+            end_at: new Date(new Date(task.next_run_at).getTime() + 60 * 60 * 1000).toISOString(),
             notes: task.description,
             task_id: task.id,
           });
           next = [...events, event];
           setEvents(next);
         }
-        await syncCalendarToSystem(next, (message) =>
-          setCalendarError(message)
-        );
+        await syncCalendarToSystem(next, (message) => setCalendarError(message));
         toast.success(
           existing
             ? t("tasks.calendarSynced", "日程已同步到系统日历")
-            : t("tasks.calendarWritten", "已写入日程")
+            : t("tasks.calendarWritten", "已写入日程"),
         );
       } catch (error) {
         setActionError(
-          error instanceof Error
-            ? error.message
-            : t("tasks.calendarWriteFailed", "写入日程失败")
+          error instanceof Error ? error.message : t("tasks.calendarWriteFailed", "写入日程失败"),
         );
       } finally {
         setWritingCalendarTaskId(null);
       }
     },
-    [events, t, writingCalendarTaskId]
+    [events, t, writingCalendarTaskId],
   );
 
   const handleEnableNotifications = useCallback(async () => {
@@ -291,7 +246,7 @@ export function ScheduledTasksPage({
       setActionError(
         error instanceof Error
           ? error.message
-          : t("tasks.enableNotificationFailed", "开启通知失败")
+          : t("tasks.enableNotificationFailed", "开启通知失败"),
       );
     }
   }, [t]);
@@ -318,11 +273,7 @@ export function ScheduledTasksPage({
               aria-label={t("tasks.search", "搜索已安排任务")}
             />
           </div>
-          <Button
-            variant="primary"
-            size="small"
-            onClick={() => setTaskModal({ mode: "create" })}
-          >
+          <Button variant="primary" size="small" onClick={() => setTaskModal({ mode: "create" })}>
             <Plus size={14} />
             {t("tasks.new", "新建任务")}
           </Button>
@@ -342,11 +293,7 @@ export function ScheduledTasksPage({
         <div className="scheduled-notice calendar-notice">
           <AlertCircle size={15} />
           <span>{actionError}</span>
-          <Button
-            size="small"
-            variant="ghost"
-            onClick={() => setActionError(null)}
-          >
+          <Button size="small" variant="ghost" onClick={() => setActionError(null)}>
             {t("common.close", "关闭")}
           </Button>
         </div>
@@ -359,11 +306,7 @@ export function ScheduledTasksPage({
               message: calendarError,
             })}
           </span>
-          <Button
-            size="small"
-            variant="ghost"
-            onClick={() => setCalendarError(null)}
-          >
+          <Button size="small" variant="ghost" onClick={() => setCalendarError(null)}>
             {t("common.close", "关闭")}
           </Button>
         </div>
@@ -422,7 +365,7 @@ export function ScheduledTasksPage({
           description={t(
             "tasks.deleteConfirm",
             "删除后任务“{{title}}”将不再提醒，关联的日程也会一并删除。",
-            { title: deleteTask.title }
+            { title: deleteTask.title },
           )}
           onConfirm={() => void handleDeleteTask(deleteTask)}
           onCancel={() => setDeleteTask(null)}

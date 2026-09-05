@@ -17,9 +17,7 @@ export interface StreamBuffer {
   dispose: () => void;
 }
 
-export function createStreamBuffer(
-  commit: (pending: PendingText) => void
-): StreamBuffer {
+export function createStreamBuffer(commit: (pending: PendingText) => void): StreamBuffer {
   let pending: PendingText = { think: "", content: "" };
   let raf: number | null = null;
 

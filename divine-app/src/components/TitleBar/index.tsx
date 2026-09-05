@@ -23,16 +23,9 @@ export function TitleBar({
     ? t("common.expandSessionList", "展开会话列表")
     : t("common.collapseSessionList", "收起会话列表");
   return (
-    <div
-      className={`titlebar${collapsed ? " collapsed" : ""}${
-        fullscreen ? " fullscreen" : ""
-      }`}
-    >
+    <div className={`titlebar${collapsed ? " collapsed" : ""}${fullscreen ? " fullscreen" : ""}`}>
       {!fullscreen && (
-        <div
-          className="titlebar-drag"
-          {...(isTauri() ? { "data-tauri-drag-region": true } : {})}
-        />
+        <div className="titlebar-drag" {...(isTauri() ? { "data-tauri-drag-region": true } : {})} />
       )}
       <Flex align="center" gap={2} className="titlebar-actions">
         <Button

@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -65,14 +60,9 @@ export function ProjectList({
 }: ProjectListProps) {
   const { t } = useTranslation();
   return (
-    <section
-      className="project-section"
-      aria-label={t("session.projects", "项目")}
-    >
+    <section className="project-section" aria-label={t("session.projects", "项目")}>
       <div className="project-header">
-        <span className="sidebar-section-label">
-          {t("session.projects", "项目")}
-        </span>
+        <span className="sidebar-section-label">{t("session.projects", "项目")}</span>
         <Button
           variant="icon"
           size="small"
@@ -93,9 +83,7 @@ export function ProjectList({
             selectedId={selectedId}
             workingSessionIds={workingSessionIds}
             selectionActive={selectionActive}
-            projectSessions={sessions.filter(
-              (session) => session.project_id === project.id
-            )}
+            projectSessions={sessions.filter((session) => session.project_id === project.id)}
             onSelectProject={onSelectProject}
             onNewConversation={onNewConversation}
             onRenameProject={onRenameProject}
@@ -146,9 +134,7 @@ function ProjectBranch({
 }: ProjectBranchProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const visibleSessions = expanded
-    ? projectSessions
-    : projectSessions.slice(0, 5);
+  const visibleSessions = expanded ? projectSessions : projectSessions.slice(0, 5);
 
   return (
     <div className={`project-branch${active ? " active" : ""}`}>
@@ -250,9 +236,7 @@ function ProjectItem({
     <Flex
       align="center"
       gap={8}
-      className={`project-item ${active ? "active" : ""}${
-        actionOpen ? " action-open" : ""
-      }`}
+      className={`project-item ${active ? "active" : ""}${actionOpen ? " action-open" : ""}`}
       title={project.path}
       onClick={(event) => {
         onSelect(project.id);
@@ -267,11 +251,7 @@ function ProjectItem({
         }
       }}
     >
-      <ProjectIcon
-        icon={project.icon}
-        size={13}
-        className="project-folder-icon"
-      />
+      <ProjectIcon icon={project.icon} size={13} className="project-folder-icon" />
       <div className="project-copy">
         <span className="project-name">{project.name}</span>
       </div>
@@ -409,143 +389,141 @@ function ProjectActionMenu({
               onMouseEnter={cancelClose}
               onMouseLeave={scheduleClose}
             >
-            <div
-              role="menuitem"
-              tabIndex={0}
-              className="project-action-item"
-              onClick={(event) => {
-                event.stopPropagation();
-                setOpen(false);
-                onNewConversation();
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
+              <div
+                role="menuitem"
+                tabIndex={0}
+                className="project-action-item"
+                onClick={(event) => {
                   event.stopPropagation();
                   setOpen(false);
                   onNewConversation();
-                }
-              }}
-            >
-              <Plus size={13} />
-              <span>{t("session.newConversation", "新建对话")}</span>
-            </div>
-            <div
-              className="project-action-item project-action-count"
-              role="presentation"
-            >
-              <MessageSquare size={13} />
-              <span>
-                {t("session.sessionCount", "{{count}} 个对话", {
-                  count: project.session_count ?? 0,
-                })}
-              </span>
-            </div>
-            {project.token_total != null && project.token_total > 0 && (
-              <div
-                className="project-action-item project-action-count"
-                role="presentation"
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setOpen(false);
+                    onNewConversation();
+                  }
+                }}
               >
-                <Cpu size={13} />
+                <Plus size={13} />
+                <span>{t("session.newConversation", "新建对话")}</span>
+              </div>
+              <div className="project-action-item project-action-count" role="presentation">
+                <MessageSquare size={13} />
                 <span>
-                  {t("session.projectTokenTotal", "累计 {{value}} tokens", {
-                    value: formatTokens(project.token_total),
+                  {t("session.sessionCount", "{{count}} 个对话", {
+                    count: project.session_count ?? 0,
                   })}
                 </span>
               </div>
-            )}
-            <div
-              role="menuitem"
-              tabIndex={0}
-              className="project-action-item project-action-path"
-              onClick={(event) => {
-                event.stopPropagation();
-                setOpen(false);
-                void openFolder(project.path);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
+              {project.token_total != null && project.token_total > 0 && (
+                <div className="project-action-item project-action-count" role="presentation">
+                  <Cpu size={13} />
+                  <span>
+                    {t("session.projectTokenTotal", "累计 {{value}} tokens", {
+                      value: formatTokens(project.token_total),
+                    })}
+                  </span>
+                </div>
+              )}
+              <div
+                role="menuitem"
+                tabIndex={0}
+                className="project-action-item project-action-path"
+                onClick={(event) => {
                   event.stopPropagation();
                   setOpen(false);
                   void openFolder(project.path);
-                }
-              }}
-            >
-              <FolderOpen size={13} />
-              <span>{project.path}</span>
-            </div>
-            <div
-              role="menuitem"
-              tabIndex={0}
-              className="project-action-item"
-              onClick={(event) => {
-                event.stopPropagation();
-                setOpen(false);
-                void handlePin();
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setOpen(false);
+                    void openFolder(project.path);
+                  }
+                }}
+              >
+                <FolderOpen size={13} />
+                <span>{project.path}</span>
+              </div>
+              <div
+                role="menuitem"
+                tabIndex={0}
+                className="project-action-item"
+                onClick={(event) => {
                   event.stopPropagation();
                   setOpen(false);
                   void handlePin();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setOpen(false);
+                    void handlePin();
+                  }
+                }}
+                title={
+                  project.pinned
+                    ? t("session.unpinProject", "取消置顶")
+                    : t("session.pinProject", "置顶项目")
                 }
-              }}
-              title={project.pinned ? t("session.unpinProject", "取消置顶") : t("session.pinProject", "置顶项目")}
-            >
-              {project.pinned ? <PinOff size={13} /> : <Pin size={13} />}
-              <span>
-                {project.pinned
-                  ? t("session.unpinProject", "取消置顶")
-                  : t("session.pinProject", "置顶项目")}
-              </span>
-            </div>
-            <div
-              role="menuitem"
-              tabIndex={0}
-              className="project-action-item"
-              onClick={(event) => {
-                event.stopPropagation();
-                setOpen(false);
-                onRename();
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
+              >
+                {project.pinned ? <PinOff size={13} /> : <Pin size={13} />}
+                <span>
+                  {project.pinned
+                    ? t("session.unpinProject", "取消置顶")
+                    : t("session.pinProject", "置顶项目")}
+                </span>
+              </div>
+              <div
+                role="menuitem"
+                tabIndex={0}
+                className="project-action-item"
+                onClick={(event) => {
                   event.stopPropagation();
                   setOpen(false);
                   onRename();
-                }
-              }}
-            >
-              <Settings size={13} />
-              <span>{t("session.editProject", "编辑项目")}</span>
-            </div>
-            <div
-              role="menuitem"
-              tabIndex={0}
-              className="project-action-item project-action-delete"
-              onClick={(event) => {
-                event.stopPropagation();
-                setOpen(false);
-                onDelete();
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setOpen(false);
+                    onRename();
+                  }
+                }}
+              >
+                <Settings size={13} />
+                <span>{t("session.editProject", "编辑项目")}</span>
+              </div>
+              <div
+                role="menuitem"
+                tabIndex={0}
+                className="project-action-item project-action-delete"
+                onClick={(event) => {
                   event.stopPropagation();
                   setOpen(false);
                   onDelete();
-                }
-              }}
-            >
-              <Trash2 size={13} />
-              <span>{t("session.deleteProject", "删除项目")}</span>
-            </div>
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setOpen(false);
+                    onDelete();
+                  }
+                }}
+              >
+                <Trash2 size={13} />
+                <span>{t("session.deleteProject", "删除项目")}</span>
+              </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </>
   );
@@ -617,9 +595,7 @@ function ProjectSessionItem({
         <>
           <div className="project-session-copy">
             <span className="project-session-title">{session.title}</span>
-            <span className="project-session-time">
-              {formatTime(session.updated_at)}
-            </span>
+            <span className="project-session-time">{formatTime(session.updated_at)}</span>
           </div>
           {working && (
             <LoaderCircle

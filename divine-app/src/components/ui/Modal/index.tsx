@@ -51,13 +51,9 @@ export function Modal({
           <div className="ui-modal-header">
             <h2>
               {title}
-              {titleSuffix && (
-                <span className="ui-modal-title-suffix">{titleSuffix}</span>
-              )}
+              {titleSuffix && <span className="ui-modal-title-suffix">{titleSuffix}</span>}
             </h2>
-            {headerAction && (
-              <div className="ui-modal-header-action">{headerAction}</div>
-            )}
+            {headerAction && <div className="ui-modal-header-action">{headerAction}</div>}
           </div>
         )}
         <div className="ui-modal-body">{children}</div>

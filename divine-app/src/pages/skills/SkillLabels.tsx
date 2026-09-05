@@ -10,10 +10,8 @@ export function sourceLabel(source: string): string {
 }
 
 export function typeLabel(type: InstalledSkill["type"]): string {
-  if (type === "knowledge")
-    return i18next.t("skills.typeKnowledge", "知识型");
-  if (type === "executable")
-    return i18next.t("skills.typeExecutable", "能力型");
+  if (type === "knowledge") return i18next.t("skills.typeKnowledge", "知识型");
+  if (type === "executable") return i18next.t("skills.typeExecutable", "能力型");
   return "MCP";
 }
 
@@ -26,8 +24,6 @@ export function SkillTypeIcon({ skill }: { skill: InstalledSkill }) {
 export function skillScriptLabel(skill: InstalledSkill): string {
   if (!skill.script_path) return "";
   const path = skill.script_path;
-  const shortPath = path.startsWith("/")
-    ? path.split("/").slice(-3).join("/")
-    : path;
+  const shortPath = path.startsWith("/") ? path.split("/").slice(-3).join("/") : path;
   return `${shortPath} · ${skill.script_mode === "json" ? "JSON" : "CLI"}`;
 }

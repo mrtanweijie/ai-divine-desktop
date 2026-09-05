@@ -14,16 +14,9 @@ export function DivineAvatar({ size, className }: DivineAvatarProps) {
       <svg
         viewBox="0 0 16 16"
         xmlns="http://www.w3.org/2000/svg"
-        style={
-          iconSize ? { width: iconSize, height: iconSize } : undefined
-        }
+        style={iconSize ? { width: iconSize, height: iconSize } : undefined}
       >
-        <path
-          d="M8 2.5 L14 13.5 H2 Z"
-          fill="none"
-          strokeWidth="1.6"
-          strokeLinejoin="round"
-        />
+        <path d="M8 2.5 L14 13.5 H2 Z" fill="none" strokeWidth="1.6" strokeLinejoin="round" />
       </svg>
     </span>
   );

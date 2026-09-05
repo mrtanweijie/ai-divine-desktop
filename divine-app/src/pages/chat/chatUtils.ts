@@ -60,7 +60,7 @@ export function expandedWorkspaceWidth(leftWidth: number): number {
 
 export function upsertTool(tools: ToolEvent[], next: ToolEvent): ToolEvent[] {
   const index = tools.findIndex((tool) =>
-    next.call_id ? tool.call_id === next.call_id : tool.tool === next.tool
+    next.call_id ? tool.call_id === next.call_id : tool.tool === next.tool,
   );
   if (index === -1) {
     return [...tools, { ...next, status: next.status || "preparing" }];
@@ -70,10 +70,7 @@ export function upsertTool(tools: ToolEvent[], next: ToolEvent): ToolEvent[] {
   return updated;
 }
 
-export function upsertSubAgent(
-  items: SubAgentItem[],
-  next: SubAgentItem
-): SubAgentItem[] {
+export function upsertSubAgent(items: SubAgentItem[], next: SubAgentItem): SubAgentItem[] {
   const index = items.findIndex((item) => item.id === next.id);
   if (index === -1) {
     return [...items, next];
@@ -83,10 +80,7 @@ export function upsertSubAgent(
   return updated;
 }
 
-export function mergeLocalTools(
-  local: ChatMessage[],
-  restored: ChatMessage[]
-) {
+export function mergeLocalTools(local: ChatMessage[], restored: ChatMessage[]) {
   // Keep live tool/file state after a completed stream replaces local messages.
   if (local.length !== restored.length) return restored;
   return restored.map((message, index) => ({

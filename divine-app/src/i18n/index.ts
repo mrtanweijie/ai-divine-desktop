@@ -11,9 +11,7 @@ export type AppLocale = (typeof LOCALES)[number];
 
 export function readLocalePreference(): AppLocale {
   const value = storageGetRaw(STORAGE_KEYS.locale);
-  return (LOCALES as readonly string[]).includes(value ?? "")
-    ? (value as AppLocale)
-    : "zh-CN";
+  return (LOCALES as readonly string[]).includes(value ?? "") ? (value as AppLocale) : "zh-CN";
 }
 
 export function setLocale(locale: AppLocale): void {

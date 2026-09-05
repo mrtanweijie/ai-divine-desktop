@@ -16,7 +16,9 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  transition: width 180ms ease, opacity 160ms ease;
+  transition:
+    width 180ms ease,
+    opacity 160ms ease;
 }
 .left-panel.collapsed {
   width: 0;
@@ -118,7 +120,9 @@
 .project-add-button {
   width: 24px;
   height: 24px;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 .project-add-button:hover {
   background: var(--color-surface-2);
@@ -668,6 +672,6 @@
   flex: 1;
   min-width: 0;
 }
-  .left-panel:not(.collapsed) {
-    width: min(244px, 88vw);
-  }
+.left-panel:not(.collapsed) {
+  width: min(244px, 88vw);
+}

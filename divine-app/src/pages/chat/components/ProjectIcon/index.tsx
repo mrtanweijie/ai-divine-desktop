@@ -50,11 +50,7 @@ interface ProjectIconProps {
   className?: string;
 }
 
-export function ProjectIcon({
-  icon,
-  size = 13,
-  className,
-}: ProjectIconProps) {
+export function ProjectIcon({ icon, size = 13, className }: ProjectIconProps) {
   const Icon = ICONS[icon ?? "folder"] ?? Folder;
   return <Icon size={size} className={className} />;
 }

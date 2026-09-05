@@ -3,12 +3,7 @@ import { Braces, ChevronRight, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import type { InstalledSkill } from "@/types";
-import {
-  SkillTypeIcon,
-  skillScriptLabel,
-  sourceLabel,
-  typeLabel,
-} from "../SkillLabels";
+import { SkillTypeIcon, skillScriptLabel, sourceLabel, typeLabel } from "../SkillLabels";
 
 interface SkillCardProps {
   skill: InstalledSkill;
@@ -16,11 +11,7 @@ interface SkillCardProps {
   onUninstall: (skill: InstalledSkill) => void;
 }
 
-export function SkillCard({
-  skill,
-  onSelect,
-  onUninstall,
-}: SkillCardProps) {
+export function SkillCard({ skill, onSelect, onUninstall }: SkillCardProps) {
   const { t } = useTranslation();
   return (
     <div
@@ -44,9 +35,7 @@ export function SkillCard({
           <div className="skill-row-title">{skill.name}</div>
           <div className="skill-card-badges">
             <span className="skill-badge">{typeLabel(skill.type)}</span>
-            <span className="skill-badge muted">
-              {sourceLabel(skill.source) ?? skill.source}
-            </span>
+            <span className="skill-badge muted">{sourceLabel(skill.source) ?? skill.source}</span>
             <span className="skill-badge muted">v{skill.version}</span>
           </div>
         </div>

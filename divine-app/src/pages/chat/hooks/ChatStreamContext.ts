@@ -11,16 +11,12 @@ export interface ChatStreamContextValue {
   effort: string;
 }
 
-export const ChatStreamContext = createContext<ChatStreamContextValue | null>(
-  null
-);
+export const ChatStreamContext = createContext<ChatStreamContextValue | null>(null);
 
 export function useChatStreamContext(): ChatStreamContextValue {
   const ctx = useContext(ChatStreamContext);
   if (!ctx) {
-    throw new Error(
-      "useChatStreamContext must be used within ChatStreamContext.Provider"
-    );
+    throw new Error("useChatStreamContext must be used within ChatStreamContext.Provider");
   }
   return ctx;
 }

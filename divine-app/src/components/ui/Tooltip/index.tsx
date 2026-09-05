@@ -10,12 +10,7 @@ interface TooltipProps {
   align?: "center" | "right";
 }
 
-export function Tooltip({
-  content,
-  children,
-  placement = "top",
-  align = "center",
-}: TooltipProps) {
+export function Tooltip({ content, children, placement = "top", align = "center" }: TooltipProps) {
   const className = [
     "ui-tooltip-wrap",
     placement === "bottom" ? "tooltip-bottom" : "",

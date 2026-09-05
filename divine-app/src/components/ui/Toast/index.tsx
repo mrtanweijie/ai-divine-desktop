@@ -61,11 +61,7 @@ export function Toaster() {
   return (
     <div className="toast-container" aria-live="polite">
       {items.map((item) => (
-        <div
-          key={item.id}
-          className={`toast toast-${item.type}`}
-          role="status"
-        >
+        <div key={item.id} className={`toast toast-${item.type}`} role="status">
           <span className="toast-icon">
             {item.type === "success" ? (
               <CheckCircle2 size={16} />

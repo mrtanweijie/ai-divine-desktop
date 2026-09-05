@@ -7,10 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { toast } from "@/components/ui/Toast";
-import {
-  createScheduledTask,
-  updateScheduledTask,
-} from "@/services/scheduledTasks";
+import { createScheduledTask, updateScheduledTask } from "@/services/scheduledTasks";
 import type { ScheduledTask } from "@/types";
 import { weekdayLabels, toLocalInputValue } from "../scheduleUtils";
 import "./TaskModal.less";
@@ -25,29 +22,21 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
-  const [frequency, setFrequency] = useState<ScheduledTask["frequency"]>(
-    task?.frequency ?? "once"
-  );
+  const [frequency, setFrequency] = useState<ScheduledTask["frequency"]>(task?.frequency ?? "once");
   const [runAt, setRunAt] = useState(toLocalInputValue(task?.run_at));
   const [intervalMinutes, setIntervalMinutes] = useState<number | null>(
-    task?.interval_minutes ?? 60
+    task?.interval_minutes ?? 60,
   );
   const [runHour, setRunHour] = useState<number | null>(task?.run_hour ?? 8);
-  const [runMinute, setRunMinute] = useState<number | null>(
-    task?.run_minute ?? 0
-  );
-  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(
-    task?.days_of_week ?? []
-  );
-  const [dayOfMonth, setDayOfMonth] = useState<number | null>(
-    task?.day_of_month ?? 1
-  );
+  const [runMinute, setRunMinute] = useState<number | null>(task?.run_minute ?? 0);
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(task?.days_of_week ?? []);
+  const [dayOfMonth, setDayOfMonth] = useState<number | null>(task?.day_of_month ?? 1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const toggleDay = (day: number) => {
     setDaysOfWeek((prev) =>
-      prev.includes(day) ? prev.filter((item) => item !== day) : [...prev, day]
+      prev.includes(day) ? prev.filter((item) => item !== day) : [...prev, day],
     );
   };
 
@@ -60,10 +49,7 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
       setError(t("tasks.onceTimeRequired", "请选择一次性任务的时间"));
       return;
     }
-    if (
-      frequency === "interval" &&
-      (intervalMinutes === null || intervalMinutes < 1)
-    ) {
+    if (frequency === "interval" && (intervalMinutes === null || intervalMinutes < 1)) {
       setError(t("tasks.intervalRequired", "请填写有效的间隔分钟数"));
       return;
     }
@@ -99,14 +85,10 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
       }
       await onSaved();
       toast.success(
-        task
-          ? t("tasks.taskUpdated", "定时任务已更新")
-          : t("tasks.taskCreated", "定时任务已创建")
+        task ? t("tasks.taskUpdated", "定时任务已更新") : t("tasks.taskCreated", "定时任务已创建"),
       );
     } catch (error) {
-      setError(
-        error instanceof Error ? error.message : t("tasks.saveFailed", "保存失败")
-      );
+      setError(error instanceof Error ? error.message : t("tasks.saveFailed", "保存失败"));
     } finally {
       setSaving(false);
     }
@@ -115,11 +97,7 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
   return (
     <Modal
       open
-      title={
-        task
-          ? t("tasks.editTitle", "编辑定时任务")
-          : t("tasks.createTitle", "新建定时任务")
-      }
+      title={task ? t("tasks.editTitle", "编辑定时任务") : t("tasks.createTitle", "新建定时任务")}
       onClose={onClose}
       width={560}
       footer={
@@ -127,11 +105,7 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
           <Button variant="secondary" onClick={onClose}>
             {t("common.cancel", "取消")}
           </Button>
-          <Button
-            variant="primary"
-            loading={saving}
-            onClick={() => void handleSave()}
-          >
+          <Button variant="primary" loading={saving} onClick={() => void handleSave()}>
             {t("common.save", "保存")}
           </Button>
         </>
@@ -153,9 +127,7 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
         <Select
           label={t("tasks.frequencyLabel", "频率")}
           value={frequency}
-          onChange={(value) =>
-            setFrequency(value as ScheduledTask["frequency"])
-          }
+          onChange={(value) => setFrequency(value as ScheduledTask["frequency"])}
           options={[
             { value: "once", label: t("tasks.frequencyOnce", "一次性") },
             { value: "interval", label: t("tasks.frequencyInterval", "每隔 x 分钟") },
@@ -165,11 +137,7 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
           ]}
         />
         {frequency === "once" && (
-          <DateTimePicker
-            label={t("time.label", "时间")}
-            value={runAt}
-            onChange={setRunAt}
-          />
+          <DateTimePicker label={t("time.label", "时间")} value={runAt} onChange={setRunAt} />
         )}
         {frequency === "interval" && (
           <Input
@@ -202,18 +170,14 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
               value={runMinute ?? ""}
               onChange={(event) => {
                 const digits = event.target.value.replace(/\D/g, "");
-                setRunMinute(
-                  digits === "" ? null : Math.min(59, Number(digits))
-                );
+                setRunMinute(digits === "" ? null : Math.min(59, Number(digits)));
               }}
             />
           </>
         )}
         {frequency === "weekly" && (
           <div className="ui-field">
-            <span className="ui-field-label">
-              {t("tasks.frequencyWeekly", "每周")}
-            </span>
+            <span className="ui-field-label">{t("tasks.frequencyWeekly", "每周")}</span>
             <Flex gap={6} wrap className="weekday-picker">
               {weekdayLabels().map((label, day) => (
                 <div
@@ -244,9 +208,7 @@ export function TaskModal({ task, onClose, onSaved }: TaskModalProps) {
             value={dayOfMonth ?? ""}
             onChange={(event) => {
               const digits = event.target.value.replace(/\D/g, "");
-              setDayOfMonth(
-                digits === "" ? null : Math.min(31, Number(digits))
-              );
+              setDayOfMonth(digits === "" ? null : Math.min(31, Number(digits)));
             }}
           />
         )}

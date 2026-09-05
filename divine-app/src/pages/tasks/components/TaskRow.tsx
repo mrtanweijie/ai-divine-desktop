@@ -53,9 +53,7 @@ export function TaskRow({
         <div className="task-row-title">
           {task.title}
           {task.status === "paused" && (
-            <span className="task-status-badge">
-              {t("tasks.paused", "已暂停")}
-            </span>
+            <span className="task-status-badge">{t("tasks.paused", "已暂停")}</span>
           )}
         </div>
         <div className="task-row-schedule">
@@ -69,9 +67,7 @@ export function TaskRow({
             </>
           )}
         </div>
-        {task.description && (
-          <div className="task-row-desc">{task.description}</div>
-        )}
+        {task.description && <div className="task-row-desc">{task.description}</div>}
       </div>
       <Flex align="center" gap={4} className="task-row-actions">
         <Dropdown
@@ -109,10 +105,7 @@ export function TaskRow({
             },
           ]}
         />
-        <Switch
-          checked={task.status === "active"}
-          onChange={() => onToggle(task)}
-        />
+        <Switch checked={task.status === "active"} onChange={() => onToggle(task)} />
       </Flex>
     </div>
   );

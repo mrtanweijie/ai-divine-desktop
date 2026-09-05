@@ -1,13 +1,6 @@
 // Renders a single tool status card, including approvals and file actions.
 import { memo, useCallback, useState } from "react";
-import {
-  AlertCircle,
-  CalendarClock,
-  Check,
-  ChevronDown,
-  Copy,
-  Link,
-} from "lucide-react";
+import { AlertCircle, CalendarClock, Check, ChevronDown, Copy, Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
@@ -16,11 +9,7 @@ import { ChartBlock } from "@/pages/chat/components/ChartBlock";
 import { request } from "@/services/request";
 import type { PreviewFile, ToolEvent } from "@/types";
 import { copyText } from "@/utils";
-import {
-  chartOptionFromResult,
-  chartTypeIcon,
-  openToolUrl,
-} from "./MessageHelpers";
+import { chartOptionFromResult, chartTypeIcon, openToolUrl } from "./MessageHelpers";
 import { ToolCommands } from "./ToolCommands";
 import { ToolConfirmSection } from "./ToolConfirmSection";
 import { ToolFileList, ToolResultFile } from "./ToolFileList";
@@ -53,9 +42,7 @@ export const ToolStatusCard = memo(function ToolStatusCard({
   // 这三类工具的文件列表默认收起，点击卡片头部展开（read_file 原有行为；
   // write_file / edit_files 批量写文件时列表过长，同样收起）。
   const collapsibleFiles =
-    tool.tool === "read_file" ||
-    tool.tool === "write_file" ||
-    tool.tool === "edit_files";
+    tool.tool === "read_file" || tool.tool === "write_file" || tool.tool === "edit_files";
   const hasFiles = collapsibleFiles && (tool.files?.length ?? 0) > 0;
   const toggleFiles = useCallback(() => setFilesOpen((value) => !value), []);
   const statusMessage =
@@ -86,24 +73,17 @@ export const ToolStatusCard = memo(function ToolStatusCard({
     setDeciding(true);
     setDecideError(null);
     try {
-      const result = await request<{ ok?: boolean; message?: string }>(
-        "/terminal/decide",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: targetSessionId, allow }),
-        }
-      );
+      const result = await request<{ ok?: boolean; message?: string }>("/terminal/decide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: targetSessionId, allow }),
+      });
       if (result && result.ok === false) {
-        setDecideError(
-          result.message || t("tool.decideFailed", "确认失败，请重试")
-        );
+        setDecideError(result.message || t("tool.decideFailed", "确认失败，请重试"));
       }
     } catch (error) {
       setDecideError(
-        error instanceof Error
-          ? error.message
-          : t("tool.decideFailed", "确认失败，请重试")
+        error instanceof Error ? error.message : t("tool.decideFailed", "确认失败，请重试"),
       );
     } finally {
       setDeciding(false);
@@ -187,10 +167,7 @@ export const ToolStatusCard = memo(function ToolStatusCard({
                 count: urls.length,
               })}
             </span>
-            <ChevronDown
-              size={14}
-              className={`tool-url-chevron${urlsOpen ? " expanded" : ""}`}
-            />
+            <ChevronDown size={14} className={`tool-url-chevron${urlsOpen ? " expanded" : ""}`} />
           </>
         )}
         {hasFiles && (
@@ -200,10 +177,7 @@ export const ToolStatusCard = memo(function ToolStatusCard({
                 count: tool.files?.length ?? 0,
               })}
             </span>
-            <ChevronDown
-              size={14}
-              className={`tool-url-chevron${filesOpen ? " expanded" : ""}`}
-            />
+            <ChevronDown size={14} className={`tool-url-chevron${filesOpen ? " expanded" : ""}`} />
           </>
         )}
       </Flex>
@@ -235,28 +209,20 @@ export const ToolStatusCard = memo(function ToolStatusCard({
           ))}
         </div>
       )}
-      {tool.files &&
-        tool.files.length > 0 &&
-        (!collapsibleFiles || filesOpen) && (
-          <ToolFileList
-            tool={tool}
-            workspacePath={workspacePath}
-            onPreviewFile={onPreviewFile}
-            filesOpen={filesOpen}
-            onToggleFiles={toggleFiles}
-          />
-        )}
+      {tool.files && tool.files.length > 0 && (!collapsibleFiles || filesOpen) && (
+        <ToolFileList
+          tool={tool}
+          workspacePath={workspacePath}
+          onPreviewFile={onPreviewFile}
+          filesOpen={filesOpen}
+          onToggleFiles={toggleFiles}
+        />
+      )}
       {tool.tool === "edit_files" &&
         tool.status === "done" &&
         typeof tool.result?.data?.diff === "string" &&
-        tool.result.data.diff.trim().length > 0 && (
-          <DiffView diff={tool.result.data.diff} />
-        )}
-      <ToolResultFile
-        tool={tool}
-        workspacePath={workspacePath}
-        onPreviewFile={onPreviewFile}
-      />
+        tool.result.data.diff.trim().length > 0 && <DiffView diff={tool.result.data.diff} />}
+      <ToolResultFile tool={tool} workspacePath={workspacePath} onPreviewFile={onPreviewFile} />
       <ToolCommands
         tool={tool}
         commandsOpen={commandsOpen}
@@ -283,7 +249,7 @@ export const ToolStatusCard = memo(function ToolStatusCard({
             <span>
               {tool.result.messageKey
                 ? t(tool.result.messageKey, tool.result.messageParams ?? {})
-                : tool.result.message ?? ""}
+                : (tool.result.message ?? "")}
             </span>
             {tool.tool !== "schedule_task" && (
               <Button
@@ -299,9 +265,7 @@ export const ToolStatusCard = memo(function ToolStatusCard({
               <Button
                 size="small"
                 className="manage-tasks-button"
-                onClick={() =>
-                  window.dispatchEvent(new CustomEvent("divine:open-tasks"))
-                }
+                onClick={() => window.dispatchEvent(new CustomEvent("divine:open-tasks"))}
                 title={t("tool.manageTasks", "管理定时任务")}
               >
                 <CalendarClock size={13} />

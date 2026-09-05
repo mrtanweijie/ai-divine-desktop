@@ -47,16 +47,12 @@ export function SubAgentPanel({ subagents, streaming }: SubAgentPanelProps) {
         }}
       >
         <ChevronDown size={13} className={open ? "expanded" : ""} />
-        <span className="subagent-title">
-          {t("message.subagents", "子 Agent")}
-        </span>
+        <span className="subagent-title">{t("message.subagents", "子 Agent")}</span>
         <span className="subagent-progress">
           {done}/{subagents.length}
         </span>
         {!open && anyRunning && (
-          <span className="subagent-preview">
-            {t("message.subagentRunning", "运行中…")}
-          </span>
+          <span className="subagent-preview">{t("message.subagentRunning", "运行中…")}</span>
         )}
       </summary>
       <div className="subagent-items">

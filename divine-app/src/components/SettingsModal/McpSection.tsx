@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  Blocks,
-  ChevronDown,
-  Pencil,
-  PlugZap,
-  Plus,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
+import { Blocks, ChevronDown, Pencil, PlugZap, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { McpServerConfig, McpServerStatus } from "@/types";
 import { getMcpServers, testMcpServer } from "@/services/api";
@@ -83,24 +75,13 @@ interface McpSectionProps {
   onConfirm?: (title: string, description: string, action: () => void) => void;
 }
 
-export function McpSection({
-  initialServers,
-  onSave,
-  onSilentSave,
-  onConfirm,
-}: McpSectionProps) {
+export function McpSection({ initialServers, onSave, onSilentSave, onConfirm }: McpSectionProps) {
   const { t } = useTranslation();
-  const [servers, setServers] = useState<McpServerConfig[]>(
-    initialServers ?? []
-  );
-  const [statuses, setStatuses] = useState<
-    Record<string, McpServerStatus | undefined>
-  >({});
+  const [servers, setServers] = useState<McpServerConfig[]>(initialServers ?? []);
+  const [statuses, setStatuses] = useState<Record<string, McpServerStatus | undefined>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftServer | null>(null);
-  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>(
-    {}
-  );
+  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [jsonMode, setJsonMode] = useState(false);
   const [jsonText, setJsonText] = useState("");
   const [jsonError, setJsonError] = useState("");
@@ -110,7 +91,7 @@ export function McpSection({
       setServers(next);
       void (onSilentSave ?? onSave)({ mcp_servers: next });
     },
-    [onSave, onSilentSave]
+    [onSave, onSilentSave],
   );
 
   const refreshStatuses = useCallback(() => {
@@ -186,7 +167,7 @@ export function McpSection({
         t("settings.mcp.deleteConfirm", "确定删除 {{name}} 吗？", {
           name: server.name,
         }),
-        run
+        run,
       );
     } else {
       run();
@@ -195,9 +176,7 @@ export function McpSection({
 
   const toggleEnabled = (server: McpServerConfig) => {
     persist(
-      servers.map((item) =>
-        item.id === server.id ? { ...item, enabled: !item.enabled } : item
-      )
+      servers.map((item) => (item.id === server.id ? { ...item, enabled: !item.enabled } : item)),
     );
     setTimeout(refreshStatuses, 300);
   };
@@ -220,27 +199,19 @@ export function McpSection({
       const parsed = JSON.parse(jsonText);
       const raw = parsed.mcpServers ?? parsed;
       const imported: McpServerConfig[] = [];
-      for (const [key, value] of Object.entries(
-        raw as Record<string, Record<string, unknown>>
-      )) {
+      for (const [key, value] of Object.entries(raw as Record<string, Record<string, unknown>>)) {
         const entry = value || {};
         const url = typeof entry.url === "string" ? entry.url : "";
         imported.push({
-          id: `mcp-${key
-            .toLowerCase()
-            .replace(/[^a-z0-9_-]+/g, "-")}-${Math.random()
+          id: `mcp-${key.toLowerCase().replace(/[^a-z0-9_-]+/g, "-")}-${Math.random()
             .toString(36)
             .slice(2, 6)}`,
           name: key,
           transport: url ? "http" : "stdio",
           command: typeof entry.command === "string" ? entry.command : "",
-          args: Array.isArray(entry.args)
-            ? (entry.args as unknown[]).map(String)
-            : [],
+          args: Array.isArray(entry.args) ? (entry.args as unknown[]).map(String) : [],
           env:
-            entry.env && typeof entry.env === "object"
-              ? (entry.env as Record<string, string>)
-              : {},
+            entry.env && typeof entry.env === "object" ? (entry.env as Record<string, string>) : {},
           url,
           enabled: true,
         });
@@ -258,13 +229,12 @@ export function McpSection({
       setJsonError(
         t("settings.mcp.importInvalid", "JSON 解析失败：{{msg}}", {
           msg: String(exc).slice(0, 200),
-        })
+        }),
       );
     }
   };
 
-  const statusOf = (server: McpServerConfig): McpServerStatus | undefined =>
-    statuses[server.id];
+  const statusOf = (server: McpServerConfig): McpServerStatus | undefined => statuses[server.id];
 
   return (
     <div className="settings-form">
@@ -272,7 +242,7 @@ export function McpSection({
         <p className="settings-field-hint-inline settings-models-hint settings-mcp-hint">
           {t(
             "settings.mcp.hint",
-            "接入 MCP 外部工具服务器（本地进程 / HTTP）。配置保存后新对话生效；未标记信任的服务器执行前需要确认。"
+            "接入 MCP 外部工具服务器（本地进程 / HTTP）。配置保存后新对话生效；未标记信任的服务器执行前需要确认。",
           )}
         </p>
         <div className="settings-mcp-toolbar">
@@ -335,115 +305,112 @@ export function McpSection({
             />
           </div>
         ) : (
-        <>
-        {servers.length === 0 ? (
-          <EmptyState
-            icon={<Blocks size={26} />}
-            title={t("settings.mcp.emptyTitle", "还没有接入 MCP 服务器")}
-            description={t(
-              "settings.mcp.emptyHint",
-              "点击右上角「添加服务器」或「JSON 导入」接入外部工具，接入后 agent 可直接调用"
-            )}
-          />
-        ) : null}
-        {servers.map((server) => {
-          const status = statusOf(server);
-          const dotClass =
-            status === undefined
-              ? "settings-mcp-dot--pending"
-              : status.status === "connected"
-                ? "settings-mcp-dot--ok"
-                : status.status === "disabled"
-                  ? "settings-mcp-dot--off"
-                  : "settings-mcp-dot--error";
-          return (
-            <div key={server.id} className="settings-model-card">
-              <div className="settings-model-card-header">
-                <span className={`settings-mcp-dot ${dotClass}`} />
-                <span className="settings-model-name">{server.name}</span>
-                <span className="settings-mcp-badge">
-                  {server.transport === "http"
-                    ? t("settings.mcp.http", "HTTP")
-                    : t("settings.mcp.stdio", "本地进程")}
-                </span>
-                {server.trusted ? (
-                  <span className="settings-mcp-badge">
-                    {t("settings.mcp.trusted", "已信任")}
-                  </span>
-                ) : null}
-                <span className="settings-mcp-summary">
-                  {server.transport === "http"
-                    ? server.url
-                    : [server.command, ...(server.args || [])].join(" ")}
-                </span>
-              </div>
-              {status?.status === "error" && status.error ? (
-                <p className="settings-mcp-error">{status.error}</p>
-              ) : null}
-              {status?.tools && status.tools.length > 0 ? (
-                <div>
-                  <div
-                    className={`settings-custom-toggle${
-                      expandedTools[server.id] ? " open" : ""
-                    }`}
-                  >
-                    <div
-                      className="settings-custom-toggle-header"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() =>
-                        setExpandedTools((prev) => ({
-                          ...prev,
-                          [server.id]: !prev[server.id],
-                        }))
-                      }
-                    >
-                      {t("settings.mcp.toolsCount", "{{count}} 个工具", {
-                        count: status.tools.length,
-                      })}
-                      <ChevronDown
-                        size={13}
-                        className="settings-custom-toggle-chevron"
-                      />
-                    </div>
-                    {expandedTools[server.id] ? (
-                      <ul className="settings-mcp-tools">
-                        {status.tools.map((tool) => (
-                          <li key={tool.name}>
-                            <code>{tool.name}</code>
-                            {tool.description ? ` — ${tool.description}` : ""}
-                          </li>
-                        ))}
-                      </ul>
+          <>
+            {servers.length === 0 ? (
+              <EmptyState
+                icon={<Blocks size={26} />}
+                title={t("settings.mcp.emptyTitle", "还没有接入 MCP 服务器")}
+                description={t(
+                  "settings.mcp.emptyHint",
+                  "点击右上角「添加服务器」或「JSON 导入」接入外部工具，接入后 agent 可直接调用",
+                )}
+              />
+            ) : null}
+            {servers.map((server) => {
+              const status = statusOf(server);
+              const dotClass =
+                status === undefined
+                  ? "settings-mcp-dot--pending"
+                  : status.status === "connected"
+                    ? "settings-mcp-dot--ok"
+                    : status.status === "disabled"
+                      ? "settings-mcp-dot--off"
+                      : "settings-mcp-dot--error";
+              return (
+                <div key={server.id} className="settings-model-card">
+                  <div className="settings-model-card-header">
+                    <span className={`settings-mcp-dot ${dotClass}`} />
+                    <span className="settings-model-name">{server.name}</span>
+                    <span className="settings-mcp-badge">
+                      {server.transport === "http"
+                        ? t("settings.mcp.http", "HTTP")
+                        : t("settings.mcp.stdio", "本地进程")}
+                    </span>
+                    {server.trusted ? (
+                      <span className="settings-mcp-badge">
+                        {t("settings.mcp.trusted", "已信任")}
+                      </span>
                     ) : null}
+                    <span className="settings-mcp-summary">
+                      {server.transport === "http"
+                        ? server.url
+                        : [server.command, ...(server.args || [])].join(" ")}
+                    </span>
+                  </div>
+                  {status?.status === "error" && status.error ? (
+                    <p className="settings-mcp-error">{status.error}</p>
+                  ) : null}
+                  {status?.tools && status.tools.length > 0 ? (
+                    <div>
+                      <div
+                        className={`settings-custom-toggle${
+                          expandedTools[server.id] ? " open" : ""
+                        }`}
+                      >
+                        <div
+                          className="settings-custom-toggle-header"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() =>
+                            setExpandedTools((prev) => ({
+                              ...prev,
+                              [server.id]: !prev[server.id],
+                            }))
+                          }
+                        >
+                          {t("settings.mcp.toolsCount", "{{count}} 个工具", {
+                            count: status.tools.length,
+                          })}
+                          <ChevronDown size={13} className="settings-custom-toggle-chevron" />
+                        </div>
+                        {expandedTools[server.id] ? (
+                          <ul className="settings-mcp-tools">
+                            {status.tools.map((tool) => (
+                              <li key={tool.name}>
+                                <code>{tool.name}</code>
+                                {tool.description ? ` — ${tool.description}` : ""}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="settings-mcp-actions">
+                    <Button variant="secondary" onClick={() => void runTest(server.id)}>
+                      <PlugZap size={13} />
+                      {t("settings.mcp.test", "测试连接")}
+                    </Button>
+                    <Switch
+                      checked={server.enabled}
+                      onChange={() => toggleEnabled(server)}
+                      label={
+                        server.enabled
+                          ? t("settings.mcp.enabled", "已启用")
+                          : t("settings.mcp.disabled", "已停用")
+                      }
+                    />
+                    <Button variant="icon" onClick={() => startEdit(server)}>
+                      <Pencil size={13} />
+                    </Button>
+                    <Button variant="icon" onClick={() => removeServer(server)}>
+                      <Trash2 size={13} />
+                    </Button>
                   </div>
                 </div>
-              ) : null}
-              <div className="settings-mcp-actions">
-                <Button variant="secondary" onClick={() => void runTest(server.id)}>
-                  <PlugZap size={13} />
-                  {t("settings.mcp.test", "测试连接")}
-                </Button>
-                <Switch
-                  checked={server.enabled}
-                  onChange={() => toggleEnabled(server)}
-                  label={
-                    server.enabled
-                      ? t("settings.mcp.enabled", "已启用")
-                      : t("settings.mcp.disabled", "已停用")
-                  }
-                />
-                <Button variant="icon" onClick={() => startEdit(server)}>
-                  <Pencil size={13} />
-                </Button>
-                <Button variant="icon" onClick={() => removeServer(server)}>
-                  <Trash2 size={13} />
-                </Button>
-              </div>
-            </div>
-          );
-        })}
-        </>
+              );
+            })}
+          </>
         )}
       </div>
     </div>
@@ -462,8 +429,7 @@ function McpDraftForm({
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
-  const patch = (part: Partial<DraftServer>) =>
-    onDraftChange({ ...draft, ...part });
+  const patch = (part: Partial<DraftServer>) => onDraftChange({ ...draft, ...part });
 
   return (
     <div className="settings-mcp-form">
@@ -502,10 +468,7 @@ function McpDraftForm({
             placeholder={"-y\n@modelcontextprotocol/server-github"}
           />
           <TextArea
-            label={t(
-              "settings.mcp.env",
-              "环境变量（每行 KEY=VALUE，留空保留已存值）"
-            )}
+            label={t("settings.mcp.env", "环境变量（每行 KEY=VALUE，留空保留已存值）")}
             rows={2}
             value={draft.envText}
             onChange={(event) => patch({ envText: event.target.value })}

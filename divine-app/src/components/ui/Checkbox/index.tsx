@@ -62,11 +62,7 @@ export function Checkbox({
         }
       }}
     >
-      <Check
-        size={size * 0.72}
-        strokeWidth={3}
-        style={{ opacity: checked ? 1 : 0 }}
-      />
+      <Check size={size * 0.72} strokeWidth={3} style={{ opacity: checked ? 1 : 0 }} />
     </span>
   );
 }

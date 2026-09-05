@@ -53,11 +53,7 @@ export function Flex({
   };
 
   return (
-    <div
-      {...rest}
-      className={`ui-flex${className ? ` ${className}` : ""}`}
-      style={flexStyle}
-    >
+    <div {...rest} className={`ui-flex${className ? ` ${className}` : ""}`} style={flexStyle}>
       {children}
     </div>
   );

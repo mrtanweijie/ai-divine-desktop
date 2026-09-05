@@ -8,16 +8,12 @@ export type ResolvedTheme = "dark" | "light";
 const THEME_EVENT = "divine:theme-change";
 
 function systemTheme(): ResolvedTheme {
-  return window.matchMedia("(prefers-color-scheme: light)").matches
-    ? "light"
-    : "dark";
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
 export function readThemePreference(): ThemePreference {
   const value = storageGetRaw(STORAGE_KEYS.theme);
-  return value === "dark" || value === "light" || value === "system"
-    ? value
-    : "system";
+  return value === "dark" || value === "light" || value === "system" ? value : "system";
 }
 
 export function resolveTheme(preference: ThemePreference): ResolvedTheme {
@@ -47,9 +43,7 @@ export function initTheme(): void {
 }
 
 export function useTheme(): ResolvedTheme {
-  const [theme, setTheme] = useState<ResolvedTheme>(() =>
-    resolveTheme(readThemePreference())
-  );
+  const [theme, setTheme] = useState<ResolvedTheme>(() => resolveTheme(readThemePreference()));
 
   useEffect(() => {
     const sync = () => setTheme(resolveTheme(readThemePreference()));
@@ -65,13 +59,8 @@ export function useTheme(): ResolvedTheme {
   return theme;
 }
 
-export function useThemePreference(): [
-  ThemePreference,
-  (preference: ThemePreference) => void,
-] {
-  const [preference, setPreference] = useState<ThemePreference>(
-    readThemePreference
-  );
+export function useThemePreference(): [ThemePreference, (preference: ThemePreference) => void] {
+  const [preference, setPreference] = useState<ThemePreference>(readThemePreference);
 
   useEffect(() => {
     const sync = () => setPreference(readThemePreference());

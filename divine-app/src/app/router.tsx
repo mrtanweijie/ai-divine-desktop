@@ -4,9 +4,7 @@ import ChatPage from "@/pages/chat";
 import { Providers } from "@/app/Providers";
 import { StartupGate } from "@/components/StartupGate";
 
-type HashRouterOptions = NonNullable<
-  Parameters<typeof createHashRouter>[1]
->;
+type HashRouterOptions = NonNullable<Parameters<typeof createHashRouter>[1]>;
 
 const routerOptions = {
   future: {
@@ -32,5 +30,5 @@ export const router = createHashRouter(
       ],
     },
   ],
-  routerOptions
+  routerOptions,
 );

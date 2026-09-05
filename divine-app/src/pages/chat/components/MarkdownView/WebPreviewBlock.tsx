@@ -36,10 +36,7 @@ function isCompleteDocument(code: string, language: WebPreviewLanguage): boolean
   return false;
 }
 
-function buildPreviewDocument(
-  code: string,
-  language: WebPreviewLanguage
-): string {
+function buildPreviewDocument(code: string, language: WebPreviewLanguage): string {
   if (isCompleteDocument(code, language)) {
     return code;
   }
@@ -91,14 +88,9 @@ export function WebPreviewBlock({
 }: WebPreviewBlockProps) {
   const { t } = useTranslation();
   const cacheKey = `${variant}\u0000${language}\u0000${code}`;
-  const [mode, setMode] = useState<PreviewMode>(
-    () => modeCache.get(cacheKey) ?? defaultMode
-  );
+  const [mode, setMode] = useState<PreviewMode>(() => modeCache.get(cacheKey) ?? defaultMode);
   const [copied, setCopied] = useState(false);
-  const srcDoc = useMemo(
-    () => buildPreviewDocument(code, language),
-    [code, language]
-  );
+  const srcDoc = useMemo(() => buildPreviewDocument(code, language), [code, language]);
   const title =
     language === "html"
       ? t("markdown.htmlPreview", "HTML 预览")
@@ -150,9 +142,7 @@ export function WebPreviewBlock({
         className="web-preview-copy"
         onClick={copy}
         aria-label={t("markdown.copyCode", "复制代码")}
-        title={
-          copied ? t("common.copied", "已复制") : t("markdown.copy", "复制")
-        }
+        title={copied ? t("common.copied", "已复制") : t("markdown.copy", "复制")}
       >
         {copied ? <Check size={13} /> : <Copy size={13} />}
       </Button>

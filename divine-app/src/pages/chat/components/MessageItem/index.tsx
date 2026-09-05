@@ -62,22 +62,13 @@ export const MessageItem = memo(function MessageItem({
   // 分组结果按 message.tools 引用缓存：内容流式期间 tools 引用不变，
   // 分组产物（含 terminal 等可分组卡的合并对象）保持稳定引用，
   // 下游 memo 化的 ToolStatusCard 才能在 chunk 渲染时被整体跳过。
-  const groupedTools = useMemo(() => groupToolCards(message.tools), [
-    message.tools,
-  ]);
+  const groupedTools = useMemo(() => groupToolCards(message.tools), [message.tools]);
   // 执行中插话（[用户补充] 前缀）：气泡内显示去前缀正文 + "补充"徽标
   const supplementText = parseSupplement(message.content);
   return (
     <article className={`message-row ${isUser ? "user-message" : "assistant-message"}`}>
-      <Flex
-        align="center"
-        justify={isUser ? "end" : "start"}
-        gap={8}
-        className="message-meta"
-      >
-        {!isUser && (
-          <DivineAvatar />
-        )}
+      <Flex align="center" justify={isUser ? "end" : "start"} gap={8} className="message-meta">
+        {!isUser && <DivineAvatar />}
         <span className="role-label">
           {isUser ? username || t("common.user", "用户") : "Divine"}
         </span>
@@ -96,7 +87,7 @@ export const MessageItem = memo(function MessageItem({
                           input: formatTokens(message.token_usage.input_tokens),
                           output: formatTokens(message.token_usage.output_tokens),
                           total: formatTokens(message.token_usage.total_tokens),
-                        }
+                        },
                       )
                     : t(
                         "message.tokenUsageEstimated",
@@ -105,7 +96,7 @@ export const MessageItem = memo(function MessageItem({
                           input: formatTokens(message.token_usage.input_tokens),
                           output: formatTokens(message.token_usage.output_tokens),
                           total: formatTokens(message.token_usage.total_tokens),
-                        }
+                        },
                       )
                 }
               >
@@ -114,13 +105,9 @@ export const MessageItem = memo(function MessageItem({
                 })}
               </span>
             )}
-            {message.content &&
-              message.source === "local" &&
-              onRetryCloud && (
-                <MessageRetryButton
-                  onRetry={() => onRetryCloud(message.id)}
-                />
-              )}
+            {message.content && message.source === "local" && onRetryCloud && (
+              <MessageRetryButton onRetry={() => onRetryCloud(message.id)} />
+            )}
             {message.content && <MessageCopyButton text={message.content} />}
           </span>
         )}
@@ -159,9 +146,7 @@ export const MessageItem = memo(function MessageItem({
             <div className="user-files">
               {message.files.map((file) => (
                 <div
-                  className={`user-file-card${
-                    file.path || file.content ? " previewable" : ""
-                  }`}
+                  className={`user-file-card${file.path || file.content ? " previewable" : ""}`}
                   key={file.name}
                   role={file.path || file.content ? "button" : undefined}
                   tabIndex={file.path || file.content ? 0 : undefined}
@@ -196,9 +181,7 @@ export const MessageItem = memo(function MessageItem({
                   <FileText size={13} />
                   <span>{file.name}</span>
                   {file.size != null && (
-                    <span className="user-file-size">
-                      {formatSize(file.size)}
-                    </span>
+                    <span className="user-file-size">{formatSize(file.size)}</span>
                   )}
                   {(file.path || file.content) && <Eye size={13} />}
                 </div>
@@ -215,14 +198,9 @@ export const MessageItem = memo(function MessageItem({
               onUserInteract={onUserInteract}
             />
           )}
-          {message.todos && message.todos.length > 0 && (
-            <PlanCard todos={message.todos} />
-          )}
+          {message.todos && message.todos.length > 0 && <PlanCard todos={message.todos} />}
           {message.subagents && message.subagents.length > 0 && (
-            <SubAgentPanel
-              subagents={message.subagents}
-              streaming={streaming}
-            />
+            <SubAgentPanel subagents={message.subagents} streaming={streaming} />
           )}
           {groupedTools.map((tool, index) => (
             <ToolStatusCard
@@ -233,9 +211,7 @@ export const MessageItem = memo(function MessageItem({
               onPreviewFile={onPreviewFile}
             />
           ))}
-          {!streaming && message.tools.length > 0 && (
-            <TracePanel tools={message.tools} />
-          )}
+          {!streaming && message.tools.length > 0 && <TracePanel tools={message.tools} />}
           {message.content ? (
             <MarkdownView
               content={message.content}
@@ -255,7 +231,7 @@ export const MessageItem = memo(function MessageItem({
                   <span className="preprocess-hint">
                     {t(
                       "message.preprocessWorking",
-                      "正在本地整理长文本（启动模型/分块整理），请稍候…"
+                      "正在本地整理长文本（启动模型/分块整理），请稍候…",
                     )}
                   </span>
                 )}
@@ -265,9 +241,7 @@ export const MessageItem = memo(function MessageItem({
           {streaming && message.content && (
             <span className="stream-orb">
               <LoadingOrb state="connecting" size={20} speed={2} />
-              <span className="stream-text">
-                {t("message.working", "Working...")}
-              </span>
+              <span className="stream-text">{t("message.working", "Working...")}</span>
             </span>
           )}
           {message.error && (
@@ -363,14 +337,11 @@ function ThinkBlock({
   const handleContentScroll = () => {
     const content = contentRef.current;
     if (!content) return;
-    const distance =
-      content.scrollHeight - content.scrollTop - content.clientHeight;
+    const distance = content.scrollHeight - content.scrollTop - content.clientHeight;
     stickToBottom.current = distance < 24;
   };
   const toggle = () => {
-    const container = blockRef.current?.closest<HTMLElement>(
-      ".message-timeline"
-    );
+    const container = blockRef.current?.closest<HTMLElement>(".message-timeline");
     const scrollTop = container?.scrollTop ?? 0;
     onUserInteract?.();
     setOpen((value) => !value);
@@ -391,20 +362,14 @@ function ThinkBlock({
         }}
       >
         <ChevronDown size={13} className={open ? "expanded" : ""} />
-        <span className="think-title">
-          {t("message.thinking", "思考过程")}
-        </span>
+        <span className="think-title">{t("message.thinking", "思考过程")}</span>
         {!open && thinking && latestLine && (
           <span className="think-preview" title={latestLine}>
             {latestLine}
           </span>
         )}
       </summary>
-      <div
-        className="think-content"
-        ref={contentRef}
-        onScroll={handleContentScroll}
-      >
+      <div className="think-content" ref={contentRef} onScroll={handleContentScroll}>
         {content}
       </div>
     </details>
@@ -432,10 +397,7 @@ function PlanCard({ todos }: { todos: TodoItem[] }) {
       </summary>
       <div className="plan-items">
         {todos.map((todo, index) => (
-          <div
-            key={todo.id || `plan-${index}`}
-            className={`plan-item ${todo.status}`}
-          >
+          <div key={todo.id || `plan-${index}`} className={`plan-item ${todo.status}`}>
             <span className="plan-item-icon">
               {todo.status === "done" ? (
                 <Check size={13} />

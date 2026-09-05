@@ -36,13 +36,7 @@ export function parseDiffLines(diff: string): DiffLine[] {
   return lines;
 }
 
-export function DiffView({
-  diff,
-  defaultOpen = false,
-}: {
-  diff: string;
-  defaultOpen?: boolean;
-}) {
+export function DiffView({ diff, defaultOpen = false }: { diff: string; defaultOpen?: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(defaultOpen);
   const lines = useMemo(() => parseDiffLines(diff), [diff]);

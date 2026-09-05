@@ -11,12 +11,7 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-export function ConfirmDialog({
-  title,
-  description,
-  onConfirm,
-  onCancel,
-}: ConfirmDialogProps) {
+export function ConfirmDialog({ title, description, onConfirm, onCancel }: ConfirmDialogProps) {
   const { t } = useTranslation();
   return (
     <Modal

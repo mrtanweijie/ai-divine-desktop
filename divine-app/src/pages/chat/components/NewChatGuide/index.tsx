@@ -47,7 +47,7 @@ export function NewChatGuide({
         description: t("guide.analyzeDescription", "功能与项目架构"),
         prompt: t(
           "guide.analyzePrompt",
-          "请分析当前项目的工作空间目录结构、技术架构和关键文件，并给出总结。"
+          "请分析当前项目的工作空间目录结构、技术架构和关键文件，并给出总结。",
         ),
       },
       {
@@ -58,7 +58,7 @@ export function NewChatGuide({
         description: t("guide.modifyDescription", "定位问题、改代码并验证"),
         prompt: t(
           "guide.modifyPrompt",
-          "请先查看相关文件，定位问题，再用 edit_files 批量修改并运行测试验证。"
+          "请先查看相关文件，定位问题，再用 edit_files 批量修改并运行测试验证。",
         ),
       },
       {
@@ -69,7 +69,7 @@ export function NewChatGuide({
         description: t("guide.documentDescription", "Word / PDF / PPT / Excel / Markdown"),
         prompt: t(
           "guide.documentPrompt",
-          "请根据我的需求生成一份合适的文档（Word、PDF、PPT、Excel 或 Markdown）。"
+          "请根据我的需求生成一份合适的文档（Word、PDF、PPT、Excel 或 Markdown）。",
         ),
       },
       {
@@ -80,7 +80,7 @@ export function NewChatGuide({
         description: t("guide.researchDescription", "联网检索、多源汇总"),
         prompt: t(
           "guide.researchPrompt",
-          "请帮我批量抓取多个相关来源，整理关键信息并给出带链接的总结。"
+          "请帮我批量抓取多个相关来源，整理关键信息并给出带链接的总结。",
         ),
       },
       {
@@ -89,10 +89,7 @@ export function NewChatGuide({
         tone: "cyan",
         title: t("guide.visual", "图表与原型"),
         description: t("guide.visualDescription", "图表 / SVG / 网页原型"),
-        prompt: t(
-          "guide.visualPrompt",
-          "请根据主题生成图表、示意图或可交互的产品原型（网页）。"
-        ),
+        prompt: t("guide.visualPrompt", "请根据主题生成图表、示意图或可交互的产品原型（网页）。"),
       },
       {
         key: "automate",
@@ -100,13 +97,10 @@ export function NewChatGuide({
         tone: "rose",
         title: t("guide.automate", "提醒与技能"),
         description: t("guide.automateDescription", "提醒、日程、技能库"),
-        prompt: t(
-          "guide.automatePrompt",
-          "请帮我设置定时提醒或日程，或扫描可迁移的 AI 工具技能。"
-        ),
+        prompt: t("guide.automatePrompt", "请帮我设置定时提醒或日程，或扫描可迁移的 AI 工具技能。"),
       },
     ],
-    [t]
+    [t],
   );
   return (
     <div className="new-chat-guide">
@@ -128,10 +122,7 @@ export function NewChatGuide({
                 if (projectPath) void openFolder(projectPath);
               }}
               onKeyDown={(event) => {
-                if (
-                  projectPath &&
-                  (event.key === "Enter" || event.key === " ")
-                ) {
+                if (projectPath && (event.key === "Enter" || event.key === " ")) {
                   void openFolder(projectPath);
                   event.currentTarget.blur();
                 }
@@ -160,24 +151,16 @@ export function NewChatGuide({
               if (cardsVisible && !disabled) onAction(card.prompt);
             }}
             onKeyDown={(event) => {
-              if (
-                cardsVisible &&
-                !disabled &&
-                (event.key === "Enter" || event.key === " ")
-              ) {
+              if (cardsVisible && !disabled && (event.key === "Enter" || event.key === " ")) {
                 onAction(card.prompt);
                 event.currentTarget.blur();
               }
             }}
           >
-            <span className={`new-chat-guide-card-icon ${card.tone}`}>
-              {card.icon}
-            </span>
+            <span className={`new-chat-guide-card-icon ${card.tone}`}>{card.icon}</span>
             <span className="new-chat-guide-card-copy">
               <span className="new-chat-guide-card-title">{card.title}</span>
-              <span className="new-chat-guide-card-description">
-                {card.description}
-              </span>
+              <span className="new-chat-guide-card-description">{card.description}</span>
             </span>
           </div>
         ))}

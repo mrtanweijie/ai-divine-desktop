@@ -199,9 +199,7 @@ export function ToolConfirmSection({
           <CalendarDays size={14} />
           <span>{t("tool.calendarConfirm", "写入日程确认")}</span>
         </div>
-        <p className="plan-confirm-text">
-          {t("tool.calendarConfirmText", "是否同时写入日程？")}
-        </p>
+        <p className="plan-confirm-text">{t("tool.calendarConfirmText", "是否同时写入日程？")}</p>
         <ConfirmButtons
           deciding={deciding}
           onDecide={onDecide}
@@ -220,9 +218,7 @@ export function ToolConfirmSection({
           <span>{t("tool.skillMigrateConfirm", "技能迁移确认")}</span>
         </div>
         <div className="skill-migrate-meta">
-          <span className="skill-migrate-name">
-            {tool.skill_migrate?.name ?? tool.message}
-          </span>
+          <span className="skill-migrate-name">{tool.skill_migrate?.name ?? tool.message}</span>
           <span>
             {t("tool.sourceTarget", "来源：{{source}} · 目标：{{target}}", {
               source: tool.skill_migrate?.source_tool ?? t("tool.unknown", "未知"),
@@ -233,9 +229,7 @@ export function ToolConfirmSection({
             })}
           </span>
           {tool.skill_migrate?.description && (
-            <span className="skill-migrate-description">
-              {tool.skill_migrate.description}
-            </span>
+            <span className="skill-migrate-description">{tool.skill_migrate.description}</span>
           )}
         </div>
         <pre>{tool.skill_migrate?.preview ?? tool.message}</pre>
@@ -276,28 +270,21 @@ export function ToolConfirmSection({
           {tool.skill_migrations?.map((skill) => (
             <div className="skill-migration-item" key={skill.name}>
               <span className="skill-migration-item-name">{skill.name}</span>
-              <span className="skill-migration-item-source">
-                {skill.source_tool}
-              </span>
+              <span className="skill-migration-item-source">{skill.source_tool}</span>
               {skill.existing && (
                 <span className="skill-migration-item-existing">
                   {t("tool.existingSkip", "已存在，将跳过")}
                 </span>
               )}
               {skill.description && (
-                <span className="skill-migration-item-description">
-                  {skill.description}
-                </span>
+                <span className="skill-migration-item-description">{skill.description}</span>
               )}
             </div>
           ))}
         </div>
         <pre>
           {tool.skill_migrations
-            ?.map(
-              (skill) =>
-                `## ${skill.name} (${skill.source_tool})\n${skill.preview}`
-            )
+            ?.map((skill) => `## ${skill.name} (${skill.source_tool})\n${skill.preview}`)
             .join("\n\n---\n\n") ?? tool.message}
         </pre>
         <ConfirmButtons
@@ -339,7 +326,7 @@ export function ToolConfirmSection({
               {tool.skill_install.skills
                 .map(
                   (skill) =>
-                    `${skill.name} (${skill.skill_path || t("tool.repoRoot", "仓库根目录")})`
+                    `${skill.name} (${skill.skill_path || t("tool.repoRoot", "仓库根目录")})`,
                 )
                 .join(t("tasks.dayJoin", "、"))}
             </span>

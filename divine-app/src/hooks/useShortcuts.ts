@@ -1,9 +1,5 @@
 import { useEffect, useRef } from "react";
-import {
-  DEFAULT_KEYMAP,
-  matchesShortcut,
-  type ShortcutDef,
-} from "@/config/keymap";
+import { DEFAULT_KEYMAP, matchesShortcut, type ShortcutDef } from "@/config/keymap";
 
 type Action = () => void;
 

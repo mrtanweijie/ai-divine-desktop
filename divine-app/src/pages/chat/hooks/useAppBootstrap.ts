@@ -84,16 +84,11 @@ export function useAppBootstrap(options: UseAppBootstrapOptions): void {
         const sessionList = await refreshSessions();
         if (cancelled) return;
         const savedSession =
-          sessionList.find(
-            (session) => session.id === savedSelection.sessionId
-          ) ?? null;
-        const preferredProjectId =
-          savedSession?.project_id ?? savedSelection.projectId;
+          sessionList.find((session) => session.id === savedSelection.sessionId) ?? null;
+        const preferredProjectId = savedSession?.project_id ?? savedSelection.projectId;
         const initialProject =
           projectList.find((project) => project.id === preferredProjectId) ??
-          projectList.find(
-            (project) => project.id === savedSession?.project_id
-          ) ??
+          projectList.find((project) => project.id === savedSession?.project_id) ??
           projectList[0] ??
           null;
         if (!initialProject) {
@@ -105,12 +100,9 @@ export function useAppBootstrap(options: UseAppBootstrapOptions): void {
         const initialSession =
           sessionList.find(
             (session) =>
-              session.id === savedSelection.sessionId &&
-              session.project_id === initialProject.id
+              session.id === savedSelection.sessionId && session.project_id === initialProject.id,
           ) ??
-          sessionList.find(
-            (session) => session.project_id === initialProject.id
-          ) ??
+          sessionList.find((session) => session.project_id === initialProject.id) ??
           null;
         if (initialSession) {
           await loadSession(initialSession.id);
@@ -140,15 +132,8 @@ interface UseSessionPreferenceSyncOptions {
 
 /** 切换会话时恢复该会话记住的深度思考档位与模型；无记忆回落全局默认，
  * 记住/默认条目未配置 API Key 时回落到第一个已配置 Key 的提供商。 */
-export function useSessionPreferenceSync(
-  options: UseSessionPreferenceSyncOptions
-): void {
-  const {
-    selectedId,
-    settings,
-    setComposerEffort,
-    setComposerModelId,
-  } = options;
+export function useSessionPreferenceSync(options: UseSessionPreferenceSyncOptions): void {
+  const { selectedId, settings, setComposerEffort, setComposerModelId } = options;
   const prevEffortSessionRef = useRef<string | null>(null);
   const prevModelSessionRef = useRef<string | null>(null);
 
@@ -157,8 +142,7 @@ export function useSessionPreferenceSync(
     prevEffortSessionRef.current = selectedId;
     if (!selectedId) return;
     const saved = getSessionEffort(selectedId);
-    const valid =
-      saved === "off" || saved === "low" || saved === "high" || saved === "max";
+    const valid = saved === "off" || saved === "low" || saved === "high" || saved === "max";
     setComposerEffort(valid ? saved : defaultComposerEffort(settings));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, settings]);
@@ -167,12 +151,9 @@ export function useSessionPreferenceSync(
     if (selectedId === prevModelSessionRef.current) return;
     prevModelSessionRef.current = selectedId;
     const list = settings?.models ?? [];
-    const activeId =
-      list.find((entry) => entry.active)?.id ?? null;
+    const activeId = list.find((entry) => entry.active)?.id ?? null;
     const remembered = selectedId ? getSessionModelId(selectedId) : null;
-    setComposerModelId(
-      expandModelId(resolveModelTargetId(list, remembered, activeId), list)
-    );
+    setComposerModelId(expandModelId(resolveModelTargetId(list, remembered, activeId), list));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, settings]);
 }

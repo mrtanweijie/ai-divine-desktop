@@ -1,12 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import "./index.less";
 
-export type ButtonVariant =
-  | "primary"
-  | "secondary"
-  | "ghost"
-  | "danger"
-  | "icon";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "icon";
 export type ButtonSize = "small" | "medium";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

@@ -1,9 +1,6 @@
 export { downloadUrl, getWorkspace } from "@/services/api";
 
-export function toWorkspaceRelative(
-  base: string,
-  filePath: string
-): string | null {
+export function toWorkspaceRelative(base: string, filePath: string): string | null {
   const baseNorm = base.replace(/\\/g, "/").replace(/\/+$/, "");
   const fileNorm = filePath.replace(/\\/g, "/");
   if (fileNorm === baseNorm) return null;
@@ -14,8 +11,5 @@ export function toWorkspaceRelative(
 }
 
 export function workspaceJoin(base: string, relPath: string): string {
-  return `${base.replace(/\\/g, "/").replace(/\/+$/, "")}/${relPath.replace(
-    /^\/+/,
-    ""
-  )}`;
+  return `${base.replace(/\\/g, "/").replace(/\/+$/, "")}/${relPath.replace(/^\/+/, "")}`;
 }

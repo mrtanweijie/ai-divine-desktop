@@ -108,23 +108,16 @@ export function Select({
             <ChevronDown size={14} className={open ? "open" : ""} />
           </div>
         )}
-        {open && (
+        {open &&
           createPortal(
-            <div
-              ref={menuRef}
-              className="ui-select-menu"
-              role="listbox"
-              style={menuStyle}
-            >
+            <div ref={menuRef} className="ui-select-menu" role="listbox" style={menuStyle}>
               {options.map((option) => (
                 <div
                   key={option.value}
                   role="option"
                   tabIndex={0}
                   aria-selected={option.value === value}
-                  className={`ui-select-option${
-                    option.value === value ? " selected" : ""
-                  }`}
+                  className={`ui-select-option${option.value === value ? " selected" : ""}`}
                   onClick={() => {
                     onChange(option.value);
                     setOpen(false);
@@ -142,9 +135,8 @@ export function Select({
                 </div>
               ))}
             </div>,
-            document.body
-          )
-        )}
+            document.body,
+          )}
       </div>
     </div>
   );

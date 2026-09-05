@@ -25,7 +25,7 @@ import { isTauri, openUrl } from "@/services/tauri";
 import type { ToolEvent, ToolFileLink } from "@/types";
 
 export function chartOptionFromResult(
-  result?: ToolEvent["result"]
+  result?: ToolEvent["result"],
 ): Record<string, unknown> | null {
   const data = result?.data;
   // export_svg=true 时只显示 SVG 文件，不渲染内联图表
@@ -114,9 +114,7 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
     }
     const index = grouped.findIndex((item) => item.tool === tool.tool);
     if (index === -1) {
-      const urls = [
-        ...new Set([...(tool.urls ?? []), ...toolUrls(tool)]),
-      ];
+      const urls = [...new Set([...(tool.urls ?? []), ...toolUrls(tool)])];
       grouped.push({
         ...tool,
         count: 1,
@@ -133,24 +131,17 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
     const failed =
       (existing.failed_count ?? (existing.status === "error" ? 1 : 0)) +
       (tool.status === "error" ? 1 : 0);
-    const urls = [
-      ...new Set([
-        ...(existing.urls ?? []),
-        ...(tool.urls ?? []),
-        ...toolUrls(tool),
-      ]),
+    const urls = [...new Set([...(existing.urls ?? []), ...(tool.urls ?? []), ...toolUrls(tool)])];
+    const files = [
+      ...new Map(
+        [...(existing.files ?? []), ...toolFiles(tool)].map((file) => [
+          file.path ?? file.name,
+          file,
+        ]),
+      ).values(),
     ];
-    const files = [...new Map(
-      [...(existing.files ?? []), ...toolFiles(tool)].map((file) => [
-        file.path ?? file.name,
-        file,
-      ])
-    ).values()];
     const commands = [
-      ...new Set([
-        ...(existing.commands ?? toolCommands(existing)),
-        ...toolCommands(tool),
-      ]),
+      ...new Set([...(existing.commands ?? toolCommands(existing)), ...toolCommands(tool)]),
     ];
     grouped[index] = {
       ...existing,
@@ -168,53 +159,57 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
               count,
             })
           : tool.tool === "web_fetch" || tool.tool === "web_fetch_batch"
-          ? i18next.t("tool.fetchedSources", "已抓取 {{count}} 个数据源", {
-              count,
-            })
-          : tool.tool === "calculator"
-            ? i18next.t("tool.completedCalculations", "已完成 {{count}} 次计算", {
+            ? i18next.t("tool.fetchedSources", "已抓取 {{count}} 个数据源", {
                 count,
               })
-            : tool.tool === "edit_files"
-              ? i18next.t("tool.modifiedFiles", "已修改 {{count}} 个文件", {
+            : tool.tool === "calculator"
+              ? i18next.t("tool.completedCalculations", "已完成 {{count}} 次计算", {
                   count,
                 })
-            : tool.tool === "write_file"
-              ? i18next.t("tool.writtenFiles", "已写入 {{count}} 个文件", {
-                  count,
-                })
-            : tool.tool === "read_file"
-              ? i18next.t("tool.readFiles", "已读取 {{count}} 个文件", {
-                  count,
-                })
-              : tool.tool === "terminal"
-                ? i18next.t("tool.executedCommands", "已执行 {{count}} 个终端命令", {
+              : tool.tool === "edit_files"
+                ? i18next.t("tool.modifiedFiles", "已修改 {{count}} 个文件", {
                     count,
                   })
-              : tool.tool === "grep_files"
-                ? i18next.t("tool.grepSearches", "已完成 {{count}} 次内容搜索", {
-                    count,
-                  })
-              : tool.tool.startsWith("git_")
-                ? i18next.t("tool.gitOperations", "已完成 {{count}} 次 Git 操作", {
-                    count,
-                  })
-              : tool.tool.startsWith("bg_")
-                ? i18next.t("tool.bgOperations", "已执行 {{count}} 次后台操作", {
-                    count,
-                  })
-              : tool.tool === "list_definitions"
-                ? i18next.t("tool.listedDefinitions", "已查看 {{count}} 个文件大纲", {
-                    count,
-                  })
-              : tool.tool === "remember" || tool.tool === "forget_memory"
-                ? i18next.t("tool.memoryOperations", "已完成 {{count}} 次记忆操作", {
-                    count,
-                  })
-              : i18next.t("tool.executedTimes", "{{tool}} 已执行 {{count}} 次", {
-                  tool: tool.tool.toUpperCase(),
-                  count,
-                }),
+                : tool.tool === "write_file"
+                  ? i18next.t("tool.writtenFiles", "已写入 {{count}} 个文件", {
+                      count,
+                    })
+                  : tool.tool === "read_file"
+                    ? i18next.t("tool.readFiles", "已读取 {{count}} 个文件", {
+                        count,
+                      })
+                    : tool.tool === "terminal"
+                      ? i18next.t("tool.executedCommands", "已执行 {{count}} 个终端命令", {
+                          count,
+                        })
+                      : tool.tool === "grep_files"
+                        ? i18next.t("tool.grepSearches", "已完成 {{count}} 次内容搜索", {
+                            count,
+                          })
+                        : tool.tool.startsWith("git_")
+                          ? i18next.t("tool.gitOperations", "已完成 {{count}} 次 Git 操作", {
+                              count,
+                            })
+                          : tool.tool.startsWith("bg_")
+                            ? i18next.t("tool.bgOperations", "已执行 {{count}} 次后台操作", {
+                                count,
+                              })
+                            : tool.tool === "list_definitions"
+                              ? i18next.t("tool.listedDefinitions", "已查看 {{count}} 个文件大纲", {
+                                  count,
+                                })
+                              : tool.tool === "remember" || tool.tool === "forget_memory"
+                                ? i18next.t(
+                                    "tool.memoryOperations",
+                                    "已完成 {{count}} 次记忆操作",
+                                    {
+                                      count,
+                                    },
+                                  )
+                                : i18next.t("tool.executedTimes", "{{tool}} 已执行 {{count}} 次", {
+                                    tool: tool.tool.toUpperCase(),
+                                    count,
+                                  }),
     };
   }
   return grouped;
@@ -224,10 +219,7 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
  * 失败重试链合并：保留最终结果的 result（重试成功后图表/文件正常展示），
  * 消息区分「重试后成功」与「仍在失败」两种终态。
  */
-function mergeRetryChain(
-  existing: ToolEvent,
-  tool: ToolEvent
-): ToolEvent {
+function mergeRetryChain(existing: ToolEvent, tool: ToolEvent): ToolEvent {
   const count = (existing.count ?? 1) + 1;
   const failed =
     (existing.failed_count ?? (existing.status === "error" ? 1 : 0)) +
@@ -253,12 +245,7 @@ export function toolUrls(tool: ToolEvent): string[] {
   const data = tool.result?.data;
   if (Array.isArray(data?.results)) {
     for (const item of data.results) {
-      if (
-        item &&
-        typeof item === "object" &&
-        "url" in item &&
-        typeof item.url === "string"
-      ) {
+      if (item && typeof item === "object" && "url" in item && typeof item.url === "string") {
         urls.push(item.url);
       }
     }
@@ -280,22 +267,14 @@ export function toolFiles(tool: ToolEvent): ToolFileLink[] {
   const data = tool.result?.data;
   if (Array.isArray(data?.files)) {
     for (const item of data.files) {
-      if (
-        item &&
-        typeof item === "object" &&
-        "path" in item &&
-        typeof item.path === "string"
-      ) {
+      if (item && typeof item === "object" && "path" in item && typeof item.path === "string") {
         const rawName = item.path.split("/").pop() ?? item.path;
         files.push({
           name:
             item.action === "created"
               ? i18next.t("tool.addedFile", "新增 {{name}}", { name: rawName })
               : i18next.t("tool.modifiedFile", "修改 {{name}}", { name: rawName }),
-          path:
-            "filepath" in item && typeof item.filepath === "string"
-              ? item.filepath
-              : item.path,
+          path: "filepath" in item && typeof item.filepath === "string" ? item.filepath : item.path,
           download_url: undefined,
           size: undefined,
         });
@@ -313,7 +292,7 @@ export function toolFiles(tool: ToolEvent): ToolFileLink[] {
         const rawName =
           "file_name" in item && typeof item.file_name === "string"
             ? item.file_name
-            : item.filepath.split("/").pop() ?? item.filepath;
+            : (item.filepath.split("/").pop() ?? item.filepath);
         files.push({
           name: rawName,
           path: item.filepath,
@@ -322,9 +301,7 @@ export function toolFiles(tool: ToolEvent): ToolFileLink[] {
               ? item.download_url
               : undefined,
           size:
-            "file_size" in item && typeof item.file_size === "number"
-              ? item.file_size
-              : undefined,
+            "file_size" in item && typeof item.file_size === "number" ? item.file_size : undefined,
         });
       }
     }
@@ -347,9 +324,7 @@ export function toolCommands(tool: ToolEvent): string[] {
 
 export function fileIcon(file: ToolFileLink): ReactNode {
   const source = file.path || file.name || "";
-  const ext = source.includes(".")
-    ? source.split(".").pop()?.toLowerCase() ?? ""
-    : "";
+  const ext = source.includes(".") ? (source.split(".").pop()?.toLowerCase() ?? "") : "";
   if (
     [
       "rs",
@@ -410,9 +385,7 @@ export async function openToolUrl(url: string): Promise<void> {
 /** Pick a lucide chart icon based on the primary ECharts series type. */
 export function chartTypeIcon(option: Record<string, unknown>): ReactNode {
   const series = Array.isArray(option.series) ? option.series : [];
-  const first =
-    series.find((item) => isChartSeries(item)) ??
-    ({} as Record<string, unknown>);
+  const first = series.find((item) => isChartSeries(item)) ?? ({} as Record<string, unknown>);
   const type = typeof first.type === "string" ? first.type : "";
   switch (type) {
     case "line":
@@ -455,12 +428,7 @@ export function chartTypeIcon(option: Record<string, unknown>): ReactNode {
 }
 
 export function isChartSeries(
-  value: unknown
+  value: unknown,
 ): value is Record<string, unknown> & { type?: unknown } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    "type" in value
-  );
+  return typeof value === "object" && value !== null && !Array.isArray(value) && "type" in value;
 }

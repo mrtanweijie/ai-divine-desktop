@@ -5,11 +5,7 @@ import type { AppLocale } from "@/i18n";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
-import {
-  DEFAULT_KEYMAP,
-  formatShortcut,
-  isMacPlatform,
-} from "@/config/keymap";
+import { DEFAULT_KEYMAP, formatShortcut, isMacPlatform } from "@/config/keymap";
 import type { ThemePreference } from "@/services/theme";
 import { UpdaterSection } from "./UpdaterSection";
 import "./BasicSection.less";
@@ -47,9 +43,7 @@ export function BasicSection({
   const isMac = isMacPlatform();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const appShortcuts = DEFAULT_KEYMAP.filter((def) => def.layer === "app");
-  const globalShortcuts = DEFAULT_KEYMAP.filter(
-    (def) => def.layer === "global"
-  );
+  const globalShortcuts = DEFAULT_KEYMAP.filter((def) => def.layer === "global");
 
   return (
     <div className="settings-form">
@@ -86,9 +80,7 @@ export function BasicSection({
         value={contextLimit}
         onChange={(event) => {
           const digits = event.target.value.replace(/\D/g, "");
-          onContextLimitChange(
-            digits === "" ? 1 : Math.min(200, Number(digits))
-          );
+          onContextLimitChange(digits === "" ? 1 : Math.min(200, Number(digits)));
         }}
       />
       <Select
@@ -98,7 +90,7 @@ export function BasicSection({
             <span className="settings-field-hint-inline">
               {t(
                 "settings.thinkEffortHint",
-                "选择关闭则不进行深度思考；档位越高，思考越深入、响应越慢、消耗越多。"
+                "选择关闭则不进行深度思考；档位越高，思考越深入、响应越慢、消耗越多。",
               )}
             </span>
           </span>
@@ -113,9 +105,7 @@ export function BasicSection({
         ]}
       />
       <div
-        className={`settings-shortcut-card${
-          shortcutsOpen ? " settings-shortcut-card--open" : ""
-        }`}
+        className={`settings-shortcut-card${shortcutsOpen ? " settings-shortcut-card--open" : ""}`}
       >
         <div
           className="settings-shortcut-summary"
@@ -128,16 +118,10 @@ export function BasicSection({
             event.preventDefault();
             setShortcutsOpen((value) => !value);
           }}
-          title={
-            shortcutsOpen
-              ? t("shortcuts.collapse", "收起")
-              : t("shortcuts.expand", "展开")
-          }
+          title={shortcutsOpen ? t("shortcuts.collapse", "收起") : t("shortcuts.expand", "展开")}
         >
           <Keyboard size={14} className="settings-shortcut-icon" />
-          <span className="settings-shortcut-title">
-            {t("shortcuts.title", "快捷键")}
-          </span>
+          <span className="settings-shortcut-title">{t("shortcuts.title", "快捷键")}</span>
           <span className="settings-shortcut-count">
             {t("shortcuts.count", "{{total}} 项", {
               total: DEFAULT_KEYMAP.length,
@@ -145,45 +129,29 @@ export function BasicSection({
           </span>
           <ChevronDown
             size={14}
-            className={`settings-shortcut-chevron${
-              shortcutsOpen ? " open" : ""
-            }`}
+            className={`settings-shortcut-chevron${shortcutsOpen ? " open" : ""}`}
           />
         </div>
         {shortcutsOpen && (
           <div className="settings-shortcut-list">
             {appShortcuts.map((def) => (
               <div key={def.id} className="settings-shortcut-row">
-                <span className="settings-shortcut-label">
-                  {t(def.labelKey, "")}
-                </span>
-                <kbd className="settings-shortcut-keys">
-                  {formatShortcut(def, isMac)}
-                </kbd>
+                <span className="settings-shortcut-label">{t(def.labelKey, "")}</span>
+                <kbd className="settings-shortcut-keys">{formatShortcut(def, isMac)}</kbd>
               </div>
             ))}
             <div className="settings-shortcut-divider" />
             {globalShortcuts.map((def) => (
               <div key={def.id} className="settings-shortcut-row">
-                <span className="settings-shortcut-label">
-                  {t(def.labelKey, "")}
-                </span>
+                <span className="settings-shortcut-label">{t(def.labelKey, "")}</span>
                 <span className="settings-shortcut-actions">
-                  <Switch
-                    checked={globalShortcutEnabled}
-                    onChange={onGlobalShortcutChange}
-                  />
-                  <kbd className="settings-shortcut-keys">
-                    {formatShortcut(def, isMac)}
-                  </kbd>
+                  <Switch checked={globalShortcutEnabled} onChange={onGlobalShortcutChange} />
+                  <kbd className="settings-shortcut-keys">{formatShortcut(def, isMac)}</kbd>
                 </span>
               </div>
             ))}
             <p className="settings-shortcut-hint">
-              {t(
-                "shortcuts.globalHint",
-                "全局快捷键在任意应用中唤起或隐藏 Divine 主窗口。"
-              )}
+              {t("shortcuts.globalHint", "全局快捷键在任意应用中唤起或隐藏 Divine 主窗口。")}
             </p>
           </div>
         )}

@@ -37,7 +37,7 @@ export function MarkdownPreviewBlock({
   const { t } = useTranslation();
   const cacheKey = `${variant}\u0000${code}`;
   const [mode, setMode] = useState<MarkdownPreviewMode>(
-    () => modeCache.get(cacheKey) ?? defaultMode
+    () => modeCache.get(cacheKey) ?? defaultMode,
   );
   const [copied, setCopied] = useState(false);
 
@@ -88,9 +88,7 @@ export function MarkdownPreviewBlock({
         className="web-preview-copy"
         onClick={copy}
         aria-label={t("markdown.copyCode", "复制代码")}
-        title={
-          copied ? t("common.copied", "已复制") : t("markdown.copy", "复制")
-        }
+        title={copied ? t("common.copied", "已复制") : t("markdown.copy", "复制")}
       >
         {copied ? <Check size={13} /> : <Copy size={13} />}
       </Button>
@@ -105,9 +103,7 @@ export function MarkdownPreviewBlock({
         </PreviewHeaderActions>
       ) : (
         <div className="web-preview-header">
-          <span className="web-preview-title">
-            {t("markdown.mdPreview", "Markdown 预览")}
-          </span>
+          <span className="web-preview-title">{t("markdown.mdPreview", "Markdown 预览")}</span>
           <div className="web-preview-actions">{actionButtons}</div>
         </div>
       )}

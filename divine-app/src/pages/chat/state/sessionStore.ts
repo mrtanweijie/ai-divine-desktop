@@ -19,7 +19,7 @@ export function readLastSessionSelection(): LastSessionSelection {
 
 export function writeLastSessionSelection(
   projectId: string | null,
-  sessionId: string | null
+  sessionId: string | null,
 ): void {
   if (projectId) {
     storageSetRaw(LAST_PROJECT_ID_KEY, projectId);
@@ -37,9 +37,7 @@ export function useSessionState() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    null
-  );
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   return {
     sessions,

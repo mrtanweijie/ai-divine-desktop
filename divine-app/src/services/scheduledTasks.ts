@@ -43,7 +43,7 @@ export function listScheduledTasks(): Promise<{ tasks: ScheduledTask[] }> {
 }
 
 export function createScheduledTask(
-  body: Partial<ScheduledTask> & { title: string }
+  body: Partial<ScheduledTask> & { title: string },
 ): Promise<ScheduledTask> {
   return request("/scheduled-tasks", {
     method: "POST",
@@ -53,7 +53,7 @@ export function createScheduledTask(
 
 export function updateScheduledTask(
   id: string,
-  body: Partial<ScheduledTask>
+  body: Partial<ScheduledTask>,
 ): Promise<ScheduledTask> {
   return request(`/scheduled-tasks/${id}`, {
     method: "PATCH",
@@ -70,7 +70,7 @@ export function listCalendarEvents(): Promise<{ events: CalendarEvent[] }> {
 }
 
 export function createCalendarEvent(
-  body: Partial<CalendarEvent> & { title: string; start_at: string }
+  body: Partial<CalendarEvent> & { title: string; start_at: string },
 ): Promise<CalendarEvent> {
   return request("/calendar-events", {
     method: "POST",
@@ -80,7 +80,7 @@ export function createCalendarEvent(
 
 export function updateCalendarEvent(
   id: string,
-  body: Partial<CalendarEvent>
+  body: Partial<CalendarEvent>,
 ): Promise<CalendarEvent> {
   return request(`/calendar-events/${id}`, {
     method: "PATCH",
@@ -117,10 +117,7 @@ async function requestNativeNotificationPermission(): Promise<boolean | null> {
   }
 }
 
-async function showNativeNotification(
-  title: string,
-  body: string
-): Promise<boolean> {
+async function showNativeNotification(title: string, body: string): Promise<boolean> {
   if (!isMacosDesktop()) return false;
   try {
     await invoke("show_native_notification", { title, body });
@@ -183,9 +180,7 @@ function markReminderSeen(taskId: string, lastRunAt: string): void {
   storageSetRaw(`${REMINDER_SEEN_PREFIX}${taskId}`, lastRunAt);
 }
 
-export async function notifyDueReminders(
-  tasks: ScheduledTask[]
-): Promise<number> {
+export async function notifyDueReminders(tasks: ScheduledTask[]): Promise<number> {
   if (!isTauri()) return 0;
   const nativeAvailable = isMacosDesktop() && nativePermissionCache === true;
   if (!nativeAvailable && webNotificationPermission() !== "granted") return 0;
@@ -283,12 +278,11 @@ function taskNotificationPlans(task: ScheduledTask): NotificationPlan[] {
 }
 
 export async function syncTaskNotifications(
-  tasks: ScheduledTask[]
+  tasks: ScheduledTask[],
 ): Promise<{ scheduled: number; cancelled: number }> {
   if (!isTauri()) return { scheduled: 0, cancelled: 0 };
   storageSet("divine:notification-debug", {
-    hasNotification:
-      typeof window !== "undefined" && "Notification" in window,
+    hasNotification: typeof window !== "undefined" && "Notification" in window,
     permission:
       typeof window !== "undefined" && "Notification" in window
         ? window.Notification.permission
@@ -351,8 +345,7 @@ export function startTaskReminderPolling(): () => void {
     try {
       const granted = await ensureNotificationPermission();
       storageSet("divine:notification-debug", {
-        hasNotification:
-          typeof window !== "undefined" && "Notification" in window,
+        hasNotification: typeof window !== "undefined" && "Notification" in window,
         permission:
           typeof window !== "undefined" && "Notification" in window
             ? window.Notification.permission
@@ -380,7 +373,7 @@ export function startTaskReminderPolling(): () => void {
 
 export async function syncCalendarToSystem(
   events: CalendarEvent[],
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
 ): Promise<void> {
   if (!isTauri()) return;
   if (calendarSyncInFlight) return calendarSyncInFlight;
@@ -409,9 +402,7 @@ export async function syncCalendarToSystem(
   return calendarSyncInFlight;
 }
 
-export async function removeSystemCalendarEvent(
-  event: CalendarEvent
-): Promise<void> {
+export async function removeSystemCalendarEvent(event: CalendarEvent): Promise<void> {
   if (!isTauri()) return;
   try {
     await invoke<string>("remove_calendar_event", {

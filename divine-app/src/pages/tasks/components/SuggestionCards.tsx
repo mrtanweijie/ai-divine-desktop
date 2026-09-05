@@ -34,9 +34,7 @@ export function SuggestionCards({
         {suggestions.map((suggestion) => (
           <div
             key={suggestion.key}
-            className={`suggestion-card${
-              creatingSuggestion === suggestion.key ? " creating" : ""
-            }`}
+            className={`suggestion-card${creatingSuggestion === suggestion.key ? " creating" : ""}`}
             role="button"
             tabIndex={creatingSuggestion ? -1 : 0}
             aria-disabled={creatingSuggestion !== null}
@@ -51,9 +49,7 @@ export function SuggestionCards({
             <div className="suggestion-head">
               <span className="suggestion-title">{suggestion.title}</span>
               {creatingSuggestion === suggestion.key ? (
-                <span className="suggestion-state">
-                  {t("tasks.creating", "创建中...")}
-                </span>
+                <span className="suggestion-state">{t("tasks.creating", "创建中...")}</span>
               ) : createdSuggestion === suggestion.key ? (
                 <span className="suggestion-state created">
                   <Check size={13} />

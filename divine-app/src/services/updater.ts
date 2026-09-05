@@ -1,9 +1,5 @@
 import { useSyncExternalStore } from "react";
-import {
-  check,
-  type DownloadEvent,
-  type Update,
-} from "@tauri-apps/plugin-updater";
+import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { isTauri } from "@/services/tauri";
 
@@ -101,8 +97,7 @@ export async function checkForUpdates(): Promise<void> {
     const found = await check({ timeout: 30_000 });
     currentUpdate = found;
     if (found) {
-      const sameDismissed =
-        state.bannerDismissed && state.dismissedVersion === found.version;
+      const sameDismissed = state.bannerDismissed && state.dismissedVersion === found.version;
       setState({
         status: "available",
         version: found.version,
@@ -162,10 +157,7 @@ export async function downloadAndInstallUpdate(): Promise<void> {
     } else if (event.event === "Progress") {
       downloadedBytes += event.data.chunkLength;
       if (contentLength > 0) {
-        const progress = Math.min(
-          100,
-          Math.round((downloadedBytes / contentLength) * 100)
-        );
+        const progress = Math.min(100, Math.round((downloadedBytes / contentLength) * 100));
         setState({ ...state, progress });
       }
     }

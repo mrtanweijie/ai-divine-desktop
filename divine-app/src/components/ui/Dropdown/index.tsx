@@ -86,29 +86,21 @@ export function Dropdown({
           ...base,
           ...vertical,
           left: rect.left,
-          ...(direction === "above"
-            ? { transform: "translate(0, -100%)" }
-            : {}),
+          ...(direction === "above" ? { transform: "translate(0, -100%)" } : {}),
         });
       } else if (align === "end") {
         setMenuStyle({
           ...base,
           ...vertical,
           left: rect.right,
-          transform:
-            direction === "above"
-              ? "translate(-100%, -100%)"
-              : "translateX(-100%)",
+          transform: direction === "above" ? "translate(-100%, -100%)" : "translateX(-100%)",
         });
       } else {
         setMenuStyle({
           ...base,
           ...vertical,
           left: rect.left + rect.width / 2,
-          transform:
-            direction === "above"
-              ? "translate(-50%, -100%)"
-              : "translateX(-50%)",
+          transform: direction === "above" ? "translate(-50%, -100%)" : "translateX(-50%)",
         });
       }
     }
@@ -188,15 +180,13 @@ export function Dropdown({
                 <span className="ui-menu-text">
                   <span>{item.label}</span>
                   {item.description && (
-                    <small className="ui-menu-description">
-                      {item.description}
-                    </small>
+                    <small className="ui-menu-description">{item.description}</small>
                   )}
                 </span>
               </div>
             ))}
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

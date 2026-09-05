@@ -61,33 +61,26 @@ export const DEFAULT_KEYMAP: ShortcutDef[] = [
 
 export function isMacPlatform(): boolean {
   if (typeof navigator === "undefined") return false;
-  const uaData = (
-    navigator as Navigator & { userAgentData?: { platform?: string } }
-  ).userAgentData?.platform;
+  const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData
+    ?.platform;
   const platform = uaData ?? navigator.platform ?? "";
   return /Mac|iPhone|iPad/i.test(platform);
 }
 
 /** 修饰键按平台归一化（修复旧实现 macOS 上只有字面 Ctrl 才触发的问题）。 */
-export function modPressed(
-  event: KeyboardEvent,
-  isMac = isMacPlatform()
-): boolean {
+export function modPressed(event: KeyboardEvent, isMac = isMacPlatform()): boolean {
   return isMac ? event.metaKey : event.ctrlKey;
 }
 
 /** 输入法合成态（选词确认的回车等）不应触发任何快捷键/发送。 */
-export function isComposingEvent(event: {
-  isComposing?: boolean;
-  keyCode?: number;
-}): boolean {
+export function isComposingEvent(event: { isComposing?: boolean; keyCode?: number }): boolean {
   return Boolean(event.isComposing) || event.keyCode === 229;
 }
 
 export function matchesShortcut(
   event: KeyboardEvent,
   def: ShortcutDef,
-  isMac = isMacPlatform()
+  isMac = isMacPlatform(),
 ): boolean {
   if (isComposingEvent(event)) return false;
   if (def.mod !== modPressed(event, isMac)) return false;
@@ -97,10 +90,7 @@ export function matchesShortcut(
 }
 
 /** 设置页展示用键位文本：macOS 显示 ⌘ ⇧ D，其他平台显示 Ctrl+Shift+D。 */
-export function formatShortcut(
-  def: ShortcutDef,
-  isMac = isMacPlatform()
-): string {
+export function formatShortcut(def: ShortcutDef, isMac = isMacPlatform()): string {
   const parts: string[] = [];
   if (def.mod) parts.push(isMac ? "⌘" : "Ctrl");
   if (def.alt) parts.push(isMac ? "⌥" : "Alt");

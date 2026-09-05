@@ -4,22 +4,14 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import type { InstalledSkill } from "@/types";
-import {
-  SkillTypeIcon,
-  skillScriptLabel,
-  sourceLabel,
-  typeLabel,
-} from "../SkillLabels";
+import { SkillTypeIcon, skillScriptLabel, sourceLabel, typeLabel } from "../SkillLabels";
 
 interface SkillDetailModalProps {
   skill: InstalledSkill;
   onClose: () => void;
 }
 
-export function SkillDetailModal({
-  skill,
-  onClose,
-}: SkillDetailModalProps) {
+export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
   const { t } = useTranslation();
   return (
     <Modal
@@ -49,9 +41,7 @@ export function SkillDetailModal({
             <h3>{skill.name}</h3>
             <div className="skills-detail-meta">
               <span className="skill-badge">{typeLabel(skill.type)}</span>
-              <span className="skill-badge muted">
-                {sourceLabel(skill.source) ?? skill.source}
-              </span>
+              <span className="skill-badge muted">{sourceLabel(skill.source) ?? skill.source}</span>
               <span className="skill-badge muted">v{skill.version}</span>
             </div>
           </div>
@@ -83,9 +73,7 @@ export function SkillDetailModal({
             <FileText size={13} />
             {t("skills.bodyTitle", "SKILL.md 正文")}
           </h4>
-          <pre className="skills-detail-body">
-            {skill.body || t("skills.noBody", "（无正文）")}
-          </pre>
+          <pre className="skills-detail-body">{skill.body || t("skills.noBody", "（无正文）")}</pre>
         </section>
 
         {skill.references.length > 0 && (

@@ -6,8 +6,8 @@ export interface ProviderConfig {
   label: string;
   base_url: string;
   default_model: string;
-  list: string[];      // 该提供商的可选模型列表
-  prefix: string[];    // 用于根据模型名判断提供商
+  list: string[]; // 该提供商的可选模型列表
+  prefix: string[]; // 用于根据模型名判断提供商
 }
 
 // 提供商列表（按顺序显示）
@@ -17,11 +17,7 @@ export const PROVIDER_LIST: ProviderConfig[] = [
     label: "DeepSeek",
     base_url: "https://api.deepseek.com",
     default_model: "deepseek-v4-flash",
-    list: [
-      "deepseek-v4-flash",
-      "deepseek-v4-flash-vision-exp",
-      "deepseek-v4-pro",
-    ],
+    list: ["deepseek-v4-flash", "deepseek-v4-flash-vision-exp", "deepseek-v4-pro"],
     prefix: ["deepseek"],
   },
   {
@@ -54,14 +50,7 @@ export const PROVIDER_LIST: ProviderConfig[] = [
     label: "OpenAI",
     base_url: "https://api.openai.com/v1",
     default_model: "gpt-5.5",
-    list: [
-      "gpt-5.6",
-      "gpt-5.5",
-      "gpt-5.4",
-      "gpt-4.1",
-      "gpt-4.1-mini",
-      "gpt-4o",
-    ],
+    list: ["gpt-5.6", "gpt-5.5", "gpt-5.4", "gpt-4.1", "gpt-4.1-mini", "gpt-4o"],
     prefix: ["gpt"],
   },
   {
@@ -92,9 +81,7 @@ export const PROVIDER_LIST: ProviderConfig[] = [
     label: "Tencent",
     base_url: "https://tokenhub.tencentmaas.com/v1",
     default_model: "hy4-preview",
-    list: [
-      "hy4-preview",
-    ],
+    list: ["hy4-preview"],
     prefix: ["hy"],
   },
   {
@@ -116,22 +103,20 @@ export const PROVIDER_LIST: ProviderConfig[] = [
 ];
 
 // 提供商 Map（方便查找）
-export const PROVIDER_MAP = new Map<string, ProviderConfig>(
-  PROVIDER_LIST.map(p => [p.value, p])
-);
+export const PROVIDER_MAP = new Map<string, ProviderConfig>(PROVIDER_LIST.map((p) => [p.value, p]));
 
 // 根据模型名获取提供商 key（仅作回退：当条目未显式保存 vendor 时使用）
 export function getProviderFromModel(model: string): string {
   if (!model) return "";
   const modelLower = model.toLowerCase();
-  
+
   for (const provider of PROVIDER_LIST) {
-    if (provider.value === "custom") continue;  // 跳过自定义
-    if (provider.prefix.some(p => modelLower.startsWith(p))) {
+    if (provider.value === "custom") continue; // 跳过自定义
+    if (provider.prefix.some((p) => modelLower.startsWith(p))) {
       return provider.value;
     }
   }
-  
+
   // 如果模型名不匹配任何已知提供商，返回自定义
   return "custom";
 }
@@ -142,7 +127,7 @@ export function getProviderFromModel(model: string): string {
  * 兼容旧数据：没有 vendor 时回退到模型名反推。
  */
 export function getEntryProvider<T extends { vendor?: string; model?: string; name?: string }>(
-  entry: T
+  entry: T,
 ): string {
   const vendor = (entry.vendor || "").trim();
   if (vendor) return vendor;
@@ -175,7 +160,7 @@ export function isMultimodalModel(modelName: string): boolean {
 }
 
 // 为 Select 组件生成提供商选项格式
-export const PROVIDER_OPTIONS = PROVIDER_LIST.map(p => ({
+export const PROVIDER_OPTIONS = PROVIDER_LIST.map((p) => ({
   value: p.value,
   label: p.label,
 }));
@@ -184,38 +169,36 @@ export const PROVIDER_OPTIONS = PROVIDER_LIST.map(p => ({
 export function getModelOptionsForProvider(provider: string): { value: string; label: string }[] {
   const config = PROVIDER_MAP.get(provider);
   if (!config) return [];
-  
-  return config.list.map(model => ({
+
+  return config.list.map((model) => ({
     value: model,
     label: isMultimodalModel(model) ? `${model} (多模态)` : model,
   }));
 }
 
 // 将模型列表按提供商分组（用于对话框模型切换）
-export function groupModelsByProvider<
-  T extends { vendor?: string; model?: string; name?: string }
->(
-  models: T[]
+export function groupModelsByProvider<T extends { vendor?: string; model?: string; name?: string }>(
+  models: T[],
 ): Map<string, T[]> {
   const groups = new Map<string, T[]>();
-  
+
   // 按提供商顺序初始化
   for (const provider of PROVIDER_LIST) {
     groups.set(provider.value, []);
   }
-  
+
   for (const model of models) {
     const providerKey = getEntryProvider(model);
     const group = groups.get(providerKey) || [];
     group.push(model);
     groups.set(providerKey, group);
   }
-  
+
   // 移除空分组
   for (const [key, value] of groups.entries()) {
     if (value.length === 0) groups.delete(key);
   }
-  
+
   return groups;
 }
 
@@ -232,10 +215,8 @@ export function expandModelsForSwitcher<
     model?: string;
     name?: string;
     custom_models?: string;
-  }
->(
-  models: T[]
-): T[] {
+  },
+>(models: T[]): T[] {
   const expanded: T[] = [];
   for (const entry of models) {
     // 优先用用户显式保存的 vendor，避免本地模型名（如 qwen2.5:14b）被误判
@@ -278,9 +259,7 @@ export function expandModelsForSwitcher<
 }
 
 /** 把展开的模型 id（`原id::模型名`）解析为 { baseId, modelName }。 */
-export function resolveModelId(
-  modelId: string
-): { baseId: string; modelName: string | null } {
+export function resolveModelId(modelId: string): { baseId: string; modelName: string | null } {
   if (modelId.includes("::")) {
     const [baseId, ...rest] = modelId.split("::");
     return { baseId, modelName: rest.join("::") || null };
@@ -291,7 +270,7 @@ export function resolveModelId(
 /** 把原模型条目 id 映射为展开后的 id（默认选该条目当前配置的模型）。 */
 export function expandModelId(
   modelId: string | null,
-  models: Array<{ id: string; model?: string; name?: string }>
+  models: Array<{ id: string; model?: string; name?: string }>,
 ): string | null {
   if (!modelId) return null;
   if (modelId.includes("::")) return modelId; // 已是展开 id

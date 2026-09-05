@@ -42,54 +42,42 @@ export async function getAppVersion(): Promise<string> {
 }
 
 export async function savePasteText(
-  text: string
+  text: string,
 ): Promise<{ name: string; path: string; size: number; hash: string }> {
   return invoke("save_paste_text", { text });
 }
 
 export async function savePasteImage(
   base64: string,
-  mime: string
+  mime: string,
 ): Promise<{ name: string; path: string; size: number }> {
   return invoke("save_paste_image", { base64, mime });
 }
 
 export async function savePasteFile(
   base64: string,
-  name: string
+  name: string,
 ): Promise<{ name: string; path: string; size: number }> {
   return invoke("save_paste_file", { base64, name });
 }
 
-export async function getExternalFilePreview(
-  path: string
-): Promise<FileDiff> {
+export async function getExternalFilePreview(path: string): Promise<FileDiff> {
   return invoke("get_external_file_preview", { path });
 }
 
-export async function getBinaryPreview(
-  path: string
-): Promise<{ mime: string; dataUrl: string }> {
+export async function getBinaryPreview(path: string): Promise<{ mime: string; dataUrl: string }> {
   return invoke("get_binary_preview", { path });
 }
 
-export async function getFileTree(
-  root: string
-): Promise<WorkspaceFileNode[]> {
+export async function getFileTree(root: string): Promise<WorkspaceFileNode[]> {
   return invoke("get_file_tree", { root });
 }
 
-export async function getDirChildren(
-  root: string,
-  dir: string
-): Promise<WorkspaceFileNode[]> {
+export async function getDirChildren(root: string, dir: string): Promise<WorkspaceFileNode[]> {
   return invoke("get_dir_children", { root, dir });
 }
 
-export async function getFileDiff(
-  repoPath: string,
-  relPath: string
-): Promise<FileDiff> {
+export async function getFileDiff(repoPath: string, relPath: string): Promise<FileDiff> {
   return invoke("get_file_diff", { repoPath, relPath });
 }
 
@@ -102,7 +90,7 @@ export async function unwatchWorkspace(path: string): Promise<void> {
 }
 
 export async function listenWorkspaceChanges(
-  callback: (payload: { path: string; kind: string }) => void
+  callback: (payload: { path: string; kind: string }) => void,
 ): Promise<UnlistenFn> {
   return listen("workspace:changed", (event) => {
     callback(event.payload as { path: string; kind: string });

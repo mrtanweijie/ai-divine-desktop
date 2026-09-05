@@ -123,9 +123,5 @@ export function normalizeLanguage(language?: string): string {
 
 export function languageLabel(language?: string): string {
   const raw = (language || "text").trim().toLowerCase();
-  return (
-    LANGUAGE_LABELS[raw] ??
-    LANGUAGE_LABELS[normalizeLanguage(raw)] ??
-    "Text"
-  );
+  return LANGUAGE_LABELS[raw] ?? LANGUAGE_LABELS[normalizeLanguage(raw)] ?? "Text";
 }

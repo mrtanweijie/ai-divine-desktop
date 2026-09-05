@@ -23,11 +23,7 @@ function formatDuration(ms: number): string {
  * 历史恢复的消息没有 duration_ms（tool_runs 不回灌进 message parts），
  * 自然不显示——只作用于本次流式会话。
  */
-export const TracePanel = memo(function TracePanel({
-  tools,
-}: {
-  tools: ToolEvent[];
-}) {
+export const TracePanel = memo(function TracePanel({ tools }: { tools: ToolEvent[] }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
@@ -38,7 +34,7 @@ export const TracePanel = memo(function TracePanel({
           tool.duration_ms != null &&
           typeof tool.turn === "number" &&
           tool.turn > 0 &&
-          tool.status !== "confirm"
+          tool.status !== "confirm",
       )
       .map((tool) => ({
         key: tool.run_id ?? `${tool.call_id ?? tool.tool}`,
@@ -67,9 +63,7 @@ export const TracePanel = memo(function TracePanel({
   }, [tools]);
 
   if (runCount < 2) return null;
-  const maxDuration = Math.max(
-    ...groups.flatMap((group) => group.runs.map((run) => run.duration))
-  );
+  const maxDuration = Math.max(...groups.flatMap((group) => group.runs.map((run) => run.duration)));
 
   return (
     <details className="trace-block" open={open}>
@@ -103,15 +97,10 @@ export const TracePanel = memo(function TracePanel({
                         run.failed ? " failed" : ""
                       }`}
                       style={{
-                        width: `${Math.max(
-                          4,
-                          (run.duration / maxDuration) * 100
-                        )}%`,
+                        width: `${Math.max(4, (run.duration / maxDuration) * 100)}%`,
                       }}
                     />
-                    <span className="trace-bar-duration">
-                      {formatDuration(run.duration)}
-                    </span>
+                    <span className="trace-bar-duration">{formatDuration(run.duration)}</span>
                   </div>
                 </div>
               ))}

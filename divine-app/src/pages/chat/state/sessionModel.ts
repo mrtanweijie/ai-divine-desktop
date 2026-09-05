@@ -12,10 +12,7 @@ export function getSessionModelId(sessionId: string | null): string | null {
   return storageGetRaw(MODEL_KEY_PREFIX + sessionId);
 }
 
-export function setSessionModelId(
-  sessionId: string | null,
-  modelId: string
-): void {
+export function setSessionModelId(sessionId: string | null, modelId: string): void {
   if (!sessionId) return;
   storageSetRaw(MODEL_KEY_PREFIX + sessionId, modelId);
 }
@@ -25,12 +22,10 @@ export function setSessionModelId(
 export function resolveModelTargetId(
   models: Array<{ id: string; has_api_key?: boolean }>,
   rememberedId: string | null,
-  activeId: string | null
+  activeId: string | null,
 ): string | null {
   const rawId = rememberedId ?? activeId;
   const baseId = rawId?.split("::")[0] ?? null;
   const entry = baseId ? models.find((m) => m.id === baseId) : undefined;
-  return entry && entry.has_api_key
-    ? rawId
-    : (models.find((m) => m.has_api_key)?.id ?? null);
+  return entry && entry.has_api_key ? rawId : (models.find((m) => m.has_api_key)?.id ?? null);
 }

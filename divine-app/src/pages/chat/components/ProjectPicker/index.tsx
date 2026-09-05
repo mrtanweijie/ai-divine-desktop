@@ -25,9 +25,7 @@ export function ProjectPicker({
   const ref = useRef<HTMLDivElement>(null);
 
   const filtered = query.trim()
-    ? projects.filter((project) =>
-        project.name.toLowerCase().includes(query.trim().toLowerCase())
-      )
+    ? projects.filter((project) => project.name.toLowerCase().includes(query.trim().toLowerCase()))
     : projects;
 
   useEffect(() => {

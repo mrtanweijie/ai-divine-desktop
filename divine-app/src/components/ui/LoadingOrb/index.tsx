@@ -17,10 +17,6 @@ interface LoadingOrbProps {
   speed?: number;
 }
 
-export function LoadingOrb({
-  state = "shaping",
-  size = 20,
-  speed,
-}: LoadingOrbProps) {
+export function LoadingOrb({ state = "shaping", size = 20, speed }: LoadingOrbProps) {
   return <ThinkingOrb state={state} size={size} speed={speed} />;
 }

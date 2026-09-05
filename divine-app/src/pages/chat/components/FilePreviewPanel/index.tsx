@@ -1,28 +1,12 @@
-import {
-  memo,
-  useEffect,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
-import {
-  Check,
-  ChevronRight,
-  ListTree,
-  Maximize2,
-  Minimize2,
-  PanelRightClose,
-} from "lucide-react";
+import { memo, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Check, ChevronRight, ListTree, Maximize2, Minimize2, PanelRightClose } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import type { PreviewFile } from "@/types";
 import { FilePreview } from "./FilePreview";
 import { FileTree } from "./FileTree";
-import {
-  PreviewHeaderSlot,
-  PreviewHeaderSlotProvider,
-} from "./PreviewHeaderSlot";
+import { PreviewHeaderSlot, PreviewHeaderSlotProvider } from "./PreviewHeaderSlot";
 import "./index.less";
 
 // 拖拽文件树分隔条：低于该宽度直接收起；收起态拖拽越过该位移后先还原到最小宽度
@@ -107,10 +91,7 @@ export function FilePreviewPanelInner({
     document.body.style.userSelect = "none";
 
     const onMove = (moveEvent: PointerEvent) => {
-      const nextWidth = Math.min(
-        760,
-        Math.max(320, startWidth + startX - moveEvent.clientX)
-      );
+      const nextWidth = Math.min(760, Math.max(320, startWidth + startX - moveEvent.clientX));
       onWidthChange(nextWidth);
     };
     const onUp = () => {
@@ -124,9 +105,7 @@ export function FilePreviewPanelInner({
     window.addEventListener("pointerup", onUp);
   };
 
-  const handleTreeResizeStart = (
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => {
+  const handleTreeResizeStart = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     const startX = event.clientX;
     // 拖拽以即时跟手优先：终止可能未完成的收起/展开动画
@@ -186,124 +165,119 @@ export function FilePreviewPanelInner({
           transition: noTransition ? "none" : undefined,
         }}
       >
-      <div
-        className="file-inspector-resizer"
-        onPointerDown={handleResizeStart}
-        title={t("file.dragResizeWidth", "拖拽调整宽度")}
-        aria-label={t("file.dragResizeWidth", "拖拽调整宽度")}
-      />
-      <header className="file-inspector-header">
-        <div className="file-inspector-title-group">
-          <span className="file-inspector-title">
-            {t("file.title", "文件")}
-          </span>
-          {selectedFile && (
-            <>
-              <ChevronRight size={12} className="file-inspector-crumb-sep" />
-              <span
-                className="file-inspector-crumb"
-                title={selectedFile.relPath}
-              >
-                {selectedFile.fileName ?? selectedFile.relPath}
-              </span>
-            </>
-          )}
-        </div>
-        <div className="file-inspector-actions">
-          <PreviewHeaderSlot />
-          {selectedFile && onAcceptFile && changedFiles.has(selectedFile.relPath) && (
-            <Button
-              variant="ghost"
-              size="small"
-              className="diff-accept-button"
-              onClick={() => onAcceptFile(selectedFile.relPath)}
-              title={t("file.acceptChanges", "接受变更，清除蓝点")}
-            >
-              <Check size={13} />
-              {t("common.accept", "接受")}
-            </Button>
-          )}
-          {(expanded || selectedFile) && (
-            <IconButton
-              icon={expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
-              title={
-                expanded
-                  ? t("file.shrinkArea", "缩小文件区域")
-                  : t("file.expandArea", "扩大文件区域")
-              }
-              onClick={onToggleExpand}
-            />
-          )}
-          {!expanded && (
-            <IconButton
-              icon={<PanelRightClose size={14} />}
-              title={t("file.collapsePanel", "收起面板")}
-              onClick={onClose}
-            />
-          )}
-        </div>
-      </header>
-      <div
-        className={`file-inspector-body${
-          treeCollapsed ? " is-tree-collapsed" : ""
-        }${treeAnimating ? " is-tree-animating" : ""}`}
-      >
-        {treeCollapsed && (
-          <span className="file-tree-expand-fab">
-            <IconButton
-              icon={<ListTree size={13} />}
-              title={t("file.expandTree", "展开文件树")}
-              onClick={() => runTreeAnim(false)}
-            />
-          </span>
-        )}
-        <FileTree
-          repoPath={repoPath}
-          changedFiles={changedFiles}
-          selectedPath={selectedFile?.relPath ?? null}
-          width={treeCollapsed ? 0 : treeWidth}
-          expandTo={expandTo}
-          onSelectFile={(relPath) =>
-            onSelectFile({
-              repoPath,
-              relPath,
-              fileName: relPath.split("/").pop(),
-            })
-          }
-        />
         <div
-          className="file-tree-resizer"
-          style={{ left: treeCollapsed ? 0 : treeWidth - 2 }}
-          onPointerDown={handleTreeResizeStart}
-          title={
-            treeCollapsed
-              ? t("file.dragExpandTree", "向右拖拽展开文件树")
-              : t("file.dragResizeTree", "拖拽调整文件树宽度")
-          }
-          aria-label={
-            treeCollapsed
-              ? t("file.dragExpandTree", "向右拖拽展开文件树")
-              : t("file.dragResizeTree", "拖拽调整文件树宽度")
-          }
+          className="file-inspector-resizer"
+          onPointerDown={handleResizeStart}
+          title={t("file.dragResizeWidth", "拖拽调整宽度")}
+          aria-label={t("file.dragResizeWidth", "拖拽调整宽度")}
         />
-        <div className="file-inspector-preview">
-          {selectedFile ? (
-            <FilePreview
-              key={`${selectedFile.relPath}-${selectedFile.path ?? ""}`}
-              repoPath={selectedFile.repoPath}
-              relPath={selectedFile.relPath}
-              absolutePath={selectedFile.path}
-              content={selectedFile.content}
-              fileName={selectedFile.fileName}
-              changed={changedFiles.has(selectedFile.relPath)}
-            />
-          ) : (
-            <div className="file-inspector-empty">
-              <span>{t("file.selectFromLeft", "从左侧选择文件查看改动")}</span>
-            </div>
+        <header className="file-inspector-header">
+          <div className="file-inspector-title-group">
+            <span className="file-inspector-title">{t("file.title", "文件")}</span>
+            {selectedFile && (
+              <>
+                <ChevronRight size={12} className="file-inspector-crumb-sep" />
+                <span className="file-inspector-crumb" title={selectedFile.relPath}>
+                  {selectedFile.fileName ?? selectedFile.relPath}
+                </span>
+              </>
+            )}
+          </div>
+          <div className="file-inspector-actions">
+            <PreviewHeaderSlot />
+            {selectedFile && onAcceptFile && changedFiles.has(selectedFile.relPath) && (
+              <Button
+                variant="ghost"
+                size="small"
+                className="diff-accept-button"
+                onClick={() => onAcceptFile(selectedFile.relPath)}
+                title={t("file.acceptChanges", "接受变更，清除蓝点")}
+              >
+                <Check size={13} />
+                {t("common.accept", "接受")}
+              </Button>
+            )}
+            {(expanded || selectedFile) && (
+              <IconButton
+                icon={expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                title={
+                  expanded
+                    ? t("file.shrinkArea", "缩小文件区域")
+                    : t("file.expandArea", "扩大文件区域")
+                }
+                onClick={onToggleExpand}
+              />
+            )}
+            {!expanded && (
+              <IconButton
+                icon={<PanelRightClose size={14} />}
+                title={t("file.collapsePanel", "收起面板")}
+                onClick={onClose}
+              />
+            )}
+          </div>
+        </header>
+        <div
+          className={`file-inspector-body${
+            treeCollapsed ? " is-tree-collapsed" : ""
+          }${treeAnimating ? " is-tree-animating" : ""}`}
+        >
+          {treeCollapsed && (
+            <span className="file-tree-expand-fab">
+              <IconButton
+                icon={<ListTree size={13} />}
+                title={t("file.expandTree", "展开文件树")}
+                onClick={() => runTreeAnim(false)}
+              />
+            </span>
           )}
+          <FileTree
+            repoPath={repoPath}
+            changedFiles={changedFiles}
+            selectedPath={selectedFile?.relPath ?? null}
+            width={treeCollapsed ? 0 : treeWidth}
+            expandTo={expandTo}
+            onSelectFile={(relPath) =>
+              onSelectFile({
+                repoPath,
+                relPath,
+                fileName: relPath.split("/").pop(),
+              })
+            }
+          />
+          <div
+            className="file-tree-resizer"
+            style={{ left: treeCollapsed ? 0 : treeWidth - 2 }}
+            onPointerDown={handleTreeResizeStart}
+            title={
+              treeCollapsed
+                ? t("file.dragExpandTree", "向右拖拽展开文件树")
+                : t("file.dragResizeTree", "拖拽调整文件树宽度")
+            }
+            aria-label={
+              treeCollapsed
+                ? t("file.dragExpandTree", "向右拖拽展开文件树")
+                : t("file.dragResizeTree", "拖拽调整文件树宽度")
+            }
+          />
+          <div className="file-inspector-preview">
+            {selectedFile ? (
+              <FilePreview
+                key={`${selectedFile.relPath}-${selectedFile.path ?? ""}`}
+                repoPath={selectedFile.repoPath}
+                relPath={selectedFile.relPath}
+                absolutePath={selectedFile.path}
+                content={selectedFile.content}
+                fileName={selectedFile.fileName}
+                changed={changedFiles.has(selectedFile.relPath)}
+              />
+            ) : (
+              <div className="file-inspector-empty">
+                <span>{t("file.selectFromLeft", "从左侧选择文件查看改动")}</span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       </aside>
     </PreviewHeaderSlotProvider>
   );

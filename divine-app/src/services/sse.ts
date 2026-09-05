@@ -12,23 +12,12 @@ export interface SSEHandlers {
   think_done?: () => void;
   message?: (data: { content: string }) => void;
   plan?: (data: { items: Record<string, unknown>[] }) => void;
-  plan_sync?: (data: {
-    items?: unknown;
-    settled?: number;
-  }) => void;
-  todo_update?: (data: {
-    id: string;
-    status: string;
-    result?: string;
-  }) => void;
+  plan_sync?: (data: { items?: unknown; settled?: number }) => void;
+  todo_update?: (data: { id: string; status: string; result?: string }) => void;
   tool?: (data: Record<string, unknown>) => void;
   subagent?: (data: SubAgentSSEData) => void;
-  scheduled_tasks_changed?: (data: {
-    tasks: Record<string, unknown>[];
-  }) => void;
-  calendar_events_changed?: (data: {
-    events: Record<string, unknown>[];
-  }) => void;
+  scheduled_tasks_changed?: (data: { tasks: Record<string, unknown>[] }) => void;
+  calendar_events_changed?: (data: { events: Record<string, unknown>[] }) => void;
   done?: (data: { message: string }) => void;
   error?: (data: {
     code: string;
@@ -38,8 +27,7 @@ export interface SSEHandlers {
   }) => void;
 }
 
-const SSE_DEBUG =
-  import.meta.env.DEV || import.meta.env.VITE_API_DEBUG === "true";
+const SSE_DEBUG = import.meta.env.DEV || import.meta.env.VITE_API_DEBUG === "true";
 
 function logSSE(event: string, data: unknown) {
   if (!SSE_DEBUG) return;
@@ -50,10 +38,7 @@ function logSSE(event: string, data: unknown) {
   console.log(`[sse] event ${event}`, text);
 }
 
-export async function consumeSSE(
-  response: Response,
-  handlers: SSEHandlers
-): Promise<void> {
+export async function consumeSSE(response: Response, handlers: SSEHandlers): Promise<void> {
   if (!response.ok || !response.body) {
     const text = await response.text();
     throw new Error(text || `HTTP ${response.status}`);

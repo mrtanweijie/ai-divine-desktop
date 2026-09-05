@@ -18,14 +18,12 @@ export function ToolCommands({
   if (tool.commands?.length) {
     return (
       <div className="terminal-commands">
-        {tool.commands
-          .slice(0, commandsOpen ? tool.commands.length : 3)
-          .map((command) => (
-            <div className="terminal-command" key={command}>
-              <span className="terminal-command-prompt">$</span>
-              <code>{command}</code>
-            </div>
-          ))}
+        {tool.commands.slice(0, commandsOpen ? tool.commands.length : 3).map((command) => (
+          <div className="terminal-command" key={command}>
+            <span className="terminal-command-prompt">$</span>
+            <code>{command}</code>
+          </div>
+        ))}
         {tool.commands.length > 3 && !commandsOpen && (
           <div
             role="button"

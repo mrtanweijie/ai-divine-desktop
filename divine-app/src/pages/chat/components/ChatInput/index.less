@@ -20,11 +20,15 @@
   border-radius: 24px;
   background: var(--color-surface);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .composer:focus-within {
   border-color: rgba(255, 255, 255, 0.55);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1), 0 12px 32px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.1),
+    0 12px 32px rgba(0, 0, 0, 0.35);
 }
 .composer .ui-field {
   gap: 0;
@@ -172,6 +176,6 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
-  .composer-wrap {
-    padding: 10px 10px 12px;
-  }
+.composer-wrap {
+  padding: 10px 10px 12px;
+}
