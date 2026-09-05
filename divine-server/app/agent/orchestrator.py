@@ -19,6 +19,7 @@ from ..localization import default_session_title, normalize_locale
 from ..sse import error_event, sse_event
 from .core import (
     AGENT_RECURSION_LIMIT,
+    approval_timeout_seconds,
     AgentRunContext,
     _build_llm,
     _content_text,
@@ -675,7 +676,8 @@ async def run_agent(
                         try:
                             yield _interrupt_sse(payload, session_id)
                             await asyncio.wait_for(
-                                pending["event"].wait(), 180
+                                pending["event"].wait(),
+                                approval_timeout_seconds(settings),
                             )
                             allowed = bool(pending["allowed"])
                         except asyncio.TimeoutError:

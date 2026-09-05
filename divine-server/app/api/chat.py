@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from .. import db
+from ..agent.core.constants import approval_timeout_seconds
 from ..agent import run_agent
 from ..agent.core.injection import (
     MAX_CONTENT_LENGTH,
@@ -550,7 +551,10 @@ async def stream_chat(request: StreamChatRequest):
                         },
                     )
                     try:
-                        await asyncio.wait_for(pending["event"].wait(), 180)
+                        await asyncio.wait_for(
+                            pending["event"].wait(),
+                            approval_timeout_seconds(settings),
+                        )
                         allowed = bool(pending["allowed"])
                     except asyncio.TimeoutError:
                         allowed = False

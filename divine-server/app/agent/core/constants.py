@@ -110,6 +110,21 @@ MAX_TOOL_TURNS = 96
 # 公式见 subagents.py（SUBAGENT_MAX_TOOL_TURNS * 6）。
 AGENT_RECURSION_LIMIT = MAX_TOOL_TURNS * 4
 
+# 审批/提问等待用户决策的超时秒数：settings.json 的 approval_timeout 可覆盖，
+# 下限 30s 防误配成 0 导致确认卡闪过即拒。
+DEFAULT_APPROVAL_TIMEOUT_SECONDS = 180
+_APPROVAL_TIMEOUT_FLOOR = 30
+
+
+def approval_timeout_seconds(settings: dict | None) -> int:
+    try:
+        value = int((settings or {}).get("approval_timeout") or 0)
+    except (TypeError, ValueError):
+        return DEFAULT_APPROVAL_TIMEOUT_SECONDS
+    if value <= 0:
+        return DEFAULT_APPROVAL_TIMEOUT_SECONDS
+    return max(value, _APPROVAL_TIMEOUT_FLOOR)
+
 # 用户消息尾部的 options 卡片遵循提示（随本次模型输入注入，不落库不参与意图分类）。
 # system prompt 侧规则对 deepseek 的遵循率不稳，用户消息尾部注入实测有效
 # （与实时信息强制联网同一注入模式）。

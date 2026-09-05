@@ -148,6 +148,7 @@ pnpm tauri:dev
 - `active` 为 `true` 的条目是默认模型，同时会镜像到顶层 `provider` / `model` / `base_url` / `api_key` 字段，保持与旧配置兼容。
 - 对话时可在输入框发送按钮左侧的模型选择器中按会话切换模型（每个会话记住各自的模型选择，未选择时用默认模型）。
 - `provider`：`auto`（有 Key 用 DeepSeek，否则本地演示）、`langchain`（LangChain DeepSeek）、`mock`（本地演示）。
+- 审批等待：`approval_timeout`（秒，默认 180，下限 30）控制高危操作确认/主动提问等待用户决策的时长。
 - 网络参数（可选手动编辑 `settings.json`）：`max_retries`（请求重试次数，默认 2）、`timeout`（请求超时秒数，默认跟随 openai 客户端）；可写在顶层或某个模型条目内，provider 初始化时会输出一条含生效值的日志。
 
 桌面端启动 sidecar 时会注入 `DIVINE_DATA_DIR` 和 `DIVINE_WORKSPACE_DIR`，指向系统应用数据目录，因此打包后不会依赖仓库内的 `data/` 和 `workspace/`。
