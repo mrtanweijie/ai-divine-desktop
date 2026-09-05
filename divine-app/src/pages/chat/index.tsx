@@ -26,28 +26,15 @@ import { NewChatGuide } from "@/pages/chat/components/NewChatGuide";
 import { FilePreviewPanel } from "@/pages/chat/components/FilePreviewPanel";
 import { SessionList } from "@/pages/chat/components/SessionList";
 import { SettingsModal } from "@/components/SettingsModal";
-import {
-  isMacosDesktop,
-} from "@/services/tauri";
-import type {
-  ApprovalMode,
-  ChatFile,
-  Project,
-  SettingsSaveBody,
-} from "@/types";
+import { isMacosDesktop } from "@/services/tauri";
+import type { ApprovalMode, ChatFile, ChatMessage, Project, SettingsSaveBody } from "@/types";
 import { useConfigState } from "@/pages/chat/state/configStore";
 import { useFullscreen } from "@/pages/chat/state/fullscreenStore";
 import { useInputState } from "@/pages/chat/state/inputStore";
 import { useMessageState } from "@/pages/chat/state/messageStore";
 import { useShortcutAction } from "@/hooks/useShortcuts";
-import {
-  useSessionState,
-  writeLastSessionSelection,
-} from "@/pages/chat/state/sessionStore";
-import {
-  defaultComposerEffort,
-  setSessionEffort,
-} from "@/pages/chat/state/sessionEffort";
+import { useSessionState, writeLastSessionSelection } from "@/pages/chat/state/sessionStore";
+import { defaultComposerEffort, setSessionEffort } from "@/pages/chat/state/sessionEffort";
 import {
   getSessionModelId,
   resolveModelTargetId,
@@ -59,20 +46,16 @@ import { SessionSearchModal } from "@/pages/chat/components/SessionList/SessionS
 import { ProjectModal } from "@/pages/chat/components/ProjectModal";
 import { ProjectPicker } from "@/pages/chat/components/ProjectPicker";
 import { useChatStream } from "@/pages/chat/hooks/useChatStream";
-import {
-  useAppBootstrap,
-  useSessionPreferenceSync,
-} from "@/pages/chat/hooks/useAppBootstrap";
+import { useAppBootstrap, useSessionPreferenceSync } from "@/pages/chat/hooks/useAppBootstrap";
 import { ChatStreamContext } from "@/pages/chat/hooks/ChatStreamContext";
 import { useSessionLoader } from "@/pages/chat/hooks/useSessionLoader";
 import { useWorkspacePanel } from "@/pages/chat/hooks/useWorkspacePanel";
-import {
-  expandModelId,
-  expandModelsForSwitcher,
-} from "@/config/providers";
+import { expandModelId, expandModelsForSwitcher } from "@/config/providers";
 import { storageSet } from "@/services/storage";
 import "./index.less";
 import { acceptedFilesKey } from "@/pages/chat/chatUtils";
+
+const EMPTY_MESSAGES: ChatMessage[] = [];
 
 export default function ChatPage() {
   const { t } = useTranslation();
@@ -95,7 +78,7 @@ export default function ChatPage() {
     getCachedSessionMessages,
   } = useMessageState();
   // 当前视图的会话消息与流状态由 selectedId 派生，支持多会话并行流式。
-  const messages = selectedId ? (messagesBySession[selectedId] ?? []) : [];
+  const messages = selectedId ? (messagesBySession[selectedId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES;
 
   // 会话累计 token 消耗：汇总每条回复的 token_usage。
   const sessionTokenUsage = useMemo(() => {
@@ -118,11 +101,8 @@ export default function ChatPage() {
   // 只把已配置 API Key 的模型条目按提供商 list 展开，供对话框模型切换使用。
   // 未配置 Key 的提供商不会出现在切换列表里。
   const switcherModels = useMemo(
-    () =>
-      expandModelsForSwitcher(
-        (settings?.models ?? []).filter((m) => m.has_api_key)
-      ),
-    [settings?.models]
+    () => expandModelsForSwitcher((settings?.models ?? []).filter((m) => m.has_api_key)),
+    [settings?.models],
   );
   // 没有任何可用模型（无 API Key 且本地模型未运行）→ 提示安装免费本地模型
   const noUsableModel = useMemo(() => {
@@ -149,57 +129,21 @@ export default function ChatPage() {
   const view = searchParams.get("view");
   const tasksOpen = view === "tasks";
   const skillsOpen = view === "skills";
-  const openView = useCallback(
-    (nextView: "tasks" | "skills") => {
-      setWorkspacePanelOpen(false);
-      setWorkspaceExpanded(false);
-      setWorkspaceExpandedLayout(false);
-      setSearchParams({ view: nextView });
-    },
-    [setSearchParams]
-  );
-  const [projectOpen, setProjectOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [composerKey, setComposerKey] = useState(0);
-  const [approvalMode, setApprovalMode] = useState<ApprovalMode>("ask");
-  const [composerEffort, setComposerEffort] = useState("off");
-  const [composerModelId, setComposerModelId] = useState<string | null>(null);
-  // Bumped after each stream settles so the context ring refreshes usage.
-  const [contextRefreshKey, setContextRefreshKey] = useState(0);
-  const lastStreamingRef = useRef(false);
-  const [guideCardsVisible, setGuideCardsVisible] = useState(true);
-  const [prefill, setPrefill] = useState<{
-    text: string;
-    nonce: number;
-  } | null>(null);
-  const [isGit, setIsGit] = useState(false);
-  const [selectionReady, setSelectionReady] = useState(false);
-  const composerRef = useRef<HTMLTextAreaElement>(null);
-  // 会话切换序号：快速连点时丢弃过期的 loadSession fetch 结果
-  const workspacePanelOpenRef = useRef(false);
-
-  // After a stream finishes, refresh the composer context ring usage.
-  useEffect(() => {
-    if (lastStreamingRef.current && !streaming) {
-      setContextRefreshKey((key) => key + 1);
-    }
-    lastStreamingRef.current = streaming;
-  }, [streaming]);
-
   const currentSession = useMemo(
     () => sessions.find((session) => session.id === selectedId) ?? null,
-    [selectedId, sessions]
+    [selectedId, sessions],
   );
 
   const currentProject = useMemo(
     () =>
       projects.find(
-        (project) =>
-          project.id === (currentSession?.project_id ?? selectedProjectId)
+        (project) => project.id === (currentSession?.project_id ?? selectedProjectId),
       ) ?? null,
-    [currentSession?.project_id, projects, selectedProjectId]
+    [currentSession?.project_id, projects, selectedProjectId],
   );
 
+  // 会话切换序号：快速连点时丢弃过期的 loadSession fetch 结果
+  const workspacePanelOpenRef = useRef(false);
   const workspace = useWorkspacePanel({
     selectedId,
     currentProject,
@@ -229,14 +173,48 @@ export default function ChatPage() {
     workspacePanelOpenRef.current = workspacePanelOpen;
   }, [workspacePanelOpen]);
 
-  // 项目切换：重置分页与变更文件状态（工作区面板自身状态在 useWorkspacePanel
-  // 内重置，previewFile 也由其处理；这里补回分页相关的 4 个）。
+  const openView = useCallback(
+    (nextView: "tasks" | "skills") => {
+      setWorkspacePanelOpen(false);
+      setWorkspaceExpanded(false);
+      setWorkspaceExpandedLayout(false);
+      setSearchParams({ view: nextView });
+    },
+    [setSearchParams, setWorkspacePanelOpen, setWorkspaceExpanded, setWorkspaceExpandedLayout],
+  );
+  const [projectOpen, setProjectOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [composerKey, setComposerKey] = useState(0);
+  const [approvalMode, setApprovalMode] = useState<ApprovalMode>("ask");
+  const [composerEffort, setComposerEffort] = useState("off");
+  const [composerModelId, setComposerModelId] = useState<string | null>(null);
+  // Bumped after each stream settles so the context ring refreshes usage.
+  const [contextRefreshKey, setContextRefreshKey] = useState(0);
+  const lastStreamingRef = useRef(false);
+  const [guideCardsVisible, setGuideCardsVisible] = useState(true);
+  // 无会话时显示引导卡：会话切换的派生重置用渲染期调整（React 官方建议写法，
+  // 替代 set-state-in-effect 的 effect 写法）。
+  const [prevSelectedIdForGuide, setPrevSelectedIdForGuide] = useState(selectedId);
+  if (prevSelectedIdForGuide !== selectedId) {
+    setPrevSelectedIdForGuide(selectedId);
+    if (!selectedId) setGuideCardsVisible(true);
+  }
+
+  const [prefill, setPrefill] = useState<{
+    text: string;
+    nonce: number;
+  } | null>(null);
+  const [isGit, setIsGit] = useState(false);
+  const [selectionReady, setSelectionReady] = useState(false);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  // After a stream finishes, refresh the composer context ring usage.
   useEffect(() => {
-    setAgentChangedFiles(new Set());
-    setHasMoreOlder(false);
-    setOldestMessageId(null);
-    setLoadingOlder(false);
-  }, [currentProject?.path]);
+    if (lastStreamingRef.current && !streaming) {
+      setContextRefreshKey((key) => key + 1);
+    }
+    lastStreamingRef.current = streaming;
+  }, [streaming]);
 
   const sessionLoader = useSessionLoader({
     selectedId,
@@ -265,11 +243,26 @@ export default function ChatPage() {
     setAgentChangedFiles,
   } = sessionLoader;
 
+  // 项目切换：重置分页与变更文件状态（工作区面板自身状态在 useWorkspacePanel
+  // 内重置，previewFile 也由其处理；这里补回分页相关的 4 个）。
+  useEffect(() => {
+    setAgentChangedFiles(new Set());
+    setHasMoreOlder(false);
+    setOldestMessageId(null);
+    setLoadingOlder(false);
+  }, [
+    currentProject?.path,
+    setAgentChangedFiles,
+    setHasMoreOlder,
+    setOldestMessageId,
+    setLoadingOlder,
+  ]);
+
   const refreshProjects = useCallback(async () => {
     const data = await listProjects();
     setProjects(data.projects);
     return data.projects;
-  }, []);
+  }, [setProjects]);
 
   const refreshWorkspace = useCallback(async () => {
     try {
@@ -278,7 +271,7 @@ export default function ChatPage() {
     } catch {
       setWorkspace([]);
     }
-  }, []);
+  }, [setWorkspace]);
 
   useAppBootstrap({
     refreshProjects,
@@ -302,7 +295,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (!selectionReady) return;
     writeLastSessionSelection(selectedProjectId, selectedId);
-  }, [selectedId, selectedProjectId, selectionReady]);
+  }, [selectedId, selectedProjectId, selectionReady, setSelectedId, setSelectedProjectId]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -326,35 +319,6 @@ export default function ChatPage() {
     };
   }, [openView]);
 
-  useEffect(() => {
-    if (!selectedId) {
-      setGuideCardsVisible(true);
-    }
-  }, [selectedId]);
-
-  // 应用内快捷键统一走 config/keymap.ts + useShortcuts（单一监听器，
-  // 修饰键按平台归一化：macOS ⌘ / 其他平台 Ctrl），不再散落硬编码。
-  useShortcutAction("session.new", () => void handleNewSession());
-  // 打开会话搜索弹窗（弹窗输入框自带 autoFocus）；旧实现 focus 的
-  // #session-search 元素在 DOM 中不存在，快捷键一直处于落空状态
-  useShortcutAction("session.search", () => setSearchOpen(true));
-  useShortcutAction("composer.focus", () => composerRef.current?.focus());
-  useShortcutAction("composer.toggleThinking", () => {
-    if (!settings) return;
-    const defaultEffort = settings.think_default
-      ? settings.reasoning_effort ?? "high"
-      : "off";
-    const next =
-      composerEffort === "off"
-        ? defaultEffort === "off"
-          ? "high"
-          : defaultEffort
-        : "off";
-    setComposerEffort(next);
-    setSessionEffort(selectedId, next);
-    setSettings({ ...settings, think_default: next !== "off" });
-  });
-
   const closeSidebarForNarrow = useCallback(() => {
     if (typeof window !== "undefined" && window.innerWidth < 1100) {
       setSidebarOpen(false);
@@ -370,8 +334,7 @@ export default function ChatPage() {
         next.delete("view");
         return next;
       });
-      const safeProjectId =
-        typeof projectId === "string" ? projectId : undefined;
+      const safeProjectId = typeof projectId === "string" ? projectId : undefined;
       const targetProjectId =
         safeProjectId ??
         sessions.find((session) => session.id === selectedId)?.project_id ??
@@ -394,12 +357,30 @@ export default function ChatPage() {
       projects,
       selectedId,
       selectedProjectId,
+      setSelectedId,
       setSearchParams,
       setSelectedProjectId,
       sessions,
       settings,
-    ]
+    ],
   );
+
+  // 应用内快捷键统一走 config/keymap.ts + useShortcuts（单一监听器，
+  // 修饰键按平台归一化：macOS ⌘ / 其他平台 Ctrl），不再散落硬编码。
+  useShortcutAction("session.new", () => void handleNewSession());
+  // 打开会话搜索弹窗（弹窗输入框自带 autoFocus）；旧实现 focus 的
+  // #session-search 元素在 DOM 中不存在，快捷键一直处于落空状态
+  useShortcutAction("session.search", () => setSearchOpen(true));
+  useShortcutAction("composer.focus", () => composerRef.current?.focus());
+  useShortcutAction("composer.toggleThinking", () => {
+    if (!settings) return;
+    const defaultEffort = defaultComposerEffort(settings);
+    const next =
+      composerEffort === "off" ? (defaultEffort === "off" ? "high" : defaultEffort) : "off";
+    setComposerEffort(next);
+    setSessionEffort(selectedId, next);
+    setSettings({ ...settings, think_default: next !== "off" });
+  });
 
   const handleSelectProject = useCallback(
     async (id: string) => {
@@ -421,18 +402,16 @@ export default function ChatPage() {
     },
     [
       closeSidebarForNarrow,
+      setSelectedId,
+      setSelectedProjectId,
       loadSession,
       refreshSessions,
       setSearchParams,
-    ]
+    ],
   );
 
   const handleSaveProject = useCallback(
-    async (body: {
-      name: string;
-      path?: string;
-      icon?: string;
-    }) => {
+    async (body: { name: string; path?: string; icon?: string }) => {
       if (editingProject) {
         await updateProject(editingProject.id, {
           name: body.name,
@@ -453,7 +432,15 @@ export default function ChatPage() {
       closeSidebarForNarrow();
       setTimeout(() => composerRef.current?.focus(), 0);
     },
-    [closeSidebarForNarrow, editingProject, refreshProjects, refreshSessions]
+    [
+      closeSidebarForNarrow,
+      editingProject,
+      refreshProjects,
+      refreshSessions,
+      setProjects,
+      setSelectedId,
+      setSelectedProjectId,
+    ],
   );
 
   const handleEditProject = useCallback((project: Project) => {
@@ -470,7 +457,7 @@ export default function ChatPage() {
         description: t(
           "session.deleteProjectConfirm",
           "将删除项目“{{name}}”及其 {{count}} 个会话；文件夹和文件保留在磁盘上，不会删除。",
-          { name: project?.name ?? "", count: sessionCount }
+          { name: project?.name ?? "", count: sessionCount },
         ),
         action: async () => {
           await deleteProject(id);
@@ -501,8 +488,11 @@ export default function ChatPage() {
       refreshProjects,
       refreshSessions,
       selectedProjectId,
+      setConfirmState,
+      setSelectedId,
+      setSelectedProjectId,
       t,
-    ]
+    ],
   );
 
   const handleSelectSession = useCallback(
@@ -523,7 +513,7 @@ export default function ChatPage() {
       await loadSession(id);
       closeSidebarForNarrow();
     },
-    [closeSidebarForNarrow, loadSession, selectedId, setSearchParams, streaming]
+    [closeSidebarForNarrow, loadSession, selectedId, setSearchParams, streaming],
   );
 
   const handleRename = useCallback(
@@ -532,17 +522,14 @@ export default function ChatPage() {
       await renameSession(id, title.trim());
       await refreshSessions(selectedProjectId);
     },
-    [refreshSessions, selectedProjectId]
+    [refreshSessions, selectedProjectId],
   );
 
   const handleDelete = useCallback(
     (id: string) => {
       setConfirmState({
         title: t("session.deleteTitle", "删除会话"),
-        description: t(
-          "session.deleteConfirm",
-          "删除后该会话的消息和工具记录将无法恢复。"
-        ),
+        description: t("session.deleteConfirm", "删除后该会话的消息和工具记录将无法恢复。"),
         action: async () => {
           await deleteSession(id);
           clearSessionMessages(id);
@@ -565,8 +552,10 @@ export default function ChatPage() {
       refreshSessions,
       selectedId,
       selectedProjectId,
+      setConfirmState,
+      setSelectedId,
       t,
-    ]
+    ],
   );
 
   const handleSettingsSave = useCallback(
@@ -580,13 +569,11 @@ export default function ChatPage() {
       const list = updated.models ?? [];
       const activeId = list.find((entry) => entry.active)?.id ?? null;
       const remembered = selectedId ? getSessionModelId(selectedId) : null;
-      setComposerModelId(
-        expandModelId(resolveModelTargetId(list, remembered, activeId), list)
-      );
+      setComposerModelId(expandModelId(resolveModelTargetId(list, remembered, activeId), list));
       setSettingsOpen(false);
       await refreshWorkspace();
     },
-    [refreshWorkspace, selectedId]
+    [refreshWorkspace, selectedId, setSettings, setSettingsOpen],
   );
 
   // 静默保存（不关闭弹窗）：用于设为默认等即时生效的操作
@@ -597,11 +584,9 @@ export default function ChatPage() {
       const list = updated.models ?? [];
       const activeId = list.find((entry) => entry.active)?.id ?? null;
       const remembered = selectedId ? getSessionModelId(selectedId) : null;
-      setComposerModelId(
-        expandModelId(resolveModelTargetId(list, remembered, activeId), list)
-      );
+      setComposerModelId(expandModelId(resolveModelTargetId(list, remembered, activeId), list));
     },
-    [selectedId]
+    [selectedId, setSettings],
   );
 
   const handleModelChange = useCallback(
@@ -609,7 +594,7 @@ export default function ChatPage() {
       setComposerModelId(modelId);
       setSessionModelId(selectedId, modelId);
     },
-    [selectedId]
+    [selectedId],
   );
 
   const handleApprovalModeChange = useCallback(
@@ -619,7 +604,7 @@ export default function ChatPage() {
         void updateSessionApprovalMode(selectedId, mode).catch(() => undefined);
       }
     },
-    [selectedId]
+    [selectedId],
   );
 
   const handleGuideAction = useCallback((prompt: string) => {
@@ -635,8 +620,7 @@ export default function ChatPage() {
     }
   }, []);
 
-  const { sendSupplement, sendMessage, stopStreaming, retryCloud } =
-    useChatStream({
+  const { sendSupplement, sendMessage, stopStreaming, retryCloud } = useChatStream({
     selectedId,
     selectedProjectId,
     projects,
@@ -675,7 +659,7 @@ export default function ChatPage() {
         if (!ok) void sendMessage(text, [], composerEffort);
       });
     },
-    [selectedId, sendSupplement, sendMessage, composerEffort]
+    [selectedId, sendSupplement, sendMessage, composerEffort],
   );
 
   // 本地模型回答的【重答】：用云端重答同一条问题（复用当前思考档位）。
@@ -683,22 +667,18 @@ export default function ChatPage() {
     (messageId: string) => {
       void retryCloud(messageId, composerEffort);
     },
-    [composerEffort, retryCloud]
+    [composerEffort, retryCloud],
   );
 
   // 供消息渲染层的可点击组件（如风格选择卡片）发送消息。
   const chatStreamValue = useMemo(
     () => ({
-      sendMessage: (
-        question: string,
-        files: ChatFile[] = [],
-        effort?: string
-      ) => {
+      sendMessage: (question: string, files: ChatFile[] = [], effort?: string) => {
         void sendMessage(question, files, effort ?? composerEffort);
       },
       effort: composerEffort,
     }),
-    [sendMessage, composerEffort]
+    [sendMessage, composerEffort],
   );
 
   const handleAcceptFile = useCallback(
@@ -717,7 +697,7 @@ export default function ChatPage() {
         return next;
       });
     },
-    [currentProject?.path]
+    [currentProject, setAcceptedFiles, setAgentChangedFiles],
   );
 
   // Git 项目检测（从 ChatHeader 上移到 ChatPage，避免级联渲染 FileTree）
@@ -756,8 +736,7 @@ export default function ChatPage() {
     return visible;
   }, [acceptedFiles, agentChangedFiles]);
 
-  const trafficSafe =
-    isMacosDesktop() && workspaceExpandedLayout && !sidebarOpen;
+  const trafficSafe = isMacosDesktop() && workspaceExpandedLayout && !sidebarOpen;
 
   return (
     <Flex
@@ -767,16 +746,13 @@ export default function ChatPage() {
         fullscreen ? " fullscreen" : ""
       }${trafficSafe ? " traffic-safe" : ""}`}
     >
-      <Flex
-        direction="column"
-        className={`left-panel${!sidebarOpen ? " collapsed" : ""}`}
-      >
-      <TitleBar
-        collapsed={!sidebarOpen}
-        onToggleCollapse={() => setSidebarOpen((value) => !value)}
-        onOpenSearch={() => setSearchOpen(true)}
-        fullscreen={fullscreen}
-      />
+      <Flex direction="column" className={`left-panel${!sidebarOpen ? " collapsed" : ""}`}>
+        <TitleBar
+          collapsed={!sidebarOpen}
+          onToggleCollapse={() => setSidebarOpen((value) => !value)}
+          onOpenSearch={() => setSearchOpen(true)}
+          fullscreen={fullscreen}
+        />
         <SessionList
           sessions={sessions}
           projects={projects}
@@ -810,7 +786,7 @@ export default function ChatPage() {
             <span className="api-key-banner-text">
               {t(
                 "chat.noApiKeyBanner",
-                "未配置 API Key，当前为演示模式。可安装免费本地模型离线使用，或配置 API Key。"
+                "未配置 API Key，当前为演示模式。可安装免费本地模型离线使用，或配置 API Key。",
               )}
             </span>
             <Button
@@ -836,13 +812,9 @@ export default function ChatPage() {
           </div>
         )}
         {tasksOpen ? (
-          <ScheduledTasksPage
-            onOpenSidebar={() => setSidebarOpen(true)}
-          />
+          <ScheduledTasksPage onOpenSidebar={() => setSidebarOpen(true)} />
         ) : skillsOpen ? (
-          <SkillsPage
-            onOpenSidebar={() => setSidebarOpen(true)}
-          />
+          <SkillsPage onOpenSidebar={() => setSidebarOpen(true)} />
         ) : (
           <ChatStreamContext.Provider value={chatStreamValue}>
             <ChatHeader
@@ -851,9 +823,7 @@ export default function ChatPage() {
               onOpenSidebar={() => setSidebarOpen(true)}
               onRename={handleRename}
               workspaceOpen={workspacePanelOpen}
-              onToggleWorkspace={() =>
-                setWorkspacePanelOpen((open) => !open)
-              }
+              onToggleWorkspace={() => setWorkspacePanelOpen((open) => !open)}
               onPreviewFile={handlePreviewFile}
               isGit={isGit}
               tokenUsage={sessionTokenUsage}
@@ -916,9 +886,7 @@ export default function ChatPage() {
                   </div>
                 ) : undefined
               }
-              onSend={(question, files) =>
-                void sendMessage(question, files, composerEffort)
-              }
+              onSend={(question, files) => void sendMessage(question, files, composerEffort)}
               onStop={handleStopStreaming}
               onPreviewFile={handlePreviewFile}
             />
