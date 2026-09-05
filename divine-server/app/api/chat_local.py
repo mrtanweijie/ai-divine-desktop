@@ -289,12 +289,21 @@ _REWRITE_MARKERS = (
 )
 
 
+# 整句匹配时剔除的首尾标点/空白（"谢谢！"、"好的。"这类短回复）
+_CHAT_TRIM_CHARS = " \t\r\n，。！!？?、；;：:,.~～·—…“”‘’\"'（）()[]【】"
+
+
 def _detect_simple_chat(text: str) -> bool:
-    """问候/感谢/寒暄等简短闲聊 → 本地答（零风险省 token）。"""
+    """问候/感谢/寒暄等简短闲聊 → 本地答（零风险省 token）。
+
+    必须整句命中（剔除首尾标点）而非子串包含：标记里有「好」「不用」
+    这类短词，子串匹配会把「这个方案挺好的」误判成闲聊，抢在
+    rewrite/extract 等内容型检测器之前造成误分流。
+    """
     if not text or len(text) > 30:
         return False
-    t = text.lower().strip()
-    return any(marker in t for marker in _CHAT_MARKERS)
+    t = text.lower().strip().strip(_CHAT_TRIM_CHARS)
+    return t in _CHAT_MARKERS
 
 
 def _detect_extract(text: str) -> bool:
