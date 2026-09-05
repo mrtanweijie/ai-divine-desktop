@@ -172,6 +172,20 @@ a = Analysis(
         "app.docgen.resume.renderer",
         "app.docgen.resume.theme_manager",
         "app.docgen.resume.themes",
+        # 简历模板库：tXX 模块由注册表字符串动态 __import__，静态分析不可见；
+        # 按目录扫描生成，新增 tXX 母版无需改 spec
+        "app.docgen.resume.templates",
+        "app.docgen.resume.templates.registry",
+        "app.docgen.resume.templates.components",
+        "app.docgen.resume.templates.print_css",
+        *[
+            f"app.docgen.resume.templates.{p.stem}"
+            for p in sorted(
+                (project_root / "app" / "docgen" / "resume" / "templates").glob(
+                    "t*.py"
+                )
+            )
+        ],
         # ppt_renderer：presentation 脚本（data 形式子进程运行）依赖的渲染包，
         # 不在 entry.py 主导入图里，必须显式编入 PYZ
         "app.docgen.ppt.renderer",
