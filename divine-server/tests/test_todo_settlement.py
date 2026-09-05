@@ -1,6 +1,6 @@
 """计划终态收敛测试：修复 D1（run 结束 todo 状态归零）+ D5（skipped 语义）。
 
-覆盖设计文档（docs/agent-progress-observability-design.md）验收清单：
+覆盖设计文档（docs/design/015-agent-progress-observability-20260904.md）验收清单：
 - sync_todos 保留本地 done/error 实证状态，不被 state 覆盖
 - sync_todos 按 title 匹配合并，state 新增/删除正确反映
 - [复盘] 回流项跨 run 存活，普通本地独有项清理

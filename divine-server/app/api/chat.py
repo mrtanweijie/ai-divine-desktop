@@ -201,7 +201,7 @@ async def stream_chat(request: StreamChatRequest):
         or workspace_dir()
     )
     # 本地预整理：长文本先由本地模型整理成结构化版本，原文转存附件
-    # （见 docs/preprocess-feature-design.md；失败/不可用一律原样上云）
+    # （见 docs/design/005-preprocess-20260829.md；失败/不可用一律原样上云）
     final_question = question
     original_attachment: Path | None = None
     organized = False

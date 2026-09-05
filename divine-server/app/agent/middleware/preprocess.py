@@ -1,6 +1,6 @@
 """输入侧本地预整理：长文本先由本地小模型整理成结构化版本，再交给云端。
 
-数据流与规则见 docs/preprocess-feature-design.md。
+数据流与规则见 docs/design/005-preprocess-20260829.md。
 
 - 触发：显式（指令词 + 文本指代词双命中）或自动（token 估算 > 阈值，且非
   代码/表格/指针文本，且本地模型可用）。
@@ -403,7 +403,7 @@ def maybe_preprocess_attachment(
     - 未触发：内容原样，路径 None，attempted=False。
     - 触发但失败：内容原样，路径 None，attempted=True（调用方据此询问用户）。
 
-    触发规则（见 docs/preprocess-feature-design.md §8 附件通道）：
+    触发规则（见 docs/design/005-preprocess-20260829.md §8 附件通道）：
     - 显式：question 含整理指令词（附件即指代对象，无需"这段/这个"）；
     - 自动：内容 token 估算 > 阈值且非代码、非表格。
     """

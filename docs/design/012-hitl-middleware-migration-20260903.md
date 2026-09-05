@@ -1,6 +1,7 @@
 # 审批门迁移 HumanInTheLoopMiddleware · 架构演进文档
 
-> 状态：**不排期**。2026-09-03 评审定稿：ask_user 按自定义 interrupt 路径先行落地（见 `ask-user-feature-design.md`），本文档记录"8 个审批门迁移 middleware"的目标形态、触发条件、风险与分期路径，满足触发条件后再启动。
+> 编号：012 ｜ 类型：design ｜ 日期：2026-09-03 ｜ 状态：不排期（评审定稿，见正文触发条件）
+
 
 ---
 
@@ -12,7 +13,7 @@
 |------|--------|----------|
 | **审批门**（工具执行前拦截放行/拒绝，语义与 middleware 同构） | `subagents_write` L189、`skill_migrate` L266、`skill_migrate_batch` L341、`skill_install` L400、`external_file` L467、`git` L553、`bg_kill` L606、`terminal` L728 | 迁移候选 → `HumanInTheLoopMiddleware` |
 | **问题/分支选择**（决策词汇表表达不了） | `plan_choice` L98（模式选择三态 + plan_mode 落库副作用）、`write_calendar` L787（工具执行**后**追问，middleware 是 pre-call 拦截，时序够不着） | **永久保留**自定义 interrupt 轨 |
-| 新增 | `ask_user`（信息收集型，见 ask-user-feature-design.md） | **永久保留**自定义 interrupt 轨 |
+| 新增 | `ask_user`（信息收集型，见 011-ask-user-20260903.md） | **永久保留**自定义 interrupt 轨 |
 
 另有 1 处已在 middleware 上：`write_todos` 计划审批（`tools.py` L229-242，approve/reject + `when` 条件）。
 

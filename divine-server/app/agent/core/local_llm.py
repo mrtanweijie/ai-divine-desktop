@@ -591,7 +591,7 @@ class LocalLLMManager:
         """用本地模型把长文本整理成结构化版本（输入侧预整理）。
 
         返回整理文本；本地不可用/失败/校验不过返回 None（调用方降级原样上云）。
-        设计与规则见 docs/preprocess-feature-design.md。
+        设计与规则见 docs/design/005-preprocess-20260829.md。
 
         输出校验（三关，任一不过即丢弃，宁可不整理）：
         1. 必须以「[本地整理版]」开头（对齐格式契约，防跑题/拒绝整理）

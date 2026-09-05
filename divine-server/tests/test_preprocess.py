@@ -1,6 +1,6 @@
 """本地预整理（输入侧预处理）测试。
 
-覆盖 docs/preprocess-feature-design.md 的触发规则与降级策略：
+覆盖 docs/design/005-preprocess-20260829.md 的触发规则与降级策略：
 指针跳过 / 显式触发 / 自动触发 / 代码与表格跳过 / 多轮退化 / 模型不可用降级，
 以及 organize() 的输出三关校验。
 """

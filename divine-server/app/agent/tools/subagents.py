@@ -12,7 +12,7 @@ up front (must be inside the workspace, must not overlap between tasks), the
 user approves the whole write batch BEFORE dispatch (in execution.py), and
 every write is captured as a before/after diff returned to the main agent.
 
-Lifecycle / SSE contract (see docs/subagent-feature-design.md):
+Lifecycle / SSE contract (see docs/design/003-subagent-20260821.md):
 - ``subagent`` events carry ``sub_id`` / ``name`` / ``status`` and either
   ``summary`` (done) or ``error`` (error); the frontend upserts them into a
   collapsible progress panel on the assistant message.

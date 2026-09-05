@@ -10,7 +10,7 @@ from ..registry import register_tool
 @register_tool(
     "glob_files",
     "按 glob 模式匹配工作区文件路径，支持 ** 递归通配（如 src/**/*.test.ts、"
-    "**/*.py、docs/*.md）；结果按修改时间新→旧排序并遵循 .gitignore。"
+    "**/*.py、docs/**/*.md）；结果按修改时间新→旧排序并遵循 .gitignore。"
     "需要按文件名子串模糊查找时用 search_files，按内容搜索用 grep_files",
     {
         "type": "object",

@@ -1,11 +1,11 @@
 # Agent Code 支持优化规划（项目开发基线）
 
+> 编号：002 ｜ 类型：plan ｜ 日期：2026-08-30 ｜ 状态：已全部实施（P0–P4）
 > 版本：v1.8
-> 日期：2026-08-30
-> 状态：P0 全部 6 项 + P1 全部 5 项 + P2-1 可写子 Agent + P2-2 轻量代码索引（list_definitions）+ **P2-3 MCP 支持（v0 stdio + 设置页）** 已实现，P2-4 自动 code review **已实现（review_changes 工具）**。另完成性能优化（SQLite WAL + ToolMessage 压缩 + 异步 I/O + SSE 截断）与编码工具补全（edit_lines/apply_patch/move_file/glob_files/format_code/lint_check/run_tests）。
 > **P3 全部（评测体系/上下文工程/质量闭环）+ P4（MCP 接入、自动 code review、ripgrep 引擎、子 Agent 分级超时、终端 cwd 记忆）已实现（2026-08-30）**。全套件 647 测试通过 + 前端 tsc/vite 构建通过。
 > 目标：把 Divine Agent 从"文档生成 + 轻量文件操作"提升到"能流畅用于真实软件项目开发"的基础能力。
 > 范围：`divine-server/app/agent/*`、`divine-server/app/tools/*`、`divine-server/app/mcp/*`、`divine-app/src/pages/chat/*`、`divine-server/tests/*`、`divine-server/evals/*`。
+
 
 ---
 
@@ -143,7 +143,7 @@
 
 - **P2-1 可写子 Agent（v2）** ✅ 已实现：带审批的并行写委托——"并行实现多个独立模块/文件"
   - 子任务级 `write=true` + `write_paths`（workspace 内路径声明，可指文件或目录）；校验：路径必须在工作区内、各写任务声明不得重叠（`subagents.py::_validate_tasks`）
-  - 预审批：`execution.py` 在委托前经 `_ask_interrupt`（`subagents_write`）征得用户同意，子 Agent 内不弹窗（沿用 `docs/subagent-feature-design.md` §9 思路）
+  - 预审批：`execution.py` 在委托前经 `_ask_interrupt`（`subagents_write`）征得用户同意，子 Agent 内不弹窗（沿用 `../../design/003-subagent-20260821.md` §9 思路）
   - 写工具白名单：`write_file`/`edit_files` 仅对声明了 write_paths 的子 Agent 开放；越界写入被包装器拒绝（`_run_subagent_tool_with_claims`）
   - 每次写入做 before/after 快照并生成 unified diff，随结果返回主 Agent（`changed_files`）；批次汇总"共修改 N 个文件"
   - 前端：`subagents_write` 确认卡片（列出任务与路径）、子 Agent 面板显示"改动 N 个文件"、历史恢复保留 changed_files

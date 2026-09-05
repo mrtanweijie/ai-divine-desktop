@@ -1,9 +1,9 @@
 # AI Divine Desktop 优化清单 · 可实施性分析
 
+> 编号：003 ｜ 类型：review ｜ 日期：2026-08-30 ｜ 状态：已归档（仅分析未实施）
 > 版本：v1.0
-> 日期：2026-08-30
-> 状态：📋 分析完成（本轮未实施代码）
 > 方法：5 路并行代码勘察（agent 耦合度 / 工具与安全 / 数据库 / 前端渲染 / LLM 与 SSE），全部结论均附 `文件:行号` 证据
+
 
 ---
 
@@ -69,7 +69,7 @@
 **可行性：不建议做（收益低、成本极高）**
 
 - 现状：Tauri（Rust）只负责 spawn + 健康检查（`services/sidecar.rs`，TCP 300ms 探测），**实际通信是前端浏览器直接 fetch HTTP/SSE 到 127.0.0.1:8019**（`request.ts` + `sse.ts`）。
-- 换 gRPC：浏览器端需要 gRPC-Web 网关或连 Tauri IPC 转发——架构性改造，且当前瓶颈不在序列化（消息负载已被 `persistence.py _frontend_truncate` 深度截断，见 `docs/agent-optimization-summary.md` §2.4）。
+- 换 gRPC：浏览器端需要 gRPC-Web 网关或连 Tauri IPC 转发——架构性改造，且当前瓶颈不在序列化（消息负载已被 `persistence.py _frontend_truncate` 深度截断，见 `001-agent-optimization-20260827.md` §2.4）。
 - 换 MessagePack：浏览器 fetch 无法直接消费 MessagePack 流，同样需要前端解码层。
 - **结论**：JSON 序列化不是当前性能瓶颈（SSE 负载已压缩、数据量小）；如未来出现大文件/高频 IPC 需求，优先做 SSE 批量发送（见 2.2）而不是换协议。
 
