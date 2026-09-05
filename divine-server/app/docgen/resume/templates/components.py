@@ -225,3 +225,11 @@ def wrap_page(body: str, *, title: str, css: str, editable: bool,
 {script}
 </body>
 </html>"""
+
+
+def page_foot(left: str, right: str) -> str:
+    """页脚：左（姓名·职位）右（联系方式）双栏，打印时固定到每页底部。"""
+    return (
+        '<div class="foot"><span contenteditable="true">'
+        f"{_esc(left)}</span><span contenteditable=\"true\">{_esc(right)}</span></div>"
+    )

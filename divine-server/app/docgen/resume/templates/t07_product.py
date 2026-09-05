@@ -13,6 +13,7 @@ try:
         exp_content_html,
         exp_meta,
         item_hd,
+        page_foot,
         skill_kv_pairs,
     )
 except ImportError:  # 兼容脚本直接运行
@@ -26,6 +27,7 @@ except ImportError:  # 兼容脚本直接运行
         exp_content_html,
         exp_meta,
         item_hd,
+        page_foot,
         skill_kv_pairs,
     )
 
@@ -93,6 +95,8 @@ li b{font-weight:600;color:#1c3f9e}
 .stack{display:flex;gap:22px;flex-wrap:wrap;font-size:9.5pt;color:var(--sub);line-height:1.72}
 .stack .g .h{font-size:8.5pt;letter-spacing:.1em;color:var(--mute);margin-bottom:2px}
 
+.foot{margin-top:15px;padding-top:8px;border-top:.5px solid var(--line);
+  display:flex;justify-content:space-between;font-size:8.5pt;color:var(--mute)}
 """ + EDITABLE_CSS
 
 PRINT_SINGLE = """
@@ -209,5 +213,9 @@ def render(r) -> str:
                 + "</div>"
             )
 
-    body = f'<div class="body">{"".join(inner)}</div>'
+    foot = page_foot(
+        f"{r.name} · {r.title}" if r.title else r.name,
+        r.contact.phone or r.contact.email,
+    )
+    body = f'<div class="body">{"".join(inner)}{foot}</div>'
     return f'<div class="page">{header}{body}</div>'

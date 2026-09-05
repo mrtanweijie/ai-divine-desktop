@@ -14,6 +14,7 @@ try:
         exp_content_html,
         exp_meta,
         item_hd,
+        page_foot,
     )
 except ImportError:  # 兼容脚本直接运行
     from components import (  # type: ignore
@@ -27,6 +28,7 @@ except ImportError:  # 兼容脚本直接运行
         exp_content_html,
         exp_meta,
         item_hd,
+        page_foot,
     )
 
 id = "tpl_freshgrad"
@@ -89,6 +91,8 @@ li b{font-weight:600;color:#136b5e}
 .two{display:flex;gap:26px}
 .two .col{flex:1;min-width:0}
 
+.foot{margin-top:14px;padding-top:8px;border-top:.5px solid var(--line);
+  display:flex;justify-content:space-between;font-size:8.5pt;color:var(--mute)}
 """ + EDITABLE_CSS
 
 PRINT_SINGLE = """
@@ -197,5 +201,9 @@ def render(r) -> str:
             cols.append(f'<div class="col"><ul contenteditable="true">{lis}</ul></div>')
         inner.append(f'<div class="two">{"".join(cols)}</div>')
 
-    body = f'<div class="body">{"".join(inner)}</div>'
+    foot = page_foot(
+        f"{r.name} · {r.title}" if r.title else r.name,
+        r.contact.phone or r.contact.email,
+    )
+    body = f'<div class="body">{"".join(inner)}{foot}</div>'
     return f'<div class="page">{header}{body}</div>'

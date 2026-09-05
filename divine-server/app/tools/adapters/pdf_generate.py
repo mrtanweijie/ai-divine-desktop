@@ -52,7 +52,9 @@ from ..registry import register_tool
                     "配色方案：经典 blue/green/warm/monochrome/purple，"
                     "或旅行杂志预设 teal/iceblue/desert/vintage/midnight/pureblack/"
                     "mistsage/mistblue/duskmauve/lotuspink/dunesand/smokegray；"
-                    "也支持直接传颜色（如 红色/#E74C3C/rgb(...)）自动派生整套配色；"
+                    "也支持直接传颜色（如 红色/#E74C3C/rgb(...)/石墨墨黑）自动派生整套配色；"
+                    "简历场景同样生效（把主色应用到所选模板的头部/标题/强调色，"
+                    "PDF 与 html_resume 输出一致）；"
                     "不传时系统按 prompt 场景自动选择"
                 ),
             },

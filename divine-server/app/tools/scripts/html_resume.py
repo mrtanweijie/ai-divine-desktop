@@ -90,6 +90,8 @@ def main() -> None:
             template_id=template,
             layout=layout,
             output_format="html",
+            color_scheme=str(params.get("color_scheme") or "").strip() or None,
+            color_overrides=params.get("color_overrides") or None,
         )
     except Exception as exc:
         print(

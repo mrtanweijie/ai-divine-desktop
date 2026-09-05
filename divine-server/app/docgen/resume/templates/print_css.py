@@ -15,6 +15,10 @@ MULTI_PRINT_CSS = """
   .item,.work,.proj,.block,.tcard,.kv,.line,.pubs li,.g,tr{break-inside:avoid}
   h2{break-after:avoid}
   ul,ol{orphans:2;widows:2}
+  /* 页脚贴底：内容不满一页时不再悬在页中间。position:fixed 在 WeasyPrint 与
+     浏览器打印中都会固定在每页底部（@page:last 选择器 WeasyPrint 不支持）。
+     左右缩进取模板 :root 的 --foot-x 以对齐正文栏，缺省 15mm。 */
+  .foot{position:fixed;bottom:0;left:var(--foot-x,15mm);right:var(--foot-x,15mm);margin-top:0}
 }
 """
 

@@ -54,6 +54,21 @@ from ..registry import register_tool
                 "enum": ["single", "multi"],
                 "description": "页数布局，默认 single（单页）；内容多或用户要 2-3 页时传 multi",
             },
+            "color_scheme": {
+                "type": "string",
+                "description": (
+                    "换主色：支持中文色名（如 石墨墨黑/藏青/酒红/红色…）、#hex、"
+                    "rgb(...)，或两者混合（石墨墨黑 #2B2B2B）。自动按主色派生整套配色，"
+                    "PDF 与 HTML 同参同效果；不传时用模板默认配色"
+                ),
+            },
+            "color_overrides": {
+                "type": "object",
+                "description": (
+                    "可选，CSS 变量级直接换色，如 {'--navy': '#2B2B2B'}，"
+                    "优先级高于 color_scheme 派生值；仅高级调用使用"
+                ),
+            },
             "file_name": {
                 "type": "string",
                 "description": "可选，输出文件名（默认「姓名简历」）",
@@ -76,6 +91,8 @@ class HtmlResumeAdapter(ToolAdapter):
             "resume_data": arguments.get("resume_data") or {},
             "template": str(arguments.get("template") or "").strip(),
             "layout": str(arguments.get("layout") or "single").strip(),
+            "color_scheme": str(arguments.get("color_scheme") or "").strip(),
+            "color_overrides": arguments.get("color_overrides") or None,
             "file_name": str(arguments.get("file_name") or "").strip(),
             "path": str(arguments.get("path") or "").strip(),
         }

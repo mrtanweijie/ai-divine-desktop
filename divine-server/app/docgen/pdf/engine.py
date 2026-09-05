@@ -196,6 +196,8 @@ class PDFTool:
                 template_id=resume_theme,
                 layout=(resume_layout or "single").strip() or "single",
                 output_format="pdf",
+                color_scheme=color_scheme,
+                color_overrides=color_overrides,
             )
             return {
                 "recipe": recipe.name,

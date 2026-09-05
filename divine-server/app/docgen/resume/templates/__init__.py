@@ -13,11 +13,11 @@ from pathlib import Path
 
 try:
     from . import registry
-    from .components import toolbar_html, wrap_page
+    from .components import page_foot, toolbar_html, wrap_page
     from .print_css import assemble_css
 except ImportError:  # 兼容脚本直接运行
     import registry  # type: ignore
-    from components import toolbar_html, wrap_page  # type: ignore
+    from components import page_foot, toolbar_html, wrap_page  # type: ignore
     from print_css import assemble_css  # type: ignore
 
 try:
@@ -49,13 +49,29 @@ def _ensure_resume(resume_data) -> ResumeData:
     return ResumeData.from_dict(resume_data)
 
 
-def build_html(resume_data, template_id: str, layout: str = "single",
-               *, editable: bool) -> str:
-    """渲染完整 HTML 文档字符串（editable=False 为纯净版）。"""
+def build_html(
+    resume_data,
+    template_id: str,
+    layout: str = "single",
+    *,
+    editable: bool,
+    color_scheme: str | None = None,
+    color_overrides: dict[str, str] | None = None,
+) -> str:
+    """渲染完整 HTML 文档字符串（editable=False 为纯净版）。
+
+    color_scheme：主色描述（"石墨墨黑"/#2B2B2B/rgb()…），自动派生整套配色；
+    color_overrides：CSS 变量级覆盖 {"--navy": "#2B2B2B"}，优先级最高。
+    """
     resume = _ensure_resume(resume_data)
     entry = registry.get_entry(template_id)
     module = _load_module(template_id)
     css = assemble_css(module, layout)
+    from .colorize import apply_resume_color
+
+    css = apply_resume_color(
+        css, template_id, color_scheme=color_scheme, color_overrides=color_overrides
+    )
     body = module.render(resume)
     title = f"{resume.name or '简历'}-{entry['display_name']}"
     toolbar = toolbar_html(entry["display_name"], entry["tip"]) if editable else ""
@@ -68,12 +84,16 @@ def render_template_resume(
     template_id: str,
     layout: str = "single",
     output_format: str = "pdf",
+    *,
+    color_scheme: str | None = None,
+    color_overrides: dict[str, str] | None = None,
 ) -> list[str]:
     """按模板渲染简历，返回生成的文件路径列表。
 
     - output_format="pdf"：仅 PDF（WeasyPrint，print media 自动隐藏工具条）
     - output_format="html"：可编辑 HTML + 纯净 HTML（与 PDF 同目录，同名 .html/.html_clean）
     - output_format="both"：PDF + 两个 HTML
+    - color_scheme / color_overrides：换色（见 build_html），PDF 与 HTML 同步生效
     """
     entry = registry.get_entry(template_id)
     if layout not in ("single", "multi"):
@@ -89,19 +109,30 @@ def render_template_resume(
     if output_format in ("html", "both"):
         html_path = output.with_suffix(".html")
         html_path.write_text(
-            build_html(resume, template_id, layout, editable=True), encoding="utf-8"
+            build_html(
+                resume, template_id, layout, editable=True,
+                color_scheme=color_scheme, color_overrides=color_overrides,
+            ),
+            encoding="utf-8",
         )
         generated.append(str(html_path))
         clean_path = output.with_suffix(".html_clean.html")
         clean_path.write_text(
-            build_html(resume, template_id, layout, editable=False), encoding="utf-8"
+            build_html(
+                resume, template_id, layout, editable=False,
+                color_scheme=color_scheme, color_overrides=color_overrides,
+            ),
+            encoding="utf-8",
         )
         generated.append(str(clean_path))
 
     if output_format in ("pdf", "both"):
         # PDF 用纯净版（无工具条/编辑属性）：toolbar 是 position:fixed，
         # WeasyPrint 会把它渲染到页面上且不依赖各模板自带的 print 隐藏规则
-        full_html = build_html(resume, template_id, layout, editable=False)
+        full_html = build_html(
+            resume, template_id, layout, editable=False,
+            color_scheme=color_scheme, color_overrides=color_overrides,
+        )
         from weasyprint import HTML
 
         HTML(string=full_html).write_pdf(str(output))
@@ -116,4 +147,5 @@ __all__ = [
     "register_module",
     "render_template_resume",
     "toolbar_html",
+    "page_foot",
 ]

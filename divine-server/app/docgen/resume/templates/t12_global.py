@@ -14,6 +14,7 @@ try:
         contact_lines_html,
         exp_bullets,
         item_hd,
+        page_foot,
     )
 except ImportError:  # 兼容脚本直接运行
     from components import (  # type: ignore
@@ -24,6 +25,7 @@ except ImportError:  # 兼容脚本直接运行
         contact_lines_html,
         exp_bullets,
         item_hd,
+        page_foot,
     )
 
 id = "tpl_global"
@@ -85,6 +87,8 @@ li .en{display:block;color:var(--mute);font-size:8.8pt;line-height:1.5;margin-to
 .lang .l b{color:var(--ink);font-weight:600;min-width:52px}
 .lang .l .lv{font-size:8.6pt;color:var(--mute)}
 
+.foot{margin-top:14px;padding-top:8px;border-top:.5px solid var(--line);
+  display:flex;justify-content:space-between;font-size:8.4pt;color:var(--mute)}
 """ + EDITABLE_CSS
 
 PRINT_SINGLE = """
@@ -242,4 +246,9 @@ def render(r) -> str:
             )
         parts.append(f'<div class="lang">{"".join(items)}</div>')
 
+    foot = page_foot(
+        f"{r.name}{' / ' + r.en_name if r.en_name else ''} · {r.title}".strip(" ·"),
+        r.contact.phone or r.contact.email,
+    )
+    parts.append(foot)
     return '<div class="page">' + "".join(parts) + "</div>"
