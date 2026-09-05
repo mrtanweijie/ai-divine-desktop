@@ -115,6 +115,11 @@ a { color: var(--brand); text-decoration: none; }
   min-width: 0;
   break-inside: avoid;
 }
+/* 相邻数字卡片之间的极细分隔，强化「卡片组」的视觉分组 */
+.metric + .metric {
+  border-left: 0.4pt solid var(--border-soft);
+  padding-left: 3mm;
+}
 .metric-value {
   font-family: var(--serif);
   font-size: 13pt;
@@ -275,6 +280,7 @@ section:first-of-type .section-title { margin-top: 0; }
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 0.8mm;
+  break-after: avoid;
 }
 .job-header .company {
   font-family: var(--serif);
@@ -314,6 +320,8 @@ section:first-of-type .section-title { margin-top: 0; }
   list-style: none;
   padding-left: 0;
   margin: 0.5mm 0 0 0;
+  orphans: 2;
+  widows: 2;
 }
 .job ul li {
   position: relative;
@@ -338,6 +346,7 @@ section:first-of-type .section-title { margin-top: 0; }
   line-height: 1.2;
   color: var(--brand);
   margin: 1.8mm 0 0.5mm 0;
+  break-after: avoid;
 }
 .project-name::before {
   content: "";

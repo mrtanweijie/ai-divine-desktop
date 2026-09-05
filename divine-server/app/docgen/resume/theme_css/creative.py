@@ -17,7 +17,7 @@ CREATIVE_CSS = r"""
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'Noto Sans SC', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Inter', 'Helvetica Neue', Arial, sans-serif;
   font-size: 9.5pt;
   line-height: 1.65;
   color: #1e1e2e;
@@ -66,18 +66,28 @@ body {
   padding: 22pt 30pt 26pt 30pt;
 }
 
-/* ===== 双栏主体 ===== */
+/* ===== 双栏主体 =====
+   用 table-cell 而非 flex：WeasyPrint 无法分割 flex 容器，
+   内容超页时整块被搬到下一页（曾导致首页大面积空白）；表格单元格可正常跨页。 */
 .two-col {
-  display: flex;
-  gap: 22pt;
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  border-spacing: 0;
 }
 
 .col-left {
+  display: table-cell;
   width: 62%;
+  vertical-align: top;
+  padding-right: 11pt;
 }
 
 .col-right {
+  display: table-cell;
   width: 38%;
+  vertical-align: top;
+  padding-left: 11pt;
 }
 
 /* ===== Section 标题 ===== */
@@ -94,6 +104,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6pt;
+  break-after: avoid;
 }
 
 .section h2::before {
@@ -170,6 +181,18 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 4pt;
+}
+
+/* "分类|内容" 技能行的正文（右栏窄栏内长文本） */
+.skill-group .skill-body {
+  font-size: 8.3pt;
+  color: #5b4a8a;
+  line-height: 1.6;
+}
+
+.skill-group .skill-body b {
+  color: #5b21b6;
+  font-weight: 600;
 }
 
 .skill-tag {

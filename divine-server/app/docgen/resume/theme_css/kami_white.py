@@ -13,12 +13,6 @@ KAMI_WHITE_CSS = r"""
   size: A4;
   margin: 18mm 20mm 16mm 20mm;
   background: #ffffff;
-  @bottom-right {
-    content: counter(page);
-    font-size: 8pt;
-    color: #999;
-    font-family: "Noto Sans SC", sans-serif;
-  }
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -85,6 +79,7 @@ body {
   padding-left: 8pt;
   margin-bottom: 2.5mm;
   line-height: 1.3;
+  break-after: avoid;
 }
 
 .entry {
@@ -165,6 +160,19 @@ body {
 }
 
 .skills b {
+  font-weight: 700;
+  color: #203b61;
+}
+
+/* "分类|内容" 技能行：逐行「分类：内容」 */
+.skill-row {
+  font-size: 9pt;
+  color: #374151;
+  line-height: 1.7;
+  margin-bottom: 1.2mm;
+}
+
+.skill-row b {
   font-weight: 700;
   color: #203b61;
 }

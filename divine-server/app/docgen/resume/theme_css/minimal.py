@@ -17,7 +17,7 @@ MINIMAL_CSS = r"""
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'Noto Sans SC', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Inter', 'Helvetica Neue', Arial, sans-serif;
   font-size: 9.5pt;
   line-height: 1.7;
   color: #1a1a1a;
@@ -74,6 +74,7 @@ body {
   margin-bottom: 10pt;
   padding-bottom: 4pt;
   border-bottom: 0.5pt solid #1a1a1a;
+  break-after: avoid;
 }
 
 /* ===== 经历 ===== */
@@ -146,6 +147,11 @@ body {
   position: absolute;
   left: -4pt;
   color: #999;
+}
+
+.skills-list li b {
+  color: #000;
+  font-weight: 600;
 }
 
 /* ===== 教育 ===== */

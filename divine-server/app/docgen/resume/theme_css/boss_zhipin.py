@@ -7,12 +7,6 @@ BOSS_ZHIPIN_CSS = r"""
 @page {
   size: A4;
   margin: 1.8cm 1.8cm 1.6cm 1.8cm;
-  @bottom-right {
-    content: counter(page);
-    font-size: 8pt;
-    color: #999;
-    font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif;
-  }
 }
 
 :root {
@@ -73,6 +67,7 @@ body {
   border-bottom: 0.75pt solid var(--line);
   padding-bottom: 2pt;
   margin-bottom: 5pt;
+  break-after: avoid;
 }
 
 .summary {
@@ -135,6 +130,19 @@ body {
 }
 
 .skills-line b {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+/* "分类|内容" 技能行：逐行「分类：内容」，替代原来的整段文字墙 */
+.skill-row {
+  font-size: 9.5pt;
+  color: #333;
+  line-height: 1.6;
+  margin-bottom: 2.5pt;
+}
+
+.skill-row b {
   color: var(--brand);
   font-weight: 600;
 }

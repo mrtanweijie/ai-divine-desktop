@@ -167,6 +167,19 @@ body {
   color: #000;
 }
 
+/* "分类|内容" 技能行：逐行「分类：内容」 */
+.skill-row {
+  font-size: 9pt;
+  color: #222;
+  line-height: 1.7;
+  margin-bottom: 1.2mm;
+}
+
+.skill-row b {
+  font-weight: 700;
+  color: #000;
+}
+
 .edu .school {
   font-weight: 700;
   font-size: 9.5pt;

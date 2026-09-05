@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from ..models import ResumeData
-from .helpers import _compact_contact_items, _esc
+from .helpers import (
+    _compact_contact_items,
+    _esc,
+    bold_resume_line,
+    skill_pairs_and_plain,
+)
 
 def _render_professional(resume: ResumeData) -> str:
     """经典商务蓝 — 左深蓝侧边栏 + 右白主内容区"""
@@ -21,14 +26,18 @@ def _render_professional(resume: ResumeData) -> str:
     if c.github: contact_html += f'<div class="contact-item"><span class="icon">⎇</span>{_esc(c.github)}</div>\n'
     if c.linkedin: contact_html += f'<div class="contact-item"><span class="icon">in</span>{_esc(c.linkedin)}</div>\n'
 
-    # 侧边栏：技能条
+    # 侧边栏：技能（"分类|内容" 拆为标签行，散技能以关键词标签呈现，不再用编造百分比的技能条）
+    pairs, plain = skill_pairs_and_plain(resume)
     skills_html = ""
-    for s in resume.skills:
+    for label, body in pairs:
         skills_html += f"""
         <div class="skill-item">
-          <div class="skill-name"><span>{_esc(s.name)}</span><span>{s.level}%</span></div>
-          <div class="skill-bar"><div class="fill" style="width:{s.level}%"></div></div>
+          <div class="skill-name"><span>{_esc(label)}</span></div>
+          <div class="skill-body">{bold_resume_line(body)}</div>
         </div>"""
+    if plain:
+        tags = "".join(f'<span class="tag">{_esc(s)}</span>' for s in plain)
+        skills_html += f'<div class="sidebar-tags">{tags}</div>'
 
     # 侧边栏：技能分组（标签云）
     skill_groups_html = ""
@@ -43,13 +52,13 @@ def _render_professional(resume: ResumeData) -> str:
     # 右侧：摘要
     summary_html = ""
     if resume.summary:
-        summary_html = f'<div class="main-section"><div class="summary">{_esc(resume.summary)}</div></div>'
+        summary_html = f'<div class="main-section"><div class="summary">{bold_resume_line(resume.summary)}</div></div>'
 
     # 右侧：工作经历
     exp_html = ""
     for e in resume.experiences:
-        highlights = "".join(f"<li>{_esc(h)}</li>" for h in e.highlights)
-        desc = _esc(e.description).replace("\n", "<br>")
+        highlights = "".join(f"<li>{bold_resume_line(h)}</li>" for h in e.highlights)
+        desc = bold_resume_line(e.description).replace("\n", "<br>") if e.description else ""
         exp_html += f"""
         <div class="experience-item">
           <div class="exp-header">
@@ -63,11 +72,11 @@ def _render_professional(resume: ResumeData) -> str:
     proj_html = ""
     for p in resume.projects:
         tags = "".join(f'<span class="tag">{_esc(t)}</span>' for t in p.tags)
-        highlights = "".join(f"<li>{_esc(h)}</li>" for h in p.highlights)
+        highlights = "".join(f"<li>{bold_resume_line(h)}</li>" for h in p.highlights)
         proj_html += f"""
         <div class="project-item">
           <div class="project-title">{_esc(p.name)}{f' · {_esc(p.role)}' if p.role else ''}</div>
-          <div class="project-desc">{_esc(p.description)}</div>
+          <div class="project-desc">{bold_resume_line(p.description)}</div>
           {f'<div class="project-highlights"><ul>{highlights}</ul></div>' if highlights else ''}
           <div class="project-tags">{tags}</div>
         </div>"""
@@ -82,7 +91,7 @@ def _render_professional(resume: ResumeData) -> str:
             <span class="edu-period">{_esc(e.period)}</span>
           </div>
           <div class="edu-school">{_esc(e.school)}</div>
-          {f'<div class="exp-desc" style="font-size:8.5pt;color:#64748b;margin-top:2pt;">{_esc(e.description)}</div>' if e.description else ''}
+          {f'<div class="exp-desc" style="font-size:8.5pt;color:#64748b;margin-top:2pt;">{bold_resume_line(e.description)}</div>' if e.description else ''}
         </div>"""
 
     return f"""
@@ -132,8 +141,8 @@ def _render_creative(resume: ResumeData) -> str:
     # 左栏：经历卡片
     exp_html = ""
     for e in resume.experiences:
-        highlights = "".join(f"<li>{_esc(h)}</li>" for h in e.highlights)
-        desc = _esc(e.description).replace("\n", "<br>")
+        highlights = "".join(f"<li>{bold_resume_line(h)}</li>" for h in e.highlights)
+        desc = bold_resume_line(e.description).replace("\n", "<br>") if e.description else ""
         exp_html += f"""
         <div class="card">
           <div class="card-header">
@@ -147,32 +156,26 @@ def _render_creative(resume: ResumeData) -> str:
     # 左栏：项目卡片
     proj_html = ""
     for p in resume.projects:
-        highlights = "".join(f"<li>{_esc(h)}</li>" for h in p.highlights)
+        highlights = "".join(f"<li>{bold_resume_line(h)}</li>" for h in p.highlights)
         proj_html += f"""
         <div class="project-card">
           <div class="name">{_esc(p.name)}{f' · {_esc(p.role)}' if p.role else ''}</div>
-          <div class="desc">{_esc(p.description)}</div>
+          <div class="desc">{bold_resume_line(p.description)}</div>
           {f'<div class="project-highlights"><ul>{highlights}</ul></div>' if highlights else ''}
         </div>"""
 
-    # 右栏：技能分组标签
+    # 右栏：技能分组标签；"分类|内容" 行拆为 分组标题 + 正文，不再渲染编造的百分比
+    pairs, plain = skill_pairs_and_plain(resume)
     skills_html = ""
-    if resume.skill_groups:
-        for group_name, skills in resume.skill_groups.items():
-            tags = "".join(f'<span class="skill-tag">{_esc(s)}</span>' for s in skills)
-            skills_html += f"""
-            <div class="skill-group">
-              <h4>{_esc(group_name)}</h4>
-              <div class="skill-tags">{tags}</div>
-            </div>"""
-    else:
-        # 退化：用 skills 列表
-        for s in resume.skills:
-            skills_html += f"""
-            <div class="skill-group">
-              <h4>{_esc(s.name)}</h4>
-              <div class="skill-tags"><span class="skill-tag">{s.level}%</span></div>
-            </div>"""
+    for label, body in pairs:
+        skills_html += f"""
+        <div class="skill-group">
+          <h4>{_esc(label)}</h4>
+          <div class="skill-body">{bold_resume_line(body)}</div>
+        </div>"""
+    if plain:
+        tags = "".join(f'<span class="skill-tag">{_esc(s)}</span>' for s in plain)
+        skills_html += f"""<div class="skill-group"><div class="skill-tags">{tags}</div></div>"""
 
     # 右栏：教育
     edu_html = ""
@@ -184,7 +187,7 @@ def _render_creative(resume: ResumeData) -> str:
           <div class="meta">{_esc(e.period)}{f' · {_esc(e.description)}' if e.description else ''}</div>
         </div>"""
 
-    summary_html = f'<div class="summary">{_esc(resume.summary)}</div>' if resume.summary else ""
+    summary_html = f'<div class="summary">{bold_resume_line(resume.summary)}</div>' if resume.summary else ""
 
     return f"""
     <div class="header">
@@ -221,27 +224,27 @@ def _render_minimal(resume: ResumeData) -> str:
     if c.github: contact_parts.append(f'<span>⎇ {_esc(c.github)}</span>')
     contact_html = "\n".join(contact_parts)
 
-    # 技能：双栏文字列表
+    # 技能：双栏文字列表；"分类|内容" 拆为「分类：内容」条目
+    pairs, plain = skill_pairs_and_plain(resume)
+    items = [f"<b>{_esc(label)}</b>：{bold_resume_line(body)}" for label, body in pairs]
+    items.extend(_esc(s) for s in plain)
     skills_html = ""
-    if resume.skill_groups:
-        items = []
-        for group_skills in resume.skill_groups.values():
-            items.extend(group_skills)
+    if items:
         half = (len(items) + 1) // 2
-        left = items[:half]
-        right = items[half:]
-        skills_html = '<div class="skills-list"><ul>' + "".join(f"<li>{_esc(s)}</li>" for s in left) + '</ul><ul>' + "".join(f"<li>{_esc(s)}</li>" for s in right) + '</ul></div>'
-    elif resume.skills:
-        half = (len(resume.skills) + 1) // 2
-        left = resume.skills[:half]
-        right = resume.skills[half:]
-        skills_html = '<div class="skills-list"><ul>' + "".join(f"<li>{_esc(s.name)}</li>" for s in left) + '</ul><ul>' + "".join(f"<li>{_esc(s.name)}</li>" for s in right) + '</ul></div>'
+        left, right = items[:half], items[half:]
+        skills_html = (
+            '<div class="skills-list"><ul>'
+            + "".join(f"<li>{s}</li>" for s in left)
+            + "</ul><ul>"
+            + "".join(f"<li>{s}</li>" for s in right)
+            + "</ul></div>"
+        )
 
     # 经历
     exp_html = ""
     for e in resume.experiences:
-        highlights = "".join(f"<li>{_esc(h)}</li>" for h in e.highlights)
-        desc = _esc(e.description).replace("\n", "<br>")
+        highlights = "".join(f"<li>{bold_resume_line(h)}</li>" for h in e.highlights)
+        desc = bold_resume_line(e.description).replace("\n", "<br>") if e.description else ""
         exp_html += f"""
         <div class="exp-item">
           <div class="exp-row">
@@ -254,11 +257,11 @@ def _render_minimal(resume: ResumeData) -> str:
     # 项目
     proj_html = ""
     for p in resume.projects:
-        highlights = "".join(f"<li>{_esc(h)}</li>" for h in p.highlights)
+        highlights = "".join(f"<li>{bold_resume_line(h)}</li>" for h in p.highlights)
         proj_html += f"""
         <div class="project-item">
           <div class="project-name">{_esc(p.name)}{f' · {_esc(p.role)}' if p.role else ''}</div>
-          <div class="project-desc">{_esc(p.description)}</div>
+          <div class="project-desc">{bold_resume_line(p.description)}</div>
           {f'<div class="project-highlights"><ul>{highlights}</ul></div>' if highlights else ''}
         </div>"""
 
@@ -272,10 +275,10 @@ def _render_minimal(resume: ResumeData) -> str:
             <span class="exp-period">{_esc(e.period)}</span>
           </div>
           <div class="edu-school">{_esc(e.school)}</div>
-          {f'<div class="exp-body" style="font-size:8.5pt;color:#555;margin-top:2pt;">{_esc(e.description)}</div>' if e.description else ''}
+          {f'<div class="exp-body" style="font-size:8.5pt;color:#555;margin-top:2pt;">{bold_resume_line(e.description)}</div>' if e.description else ''}
         </div>"""
 
-    summary_html = f'<div class="summary">{_esc(resume.summary)}</div>' if resume.summary else ""
+    summary_html = f'<div class="summary">{bold_resume_line(resume.summary)}</div>' if resume.summary else ""
 
     return f"""
     <div class="header">
@@ -313,7 +316,7 @@ def _render_boss_zhipin(resume: ResumeData) -> str:
         summary_html = f"""
         <div class="section">
           <div class="section-title">个人总结</div>
-          <p class="summary">{_esc(resume.summary)}</p>
+          <p class="summary">{bold_resume_line(resume.summary)}</p>
         </div>"""
 
     exp_html = ""
@@ -321,7 +324,7 @@ def _render_boss_zhipin(resume: ResumeData) -> str:
         entries = []
         for item in resume.experiences:
             highlights = "".join(
-                f"<li>{_esc(highlight)}</li>"
+                f"<li>{bold_resume_line(highlight)}</li>"
                 for highlight in item.highlights
             )
             role_html = (
@@ -336,7 +339,7 @@ def _render_boss_zhipin(resume: ResumeData) -> str:
             <div class="org">{_esc(item.company)}{role_html}</div>
             <div class="period">{_esc(item.period)}</div>
           </div>
-          {f'<div class="desc">{_esc(item.description)}</div>' if item.description else ''}
+          {f'<div class="desc">{bold_resume_line(item.description)}</div>' if item.description else ''}
           {f'<ul>{highlights}</ul>' if highlights else ''}
         </div>"""
             )
@@ -352,7 +355,7 @@ def _render_boss_zhipin(resume: ResumeData) -> str:
         entries = []
         for item in resume.projects:
             highlights = "".join(
-                f"<li>{_esc(highlight)}</li>"
+                f"<li>{bold_resume_line(highlight)}</li>"
                 for highlight in item.highlights
             )
             entries.append(
@@ -361,7 +364,7 @@ def _render_boss_zhipin(resume: ResumeData) -> str:
           <div class="entry-head">
             <div class="org">{_esc(item.name)}</div>
           </div>
-          {f'<div class="desc">{_esc(item.description)}</div>' if item.description else ''}
+          {f'<div class="desc">{bold_resume_line(item.description)}</div>' if item.description else ''}
           {f'<ul>{highlights}</ul>' if highlights else ''}
         </div>"""
             )
@@ -388,7 +391,7 @@ def _render_boss_zhipin(resume: ResumeData) -> str:
             <div class="org">{_esc(item.school)}{role_html}</div>
             <div class="period">{_esc(item.period)}</div>
           </div>
-          {f'<div class="desc">{_esc(item.description)}</div>' if item.description else ''}
+          {f'<div class="desc">{bold_resume_line(item.description)}</div>' if item.description else ''}
         </div>"""
             )
         education_html = (
@@ -398,25 +401,23 @@ def _render_boss_zhipin(resume: ResumeData) -> str:
             + "</div>"
         )
 
-    skills = []
-    if resume.skill_groups:
-        for group_skills in resume.skill_groups.values():
-            skills.extend(group_skills)
-    if not skills:
-        skills = [skill.name for skill in resume.skills]
+    # 专业技能："分类|内容" 拆为逐行「分类：内容」；散技能顿号连接，不做任意加粗
+    pairs, plain = skill_pairs_and_plain(resume)
     skills_html = ""
-    if skills:
-        items = []
-        for index, skill in enumerate(skills):
-            if index < 3:
-                items.append(f"<b>{_esc(skill)}</b>")
-            else:
-                items.append(_esc(skill))
+    if pairs or plain:
+        rows = [
+            f'<div class="skill-row"><b>{_esc(label)}</b>：{bold_resume_line(body)}</div>'
+            for label, body in pairs
+        ]
+        if plain:
+            rows.append(
+                f'<div class="skill-row"><b>技能</b>：{_esc("、".join(plain))}</div>'
+            )
         skills_html = (
             '<div class="section">'
             '<div class="section-title">专业技能</div>'
-            f'<div class="skills-line">{"、".join(items)}</div>'
-            "</div>"
+            + "".join(rows)
+            + "</div>"
         )
 
     return f"""
@@ -435,6 +436,12 @@ def _render_boss_zhipin(resume: ResumeData) -> str:
 def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
     """单栏克制排版，finance / linkedin / kami 共用同一套 HTML 结构。"""
     is_kami = style in ("kami", "kami_white")
+    is_linkedin = style == "linkedin"
+
+    def section_title(zh: str, en: str) -> str:
+        # linkedin 面向海外投递，板块标题用英文（CSS 已统一大写）
+        return en if is_linkedin else zh
+
     contact_items = _compact_contact_items(resume)
     contact_html = ""
     for index, item in enumerate(contact_items):
@@ -461,18 +468,18 @@ def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
 
     top_html = ""
     bottom_html = ""
-    if style == "linkedin":
+    if is_linkedin:
         top_html = '<div class="topbar"></div>'
     elif style == "finance":
         bottom_html = '<div class="header-rule"></div>'
 
     summary_html = ""
     if resume.summary:
-        summary_title = "职业摘要" if is_kami else "个人总结"
+        summary_title = section_title("职业摘要", "Summary") if is_kami else section_title("个人总结", "Summary")
         summary_html = f"""
         <div class="section">
           <div class="section-title">{summary_title}</div>
-          <p style="font-size:9pt;color:#333;">{_esc(resume.summary)}</p>
+          <p style="font-size:9pt;color:#333;">{bold_resume_line(resume.summary)}</p>
         </div>"""
 
     exp_html = ""
@@ -490,7 +497,7 @@ def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
                 else _esc(item.company)
             )
             highlights = "".join(
-                f"<li>{_esc(highlight)}</li>"
+                f"<li>{bold_resume_line(highlight)}</li>"
                 for highlight in item.highlights
             )
             entries.append(
@@ -500,13 +507,13 @@ def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
             <div class="left">{left_html}</div>
             {f'<div class="right">{_esc(item.period)}</div>' if item.period else ''}
           </div>
-          {f'<div class="desc">{_esc(item.description)}</div>' if item.description else ''}
+          {f'<div class="desc">{bold_resume_line(item.description)}</div>' if item.description else ''}
           {f'<ul>{highlights}</ul>' if highlights else ''}
         </div>"""
             )
         exp_html = (
             '<div class="section">'
-            '<div class="section-title">工作经历</div>'
+            f'<div class="section-title">{section_title("工作经历", "Work Experience")}</div>'
             + "".join(entries)
             + "</div>"
         )
@@ -516,7 +523,7 @@ def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
         entries = []
         for item in resume.projects:
             highlights = "".join(
-                f"<li>{_esc(highlight)}</li>"
+                f"<li>{bold_resume_line(highlight)}</li>"
                 for highlight in item.highlights
             )
             role_html = (
@@ -535,13 +542,13 @@ def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
           <div class="entry-head">
             <div class="left">{left_html}</div>
           </div>
-          {f'<div class="desc">{_esc(item.description)}</div>' if item.description else ''}
+          {f'<div class="desc">{bold_resume_line(item.description)}</div>' if item.description else ''}
           {f'<ul>{highlights}</ul>' if highlights else ''}
         </div>"""
             )
         project_html = (
             '<div class="section">'
-            '<div class="section-title">项目经历</div>'
+            f'<div class="section-title">{section_title("项目经历", "Projects")}</div>'
             + "".join(entries)
             + "</div>"
         )
@@ -567,45 +574,41 @@ def _render_flat_resume(resume: ResumeData, *, style: str) -> str:
             <div class="left">{left_html}</div>
             {f'<div class="right">{_esc(item.period)}</div>' if item.period else ''}
           </div>
-          {f'<div class="meta">{_esc(item.description)}</div>' if item.description else ''}
+          {f'<div class="meta">{bold_resume_line(item.description)}</div>' if item.description else ''}
         </div>"""
             )
         education_html = (
             '<div class="section">'
-            '<div class="section-title">教育背景</div>'
+            f'<div class="section-title">{section_title("教育背景", "Education")}</div>'
             + "".join(entries)
             + "</div>"
         )
 
-    skills = []
-    if resume.skill_groups:
-        for group_skills in resume.skill_groups.values():
-            skills.extend(group_skills)
-    if not skills:
-        skills = [skill.name for skill in resume.skills]
-
+    # 专业技能："分类|内容" 拆为逐行「分类：内容」；散技能 linkedin 用标签、其余顿点连接
+    pairs, plain = skill_pairs_and_plain(resume)
     skills_html = ""
-    if skills:
-        if style == "linkedin":
-            tags = []
-            for index, skill in enumerate(skills):
-                cls = "tag strong" if index < 5 else "tag"
-                tags.append(f'<span class="{cls}">{_esc(skill)}</span>')
-            inner_html = "".join(tags)
-        else:
-            items = []
-            for index, skill in enumerate(skills):
-                if index < 3:
-                    items.append(f"<b>{_esc(skill)}</b>")
-                else:
-                    items.append(_esc(skill))
-            inner_html = " · ".join(items)
-        skills_title = "核心技能" if is_kami else "专业技能"
+    if pairs or plain:
+        rows = [
+            f'<div class="skill-row"><b>{_esc(label)}</b>：{bold_resume_line(body)}</div>'
+            for label, body in pairs
+        ]
+        if plain:
+            if is_linkedin:
+                tags = [
+                    f'<span class="{"tag strong" if index < 5 else "tag"}">{_esc(skill)}</span>'
+                    for index, skill in enumerate(plain)
+                ]
+                rows.append(f'<div class="skills">{"".join(tags)}</div>')
+            else:
+                rows.append(
+                    f'<div class="skill-row">{_esc(" · ".join(plain))}</div>'
+                )
+        skills_title = section_title("核心技能", "Skills") if is_kami else section_title("专业技能", "Skills")
         skills_html = (
             '<div class="section">'
             f'<div class="section-title">{skills_title}</div>'
-            f'<div class="skills">{inner_html}</div>'
-            "</div>"
+            + "".join(rows)
+            + "</div>"
         )
 
     if is_kami:

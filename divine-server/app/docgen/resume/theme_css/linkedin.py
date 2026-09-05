@@ -76,6 +76,7 @@ body {
   border-bottom: 0.8pt solid #e0e0e0;
   padding-bottom: 1mm;
   margin-bottom: 2.4mm;
+  break-after: avoid;
 }
 
 /* ===== 条目 ===== */
@@ -171,6 +172,19 @@ body {
 .skills .tag.strong {
   background: #0a66c2;
   color: #fff;
+  font-weight: 600;
+}
+
+/* "分类|内容" 技能行：逐行「分类：内容」 */
+.skill-row {
+  font-size: 9pt;
+  color: #2c2c2c;
+  line-height: 1.65;
+  margin-bottom: 1.2mm;
+}
+
+.skill-row b {
+  color: #0a66c2;
   font-weight: 600;
 }
 

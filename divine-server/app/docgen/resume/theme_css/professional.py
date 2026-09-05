@@ -20,7 +20,7 @@ PROFESSIONAL_CSS = r"""
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'Noto Sans SC', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Inter', 'Helvetica Neue', Arial, sans-serif;
   font-size: 9.5pt;
   line-height: 1.65;
   color: #2c3e50;
@@ -110,7 +110,7 @@ body {
   font-size: 9pt;
 }
 
-/* 技能条 */
+/* 技能：分类行 + 关键词标签（不再使用自评百分比技能条） */
 .skill-item {
   margin-bottom: 6pt;
 }
@@ -121,6 +121,29 @@ body {
   margin-bottom: 2pt;
   display: flex;
   justify-content: space-between;
+}
+
+.skill-item .skill-body {
+  font-size: 8.2pt;
+  color: #cbd5e1;
+  line-height: 1.6;
+  margin-bottom: 2pt;
+}
+
+.skill-item .skill-body b {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.sidebar-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3pt;
+}
+
+.sidebar .tag {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
 }
 
 .skill-bar {
@@ -156,6 +179,7 @@ body {
   margin-bottom: 8pt;
   padding-bottom: 4pt;
   border-bottom: 1.5pt solid #1e3a5f;
+  break-after: avoid;
 }
 
 /* 经历条目 */
