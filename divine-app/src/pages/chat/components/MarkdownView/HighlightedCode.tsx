@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   CodeToTokenTransformStream,
   type RecallToken,
@@ -112,16 +112,45 @@ export function HighlightedCode({
   const [tokens, setTokens] = useState<ThemedToken[]>([]);
   const streamRef = useRef<StreamHandle | null>(null);
   const pendingCodeRef = useRef(code);
+  // 流式高亮的 sink 是每个语法 token 回调一次（200 行代码块 2000+ 次），
+  // 且回调来自异步微任务、React 不会自动合并 → 逐 token setState 是
+  // O(n²) 渲染放大的最大来源。这里只进缓冲区，rAF 按帧合并成一次
+  // setState（B1），批量内保持 recall/push 的相对顺序。
+  const pendingTokensRef = useRef<Array<ThemedToken | RecallToken>>([]);
+  const rafRef = useRef<number | null>(null);
 
-  const applyToken = (token: ThemedToken | RecallToken) => {
-    if ("recall" in token) {
-      if (token.recall > 0) {
-        setTokens((prev) => prev.slice(0, -token.recall));
-      }
-      return;
+  const discardPendingTokens = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     }
-    setTokens((prev) => [...prev, token]);
-  };
+    pendingTokensRef.current = [];
+  }, []);
+
+  const applyToken = useCallback(
+    (token: ThemedToken | RecallToken) => {
+      pendingTokensRef.current.push(token);
+      if (rafRef.current !== null) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        const batch = pendingTokensRef.current;
+        if (!batch.length) return;
+        pendingTokensRef.current = [];
+        setTokens((prev) => {
+          const next = prev.slice();
+          for (const item of batch) {
+            if ("recall" in item) {
+              if (item.recall > 0) next.splice(-item.recall, item.recall);
+            } else {
+              next.push(item);
+            }
+          }
+          return next;
+        });
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     pendingCodeRef.current = code;
@@ -139,9 +168,10 @@ export function HighlightedCode({
     return () => {
       handle.cancel();
       streamRef.current = null;
+      discardPendingTokens();
       setTokens([]);
     };
-  }, [lang, streaming, theme]);
+  }, [lang, streaming, theme, applyToken, discardPendingTokens]);
 
   useEffect(() => {
     if (!streaming) return;
@@ -156,12 +186,13 @@ export function HighlightedCode({
       return;
     }
     handle.cancel();
+    discardPendingTokens();
     setTokens([]);
     const next = createStreamHandle(lang, applyToken, theme);
     streamRef.current = next;
     next.enqueue(code);
     next.prevCode = code;
-  }, [code, lang, streaming, theme]);
+  }, [code, lang, streaming, theme, applyToken, discardPendingTokens]);
 
   useEffect(() => {
     if (streaming) return;

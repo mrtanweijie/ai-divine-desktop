@@ -16,6 +16,7 @@ import {
 } from "@/services/api";
 import { requestRaw } from "@/services/request";
 import { consumeSSE } from "@/services/sse";
+import { createStreamBuffer } from "@/pages/chat/hooks/streamBuffer";
 import { setSessionEffort } from "@/pages/chat/state/sessionEffort";
 import { setSessionModelId } from "@/pages/chat/state/sessionModel";
 import {
@@ -95,213 +96,231 @@ export function useChatStream(options: UseChatStreamOptions) {
 
   // 流式事件处理器（sendMessage / retryCloud 共用）：把事件写进
   // assistantId 对应的乐观消息，done 时从服务端恢复整段会话。
+  // 返回 buffer 供调用方在中断/收尾时 flush/dispose。
   const buildStreamHandlers = useCallback(
-    (sessionId: string, assistantId: string) => ({
-      think: ({ content }: { content: string }) => {
+    (sessionId: string, assistantId: string) => {
+      // B2：文本增量先进缓冲区，rAF 帧对齐合并成一次 setSessionMessages，
+      // 渲染频率从每 chunk 一次降到 ≤60Hz；think 与 content 同帧一次提交。
+      const buffer = createStreamBuffer(({ think, content }) => {
         setSessionMessages(sessionId, (prev) =>
-          prev.map((message) =>
-            message.id === assistantId
-              ? {
-                  ...message,
-                  think: (message.think ?? "") + content,
-                  thinking: true,
-                }
-              : message
-          )
+          prev.map((message) => {
+            if (message.id !== assistantId) return message;
+            const next: ChatMessage = { ...message };
+            if (think) {
+              next.think = (message.think ?? "") + think;
+              next.thinking = true;
+            }
+            if (content) {
+              next.content = message.content + content;
+              next.thinking = false;
+              next.preprocess_pending = false;
+            }
+            return next;
+          })
         );
-      },
-      think_done: () => {
-        setSessionMessages(sessionId, (prev) =>
-          prev.map((message) =>
-            message.id === assistantId
-              ? { ...message, thinking: false }
-              : message
-          )
-        );
-      },
-      message: ({ content }: { content: string }) => {
-        setSessionMessages(sessionId, (prev) =>
-          prev.map((message) =>
-            message.id === assistantId
-              ? {
-                  ...message,
-                  content: message.content + content,
-                  thinking: false,
-                  preprocess_pending: false,
-                }
-              : message
-          )
-        );
-      },
-      plan: (data: { items?: unknown }) => {
-        const items = (data.items ?? []) as unknown as TodoItem[];
-        setSessionMessages(sessionId, (prev) =>
-          prev.map((message) =>
-            message.id === assistantId ? { ...message, todos: items } : message
-          )
-        );
-      },
-      plan_sync: (data: { items?: unknown }) => {
-        // run 正常结束后的终态收敛全量同步（running→done、pending→skipped），
-        // 保证流式期间与刷新后的计划进度一致。
-        const items = (data.items ?? []) as unknown as TodoItem[];
-        setSessionMessages(sessionId, (prev) =>
-          prev.map((message) =>
-            message.id === assistantId ? { ...message, todos: items } : message
-          )
-        );
-      },
-      todo_update: (data: {
-        id: string;
-        status: string;
-        result?: string;
-      }) => {
-        const next = data as {
+      });
+
+      const handlers = {
+        think: ({ content }: { content: string }) => {
+          buffer.pushThink(content);
+        },
+        think_done: () => {
+          // 先把缓冲里的思考文本落上屏，再收起「思考中」指示
+          buffer.flush();
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((message) =>
+              message.id === assistantId
+                ? { ...message, thinking: false }
+                : message
+            )
+          );
+        },
+        message: ({ content }: { content: string }) => {
+          buffer.pushContent(content);
+        },
+        plan: (data: { items?: unknown }) => {
+          const items = (data.items ?? []) as unknown as TodoItem[];
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((message) =>
+              message.id === assistantId ? { ...message, todos: items } : message
+            )
+          );
+        },
+        plan_sync: (data: { items?: unknown }) => {
+          // run 正常结束后的终态收敛全量同步（running→done、pending→skipped），
+          // 保证流式期间与刷新后的计划进度一致。
+          const items = (data.items ?? []) as unknown as TodoItem[];
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((message) =>
+              message.id === assistantId ? { ...message, todos: items } : message
+            )
+          );
+        },
+        todo_update: (data: {
           id: string;
-          status: TodoItem["status"];
+          status: string;
           result?: string;
-        };
-        setSessionMessages(sessionId, (prev) =>
-          prev.map((message) =>
-            message.id === assistantId
-              ? {
-                  ...message,
-                  todos: (message.todos ?? []).map((todo) =>
-                    todo.id === next.id
-                      ? { ...todo, status: next.status, result: next.result }
-                      : todo
-                  ),
+        }) => {
+          const next = data as {
+            id: string;
+            status: TodoItem["status"];
+            result?: string;
+          };
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((message) =>
+              message.id === assistantId
+                ? {
+                    ...message,
+                    todos: (message.todos ?? []).map((todo) =>
+                      todo.id === next.id
+                        ? { ...todo, status: next.status, result: next.result }
+                        : todo
+                    ),
+                  }
+                : message
+            )
+          );
+        },
+        tool: (data: unknown) => {
+          const event = data as unknown as ToolEvent;
+          const added: string[] = [];
+          if (event.status === "done" && event.result) {
+            const projectPath = projects.find(
+              (item) => item.id === selectedProjectId
+            )?.path;
+            if (projectPath) {
+              for (const filePath of changedFilePathsFromResult(event.result)) {
+                const rel = changedFileRel(projectPath, filePath);
+                if (rel && workspacePanelOpenRef.current) {
+                  added.push(rel);
                 }
-              : message
-          )
-        );
-      },
-      tool: (data: unknown) => {
-        const event = data as unknown as ToolEvent;
-        // 首个工具事件到达 → 预整理阶段结束（可能是确认卡/执行中）
-        setSessionMessages(sessionId, (prev) =>
-          prev.map((message) =>
-            message.id === assistantId
-              ? { ...message, preprocess_pending: false }
-              : message
-          )
-        );
-        if (event.status === "done" && event.result) {
-          const projectPath = projects.find(
-            (item) => item.id === selectedProjectId
-          )?.path;
-          if (projectPath) {
-            for (const filePath of changedFilePathsFromResult(event.result)) {
-              const rel = changedFileRel(projectPath, filePath);
-              if (rel && workspacePanelOpenRef.current) {
-                setAgentChangedFiles((prev) => new Set(prev).add(rel));
               }
             }
           }
-        }
-        setSessionMessages(sessionId, (prev) =>
-          prev.map((message) =>
-            message.id === assistantId
-              ? { ...message, tools: upsertTool(message.tools, event) }
-              : message
-          )
-        );
-      },
-      subagent: (data: unknown) => {
-        const raw = data as {
-          sub_id: string;
-          name: string;
-          status: SubAgentItem["status"];
-          summary: string;
-          error?: string;
-        };
-        const item: SubAgentItem = {
-          id: raw.sub_id,
-          name: raw.name,
-          status: raw.status,
-          summary: raw.summary,
-          error: raw.error,
-        };
-        setSessionMessages(sessionId, (prev) =>
-          prev.map((message) =>
-            message.id === assistantId
-              ? {
-                  ...message,
-                  subagents: upsertSubAgent(message.subagents ?? [], item),
-                }
-              : message
-          )
-        );
-      },
-      scheduled_tasks_changed: () => {
-        emitTasksChanged();
-      },
-      calendar_events_changed: () => {
-        emitEventsChanged();
-      },
-      done: async () => {
-        setSessionMessages(sessionId, (prev) =>
-          prev.map((message) =>
-            message.id === assistantId
-              ? {
-                  ...message,
-                  streaming: false,
-                  thinking: false,
-                  preprocess_pending: false,
-                }
-              : message
-          )
-        );
-        if (sessionId) {
-          const data = await getSession(sessionId);
-          const restored = messagesToChatMessages(
-            data.messages,
-            data.tool_runs ?? [],
-            data.todos
-          );
+          // B3：预整理清除与工具卡更新合并进同一次 prev.map()，
+          // 避免每个工具事件触发两次全量数组重建。
           setSessionMessages(sessionId, (prev) =>
-            mergeLocalTools(prev, restored)
+            prev.map((message) =>
+              message.id === assistantId
+                ? {
+                    ...message,
+                    preprocess_pending: false,
+                    tools: upsertTool(message.tools, event),
+                  }
+                : message
+            )
           );
-          setHasMoreOlder(false);
-          setOldestMessageId(null);
-        }
-        await Promise.all([
-          refreshSessions(selectedProjectId),
-          refreshProjects(),
-          refreshWorkspace(),
-        ]);
-        if (sessionId && workspacePanelOpenRef.current) {
-          await loadChangedFiles(sessionId);
-        }
-      },
-      error: ({
-        message,
-        messageKey,
-        messageParams,
-      }: {
-        message: string;
-        messageKey?: string;
-        messageParams?: Record<string, unknown>;
-      }) => {
-        setSessionMessages(sessionId, (prev) =>
-          prev.map((item) =>
-            item.id === assistantId
-              ? {
-                  ...item,
-                  streaming: false,
-                  thinking: false,
-                  error: messageKey
-                    ? t(messageKey, {
-                        ...(messageParams ?? {}),
-                        defaultValue: message,
-                      })
-                    : message,
-                }
-              : item
-          )
-        );
-      },
-    }),
+          if (added.length) {
+            setAgentChangedFiles((prev) => {
+              const next = new Set(prev);
+              for (const rel of added) next.add(rel);
+              return next;
+            });
+          }
+        },
+        subagent: (data: unknown) => {
+          const raw = data as {
+            sub_id: string;
+            name: string;
+            status: SubAgentItem["status"];
+            summary: string;
+            error?: string;
+          };
+          const item: SubAgentItem = {
+            id: raw.sub_id,
+            name: raw.name,
+            status: raw.status,
+            summary: raw.summary,
+            error: raw.error,
+          };
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((message) =>
+              message.id === assistantId
+                ? {
+                    ...message,
+                    subagents: upsertSubAgent(message.subagents ?? [], item),
+                  }
+                : message
+            )
+          );
+        },
+        scheduled_tasks_changed: () => {
+          emitTasksChanged();
+        },
+        calendar_events_changed: () => {
+          emitEventsChanged();
+        },
+        done: async () => {
+          buffer.flush();
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((message) =>
+              message.id === assistantId
+                ? {
+                    ...message,
+                    streaming: false,
+                    thinking: false,
+                    preprocess_pending: false,
+                  }
+                : message
+            )
+          );
+          if (sessionId) {
+            const data = await getSession(sessionId);
+            const restored = messagesToChatMessages(
+              data.messages,
+              data.tool_runs ?? [],
+              data.todos
+            );
+            setSessionMessages(sessionId, (prev) =>
+              mergeLocalTools(prev, restored)
+            );
+            setHasMoreOlder(false);
+            setOldestMessageId(null);
+          }
+          // B5：侧边栏/工作区元数据刷新不阻塞流结束的视觉收尾，错峰执行
+          setTimeout(() => {
+            void Promise.all([
+              refreshSessions(selectedProjectId),
+              refreshProjects(),
+              refreshWorkspace(),
+            ]).catch(() => undefined);
+            if (sessionId && workspacePanelOpenRef.current) {
+              void loadChangedFiles(sessionId).catch(() => undefined);
+            }
+          }, 0);
+        },
+        error: ({
+          message,
+          messageKey,
+          messageParams,
+        }: {
+          message: string;
+          messageKey?: string;
+          messageParams?: Record<string, unknown>;
+        }) => {
+          buffer.flush();
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((item) =>
+              item.id === assistantId
+                ? {
+                    ...item,
+                    streaming: false,
+                    thinking: false,
+                    error: messageKey
+                      ? t(messageKey, {
+                          ...(messageParams ?? {}),
+                          defaultValue: message,
+                        })
+                      : message,
+                  }
+                : item
+            )
+          );
+        },
+      };
+
+      return { buffer, handlers };
+    },
     [
       loadChangedFiles,
       projects,
@@ -383,34 +402,37 @@ export function useChatStream(options: UseChatStreamOptions) {
       // 支持立即停止：中止 SSE 连接（前端即时反应）+ 后端取消接口善后
       const controller = new AbortController();
       abortControllersRef.current.set(sessionId, controller);
-      try {
-        const response = await requestRaw("/stream_chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
-            question: effectiveQuestion,
-            session_id: sessionId,
-            approval_mode: approvalMode,
-            think,
-            ...(think ? { reasoning_effort: effort } : {}),
-            ...(modelId ? { model_id: modelId } : {}),
-            locale: i18next.language || "zh-CN",
-            attachments: files.map((file) => ({
-              name: file.name,
-              size: file.size,
-              ...(file.path
-                ? { file_path: file.path }
-                : { content: file.content ?? "" }),
-            })),
-          }),
-        });
-        await consumeSSE(
-          response,
-          buildStreamHandlers(sessionId, assistantMessage.id)
+        const { buffer, handlers } = buildStreamHandlers(
+          sessionId,
+          assistantMessage.id
         );
-      } catch (error) {
-        if (controller.signal.aborted) {
+        try {
+          const response = await requestRaw("/stream_chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              question: effectiveQuestion,
+              session_id: sessionId,
+              approval_mode: approvalMode,
+              think,
+              ...(think ? { reasoning_effort: effort } : {}),
+              ...(modelId ? { model_id: modelId } : {}),
+              locale: i18next.language || "zh-CN",
+              attachments: files.map((file) => ({
+                name: file.name,
+                size: file.size,
+                ...(file.path
+                  ? { file_path: file.path }
+                  : { content: file.content ?? "" }),
+              })),
+            }),
+          });
+          await consumeSSE(response, handlers);
+        } catch (error) {
+          // 中断/网络错误时先把缓冲区里的增量落上屏，避免丢尾字
+          buffer.flush();
+          if (controller.signal.aborted) {
           // 主动点击停止：中止连接，不显示错误，只结束流式态
           setSessionMessages(sessionId, (prev) =>
             prev.map((item) =>
@@ -439,6 +461,7 @@ export function useChatStream(options: UseChatStreamOptions) {
       } finally {
         // 多会话并发：每个流的收尾只清理它自己的会话标记，
         // 与其它会话是否在流式无关。
+        buffer.dispose();
         if (abortControllersRef.current.get(sessionId) === controller) {
           abortControllersRef.current.delete(sessionId);
         }
@@ -488,27 +511,30 @@ export function useChatStream(options: UseChatStreamOptions) {
 
       const controller = new AbortController();
       abortControllersRef.current.set(sessionId, controller);
-      try {
-        const response = await requestRaw("/chat/retry_cloud", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
-            session_id: sessionId,
-            message_id: messageId,
-            approval_mode: approvalMode,
-            think,
-            ...(think ? { reasoning_effort: effort } : {}),
-            ...(modelId ? { model_id: modelId } : {}),
-            locale: i18next.language || "zh-CN",
-          }),
-        });
-        await consumeSSE(
-          response,
-          buildStreamHandlers(sessionId, assistantMessage.id)
+        const { buffer, handlers } = buildStreamHandlers(
+          sessionId,
+          assistantMessage.id
         );
-      } catch (error) {
-        if (controller.signal.aborted) {
+        try {
+          const response = await requestRaw("/chat/retry_cloud", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              session_id: sessionId,
+              message_id: messageId,
+              approval_mode: approvalMode,
+              think,
+              ...(think ? { reasoning_effort: effort } : {}),
+              ...(modelId ? { model_id: modelId } : {}),
+              locale: i18next.language || "zh-CN",
+            }),
+          });
+          await consumeSSE(response, handlers);
+        } catch (error) {
+          // 中断/网络错误时先把缓冲区里的增量落上屏，避免丢尾字
+          buffer.flush();
+          if (controller.signal.aborted) {
           setSessionMessages(sessionId, (prev) =>
             prev.map((item) =>
               item.id === assistantMessage.id
@@ -534,6 +560,7 @@ export function useChatStream(options: UseChatStreamOptions) {
           );
         }
       } finally {
+        buffer.dispose();
         if (abortControllersRef.current.get(sessionId) === controller) {
           abortControllersRef.current.delete(sessionId);
         }
