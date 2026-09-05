@@ -68,7 +68,8 @@ class Scheduler:
 
     async def _tick(self) -> None:
         now = _utc_now()
-        for task in db.list_scheduled_tasks():
+        tasks = await asyncio.to_thread(db.list_scheduled_tasks)
+        for task in tasks:
             if task.get("status") != "active":
                 continue
             next_run = task.get("next_run_at")
@@ -99,7 +100,7 @@ class Scheduler:
                     "scheduled agent task failed task_id=%s", task["id"]
                 )
             try:
-                self._advance(task)
+                await self._advance(task)
             except Exception:
                 logger.exception(
                     "scheduled task bookkeeping failed task_id=%s",
@@ -113,11 +114,12 @@ class Scheduler:
             task.get("title") or "定时任务提醒",
         )
 
-    def _advance(self, task: dict[str, Any]) -> None:
+    async def _advance(self, task: dict[str, Any]) -> None:
         """Update last run time and compute the next occurrence in SQLite."""
         now = _utc_now()
         if task.get("frequency") == "once":
-            db.update_scheduled_task(
+            await asyncio.to_thread(
+                db.update_scheduled_task,
                 task["id"],
                 status="done",
                 last_run_at=now,
@@ -125,7 +127,8 @@ class Scheduler:
             )
             return
         merged = {**task, "next_run_at": None}
-        db.update_scheduled_task(
+        await asyncio.to_thread(
+            db.update_scheduled_task,
             task["id"],
             last_run_at=now,
             next_run_at=compute_next_run(merged),
@@ -139,21 +142,25 @@ class Scheduler:
                 "scheduled task has no session_id task_id=%s", task["id"]
             )
             return
-        session = db.get_session(session_id)
+        session = await asyncio.to_thread(db.get_session, session_id)
         if session is None:
             return
         workspace = Path(
-            db.session_workspace(session_id) or workspace_dir()
+            await asyncio.to_thread(db.session_workspace, session_id)
+            or workspace_dir()
         )
         previous_plan_mode = session.get("plan_mode") or "ask"
-        db.update_session(session_id, plan_mode="direct")
+        await asyncio.to_thread(db.update_session, session_id, plan_mode="direct")
         try:
-            db.add_message(
+            await asyncio.to_thread(
+                db.add_message,
                 session_id,
                 "user",
                 task.get("description") or task.get("title") or "定时任务",
             )
-            history = db.history_for_model(session_id, limit=20)
+            history = await asyncio.to_thread(
+                db.history_for_model, session_id, limit=20
+            )
             from .agent import run_agent
 
             async for _event in run_agent(
@@ -166,7 +173,9 @@ class Scheduler:
             ):
                 pass
         finally:
-            db.update_session(session_id, plan_mode=previous_plan_mode)
+            await asyncio.to_thread(
+                db.update_session, session_id, plan_mode=previous_plan_mode
+            )
 
 
 scheduler = Scheduler()

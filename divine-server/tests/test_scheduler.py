@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 
@@ -25,7 +26,7 @@ def test_scheduler_advances_due_task(monkeypatch, tmp_path):
         next_run_at=past,
     )
 
-    Scheduler()._advance(task)
+    asyncio.run(Scheduler()._advance(task))
     updated = db.get_scheduled_task(task["id"])
     assert updated["status"] == "done"
     assert updated["last_run_at"] is not None

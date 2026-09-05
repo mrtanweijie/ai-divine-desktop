@@ -114,7 +114,9 @@ async def stream_chat(request: StreamChatRequest):
         logger.warning("file:// 附件提取失败: %s", exc)
     locale = normalize_locale(request.locale)
     if request.session_id:
-        existing_session = db.get_session(request.session_id)
+        existing_session = await asyncio.to_thread(
+            db.get_session, request.session_id
+        )
         if existing_session is not None:
             locale = normalize_locale(
                 request.locale or existing_session.get("locale")
@@ -142,7 +144,7 @@ async def stream_chat(request: StreamChatRequest):
 
     session_id = request.session_id
     if session_id:
-        if db.get_session(session_id) is None:
+        if await asyncio.to_thread(db.get_session, session_id) is None:
             return StreamingResponse(
                 iter(
                     [
@@ -157,9 +159,13 @@ async def stream_chat(request: StreamChatRequest):
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
         if request.locale:
-            db.update_session(session_id, locale=locale)
+            await asyncio.to_thread(
+                db.update_session, session_id, locale=locale
+            )
     else:
-        if request.project_id and db.get_project(request.project_id) is None:
+        if request.project_id and await asyncio.to_thread(
+            db.get_project, request.project_id
+        ) is None:
             return StreamingResponse(
                 iter(
                     [
@@ -173,20 +179,26 @@ async def stream_chat(request: StreamChatRequest):
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
-        session_id = db.create_session(
-            title=default_session_title(locale),
-            project_id=request.project_id,
-            approval_mode=request.approval_mode,
-            locale=locale,
+        session_id = (
+            await asyncio.to_thread(
+                db.create_session,
+                title=default_session_title(locale),
+                project_id=request.project_id,
+                approval_mode=request.approval_mode,
+                locale=locale,
+            )
         )["id"]
 
-    session = db.get_session(session_id)
+    session = await asyncio.to_thread(db.get_session, session_id)
     approval_mode = (
         request.approval_mode
         or session.get("approval_mode")
         or "ask"
     )
-    workspace = Path(db.session_workspace(session_id) or workspace_dir())
+    workspace = Path(
+        await asyncio.to_thread(db.session_workspace, session_id)
+        or workspace_dir()
+    )
     # 本地预整理：长文本先由本地模型整理成结构化版本，原文转存附件
     # （见 docs/preprocess-feature-design.md；失败/不可用一律原样上云）
     final_question = question
@@ -203,17 +215,20 @@ async def stream_chat(request: StreamChatRequest):
         )
     except Exception as exc:  # noqa: BLE001 — 预整理失败绝不影响对话
         logger.warning("本地预整理异常，原样上云: %s", exc)
-    messages = db.list_messages(session_id)
+    messages = await asyncio.to_thread(db.list_messages, session_id)
     if not messages:
         title = question[:24] if len(question) > 24 else question
-        db.update_session(session_id, title=title)
-    message = db.add_message(session_id, "user", final_question)
+        await asyncio.to_thread(db.update_session, session_id, title=title)
+    message = await asyncio.to_thread(
+        db.add_message, session_id, "user", final_question
+    )
     if organized and original_attachment is not None:
         try:
             # file 附件：只带路径，不注入原文内容（决策 3，省 token）。
             # preprocess_original 标记供前端过滤——UI 用 preprocess 部件展示
             # 可展开原文，这里只服务模型（history_for_model 读 path 引用）。
-            db.add_message_part(
+            await asyncio.to_thread(
+                db.add_message_part,
                 message["id"],
                 "file",
                 json.dumps(
@@ -235,7 +250,8 @@ async def stream_chat(request: StreamChatRequest):
                 )[:12000]
             except OSError:
                 original_text = ""
-            db.add_message_part(
+            await asyncio.to_thread(
+                db.add_message_part,
                 message["id"],
                 "preprocess",
                 json.dumps(
@@ -306,7 +322,8 @@ async def stream_chat(request: StreamChatRequest):
                     meta["content"] = new_content
                     if att_orig:
                         preprocess_originals.append(att_orig)
-                    db.add_message_part(
+                    await asyncio.to_thread(
+                        db.add_message_part,
                         message["id"],
                         "preprocess",
                         json.dumps(
@@ -321,16 +338,19 @@ async def stream_chat(request: StreamChatRequest):
                     )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("附件预整理异常，按原样处理: %s", exc)
-        db.add_message_part(
+        await asyncio.to_thread(
+            db.add_message_part,
             message["id"],
             "file",
             json.dumps(meta, ensure_ascii=False),
             order=index,
         )
 
-    settings = settings_store.load()
+    settings = await asyncio.to_thread(settings_store.load)
     context_limit = int(settings.get("context_limit") or 20)
-    history = db.history_for_model(session_id, limit=context_limit)
+    history = await asyncio.to_thread(
+        db.history_for_model, session_id, limit=context_limit
+    )
     # Files the user selected or pasted as attachments are pre-approved: the
     # agent may read them without the external-file confirmation.
     approved_paths = [
@@ -415,9 +435,9 @@ async def stream_chat(request: StreamChatRequest):
                     from ..agent.middleware import _start_local_model
 
                     manager = get_manager()
-                    if not manager.is_ready():
+                    if not await asyncio.to_thread(manager.is_ready):
                         _start_local_model(manager)
-                    if manager.is_ready():
+                    if await asyncio.to_thread(manager.is_ready):
                         if task == "qa":
                             # 知识问答：护栏式本地答（不确定/拒答/空 → 回退云端）
                             reply = await asyncio.to_thread(
@@ -459,7 +479,9 @@ async def stream_chat(request: StreamChatRequest):
                             # 不落库、不提示，直接云端接管回答（本地这句拒答
                             # 不留痕）；挂"转云端"标记，云端回答落库时记
                             # source='local_fallback'（后端留痕）。
-                            db.mark_fallback_pending(session_id)
+                            await asyncio.to_thread(
+                                db.mark_fallback_pending, session_id
+                            )
                         else:
                             # 流式本地答：defer_emit 攒完整回复再判——
                             # 正常回答一次性展示；本地拒答时拒答文本不闪现
@@ -606,7 +628,9 @@ async def stream_chat(request: StreamChatRequest):
             ):
                 yield event
             # 兜底清理：云端没产出 assistant 消息时，转云端标记不泄漏到下一轮
-            db.clear_fallback_pending(session_id)
+            await asyncio.to_thread(
+                db.clear_fallback_pending, session_id
+            )
         except Exception as exc:  # noqa: BLE001
             logger.exception(
                 "stream_chat error session=%s: %s", session_id, exc
@@ -614,7 +638,7 @@ async def stream_chat(request: StreamChatRequest):
             yield error_event("server_error", str(exc))
         finally:
             _CANCEL_EVENTS.pop(session_id, None)
-            db.touch_session(session_id)
+            await asyncio.to_thread(db.touch_session, session_id)
 
     return StreamingResponse(
         generate(),
@@ -633,7 +657,7 @@ async def retry_cloud(request: RetryCloudRequest):
     """
     from ..config import workspace_dir
 
-    session = db.get_session(request.session_id)
+    session = await asyncio.to_thread(db.get_session, request.session_id)
     if session is None:
         return StreamingResponse(
             iter([error_event("not_found", "会话不存在")]),
@@ -641,7 +665,7 @@ async def retry_cloud(request: RetryCloudRequest):
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
-    messages = db.list_messages(request.session_id)
+    messages = await asyncio.to_thread(db.list_messages, request.session_id)
     target_index = next(
         (
             index

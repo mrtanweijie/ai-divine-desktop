@@ -345,7 +345,7 @@ async def run_agent(
 ) -> AsyncIterator[str]:
     """Stream one agent turn as SSE strings, handling interrupts and persistence."""
     workspace_path = workspace if isinstance(workspace, Path) else Path(workspace)
-    session = db.get_session(session_id)
+    session = await asyncio.to_thread(db.get_session, session_id)
     resolved_tool_mode = _resolve_tool_mode(tool_mode, model_id)
     ctx = AgentRunContext(
         session_id=session_id,
@@ -390,7 +390,7 @@ async def run_agent(
 
     # 意图识别（提前到工具构建前——工具按意图裁减需要，见 tools._CONTENT_TOOLS）。
     # 从 history 取当前用户消息做分类，与后文线程化 question_text 等价。
-    settings = settings_store.load()
+    settings = await asyncio.to_thread(settings_store.load)
     local_llm_enabled = settings.get("local_llm_enabled", False)
     local_llm_mode = settings.get("local_llm_mode", "keyword")
     local_llm_threshold = settings.get(
@@ -498,7 +498,7 @@ async def run_agent(
         input_messages = convert_to_messages([last_user])
         # Thread keeps only the recent window; re-inject the compacted
         # summary (if any) so early context survives the trim.
-        summary = db.get_summary(session_id)
+        summary = await asyncio.to_thread(db.get_summary, session_id)
         if summary and summary.get("summary"):
             from langchain_core.messages import SystemMessage
 
@@ -514,7 +514,7 @@ async def run_agent(
     else:
         input_messages = convert_to_messages(history)
     question_text = _content_text(input_messages[-1].content) if input_messages else ""
-    existing_messages = db.list_messages(session_id)
+    existing_messages = await asyncio.to_thread(db.list_messages, session_id)
     has_assistant_content = any(
         message["role"] == "assistant"
         and str(message.get("content") or "").strip()
