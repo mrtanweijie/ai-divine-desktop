@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -43,6 +44,43 @@ from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
 # style 是"建议"而非"约束"：用户没指定时模型自选型，落到这里若不在白名单
 # 则回落默认风格，不再报错中断任务（ux_html 才强制要求用户明确选择）。
 DEFAULT_STYLE = "Notion"
+
+# 个人简历不归本工具管：简历有专属模板管线（pdf_generate kind=resume，支持
+# HTML/双输出与 12 套模板）。本工具的通用 token 基座会破坏简历版式，因此在
+# 工具层做特征拦截，防止模型无视提示词规范把手写简历 HTML 存进来。
+_RESUME_TITLE_RE = re.compile(r"简历|resume", re.IGNORECASE)
+_RESUME_CLASS_RE = re.compile(r'class="[^"]*\bresume|id="resume', re.IGNORECASE)
+_RESUME_SECTION_MARKERS = (
+    "工作经历",
+    "教育背景",
+    "专业技能",
+    "项目经历",
+    "自我评价",
+    "个人总结",
+    "职业概述",
+    "求职意向",
+    "work experience",
+    "work history",
+)
+_RESUME_REDIRECT_MESSAGE = (
+    "检测到简历类页面（{reason}）：个人简历请改用 pdf_generate 生成"
+    "（传 kind=resume、resume_data，output_format=html 或 both），"
+    "其内置 12 套简历模板并输出可编辑 HTML；不要用 html_generate 手写简历版式。"
+    "如本页面确非个人简历（如简历写作指南、模板资讯页），重新调用时传 force_save=true 可跳过该检查。"
+)
+
+
+def detect_resume_page(title: str, content: str) -> str | None:
+    """命中简历特征时返回原因描述，否则返回 None。"""
+    if _RESUME_TITLE_RE.search(title or ""):
+        return f"页面标题「{title}」指向简历"
+    if _RESUME_CLASS_RE.search(content or ""):
+        return "HTML 中包含 resume 结构类名"
+    lowered = (content or "").lower()
+    markers = sum(1 for m in _RESUME_SECTION_MARKERS if m in lowered)
+    if markers >= 4:
+        return f"页面同时包含 {markers} 个简历标准章节标题"
+    return None
 
 
 def resolve_style(style: str) -> str:
@@ -80,6 +118,24 @@ def main() -> None:
         return
 
     title = derive_title(str(params.get("title") or ""), content)
+
+    # 简历护栏：简历类页面改走 pdf_generate 模板管线（force_save 供误判逃生）。
+    force_save = str(params.get("force_save") or "").strip().lower() in ("true", "1", "yes")
+    if not force_save:
+        reason = detect_resume_page(title, content)
+        if reason:
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "message": _RESUME_REDIRECT_MESSAGE.format(reason=reason),
+                        "messageKey": "tool.actionFailed",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return
+
     output_dir = output_root / "html"
     raw_path = str(params.get("path") or "").strip()
     if raw_path:

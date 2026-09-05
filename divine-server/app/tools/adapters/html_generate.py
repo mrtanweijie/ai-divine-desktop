@@ -8,8 +8,10 @@ from ..registry import register_tool
 
 @register_tool(
     "html_generate",
-    "保存完整的 HTML 页面：分析报告、数据看板、仪表盘、落地页、简历、文档网页版等；"
+    "保存完整的 HTML 页面：分析报告、数据看板、仪表盘、落地页、文档网页版、活动页等；"
     "content 传完整 HTML 源码（含 DOCTYPE 或 <html>），工具只负责校验和保存，不套用统一模板。"
+    "个人简历（含网页版/HTML 版简历）不走本工具：一律用 pdf_generate 生成"
+    "（kind=resume + resume_data + output_format=html/both），本工具注入的通用 token 基座会破坏简历版式。"
     "与 ux_html 的区别：ux_html 专用于 UX 交互原型/产品界面设计稿（需用户指定风格）；"
     "本工具覆盖其余所有「要产出一个 HTML 文件」的场景。视觉规范见系统提示。",
     {
@@ -41,6 +43,13 @@ from ..registry import register_tool
                 "type": "string",
                 "description": "保存目录，workspace 内相对路径；默认保存到应用输出目录 html 类别",
             },
+            "force_save": {
+                "type": "boolean",
+                "description": (
+                    "仅当工具误判时使用：页面确实不是个人简历（如简历写作指南、模板资讯页）"
+                    "却被简历检查拦截时，传 true 跳过检查强制保存"
+                ),
+            },
         },
         "required": ["content"],
     },
@@ -58,4 +67,5 @@ class HtmlGenerateAdapter(ToolAdapter):
             "style_note": str(arguments.get("style_note") or "").strip(),
             "content": str(arguments.get("content") or ""),
             "path": str(arguments.get("path") or "html").strip(),
+            "force_save": bool(arguments.get("force_save")),
         }
