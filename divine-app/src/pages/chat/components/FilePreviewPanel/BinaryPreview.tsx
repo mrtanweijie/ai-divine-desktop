@@ -20,11 +20,24 @@ const PREVIEWABLE_EXTENSIONS = new Set([
   "bmp",
   "avif",
   "pdf",
-  "doc", "docx", "docm",
-  "xls", "xlsx", "xlsm", "xlsb",
-  "ppt", "pptx", "pptm", "ppsx", "ppsm",
-  "odt", "ods", "odp",
-  "csv", "rtf", "epub",
+  "doc",
+  "docx",
+  "docm",
+  "xls",
+  "xlsx",
+  "xlsm",
+  "xlsb",
+  "ppt",
+  "pptx",
+  "pptm",
+  "ppsx",
+  "ppsm",
+  "odt",
+  "ods",
+  "odp",
+  "csv",
+  "rtf",
+  "epub",
 ]);
 
 export function isPreviewableBinary(name: string): boolean {
@@ -34,11 +47,24 @@ export function isPreviewableBinary(name: string): boolean {
 }
 
 const DOCUMENT_EXTENSIONS = new Set([
-  "doc", "docx", "docm",
-  "xls", "xlsx", "xlsm", "xlsb",
-  "ppt", "pptx", "pptm", "ppsx", "ppsm",
-  "odt", "ods", "odp",
-  "csv", "rtf", "epub",
+  "doc",
+  "docx",
+  "docm",
+  "xls",
+  "xlsx",
+  "xlsm",
+  "xlsb",
+  "ppt",
+  "pptx",
+  "pptm",
+  "ppsx",
+  "ppsm",
+  "odt",
+  "ods",
+  "odp",
+  "csv",
+  "rtf",
+  "epub",
 ]);
 
 function getExt(name: string): string {
@@ -48,12 +74,7 @@ function getExt(name: string): string {
 
 type DocPreviewMode = "preview" | "source";
 
-function DocumentPreview({
-  content,
-}: {
-  content: string;
-  fileName?: string;
-}) {
+function DocumentPreview({ content }: { content: string; fileName?: string }) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<DocPreviewMode>("preview");
   const [copied, setCopied] = useState(false);
@@ -92,12 +113,8 @@ function DocumentPreview({
             variant="icon"
             size="small"
             onClick={copy}
-            title={
-              copied ? t("common.copied", "已复制") : t("markdown.copy", "复制")
-            }
-            aria-label={
-              copied ? t("common.copied", "已复制") : t("markdown.copy", "复制")
-            }
+            title={copied ? t("common.copied", "已复制") : t("markdown.copy", "复制")}
+            aria-label={copied ? t("common.copied", "已复制") : t("markdown.copy", "复制")}
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
           </Button>
@@ -131,6 +148,7 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
 
   useEffect(() => {
     let disposed = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 取消护栏：切换文件时同步清空旧数据，避免闪现上一文件的预览
     setDataUrl(null);
     setPdfPages(null);
     setDocContent(null);
@@ -182,9 +200,7 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
     );
   }
   if (docContent !== null) {
-    return (
-      <DocumentPreview content={docContent} />
-    );
+    return <DocumentPreview content={docContent} />;
   }
   return (
     <div className="binary-preview">

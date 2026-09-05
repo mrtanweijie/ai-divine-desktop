@@ -12,6 +12,10 @@ type MermaidApi = (typeof import("mermaid"))["default"];
 type RenderStatus = "loading" | "ready" | "error";
 
 const SVG_CACHE_LIMIT = 30;
+function replaceSvgId(source: string, fromId: string, toId: string): string {
+  return fromId === toId ? source : source.split(fromId).join(toId);
+}
+
 const svgCache = new Map<
   string,
   {
@@ -60,9 +64,7 @@ const LIGHT_THEME_VARIABLES = {
 };
 
 function currentTheme(): "dark" | "light" {
-  return document.documentElement.dataset.theme === "light"
-    ? "light"
-    : "dark";
+  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
 }
 
 function mermaidConfig(theme: "dark" | "light"): MermaidConfig {
@@ -73,8 +75,7 @@ function mermaidConfig(theme: "dark" | "light"): MermaidConfig {
     fontFamily: FONT_STACK,
     fontSize: 12,
     maxTextSize: 20000,
-    themeVariables:
-      theme === "light" ? LIGHT_THEME_VARIABLES : DARK_THEME_VARIABLES,
+    themeVariables: theme === "light" ? LIGHT_THEME_VARIABLES : DARK_THEME_VARIABLES,
     flowchart: {
       htmlLabels: false,
       curve: "basis",
@@ -96,10 +97,7 @@ function cacheKey(theme: "dark" | "light", code: string): string {
   return `${theme}\u0000${code}`;
 }
 
-function rememberSvg(
-  key: string,
-  entry: { id: string; svg: string }
-): void {
+function rememberSvg(key: string, entry: { id: string; svg: string }): void {
   if (svgCache.size >= SVG_CACHE_LIMIT) {
     const oldest = svgCache.keys().next().value;
     if (oldest) svgCache.delete(oldest);
@@ -125,11 +123,7 @@ function useThemeVersion(): "dark" | "light" {
 }
 
 function normalizeMermaidSource(code: string): string {
-  return code
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
-    .replace(/\\"/g, '"')
-    .replace(/\\'/g, "'");
+  return code.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\\"/g, '"').replace(/\\'/g, "'");
 }
 
 /** 显式 style 的 fill 与主题默认文字对比冲突时的兜底文字色 */
@@ -175,7 +169,7 @@ function ensureContrastingText(code: string, theme: "dark" | "light"): string {
       if (isLight !== force.above) return whole;
       const trimmed = body.replace(/,\s*$/, "").replace(/\s+$/, "");
       return `${head}${trimmed},color:${force.color}${tail}`;
-    }
+    },
   );
 }
 
@@ -192,12 +186,8 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
   const instanceId = `mermaid-${baseId}`;
   const key = cacheKey(theme, normalizedCode);
   const cached = svgCache.get(key);
-  const [status, setStatus] = useState<RenderStatus>(
-    cached ? "ready" : "loading"
-  );
-  const [svg, setSvg] = useState(
-    cached ? replaceSvgId(cached.svg, cached.id, instanceId) : ""
-  );
+  const [status, setStatus] = useState<RenderStatus>(cached ? "ready" : "loading");
+  const [svg, setSvg] = useState(cached ? replaceSvgId(cached.svg, cached.id, instanceId) : "");
   const [copied, setCopied] = useState(false);
   const renderSeq = useRef(0);
 
@@ -207,6 +197,7 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
     }
     const cachedSvg = svgCache.get(cacheKey(theme, normalizedCode));
     if (cachedSvg) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 缓存命中：同步应用缓存的渲染结果
       setSvg(replaceSvgId(cachedSvg.svg, cachedSvg.id, instanceId));
       setStatus("ready");
       return;
@@ -221,10 +212,7 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
       .then((mermaid) => {
         if (cancelled) return null;
         mermaid.initialize(mermaidConfig(theme));
-        return mermaid.render(
-          `${instanceId}-${seq}`,
-          ensureContrastingText(normalizedCode, theme)
-        );
+        return mermaid.render(`${instanceId}-${seq}`, ensureContrastingText(normalizedCode, theme));
       })
       .then((result) => {
         if (cancelled || !result || seq !== renderSeq.current) return;
@@ -246,10 +234,6 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
     };
   }, [normalizedCode, instanceId, streaming, theme]);
 
-  function replaceSvgId(source: string, fromId: string, toId: string): string {
-    return fromId === toId ? source : source.split(fromId).join(toId);
-  }
-
   const copy = async () => {
     await copyText(normalizedCode);
     setCopied(true);
@@ -260,22 +244,14 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
   return (
     <div className={`mermaid-block ${status}`}>
       <div className="mermaid-header">
-        <span>
-          {status === "error"
-            ? t("mermaid.parseFailed", "Mermaid 解析失败")
-            : "Mermaid"}
-        </span>
+        <span>{status === "error" ? t("mermaid.parseFailed", "Mermaid 解析失败") : "Mermaid"}</span>
         <Button
           variant="icon"
           size="small"
           className="mermaid-copy"
           onClick={copy}
           aria-label={t("mermaid.copySource", "复制 Mermaid 源码")}
-          title={
-            copied
-              ? t("common.copied", "已复制")
-              : t("mermaid.copyCode", "复制源码")
-          }
+          title={copied ? t("common.copied", "已复制") : t("mermaid.copyCode", "复制源码")}
         >
           {copied ? <Check size={13} /> : <Copy size={13} />}
         </Button>
@@ -283,10 +259,7 @@ export function MermaidBlock({ code, streaming }: MermaidBlockProps) {
       {streaming ? (
         <pre className="mermaid-source">{normalizedCode}</pre>
       ) : status === "ready" && svg ? (
-        <div
-          className="mermaid-canvas"
-          dangerouslySetInnerHTML={{ __html: svg }}
-        />
+        <div className="mermaid-canvas" dangerouslySetInnerHTML={{ __html: svg }} />
       ) : status === "error" ? (
         <pre className="mermaid-source">{normalizedCode}</pre>
       ) : (

@@ -52,12 +52,8 @@ const HostContext = createContext(false);
 
 const noopSubscribe = () => () => undefined;
 
-export function PreviewHeaderSlotProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const store = useMemo(createSlotStore, []);
+export function PreviewHeaderSlotProvider({ children }: { children: ReactNode }) {
+  const store = useMemo(() => createSlotStore(), []);
   return (
     <SlotContext.Provider value={store}>
       <HostContext.Provider value={true}>{children}</HostContext.Provider>
@@ -73,10 +69,7 @@ export function usePreviewHeaderHosted() {
 /** 渲染所有已注册动作的容器，放在 diff-view-head 内、接受/扩缩按钮之前 */
 export function PreviewHeaderSlot() {
   const store = useContext(SlotContext);
-  useSyncExternalStore(
-    store?.subscribe ?? noopSubscribe,
-    store?.getSnapshot ?? (() => 0)
-  );
+  useSyncExternalStore(store?.subscribe ?? noopSubscribe, store?.getSnapshot ?? (() => 0));
   if (!store) return null;
   const nodes = store.getNodes();
   if (nodes.length === 0) return null;

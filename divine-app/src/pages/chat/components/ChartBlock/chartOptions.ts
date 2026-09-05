@@ -36,10 +36,7 @@ const MAX_PIE_BAND_PCT = 16;
  * capped at MAX_PIE_RADIUS_PCT when a title/caption is present, and the band
  * is thinned to at most MAX_PIE_BAND_PCT by raising the inner radius.
  */
-function normalizePieStyle(
-  series: Record<string, unknown>,
-  hasContent: boolean
-): void {
+function normalizePieStyle(series: Record<string, unknown>, hasContent: boolean): void {
   const itemStyle = isRecord(series.itemStyle) ? { ...series.itemStyle } : {};
   itemStyle.borderRadius = 0;
   itemStyle.borderWidth = 0;
@@ -68,10 +65,7 @@ function normalizePieStyle(
   const minInner = outerPercent - MAX_PIE_BAND_PCT;
   if (innerPercent < minInner) innerPercent = minInner;
   const round1 = (value: number) => Math.round(value * 10) / 10;
-  series.radius = [
-    `${round1(innerPercent)}%`,
-    `${round1(outerPercent)}%`,
-  ];
+  series.radius = [`${round1(innerPercent)}%`, `${round1(outerPercent)}%`];
 }
 
 type ChartTheme = "dark" | "light";
@@ -156,19 +150,14 @@ export function chartHeight(option: Record<string, unknown>): number {
   const primaryType = primarySeriesType(option);
   const types = Array.isArray(option.series)
     ? option.series
-        .map((item) =>
-          isRecord(item) && typeof item.type === "string" ? item.type : ""
-        )
+        .map((item) => (isRecord(item) && typeof item.type === "string" ? item.type : ""))
         .filter(Boolean)
     : [];
-  const baseHeight =
-    types.includes("candlestick")
-      ? 480
-      : types.includes("line")
+  const baseHeight = types.includes("candlestick")
+    ? 480
+    : types.includes("line")
       ? 400
-      : types.includes("graph") ||
-        types.includes("tree") ||
-        types.includes("sankey")
+      : types.includes("graph") || types.includes("tree") || types.includes("sankey")
         ? 360
         : types.includes("radar") || types.includes("funnel")
           ? 340
@@ -182,17 +171,11 @@ export function chartHeight(option: Record<string, unknown>): number {
   const titleExtra = showTitle ? titleHeight(option) : 0;
   const legendExtra = legendHeight(option);
   const bottomCaption = bottomCaptionHeight(option);
-  let height = baseHeight;
+  let height: number;
   if (primaryType && !NON_CARTESIAN_TYPES.has(primaryType)) {
     if (isHorizontalCartesian(option)) {
-      const categories = Math.max(
-        axisDataCount(option.yAxis),
-        axisDataCount(option.xAxis)
-      );
-      height = Math.max(
-        baseHeight,
-        240 + titleExtra + legendExtra + categories * 34
-      );
+      const categories = Math.max(axisDataCount(option.yAxis), axisDataCount(option.xAxis));
+      height = Math.max(baseHeight, 240 + titleExtra + legendExtra + categories * 34);
     } else {
       height = Math.max(baseHeight, 300 + titleExtra + legendExtra);
     }
@@ -290,8 +273,7 @@ function titleHeight(option: Record<string, unknown>): number {
   const title = option.title;
   if (!isRecord(title)) return 0;
   const hasText = typeof title.text === "string" && title.text.length > 0;
-  const hasSubtext =
-    typeof title.subtext === "string" && title.subtext.length > 0;
+  const hasSubtext = typeof title.subtext === "string" && title.subtext.length > 0;
   if (!hasText && !hasSubtext) return 0;
   return hasSubtext ? 56 : 36;
 }
@@ -348,8 +330,7 @@ function bottomCaptionHeight(option: Record<string, unknown>): number {
     if (!isRecord(title) || !isBottomAnchored(title) || !titleHasText(title)) {
       continue;
     }
-    const hasSubtext =
-      typeof title.subtext === "string" && title.subtext.length > 0;
+    const hasSubtext = typeof title.subtext === "string" && title.subtext.length > 0;
     total += hasSubtext ? 36 : 24;
   }
   const graphic = option.graphic;
@@ -408,7 +389,7 @@ function keepBottomCaptions(merged: Record<string, unknown>): void {
       : [];
   const captions = titles.filter(
     (title): title is Record<string, unknown> =>
-      isRecord(title) && isBottomAnchored(title) && titleHasText(title)
+      isRecord(title) && isBottomAnchored(title) && titleHasText(title),
   );
   if (captions.length > 0) {
     merged.title = captions.length === 1 ? captions[0] : captions;
@@ -419,7 +400,7 @@ function keepBottomCaptions(merged: Record<string, unknown>): void {
 
 function mergeRecord(
   base: Record<string, unknown>,
-  override: Record<string, unknown>
+  override: Record<string, unknown>,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = { ...base };
   for (const [key, value] of Object.entries(override)) {
@@ -433,21 +414,13 @@ function mergeRecord(
   return result;
 }
 
-function withDefaults(
-  target: unknown,
-  defaults: Record<string, unknown>
-): Record<string, unknown> {
+function withDefaults(target: unknown, defaults: Record<string, unknown>): Record<string, unknown> {
   return mergeRecord(defaults, isRecord(target) ? target : {});
 }
 
-function mergeAxis(
-  value: unknown,
-  defaults: Record<string, unknown>
-): unknown {
+function mergeAxis(value: unknown, defaults: Record<string, unknown>): unknown {
   if (Array.isArray(value)) {
-    return value.map((item) =>
-      isRecord(item) ? mergeRecord(defaults, item) : item
-    );
+    return value.map((item) => (isRecord(item) ? mergeRecord(defaults, item) : item));
   }
   return isRecord(value) ? mergeRecord(defaults, value) : defaults;
 }
@@ -463,7 +436,7 @@ function mergeAxis(
 function ensureAxisCoverage(
   merged: Record<string, unknown>,
   key: "xAxis" | "yAxis",
-  defaults: Record<string, unknown>
+  defaults: Record<string, unknown>,
 ): void {
   const value = merged[key];
   if (!Array.isArray(value)) return; // 单对象：index 0 天然可用
@@ -491,9 +464,7 @@ function ensureAxisCoverage(
  * ECharts 只认 yAxis/xAxis（对象或数组）。把 `yAxis1+` 并回 `yAxis` 数组
  * （`xAxis1+` 同理），否则引用 yAxisIndex: 1 的系列会抛 "yAxis '1' not found"。
  */
-function normalizeMultiAxes(
-  option: Record<string, unknown>
-): Record<string, unknown> {
+function normalizeMultiAxes(option: Record<string, unknown>): Record<string, unknown> {
   const next = { ...option };
   for (const base of ["xAxis", "yAxis"] as const) {
     const items: unknown[] = [];
@@ -532,11 +503,7 @@ function normalizeLogAxes(option: Record<string, unknown>): void {
   const barLike = new Set(["bar", "pictorialBar", "candlestick", "boxplot"]);
   for (const key of ["xAxis", "yAxis"] as const) {
     const value = option[key];
-    const axes = Array.isArray(value)
-      ? value.filter(isRecord)
-      : isRecord(value)
-        ? [value]
-        : [];
+    const axes = Array.isArray(value) ? value.filter(isRecord) : isRecord(value) ? [value] : [];
     if (axes.length === 0) continue;
     const indexKey = key === "xAxis" ? "xAxisIndex" : "yAxisIndex";
     // 记录每个轴索引是否存在柱类系列或非正数值
@@ -548,11 +515,7 @@ function normalizeLogAxes(option: Record<string, unknown>): void {
       if (Array.isArray(item.data)) {
         for (const d of item.data) {
           const v =
-            typeof d === "number"
-              ? d
-              : isRecord(d) && typeof d.value === "number"
-                ? d.value
-                : null;
+            typeof d === "number" ? d : isRecord(d) && typeof d.value === "number" ? d.value : null;
           if (v !== null && v <= 0) unsafe.add(idx);
         }
       }
@@ -565,21 +528,16 @@ function normalizeLogAxes(option: Record<string, unknown>): void {
   }
 }
 
-function decorateSeries(
-  option: Record<string, unknown>,
-  palette: ChartPalette
-): void {
+function decorateSeries(option: Record<string, unknown>, palette: ChartPalette): void {
   if (!Array.isArray(option.series)) return;
   // 未堆叠的柱系列组数（stack 相同的柱系列共用一根柱位）。
   const barStackCount = new Set(
     option.series
       .map((item, idx) => {
         if (!isRecord(item) || item.type !== "bar") return null;
-        return typeof item.stack === "string" && item.stack !== ""
-          ? item.stack
-          : `#${idx}`;
+        return typeof item.stack === "string" && item.stack !== "" ? item.stack : `#${idx}`;
       })
-      .filter((key): key is string => key !== null)
+      .filter((key): key is string => key !== null),
   ).size;
   option.series = option.series.map((item) => {
     if (!isRecord(item)) return item;
@@ -593,12 +551,10 @@ function decorateSeries(
       itemStyle.borderColor = "transparent";
       itemStyle.borderWidth = 0;
       next.itemStyle = itemStyle;
-      const hasSecondaryXAxis =
-        Array.isArray(option.xAxis) && option.xAxis.length > 1;
+      const hasSecondaryXAxis = Array.isArray(option.xAxis) && option.xAxis.length > 1;
       const volumeLike =
         /成交量|成交额|volume/i.test(String(next.name ?? "")) ||
-        (hasSecondaryXAxis &&
-          (next.xAxisIndex === 1 || next.yAxisIndex === 1));
+        (hasSecondaryXAxis && (next.xAxisIndex === 1 || next.yAxisIndex === 1));
       if (isHorizontalCartesian(option)) {
         if (barStackCount > 1) {
           // 多组柱共用一条类目带：barWidth 是硬宽度（ECharts 不裁剪显式
@@ -636,9 +592,7 @@ function decorateSeries(
       next.label = label;
       if (isHorizontalCartesian(option)) {
         const emphasis = isRecord(next.emphasis) ? { ...next.emphasis } : {};
-        const emphasisStyle = isRecord(emphasis.itemStyle)
-          ? { ...emphasis.itemStyle }
-          : {};
+        const emphasisStyle = isRecord(emphasis.itemStyle) ? { ...emphasis.itemStyle } : {};
         emphasisStyle.borderRadius = 4;
         emphasis.itemStyle = emphasisStyle;
         next.emphasis = emphasis;
@@ -670,9 +624,7 @@ function decorateSeries(
         label.padding = [2, 5];
         label.shadowBlur = 4;
         label.shadowColor =
-          palette.border === "#121517"
-            ? "rgba(0, 0, 0, 0.45)"
-            : "rgba(15, 23, 42, 0.18)";
+          palette.border === "#121517" ? "rgba(0, 0, 0, 0.45)" : "rgba(15, 23, 42, 0.18)";
       }
       next.label = label;
       if (next.areaStyle === undefined) {
@@ -688,17 +640,13 @@ function decorateSeries(
       label.fontSize = label.fontSize ?? 11;
       next.label = label;
       const labelLine = isRecord(next.labelLine) ? { ...next.labelLine } : {};
-      const labelLineStyle = isRecord(labelLine.lineStyle)
-        ? { ...labelLine.lineStyle }
-        : {};
+      const labelLineStyle = isRecord(labelLine.lineStyle) ? { ...labelLine.lineStyle } : {};
       labelLineStyle.color = palette.axisLine;
       labelLine.lineStyle = labelLineStyle;
       next.labelLine = labelLine;
       if (isRecord(next.emphasis)) {
         const emphasis = { ...next.emphasis };
-        const emphasisLabel = isRecord(emphasis.label)
-          ? { ...emphasis.label }
-          : {};
+        const emphasisLabel = isRecord(emphasis.label) ? { ...emphasis.label } : {};
         emphasisLabel.color = palette.label;
         emphasis.label = emphasisLabel;
         next.emphasis = emphasis;
@@ -711,9 +659,7 @@ function decorateSeries(
         next.levels = next.levels.map((level) => {
           if (!isRecord(level)) return level;
           const nextLevel = { ...level };
-          const levelStyle = isRecord(nextLevel.itemStyle)
-            ? { ...nextLevel.itemStyle }
-            : {};
+          const levelStyle = isRecord(nextLevel.itemStyle) ? { ...nextLevel.itemStyle } : {};
           levelStyle.borderColor = palette.border;
           nextLevel.itemStyle = levelStyle;
           return nextLevel;
@@ -743,10 +689,7 @@ function decorateSeries(
   });
 }
 
-function decorateRadar(
-  option: Record<string, unknown>,
-  palette: ChartPalette
-): void {
+function decorateRadar(option: Record<string, unknown>, palette: ChartPalette): void {
   const applyRadar = (radar: Record<string, unknown>) => {
     radar.axisName = withDefaults(radar.axisName, {
       color: palette.muted,
@@ -777,10 +720,7 @@ function decorateRadar(
   }
 }
 
-function decorateAxes(
-  option: Record<string, unknown>,
-  palette: ChartPalette
-): void {
+function decorateAxes(option: Record<string, unknown>, palette: ChartPalette): void {
   const applyAxis = (axis: Record<string, unknown>) => {
     axis.splitArea = {
       ...(isRecord(axis.splitArea) ? axis.splitArea : {}),
@@ -791,23 +731,17 @@ function decorateAxes(
     label.fontFamily = UI_FONT;
     label.fontSize = label.fontSize ?? 11;
     axis.axisLabel = label;
-    const nameStyle = isRecord(axis.nameTextStyle)
-      ? { ...axis.nameTextStyle }
-      : {};
+    const nameStyle = isRecord(axis.nameTextStyle) ? { ...axis.nameTextStyle } : {};
     nameStyle.color = palette.muted;
     nameStyle.fontFamily = UI_FONT;
     axis.nameTextStyle = nameStyle;
     const axisLine = isRecord(axis.axisLine) ? { ...axis.axisLine } : {};
-    const axisLineStyle = isRecord(axisLine.lineStyle)
-      ? { ...axisLine.lineStyle }
-      : {};
+    const axisLineStyle = isRecord(axisLine.lineStyle) ? { ...axisLine.lineStyle } : {};
     axisLineStyle.color = palette.axisLine;
     axisLine.lineStyle = axisLineStyle;
     axis.axisLine = axisLine;
     const splitLine = isRecord(axis.splitLine) ? { ...axis.splitLine } : {};
-    const splitLineStyle = isRecord(splitLine.lineStyle)
-      ? { ...splitLine.lineStyle }
-      : {};
+    const splitLineStyle = isRecord(splitLine.lineStyle) ? { ...splitLine.lineStyle } : {};
     splitLineStyle.color = palette.splitLine;
     splitLine.lineStyle = splitLineStyle;
     axis.splitLine = splitLine;
@@ -824,26 +758,18 @@ function decorateAxes(
   }
 }
 
-function decorateReadableText(
-  option: Record<string, unknown>,
-  palette: ChartPalette
-): void {
+function decorateReadableText(option: Record<string, unknown>, palette: ChartPalette): void {
   const primaryType = primarySeriesType(option);
-  const nonCartesian =
-    primaryType !== "" && NON_CARTESIAN_TYPES.has(primaryType);
+  const nonCartesian = primaryType !== "" && NON_CARTESIAN_TYPES.has(primaryType);
   if (isRecord(option.legend)) {
-    const textStyle = isRecord(option.legend.textStyle)
-      ? { ...option.legend.textStyle }
-      : {};
+    const textStyle = isRecord(option.legend.textStyle) ? { ...option.legend.textStyle } : {};
     textStyle.color = palette.muted;
     textStyle.fontFamily = UI_FONT;
     textStyle.fontSize = textStyle.fontSize ?? 11;
     option.legend.textStyle = textStyle;
   }
   if (isRecord(option.title)) {
-    const textStyle = isRecord(option.title.textStyle)
-      ? { ...option.title.textStyle }
-      : {};
+    const textStyle = isRecord(option.title.textStyle) ? { ...option.title.textStyle } : {};
     textStyle.color = palette.muted;
     textStyle.fontFamily = UI_FONT;
     option.title.textStyle = textStyle;
@@ -862,9 +788,7 @@ function decorateReadableText(
   } else if (Array.isArray(option.title)) {
     for (const title of option.title) {
       if (!isRecord(title)) continue;
-      const textStyle = isRecord(title.textStyle)
-        ? { ...title.textStyle }
-        : {};
+      const textStyle = isRecord(title.textStyle) ? { ...title.textStyle } : {};
       textStyle.color = palette.muted;
       textStyle.fontFamily = UI_FONT;
       title.textStyle = textStyle;
@@ -872,22 +796,17 @@ function decorateReadableText(
   }
   if (isRecord(option.tooltip)) {
     const tooltip = { ...option.tooltip };
-    const textStyle = isRecord(option.tooltip.textStyle)
-      ? { ...option.tooltip.textStyle }
-      : {};
+    const textStyle = isRecord(option.tooltip.textStyle) ? { ...option.tooltip.textStyle } : {};
     textStyle.color = palette.text;
     textStyle.fontFamily = UI_FONT;
     tooltip.textStyle = textStyle;
-    const extraCss =
-      typeof tooltip.extraCssText === "string" ? tooltip.extraCssText : "";
+    const extraCss = typeof tooltip.extraCssText === "string" ? tooltip.extraCssText : "";
     tooltip.extraCssText = /border-radius/i.test(extraCss)
       ? extraCss
       : `${extraCss ? `${extraCss};` : ""}border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.35);`;
     if (isRecord(tooltip.axisPointer)) {
       const pointer = { ...tooltip.axisPointer };
-      const shadowStyle = isRecord(pointer.shadowStyle)
-        ? { ...pointer.shadowStyle }
-        : {};
+      const shadowStyle = isRecord(pointer.shadowStyle) ? { ...pointer.shadowStyle } : {};
       shadowStyle.borderRadius = 4;
       pointer.shadowStyle = shadowStyle;
       tooltip.axisPointer = pointer;
@@ -919,7 +838,7 @@ function movingAverage(values: number[], dayCount: number): (number | string)[] 
  */
 function fixCandlestickAxes(
   option: Record<string, unknown>,
-  yAxisDefaults: Record<string, unknown>
+  yAxisDefaults: Record<string, unknown>,
 ): void {
   // 1. Trim xAxis: keep only the first 2 real date/category axes.
   //    LLMs often append yAxis configs (scale, splitArea, gridIndex: 1) to
@@ -927,9 +846,7 @@ function fixCandlestickAxes(
   const series = Array.isArray(option.series) ? option.series : [];
   const hasVolume = series.some(
     (item) =>
-      isRecord(item) &&
-      item.type === "bar" &&
-      (item.xAxisIndex === 1 || item.yAxisIndex === 1)
+      isRecord(item) && item.type === "bar" && (item.xAxisIndex === 1 || item.yAxisIndex === 1),
   );
   const grids = Array.isArray(option.grid)
     ? option.grid
@@ -950,9 +867,7 @@ function fixCandlestickAxes(
     if (!Array.isArray(raw)) {
       // yAxis is a single object (or undefined/missing after merge): build
       // the standard 2-element array for a candlestick + volume layout.
-      const priceAxis = isRecord(raw)
-        ? { ...raw, gridIndex: 0 }
-        : { gridIndex: 0 };
+      const priceAxis = isRecord(raw) ? { ...raw, gridIndex: 0 } : { gridIndex: 0 };
       const volumeAxis: Record<string, unknown> = {
         gridIndex: 1,
         splitNumber: 2,
@@ -983,10 +898,7 @@ function fixCandlestickAxes(
   }
 }
 
-function decorateCandlestick(
-  option: Record<string, unknown>,
-  palette: ChartPalette
-): void {
+function decorateCandlestick(option: Record<string, unknown>, palette: ChartPalette): void {
   // A 股惯例：涨红跌绿
   const upColor = "#ec0000";
   const downColor = "#00da3c";
@@ -995,16 +907,14 @@ function decorateCandlestick(
     : [];
   option.series = series;
 
-  const candle = series.find(
-    (item) => isRecord(item) && item.type === "candlestick"
-  );
+  const candle = series.find((item) => isRecord(item) && item.type === "candlestick");
   const volume = series.find(
     (item) =>
       isRecord(item) &&
       item.type === "bar" &&
       (item.xAxisIndex === 1 ||
         item.yAxisIndex === 1 ||
-        /成交量|成交额|volume/i.test(String(item.name ?? "")))
+        /成交量|成交额|volume/i.test(String(item.name ?? ""))),
   );
 
   if (isRecord(candle)) {
@@ -1024,7 +934,7 @@ function decorateCandlestick(
       const existingNames = new Set(
         series
           .map((item) => (isRecord(item) ? item.name : undefined))
-          .filter((name): name is string => typeof name === "string")
+          .filter((name): name is string => typeof name === "string"),
       );
       const maSeries = [5, 10, 20, 30]
         .filter((day) => !existingNames.has(`MA${day}`))
@@ -1132,9 +1042,7 @@ function normalizeSeriesData(option: Record<string, unknown>): void {
   for (const s of option.series) {
     if (!isRecord(s) || !Array.isArray(s.data)) continue;
     s.data = s.data.map((d: unknown) =>
-      typeof d === "number" || typeof d === "string" || typeof d === "boolean"
-        ? { value: d }
-        : d
+      typeof d === "number" || typeof d === "string" || typeof d === "boolean" ? { value: d } : d,
     );
   }
 }
@@ -1164,16 +1072,14 @@ function sanitizeFormatters(value: unknown): void {
  */
 export function buildChartOption(
   option: Record<string, unknown>,
-  theme: ChartTheme
+  theme: ChartTheme,
 ): EChartsOption {
   // 先把 yAxis1/yAxis2/xAxis1… 顶层键并回标准轴数组，再走主题合并
   option = normalizeMultiAxes(option);
   const palette = CHART_PALETTES[theme];
   const series = Array.isArray(option.series) ? option.series : [];
   const primaryType =
-    series.length > 0 &&
-    isRecord(series[0]) &&
-    typeof series[0].type === "string"
+    series.length > 0 && isRecord(series[0]) && typeof series[0].type === "string"
       ? series[0].type
       : "";
   const tooltipTrigger = ITEM_TRIGGER_TYPES.has(primaryType) ? "item" : "axis";
@@ -1270,15 +1176,11 @@ export function buildChartOption(
   // the themed container background (--color-surface) shows through.
   delete merged.backgroundColor;
   decorateReadableText(merged, palette);
-  const usesCartesianAxis =
-    primaryType === "" || !NON_CARTESIAN_TYPES.has(primaryType);
+  const usesCartesianAxis = primaryType === "" || !NON_CARTESIAN_TYPES.has(primaryType);
   // 混合图（首系列非笛卡尔如 pie，但后面还有 line/bar）时也要保留轴，
   // 否则 line 系列引用 yAxis "0" 会抛 "yAxis '0' not found"。
   const hasCartesianSeries = series.some(
-    (s) =>
-      isRecord(s) &&
-      typeof s.type === "string" &&
-      !NON_CARTESIAN_TYPES.has(s.type)
+    (s) => isRecord(s) && typeof s.type === "string" && !NON_CARTESIAN_TYPES.has(s.type),
   );
   if (usesCartesianAxis) {
     if (
@@ -1290,16 +1192,10 @@ export function buildChartOption(
       merged.grid = { ...merged.grid, top: 96 };
     }
     if (Array.isArray(option.xAxis) || !isRecord(option.xAxis)) {
-      merged.xAxis = mergeAxis(
-        option.xAxis,
-        themeBase.xAxis as Record<string, unknown>
-      );
+      merged.xAxis = mergeAxis(option.xAxis, themeBase.xAxis as Record<string, unknown>);
     }
     if (Array.isArray(option.yAxis) || !isRecord(option.yAxis)) {
-      merged.yAxis = mergeAxis(
-        option.yAxis,
-        themeBase.yAxis as Record<string, unknown>
-      );
+      merged.yAxis = mergeAxis(option.yAxis, themeBase.yAxis as Record<string, unknown>);
     }
     decorateAxes(merged, palette);
     if (primaryType === "candlestick") {
@@ -1312,16 +1208,8 @@ export function buildChartOption(
       decorateCandlestick(merged, palette);
     }
     // 兜底：空数组/全无效轴/系列轴索引越界 → 补齐，避免 ECharts 抛轴找不到
-    ensureAxisCoverage(
-      merged,
-      "xAxis",
-      themeBase.xAxis as Record<string, unknown>
-    );
-    ensureAxisCoverage(
-      merged,
-      "yAxis",
-      themeBase.yAxis as Record<string, unknown>
-    );
+    ensureAxisCoverage(merged, "xAxis", themeBase.xAxis as Record<string, unknown>);
+    ensureAxisCoverage(merged, "yAxis", themeBase.yAxis as Record<string, unknown>);
   } else {
     if (!hasCartesianSeries) {
       if (option.xAxis === undefined) delete merged.xAxis;
@@ -1329,16 +1217,8 @@ export function buildChartOption(
       if (option.grid === undefined) delete merged.grid;
     } else {
       // 混合图：保留轴并补齐覆盖（不删，line/bar 系列需要）
-      ensureAxisCoverage(
-        merged,
-        "xAxis",
-        themeBase.xAxis as Record<string, unknown>
-      );
-      ensureAxisCoverage(
-        merged,
-        "yAxis",
-        themeBase.yAxis as Record<string, unknown>
-      );
+      ensureAxisCoverage(merged, "xAxis", themeBase.xAxis as Record<string, unknown>);
+      ensureAxisCoverage(merged, "yAxis", themeBase.yAxis as Record<string, unknown>);
     }
   }
   // 轴数组已定型（mergeAxis/ensureAxisCoverage 之后）再纠正 log 轴
@@ -1356,9 +1236,7 @@ export function buildChartOption(
   if (primaryType === "pie") {
     const firstSeries = series[0];
     const radius =
-      isRecord(firstSeries) && Array.isArray(firstSeries.radius)
-        ? firstSeries.radius
-        : null;
+      isRecord(firstSeries) && Array.isArray(firstSeries.radius) ? firstSeries.radius : null;
     if (radius && radius.length > 1 && isRecord(merged.legend)) {
       merged.legend = {
         ...merged.legend,
@@ -1374,23 +1252,15 @@ export function buildChartOption(
     // leader lines (text sits beside each slice, not on the ring) and drop the
     // legend — the "名称 百分比" labels carry the same info and the legend
     // would collide with the leader lines.
-    if (
-      isRecord(firstSeries) &&
-      isRecord(firstSeries.label) &&
-      firstSeries.label.show === false
-    ) {
-      const dataCount = Array.isArray(firstSeries.data)
-        ? firstSeries.data.length
-        : 0;
+    if (isRecord(firstSeries) && isRecord(firstSeries.label) && firstSeries.label.show === false) {
+      const dataCount = Array.isArray(firstSeries.data) ? firstSeries.data.length : 0;
       if (dataCount > 0 && dataCount <= MAX_PIE_LABEL_SLICES) {
         const label = { ...firstSeries.label };
         label.show = true;
         label.position = "outside";
         label.formatter = label.formatter ?? "{b} {d}%";
         firstSeries.label = label;
-        const labelLine = isRecord(firstSeries.labelLine)
-          ? { ...firstSeries.labelLine }
-          : {};
+        const labelLine = isRecord(firstSeries.labelLine) ? { ...firstSeries.labelLine } : {};
         labelLine.show = true;
         firstSeries.labelLine = labelLine;
         firstSeries.avoidLabelOverlap = true;
@@ -1437,23 +1307,12 @@ export function buildChartOption(
   if (primaryType === "radar") {
     decorateRadar(merged, palette);
   }
-  if (
-    usesCartesianAxis &&
-    isRecord(merged.title) &&
-    isRecord(merged.grid)
-  ) {
-    const hasSubtext =
-      typeof merged.title.subtext === "string" &&
-      merged.title.subtext.length > 0;
+  if (usesCartesianAxis && isRecord(merged.title) && isRecord(merged.grid)) {
+    const hasSubtext = typeof merged.title.subtext === "string" && merged.title.subtext.length > 0;
     const minTop = hasSubtext ? 64 : 48;
     const top = merged.grid.top;
     const numericTop = typeof top === "number" ? top : Number(top);
-    if (
-      top === undefined ||
-      top === "auto" ||
-      Number.isNaN(numericTop) ||
-      numericTop < minTop
-    ) {
+    if (top === undefined || top === "auto" || Number.isNaN(numericTop) || numericTop < minTop) {
       merged.grid.top = minTop;
     }
   }
@@ -1472,9 +1331,7 @@ export function buildChartOption(
       const trimmed = currentBottom.trim();
       if (trimmed.endsWith("%")) {
         const percent = Number(trimmed.slice(0, -1));
-        numericBottom = Number.isNaN(percent)
-          ? undefined
-          : (percent / 100) * canvasHeight;
+        numericBottom = Number.isNaN(percent) ? undefined : (percent / 100) * canvasHeight;
       } else if (trimmed !== "" && trimmed !== "auto") {
         numericBottom = Number(trimmed);
       }
@@ -1490,9 +1347,7 @@ export function buildChartOption(
     if (isRecord(merged.legend)) {
       const legendBottom = merged.legend.bottom;
       const numericLegendBottom =
-        typeof legendBottom === "number"
-          ? legendBottom
-          : Number(legendBottom);
+        typeof legendBottom === "number" ? legendBottom : Number(legendBottom);
       if (
         legendBottom !== undefined &&
         !Number.isNaN(numericLegendBottom) &&

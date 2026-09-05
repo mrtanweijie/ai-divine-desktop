@@ -71,10 +71,11 @@ export function FilePreview({
         if (showLoading) setLoading(false);
       }
     },
-    [absolutePath, content, relPath, repoPath]
+    [absolutePath, content, relPath, repoPath],
   );
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 挂载/路径变化触发数据加载，setState 在 await 之后
     void load(true);
   }, [absolutePath, content, load, relPath]);
 
@@ -147,7 +148,7 @@ export function FilePreview({
     (!preview.isBinary &&
       (preview.diffText.trim() ||
         (preview.isGit && !preview.tracked && Boolean(preview.newContent)) ||
-        (!preview.exists && Boolean(preview.oldContent))))
+        (!preview.exists && Boolean(preview.oldContent)))),
   );
 
   // Absolute path used by the binary inline preview (image/PDF).
@@ -165,11 +166,6 @@ export function FilePreview({
     );
   }
   return (
-    <FileContentView
-      preview={preview}
-      relPath={relPath}
-      fileName={fileName}
-      path={filePath}
-    />
+    <FileContentView preview={preview} relPath={relPath} fileName={fileName} path={filePath} />
   );
 }

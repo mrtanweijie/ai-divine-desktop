@@ -31,7 +31,7 @@ export function useFullscreen() {
     let timer: ReturnType<typeof setInterval> | undefined;
     if (!isTauri() || !isMacosDesktop()) {
       const read = async () => {
-        let value = false;
+        let value: boolean;
         if (isTauri()) {
           try {
             value = await getCurrentWindow().isFullscreen();

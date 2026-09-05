@@ -1,10 +1,5 @@
 import { Clock3 } from "lucide-react";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
@@ -19,11 +14,7 @@ interface DateTimePickerProps {
   label?: string;
 }
 
-export function DateTimePicker({
-  value,
-  onChange,
-  label,
-}: DateTimePickerProps) {
+export function DateTimePicker({ value, onChange, label }: DateTimePickerProps) {
   const { t } = useTranslation();
   const resolvedLabel = label ?? t("time.label", "时间");
   const [open, setOpen] = useState(false);
@@ -49,11 +40,19 @@ export function DateTimePicker({
     }
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
+  // 打开时按当前值重置草稿与视图：渲染期调整（替代 effect 内同步 setState）；
+  // 定位与关闭监听属外部系统同步，保留在 effect 中。
+  const [prevOpenValue, setPrevOpenValue] = useState<string | null>(null);
+  const openValueKey = open ? value : null;
+  if (open && prevOpenValue !== openValueKey) {
+    setPrevOpenValue(openValueKey);
     setDraft(parseValue(value));
     const date = parseValue(value) ?? new Date();
     setView({ year: date.getFullYear(), month: date.getMonth() });
+  }
+
+  useEffect(() => {
+    if (!open) return;
     let frame = 0;
     if (wrapRef.current) {
       const rect = wrapRef.current.getBoundingClientRect();
@@ -93,12 +92,9 @@ export function DateTimePicker({
     frame = window.requestAnimationFrame(() => {
       const scrollSelected = (list: HTMLDivElement | null) => {
         if (!list) return;
-        const selected = list.querySelector(
-          '[data-selected="true"]'
-        ) as HTMLElement | null;
+        const selected = list.querySelector('[data-selected="true"]') as HTMLElement | null;
         if (selected) {
-          list.scrollTop =
-            selected.offsetTop - list.clientHeight / 2 + selected.clientHeight / 2;
+          list.scrollTop = selected.offsetTop - list.clientHeight / 2 + selected.clientHeight / 2;
         }
       };
       scrollSelected(hourListRef.current);
@@ -107,12 +103,10 @@ export function DateTimePicker({
       const timePanel = timePanelRef.current;
       if (calendar && timePanel) {
         const label = timePanel.querySelector(
-          ".datetime-picker-time-col > span"
+          ".datetime-picker-time-col > span",
         ) as HTMLElement | null;
         const labelHeight = label?.offsetHeight ?? 16;
-        setTimeListHeight(
-          Math.max(80, calendar.clientHeight - labelHeight - 6)
-        );
+        setTimeListHeight(Math.max(80, calendar.clientHeight - labelHeight - 6));
       }
     });
     return () => {
@@ -125,18 +119,14 @@ export function DateTimePicker({
   const prevMonth = () => {
     setView((current) => {
       const month = current.month - 1;
-      return month < 0
-        ? { year: current.year - 1, month: 11 }
-        : { year: current.year, month };
+      return month < 0 ? { year: current.year - 1, month: 11 } : { year: current.year, month };
     });
   };
 
   const nextMonth = () => {
     setView((current) => {
       const month = current.month + 1;
-      return month > 11
-        ? { year: current.year + 1, month: 0 }
-        : { year: current.year, month };
+      return month > 11 ? { year: current.year + 1, month: 0 } : { year: current.year, month };
     });
   };
 
@@ -148,34 +138,22 @@ export function DateTimePicker({
         day.getMonth(),
         day.getDate(),
         base.getHours(),
-        base.getMinutes()
-      )
+        base.getMinutes(),
+      ),
     );
   };
 
   const pickHour = (hour: number) => {
     const base = draft ?? new Date();
     setDraft(
-      new Date(
-        base.getFullYear(),
-        base.getMonth(),
-        base.getDate(),
-        hour,
-        base.getMinutes()
-      )
+      new Date(base.getFullYear(), base.getMonth(), base.getDate(), hour, base.getMinutes()),
     );
   };
 
   const pickMinute = (minute: number) => {
     const base = draft ?? new Date();
     setDraft(
-      new Date(
-        base.getFullYear(),
-        base.getMonth(),
-        base.getDate(),
-        base.getHours(),
-        minute
-      )
+      new Date(base.getFullYear(), base.getMonth(), base.getDate(), base.getHours(), minute),
     );
   };
 
@@ -272,11 +250,7 @@ export function DateTimePicker({
               </div>
             </div>
             <div className="datetime-picker-footer">
-              <Button
-                size="small"
-                variant="ghost"
-                onClick={() => setDraft(new Date())}
-              >
+              <Button size="small" variant="ghost" onClick={() => setDraft(new Date())}>
                 {t("common.now", "现在")}
               </Button>
               <Button size="small" onClick={confirm}>
@@ -284,8 +258,7 @@ export function DateTimePicker({
               </Button>
             </div>
           </div>,
-          document.getElementById("divine-datetime-picker-portal") ??
-            document.body
+          document.getElementById("divine-datetime-picker-portal") ?? document.body,
         )}
     </div>
   );

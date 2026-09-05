@@ -61,6 +61,7 @@ export function MessageList({
   // onScroll 的高频状态提交按帧合并（见 handleScroll 内注释）
   const scrollRafRef = useRef<number | null>(null);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- @tanstack/react-virtual 为标准虚拟滚动方案，编译器优化跳过是已知限制
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => scrollRef.current,
@@ -96,8 +97,7 @@ export function MessageList({
     const container = scrollRef.current;
     if (!container) return;
     const newTop = container.scrollTop;
-    const distance =
-      container.scrollHeight - newTop - container.clientHeight;
+    const distance = container.scrollHeight - newTop - container.clientHeight;
     // 用滚动方向判断用户意图（只写 ref，无渲染成本）：
     // - 向上滚动（查看历史）→ 立即解除自动跟随（哪怕只滚了几像素）；
     // - 滚回/位于底部 → 恢复自动跟随。
@@ -121,14 +121,10 @@ export function MessageList({
       if (!el) return;
       const top = el.scrollTop;
       setScrollTop((prev) => (prev === top ? prev : top));
-      setViewportHeight((prev) =>
-        prev === el.clientHeight ? prev : el.clientHeight
-      );
+      setViewportHeight((prev) => (prev === el.clientHeight ? prev : el.clientHeight));
       const bottomGap = el.scrollHeight - top - el.clientHeight;
       const showButton = bottomGap > 120;
-      setShowScrollToBottom((prev) =>
-        prev === showButton ? prev : showButton
-      );
+      setShowScrollToBottom((prev) => (prev === showButton ? prev : showButton));
     });
   };
 
@@ -180,8 +176,7 @@ export function MessageList({
     previousSessionId.current = sessionId;
     // B4：见模块顶部 findLastUserId 说明
     const lastUserId = findLastUserId(messages);
-    const userChanged =
-      lastUserId !== undefined && lastUserId !== lastUserMessageId.current;
+    const userChanged = lastUserId !== undefined && lastUserId !== lastUserMessageId.current;
     if (userChanged) {
       lastUserMessageId.current = lastUserId;
     }
@@ -192,8 +187,7 @@ export function MessageList({
       if (!stickToBottom.current) return;
       container.scrollTop = container.scrollHeight;
     };
-    const distance =
-      container.scrollHeight - container.scrollTop - container.clientHeight;
+    const distance = container.scrollHeight - container.scrollTop - container.clientHeight;
     if (sessionChanged) {
       // 切换会话：强制回到底部
       stickToBottom.current = true;
@@ -247,17 +241,12 @@ export function MessageList({
       )}
       <div className="message-timeline" ref={scrollRef} onScroll={handleScroll}>
         {loadingOlder && (
-          <div className="message-loading-older">
-            {t("chat.loadingOlder", "加载更早消息...")}
-          </div>
+          <div className="message-loading-older">{t("chat.loadingOlder", "加载更早消息...")}</div>
         )}
         {messages.length === 0 ? (
           <EmptyState title={t("chat.startNewChat", "开始新的对话")} />
         ) : (
-          <div
-            className="timeline-inner"
-            style={{ height: totalSize, position: "relative" }}
-          >
+          <div className="timeline-inner" style={{ height: totalSize, position: "relative" }}>
             {virtualItems.map((virtualRow) => {
               const message = messages[virtualRow.index];
               return (
@@ -278,9 +267,7 @@ export function MessageList({
                     onPreviewFile={onPreviewFile}
                     onRetryCloud={onRetryCloud}
                     onUserInteract={handleUserInteract}
-                    streaming={
-                      streaming && virtualRow.index === messages.length - 1
-                    }
+                    streaming={streaming && virtualRow.index === messages.length - 1}
                   />
                 </div>
               );

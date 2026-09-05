@@ -1,12 +1,4 @@
-import {
-  ArrowUp,
-  ChevronDown,
-  FileText,
-  Plus,
-  ShieldCheck,
-  Square,
-  X,
-} from "lucide-react";
+import { ArrowUp, ChevronDown, FileText, Plus, ShieldCheck, Square, X } from "lucide-react";
 import {
   forwardRef,
   useEffect,
@@ -24,12 +16,7 @@ import { Dropdown } from "@/components/ui/Dropdown";
 import { Flex } from "@/components/ui/Flex";
 import { TextArea } from "@/components/ui/TextArea";
 import type { ApprovalMode, ChatFile, ModelConfig, PreviewFile } from "@/types";
-import {
-  isTauri,
-  savePasteFile,
-  savePasteImage,
-  savePasteText,
-} from "@/services/tauri";
+import { isTauri, savePasteFile, savePasteImage, savePasteText } from "@/services/tauri";
 import { formatSize } from "@/utils";
 import { ModelEffortControl } from "./ModelEffortControl";
 import { ContextRingButton } from "./ContextRingButton";
@@ -72,459 +59,418 @@ interface ComposerProps {
   projectPicker?: ReactNode;
 }
 
-export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(
-  function ChatInput(
+export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(function ChatInput(
+  {
+    disabled,
+    streaming,
+    onSupplement,
+    onSend,
+    onStop,
+    onPreviewFile,
+    onValueChange,
+    approvalMode,
+    onApprovalModeChange,
+    effort,
+    onEffortChange,
+    models,
+    modelId,
+    onModelChange,
+    sessionId,
+    contextRefreshKey = 0,
+    prefill,
+    onPrefillConsumed,
+    projectPicker,
+  },
+  ref,
+) {
+  const { t } = useTranslation();
+  const approvalModeLabels: Record<ApprovalMode, string> = {
+    ask: t("chat.approvalAsk", "请求批准"),
+    assist: t("chat.approvalAssist", "帮我批准"),
+    full: t("chat.approvalFull", "完全访问权限"),
+  };
+  const [value, setValue] = useState("");
+  const [attached, setAttached] = useState<ChatFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const localRef = useRef<HTMLTextAreaElement>(
+    null,
+  ) as MutableRefObject<HTMLTextAreaElement | null>;
+  const textareaRef = localRef;
+
+  const approvalModeItems = [
     {
-      disabled,
-      streaming,
-      onSupplement,
-      onSend,
-      onStop,
-      onPreviewFile,
-      onValueChange,
-      approvalMode,
-      onApprovalModeChange,
-      effort,
-      onEffortChange,
-      models,
-      modelId,
-      onModelChange,
-      sessionId,
-      contextRefreshKey = 0,
-      prefill,
-      onPrefillConsumed,
-      projectPicker,
+      key: "ask" as const,
+      label: t("chat.approvalAsk", "请求批准"),
+      description: t("chat.approvalAskDescription", "编辑外部文件和使用互联网时始终询问"),
     },
-    ref
-  ) {
-    const { t } = useTranslation();
-    const approvalModeLabels: Record<ApprovalMode, string> = {
-      ask: t("chat.approvalAsk", "请求批准"),
-      assist: t("chat.approvalAssist", "帮我批准"),
-      full: t("chat.approvalFull", "完全访问权限"),
+    {
+      key: "assist" as const,
+      label: t("chat.approvalAssist", "帮我批准"),
+      description: t("chat.approvalAssistDescription", "仅检测到危险操作请求批准"),
+    },
+    {
+      key: "full" as const,
+      label: t("chat.approvalFull", "完全访问权限"),
+      description: t("chat.approvalFullDescription", "可不受限制地访问互联网和您电脑上的任何文件"),
+    },
+  ];
+
+  const setRefs = (element: HTMLTextAreaElement | null) => {
+    localRef.current = element;
+    if (typeof ref === "function") {
+      ref(element);
+    } else if (ref) {
+      (ref as MutableRefObject<HTMLTextAreaElement | null>).current = element;
+    }
+  };
+
+  useEffect(() => {
+    const element = textareaRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 240)}px`;
+  }, [value, textareaRef]);
+
+  useEffect(() => {
+    if (!prefill) return;
+    const next = prefill.text;
+    setValue(next);
+    onValueChange?.(next.trim().length > 0);
+    onPrefillConsumed();
+    textareaRef.current?.focus();
+  }, [onPrefillConsumed, onValueChange, prefill, textareaRef]);
+
+  const send = () => {
+    const question = value.trim();
+    if (!question && attached.length === 0) return;
+    // 流式执行中：Enter/发送按钮 = 向执行中的任务补充信息（纯文本）
+    if (streaming) {
+      if (!question || !onSupplement) return;
+      onSupplement(question);
+      setValue("");
+      return;
+    }
+    if (disabled) return;
+    onSend(question, attached);
+    setValue("");
+    setAttached([]);
+  };
+
+  const attachmentKey = (file: ChatFile) =>
+    `${file.name}-${file.path ?? file.content?.slice(0, 8) ?? ""}`;
+
+  const removeAttachment = (file: ChatFile) => {
+    const key = attachmentKey(file);
+    setAttached((prev) => prev.filter((item) => attachmentKey(item) !== key));
+  };
+
+  const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    let content = "";
+    try {
+      content = (await file.text()).slice(0, 10000);
+    } catch {
+      content = "";
+    }
+    setAttached((prev) => [...prev, { name: file.name, size: file.size, content }]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const native = event.nativeEvent as ClipboardEvent & {
+      ctrlKey?: boolean;
+      metaKey?: boolean;
+      shiftKey?: boolean;
     };
-    const [value, setValue] = useState("");
-    const [attached, setAttached] = useState<ChatFile[]>([]);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const localRef = useRef<HTMLTextAreaElement>(
-      null
-    ) as MutableRefObject<HTMLTextAreaElement | null>;
-    const textareaRef = localRef;
+    if (native.ctrlKey && native.shiftKey) return;
+    if (native.metaKey && native.shiftKey) return;
 
-    const approvalModeItems = [
-      {
-        key: "ask" as const,
-        label: t("chat.approvalAsk", "请求批准"),
-        description: t(
-          "chat.approvalAskDescription",
-          "编辑外部文件和使用互联网时始终询问"
-        ),
-      },
-      {
-        key: "assist" as const,
-        label: t("chat.approvalAssist", "帮我批准"),
-        description: t(
-          "chat.approvalAssistDescription",
-          "仅检测到危险操作请求批准"
-        ),
-      },
-      {
-        key: "full" as const,
-        label: t("chat.approvalFull", "完全访问权限"),
-        description: t(
-          "chat.approvalFullDescription",
-          "可不受限制地访问互联网和您电脑上的任何文件"
-        ),
-      },
-    ];
-
-    const setRefs = (element: HTMLTextAreaElement | null) => {
-      localRef.current = element;
-      if (typeof ref === "function") {
-        ref(element);
-      } else if (ref) {
-        (ref as MutableRefObject<HTMLTextAreaElement | null>).current = element;
-      }
-    };
-
-    useEffect(() => {
-      const element = textareaRef.current;
-      if (!element) return;
-      element.style.height = "auto";
-      element.style.height = `${Math.min(element.scrollHeight, 240)}px`;
-    }, [value, textareaRef]);
-
-    useEffect(() => {
-      if (!prefill) return;
-      const next = prefill.text;
-      setValue(next);
-      onValueChange?.(next.trim().length > 0);
-      onPrefillConsumed();
-      textareaRef.current?.focus();
-    }, [onPrefillConsumed, onValueChange, prefill]);
-
-    const send = () => {
-      const question = value.trim();
-      if (!question && attached.length === 0) return;
-      // 流式执行中：Enter/发送按钮 = 向执行中的任务补充信息（纯文本）
-      if (streaming) {
-        if (!question || !onSupplement) return;
-        onSupplement(question);
-        setValue("");
+    // Clipboard files (pasted screenshots or files copied from Finder):
+    // 1) file:// URLs in text/uri-list are referenced by path directly;
+    // 2) image items are saved locally and attached by path;
+    // 3) other file items use their native path, or are saved locally.
+    // The vision pipeline (read_image) sends images as base64 to the vision
+    // model when the message goes out.
+    if (isTauri()) {
+      const fileUrls = fileUrlsFromClipboard(event.clipboardData);
+      if (fileUrls.length > 0) {
+        event.preventDefault();
+        setAttached((prev) => {
+          const next = [...prev];
+          for (const path of fileUrls) {
+            if (next.some((file) => file.path === path)) continue;
+            const name = path.split(/[\\/]/).pop() || path;
+            next.push({ name, path });
+          }
+          return next;
+        });
         return;
       }
-      if (disabled) return;
-      onSend(question, attached);
-      setValue("");
-      setAttached([]);
-    };
 
-    const attachmentKey = (file: ChatFile) =>
-      `${file.name}-${file.path ?? file.content?.slice(0, 8) ?? ""}`;
-
-    const removeAttachment = (file: ChatFile) => {
-      const key = attachmentKey(file);
-      setAttached((prev) => prev.filter((item) => attachmentKey(item) !== key));
-    };
-
-    const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-      let content = "";
-      try {
-        content = (await file.text()).slice(0, 10000);
-      } catch {
-        content = "";
-      }
-      setAttached((prev) => [
-        ...prev,
-        { name: file.name, size: file.size, content },
-      ]);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    };
-
-    const handlePaste = async (
-      event: React.ClipboardEvent<HTMLTextAreaElement>
-    ) => {
-      const native = event.nativeEvent as ClipboardEvent & {
-        ctrlKey?: boolean;
-        metaKey?: boolean;
-        shiftKey?: boolean;
-      };
-      if (native.ctrlKey && native.shiftKey) return;
-      if (native.metaKey && native.shiftKey) return;
-
-      // Clipboard files (pasted screenshots or files copied from Finder):
-      // 1) file:// URLs in text/uri-list are referenced by path directly;
-      // 2) image items are saved locally and attached by path;
-      // 3) other file items use their native path, or are saved locally.
-      // The vision pipeline (read_image) sends images as base64 to the vision
-      // model when the message goes out.
-      if (isTauri()) {
-        const fileUrls = fileUrlsFromClipboard(event.clipboardData);
-        if (fileUrls.length > 0) {
-          event.preventDefault();
-          setAttached((prev) => {
-            const next = [...prev];
-            for (const path of fileUrls) {
-              if (next.some((file) => file.path === path)) continue;
-              const name = path.split(/[\\/]/).pop() || path;
-              next.push({ name, path });
-            }
-            return next;
-          });
-          return;
-        }
-
-        const fileItem = Array.from(event.clipboardData?.items ?? []).find(
-          (item) => item.kind === "file"
-        );
-        if (fileItem) {
-          event.preventDefault();
-          const file = fileItem.getAsFile();
-          if (file) {
-            const nativePath = (file as File & { path?: string }).path;
-            if (nativePath) {
+      const fileItem = Array.from(event.clipboardData?.items ?? []).find(
+        (item) => item.kind === "file",
+      );
+      if (fileItem) {
+        event.preventDefault();
+        const file = fileItem.getAsFile();
+        if (file) {
+          const nativePath = (file as File & { path?: string }).path;
+          if (nativePath) {
+            setAttached((prev) => [
+              ...prev,
+              { name: file.name, path: nativePath, size: file.size },
+            ]);
+          } else if (RASTER_IMAGE_MIMES.has(file.type)) {
+            try {
+              const saved = await savePastedImage(file);
               setAttached((prev) => [
                 ...prev,
-                { name: file.name, path: nativePath, size: file.size },
+                { name: saved.name, path: saved.path, size: saved.size },
               ]);
-            } else if (RASTER_IMAGE_MIMES.has(file.type)) {
-              try {
-                const saved = await savePastedImage(file);
-                setAttached((prev) => [
-                  ...prev,
-                  { name: saved.name, path: saved.path, size: saved.size },
-                ]);
-              } catch {
-                // unsupported format or save failure: keep the paste as-is
-              }
-            } else {
-              try {
-                const base64 = await blobToBase64(file);
-                const saved = await savePasteFile(base64, file.name);
-                setAttached((prev) => [
-                  ...prev,
-                  { name: saved.name, path: saved.path, size: saved.size },
-                ]);
-              } catch {
-                // save failure: keep the paste as-is
-              }
+            } catch {
+              // unsupported format or save failure: keep the paste as-is
+            }
+          } else {
+            try {
+              const base64 = await blobToBase64(file);
+              const saved = await savePasteFile(base64, file.name);
+              setAttached((prev) => [
+                ...prev,
+                { name: saved.name, path: saved.path, size: saved.size },
+              ]);
+            } catch {
+              // save failure: keep the paste as-is
             }
           }
-          return;
-        }
-      }
-
-      const text = event.clipboardData?.getData("text/plain") || "";
-      const lineCount = text.split(/\r?\n/).length;
-      const tooLarge =
-        text.length >= PASTE_AS_FILE_CHAR_THRESHOLD ||
-        lineCount >= PASTE_AS_FILE_LINE_THRESHOLD;
-      if (!text || !tooLarge) return;
-
-      event.preventDefault();
-      try {
-        const saved = await savePasteText(text);
-        setAttached((prev) => [
-          ...prev,
-          { name: saved.name, path: saved.path, size: saved.size },
-        ]);
-      } catch {
-        setValue((prev) => (prev ? `${prev}\n${text}` : text));
-        onValueChange?.(true);
-        textareaRef.current?.focus();
-      }
-    };
-
-    const pickAttachment = async () => {
-      if (streaming) return;
-      if (isTauri()) {
-        const selected = await open({ multiple: false });
-        if (typeof selected === "string") {
-          const name = selected.split(/[\\/]/).pop() || selected;
-          setAttached((prev) => [...prev, { name, path: selected }]);
         }
         return;
       }
-      fileInputRef.current?.click();
-    };
+    }
 
-    return (
-      <div className="composer-wrap">
-        {projectPicker}
-        <Flex direction="column" className="composer">
-          <TextArea
-            ref={setRefs}
-            value={value}
-            rows={1}
-            placeholder={t("chat.inputPlaceholder", "随心输入")}
-            onChange={(event) => {
-              const next = event.target.value;
-              setValue(next);
-              onValueChange?.(next.trim().length > 0);
-            }}
-            onPaste={(event) => void handlePaste(event)}
-            onKeyDown={(event) => {
-              // 输入法合成态（中文选词确认的回车）不发送，避免误发消息
-              if (isComposingEvent(event.nativeEvent)) return;
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                send();
-              }
-            }}
-            aria-label={t("chat.inputLabel", "输入消息")}
-          />
-          {attached.length > 0 && (
-            <Flex direction="column" gap={6} className="attachment-chips">
-              {attached.map((file) => (
-                <Flex
-                  key={attachmentKey(file)}
-                  align="center"
-                  gap={6}
-                  className="attachment-chip"
-                >
-                  <FileText size={13} />
-                  <span
-                    className={
-                      file.path && onPreviewFile
-                        ? "attachment-name attachment-name-preview"
-                        : "attachment-name"
-                    }
-                    role={file.path && onPreviewFile ? "button" : undefined}
-                    tabIndex={file.path && onPreviewFile ? 0 : undefined}
-                    title={
-                      file.path && onPreviewFile
-                        ? t("chat.preview", "预览")
-                        : undefined
-                    }
-                    onClick={
-                      file.path && onPreviewFile
-                        ? () =>
+    const text = event.clipboardData?.getData("text/plain") || "";
+    const lineCount = text.split(/\r?\n/).length;
+    const tooLarge =
+      text.length >= PASTE_AS_FILE_CHAR_THRESHOLD || lineCount >= PASTE_AS_FILE_LINE_THRESHOLD;
+    if (!text || !tooLarge) return;
+
+    event.preventDefault();
+    try {
+      const saved = await savePasteText(text);
+      setAttached((prev) => [...prev, { name: saved.name, path: saved.path, size: saved.size }]);
+    } catch {
+      setValue((prev) => (prev ? `${prev}\n${text}` : text));
+      onValueChange?.(true);
+      textareaRef.current?.focus();
+    }
+  };
+
+  const pickAttachment = async () => {
+    if (streaming) return;
+    if (isTauri()) {
+      const selected = await open({ multiple: false });
+      if (typeof selected === "string") {
+        const name = selected.split(/[\\/]/).pop() || selected;
+        setAttached((prev) => [...prev, { name, path: selected }]);
+      }
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  return (
+    <div className="composer-wrap">
+      {projectPicker}
+      <Flex direction="column" className="composer">
+        <TextArea
+          ref={setRefs}
+          value={value}
+          rows={1}
+          placeholder={t("chat.inputPlaceholder", "随心输入")}
+          onChange={(event) => {
+            const next = event.target.value;
+            setValue(next);
+            onValueChange?.(next.trim().length > 0);
+          }}
+          onPaste={(event) => void handlePaste(event)}
+          onKeyDown={(event) => {
+            // 输入法合成态（中文选词确认的回车）不发送，避免误发消息
+            if (isComposingEvent(event.nativeEvent)) return;
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              send();
+            }
+          }}
+          aria-label={t("chat.inputLabel", "输入消息")}
+        />
+        {attached.length > 0 && (
+          <Flex direction="column" gap={6} className="attachment-chips">
+            {attached.map((file) => (
+              <Flex key={attachmentKey(file)} align="center" gap={6} className="attachment-chip">
+                <FileText size={13} />
+                <span
+                  className={
+                    file.path && onPreviewFile
+                      ? "attachment-name attachment-name-preview"
+                      : "attachment-name"
+                  }
+                  role={file.path && onPreviewFile ? "button" : undefined}
+                  tabIndex={file.path && onPreviewFile ? 0 : undefined}
+                  title={file.path && onPreviewFile ? t("chat.preview", "预览") : undefined}
+                  onClick={
+                    file.path && onPreviewFile
+                      ? () =>
+                          onPreviewFile({
+                            repoPath: "",
+                            relPath: file.name,
+                            fileName: file.name,
+                            path: file.path,
+                          })
+                      : undefined
+                  }
+                  onKeyDown={
+                    file.path && onPreviewFile
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
                             onPreviewFile({
                               repoPath: "",
                               relPath: file.name,
                               fileName: file.name,
                               path: file.path,
-                            })
-                        : undefined
-                    }
-                    onKeyDown={
-                      file.path && onPreviewFile
-                        ? (event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              onPreviewFile({
-                                repoPath: "",
-                                relPath: file.name,
-                                fileName: file.name,
-                                path: file.path,
-                              });
-                            }
+                            });
                           }
-                        : undefined
-                    }
-                  >
-                    {file.name}
-                  </span>
-                  {file.size != null && (
-                    <span className="attachment-size">{formatSize(file.size)}</span>
-                  )}
-                  <Button
-                    variant="icon"
-                    size="small"
-                    onClick={() => removeAttachment(file)}
-                    aria-label={t("chat.removeAttachment", "移除附件 {{name}}", {
-                      name: file.name,
-                    })}
-                  >
-                    <X size={12} />
-                  </Button>
-                </Flex>
-              ))}
-            </Flex>
-          )}
-          <Flex
-            align="center"
-            justify="space-between"
-            gap={8}
-            className="composer-toolbar"
-          >
-            <Flex align="center" gap={4} className="composer-actions">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.md,.json,.csv,.py,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg"
-                onChange={(event) => void handleFile(event)}
-                hidden
-              />
-              <div
-                className="attachment-trigger"
-                role="button"
-                tabIndex={0}
-                title={t("chat.attachFile", "附加文件")}
-                aria-label={t("chat.attachFile", "附加文件")}
-                onClick={() => void pickAttachment()}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    void pickAttachment();
-                    event.currentTarget.blur();
+                        }
+                      : undefined
                   }
-                }}
-              >
-                <Plus size={16} />
-              </div>
-              <Dropdown
-                align="start"
-                direction="above"
-                label={t("chat.approvalMode", "审批模式")}
-                openOn="click"
-                trigger={
-                  <Button
-                    variant="ghost"
-                    size="small"
-                    className="approval-mode-trigger"
-                    title={t("chat.approvalMode", "审批模式")}
-                  >
-                    <ShieldCheck size={14} />
-                    <span>{approvalModeLabels[approvalMode]}</span>
-                    <ChevronDown size={12} />
-                  </Button>
+                >
+                  {file.name}
+                </span>
+                {file.size != null && (
+                  <span className="attachment-size">{formatSize(file.size)}</span>
+                )}
+                <Button
+                  variant="icon"
+                  size="small"
+                  onClick={() => removeAttachment(file)}
+                  aria-label={t("chat.removeAttachment", "移除附件 {{name}}", {
+                    name: file.name,
+                  })}
+                >
+                  <X size={12} />
+                </Button>
+              </Flex>
+            ))}
+          </Flex>
+        )}
+        <Flex align="center" justify="space-between" gap={8} className="composer-toolbar">
+          <Flex align="center" gap={4} className="composer-actions">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.md,.json,.csv,.py,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg"
+              onChange={(event) => void handleFile(event)}
+              hidden
+            />
+            <div
+              className="attachment-trigger"
+              role="button"
+              tabIndex={0}
+              title={t("chat.attachFile", "附加文件")}
+              aria-label={t("chat.attachFile", "附加文件")}
+              onClick={() => void pickAttachment()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  void pickAttachment();
+                  event.currentTarget.blur();
                 }
-                items={approvalModeItems.map((item) => ({
-                  key: item.key,
-                  label: item.label,
-                  description: item.description,
-                  onClick: () => onApprovalModeChange(item.key),
-                }))}
-              />
-            </Flex>
-            <Flex align="center" gap={8}>
-              <ModelEffortControl
-                disabled={disabled || streaming || models.length === 0}
-                models={models}
-                modelId={modelId}
-                onModelChange={onModelChange}
-                effort={effort}
-                onEffortChange={onEffortChange}
-              />
-              {sessionId && (
-                <ContextRingButton
-                  sessionId={sessionId}
-                  refreshKey={contextRefreshKey}
-                />
-              )}
-              {(() => {
-                const hasText = value.trim().length > 0;
-                // 单按钮槽位自适应，避免"停止+发送"双按钮并排：
-                // 流式执行中且输入框为空 → 停止；其余 → 发送（流式中即"补充到当前任务"）。
-                if (streaming && onStop && !hasText) {
-                  return (
-                    <Button
-                      variant="primary"
-                      className="send-button"
-                      onClick={onStop}
-                      aria-label={t("chat.stop", "停止生成")}
-                      title={t("chat.stop", "停止生成")}
-                    >
-                      <Square size={14} />
-                    </Button>
-                  );
-                }
-                if (disabled) return null;
-                const enabled = streaming
-                  ? hasText && Boolean(onSupplement)
-                  : hasText || attached.length > 0;
-                const label = streaming
-                  ? t("chat.supplement", "补充到当前任务")
-                  : t("chat.send", "发送");
+              }}
+            >
+              <Plus size={16} />
+            </div>
+            <Dropdown
+              align="start"
+              direction="above"
+              label={t("chat.approvalMode", "审批模式")}
+              openOn="click"
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="small"
+                  className="approval-mode-trigger"
+                  title={t("chat.approvalMode", "审批模式")}
+                >
+                  <ShieldCheck size={14} />
+                  <span>{approvalModeLabels[approvalMode]}</span>
+                  <ChevronDown size={12} />
+                </Button>
+              }
+              items={approvalModeItems.map((item) => ({
+                key: item.key,
+                label: item.label,
+                description: item.description,
+                onClick: () => onApprovalModeChange(item.key),
+              }))}
+            />
+          </Flex>
+          <Flex align="center" gap={8}>
+            <ModelEffortControl
+              disabled={disabled || streaming || models.length === 0}
+              models={models}
+              modelId={modelId}
+              onModelChange={onModelChange}
+              effort={effort}
+              onEffortChange={onEffortChange}
+            />
+            {sessionId && (
+              <ContextRingButton sessionId={sessionId} refreshKey={contextRefreshKey} />
+            )}
+            {(() => {
+              const hasText = value.trim().length > 0;
+              // 单按钮槽位自适应，避免"停止+发送"双按钮并排：
+              // 流式执行中且输入框为空 → 停止；其余 → 发送（流式中即"补充到当前任务"）。
+              if (streaming && onStop && !hasText) {
                 return (
                   <Button
                     variant="primary"
                     className="send-button"
-                    onClick={send}
-                    disabled={!enabled}
-                    aria-label={label}
-                    title={label}
+                    onClick={onStop}
+                    aria-label={t("chat.stop", "停止生成")}
+                    title={t("chat.stop", "停止生成")}
                   >
-                    <ArrowUp size={16} />
+                    <Square size={14} />
                   </Button>
                 );
-              })()}
-            </Flex>
+              }
+              if (disabled) return null;
+              const enabled = streaming
+                ? hasText && Boolean(onSupplement)
+                : hasText || attached.length > 0;
+              const label = streaming
+                ? t("chat.supplement", "补充到当前任务")
+                : t("chat.send", "发送");
+              return (
+                <Button
+                  variant="primary"
+                  className="send-button"
+                  onClick={send}
+                  disabled={!enabled}
+                  aria-label={label}
+                  title={label}
+                >
+                  <ArrowUp size={16} />
+                </Button>
+              );
+            })()}
           </Flex>
         </Flex>
-        <p className="composer-hint">
-          {t("chat.aiDisclaimer", "内容由 AI 生成，请核实重要信息")}
-        </p>
-      </div>
-    );
-  }
-);
+      </Flex>
+      <p className="composer-hint">{t("chat.aiDisclaimer", "内容由 AI 生成，请核实重要信息")}</p>
+    </div>
+  );
+});
 
 /** Persist a pasted clipboard image locally and return its saved location. */
-async function savePastedImage(
-  blob: Blob
-): Promise<{ name: string; path: string; size: number }> {
+async function savePastedImage(blob: Blob): Promise<{ name: string; path: string; size: number }> {
   const base64 = await blobToBase64(blob);
   return savePasteImage(base64, blob.type || "image/png");
 }

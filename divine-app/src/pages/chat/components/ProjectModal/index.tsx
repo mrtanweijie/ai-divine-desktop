@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { FolderPlus, Save } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
@@ -8,26 +8,20 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { isTauri } from "@/services/tauri";
 import type { Project } from "@/types";
-import {
-  PROJECT_ICON_OPTIONS,
-  ProjectIcon,
-} from "@/pages/chat/components/ProjectIcon";
+import { PROJECT_ICON_OPTIONS, ProjectIcon } from "@/pages/chat/components/ProjectIcon";
 import "./index.less";
 
 interface ProjectModalProps {
   open: boolean;
   project?: Project | null;
   onClose: () => void;
-  onSave: (body: {
-    name: string;
-    path?: string;
-    icon?: string;
-  }) => Promise<void> | void;
+  onSave: (body: { name: string; path?: string; icon?: string }) => Promise<void> | void;
 }
 
 function toFolderName(value: string): string {
   const cleaned = value
     .trim()
+    // eslint-disable-next-line no-control-regex -- 文件名清洗：剥控制字符是有意行为
     .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "-")
     .replace(/\s+/g, "-")
     .replace(/\.+$/g, "")
@@ -35,12 +29,7 @@ function toFolderName(value: string): string {
   return cleaned || i18next.t("project.unnamed", "未命名项目");
 }
 
-export function ProjectModal({
-  open,
-  project,
-  onClose,
-  onSave,
-}: ProjectModalProps) {
+export function ProjectModal({ open, project, onClose, onSave }: ProjectModalProps) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
@@ -49,18 +38,23 @@ export function ProjectModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!open) return;
-    setName("");
-    setPath("");
-    setPathChosen(false);
-    setIcon(project?.icon ?? "folder");
-    setName(project?.name ?? "");
-    setPath(project?.path ?? "");
-    setPathChosen(Boolean(project));
-    setSaving(false);
-    setError("");
-  }, [open, project]);
+  // open 变化时重置表单：渲染期调整（React 官方建议，替代 effect 内 setState）
+  const [prevOpenKey, setPrevOpenKey] = useState<string | null>(null);
+  const openKey = `${open}\u0000${project?.id ?? ""}`;
+  if (prevOpenKey !== openKey) {
+    setPrevOpenKey(openKey);
+    if (open) {
+      setName("");
+      setPath("");
+      setPathChosen(false);
+      setIcon(project?.icon ?? "folder");
+      setName(project?.name ?? "");
+      setPath(project?.path ?? "");
+      setPathChosen(Boolean(project));
+      setSaving(false);
+      setError("");
+    }
+  }
 
   const defaultPath = `~/Documents/Divine/${toFolderName(name)}`;
 
@@ -69,7 +63,10 @@ export function ProjectModal({
     const selected = await openDialog({ directory: true, multiple: false });
     if (typeof selected !== "string") return;
     setPath(selected);
-    const base = selected.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
+    const base = selected
+      .replace(/[\\/]+$/, "")
+      .split(/[\\/]/)
+      .pop();
     setName(base ?? "");
     setPathChosen(true);
   };
@@ -89,9 +86,7 @@ export function ProjectModal({
         icon,
       });
     } catch (exc) {
-      setError(
-        exc instanceof Error ? exc.message : t("project.createFailed", "创建项目失败")
-      );
+      setError(exc instanceof Error ? exc.message : t("project.createFailed", "创建项目失败"));
     } finally {
       setSaving(false);
     }
@@ -100,9 +95,7 @@ export function ProjectModal({
   return (
     <Modal
       open={open}
-      title={
-        project ? t("project.edit", "编辑项目") : t("project.create", "创建项目")
-      }
+      title={project ? t("project.edit", "编辑项目") : t("project.create", "创建项目")}
       onClose={onClose}
       width={560}
       footer={
@@ -127,9 +120,7 @@ export function ProjectModal({
         />
         {!project && (
           <div className="source-folder-field">
-            <span className="ui-field-label">
-              {t("project.sourceFolder", "源文件夹")}
-            </span>
+            <span className="ui-field-label">{t("project.sourceFolder", "源文件夹")}</span>
             <div
               role="button"
               tabIndex={isTauri() ? 0 : undefined}
@@ -168,16 +159,12 @@ export function ProjectModal({
         )}
         {project && (
           <div className="project-path-readonly">
-            <span className="ui-field-label">
-              {t("project.sourceFolder", "源文件夹")}
-            </span>
+            <span className="ui-field-label">{t("project.sourceFolder", "源文件夹")}</span>
             <span className="project-path-value">{project.path}</span>
           </div>
         )}
         <div className="project-icon-field">
-          <span className="ui-field-label">
-            {t("project.iconLabel", "项目图标")}
-          </span>
+          <span className="ui-field-label">{t("project.iconLabel", "项目图标")}</span>
           <div className="project-icon-grid">
             {PROJECT_ICON_OPTIONS.map((option) => (
               <div
@@ -185,9 +172,7 @@ export function ProjectModal({
                 role="radio"
                 aria-checked={icon === option}
                 tabIndex={0}
-                className={`project-icon-option${
-                  icon === option ? " active" : ""
-                }`}
+                className={`project-icon-option${icon === option ? " active" : ""}`}
                 onClick={() => setIcon(option)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {

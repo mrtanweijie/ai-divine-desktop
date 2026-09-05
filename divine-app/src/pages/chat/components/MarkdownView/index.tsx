@@ -1,5 +1,11 @@
 import { memo, useMemo, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
+import type { ComponentProps } from "react";
+
+type MdProps<K extends keyof Components> = ComponentProps<K> & {
+  // react-markdown 会传入 hast 节点（本组件不使用）
+  node?: unknown;
+};
 import remarkGfm from "remark-gfm";
 import { Check, Copy, FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -12,10 +18,7 @@ import { HighlightedCode } from "./HighlightedCode";
 import { languageLabel } from "./language";
 import { MermaidBlock } from "./MermaidBlock";
 import { WebPreviewBlock } from "./WebPreviewBlock";
-import {
-  ChoiceBlock,
-  parseOptionsBlock,
-} from "@/pages/chat/components/ChoiceBlock";
+import { ChoiceBlock, parseOptionsBlock } from "@/pages/chat/components/ChoiceBlock";
 
 /**
  * 把 Markdown 图片的 src 解析为可渲染的 URL：
@@ -65,24 +68,14 @@ function linkifyFilePaths(content: string): string {
   // 模型常把路径包成行内代码（`/Users/...`），若在里面再包 divine-path
   // 链接，链接 markdown 会落在 <code> 里被当纯文本显示、不可点击。
   const protectedSpans: string[] = [];
-  const masked = content.replace(
-    /```[\s\S]*?```|`[^`\n]*`/g,
-    (span) => {
-      protectedSpans.push(span);
-      return `\uE000${protectedSpans.length - 1}\uE000`;
-    }
+  const masked = content.replace(/```[\s\S]*?```|`[^`\n]*`/g, (span) => {
+    protectedSpans.push(span);
+    return `\uE000${protectedSpans.length - 1}\uE000`;
+  });
+  const linkified = masked.replace(ABS_PATH_RE, (path) =>
+    looksLikeRealPath(path) ? `[${path}](divine-path:${encodeURIComponent(path)})` : path,
   );
-  const linkified = masked.replace(
-    ABS_PATH_RE,
-    (path) =>
-      looksLikeRealPath(path)
-        ? `[${path}](divine-path:${encodeURIComponent(path)})`
-        : path
-  );
-  return linkified.replace(
-    /\uE000(\d+)\uE000/g,
-    (_, index) => protectedSpans[Number(index)] ?? ""
-  );
+  return linkified.replace(/\uE000(\d+)\uE000/g, (_, index) => protectedSpans[Number(index)] ?? "");
 }
 
 interface MarkdownViewProps {
@@ -112,7 +105,7 @@ export const MarkdownView = memo(function MarkdownView({
   // 依赖变化时才重建（t 在语言切换时变化，此时重建是正确行为）。
   const components = useMemo(
     () => buildComponents(streaming, messageId, choiceState, t),
-    [streaming, messageId, choiceState, t]
+    [streaming, messageId, choiceState, t],
   );
   // linkifyFilePaths 对全文跑掩码→linkify→还原 3 遍正则，结果仅依赖
   // content，缓存后流式 chunk 到达时不再对历史消息重复计算。
@@ -172,19 +165,13 @@ function CodeBlock({
           className="code-copy"
           onClick={copy}
           aria-label={t("markdown.copyCode", "复制代码")}
-          title={
-            copied ? t("common.copied", "已复制") : t("markdown.copy", "复制")
-          }
+          title={copied ? t("common.copied", "已复制") : t("markdown.copy", "复制")}
         >
           {copied ? <Check size={13} /> : <Copy size={13} />}
         </Button>
       </div>
       <pre className="code-pre">
-        <HighlightedCode
-          code={code}
-          language={language}
-          streaming={streaming}
-        />
+        <HighlightedCode code={code} language={language} streaming={streaming} />
       </pre>
     </div>
   );
@@ -194,14 +181,12 @@ function buildComponents(
   streaming: boolean,
   messageId?: string,
   choiceState?: Record<string, unknown> | null,
-  t?: (key: string, options?: Record<string, unknown>) => string
+  t?: (key: string, options?: Record<string, unknown>) => string,
 ): Components {
   return {
-    code(props: any) {
+    code(props: MdProps<"code">) {
       const { className, children, ...rest } = props;
-      const language = /language-([^\s]+)/i
-        .exec(className || "")?.[1]
-        ?.toLowerCase();
+      const language = /language-([^\s]+)/i.exec(className || "")?.[1]?.toLowerCase();
       const code = extractText(children).replace(/\n$/, "");
       if (!language && !code.includes("\n")) {
         return (
@@ -219,35 +204,19 @@ function buildComponents(
       if (language === "options") {
         const data = parseOptionsBlock(code);
         if (data) {
-          return (
-            <ChoiceBlock
-              data={data}
-              messageId={messageId}
-              persistedChoice={choiceState}
-            />
-          );
+          return <ChoiceBlock data={data} messageId={messageId} persistedChoice={choiceState} />;
         }
         if (streaming) {
           return null;
         }
         return <CodeBlock code={code} language={language} streaming={streaming} />;
       }
-      if (
-        (language === "html" || language === "htm" || language === "svg") &&
-        !streaming
-      ) {
-        return (
-          <WebPreviewBlock
-            code={code}
-            language={language === "svg" ? "svg" : "html"}
-          />
-        );
+      if ((language === "html" || language === "htm" || language === "svg") && !streaming) {
+        return <WebPreviewBlock code={code} language={language === "svg" ? "svg" : "html"} />;
       }
-      return (
-        <CodeBlock code={code} language={language} streaming={streaming} />
-      );
+      return <CodeBlock code={code} language={language} streaming={streaming} />;
     },
-    table(props: any) {
+    table(props: MdProps<"table">) {
       const { children, ...rest } = props;
       return (
         <div className="markdown-table-wrap">
@@ -255,25 +224,19 @@ function buildComponents(
         </div>
       );
     },
-    p(props: any) {
+    p(props: MdProps<"p">) {
       const { children, ...rest } = props;
       const text = extractText(children).trim();
       // 检测裸 JSON（LLM 未用 ```options 包裹的情况）：以 { 开头、含 "options" 数组
       if (text.startsWith("{") && text.includes('"options"')) {
         const data = parseOptionsBlock(text);
         if (data) {
-          return (
-            <ChoiceBlock
-              data={data}
-              messageId={messageId}
-              persistedChoice={choiceState}
-            />
-          );
+          return <ChoiceBlock data={data} messageId={messageId} persistedChoice={choiceState} />;
         }
       }
       return <p {...rest}>{children}</p>;
     },
-    a(props: any) {
+    a(props: MdProps<"a">) {
       const href = props.href as string | undefined;
       // 本地文件路径链接：目录直接打开文件夹；文件则在其所在文件夹中显示
       if (href?.startsWith("divine-path:")) {
@@ -313,7 +276,7 @@ function buildComponents(
         </a>
       );
     },
-    img(props: any) {
+    img(props: MdProps<"img">) {
       const { src, alt, ...rest } = props;
       const resolved = resolveImageSrc(src);
       if (!resolved) return null;

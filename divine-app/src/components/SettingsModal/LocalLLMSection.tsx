@@ -1,7 +1,7 @@
 // Local LLM settings section for the settings modal.
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AudioWaveform, ChevronDown, Infinity, Zap } from "lucide-react";
+import { AudioWaveform, ChevronDown, Infinity as InfinityIcon, Zap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
@@ -10,11 +10,7 @@ import { toast } from "@/components/ui/Toast";
 import { request } from "@/services/request";
 import { isTauri } from "@/services/tauri";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import type {
-  DownloadProgress,
-  LocalLLMStatus,
-  RecommendedModel,
-} from "@/types";
+import type { DownloadProgress, LocalLLMStatus, RecommendedModel } from "@/types";
 import "./LocalLLMSection.less";
 
 // 模型描述：后端 registry 返回中文原文，这里按模型 id 映射到 i18n 词条；
@@ -47,6 +43,22 @@ export function LocalLLMSection({
   const [progress, setProgress] = useState<Record<string, DownloadProgress>>({});
   // 记录上一轮轮询进度，用于检测"条目消失 = 下载完成"
   const lastProgressRef = useRef<Record<string, DownloadProgress>>({});
+  const loadStatus = useCallback(async () => {
+    try {
+      const s = await request<LocalLLMStatus>("/local_llm/status");
+      setStatus(s);
+      // 恢复进行中的下载：后端仍有活动下载（total>0）时恢复进度轮询，
+      // 避免"关闭弹窗再打开"只看到"未完成"
+      const progressMap = s.download_progress ?? {};
+      const activeKey = Object.keys(progressMap).find((k) => (progressMap[k]?.total ?? 0) > 0);
+      if (activeKey && !installing && !customInstallingKey) {
+        lastProgressRef.current[activeKey] = progressMap[activeKey];
+        setInstalling(activeKey);
+      }
+    } catch (e) {
+      console.error("Failed to load local LLM status:", e);
+    }
+  }, [installing, customInstallingKey]);
   // 推荐模型列表：默认收起，点击卡片展开详情（与"模型"tab 交互一致）
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // 自定义模型安装表单
@@ -55,8 +67,9 @@ export function LocalLLMSection({
   const [errorOpen, setErrorOpen] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 挂载取数：setStatus 在 await 之后，规则无法穿透 useCallback 边界
     void loadStatus();
-  }, []);
+  }, [loadStatus]);
 
   // 安装中的下载进度轮询（内置/自定义通用）
   useEffect(() => {
@@ -64,9 +77,7 @@ export function LocalLLMSection({
     if (!key) return;
     const timer = window.setInterval(async () => {
       try {
-        const p = await request<DownloadProgress>(
-          `/local_llm/download_progress/${key}`
-        );
+        const p = await request<DownloadProgress>(`/local_llm/download_progress/${key}`);
         setProgress((prev) => ({ ...prev, [key]: p }));
         // 完成检测：之前有总量，现在条目消失（0/0/0）→ 下载完成
         const prev = lastProgressRef.current[key];
@@ -82,25 +93,7 @@ export function LocalLLMSection({
       }
     }, 500);
     return () => window.clearInterval(timer);
-  }, [installing, customInstallingKey]);
-
-  const loadStatus = async () => {
-    try {
-      const s = await request<LocalLLMStatus>("/local_llm/status");
-      setStatus(s);
-      // 恢复进行中的下载：后端仍有活动下载（total>0）时恢复进度轮询，
-      // 避免"关闭弹窗再打开"只看到"未完成"
-      const activeKey = Object.keys(s.download_progress ?? {}).find(
-        (k) => (s.download_progress?.[k]?.total ?? 0) > 0
-      );
-      if (activeKey && !installing && !customInstallingKey) {
-        lastProgressRef.current[activeKey] = s.download_progress![activeKey];
-        setInstalling(activeKey);
-      }
-    } catch (e) {
-      console.error("Failed to load local LLM status:", e);
-    }
-  };
+  }, [installing, customInstallingKey, loadStatus]);
 
   const handleModeChange = async (mode: "keyword" | "local" | "hybrid") => {
     setLoading(true);
@@ -255,8 +248,7 @@ export function LocalLLMSection({
     const isActive = activeModel === model.id;
     const dlProgress = progress[model.id];
     const expanded = expandedId === model.id;
-    const toggle = () =>
-      setExpandedId((prev) => (prev === model.id ? null : model.id));
+    const toggle = () => setExpandedId((prev) => (prev === model.id ? null : model.id));
 
     return (
       <div
@@ -279,22 +271,16 @@ export function LocalLLMSection({
             }}
             aria-expanded={expanded}
             title={
-              expanded
-                ? t("settings.collapseModel", "收起")
-                : t("settings.expandModel", "展开详情")
+              expanded ? t("settings.collapseModel", "收起") : t("settings.expandModel", "展开详情")
             }
           >
             <span className="settings-model-name">{model.name}</span>
-            {isActive && (
-              <Tag tone="success">{t("settings.active", "运行中")}</Tag>
-            )}
+            {isActive && <Tag tone="success">{t("settings.active", "运行中")}</Tag>}
             {isInstalled && !isActive && !model.incomplete && (
               <Tag>{t("settings.installedBadge", "已安装")}</Tag>
             )}
             {model.incomplete && !isInstalling && (
-              <Tag tone="warning">
-                {t("settings.incompleteTag", "未完成")}
-              </Tag>
+              <Tag tone="warning">{t("settings.incompleteTag", "未完成")}</Tag>
             )}
           </div>
           <Button
@@ -303,9 +289,7 @@ export function LocalLLMSection({
             className={`settings-model-chevron${expanded ? " open" : ""}`}
             onClick={toggle}
             aria-label={
-              expanded
-                ? t("settings.collapseModel", "收起")
-                : t("settings.expandModel", "展开详情")
+              expanded ? t("settings.collapseModel", "收起") : t("settings.expandModel", "展开详情")
             }
           >
             <ChevronDown size={14} />
@@ -314,25 +298,20 @@ export function LocalLLMSection({
         {expanded && (
           <div className="settings-model-card-body">
             <p className="local-model-desc">
-              {MODEL_DESC_KEYS[model.id]
-                ? t(MODEL_DESC_KEYS[model.id])
-                : model.description}
+              {MODEL_DESC_KEYS[model.id] ? t(MODEL_DESC_KEYS[model.id]) : model.description}
             </p>
             <div className="local-model-meta">
               <span>
                 {t("settings.modelSize", "大小")} {formatModelSize(model.size_gb)}
               </span>
               <span>
-                {t("settings.modelRam", "需要内存")}{" "}
-                {formatModelSize(model.required_ram_gb)}
+                {t("settings.modelRam", "需要内存")} {formatModelSize(model.required_ram_gb)}
               </span>
               <span>
                 {t("settings.modelQuant", "量化")} {model.quantization}
               </span>
               {model.tags.length > 0 && (
-                <span className="local-model-tags">
-                  {model.tags.join(" / ")}
-                </span>
+                <span className="local-model-tags">{model.tags.join(" / ")}</span>
               )}
             </div>
             <div className="model-actions">
@@ -344,9 +323,7 @@ export function LocalLLMSection({
                       style={{ width: `${dlProgress?.percent ?? 0}%` }}
                     />
                   </div>
-                  <span className="progress-text">
-                    {Math.round(dlProgress?.percent ?? 0)}%
-                  </span>
+                  <span className="progress-text">{Math.round(dlProgress?.percent ?? 0)}%</span>
                 </div>
               )}
               {isInstalled && !model.incomplete ? (
@@ -408,11 +385,7 @@ export function LocalLLMSection({
               （所有模式通用，不依赖当前意图识别模式） */}
           {status && (
             <span className="local-llm-title-tag">
-              {!status.running && (
-                <Tag tone="warning">
-                  {t("settings.notStartedTag", "未启动")}
-                </Tag>
-              )}
+              {!status.running && <Tag tone="warning">{t("settings.notStartedTag", "未启动")}</Tag>}
             </span>
           )}
         </h3>
@@ -421,7 +394,7 @@ export function LocalLLMSection({
         <div className="local-llm-subtitle">
           {t(
             "settings.localLLMSubtitle",
-            "AI 意图识别可能有误判风险；若误判，可重试或切换匹配模式"
+            "AI 意图识别可能有误判风险；若误判，可重试或切换匹配模式",
           )}
         </div>
       </div>
@@ -435,14 +408,10 @@ export function LocalLLMSection({
           tabIndex={0}
         >
           <div className="local-llm-error-header">
-            <strong>
-              {t("settings.localLLMStartFailed", "本地模型启动失败")}
-            </strong>
+            <strong>{t("settings.localLLMStartFailed", "本地模型启动失败")}</strong>
             <ChevronDown size={12} className="local-llm-error-chevron" />
           </div>
-          {errorOpen && (
-            <div className="local-llm-error-body">{status.last_error}</div>
-          )}
+          {errorOpen && <div className="local-llm-error-body">{status.last_error}</div>}
         </div>
       )}
 
@@ -456,9 +425,7 @@ export function LocalLLMSection({
             <div className="mode-card-icon">
               <Zap size={24} />
             </div>
-            <div className="mode-card-title">
-              {t("settings.modeKeywordTitle", "关键词匹配")}
-            </div>
+            <div className="mode-card-title">{t("settings.modeKeywordTitle", "关键词匹配")}</div>
             <div className="mode-card-desc">
               {t("settings.modeKeywordDesc", "最快，基于规则匹配")}
             </div>
@@ -468,11 +435,9 @@ export function LocalLLMSection({
             onClick={() => !loading && handleModeChange("local")}
           >
             <div className="mode-card-icon">
-              <Infinity size={24} />
+              <InfinityIcon size={24} />
             </div>
-            <div className="mode-card-title">
-              {t("settings.modeLocalTitle", "本地模型")}
-            </div>
+            <div className="mode-card-title">{t("settings.modeLocalTitle", "本地模型")}</div>
             <div className="mode-card-desc">
               {t("settings.modeLocalDesc", "更智能，AI 理解意图")}
             </div>
@@ -484,9 +449,7 @@ export function LocalLLMSection({
             <div className="mode-card-icon">
               <AudioWaveform size={24} />
             </div>
-            <div className="mode-card-title">
-              {t("settings.modeHybridTitle", "混合模式")}
-            </div>
+            <div className="mode-card-title">{t("settings.modeHybridTitle", "混合模式")}</div>
             <div className="mode-card-desc">
               {t("settings.modeHybridDesc", "关键词 + AI 双重判断")}
             </div>
@@ -554,7 +517,7 @@ export function LocalLLMSection({
                   onChange={(event) => setCustomUrl(event.target.value)}
                   placeholder={t(
                     "settings.customInstallUrlPlaceholder",
-                    "粘贴 GGUF 下载链接（如 HuggingFace resolve 直链）"
+                    "粘贴 GGUF 下载链接（如 HuggingFace resolve 直链）",
                   )}
                   disabled={loading || customInstallingKey !== null}
                   action={
@@ -563,11 +526,7 @@ export function LocalLLMSection({
                       size="small"
                       className="local-model-install-btn"
                       onClick={handleInstallCustom}
-                      disabled={
-                        loading ||
-                        customInstallingKey !== null ||
-                        !customUrl.trim()
-                      }
+                      disabled={loading || customInstallingKey !== null || !customUrl.trim()}
                       loading={customInstallingKey !== null}
                     >
                       {t("settings.install", "安装")}

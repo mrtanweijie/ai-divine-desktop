@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { FileText, Scissors } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ThemedToken } from "shiki";
@@ -70,14 +65,12 @@ function CodePreview({ code, relPath }: { code: string; relPath: string }) {
   const preview = useMemo(() => truncateLines(code || "", MAX_PREVIEW_ROWS), [code]);
   const content = preview.text;
   const theme = useTheme();
-  const language = useMemo(
-    () => normalizeLanguage(languageFromPath(relPath)),
-    [relPath]
-  );
+  const language = useMemo(() => normalizeLanguage(languageFromPath(relPath)), [relPath]);
   const [lines, setLines] = useState<ThemedToken[][] | null>(null);
 
   useEffect(() => {
     let active = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 取消护栏：切换文件时清空旧高亮，避免闪现旧内容
     setLines(null);
     void import("@/pages/chat/components/MarkdownView/shiki")
       .then(({ getHighlighter, highlightTheme }) => {
@@ -158,12 +151,7 @@ function CodePreview({ code, relPath }: { code: string; relPath: string }) {
   );
 }
 
-export function FileContentView({
-  preview,
-  relPath,
-  fileName,
-  path,
-}: FileContentViewProps) {
+export function FileContentView({ preview, relPath, fileName, path }: FileContentViewProps) {
   const { t } = useTranslation();
   const content = preview.newContent || preview.oldContent || "";
   const webLanguage = webPreviewLanguage(relPath);
@@ -176,17 +164,11 @@ export function FileContentView({
         ) : (
           <div className="diff-view-state">
             <FileText size={15} />
-            <span>
-              {t("file.binaryPreviewUnsupported", "二进制文件不支持内容预览")}
-            </span>
+            <span>{t("file.binaryPreviewUnsupported", "二进制文件不支持内容预览")}</span>
           </div>
         )
       ) : isMarkdownFile(relPath) && !preview.contentTruncated ? (
-        <MarkdownPreviewBlock
-          code={content}
-          variant="panel"
-          defaultMode="preview"
-        />
+        <MarkdownPreviewBlock code={content} variant="panel" defaultMode="preview" />
       ) : webLanguage && !preview.contentTruncated ? (
         <WebPreviewBlock
           code={content}

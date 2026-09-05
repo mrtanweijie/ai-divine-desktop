@@ -21,7 +21,7 @@ const EFFORT_ITEMS = ["off", "low", "high", "max"] as const;
 
 // 获取提供商标签
 function getProviderLabel(providerKey: string): string {
-  const config = PROVIDER_LIST.find(p => p.value === providerKey);
+  const config = PROVIDER_LIST.find((p) => p.value === providerKey);
   return config?.label || providerKey;
 }
 
@@ -56,14 +56,9 @@ export function ModelEffortControl({
   const panelRef = useRef<HTMLDivElement>(null);
 
   const currentModel =
-    models.find((m) => m.id === modelId) ??
-    models.find((m) => m.active) ??
-    models[0] ??
-    null;
+    models.find((m) => m.id === modelId) ?? models.find((m) => m.active) ?? models[0] ?? null;
   const currentModelName =
-    currentModel?.name ||
-    currentModel?.model ||
-    t("chat.switchModel", "切换模型");
+    currentModel?.name || currentModel?.model || t("chat.switchModel", "切换模型");
 
   useEffect(() => {
     if (!open || !triggerRef.current) return;
@@ -79,11 +74,7 @@ export function ModelEffortControl({
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (
-        wrapperRef.current?.contains(target) ||
-        panelRef.current?.contains(target)
-      )
-        return;
+      if (wrapperRef.current?.contains(target) || panelRef.current?.contains(target)) return;
       setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
@@ -97,9 +88,12 @@ export function ModelEffortControl({
     };
   }, [open]);
 
-  useEffect(() => {
+  // 关闭时重置层级：渲染期调整（React 官方建议，替代 effect 内 setState）
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (!open) setLevel("main");
-  }, [open]);
+  }
 
   const triggerKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -135,19 +129,13 @@ export function ModelEffortControl({
         <Sparkles size={12} />
         <span className="model-effort-trigger-label">{currentModelName}</span>
         <span className="model-effort-trigger-sep">·</span>
-        <span className="model-effort-trigger-label">
-          {effortLabels[effort] ?? "关闭"}
-        </span>
+        <span className="model-effort-trigger-label">{effortLabels[effort] ?? "关闭"}</span>
         <ChevronRight size={10} />
       </div>
 
       {open &&
         createPortal(
-          <div
-            ref={panelRef}
-            className="model-effort-panel"
-            style={panelStyle}
-          >
+          <div ref={panelRef} className="model-effort-panel" style={panelStyle}>
             {level === "main" ? (
               <ul className="model-effort-menu" role="menu">
                 <li
@@ -160,14 +148,10 @@ export function ModelEffortControl({
                   }}
                 >
                   <span className="model-effort-menu-left">
-                    <span className="model-effort-menu-label">
-                      {t("settings.model", "模型")}
-                    </span>
+                    <span className="model-effort-menu-label">{t("settings.model", "模型")}</span>
                   </span>
                   <span className="model-effort-menu-right">
-                    <span className="model-effort-menu-value">
-                      {currentModelName}
-                    </span>
+                    <span className="model-effort-menu-value">{currentModelName}</span>
                     <ChevronRight size={12} />
                   </span>
                 </li>
@@ -216,19 +200,20 @@ export function ModelEffortControl({
                     ? (() => {
                         const grouped = groupModelsByProvider(models);
                         const items: React.ReactNode[] = [];
-                        
+
                         grouped.forEach((groupModels, providerKey) => {
-                          const providerLabel = providerKey === "custom" 
-                            ? t("settings.custom", "自定义") 
-                            : getProviderLabel(providerKey);
-                          
+                          const providerLabel =
+                            providerKey === "custom"
+                              ? t("settings.custom", "自定义")
+                              : getProviderLabel(providerKey);
+
                           // 添加分组标题
                           items.push(
                             <li key={`header-${providerKey}`} className="model-effort-menu-header">
                               <span>{providerLabel}</span>
-                            </li>
+                            </li>,
                           );
-                          
+
                           // 添加该分组下的模型
                           groupModels.forEach((entry) => {
                             items.push(
@@ -245,11 +230,11 @@ export function ModelEffortControl({
                                 }}
                               >
                                 <span>{entry.name || entry.model}</span>
-                              </li>
+                              </li>,
                             );
                           });
                         });
-                        
+
                         return items;
                       })()
                     : EFFORT_ITEMS.map((key) => (
@@ -257,9 +242,7 @@ export function ModelEffortControl({
                           key={key}
                           role="menuitem"
                           tabIndex={0}
-                          className={`model-effort-menu-item${
-                            key === effort ? " selected" : ""
-                          }`}
+                          className={`model-effort-menu-item${key === effort ? " selected" : ""}`}
                           onClick={() => selectEffort(key)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") selectEffort(key);
@@ -273,7 +256,7 @@ export function ModelEffortControl({
               </>
             )}
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

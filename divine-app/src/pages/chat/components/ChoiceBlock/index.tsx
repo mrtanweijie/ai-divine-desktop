@@ -46,7 +46,7 @@ function sanitizeJsonQuotes(raw: string): string {
         // 判断这个 " 是否是字符串结束符：
         // 如果后面跟 , } ] : 或空白+这些字符，视为正常结束
         const rest = raw.slice(i + 1).trimStart();
-        if (!rest || /^[,\}\]:]/.test(rest)) {
+        if (!rest || /^[,}]:]/.test(rest)) {
           inString = false;
           out.push(ch);
         } else {
@@ -73,11 +73,11 @@ function sanitizeJsonQuotes(raw: string): string {
  */
 export function parseOptionsBlock(code: string): ChoiceBlockData | null {
   const text = (code || "").trim();
-  let start = text.indexOf("{");
-  let end = text.lastIndexOf("}");
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) return null;
   const raw = text.slice(start, end + 1);
-  let data: Record<string, unknown> | null = null;
+  let data: Record<string, unknown> | null;
   try {
     data = JSON.parse(raw);
   } catch {
@@ -94,17 +94,13 @@ export function parseOptionsBlock(code: string): ChoiceBlockData | null {
   const options: ChoiceOption[] = data.options
     .filter(
       (item: unknown): item is ChoiceOption =>
-        !!item &&
-        typeof item === "object" &&
-        typeof (item as ChoiceOption).label === "string"
+        !!item && typeof item === "object" && typeof (item as ChoiceOption).label === "string",
     )
     .map((item: ChoiceOption) => ({
       label: String(item.label).trim(),
       action: item.action ? String(item.action) : undefined,
       theme: item.theme ? String(item.theme) : undefined,
-      color_scheme: item.color_scheme
-        ? String(item.color_scheme)
-        : undefined,
+      color_scheme: item.color_scheme ? String(item.color_scheme) : undefined,
       desc: item.desc ? String(item.desc) : undefined,
     }));
   if (options.length === 0) return null;
@@ -113,14 +109,10 @@ export function parseOptionsBlock(code: string): ChoiceBlockData | null {
   // 副标题兜底：模型漏写 desc 时统一补「后续有需求再继续任务」。
   // 识别按机读 action=decline 字段（协议要求模型携带，label 可能被
   // 本地化为英文等）；label === "暂时不用" 仅作旧格式兼容兜底。
-  const isDecline = (item: ChoiceOption) =>
-    item.action === "decline" || item.label === "暂时不用";
-  const declineDesc = i18next.t(
-    "chat.choiceDeclineDesc",
-    "后续有需求再继续任务"
-  );
+  const isDecline = (item: ChoiceOption) => item.action === "decline" || item.label === "暂时不用";
+  const declineDesc = i18next.t("chat.choiceDeclineDesc", "后续有需求再继续任务");
   const optionsFilled = options.map((item) =>
-    isDecline(item) ? { ...item, desc: item.desc || declineDesc } : item
+    isDecline(item) ? { ...item, desc: item.desc || declineDesc } : item,
   );
   const hasDecline = optionsFilled.some(isDecline);
   return {
@@ -160,9 +152,7 @@ interface ChoiceState {
 const choiceStateStore = new Map<string, ChoiceState>();
 
 function choiceStoreKey(data: ChoiceBlockData, messageId?: string): string {
-  const base = `${data.title ?? ""}|${(data.options || [])
-    .map((o) => o.label)
-    .join(",")}`;
+  const base = `${data.title ?? ""}|${(data.options || []).map((o) => o.label).join(",")}`;
   return messageId ? `${messageId}|${base}` : base;
 }
 
@@ -178,28 +168,34 @@ export function ChoiceBlock({
 }) {
   const { t } = useTranslation();
   const { sendMessage, effort } = useChatStreamContext();
-  const storeKey = useMemo(() => choiceStoreKey(data, messageId), [
-    data,
-    messageId,
-  ]);
+  const storeKey = useMemo(() => choiceStoreKey(data, messageId), [data, messageId]);
   const [selected, setSelected] = useState<string | null>(
     () =>
       (persistedChoice?.selected as string | undefined) ??
       choiceStateStore.get(storeKey)?.selected ??
-      null
+      null,
   );
   const [selectedMulti, setSelectedMulti] = useState<string[]>(() => {
     const persisted = persistedChoice?.selected as string | undefined;
-    if (persisted) return persisted.split(/[,、]/).map((s) => s.trim()).filter(Boolean);
+    if (persisted)
+      return persisted
+        .split(/[,、]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
     const stored = choiceStateStore.get(storeKey)?.selected;
-    return stored ? stored.split(/[,、]/).map((s) => s.trim()).filter(Boolean) : [];
+    return stored
+      ? stored
+          .split(/[,、]/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
   });
   const [custom, setCustom] = useState("");
   const [sentCustom, setSentCustom] = useState(
     () =>
       (persistedChoice?.sentCustom as boolean | undefined) ??
       choiceStateStore.get(storeKey)?.sentCustom ??
-      false
+      false,
   );
   const [multiConfirmed, setMultiConfirmed] = useState(false);
 
@@ -214,8 +210,12 @@ export function ChoiceBlock({
       const nextSelected = persistedSelected ?? null;
       const nextSent = Boolean(persistedSent);
       const nextMulti = persistedSelected
-        ? String(persistedSelected).split(/[,、]/).map((s) => s.trim()).filter(Boolean)
+        ? String(persistedSelected)
+            .split(/[,、]/)
+            .map((s) => s.trim())
+            .filter(Boolean)
         : [];
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 消息异步加载后同步持久化选择态：函数式更新自带同值守卫
       setSelected((prev) => (prev === nextSelected ? prev : nextSelected));
       setSentCustom((prev) => (prev === nextSent ? prev : nextSent));
       setSelectedMulti((prev) => {
@@ -238,9 +238,9 @@ export function ChoiceBlock({
       (Array.isArray(data?.options) ? data.options : []).map((opt) =>
         opt.color_scheme && THEME_DESCS[opt.color_scheme]
           ? { ...opt, desc: THEME_DESCS[opt.color_scheme] }
-          : opt
+          : opt,
       ),
-    [data]
+    [data],
   );
   if (options.length === 0) return null;
 
@@ -282,9 +282,7 @@ export function ChoiceBlock({
 
   const multiple = Boolean(data.multiple);
 
-  const finished = multiple
-    ? multiConfirmed
-    : selected !== null || sentCustom;
+  const finished = multiple ? multiConfirmed : selected !== null || sentCustom;
 
   const persistChoice = (state: ChoiceState) => {
     choiceStateStore.set(storeKey, state);
@@ -324,9 +322,7 @@ export function ChoiceBlock({
   const toggleMulti = (label: string) => {
     if (finished) return;
     setSelectedMulti((prev) =>
-      prev.includes(label)
-        ? prev.filter((item) => item !== label)
-        : [...prev, label]
+      prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label],
     );
   };
 
@@ -347,9 +343,7 @@ export function ChoiceBlock({
     if (!text || finished) return;
     if (multiple) {
       // 多选：自定义项加入已选列表，由「确认选择」按钮统一发送（避免双按钮）
-      setSelectedMulti((prev) =>
-        prev.includes(text) ? prev : [...prev, text]
-      );
+      setSelectedMulti((prev) => (prev.includes(text) ? prev : [...prev, text]));
       setCustom("");
       return;
     }
@@ -364,12 +358,8 @@ export function ChoiceBlock({
       {isSwatchMode ? (
         <div className="choice-swatches">
           {options.map((opt) => {
-            const color = opt.color_scheme
-              ? SWATCH_COLORS[opt.color_scheme] || "#ccc"
-              : "#ccc";
-            const palette = opt.color_scheme
-              ? SWATCH_PALETTES[opt.color_scheme] || null
-              : null;
+            const color = opt.color_scheme ? SWATCH_COLORS[opt.color_scheme] || "#ccc" : "#ccc";
+            const palette = opt.color_scheme ? SWATCH_PALETTES[opt.color_scheme] || null : null;
             return (
               <div
                 key={opt.label}
@@ -383,17 +373,11 @@ export function ChoiceBlock({
                 style={{ "--swatch": color } as CSSProperties}
               >
                 <span className="choice-swatch-title">{opt.label}</span>
-                {opt.desc && (
-                  <span className="choice-swatch-desc">{opt.desc}</span>
-                )}
+                {opt.desc && <span className="choice-swatch-desc">{opt.desc}</span>}
                 {palette && (
                   <span className="choice-swatch-palette">
                     {palette.map((c, i) => (
-                      <span
-                        key={i}
-                        className="choice-swatch-chip"
-                        style={{ backgroundColor: c }}
-                      />
+                      <span key={i} className="choice-swatch-chip" style={{ backgroundColor: c }} />
                     ))}
                   </span>
                 )}
@@ -404,20 +388,14 @@ export function ChoiceBlock({
       ) : (
         <div className="choice-options">
           {options.map((opt) => {
-            const active = multiple
-              ? selectedMulti.includes(opt.label)
-              : selected === opt.label;
+            const active = multiple ? selectedMulti.includes(opt.label) : selected === opt.label;
             return (
               <Button
                 key={opt.label}
                 variant="secondary"
                 size="medium"
-                className={`choice-option${active ? " selected" : ""}${
-                  multiple ? " multi" : ""
-                }`}
-                onClick={() =>
-                  multiple ? toggleMulti(opt.label) : pick(opt)
-                }
+                className={`choice-option${active ? " selected" : ""}${multiple ? " multi" : ""}`}
+                onClick={() => (multiple ? toggleMulti(opt.label) : pick(opt))}
                 disabled={finished}
               >
                 <span className="choice-option-label">
@@ -432,9 +410,7 @@ export function ChoiceBlock({
                   )}
                   {opt.label}
                 </span>
-                {opt.desc && (
-                  <span className="choice-option-desc">{opt.desc}</span>
-                )}
+                {opt.desc && <span className="choice-option-desc">{opt.desc}</span>}
               </Button>
             );
           })}
@@ -461,10 +437,7 @@ export function ChoiceBlock({
         <div className="choice-other">
           <Input
             className="choice-other-input"
-            placeholder={t(
-              "chat.choiceOtherPlaceholder",
-              "其他选项，直接输入…"
-            )}
+            placeholder={t("chat.choiceOtherPlaceholder", "其他选项，直接输入…")}
             value={custom}
             onChange={(event) => setCustom(event.target.value)}
             onKeyDown={(event) => {

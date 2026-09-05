@@ -17,12 +17,7 @@ import {
   FolderOpen,
   Presentation,
 } from "lucide-react";
-import {
-  getDirChildren,
-  getFileTree,
-  isTauri,
-  listenWorkspaceChanges,
-} from "@/services/tauri";
+import { getDirChildren, getFileTree, isTauri, listenWorkspaceChanges } from "@/services/tauri";
 import { useTranslation } from "react-i18next";
 import type { WorkspaceFileNode } from "@/types";
 
@@ -62,37 +57,37 @@ function fileIcon(name: string) {
     lower === "dockerfile" ||
     lower === "makefile"
   ) {
-    return FileCog;
+    return <FileCog size={14} />;
   }
   if (["png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "avif"].includes(ext)) {
-    return FileImage;
+    return <FileImage size={14} />;
   }
   if (["zip", "tar", "gz", "7z", "rar", "xz", "bz2"].includes(ext)) {
-    return FileArchive;
+    return <FileArchive size={14} />;
   }
   if (["mp3", "wav", "flac", "aac", "ogg", "m4a"].includes(ext)) {
-    return FileMusic;
+    return <FileMusic size={14} />;
   }
   if (["mp4", "mov", "avi", "mkv", "webm", "flv"].includes(ext)) {
-    return FileVideoCamera;
+    return <FileVideoCamera size={14} />;
   }
   if (["xlsx", "xls", "csv", "tsv"].includes(ext)) {
-    return FileSpreadsheet;
+    return <FileSpreadsheet size={14} />;
   }
   if (["ppt", "pptx", "key"].includes(ext)) {
-    return Presentation;
+    return <Presentation size={14} />;
   }
   if (["db", "sqlite", "sqlite3", "sql"].includes(ext)) {
-    return Database;
+    return <Database size={14} />;
   }
   if (["sh", "bash", "zsh", "ps1", "bat", "cmd"].includes(ext)) {
-    return FileTerminal;
+    return <FileTerminal size={14} />;
   }
   if (["env", "secret", "pem", "crt", "key"].includes(ext)) {
-    return FileKey;
+    return <FileKey size={14} />;
   }
   if (["json", "yaml", "yml", "toml", "ini"].includes(ext)) {
-    return Braces;
+    return <Braces size={14} />;
   }
   if (
     [
@@ -119,15 +114,15 @@ function fileIcon(name: string) {
       "svelte",
     ].includes(ext)
   ) {
-    return FileCode;
+    return <FileCode size={14} />;
   }
   if (["html", "htm", "xml", "css", "scss", "less"].includes(ext)) {
-    return FileCode;
+    return <FileCode size={14} />;
   }
   if (["md", "markdown", "txt", "rtf", "log"].includes(ext)) {
-    return FileText;
+    return <FileText size={14} />;
   }
-  return FileText;
+  return <FileText size={14} />;
 }
 
 function TreeNode({
@@ -140,9 +135,7 @@ function TreeNode({
   expandTo,
 }: TreeNodeProps) {
   const [open, setOpen] = useState(false);
-  const [children, setChildren] = useState<WorkspaceFileNode[] | null>(
-    node.children
-  );
+  const [children, setChildren] = useState<WorkspaceFileNode[] | null>(node.children);
   const [loading, setLoading] = useState(false);
   const expandedByRef = useRef<string | null>(null);
 
@@ -155,6 +148,7 @@ function TreeNode({
     // 已经展开过同一个 expandTo，跳过
     if (expandedByRef.current === expandTo) return;
     expandedByRef.current = expandTo;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 受控展开：外部指定目标文件时同步展开所在目录
     if (!open) setOpen(true);
     if (children === null) {
       const cacheKey = `${repoPath}\u0000${node.path}`;
@@ -203,7 +197,6 @@ function TreeNode({
 
   const selected = !node.isDir && selectedPath === node.path;
   const changed = !node.isDir && changedFiles.has(node.path);
-  const Icon = node.isDir ? Folder : fileIcon(node.name);
 
   return (
     <div className="file-tree-branch">
@@ -222,10 +215,7 @@ function TreeNode({
         title={node.path}
       >
         {node.isDir ? (
-          <ChevronRight
-            size={13}
-            className={`file-tree-chevron${open ? " open" : ""}`}
-          />
+          <ChevronRight size={13} className={`file-tree-chevron${open ? " open" : ""}`} />
         ) : (
           <span className="file-tree-file-indent" />
         )}
@@ -236,7 +226,7 @@ function TreeNode({
             <Folder size={14} className="file-tree-folder-icon" />
           )
         ) : (
-          <Icon size={14} className="file-tree-file-icon" />
+          fileIcon(node.name)
         )}
         <span className="file-tree-name">{node.name}</span>
         {loading && <span className="file-tree-loading" />}

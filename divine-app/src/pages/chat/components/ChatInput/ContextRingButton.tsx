@@ -1,13 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import {
-  Check,
-  Loader2,
-  MessageSquare,
-  Settings2,
-  Terminal,
-  Zap,
-} from "lucide-react";
+import { Check, Loader2, MessageSquare, Settings2, Terminal, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { CompactResult, ContextUsage } from "@/types";
 import { compactSession, getContextUsage } from "@/services/api";
@@ -29,10 +22,7 @@ function ringColor(percent: number): string {
   return "var(--color-text-muted)";
 }
 
-export function ContextRingButton({
-  sessionId,
-  refreshKey = 0,
-}: ContextRingButtonProps) {
+export function ContextRingButton({ sessionId, refreshKey = 0 }: ContextRingButtonProps) {
   const { t } = useTranslation();
   const [usage, setUsage] = useState<ContextUsage | null>(null);
   const [open, setOpen] = useState(false);
@@ -48,13 +38,18 @@ export function ContextRingButton({
     }
   };
 
+  // 无会话时清空用量：渲染期调整（替代 effect 内 setState）
+  const [prevSessionId, setPrevSessionId] = useState(sessionId);
+  if (prevSessionId !== sessionId) {
+    setPrevSessionId(sessionId);
+    if (!sessionId) setUsage(null);
+  }
+
   useEffect(() => {
-    if (!sessionId) {
-      setUsage(null);
-      return;
-    }
+    if (!sessionId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 会话/刷新键变化时异步取用量，setState 在 await 之后
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load 依赖组件闭包（usage 相关状态），挂载与 refreshKey 变化时取数
   }, [sessionId, refreshKey]);
 
   useEffect(() => {
@@ -196,9 +191,7 @@ export function ContextRingButton({
               </div>
               <div className="context-ring-row">
                 <Settings2 size={12} className="context-ring-row-icon" />
-                <span className="context-ring-row-label">
-                  {t("chat.contextTools", "工具")}
-                </span>
+                <span className="context-ring-row-label">{t("chat.contextTools", "工具")}</span>
                 <span>{`~${formatTokens(usage?.breakdown.tools ?? 0)}`}</span>
               </div>
               <div className="context-ring-row">
@@ -231,7 +224,7 @@ export function ContextRingButton({
               </span>
             </Button>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

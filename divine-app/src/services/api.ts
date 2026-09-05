@@ -22,12 +22,8 @@ import i18next from "@/i18n";
 
 export { apiBase };
 
-export function listSessions(
-  projectId?: string
-): Promise<{ sessions: Session[] }> {
-  const query = projectId
-    ? `?project_id=${encodeURIComponent(projectId)}`
-    : "";
+export function listSessions(projectId?: string): Promise<{ sessions: Session[] }> {
+  const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
   return request(`/sessions${query}`);
 }
 
@@ -37,7 +33,7 @@ export interface SearchResult extends Session {
 
 export function searchSessions(
   q: string,
-  projectId?: string
+  projectId?: string,
 ): Promise<{ sessions: SearchResult[] }> {
   const params = new URLSearchParams({ q });
   if (projectId) params.set("project_id", projectId);
@@ -48,7 +44,7 @@ export function createSession(
   title?: string,
   projectId?: string,
   approvalMode?: ApprovalMode,
-  locale?: string
+  locale?: string,
 ): Promise<Session> {
   return request("/sessions", {
     method: "POST",
@@ -61,10 +57,7 @@ export function createSession(
   });
 }
 
-export function updateSessionApprovalMode(
-  id: string,
-  mode: ApprovalMode
-): Promise<Session> {
+export function updateSessionApprovalMode(id: string, mode: ApprovalMode): Promise<Session> {
   return request(`/sessions/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ approval_mode: mode }),
@@ -89,7 +82,7 @@ export function clearSession(id: string): Promise<unknown> {
 /** 保存选项卡片的已选状态（选择后置灰，刷新/重开会话后保持） */
 export function saveMessageChoiceState(
   messageId: string,
-  state: Record<string, unknown>
+  state: Record<string, unknown>,
 ): Promise<{ message: ChatMessage }> {
   return request(`/sessions/messages/${messageId}/choice_state`, {
     method: "POST",
@@ -105,10 +98,7 @@ export function cancelSessionGeneration(id: string): Promise<{ ok: boolean }> {
  * 用户插话（steering）：agent 执行中主动补充信息。
  * 409（无活跃流）等失败会 reject，由调用方降级为常规发送。
  */
-export function injectSupplement(
-  id: string,
-  content: string
-): Promise<{ ok: boolean }> {
+export function injectSupplement(id: string, content: string): Promise<{ ok: boolean }> {
   return request(`/sessions/${id}/inject`, {
     method: "POST",
     body: JSON.stringify({ content }),
@@ -127,7 +117,7 @@ export function compactSession(id: string): Promise<CompactResult> {
 
 export function getSession(
   id: string,
-  options?: { limit?: number; beforeId?: string }
+  options?: { limit?: number; beforeId?: string },
 ): Promise<{
   session: Session;
   messages: Message[];
@@ -137,9 +127,7 @@ export function getSession(
 }> {
   const query = options
     ? `?limit=${options.limit ?? 100}${
-        options.beforeId
-          ? `&before_id=${encodeURIComponent(options.beforeId)}`
-          : ""
+        options.beforeId ? `&before_id=${encodeURIComponent(options.beforeId)}` : ""
       }`
     : "";
   return request(`/sessions/${id}${query}`);
@@ -162,7 +150,7 @@ export function createProject(body: {
 
 export function updateProject(
   id: string,
-  body: { name?: string; icon?: string }
+  body: { name?: string; icon?: string },
 ): Promise<Project> {
   return request(`/projects/${id}`, {
     method: "PATCH",
@@ -181,10 +169,7 @@ export function deleteProject(id: string): Promise<void> {
   return request(`/projects/${id}`, { method: "DELETE" });
 }
 
-export function updateProjectOrder(
-  id: string,
-  sortOrder: number
-): Promise<Project> {
+export function updateProjectOrder(id: string, sortOrder: number): Promise<Project> {
   return request(`/projects/${id}/order`, {
     method: "PATCH",
     body: JSON.stringify({ sort_order: sortOrder }),
@@ -198,26 +183,18 @@ export function pinProject(id: string, pinned: boolean): Promise<Project> {
   });
 }
 
-export function reorderProjects(
-  orders: { id: string; sort_order: number }[]
-): Promise<void> {
+export function reorderProjects(orders: { id: string; sort_order: number }[]): Promise<void> {
   return request("/projects/reorder", {
     method: "POST",
     body: JSON.stringify({ orders }),
   });
 }
 
-export function exportSession(
-  id: string,
-  format: "markdown" | "text" | "pdf",
-  locale?: string
-) {
+export function exportSession(id: string, format: "markdown" | "text" | "pdf", locale?: string) {
   const path = `/sessions/${id}/export?format=${format}&locale=${
     locale ?? i18next.language ?? "zh-CN"
   }`;
-  const base = API_BASE.startsWith("http")
-    ? API_BASE
-    : `${window.location.origin}${API_BASE}`;
+  const base = API_BASE.startsWith("http") ? API_BASE : `${window.location.origin}${API_BASE}`;
   const url = `${base}${path}`;
   if (isTauri()) {
     void openUrl(url);
@@ -300,9 +277,11 @@ export async function fetchDocumentPreview(path: string): Promise<DocumentPrevie
   });
 }
 
-function trimToolResult(result: any): any {
+function trimToolResult<T>(result: T): T {
   if (!result || typeof result !== "object") return result;
-  const copy: any = { ...result };
+  const copy: Record<string, unknown> = {
+    ...(result as Record<string, unknown>),
+  };
   for (const key of ["content", "stdout", "stderr"]) {
     const value = copy[key];
     if (typeof value === "string" && value.length > 4000) {
@@ -314,7 +293,9 @@ function trimToolResult(result: any): any {
   }
   const data = copy.data;
   if (data && typeof data === "object") {
-    const dataCopy: any = { ...data };
+    const dataCopy: Record<string, unknown> = {
+      ...(data as Record<string, unknown>),
+    };
     for (const key of ["content", "stdout", "stderr", "text"]) {
       const value = dataCopy[key];
       if (typeof value === "string" && value.length > 4000) {
@@ -332,7 +313,7 @@ function trimToolResult(result: any): any {
     }
     copy.data = dataCopy;
   }
-  return copy;
+  return copy as T;
 }
 
 /** 解析本地预整理标记部件（type="preprocess"）。 */
@@ -349,14 +330,14 @@ function parsePreprocessPart(parts: Message["parts"]): ChatPreprocess | undefine
 export function messagesToChatMessages(
   messages: Message[],
   toolRuns: ToolRun[] = [],
-  todos?: TodoItem[]
+  todos?: TodoItem[],
 ): ChatMessage[] {
   const chatMessages: ChatMessage[] = [];
   let currentUserIndex = -1;
   const planTodos = todos && todos.length > 0 ? todos : undefined;
   const lastAssistantIndex = messages.reduce(
     (last, message, index) => (message.role === "assistant" ? index : last),
-    -1
+    -1,
   );
   messages.forEach((message, index) => {
     if (
@@ -388,9 +369,7 @@ export function messagesToChatMessages(
           .map((run) => {
             let result;
             try {
-              result = run.output
-                ? trimToolResult(JSON.parse(run.output))
-                : undefined;
+              result = run.output ? trimToolResult(JSON.parse(run.output)) : undefined;
             } catch {
               result = undefined;
             }
@@ -415,7 +394,7 @@ export function messagesToChatMessages(
               started_at: run.started_at,
               duration_ms: run.duration_ms ?? undefined,
             } satisfies ToolEvent;
-          })
+          }),
       );
     }
     chatMessages.push({
@@ -428,10 +407,7 @@ export function messagesToChatMessages(
         planTodos &&
         message.role === "assistant" &&
         index === lastAssistantIndex &&
-        tools.some(
-          (tool) =>
-            tool.tool === "write_todos" || tool.tool === "create_plan"
-        )
+        tools.some((tool) => tool.tool === "write_todos" || tool.tool === "create_plan")
           ? planTodos
           : undefined,
       files: message.parts
@@ -458,10 +434,7 @@ export function messagesToChatMessages(
         })
         // 预整理原文附件（preprocess_original）只服务模型，UI 由
         // preprocess 部件展示可展开原文，避免重复卡片
-        .filter(
-          (file) =>
-            !(file as { preprocess_original?: boolean }).preprocess_original
-        ),
+        .filter((file) => !(file as { preprocess_original?: boolean }).preprocess_original),
       preprocess: parsePreprocessPart(message.parts),
       tools,
       subagents: subagentsFromToolRuns(tools),
@@ -483,16 +456,12 @@ export function subagentsFromToolRuns(tools: ToolEvent[]): SubAgentItem[] {
         results?: SubAgentItem[];
       }
     | undefined;
-  const items =
-    result?.data?.subagents ??
-    result?.subagents ??
-    result?.results ??
-    [];
+  const items = result?.data?.subagents ?? result?.subagents ?? result?.results ?? [];
   if (!Array.isArray(items) || items.length === 0) return [];
   return items
     .filter(
       (item): item is SubAgentItem =>
-        !!item && typeof item.id === "string" && typeof item.name === "string"
+        !!item && typeof item.id === "string" && typeof item.name === "string",
     )
     .map((item) => ({
       id: item.id,

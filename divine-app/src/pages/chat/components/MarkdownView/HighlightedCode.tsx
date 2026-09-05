@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import {
-  CodeToTokenTransformStream,
-  type RecallToken,
-} from "@shikijs/stream";
+import { CodeToTokenTransformStream, type RecallToken } from "@shikijs/stream";
 import type { ThemedToken } from "shiki";
 import { useTheme } from "@/services/theme";
 import { normalizeLanguage } from "./language";
@@ -47,7 +44,7 @@ function flattenLines(lines: ThemedToken[][]): ThemedToken[] {
 function createStreamHandle(
   language: string,
   sink: (token: ThemedToken | RecallToken) => void,
-  theme: "dark" | "light"
+  theme: "dark" | "light",
 ): StreamHandle {
   let source: ReadableStreamDefaultController<string> | null = null;
   let cancelled = false;
@@ -67,7 +64,7 @@ function createStreamHandle(
           lang: language,
           theme: highlightTheme(theme),
           allowRecalls: true,
-        })
+        }),
       );
       await tokenStream
         .pipeTo(
@@ -75,7 +72,7 @@ function createStreamHandle(
             write(token) {
               if (!cancelled) sink(token);
             },
-          })
+          }),
         )
         .catch(() => undefined);
     })
@@ -102,11 +99,7 @@ function createStreamHandle(
   };
 }
 
-export function HighlightedCode({
-  code,
-  language,
-  streaming,
-}: HighlightedCodeProps) {
+export function HighlightedCode({ code, language, streaming }: HighlightedCodeProps) {
   const lang = normalizeLanguage(language);
   const theme = useTheme();
   const [tokens, setTokens] = useState<ThemedToken[]>([]);
@@ -127,30 +120,27 @@ export function HighlightedCode({
     pendingTokensRef.current = [];
   }, []);
 
-  const applyToken = useCallback(
-    (token: ThemedToken | RecallToken) => {
-      pendingTokensRef.current.push(token);
-      if (rafRef.current !== null) return;
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null;
-        const batch = pendingTokensRef.current;
-        if (!batch.length) return;
-        pendingTokensRef.current = [];
-        setTokens((prev) => {
-          const next = prev.slice();
-          for (const item of batch) {
-            if ("recall" in item) {
-              if (item.recall > 0) next.splice(-item.recall, item.recall);
-            } else {
-              next.push(item);
-            }
+  const applyToken = useCallback((token: ThemedToken | RecallToken) => {
+    pendingTokensRef.current.push(token);
+    if (rafRef.current !== null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      const batch = pendingTokensRef.current;
+      if (!batch.length) return;
+      pendingTokensRef.current = [];
+      setTokens((prev) => {
+        const next = prev.slice();
+        for (const item of batch) {
+          if ("recall" in item) {
+            if (item.recall > 0) next.splice(-item.recall, item.recall);
+          } else {
+            next.push(item);
           }
-          return next;
-        });
+        }
+        return next;
       });
-    },
-    []
-  );
+    });
+  }, []);
 
   useEffect(() => {
     pendingCodeRef.current = code;
@@ -169,6 +159,7 @@ export function HighlightedCode({
       handle.cancel();
       streamRef.current = null;
       discardPendingTokens();
+
       setTokens([]);
     };
   }, [lang, streaming, theme, applyToken, discardPendingTokens]);
@@ -197,6 +188,7 @@ export function HighlightedCode({
   useEffect(() => {
     if (streaming) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 取消护栏：整段重高亮前清空旧 token
     setTokens([]);
     void import("./shiki")
       .then(({ getHighlighter, highlightTheme }) => {

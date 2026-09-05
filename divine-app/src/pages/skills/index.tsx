@@ -1,10 +1,4 @@
-import {
-  AlertCircle,
-  PanelLeftOpen,
-  RotateCw,
-  Search,
-  Sparkles,
-} from "lucide-react";
+import { AlertCircle, PanelLeftOpen, RotateCw, Search, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
@@ -13,11 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Flex } from "@/components/ui/Flex";
 import { Input } from "@/components/ui/Input";
 import { toast } from "@/components/ui/Toast";
-import {
-  listSkills,
-  reloadSkills,
-  uninstallSkill,
-} from "@/services/skills";
+import { listSkills, reloadSkills, uninstallSkill } from "@/services/skills";
 import type { InstalledSkill } from "@/types";
 import { SkillCard } from "./components/SkillCard";
 import { SkillDetailModal } from "./components/SkillDetailModal";
@@ -42,8 +32,7 @@ export function SkillsPage({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<InstalledSkill | null>(null);
-  const [uninstallTarget, setUninstallTarget] =
-    useState<InstalledSkill | null>(null);
+  const [uninstallTarget, setUninstallTarget] = useState<InstalledSkill | null>(null);
 
   const refresh = useCallback(
     async (reload = false) => {
@@ -59,7 +48,7 @@ export function SkillsPage({
           setError(
             refreshError instanceof Error
               ? refreshError.message
-              : t("skills.loadFailed", "技能列表加载失败")
+              : t("skills.loadFailed", "技能列表加载失败"),
           );
         } finally {
           const remaining = MIN_REFRESH_MS - (performance.now() - startedAt);
@@ -79,53 +68,45 @@ export function SkillsPage({
         setError(
           refreshError instanceof Error
             ? refreshError.message
-            : t("skills.loadFailed", "技能列表加载失败")
+            : t("skills.loadFailed", "技能列表加载失败"),
         );
       } finally {
         setLoading(false);
       }
     },
-    [t, workspacePath]
+    [t, workspacePath],
   );
 
   const handleUninstall = useCallback(
     async (skill: InstalledSkill) => {
       setUninstallTarget(null);
       try {
-        const data = await uninstallSkill(
-          skill.name,
-          workspacePath ?? undefined
-        );
-        setSkills((prev) =>
-          prev.filter((item) => item.name !== data.name)
-        );
+        const data = await uninstallSkill(skill.name, workspacePath ?? undefined);
+        setSkills((prev) => prev.filter((item) => item.name !== data.name));
         toast.success(
           t("skills.uninstalled", "技能“{{name}}”已卸载", {
             name: skill.name,
-          })
+          }),
         );
       } catch (uninstallError) {
         toast.error(
           uninstallError instanceof Error
             ? uninstallError.message
-            : t("skills.uninstallFailed", "卸载失败")
+            : t("skills.uninstallFailed", "卸载失败"),
         );
       }
     },
-    [t, workspacePath]
+    [t, workspacePath],
   );
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 挂载取数：refresh 为 async，setState 在 await 之后
     void refresh();
   }, [refresh]);
 
   const counts = useMemo(() => {
-    const knowledge = skills.filter(
-      (skill) => skill.type === "knowledge"
-    ).length;
-    const executable = skills.filter(
-      (skill) => skill.type === "executable"
-    ).length;
+    const knowledge = skills.filter((skill) => skill.type === "knowledge").length;
+    const executable = skills.filter((skill) => skill.type === "executable").length;
     return { total: skills.length, knowledge, executable };
   }, [skills]);
 
@@ -177,10 +158,7 @@ export function SkillsPage({
             onClick={() => void refresh(true)}
             aria-busy={refreshing}
           >
-            <RotateCw
-              size={14}
-              className={refreshing ? "skills-refresh-spinning" : undefined}
-            />
+            <RotateCw size={14} className={refreshing ? "skills-refresh-spinning" : undefined} />
             {t("skills.refresh", "刷新")}
           </Button>
         </Flex>
@@ -193,10 +171,9 @@ export function SkillsPage({
         </div>
         <div className="skills-install-tip-body">
           <Trans i18nKey="skills.installTip">
-            将包含 <code>SKILL.md</code> 的目录放入项目{" "}
-            <code>.divine/skills/</code> 或用户 <code>~/.divine/skills/</code>
-            ；也可以直接在对话中给 Agent 一个 GitHub 仓库地址，由 Agent
-            预览并安装。
+            将包含 <code>SKILL.md</code> 的目录放入项目 <code>.divine/skills/</code> 或用户{" "}
+            <code>~/.divine/skills/</code>
+            ；也可以直接在对话中给 Agent 一个 GitHub 仓库地址，由 Agent 预览并安装。
           </Trans>
         </div>
       </div>
@@ -248,9 +225,7 @@ export function SkillsPage({
               role="tab"
               aria-selected={filter === value}
               tabIndex={0}
-              className={`skills-filter-item${
-                filter === value ? " active" : ""
-              }`}
+              className={`skills-filter-item${filter === value ? " active" : ""}`}
               onClick={() => setFilter(value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -293,7 +268,7 @@ export function SkillsPage({
                   ? t("skills.noMatchesHint", "换个关键词或筛选条件试试")
                   : t(
                       "skills.noneInstalledHint",
-                      "安装后的技能会出现在这里，也可以在对话中让 Agent 安装"
+                      "安装后的技能会出现在这里，也可以在对话中让 Agent 安装",
                     )
               }
             />
@@ -301,19 +276,14 @@ export function SkillsPage({
         </div>
       )}
 
-      {selected && (
-        <SkillDetailModal
-          skill={selected}
-          onClose={() => setSelected(null)}
-        />
-      )}
+      {selected && <SkillDetailModal skill={selected} onClose={() => setSelected(null)} />}
       {uninstallTarget && (
         <ConfirmDialog
           title={t("skills.uninstallTitle", "卸载技能")}
           description={t(
             "skills.uninstallConfirm",
             "确定卸载技能“{{name}}”吗？会删除它的技能目录，无法撤销。",
-            { name: uninstallTarget.name }
+            { name: uninstallTarget.name },
           )}
           onConfirm={() => void handleUninstall(uninstallTarget)}
           onCancel={() => setUninstallTarget(null)}

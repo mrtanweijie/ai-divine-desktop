@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
@@ -55,16 +55,18 @@ export function SessionSearchModal({
         // 忽略取消的请求
       }
     },
-    [projectId]
+    [projectId],
   );
 
-  useEffect(() => {
+  // 关闭时清空查询：渲染期调整（React 官方建议，替代 effect 内 setState）
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (!open) {
       setQuery("");
       setResults([]);
-      return;
     }
-  }, [open]);
+  }
 
   const handleChange = useCallback(
     (value: string) => {
@@ -72,19 +74,14 @@ export function SessionSearchModal({
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => doSearch(value), 300);
     },
-    [doSearch]
+    [doSearch],
   );
 
   const isSearching = query.trim().length > 0;
   const displayList = isSearching ? results : sessions;
 
   return (
-    <Modal
-      open={open}
-      title={t("common.searchSessions", "搜索会话")}
-      onClose={onClose}
-      width={560}
-    >
+    <Modal open={open} title={t("common.searchSessions", "搜索会话")} onClose={onClose} width={560}>
       <Input
         autoFocus
         value={query}
@@ -111,9 +108,7 @@ export function SessionSearchModal({
               key={s.id}
               role="button"
               tabIndex={0}
-              className={`session-search-result${
-                s.id === selectedId ? " active" : ""
-              }`}
+              className={`session-search-result${s.id === selectedId ? " active" : ""}`}
               onClick={() => {
                 onSelect(s.id);
                 onClose();
@@ -131,9 +126,7 @@ export function SessionSearchModal({
                 {subtitle && (
                   <span
                     className="session-search-subtitle"
-                    dangerouslySetInnerHTML={
-                      isSearching ? { __html: subtitle } : undefined
-                    }
+                    dangerouslySetInnerHTML={isSearching ? { __html: subtitle } : undefined}
                   >
                     {!isSearching ? subtitle : undefined}
                   </span>

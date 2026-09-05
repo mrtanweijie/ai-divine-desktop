@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ChevronLeft,
@@ -55,13 +55,14 @@ export function ChatHeaderInner({
 }: ChatHeaderProps) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(
-    session?.title ?? t("session.newChat", "新对话")
-  );
+  const [title, setTitle] = useState(session?.title ?? t("session.newChat", "新对话"));
 
-  useEffect(() => {
+  // 会话标题变化时同步本地编辑态：渲染期调整（替代 effect 内 setState）
+  const [prevTitle, setPrevTitle] = useState(session?.title);
+  if (prevTitle !== session?.title) {
+    setPrevTitle(session?.title);
     setTitle(session?.title ?? t("session.newChat", "新对话"));
-  }, [session?.title, t]);
+  }
 
   const commitTitle = () => {
     if (session && title.trim()) {
@@ -138,7 +139,7 @@ export function ChatHeaderInner({
                 input: formatTokens(tokenUsage.input_tokens),
                 output: formatTokens(tokenUsage.output_tokens),
                 turns: tokenUsage.turns,
-              }
+              },
             )}
           >
             <span className="chat-header-token-usage">

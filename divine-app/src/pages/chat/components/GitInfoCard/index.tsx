@@ -1,13 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  GitBranch,
-  GitCommitHorizontal,
-  ArrowUp,
-  ArrowDown,
-  Cloud,
-  Package,
-} from "lucide-react";
+import { GitBranch, GitCommitHorizontal, ArrowUp, ArrowDown, Cloud, Package } from "lucide-react";
 import type { PreviewFile } from "@/types";
 import { type GitInfo, getGitInfo } from "../../../../services/api";
 import "./index.less";
@@ -38,6 +31,7 @@ function GitInfoCardContent({
 
   useEffect(() => {
     if (!projectPath) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 取消护栏：无项目时同步清空旧状态
       setGit(null);
       setLoading(false);
       return;
@@ -101,12 +95,8 @@ function GitInfoCardContent({
       {git.last_commit && (
         <div className="git-info-row git-info-commit">
           <GitCommitHorizontal size={13} />
-          <span className="git-info-commit-msg">
-            {git.last_commit.message}
-          </span>
-          <span className="git-info-commit-time">
-            {git.last_commit.relative_time}
-          </span>
+          <span className="git-info-commit-msg">{git.last_commit.message}</span>
+          <span className="git-info-commit-time">{git.last_commit.relative_time}</span>
         </div>
       )}
 
@@ -122,9 +112,7 @@ function GitInfoCardContent({
       {git.stash_count > 0 && (
         <div className="git-info-row git-info-stash">
           <Package size={13} />
-          <span>
-            Stash: {git.stash_count}
-          </span>
+          <span>Stash: {git.stash_count}</span>
         </div>
       )}
 
@@ -161,20 +149,14 @@ function GitInfoCardContent({
               </div>
             ))}
             {git.files.length > MAX_FILES_SHOWN && (
-              <div className="git-info-files-more">
-                +{git.files.length - MAX_FILES_SHOWN} more
-              </div>
+              <div className="git-info-files-more">+{git.files.length - MAX_FILES_SHOWN} more</div>
             )}
           </div>
         </>
       )}
 
       {/* 无变更 */}
-      {!git.dirty && (
-        <div className="git-info-row git-info-clean">
-          Working tree clean
-        </div>
-      )}
+      {!git.dirty && <div className="git-info-row git-info-clean">Working tree clean</div>}
     </div>
   );
 }
@@ -251,7 +233,7 @@ export const GitInfoCard = memo(function GitInfoCard({
               onFileClick={() => setOpen(false)}
             />
           </div>,
-          document.body
+          document.body,
         )}
     </>
   );

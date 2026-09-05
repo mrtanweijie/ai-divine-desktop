@@ -1,37 +1,14 @@
 import { useEffect, useState } from "react";
-import {
-  AudioWaveform,
-  Blocks,
-  Cpu,
-  Info,
-  Save,
-  Settings2,
-  X,
-} from "lucide-react";
+import { AudioWaveform, Blocks, Cpu, Info, Save, Settings2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
-import type {
-  ModelConfig,
-  Settings,
-  SettingsSaveBody,
-} from "@/types";
-import {
-  readLocalePreference,
-  setLocale,
-  type AppLocale,
-} from "@/i18n";
+import type { ModelConfig, Settings, SettingsSaveBody } from "@/types";
+import { readLocalePreference, setLocale, type AppLocale } from "@/i18n";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import {
-  getAppVersion,
-  isTauri,
-  setGlobalShortcutEnabled,
-} from "@/services/tauri";
+import { getAppVersion, isTauri, setGlobalShortcutEnabled } from "@/services/tauri";
 import { setSettingsOpen } from "@/services/updater";
-import {
-  useThemePreference,
-  type ThemePreference,
-} from "@/services/theme";
+import { useThemePreference, type ThemePreference } from "@/services/theme";
 import { AboutSection } from "./AboutSection";
 import { BasicSection } from "./BasicSection";
 import { McpSection } from "./McpSection";
@@ -85,27 +62,27 @@ export function SettingsModal({
 }: SettingsModalProps) {
   const { t } = useTranslation();
   const [locale, setLocaleState] = useState<AppLocale>(readLocalePreference);
-  const [models, setModels] = useState<ModelConfig[]>(() =>
-    modelsFromSettings(settings)
-  );
+  const [models, setModels] = useState<ModelConfig[]>(() => modelsFromSettings(settings));
   const [modelKeys, setModelKeys] = useState<Record<string, string>>({});
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [glmApiKey, setGlmApiKey] = useState("");
   const [username, setUsername] = useState(settings.username);
   const [effort, setEffort] = useState(
-    settings.think_default ? settings.reasoning_effort ?? "high" : "off"
+    settings.think_default ? (settings.reasoning_effort ?? "high") : "off",
   );
   const [contextLimit, setContextLimit] = useState(settings.context_limit);
   const [showGlmKey, setShowGlmKey] = useState(false);
   const [version, setVersion] = useState(`v${tauriConfig.version}`);
   const [themePreference, setThemePreferenceState] = useThemePreference();
-  const [section, setSection] = useState<"basic" | "model" | "mcp" | "local" | "about">(initialSection);
+  const [section, setSection] = useState<"basic" | "model" | "mcp" | "local" | "about">(
+    initialSection,
+  );
   const [localLLMEnabled, setLocalLLMEnabled] = useState(settings.local_llm_enabled ?? false);
   const [localLLMMode, setLocalLLMMode] = useState<"keyword" | "local" | "hybrid">(
-    settings.local_llm_mode ?? "keyword"
+    settings.local_llm_mode ?? "keyword",
   );
   const [globalShortcutEnabled, setGlobalShortcutEnabledState] = useState(
-    settings.global_shortcut_enabled !== false
+    settings.global_shortcut_enabled !== false,
   );
 
   useEffect(() => {
@@ -114,13 +91,12 @@ export function SettingsModal({
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- settings 更新后镜像到本地表单态（多字段派生同步）
     setModels(modelsFromSettings(settings));
     setModelKeys({});
     setShowKeys({});
     setUsername(settings.username);
-    setEffort(
-      settings.think_default ? settings.reasoning_effort ?? "high" : "off"
-    );
+    setEffort(settings.think_default ? (settings.reasoning_effort ?? "high") : "off");
     setContextLimit(settings.context_limit);
     setLocalLLMEnabled(settings.local_llm_enabled ?? false);
     setLocalLLMMode(settings.local_llm_mode ?? "keyword");
@@ -225,9 +201,9 @@ export function SettingsModal({
           <X size={16} />
         </Button>
       }
-        footer={
-          // 意图 tab 的操作（模式切换/模型启停）即时生效，无需底部保存按钮
-          section !== "about" && section !== "local" && section !== "mcp" ? (
+      footer={
+        // 意图 tab 的操作（模式切换/模型启停）即时生效，无需底部保存按钮
+        section !== "about" && section !== "local" && section !== "mcp" ? (
           <>
             <Button variant="secondary" onClick={onClose}>
               {t("common.cancel", "取消")}
@@ -246,9 +222,7 @@ export function SettingsModal({
             role="tab"
             aria-selected={section === "basic"}
             tabIndex={0}
-            className={`settings-nav-item${
-              section === "basic" ? " active" : ""
-            }`}
+            className={`settings-nav-item${section === "basic" ? " active" : ""}`}
             onClick={() => setSection("basic")}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -264,9 +238,7 @@ export function SettingsModal({
             role="tab"
             aria-selected={section === "model"}
             tabIndex={0}
-            className={`settings-nav-item${
-              section === "model" ? " active" : ""
-            }`}
+            className={`settings-nav-item${section === "model" ? " active" : ""}`}
             onClick={() => setSection("model")}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -282,9 +254,7 @@ export function SettingsModal({
             role="tab"
             aria-selected={section === "mcp"}
             tabIndex={0}
-            className={`settings-nav-item${
-              section === "mcp" ? " active" : ""
-            }`}
+            className={`settings-nav-item${section === "mcp" ? " active" : ""}`}
             onClick={() => setSection("mcp")}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -300,9 +270,7 @@ export function SettingsModal({
             role="tab"
             aria-selected={section === "local"}
             tabIndex={0}
-            className={`settings-nav-item${
-              section === "local" ? " active" : ""
-            }`}
+            className={`settings-nav-item${section === "local" ? " active" : ""}`}
             onClick={() => setSection("local")}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -318,9 +286,7 @@ export function SettingsModal({
             role="tab"
             aria-selected={section === "about"}
             tabIndex={0}
-            className={`settings-nav-item${
-              section === "about" ? " active" : ""
-            }`}
+            className={`settings-nav-item${section === "about" ? " active" : ""}`}
             onClick={() => setSection("about")}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -337,9 +303,7 @@ export function SettingsModal({
           {section === "basic" ? (
             <BasicSection
               themePreference={themePreference}
-              onThemeChange={(value: ThemePreference) =>
-                setThemePreferenceState(value)
-              }
+              onThemeChange={(value: ThemePreference) => setThemePreferenceState(value)}
               locale={locale}
               onLocaleChange={(value) => {
                 setLocaleState(value);
@@ -359,13 +323,9 @@ export function SettingsModal({
               models={models}
               onModelsChange={setModels}
               modelKeys={modelKeys}
-              onModelKeyChange={(id, value) =>
-                setModelKeys((prev) => ({ ...prev, [id]: value }))
-              }
+              onModelKeyChange={(id, value) => setModelKeys((prev) => ({ ...prev, [id]: value }))}
               showKeys={showKeys}
-              onToggleShowKey={(id) =>
-                setShowKeys((prev) => ({ ...prev, [id]: !prev[id] }))
-              }
+              onToggleShowKey={(id) => setShowKeys((prev) => ({ ...prev, [id]: !prev[id] }))}
               glmApiKey={glmApiKey}
               onGlmApiKeyChange={setGlmApiKey}
               showGlmKey={showGlmKey}

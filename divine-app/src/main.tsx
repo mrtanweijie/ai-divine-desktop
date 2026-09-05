@@ -13,9 +13,7 @@ if (import.meta.env.VITE_DISABLE_CONTEXT_MENU === "true") {
     const target = event.target;
     if (
       target instanceof HTMLElement &&
-      (target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable)
+      (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
     ) {
       return;
     }
@@ -23,8 +21,11 @@ if (import.meta.env.VITE_DISABLE_CONTEXT_MENU === "true") {
   });
 }
 
-createRoot(document.getElementById("root")!).render(
+const rootElement = document.getElementById("root");
+if (!rootElement) throw new Error("找不到 #root 挂载点");
+
+createRoot(rootElement).render(
   <StrictMode>
     <RouterProvider router={router} />
-  </StrictMode>
+  </StrictMode>,
 );

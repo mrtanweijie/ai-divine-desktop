@@ -75,19 +75,15 @@ export function ConversationMinimap({
   }, [messages, virtualizer]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 从派生条目回收已消失的选中 id（外部状态同步，函数式更新自带守卫）
     setSelectedId((current) =>
-      current && entries.some((entry) => entry.id === current)
-        ? current
-        : null
+      current && entries.some((entry) => entry.id === current) ? current : null,
     );
   }, [entries]);
 
   const positionedEntries = useMemo(() => {
     const usableHeight = Math.max(railHeight - 16, 0);
-    const gap = Math.min(
-      8,
-      usableHeight / Math.max(entries.length - 1, 1)
-    );
+    const gap = Math.min(8, usableHeight / Math.max(entries.length - 1, 1));
     const totalSpan = Math.max(entries.length - 1, 0) * gap;
     const start = 8 + Math.max(0, (usableHeight - totalSpan) / 2);
     return entries.map((entry, index) => ({
@@ -113,8 +109,7 @@ export function ConversationMinimap({
   const hoveredIndex = hoveredId
     ? positionedEntries.findIndex((entry) => entry.id === hoveredId)
     : -1;
-  const hoveredEntry =
-    positionedEntries.find((entry) => entry.id === hoveredId) ?? null;
+  const hoveredEntry = positionedEntries.find((entry) => entry.id === hoveredId) ?? null;
   const previewTop = Math.max(8, Math.round((railHeight - 150) / 2));
 
   if (entries.length === 0) return null;
@@ -124,8 +119,8 @@ export function ConversationMinimap({
           24,
           Math.min(
             (entries.length - 1) * 10 + 18,
-            viewportHeight || (entries.length - 1) * 10 + 18
-          )
+            viewportHeight || (entries.length - 1) * 10 + 18,
+          ),
         )
       : undefined;
 
@@ -183,14 +178,11 @@ export function ConversationMinimap({
         const hovered = entry.id === hoveredId;
         const selected = entry.id === selectedId;
         const active = !selectedId && activeEntry?.id === entry.id;
-        const waveDistance =
-          hoveredIndex >= 0 ? Math.abs(index - hoveredIndex) : -1;
+        const waveDistance = hoveredIndex >= 0 ? Math.abs(index - hoveredIndex) : -1;
         return (
           <span
             key={entry.id}
-            className={`minimap-marker${active ? " active" : ""}${
-              selected ? " selected" : ""
-            }${
+            className={`minimap-marker${active ? " active" : ""}${selected ? " selected" : ""}${
               hovered ? " hovered" : ""
             }${waveDistance >= 1 && waveDistance <= 3 ? ` wave-${waveDistance}` : ""}${
               entry.streaming ? " streaming" : ""
@@ -216,10 +208,7 @@ export function ConversationMinimap({
               </span>
             )}
             <div className="minimap-preview-markdown">
-              <MarkdownView
-                content={hoveredEntry.content}
-                streaming={false}
-              />
+              <MarkdownView content={hoveredEntry.content} streaming={false} />
             </div>
           </div>
         </div>

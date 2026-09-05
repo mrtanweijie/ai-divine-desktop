@@ -1,16 +1,9 @@
 // Session loading / pagination / changed-file tracking logic extracted
 // from pages/chat/index.tsx to keep ChatPage focused on composition.
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  getSession,
-  listSessions,
-  messagesToChatMessages,
-} from "@/services/api";
+import { getSession, listSessions, messagesToChatMessages } from "@/services/api";
 import { storageGetRaw } from "@/services/storage";
-import {
-  changedFilePathsFromResult,
-  changedFileRel,
-} from "@/pages/chat/chatUtils";
+import { changedFilePathsFromResult, changedFileRel } from "@/pages/chat/chatUtils";
 import type { ApprovalMode, ChatMessage, Project, Session } from "@/types";
 
 interface SessionLoaderDeps {
@@ -20,7 +13,7 @@ interface SessionLoaderDeps {
   setSessions: (sessions: Session[]) => void;
   setSessionMessages: (
     sessionId: string | null,
-    messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])
+    messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[]),
   ) => void;
   getCachedSessionMessages: (sessionId: string | null) => ChatMessage[] | undefined;
   setApprovalMode: (mode: ApprovalMode) => void;
@@ -46,16 +39,14 @@ export function useSessionLoader({
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
   const [oldestMessageId, setOldestMessageId] = useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const [agentChangedFiles, setAgentChangedFiles] = useState<Set<string>>(
-    new Set()
-  );
+  const [agentChangedFiles, setAgentChangedFiles] = useState<Set<string>>(new Set());
   // 会话切换序号：快速连点时丢弃过期的 loadSession fetch 结果
   const loadSessionSeqRef = useRef(0);
   const projectPathsRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     projectPathsRef.current = Object.fromEntries(
-      projects.map((project) => [project.id, project.path])
+      projects.map((project) => [project.id, project.path]),
     );
   }, [projects]);
 
@@ -67,7 +58,7 @@ export function useSessionLoader({
         ? data.sessions.filter((session) => session.project_id === projectId)
         : data.sessions;
     },
-    [setSessions]
+    [setSessions],
   );
 
   const loadSession = useCallback(
@@ -80,9 +71,7 @@ export function useSessionLoader({
       if (hasCache) {
         setSelectedId(id);
       }
-      let savedExpanded = false;
-      savedExpanded =
-        storageGetRaw(`divine:workspace-expanded:${id}`) === "1";
+      const savedExpanded = storageGetRaw(`divine:workspace-expanded:${id}`) === "1";
       setWorkspaceExpanded(savedExpanded);
       setWorkspaceExpandedLayout(savedExpanded);
 
@@ -94,30 +83,23 @@ export function useSessionLoader({
       if (!hasCache) {
         setSessionMessages(
           id,
-          messagesToChatMessages(
-            data.messages,
-            data.tool_runs ?? [],
-            data.todos
-          )
+          messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos),
         );
         setSelectedId(id);
       } else {
         // 有缓存：保留缓存消息（含流式），但把 API 返回的 choice_state 合并进去，
         // 使选项卡片的已选状态（DB 持久化）在刷新/重开会话后仍能恢复。
         const fresh = new Map(
-          messagesToChatMessages(
-            data.messages,
-            data.tool_runs ?? [],
-            data.todos
-          ).map((m) => [m.id, m])
+          messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos).map((m) => [
+            m.id,
+            m,
+          ]),
         );
         setSessionMessages(id, (prev) =>
           (prev || []).map((m) => {
             const apiMsg = fresh.get(m.id);
-            return apiMsg?.choice_state
-              ? { ...m, choice_state: apiMsg.choice_state }
-              : m;
-          })
+            return apiMsg?.choice_state ? { ...m, choice_state: apiMsg.choice_state } : m;
+          }),
         );
       }
       setHasMoreOlder(Boolean(data.has_more));
@@ -132,7 +114,7 @@ export function useSessionLoader({
       setSessionMessages,
       setWorkspaceExpanded,
       setWorkspaceExpandedLayout,
-    ]
+    ],
   );
 
   const loadOlderMessages = useCallback(async () => {
@@ -145,11 +127,7 @@ export function useSessionLoader({
         limit: 80,
         beforeId: oldestMessageId,
       });
-      const older = messagesToChatMessages(
-        data.messages,
-        data.tool_runs ?? [],
-        data.todos
-      );
+      const older = messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos);
       setSessionMessages(selectedId, (prev) => [...older, ...prev]);
       setHasMoreOlder(Boolean(data.has_more));
       if (data.messages.length > 0) {
@@ -196,6 +174,7 @@ export function useSessionLoader({
   // 工作区面板打开且会话就绪时，重算该会话的变更文件集合。
   useEffect(() => {
     if (!workspacePanelOpen || !selectedId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 面板打开/会话就绪时异步取变更文件，setState 在 await 之后
     void loadChangedFiles(selectedId);
   }, [loadChangedFiles, selectedId, workspacePanelOpen]);
 
