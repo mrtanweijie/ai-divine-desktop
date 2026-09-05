@@ -1,11 +1,16 @@
-"""Kami resume renderer with warm and pure-white variants."""
+"""Kami 内容向版式（原 renderers/kami.py 迁入，暖色/纯白共用同一 HTML）。"""
 
 from __future__ import annotations
 
-from ..models import ResumeData
-from .helpers import _esc, _format_resume_line, _highlight_numbers, _split_value_unit
+from .helpers import (
+    _esc,
+    _format_resume_line,
+    _highlight_numbers,
+    _split_value_unit,
+)
 
-def _render_kami_original(resume: ResumeData, *, parchment: bool = True) -> str:
+
+def kami_resume_html(resume) -> str:
     """Kami 视觉 + 内容向简历版式：专业技能 / 工作经历 / 教育背景 / 个人亮点。"""
     c = resume.contact
     role_parts = []
@@ -295,9 +300,3 @@ def _render_kami_original(resume: ResumeData, *, parchment: bool = True) -> str:
             order.append(key)
     body_html = "".join(section_map[key] for key in order if section_map[key])
     return f"{header_html}\n{metrics_html}\n{body_html}"
-
-def _render_kami(resume: ResumeData) -> str:
-    return _render_kami_original(resume, parchment=True)
-
-def _render_kami_white(resume: ResumeData) -> str:
-    return _render_kami_original(resume, parchment=False)

@@ -289,19 +289,20 @@ sections（可选，板块顺序）；metrics 始终显示在头部下方，不�
 整理完成后再调用 pdf_generate，传 kind=resume 和 resume_data；
 字段结构只是规范示例，内容必须根据用户实际信息生成，不要套用示例简历内容；
 用户信息不足时简单询问姓名、目标岗位、工作经历、技能即可。
-简历默认走 12 套精品模板库（theme 传 tpl_*），按用户职业/场景选一套：
+简历统一使用 19 套模板库（pdf_generate 与 html_resume 的 template/theme 同一套），按用户职业/场景选一套：
 应届生/校招/秋招 → tpl_freshgrad；CXO/高管/总监/事业部负责人 → tpl_executive；
 产品经理 → tpl_product；数据/算法/分析师 → tpl_data；
 设计师/品牌/视觉/作品集 → tpl_creative；转行/转型/跨行 → tpl_lateral；
 市场/运营/销售/职能岗（信息量大）→ tpl_compact（注意双栏对 ATS 有风险，优先内推直投）；
-金融/咨询/法律/财会 → tpl_professional；互联网/科技公司通用/前端全栈 → tpl_modern；
+金融/咨询/财会/四大 → tpl_professional；互联网/科技公司通用/前端全栈 → tpl_modern；
 资深工程师/架构师/技术管理（极简 ATS 最优）→ tpl_minimal；
 高校教职/科研/博士后（有论文列表）→ tpl_academic；
 外企/出海/国际组织/中英双语 → tpl_global（整理 resume_data 时补充英文字段：
 en_name、en_title、en_summary、work[].en_company/en_title/en_points）；
-用户点名"简历模板/模板库/挑模板"时也按上表推荐；用户指定的其他主题词
-（boss_zhipin/kami/linkedin/finance 等 8 个旧主题）仍然支持，原样传 theme；
-用户未说明职业或场景且难以判断时，先问一句目标岗位再选模板。
+招聘平台/ATS/海投 → boss_zhipin；银行/投行/证券/基金 → finance；
+LinkedIn/领英投递 → linkedin；内容向两页简历/排版优化 → kami（打印零风险用 kami_white）；
+留白单栏（咨询/法律）→ minimal；创意卡片风 → creative。
+用户明确点名某个模板名时按其选择；用户未说明职业或场景且难以判断时，先问一句目标岗位再选模板。
 简历输出按用户要的形态选工具，各工具职责单一：
 PDF 版用 pdf_generate（kind=resume + resume_data，仅输出 PDF）；
 可编辑 HTML 版用 html_resume（resume_data + template，产出可编辑 HTML + 纯净投递版，

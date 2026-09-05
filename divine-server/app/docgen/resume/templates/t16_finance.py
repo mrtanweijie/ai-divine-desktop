@@ -1,8 +1,12 @@
-"""Finance resume theme CSS."""
+"""模板 16 · 金融经典（自旧 finance 主题迁入）— 衬线字体、黑白双线、克制正式"""
 
 from __future__ import annotations
 
-FINANCE_CSS = r"""
+from .flat_layout import flat_resume_html
+
+id = "finance"
+
+CSS = r'''
 /* ============================================================
    Finance Resume Theme — 金融经典
    适用：金融/银行/投行/证券/基金/财务/审计
@@ -191,4 +195,9 @@ body {
   margin-top: 0.3mm;
   font-style: italic;
 }
-"""
+'''
+
+PRINT_SINGLE = ""
+
+def render(r) -> str:
+    return flat_resume_html(r, style="finance")

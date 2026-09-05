@@ -1,28 +1,30 @@
-"""Creative resume theme CSS."""
+"""模板 13 · 现代创意紫橙（自旧 creative 主题迁入）— 顶部渐变 Header + 卡片双栏。"""
 
 from __future__ import annotations
 
-CREATIVE_CSS = r"""
-/* ============================================================
-   Creative Resume Theme — 现代创意紫橙
-   适用：设计/互联网/创业公司/海外求职
-   特点：顶部色块 Header + 卡片式布局 + 渐变点缀
-   ============================================================ */
+from .helpers import _esc, bold_resume_line
 
-@page {
-  size: A4;
-  margin: 0;
+id = "creative"
+
+CSS = """:root{
+  --sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Inter","Helvetica Neue",Arial,sans-serif;
+  --ink:#1e1e2e; --line:#dfdcd4;
+  --brand:#7c3aed; --brand-soft:#e3f2ed;
 }
-
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--sans);
   font-size: 9.5pt;
   line-height: 1.65;
   color: #1e1e2e;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
+}
+
+@page {
+  size: A4;
+  margin: 0;
 }
 
 /* ===== Header 顶部色块 ===== */
@@ -212,11 +214,6 @@ body {
   padding: 10pt 12pt;
   margin-bottom: 10pt;
   page-break-inside: avoid;
-  transition: none;
-}
-
-.project-card:hover {
-  border-color: #a855f7;
 }
 
 .project-card .name {
@@ -281,3 +278,99 @@ body {
   margin-top: 2pt;
 }
 """
+
+PRINT_SINGLE = ""
+
+
+def render(r) -> str:
+    c = r.contact
+
+    contact_items = []
+    if c.email:
+        contact_items.append(f'<span>✉ {_esc(c.email)}</span>')
+    if c.phone:
+        contact_items.append(f'<span>☎ {_esc(c.phone)}</span>')
+    if c.location or c.city or c.address:
+        location = c.location or c.city or c.address
+        contact_items.append(f'<span>⌂ {_esc(location)}</span>')
+    if c.wechat:
+        contact_items.append(f'<span>◈ {_esc(c.wechat)}</span>')
+    if c.github:
+        contact_items.append(f'<span>⎇ {_esc(c.github)}</span>')
+    if c.linkedin:
+        contact_items.append(f'<span>in {_esc(c.linkedin)}</span>')
+    contact_html = "\n".join(contact_items)
+
+    # 左栏：经历卡片
+    exp_html = ""
+    for e in r.experiences:
+        highlights = "".join(f"<li>{bold_resume_line(h)}</li>" for h in e.highlights)
+        desc = bold_resume_line(e.description).replace("\n", "<br>") if e.description else ""
+        exp_html += f"""
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">{_esc(e.title)}</span>
+            <span class="card-period">{_esc(e.period)}</span>
+          </div>
+          <div class="card-subtitle">{_esc(e.company)}</div>
+          <div class="card-body">{desc}{f'<ul>{highlights}</ul>' if highlights else ''}</div>
+        </div>"""
+
+    # 左栏：项目卡片
+    proj_html = ""
+    for p in r.projects:
+        highlights = "".join(f"<li>{bold_resume_line(h)}</li>" for h in p.highlights)
+        proj_html += f"""
+        <div class="project-card">
+          <div class="name">{_esc(p.name)}{f' · {_esc(p.role)}' if p.role else ''}</div>
+          <div class="desc">{bold_resume_line(p.description)}</div>
+          {f'<div class="project-highlights"><ul>{highlights}</ul></div>' if highlights else ''}
+        </div>"""
+
+    # 右栏：技能分组；"分类|内容" 行拆为 分组标题 + 正文，不再渲染编造的百分比
+    from .helpers import skill_pairs_and_plain
+
+    pairs, plain = skill_pairs_and_plain(r)
+    skills_html = ""
+    for label, body in pairs:
+        skills_html += f"""
+        <div class="skill-group">
+          <h4>{_esc(label)}</h4>
+          <div class="skill-body">{bold_resume_line(body)}</div>
+        </div>"""
+    if plain:
+        tags = "".join(f'<span class="skill-tag">{_esc(s)}</span>' for s in plain)
+        skills_html += f"""<div class="skill-group"><div class="skill-tags">{tags}</div></div>"""
+
+    # 右栏：教育
+    edu_html = ""
+    for e in r.education:
+        edu_html += f"""
+        <div class="edu-card">
+          <div class="degree">{_esc(e.degree)}</div>
+          <div class="school">{_esc(e.school)}</div>
+          <div class="meta">{_esc(e.period)}{f' · {_esc(e.description)}' if e.description else ''}</div>
+        </div>"""
+
+    summary_html = f'<div class="summary">{bold_resume_line(r.summary)}</div>' if r.summary else ""
+
+    return f"""
+    <div class="header">
+      <div class="name">{_esc(r.name)}</div>
+      <div class="subtitle">{_esc(r.title)}</div>
+      <div class="contact-row">{contact_html}</div>
+    </div>
+    <div class="body">
+      {('<div class="section">' + summary_html + '</div>') if summary_html else ''}
+      <div class="two-col">
+        <div class="col-left">
+          {('<div class="section"><h2>工作经历</h2>' + exp_html + '</div>') if exp_html else ''}
+          {('<div class="section"><h2>项目</h2>' + proj_html + '</div>') if proj_html else ''}
+        </div>
+        <div class="col-right">
+          {('<div class="section"><h2>技能</h2>' + skills_html + '</div>') if skills_html else ''}
+          {('<div class="section"><h2>教育</h2>' + edu_html + '</div>') if edu_html else ''}
+        </div>
+      </div>
+    </div>
+    """

@@ -13,6 +13,7 @@ try:
         exp_meta,
         item_hd,
         page_foot,
+        skill_kv_pairs,
     )
 except ImportError:  # 兼容脚本直接运行
     from components import (  # type: ignore
@@ -25,6 +26,7 @@ except ImportError:  # 兼容脚本直接运行
         exp_meta,
         item_hd,
         page_foot,
+        skill_kv_pairs,
     )
 
 id = "tpl_creative"
@@ -163,20 +165,21 @@ def render(r) -> str:
                 + "</div>"
             )
 
-    if r.skill_groups:
+    pairs, plain = skill_kv_pairs(r)
+    if pairs or plain:
         parts.append(_h2("Capabilities"))
         groups = []
-        for name, values in r.skill_groups.items():
-            body_html = "<br>".join(_esc(v) for v in values)
+        for name, body in pairs:
             groups.append(
                 '<div class="g" contenteditable="true">'
-                f'<div class="h">{_esc(name)}</div><div class="v">{body_html}</div></div>'
+                f'<div class="h">{_esc(name)}</div><div class="v">{bold_numbers(body)}</div></div>'
+            )
+        if plain:
+            body_html = "<br>".join(_esc(s) for s in plain)
+            groups.append(
+                f'<div class="g" contenteditable="true"><div class="h">SKILLS</div><div class="v">{body_html}</div></div>'
             )
         parts.append(f'<div class="skills" contenteditable="true">{"".join(groups)}</div>')
-    elif r.skills:
-        parts.append(_h2("Capabilities"))
-        body_html = "<br>".join(_esc(s.name) for s in r.skills)
-        parts.append(f'<div class="skills"><div class="g" contenteditable="true"><div class="h">SKILLS</div><div class="v">{body_html}</div></div></div>')
 
     if r.education or r.honors:
         parts.append(_h2("Education & Awards"))

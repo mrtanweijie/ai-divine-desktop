@@ -1,11 +1,12 @@
-"""
-Kami 真实简历模板 CSS
-- 暖色 parchment 原版：背景 #f5f4ed，墨蓝 #1B365D
-- 纯白投递版：背景 #ffffff，分隔线加深一档
-版式：4 个数字卡片 + 3 步时间线 + 项目三段式 + 5 技能 + 2 页
-"""
+"""模板 18 · Kami 暖色（自旧 kami 主题迁入）— 暖色纸感底、数字卡片、项目三段式"""
 
-_KAMI_CSS_TEMPLATE = r"""
+from __future__ import annotations
+
+from .kami_layout import kami_resume_html
+
+id = "kami"
+
+CSS = r'''
 /* ============================================================
    Kami Resume Theme
    暖色纸感底 #f5f4ed / 墨蓝 #1B365D / 衬线承担层级
@@ -14,16 +15,16 @@ _KAMI_CSS_TEMPLATE = r"""
 @page {
   size: A4;
   margin: 11mm 13mm 11mm 13mm;
-  background: __BG__;
+  background: #f5f4ed;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --parchment: __BG__;
-  --ivory: __IVORY__;
-  --border: __BORDER__;
-  --border-soft: __BORDER_SOFT__;
+  --parchment: #f5f4ed;
+  --ivory: #faf9f5;
+  --border: #e8e6dc;
+  --border-soft: #e5e3d8;
   --near-black: #141413;
   --dark-warm: #3d3d3a;
   --olive: #504e49;
@@ -467,26 +468,9 @@ section:first-of-type .section-title { margin-top: 0; }
   line-height: 1.4;
   flex: 1;
 }
-"""
+'''
 
+PRINT_SINGLE = ""
 
-def _kami_css(*, parchment: bool) -> str:
-    if parchment:
-        return (
-            _KAMI_CSS_TEMPLATE
-            .replace("__BG__", "#f5f4ed")
-            .replace("__IVORY__", "#faf9f5")
-            .replace("__BORDER__", "#e8e6dc")
-            .replace("__BORDER_SOFT__", "#e5e3d8")
-        )
-    return (
-        _KAMI_CSS_TEMPLATE
-        .replace("__BG__", "#ffffff")
-        .replace("__IVORY__", "#ffffff")
-        .replace("__BORDER__", "#dcd9cd")
-        .replace("__BORDER_SOFT__", "#d8d5c9")
-    )
-
-
-KAMI_CSS = _kami_css(parchment=True)
-KAMI_WHITE_CSS = _kami_css(parchment=False)
+def render(r) -> str:
+    return kami_resume_html(r)

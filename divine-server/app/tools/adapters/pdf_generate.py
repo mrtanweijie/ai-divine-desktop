@@ -38,8 +38,8 @@ from ..registry import register_tool
             },
             "theme": {
                 "type": "string",
-                "enum": ["universal", "resume", "professional", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "kami", "kami_white", "modern", "academic", "travel", "travel_mag", "roadmap", "notion", "linear", "apple", "tpl_professional", "tpl_modern", "tpl_minimal", "tpl_academic", "tpl_executive", "tpl_creative", "tpl_product", "tpl_data", "tpl_freshgrad", "tpl_lateral", "tpl_compact", "tpl_global"],
-                "description": "主题 ID，优先于 style；tpl_* 为 12 套精品简历模板库（tpl_professional 金融咨询经典/tpl_modern 互联网科技/tpl_minimal 资深工程师极简/tpl_academic 学术科研/tpl_executive 高管/tpl_creative 设计师作品/tpl_product 产品经理/tpl_data 数据算法/tpl_freshgrad 应届校招/tpl_lateral 跨界转型/tpl_compact 市场运营双栏/tpl_global 中英双语），简历场景推荐优先使用；不传时系统按 prompt 场景自动选择（travel_mag 为杂志版旅行手册）",
+                "enum": ["universal", "resume", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "kami", "kami_white", "modern", "academic", "travel", "travel_mag", "roadmap", "notion", "linear", "apple", "tpl_professional", "tpl_modern", "tpl_minimal", "tpl_academic", "tpl_executive", "tpl_creative", "tpl_product", "tpl_data", "tpl_freshgrad", "tpl_lateral", "tpl_compact", "tpl_global"],
+                "description": "简历/PDF 主题 ID（简历为统一模板库 19 套，与 html_resume 同一套）；简历场景推荐 tpl_* 12 套精品模板，creative/minimal/boss_zhipin/finance/linkedin/kami/kami_white 为经典风格；不传时系统按 prompt 场景自动选择（travel_mag 为杂志版旅行手册）",
             },
             "resume_layout": {
                 "type": "string",

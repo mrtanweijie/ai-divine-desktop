@@ -130,59 +130,13 @@ def _looks_like_generic_travel_fallback(content: str) -> bool:
 
 
 def _suggest_resume_theme(prompt: str, resume_data: dict[str, Any]) -> str:
+    """统一 20 套模板（12 母版 + 8 经典主题）按行业/场景关键词推荐。"""
     text = prompt.lower()
-    # 模板库（tpl_*）优先：人群/岗位特征明确的场景直接推荐对应设计母版
     from ..resume.templates.registry import TEMPLATE_REGISTRY
 
     for entry in TEMPLATE_REGISTRY.values():
         if any(word in text for word in entry["industry_keywords"]):
             return entry["id"]
-    if any(
-        word in text
-        for word in ("kami_white", "kami 白色", "纯白投递", "白色版")
-    ):
-        return "kami_white"
-    if any(
-        word in text
-        for word in ("kami", "resume-optimizer", "resume optimizer", "排版优化")
-    ):
-        return "kami"
-    if any(
-        word in text
-        for word in ("linkedin", "领英", "海外投递", "国际投递")
-    ):
-        return "linkedin"
-    if any(
-        word in text
-        for word in ("金融", "银行", "投行", "证券", "基金", "财务", "审计", "信托")
-    ):
-        return "finance"
-    if any(
-        word in text
-        for word in ("boss", "直聘", "招聘平台", "ats", "海投")
-    ):
-        return "boss_zhipin"
-    if any(
-        word in text
-        for word in (
-            "大厂",
-            "外企",
-            "传统行业",
-            "国企",
-            "央企",
-        )
-    ):
-        return "professional"
-    if any(
-        word in text
-        for word in ("互联网", "创业", "设计", "新媒体", "游戏", "内推", "熟人")
-    ):
-        return "creative"
-    if any(
-        word in text
-        for word in ("学术", "咨询", "金融", "法律", "科研", "高校", "律师")
-    ):
-        return "minimal"
     return "professional"
 
 
@@ -224,51 +178,32 @@ class PDFTool:
 
         if recipe_name == "resume" and resume_data:
             # 职责单一：本工具只产出 PDF。简历的可编辑 HTML 走 html_resume 工具。
-            resume_theme = "professional"
-            if theme in (
-                "professional",
-                "creative",
-                "minimal",
-                "boss_zhipin",
-                "finance",
-                "linkedin",
-                "kami",
-                "kami_white",
-            ):
+            # 统一模板库（templates/，19 套）单一渲染路径。
+            if not theme or theme in ("resume", "universal", "auto"):
+                resume_theme = _suggest_resume_theme(prompt, resume_data)
+            else:
                 resume_theme = theme
-            elif theme and theme.startswith("tpl_"):
-                resume_theme = theme
-            elif not theme or theme in ("resume", "universal", "auto"):
+
+            from ..resume.templates import render_template_resume
+            from ..resume.templates.registry import TEMPLATE_REGISTRY, get_entry
+
+            if resume_theme not in TEMPLATE_REGISTRY:
                 resume_theme = _suggest_resume_theme(prompt, resume_data)
 
-            if resume_theme.startswith("tpl_"):
-                from ..resume.templates import render_template_resume
-
-                files = render_template_resume(
-                    resume_data,
-                    str(output),
-                    template_id=resume_theme,
-                    layout=(resume_layout or "single").strip() or "single",
-                    output_format="pdf",
-                )
-                return {
-                    "recipe": recipe.name,
-                    "display_name": recipe.display_name,
-                    "theme": resume_theme,
-                    "title": str(resume_data.get("name") or prompt[:40]),
-                    "renderer": "weasyprint",
-                    "filepath": files[0] if files else str(output),
-                }
-
-            from ..resume.renderer import render_resume
-
-            render_resume(resume_data, str(output), theme=resume_theme)
+            files = render_template_resume(
+                resume_data,
+                str(output),
+                template_id=resume_theme,
+                layout=(resume_layout or "single").strip() or "single",
+                output_format="pdf",
+            )
             return {
                 "recipe": recipe.name,
-                "display_name": recipe.display_name,
+                "display_name": get_entry(resume_theme)["display_name"],
                 "theme": resume_theme,
                 "title": str(resume_data.get("name") or prompt[:40]),
                 "renderer": "weasyprint",
+                "filepath": files[0] if files else str(output),
             }
 
         use_content = bool(content)

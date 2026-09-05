@@ -8,13 +8,15 @@ from ..registry import register_tool
 
 @register_tool(
     "html_resume",
-    "简历的可编辑 HTML 输出（职责单一，不产出 PDF）：按 12 套简历模板渲染，"
+    "简历的可编辑 HTML 输出（职责单一，不产出 PDF）：按统一模板库 19 套模板渲染，"
     "产出可编辑 HTML（浏览器打开点击任意文字即可改，工具条可下载/打印导出 PDF）"
     "与纯净投递版 HTML。PDF 版请用 pdf_generate。"
     "先按简历规则整理 resume_data 再调用；template 按职业/场景选："
     "应届校招 tpl_freshgrad、高管 tpl_executive、产品 tpl_product、数据/算法 tpl_data、"
     "设计师 tpl_creative、转型 tpl_lateral、市场运营 tpl_compact、金融咨询 tpl_professional、"
-    "互联网科技 tpl_modern、资深工程师 tpl_minimal、学术科研 tpl_academic、中英双语 tpl_global。",
+    "互联网科技 tpl_modern、资深工程师 tpl_minimal、学术科研 tpl_academic、中英双语 tpl_global、"
+    "招聘平台海投 boss_zhipin、银行证券 finance、LinkedIn 海外 linkedin、"
+    "内容向两页 kami/kami_white、留白单栏 minimal、创意卡片 creative。",
     {
         "type": "object",
         "properties": {
@@ -37,8 +39,15 @@ from ..registry import register_tool
                     "tpl_lateral",
                     "tpl_compact",
                     "tpl_global",
+                    "creative",
+                    "minimal",
+                    "boss_zhipin",
+                    "finance",
+                    "linkedin",
+                    "kami",
+                    "kami_white",
                 ],
-                "description": "简历模板 ID，未传时默认 tpl_professional",
+                "description": "简历模板 ID（统一模板库 19 套），未传时默认 tpl_professional",
             },
             "layout": {
                 "type": "string",

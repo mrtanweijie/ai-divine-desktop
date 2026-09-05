@@ -14,7 +14,7 @@ try:
         item_hd,
         page_foot,
     )
-    from ..renderers.helpers import _split_value_unit
+    from .helpers import _split_value_unit
 except ImportError:  # 兼容脚本直接运行
     from components import (  # type: ignore
         EDITABLE_CSS,
@@ -27,7 +27,7 @@ except ImportError:  # 兼容脚本直接运行
         item_hd,
         page_foot,
     )
-    from ..renderers.helpers import _split_value_unit
+    from .helpers import _split_value_unit
 
 id = "tpl_executive"
 

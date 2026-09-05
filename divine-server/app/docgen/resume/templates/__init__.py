@@ -88,14 +88,15 @@ def render_template_resume(
 
     if output_format in ("html", "both"):
         html_path = output.with_suffix(".html")
-        clean_path = output.with_suffix(".html_clean.html")
         html_path.write_text(
             build_html(resume, template_id, layout, editable=True), encoding="utf-8"
         )
+        generated.append(str(html_path))
+        clean_path = output.with_suffix(".html_clean.html")
         clean_path.write_text(
             build_html(resume, template_id, layout, editable=False), encoding="utf-8"
         )
-        generated.extend([str(html_path), str(clean_path)])
+        generated.append(str(clean_path))
 
     if output_format in ("pdf", "both"):
         full_html = build_html(resume, template_id, layout, editable=True)

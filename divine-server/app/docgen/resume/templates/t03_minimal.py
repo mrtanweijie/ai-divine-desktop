@@ -14,7 +14,7 @@ try:
         kv_row,
         skill_kv_pairs,
     )
-    from ..renderers.helpers import _compact_contact_items
+    from .helpers import _compact_contact_items
 except ImportError:  # 兼容脚本直接运行
     from components import (  # type: ignore
         EDITABLE_CSS,
@@ -27,7 +27,7 @@ except ImportError:  # 兼容脚本直接运行
         kv_row,
         skill_kv_pairs,
     )
-    from ..renderers.helpers import _compact_contact_items
+    from .helpers import _compact_contact_items
 
 id = "tpl_minimal"
 

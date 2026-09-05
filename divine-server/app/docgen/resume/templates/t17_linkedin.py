@@ -1,8 +1,12 @@
-"""LinkedIn resume theme CSS."""
+"""模板 17 · LinkedIn 领英（自旧 linkedin 主题迁入）— 品牌蓝条 + 标签式技能"""
 
 from __future__ import annotations
 
-LINKEDIN_CSS = r"""
+from .flat_layout import flat_resume_html
+
+id = "linkedin"
+
+CSS = r'''
 /* ============================================================
    LinkedIn Resume Theme — 领英蓝
    适用：LinkedIn/海外/外企/互联网投递
@@ -198,4 +202,9 @@ body {
   color: #777;
   margin-top: 0.3mm;
 }
-"""
+'''
+
+PRINT_SINGLE = ""
+
+def render(r) -> str:
+    return flat_resume_html(r, style="linkedin")

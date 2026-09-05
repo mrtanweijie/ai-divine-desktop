@@ -22,6 +22,13 @@ TEMPLATE_IDS_UNDER_TEST = [
     "tpl_lateral",
     "tpl_compact",
     "tpl_global",
+    "creative",
+    "minimal",
+    "boss_zhipin",
+    "finance",
+    "linkedin",
+    "kami",
+    "kami_white",
 ]
 
 
@@ -33,24 +40,40 @@ def _sample_dict() -> dict:
     return data
 
 
-def test_registry_has_twelve_templates_with_unique_ids():
-    assert len(TEMPLATE_IDS_UNDER_TEST) == 12
+def test_registry_unified_library():
+    """统一模板库：12 套母版 + 7 套经典风格 = 19 套。"""
+    assert len(TEMPLATE_IDS_UNDER_TEST) == 19
     assert set(TEMPLATE_IDS) == set(TEMPLATE_IDS_UNDER_TEST)
     for entry in TEMPLATE_REGISTRY.values():
         assert entry["display_name"] and entry["tip"]
         assert entry["industry_keywords"]
 
 
+_LEGACY_IDS = {
+    "creative",
+    "minimal",
+    "boss_zhipin",
+    "finance",
+    "linkedin",
+    "kami",
+    "kami_white",
+}
+
+
 @pytest.mark.parametrize("template_id", TEMPLATE_IDS_UNDER_TEST)
 def test_build_html_editable_contains_content_and_toolbar(template_id: str):
     html = build_html(_sample_dict(), template_id, "single", editable=True)
     entry = TEMPLATE_REGISTRY[template_id]
-    # 姓名、模板名与编辑能力必须出现
+    # 姓名、模板名与打印能力必须出现
     assert SAMPLE_RESUME["name"] in html
     assert entry["display_name"] in html
-    assert html.count(' contenteditable="true"') >= 5
     assert "window.print()" in html
-    assert "@page{size:A4" in html
+    assert "@page{size:A4" in html or "@page {" in html
+    if template_id in _LEGACY_IDS:
+        # 迁移自旧渲染器的 7 套：无 contenteditable 编辑态（静态 HTML + 工具条）
+        assert ' contenteditable="true"' not in html
+    else:
+        assert html.count(' contenteditable="true"') >= 5
 
 
 @pytest.mark.parametrize("template_id", TEMPLATE_IDS_UNDER_TEST)

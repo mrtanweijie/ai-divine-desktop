@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 
 from ..models import ResumeData
-from ..renderers.helpers import _NUMBER_RE, _esc
+from .helpers import _NUMBER_RE, _esc
 
 # 与原模板一致的编辑态样式提示（悬停淡黄虚线）
 EDITABLE_CSS = """

@@ -169,22 +169,18 @@ a = Analysis(
         "app.docgen.pdf.renderer.renderer",
         "app.docgen.pdf.renderer.weasyprint",
         "app.docgen.resume",
-        "app.docgen.resume.renderer",
-        "app.docgen.resume.theme_manager",
-        "app.docgen.resume.themes",
-        # 简历模板库：tXX 模块由注册表字符串动态 __import__，静态分析不可见；
-        # 按目录扫描生成，新增 tXX 母版无需改 spec
+        # 简历统一模板库：tXX 模板与 helpers/flat_layout/kami_layout 由注册表
+        # 字符串动态 __import__ 或包内延迟引用，静态分析不全；按目录扫描生成
+        # （排除 __init__），新增模板/布局无需改 spec
         "app.docgen.resume.templates",
-        "app.docgen.resume.templates.registry",
-        "app.docgen.resume.templates.components",
-        "app.docgen.resume.templates.print_css",
         *[
             f"app.docgen.resume.templates.{p.stem}"
             for p in sorted(
                 (project_root / "app" / "docgen" / "resume" / "templates").glob(
-                    "t*.py"
+                    "*.py"
                 )
             )
+            if p.stem != "__init__"
         ],
         # ppt_renderer：presentation 脚本（data 形式子进程运行）依赖的渲染包，
         # 不在 entry.py 主导入图里，必须显式编入 PYZ
