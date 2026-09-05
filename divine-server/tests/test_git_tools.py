@@ -156,3 +156,34 @@ def test_read_only_and_no_plan_sets():
         assert name in _READ_ONLY_TOOLS
     for name in ("git_commit", "git_revert"):
         assert name in _NO_PLAN_TOOLS
+
+
+# ---------------------------------------------------------------------------
+# git 写操作审批的 SSE 渲染：必须携带 confirm_type/command，
+# 否则前端确认区匹配不到分支、不渲染按钮（历史 bug：卡死到超时）。
+# ---------------------------------------------------------------------------
+
+
+def test_interrupt_sse_git_branch_carries_confirm_type_and_command():
+    import json
+
+    from app.agent.core.sse import _interrupt_sse
+
+    out = _interrupt_sse(
+        {
+            "type": "git",
+            "session_id": "s1",
+            "tool": "git_commit",
+            "message": "确认执行 git 写操作？",
+            "command": "git_commit：初始化提交",
+            "call_id": "c1",
+        }
+    )
+    assert out.startswith("event: tool")
+    data = json.loads(out.split("data:", 1)[1].strip())
+    assert data["status"] == "confirm"
+    assert data["confirm_type"] == "git"
+    assert data["command"] == "git_commit：初始化提交"
+    assert data["tool"] == "git_commit"
+    assert data["call_id"] == "c1"
+    assert data["session_id"] == "s1"

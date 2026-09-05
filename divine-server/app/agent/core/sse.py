@@ -97,6 +97,24 @@ def _interrupt_sse(
                 "session_id": session_id,
             },
         )
+    if kind == "git":
+        # git_commit / git_revert 审批：必须携带 confirm_type 与 command，
+        # 否则前端确认区匹配不到任何分支、不渲染按钮，用户无从回应，
+        # Agent 只能等到超时被拒（git 中断无 UI 卡死的根因）。
+        return sse_event(
+            "tool",
+            {
+                "tool": payload.get("tool") or "git_commit",
+                "status": "confirm",
+                "confirm_type": "git",
+                "message": payload.get("message", "确认执行 git 写操作？"),
+                "messageKey": "tool.gitConfirmWait",
+                "messageParams": {},
+                "command": payload.get("command") or "",
+                "call_id": payload.get("call_id", ""),
+                "session_id": session_id,
+            },
+        )
     if kind == "write_calendar":
         return sse_event(
             "tool",
