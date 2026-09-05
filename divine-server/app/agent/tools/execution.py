@@ -29,6 +29,12 @@ _COMMAND_TOOLS = {"lint_check", "run_tests"}
 # 会改写文件内容的编辑工具：成功后自动做轻量语法检查（P3-3a）。
 _EDIT_TOOLS = {"edit_files", "write_file", "edit_lines", "apply_patch"}
 
+# 会修改已有 Office 文档的编辑工具（docs/design/017-office-edit-closed-loop-20260906.md §5.4）。
+# 有意不进 _EDIT_TOOLS——该集合唯一消费点是代码语法检查（syntax_check_paths），
+# 对二进制 docx/xlsx 无意义；产物"重开验证"在脚本内完成（office_files.verify_output），
+# 失败时脚本直接返回 success=false 并自动回滚备份。
+_OFFICE_EDIT_TOOLS = {"fill_template", "edit_docx", "edit_xlsx", "edit_pptx"}
+
 # 会话内已获用户批准的终端命令（精确匹配，规范化空白后存储）。
 # 用户批准过的同一条命令在同一会话内不再重复弹确认；仅内存存储，
 # 应用重启即清空（失效方向安全）。只做"同一条命令"级记忆，
@@ -961,8 +967,15 @@ async def _handle_adapter_call(
 
         # Background process tools are scoped by session: inject the session
         # id so bg_manager can isolate processes per conversation.
-        # undo_last_turn 用 session_id 定位该会话的工作区快照。
-        if name == "terminal" or name in {"bg_status", "bg_output", "bg_kill", "undo_last_turn"}:
+        # undo_last_turn 用 session_id 定位该会话的工作区快照；
+        # Office 编辑工具用 session_id 定位编辑备份目录（data_dir/backups/）。
+        if name == "terminal" or name in {
+            "bg_status",
+            "bg_output",
+            "bg_kill",
+            "undo_last_turn",
+            *_OFFICE_EDIT_TOOLS,
+        }:
             arguments.setdefault("session_id", ctx.session_id)
 
         # 图片识别：注入当前会话实际使用的模型，让 read_image 优先用它
@@ -1028,6 +1041,13 @@ async def _handle_adapter_call(
                     "\n\n[语法检查警告] 刚写入的文件存在语法错误，"
                     "请立即修复后再继续其他步骤：\n" + "\n".join(problems)
                 )
+
+        # Office 编辑成功后把撤销能力与提醒回灌给模型（产物重开验证已由脚本完成）。
+        if name in _OFFICE_EDIT_TOOLS and output.get("success"):
+            tool_content += (
+                "\n\n[Office 编辑提示] 原文件已自动备份，用户要求撤销时调用"
+                " undo_last_turn；结果中 missing/未命中项请向用户澄清，不要臆测补齐。"
+            )
         payload: dict[str, Any] = {
             "event": "tool",
             "tool": name,

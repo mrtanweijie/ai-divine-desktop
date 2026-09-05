@@ -12,10 +12,15 @@ from .create_plan import CreatePlanAdapter  # noqa: F401
 from .lint_check import LintCheckAdapter  # noqa: F401
 from .describe_svg import DescribeSvgAdapter  # noqa: F401
 from .directory_tree import DirectoryTreeAdapter  # noqa: F401
+from .document_outline import DocumentOutlineAdapter  # noqa: F401
+from .edit_docx import EditDocxAdapter  # noqa: F401
+from .edit_xlsx import EditXlsxAdapter  # noqa: F401
+from .edit_pptx import EditPptxAdapter  # noqa: F401
 from .draw_svg import DrawSvgAdapter  # noqa: F401
 from .edit_files import EditFilesAdapter  # noqa: F401
 from .edit_lines import EditLinesAdapter  # noqa: F401
 from .edit_svg import EditSvgAdapter  # noqa: F401
+from .fill_template import FillTemplateAdapter  # noqa: F401
 from .format_code import FormatCodeAdapter  # noqa: F401
 from .generate_chart import GenerateChartAdapter  # noqa: F401
 from .git_tool import (  # noqa: F401

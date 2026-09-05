@@ -16,6 +16,7 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 - 会话记忆：长期记忆（偏好/事实/事件，写入时去重、纠正时自动过期）+ 会话内历史回溯（提问窗口外问题时自动检索早期对话并注入）
 - 本地文件分析：Word、Excel、Markdown、PDF、图片识别（GLM 视觉）、网页抓取（JS 动态页自动浏览器兜底）、批量抓取、联网搜索
 - 文档与可视化生成：Word、PPT、Excel、PDF（报告/商业分析/旅行/路线图/书/幻灯片配方）、Markdown、SVG 矢量图、ECharts 图表、Mermaid 图、完整 UX 交互 HTML
+- 本地文档编辑：修改已有 Word/Excel/PPT（run 级保样式、模板占位符填充、表格行展开、公式与图表无损保留），外部文件生成编辑副本不碰原件，编辑前自动备份、undo_last_turn 可撤销
 - 本地 RAG：工作区文档自研 SQLite 倒排索引检索（词频 + doc_freq，无需 embedding 模型）
 - 技能系统：安装/迁移/预览第三方 SKILL.md 技能（GitHub/Gitee），内置技能中心
 - MCP 连接器：配置并连接外部 MCP server，工具自动并入 Agent（隐私：连接结果需信任授权）
@@ -172,7 +173,7 @@ pnpm tauri:dev
 
 ## 工具系统
 
-当前注册 62 个工具（随 MCP/技能动态增减），按名称排序：
+当前注册 71 个工具（随 MCP/技能动态增减），按名称排序：
 
 | 工具 | 用途 |
 | --- | --- |
@@ -184,10 +185,15 @@ pnpm tauri:dev
 | `describe_svg` | 读取现有 SVG，返回画布、元素、关键 id 与结构摘要 |
 | `directory_tree` | 查看目录树结构（忽略 .gitignore/node_modules） |
 | `discover_importable_skills` | 扫描本机其他 AI 工具已安装的技能，列出可迁移候选 |
+| `document_outline` | 查看 Word/Excel 文档结构大纲（段落/表格/sheet），输出可编辑坐标 |
 | `draw_svg` | 从零生成 SVG 矢量图/图标/插画 |
+| `edit_docx` | 编辑已有 Word：替换文字（run 级保样式）、改表格单元格、追加章节、删段落 |
 | `edit_files` | 按 SEARCH/REPLACE 批量修改/创建文件（SEARCH 需精确匹配） |
 | `edit_lines` | 按行号范围精确编辑单个文件 |
+| `edit_pptx` | 编辑已有 PPT 文本：替换文字（含组合形状/表格）、改指定页标题 |
 | `edit_svg` | 基于现有 SVG 局部修改，只动用户提到的元素 |
+| `edit_xlsx` | 编辑已有 Excel：改单元格、追加行、新增工作表（带主题样式）、写公式 |
+| `fill_template` | 填充 Word 模板 `{{占位符}}`，支持表格整行展开（合同/通知函等套模板场景） |
 | `forget_memory` | 删除一条长期记忆（用户纠正"记错了"时） |
 | `format_code` | 代码格式化（ruff format / prettier 自动识别） |
 | `generate_chart` | 生成 ECharts 图表并在对话中内联展示 |
