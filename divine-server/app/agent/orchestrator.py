@@ -18,6 +18,7 @@ from ..config import DEFAULT_LOCAL_LLM_THRESHOLD, settings_store
 from ..localization import default_session_title, normalize_locale
 from ..sse import error_event, sse_event
 from .core import (
+    AGENT_RECURSION_LIMIT,
     AgentRunContext,
     _build_llm,
     _content_text,
@@ -429,7 +430,7 @@ async def run_agent(
     agent = _build_agent(llm, tools, ctx)
     config = {
         "configurable": {"thread_id": session_id},
-        "recursion_limit": 256,
+        "recursion_limit": AGENT_RECURSION_LIMIT,
     }
 
     snapshot = await agent.aget_state(config)

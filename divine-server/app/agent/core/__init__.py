@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from .constants import (
     SYSTEM_PROMPT,
+    AGENT_RECURSION_LIMIT,
     MAX_TOOL_TURNS,
     _NO_PLAN_TOOLS,
     _READ_ONLY_TOOLS,

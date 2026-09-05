@@ -103,6 +103,13 @@ _NO_PLAN_TOOLS = {
 
 MAX_TOOL_TURNS = 96
 
+# LangGraph super-step 上限按调用预算推导：每个工具轮至少消耗模型节点 +
+# 工具节点两个 super-step，并行工具调用与审批中断（interrupt→resume）还会
+# 叠加。写死 256 时多工具任务会先于 96 次调用预算触发 GraphRecursionError，
+# ModelCallLimit 的优雅收尾（exit_behavior="end"）形同虚设；子代理侧同款
+# 公式见 subagents.py（SUBAGENT_MAX_TOOL_TURNS * 6）。
+AGENT_RECURSION_LIMIT = MAX_TOOL_TURNS * 4
+
 # 用户消息尾部的 options 卡片遵循提示（随本次模型输入注入，不落库不参与意图分类）。
 # system prompt 侧规则对 deepseek 的遵循率不稳，用户消息尾部注入实测有效
 # （与实时信息强制联网同一注入模式）。
