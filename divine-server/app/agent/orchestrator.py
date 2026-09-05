@@ -427,7 +427,10 @@ async def run_agent(
     except Exception as exc:  # noqa: BLE001 — MCP 不可用不影响本地工具
         logger.warning("MCP tool index refresh failed: %s", exc)
     tools = _build_tools(ctx)
-    agent = _build_agent(llm, tools, ctx)
+    from .core.checkpointer import get_checkpointer
+
+    checkpointer = await get_checkpointer()
+    agent = _build_agent(llm, tools, ctx, checkpointer)
     config = {
         "configurable": {"thread_id": session_id},
         "recursion_limit": AGENT_RECURSION_LIMIT,

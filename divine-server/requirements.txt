@@ -14,6 +14,8 @@ langchain-core==1.5.4
 langchain-community==0.4.2
 langchain-deepseek==1.1.0
 langgraph>=1.2.10,<2
+langgraph-checkpoint>=4.1,<5
+langgraph-checkpoint-sqlite>=3,<4
 pypdf>=4,<6
 pymupdf>=1.24,<2
 firecrawl-anydoc>=0.2.3,<1

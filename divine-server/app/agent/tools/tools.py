@@ -210,12 +210,22 @@ def _build_tools(ctx: AgentRunContext) -> list[StructuredTool]:
     return tools
 
 async def reset_agent_thread(thread_id: str) -> None:
-    await _CHECKPOINTER.adelete_thread(thread_id)
+    from ..core.checkpointer import get_checkpointer
+
+    saver = await get_checkpointer()
+    await saver.adelete_thread(thread_id)
 
 def _build_agent(
-    llm: Any, tools: list[StructuredTool], ctx: AgentRunContext
+    llm: Any,
+    tools: list[StructuredTool],
+    ctx: AgentRunContext,
+    checkpointer: Any = None,
 ) -> Any:
-    """Build the LangGraph agent with prompts, limits, and approval middleware."""
+    """Build the LangGraph agent with prompts, limits, and approval middleware.
+
+    checkpointer 缺省用 InMemorySaver（测试/子代理场景）；主对话线程由
+    orchestrator 传入 get_checkpointer() 的 SqliteSaver，线程态跨重启保留。
+    """
     middleware = [
         TurnCounterMiddleware(ctx),
         _build_dynamic_prompt(ctx),
@@ -261,5 +271,5 @@ def _build_agent(
         model=llm,
         tools=tools,
         middleware=middleware,
-        checkpointer=_CHECKPOINTER,
+        checkpointer=checkpointer or _CHECKPOINTER,
     )
