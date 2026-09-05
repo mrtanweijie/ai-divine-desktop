@@ -598,7 +598,7 @@
     "ragSearchResults": "找到 {{count}} 條相關內容",
     "readFiles": "已讀取 {{count}} 個檔案",
     "readFiles_other": "已讀取 {{count}} 個檔案",
-    "recursionLimit": "任務步驟過多，已停止。請拆分成更小的請求，或減少重複工具調用。",
+    "recursionLimit": "任務步驟過多，已停止。已產生的內容已保留，回覆「繼續」可接著目前的進度做；也可以把任務拆分成更小的請求。",
     "reject": "拒絕",
     "repoContains": "倉庫包含 {{count}} 個技能：",
     "repoContains_other": "倉庫包含 {{count}} 個技能：",

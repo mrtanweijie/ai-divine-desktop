@@ -612,7 +612,7 @@
     "ragSearchResults_other": "Found {{count}} related items",
     "readFiles_one": "Read {{count}} file",
     "readFiles_other": "Read {{count}} files",
-    "recursionLimit": "Too many task steps, stopped. Split the request or reduce repeated tool calls.",
+    "recursionLimit": "Too many task steps, stopped. Your partial output has been saved — reply \"continue\" to resume where it left off, or split the task into smaller requests.",
     "reject": "Reject",
     "repoContains_one": "The repo contains {{count}} skill:",
     "repoContains_other": "The repo contains {{count}} skills:",

@@ -503,3 +503,112 @@ def test_react_sse_pipeline(tmp_path, monkeypatch):
     # middleware preserved.
     assert any("计算器" in think for think in think_by_id.values())
 
+
+
+def test_cancel_disconnect_persists_partial_output(tmp_path, monkeypatch):
+    """手动停止先断开 SSE 连接：run_agent 在 yield 点被 CancelledError
+    拆掉时，也必须把已生成的部分输出落库。
+
+    历史 bug：落库只挂在循环内的 cancel_event 检查上，而前端停止时
+    abort 连接先于 cancel 接口到达，生成器在 yield 点被拆、检查永远
+    走不到 → 刷新后看不到被终止的输出。
+    """
+    import asyncio
+
+    from app import db
+    from app.agent import orchestrator
+
+    session_id = _init_db(tmp_path, monkeypatch)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(exist_ok=True)
+    monkeypatch.setattr(
+        orchestrator, "_build_llm", lambda **kw: _StreamingReActFakeModel()
+    )
+
+    async def run() -> str:
+        gen = orchestrator.run_agent(
+            session_id,
+            [{"role": "user", "content": "算 1+1"}],
+            think=False,
+            workspace=workspace,
+            approval_mode="ask",
+            tool_mode="react",
+        )
+        streamed = ""
+        try:
+            async for event in gen:
+                if event.startswith("event: message"):
+                    data = json.loads(
+                        next(
+                            line[5:].strip()
+                            for line in event.splitlines()
+                            if line.startswith("data:")
+                        )
+                    )
+                    streamed += str(data.get("content") or "")
+                if "我先算一下" in streamed:
+                    # 模拟客户端断连：Starlette 在生成器 yield 点抛 CancelledError
+                    await gen.athrow(asyncio.CancelledError())
+        except asyncio.CancelledError:
+            pass
+        return streamed
+
+    streamed = asyncio.run(run())
+    assert "我先算一下" in streamed
+
+    rows = db.list_messages(session_id)
+    assistant = [m for m in rows if m["role"] == "assistant"]
+    assert assistant, "断连取消后必须持久化部分输出"
+    assert "我先算一下" in assistant[-1]["content"]
+
+
+def test_recursion_limit_persists_partial_output(tmp_path, monkeypatch):
+    """撞上 GraphRecursionError 时，已流出的部分内容必须落库。
+
+    历史 bug：该路径只 abort_todos 就返回，用户做了大半的工作在
+    刷新后丢失（与手动停止断连同款漏洞）。
+    """
+    import asyncio
+
+    from langgraph.errors import GraphRecursionError
+
+    from app import db
+    from app.agent import orchestrator
+    from app.agent.core.sse import sse_event
+
+    session_id = _init_db(tmp_path, monkeypatch)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(exist_ok=True)
+    monkeypatch.setattr(orchestrator, "_build_llm", lambda **kw: object())
+
+    class _StubAgent:
+        async def aget_state(self, config):
+            class _Snapshot:
+                values = {}
+            return _Snapshot()
+
+    monkeypatch.setattr(orchestrator, "_build_agent", lambda *a, **k: _StubAgent())
+
+    async def fake_stream(*args, **kwargs):
+        yield "sse", sse_event("message", {"content": "已经完成了一半的分析。"})
+        raise GraphRecursionError("recursion limit reached")
+
+    monkeypatch.setattr(orchestrator, "_stream_agent_run", fake_stream)
+
+    async def run():
+        agen = orchestrator.run_agent(
+            session_id,
+            [{"role": "user", "content": "做个大任务"}],
+            think=False,
+            workspace=workspace,
+            approval_mode="ask",
+            tool_mode="default",
+        )
+        async for _ in agen:
+            pass
+
+    asyncio.run(run())
+    rows = db.list_messages(session_id)
+    assistant = [m for m in rows if m["role"] == "assistant"]
+    assert assistant, "撞限后必须持久化已生成的部分输出"
+    assert "一半" in assistant[-1]["content"]

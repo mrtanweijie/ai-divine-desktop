@@ -611,6 +611,25 @@ async def run_agent(
     think_by_id: dict[str, str] = {}
     partial_think: list[str] = []
     partial_content: list[str] = []
+    partial_saved = False
+
+    async def _persist_partial_once() -> None:
+        """持久化本次已生成的部分输出（幂等：只落库一次）。
+
+        手动停止时前端会先 abort SSE 连接、再调 cancel 接口——连接断开
+        会让本生成器在 yield 点被 CancelledError/GeneratorExit 拆掉，
+        走不到下方 cancel_event 检查。这里同时覆盖优雅取消与异常退出
+        两条路径，保证部分内容不丢。
+        """
+        nonlocal partial_saved
+        content = "".join(partial_content)
+        think = "".join(partial_think)
+        if partial_saved or (not content and not think):
+            return
+        await asyncio.to_thread(db.abort_todos, session_id)
+        await _persist_partial_generation(session_id, content, think)
+        partial_saved = True
+
     try:
         while True:
             interrupted = False
@@ -621,12 +640,7 @@ async def run_agent(
                 react=(resolved_tool_mode == "react"),
             ):
                 if cancel_event is not None and cancel_event.is_set():
-                    await asyncio.to_thread(db.abort_todos, session_id)
-                    await _persist_partial_generation(
-                        session_id,
-                        "".join(partial_content),
-                        "".join(partial_think),
-                    )
+                    await _persist_partial_once()
                     yield error_event(
                         "cancelled",
                         "任务已取消",
@@ -749,13 +763,26 @@ async def run_agent(
             if not interrupted:
                 break
     except GraphRecursionError:
-        await asyncio.to_thread(db.abort_todos, session_id)
+        # 撞上限时已流出的部分内容必须落库——此前只 abort_todos，
+        # 用户做了大半的工作在刷新后丢失（与手动停止断连同款漏洞）。
+        await _persist_partial_once()
         yield error_event(
             "recursion_limit",
-            "任务步骤过多，已停止。请拆分成更小的请求，或减少重复工具调用。",
+            "任务步骤过多，已停止。已生成的内容已保留，回复「继续」可接着当前进度做；也可以把任务拆分成更小的请求。",
             message_key="tool.recursionLimit",
         )
         return
+    except (asyncio.CancelledError, GeneratorExit):
+        # 客户端断开（手动停止先 abort 连接）时生成器在 yield 点被拆掉，
+        # 走不到循环内的 cancel_event 检查——这里兜底持久化部分输出。
+        # 注意：GeneratorExit 语境下不允许再 yield，持久化后必须原样抛出。
+        try:
+            await _persist_partial_once()
+        except Exception:  # noqa: BLE001 — 清理路径尽力而为，不掩盖原异常
+            logger.exception(
+                "persist partial generation failed session=%s", session_id
+            )
+        raise
 
     if final_state is None:
         await asyncio.to_thread(db.abort_todos, session_id)

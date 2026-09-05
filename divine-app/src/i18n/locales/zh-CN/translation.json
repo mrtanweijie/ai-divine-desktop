@@ -579,7 +579,7 @@
     "ragIndexed": "本地索引完成：{{files}} 个文件，{{chunks}} 个分块",
     "ragSearchResults": "找到 {{count}} 条相关内容",
     "readFiles": "已读取 {{count}} 个文件",
-    "recursionLimit": "任务步骤过多，已停止。请拆分成更小的请求，或减少重复工具调用。",
+    "recursionLimit": "任务步骤过多，已停止。已生成的内容已保留，回复「继续」可接着当前进度做；也可以把任务拆分成更小的请求。",
     "reject": "拒绝",
     "repoContains": "仓库包含 {{count}} 个技能：",
     "repoRoot": "仓库根目录",
