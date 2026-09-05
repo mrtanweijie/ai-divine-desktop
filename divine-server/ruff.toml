@@ -22,5 +22,7 @@ ignore = [
 "**/__init__.py" = ["F401"]
 # chat.py 拆分后保留 re-export 块以兼容 `from app.api.chat import _xxx`（测试依赖）
 "app/api/chat.py" = ["F401", "E402"]
+# chat_local 的路由检测器迁至 agent/intent/local_task 后保留 re-export（同上）
+"app/api/chat_local.py" = ["F401"]
 # 简历模板渲染器：`if x: html += ...` 单行紧凑风格（HTML 拼接可读性不受影响）
 "app/docgen/resume/renderers/professional.py" = ["E701"]
