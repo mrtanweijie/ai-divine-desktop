@@ -71,7 +71,8 @@
     "thinkEffort": "Deep thinking",
     "thinkEffortTooltip": "Select Off to disable deep thinking",
     "noApiKeyBanner": "No API key configured — demo mode. Install a free local model for offline use, or configure an API key.",
-    "installLocalModel": "Install Local Model"
+    "installLocalModel": "Install Local Model",
+    "choiceDeclineDesc": "Pick up again whenever you need"
   },
   "common": {
     "accept": "Accept",

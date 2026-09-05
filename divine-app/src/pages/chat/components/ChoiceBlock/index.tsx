@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { Send } from "lucide-react";
+import i18next from "@/i18n";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
@@ -10,6 +11,8 @@ import { saveMessageChoiceState } from "@/services/api";
 import "./index.less";
 export interface ChoiceOption {
   label: string;
+  /** 机读动作标记：decline = 「暂时不用」类拒绝项（label 可能被模型本地化） */
+  action?: string;
   theme?: string;
   color_scheme?: string;
   desc?: string;
@@ -97,6 +100,7 @@ export function parseOptionsBlock(code: string): ChoiceBlockData | null {
     )
     .map((item: ChoiceOption) => ({
       label: String(item.label).trim(),
+      action: item.action ? String(item.action) : undefined,
       theme: item.theme ? String(item.theme) : undefined,
       color_scheme: item.color_scheme
         ? String(item.color_scheme)
@@ -106,14 +110,19 @@ export function parseOptionsBlock(code: string): ChoiceBlockData | null {
   if (options.length === 0) return null;
   // 含「暂时不用」选项 = 后续询问卡片（下一步做什么/是否生成产物）：
   // 纯点选，禁用自定义输入框（模型即使写了 other:true 也强制关闭）；
-  // 副标题兜底：模型漏写 desc 时统一补「后续有需求再继续任务」
-  const declineDesc = "后续有需求再继续任务";
-  const optionsFilled = options.map((item) =>
-    item.label === "暂时不用"
-      ? { ...item, desc: item.desc || declineDesc }
-      : item
+  // 副标题兜底：模型漏写 desc 时统一补「后续有需求再继续任务」。
+  // 识别按机读 action=decline 字段（协议要求模型携带，label 可能被
+  // 本地化为英文等）；label === "暂时不用" 仅作旧格式兼容兜底。
+  const isDecline = (item: ChoiceOption) =>
+    item.action === "decline" || item.label === "暂时不用";
+  const declineDesc = i18next.t(
+    "chat.choiceDeclineDesc",
+    "后续有需求再继续任务"
   );
-  const hasDecline = optionsFilled.some((item) => item.label === "暂时不用");
+  const optionsFilled = options.map((item) =>
+    isDecline(item) ? { ...item, desc: item.desc || declineDesc } : item
+  );
+  const hasDecline = optionsFilled.some(isDecline);
   return {
     title: data.title ? String(data.title) : undefined,
     options: optionsFilled,

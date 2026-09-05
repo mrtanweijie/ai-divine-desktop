@@ -71,7 +71,8 @@
     "thinkEffort": "深度思考",
     "thinkEffortTooltip": "选择关闭则不进行深度思考",
     "noApiKeyBanner": "未配置 API Key，当前为演示模式。可安装免费本地模型离线使用，或配置 API Key。",
-    "installLocalModel": "去安装本地模型"
+    "installLocalModel": "去安装本地模型",
+    "choiceDeclineDesc": "后续有需求再继续任务"
   },
   "common": {
     "accept": "接受",
