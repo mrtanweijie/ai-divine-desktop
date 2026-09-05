@@ -10,6 +10,7 @@ try:
         bullets_html,
         contact_spans_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
         kv_row,
@@ -22,6 +23,7 @@ except ImportError:  # 兼容脚本直接运行
         bullets_html,
         contact_spans_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
         kv_row,
@@ -160,7 +162,7 @@ def render(r) -> str:
             parts.append(
                 '<div class="item">'
                 + item_hd(e.company, exp_meta(e), e.period)
-                + bullets_html(exp_bullets(e))
+                + exp_content_html(e)
                 + "</div>"
             )
 

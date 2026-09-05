@@ -10,9 +10,9 @@ try:
         bullets_html,
         contact_spans_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
-        page_foot,
     )
     from .helpers import _split_value_unit
 except ImportError:  # 兼容脚本直接运行
@@ -23,9 +23,9 @@ except ImportError:  # 兼容脚本直接运行
         bullets_html,
         contact_spans_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
-        page_foot,
     )
     from .helpers import _split_value_unit
 
@@ -55,7 +55,7 @@ body{background:#eceae5;color:var(--ink);font-family:var(--sans);font-size:10.5p
 .hero .role{font-size:11.5pt;color:#d9c39a;letter-spacing:.07em}
 .hero .contact{margin-top:10px;font-size:9.5pt;color:#a9b2c4}
 .hero .contact span::after{content:" ";margin:0 9px;color:#4a5568}
-.hero .contact span:last-child::after{content:""}
+.hero .contact span:last-child::after{content:"";font-size:0}
 
 .body{padding:10mm 16mm 12mm}
 
@@ -82,7 +82,7 @@ h2:first-child{margin-top:0}
 .scale{font-size:8.5pt;color:var(--mute);margin-top:1px;letter-spacing:.02em}
 ul{list-style:none;margin-top:5px}
 li{position:relative;padding-left:14px;margin-bottom:3px;font-size:10pt;text-align:justify}
-li::before{content:"";position:absolute;left:0;top:8.5px;width:5px;height:.5px;background:var(--gold)}
+li::before{content:"";font-size:0;position:absolute;left:0;top:8.5px;width:5px;height:.5px;background:var(--gold)}
 li b{font-weight:600}
 
 .plain li::before{width:4px;height:4px;border-radius:50%;background:#c9c6be;top:7px}
@@ -90,8 +90,6 @@ li b{font-weight:600}
 .two{display:flex;gap:30px}
 .two .col{flex:1;min-width:0}
 
-.foot{margin-top:15px;padding-top:8px;border-top:.5px solid var(--line);
-  display:flex;justify-content:space-between;font-size:8.5pt;color:var(--mute);letter-spacing:.04em}
 """ + EDITABLE_CSS
 
 PRINT_SINGLE = """
@@ -139,7 +137,7 @@ def render(r) -> str:
 
     inner: list[str] = []
     if r.summary:
-        inner.append(_h2("高管摘要", "EXECUTIVE PROFILE"))
+        inner.append(_h2(getattr(r, "summary_title", "") or "个人摘要", "EXECUTIVE PROFILE"))
         inner.append(f'<p class="profile" contenteditable="true">{bold_numbers(r.summary)}</p>')
         metrics_html = _metrics_html(r)
         if metrics_html:
@@ -157,7 +155,7 @@ def render(r) -> str:
                 '<div class="item">'
                 + item_hd(e.company, exp_meta(e), e.period)
                 + scale
-                + bullets_html(exp_bullets(e))
+                + exp_content_html(e)
                 + "</div>"
             )
 
@@ -195,9 +193,5 @@ def render(r) -> str:
         lis = "".join(f"<li>{bold_numbers(x)}</li>" for x in r.honors)
         inner.append(f'<ul class="plain" contenteditable="true">{lis}</ul>')
 
-    foot = page_foot(
-        f"{r.name} · {r.title}" if r.title else r.name,
-        r.contact.phone or r.contact.email,
-    )
-    body = f'<div class="body">{"".join(inner)}{foot}</div>'
+    body = f'<div class="body">{"".join(inner)}</div>'
     return f'<div class="page">{hero}{body}</div>'

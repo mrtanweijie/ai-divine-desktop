@@ -120,6 +120,39 @@ def exp_bullets(e) -> list[str]:
     return points
 
 
+def exp_content_html(e) -> str:
+    """经历内容块：描述/成果 bullet + 嵌套项目（work[].projects）。
+
+    数据规范允许把项目挂在经历条目内（projects[{name,summary,points}]），
+    各模板统一在此渲染，避免嵌套项目被静默丢弃。项目渲染为
+    「加粗项目名：summary」导语 li + 成果点 li，适配全部模板的 li 样式。
+    """
+    lis = [
+        f"<li>{bold_numbers(point)}</li>"
+        for point in exp_bullets(e)
+        if str(point).strip()
+    ]
+    for proj in e.projects or []:
+        if not isinstance(proj, dict):
+            continue
+        name = str(proj.get("name") or "").strip()
+        summary = str(proj.get("summary") or proj.get("desc") or "").strip()
+        points = [
+            str(x).strip()
+            for x in (proj.get("points") or proj.get("highlights") or [])
+            if str(x).strip()
+        ]
+        if not name and not points:
+            continue
+        lead = f"<b>{_esc(name)}</b>" if name else ""
+        if summary:
+            lead += ("：" if lead else "") + bold_numbers(summary)
+        if lead:
+            lis.append(f'<li class="lead">{lead}</li>')
+        lis.extend(f'<li class="sub">{bold_numbers(p)}</li>' for p in points)
+    return f"<ul>{''.join(lis)}</ul>" if lis else ""
+
+
 def exp_meta(e) -> str:
     """条目元信息：部门 · 职位。"""
     parts = [part for part in (e.dept, e.title) if part]
@@ -175,7 +208,8 @@ def wrap_page(body: str, *, title: str, css: str, editable: bool,
     if not editable:
         body = body.replace(' contenteditable="true"', "")
         css = css.replace(EDITABLE_CSS, "\n")
-        css += "\n@media screen{.page{margin-top:24px}}"
+        # 纯净版屏幕预览：无工具栏，纸张顶格、白底、无投影（仅 screen，PDF 走 print 分支不受影响）
+        css += "\n@media screen{body{background:#fff}.page{margin:0 auto;box-shadow:none}}"
     toolbar_block = toolbar if editable else ""
     script = f"<script>{_SAVE_SCRIPT}</script>" if editable else ""
     return f"""<!DOCTYPE html>
@@ -191,10 +225,3 @@ def wrap_page(body: str, *, title: str, css: str, editable: bool,
 {script}
 </body>
 </html>"""
-
-
-def page_foot(left: str, right: str) -> str:
-    return (
-        '<div class="foot"><span contenteditable="true">'
-        f"{_esc(left)}</span><span contenteditable=\"true\">{_esc(right)}</span></div>"
-    )

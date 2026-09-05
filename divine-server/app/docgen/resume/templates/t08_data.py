@@ -11,6 +11,7 @@ try:
         chip_item,
         contact_spans_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
     )
@@ -23,6 +24,7 @@ except ImportError:  # 兼容脚本直接运行
         chip_item,
         contact_spans_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
     )
@@ -120,7 +122,7 @@ def render(r) -> str:
     parts: list[str] = [header]
 
     if r.summary:
-        parts.append(_h2("个人简介"))
+        parts.append(_h2(getattr(r, "summary_title", "") or "个人简介"))
         parts.append(f'<p class="summary" contenteditable="true">{bold_numbers(r.summary)}</p>')
 
     if r.skills or r.core_skills:
@@ -148,7 +150,7 @@ def render(r) -> str:
             parts.append(
                 '<div class="item">'
                 + item_hd(e.company, exp_meta(e), e.period)
-                + bullets_html(exp_bullets(e))
+                + exp_content_html(e)
                 + "</div>"
             )
 

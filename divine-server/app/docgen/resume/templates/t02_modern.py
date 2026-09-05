@@ -11,6 +11,7 @@ try:
         chip_item,
         contact_spans_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
     )
@@ -23,6 +24,7 @@ except ImportError:  # 兼容脚本直接运行
         chip_item,
         contact_spans_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
     )
@@ -51,14 +53,14 @@ body{background:#eceae5;color:var(--ink);font-family:var(--sans);font-size:10.5p
 .banner .role{margin-top:5px;font-size:11.5pt;color:#9fd8c6;letter-spacing:.06em}
 .banner .contact{margin-top:9px;font-size:9.5pt;color:#cfe6dd}
 .banner .contact span::after{content:"·";margin:0 7px;color:#5fae97}
-.banner .contact span:last-child::after{content:""}
+.banner .contact span:last-child::after{content:"";font-size:0}
 
 .body{padding:9mm 15mm 12mm}
 
 h2{display:flex;align-items:center;gap:9px;font-size:11.5pt;font-weight:600;letter-spacing:.06em;
   color:var(--brand);margin:15px 0 7px}
-h2::before{content:"";width:4px;height:14px;background:var(--brand);border-radius:1px;flex:none}
-h2::after{content:"";flex:1;height:.5px;background:var(--line)}
+h2::before{content:"";font-size:0;width:4px;height:14px;background:var(--brand);border-radius:1px;flex:none}
+h2::after{content:"";font-size:0;flex:1;height:.5px;background:var(--line)}
 h2:first-child{margin-top:0}
 
 .summary{font-size:10pt;color:var(--sub);text-align:justify;line-height:1.68}
@@ -75,7 +77,7 @@ h2:first-child{margin-top:0}
 .date{margin-left:auto;font-size:9pt;color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap}
 ul{list-style:none;margin-top:3px}
 li{position:relative;padding-left:12px;margin-bottom:3.5px;font-size:10pt;line-height:1.64;text-align:justify}
-li::before{content:"";position:absolute;left:0;top:8px;width:4px;height:4px;border-radius:50%;background:var(--brand);opacity:.55}
+li::before{content:"";font-size:0;position:absolute;left:0;top:8px;width:4px;height:4px;border-radius:50%;background:var(--brand);opacity:.55}
 li b{font-weight:600;color:#0b5745}
 
 .two{display:flex;gap:26px}
@@ -110,7 +112,7 @@ def render(r) -> str:
 
     inner: list[str] = []
     if r.summary:
-        inner.append(_h2("个人简介"))
+        inner.append(_h2(getattr(r, "summary_title", "") or "个人简介"))
         inner.append(f'<p class="summary" contenteditable="true">{bold_numbers(r.summary)}</p>')
 
     chips = []
@@ -132,7 +134,7 @@ def render(r) -> str:
             inner.append(
                 '<div class="item">'
                 + item_hd(e.company, exp_meta(e), e.period)
-                + bullets_html(exp_bullets(e))
+                + exp_content_html(e)
                 + "</div>"
             )
 

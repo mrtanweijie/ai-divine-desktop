@@ -10,9 +10,9 @@ try:
         bullets_html,
         contact_lines_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
-        page_foot,
         skill_kv_pairs,
     )
 except ImportError:  # 兼容脚本直接运行
@@ -23,9 +23,9 @@ except ImportError:  # 兼容脚本直接运行
         bullets_html,
         contact_lines_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
-        page_foot,
         skill_kv_pairs,
     )
 
@@ -59,7 +59,7 @@ body{background:#eceae5;color:var(--ink);font-family:var(--sans);font-size:10.5p
 
 h2{font-size:10pt;font-weight:600;letter-spacing:.16em;color:var(--brand);margin:11px 0 6px;
   display:flex;align-items:center;gap:8px}
-h2::after{content:"";flex:1;height:.5px;background:var(--line)}
+h2::after{content:"";font-size:0;flex:1;height:.5px;background:var(--line)}
 h2:first-child{margin-top:0}
 
 .summary{font-size:10pt;color:var(--sub);text-align:justify;line-height:1.72}
@@ -93,8 +93,6 @@ li b{font-weight:600;color:#1c3f9e}
 .stack{display:flex;gap:22px;flex-wrap:wrap;font-size:9.5pt;color:var(--sub);line-height:1.72}
 .stack .g .h{font-size:8.5pt;letter-spacing:.1em;color:var(--mute);margin-bottom:2px}
 
-.foot{margin-top:15px;padding-top:8px;border-top:.5px solid var(--line);
-  display:flex;justify-content:space-between;font-size:8.5pt;color:var(--mute)}
 """ + EDITABLE_CSS
 
 PRINT_SINGLE = """
@@ -143,7 +141,7 @@ def render(r) -> str:
 
     inner: list[str] = []
     if r.summary:
-        inner.append(_h2("个人简介"))
+        inner.append(_h2(getattr(r, "summary_title", "") or "个人简介"))
         inner.append(f'<p class="summary" contenteditable="true">{bold_numbers(r.summary)}</p>')
     kpis = _kpis_html(r)
     if kpis:
@@ -161,7 +159,7 @@ def render(r) -> str:
                 '<div class="item">'
                 + item_hd(e.company, exp_meta(e) if e.title else e.title or "", e.period)
                 + scope
-                + bullets_html(exp_bullets(e))
+                + exp_content_html(e)
                 + "</div>"
             )
 
@@ -211,9 +209,5 @@ def render(r) -> str:
                 + "</div>"
             )
 
-    foot = page_foot(
-        f"{r.name} · {r.title}" if r.title else r.name,
-        r.contact.phone or r.contact.email,
-    )
-    body = f'<div class="body">{"".join(inner)}{foot}</div>'
+    body = f'<div class="body">{"".join(inner)}</div>'
     return f'<div class="page">{header}{body}</div>'

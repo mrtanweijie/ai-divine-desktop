@@ -11,9 +11,9 @@ try:
         chip_item,
         contact_lines_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
-        page_foot,
     )
 except ImportError:  # 兼容脚本直接运行
     from components import (  # type: ignore
@@ -24,9 +24,9 @@ except ImportError:  # 兼容脚本直接运行
         chip_item,
         contact_lines_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
-        page_foot,
     )
 
 id = "tpl_freshgrad"
@@ -59,8 +59,8 @@ body{background:#eceae5;color:var(--ink);font-family:var(--sans);font-size:10.5p
 
 h2{font-size:9.5pt;font-weight:600;letter-spacing:.18em;color:var(--brand);margin:15px 0 7px;
   display:flex;align-items:center;gap:8px}
-h2::before{content:"";width:3px;height:12px;background:var(--brand);border-radius:1px;flex:none}
-h2::after{content:"";flex:1;height:.5px;background:var(--line)}
+h2::before{content:"";font-size:0;width:3px;height:12px;background:var(--brand);border-radius:1px;flex:none}
+h2::after{content:"";font-size:0;flex:1;height:.5px;background:var(--line)}
 h2:first-child{margin-top:0}
 
 .item{margin-bottom:11px}
@@ -70,7 +70,7 @@ h2:first-child{margin-top:0}
 .date{margin-left:auto;font-size:9pt;color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap}
 ul{list-style:none;margin-top:5px}
 li{position:relative;padding-left:13px;margin-bottom:3.5px;font-size:10pt;text-align:justify}
-li::before{content:"";position:absolute;left:1px;top:8px;width:4px;height:4px;border-radius:50%;background:var(--brand);opacity:.6}
+li::before{content:"";font-size:0;position:absolute;left:1px;top:8px;width:4px;height:4px;border-radius:50%;background:var(--brand);opacity:.6}
 li b{font-weight:600;color:#136b5e}
 
 .edu-box{border:.5px solid var(--line);background:var(--band);padding:10px 13px;margin-bottom:9px}
@@ -89,8 +89,6 @@ li b{font-weight:600;color:#136b5e}
 .two{display:flex;gap:26px}
 .two .col{flex:1;min-width:0}
 
-.foot{margin-top:14px;padding-top:8px;border-top:.5px solid var(--line);
-  display:flex;justify-content:space-between;font-size:8.5pt;color:var(--mute)}
 """ + EDITABLE_CSS
 
 PRINT_SINGLE = """
@@ -159,7 +157,7 @@ def render(r) -> str:
             inner.append(
                 '<div class="item">'
                 + item_hd(e.company, exp_meta(e), e.period)
-                + bullets_html(exp_bullets(e))
+                + exp_content_html(e)
                 + "</div>"
             )
 
@@ -199,9 +197,5 @@ def render(r) -> str:
             cols.append(f'<div class="col"><ul contenteditable="true">{lis}</ul></div>')
         inner.append(f'<div class="two">{"".join(cols)}</div>')
 
-    foot = page_foot(
-        f"{r.name} · {r.title}" if r.title else r.name,
-        r.contact.phone or r.contact.email,
-    )
-    body = f'<div class="body">{"".join(inner)}{foot}</div>'
+    body = f'<div class="body">{"".join(inner)}</div>'
     return f'<div class="page">{header}{body}</div>'

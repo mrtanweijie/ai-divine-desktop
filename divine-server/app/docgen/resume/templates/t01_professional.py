@@ -12,7 +12,7 @@ try:
         bold_numbers,
         bullets_html,
         contact_spans_html,
-        exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
         kv_row,
@@ -25,7 +25,7 @@ except ImportError:  # 兼容脚本直接运行
         bold_numbers,
         bullets_html,
         contact_spans_html,
-        exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
         kv_row,
@@ -56,7 +56,7 @@ body{background:#eceae5;color:var(--ink);font-family:var(--sans);font-size:10.5p
 .hd h1{font-family:var(--serif);font-size:25pt;font-weight:600;letter-spacing:.28em}
 .hd .contact{margin-top:7px;font-size:9.5pt;color:var(--sub);letter-spacing:.02em}
 .hd .contact span::after{content:"|";color:var(--line);margin:0 8px}
-.hd .contact span:last-child::after{content:""}
+.hd .contact span:last-child::after{content:"";font-size:0}
 
 h2{font-family:var(--serif);font-size:11.5pt;font-weight:600;letter-spacing:.2em;
   text-align:left;color:var(--accent);margin:16px 0 2px}
@@ -73,7 +73,12 @@ h2{font-family:var(--serif);font-size:11.5pt;font-weight:600;letter-spacing:.2em
 .date{margin-left:auto;font-size:9.5pt;color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap}
 ul{list-style:none;margin-top:4px}
 li{position:relative;padding-left:13px;margin-bottom:3px;font-size:10pt;line-height:1.62;text-align:justify}
-li::before{content:"—";position:absolute;left:0;color:var(--line)}
+li::before{content:"";position:absolute;left:1px;top:.58em;width:4.5px;height:4.5px;border-radius:50%;background:var(--accent)}
+/* 嵌套项目层级：导语（标题）大圆点，成果点小圆点且与标题首字水平对齐 */
+li.lead{margin-top:5px}
+li.lead::before{width:5.5px;height:5.5px;top:.5em;background:var(--ink)}
+li.sub{padding-left:22px}
+li.sub::before{left:13px;width:3.5px;height:3.5px;top:.62em;background:var(--mute)}
 li b{font-weight:600}
 
 .kv{display:flex;gap:10px;margin-bottom:5px;font-size:10pt;line-height:1.62}
@@ -81,8 +86,6 @@ li b{font-weight:600}
 .kv .v{flex:1;color:var(--sub)}
 .kv .v b{color:var(--ink);font-weight:600}
 
-.foot{margin-top:14px;padding-top:8px;border-top:.5px solid var(--line);
-  font-size:8.5pt;color:var(--mute);text-align:left}
 """ + EDITABLE_CSS
 
 PRINT_SINGLE = """
@@ -120,11 +123,10 @@ def render(r) -> str:
 
     exp_inner = ""
     for e in r.experiences:
-        points = exp_bullets(e)
         exp_inner += (
             '<div class="item">'
             + item_hd(e.company, exp_meta(e), e.period)
-            + bullets_html(points)
+            + exp_content_html(e)
             + "</div>"
         )
     exp_html = _section("职业经历", exp_inner)
@@ -169,7 +171,7 @@ def render(r) -> str:
     skill_html = _section("资质与技能", kv_rows)
 
     parts.append(header)
-    parts.append(_section("职业概述", summary_html))
+    parts.append(_section(getattr(r, "summary_title", "") or "职业概述", summary_html))
     parts.append(exp_html)
     parts.append(proj_html)
     parts.append(edu_html)

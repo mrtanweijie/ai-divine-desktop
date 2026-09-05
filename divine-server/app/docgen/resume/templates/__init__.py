@@ -13,11 +13,11 @@ from pathlib import Path
 
 try:
     from . import registry
-    from .components import page_foot, toolbar_html, wrap_page
+    from .components import toolbar_html, wrap_page
     from .print_css import assemble_css
 except ImportError:  # 兼容脚本直接运行
     import registry  # type: ignore
-    from components import page_foot, toolbar_html, wrap_page  # type: ignore
+    from components import toolbar_html, wrap_page  # type: ignore
     from print_css import assemble_css  # type: ignore
 
 try:
@@ -99,7 +99,9 @@ def render_template_resume(
         generated.append(str(clean_path))
 
     if output_format in ("pdf", "both"):
-        full_html = build_html(resume, template_id, layout, editable=True)
+        # PDF 用纯净版（无工具条/编辑属性）：toolbar 是 position:fixed，
+        # WeasyPrint 会把它渲染到页面上且不依赖各模板自带的 print 隐藏规则
+        full_html = build_html(resume, template_id, layout, editable=False)
         from weasyprint import HTML
 
         HTML(string=full_html).write_pdf(str(output))
@@ -113,6 +115,5 @@ __all__ = [
     "build_html",
     "register_module",
     "render_template_resume",
-    "page_foot",
     "toolbar_html",
 ]

@@ -9,6 +9,7 @@ try:
         bold_numbers,
         bullets_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
         kv_row,
@@ -22,6 +23,7 @@ except ImportError:  # 兼容脚本直接运行
         bold_numbers,
         bullets_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
         kv_row,
@@ -67,7 +69,7 @@ h2{font-size:8.5pt;font-weight:500;letter-spacing:.22em;color:var(--mute);
 .date{margin-left:auto;font-size:9pt;color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap}
 ul{list-style:none;margin-top:5px}
 li{position:relative;padding-left:14px;margin-bottom:3.5px;color:var(--sub);text-align:justify}
-li::before{content:"";position:absolute;left:2px;top:9px;width:5px;height:.5px;background:var(--mute)}
+li::before{content:"";font-size:0;position:absolute;left:2px;top:9px;width:5px;height:.5px;background:var(--mute)}
 li b{color:var(--ink);font-weight:600}
 
 .line{display:flex;gap:12px;font-size:9.5pt;margin-bottom:6px}
@@ -112,7 +114,7 @@ def render(r) -> str:
 
     parts: list[str] = [header]
     if r.summary:
-        parts.append(_h2("简介"))
+        parts.append(_h2(getattr(r, "summary_title", "") or "简介"))
         parts.append(f'<p class="summary" contenteditable="true">{bold_numbers(r.summary)}</p>')
 
     if r.experiences:
@@ -121,7 +123,7 @@ def render(r) -> str:
             parts.append(
                 '<div class="item">'
                 + item_hd(e.company, exp_meta(e), e.period)
-                + bullets_html(exp_bullets(e))
+                + exp_content_html(e)
                 + "</div>"
             )
 

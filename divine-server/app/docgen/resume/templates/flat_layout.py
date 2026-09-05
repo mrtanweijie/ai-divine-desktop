@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .components import exp_content_html
 from .helpers import _compact_contact_items, _esc, bold_resume_line
 
 
@@ -52,10 +53,6 @@ def flat_resume_html(resume, style: str) -> str:
                 if role_html
                 else _esc(item.company)
             )
-            highlights = "".join(
-                f"<li>{bold_resume_line(highlight)}</li>"
-                for highlight in item.highlights
-            )
             entries.append(
                 f"""
         <div class="entry">
@@ -64,7 +61,7 @@ def flat_resume_html(resume, style: str) -> str:
             {f'<div class="right">{_esc(item.period)}</div>' if item.period else ''}
           </div>
           {f'<div class="desc">{bold_resume_line(item.description)}</div>' if item.description else ''}
-          {f'<ul>{highlights}</ul>' if highlights else ''}
+          {exp_content_html(item)}
         </div>"""
             )
         exp_html = (

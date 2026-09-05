@@ -11,6 +11,7 @@ try:
         bullets_html,
         contact_spans_html,
         exp_bullets,
+        exp_content_html,
         item_hd,
     )
 except ImportError:  # 兼容脚本直接运行
@@ -22,6 +23,7 @@ except ImportError:  # 兼容脚本直接运行
         bullets_html,
         contact_spans_html,
         exp_bullets,
+        exp_content_html,
         item_hd,
     )
 
@@ -56,7 +58,7 @@ body{background:#eceae5;color:var(--ink);font-family:var(--sans);font-size:10.5p
 
 h2{font-size:9.5pt;font-weight:600;letter-spacing:.18em;color:var(--brand);margin:15px 0 8px;
   display:flex;align-items:center;gap:8px}
-h2::after{content:"";flex:1;height:.5px;background:var(--line)}
+h2::after{content:"";font-size:0;flex:1;height:.5px;background:var(--line)}
 h2 .note{font-weight:400;font-size:8.5pt;color:var(--mute);letter-spacing:0}
 h2:first-child{margin-top:0}
 
@@ -82,7 +84,7 @@ li b{font-weight:600;color:#4e3583}
 
 .timeline{border-left:1.5px solid var(--line);padding-left:14px;margin-left:3px}
 .tl{position:relative;padding-bottom:11px}
-.tl::before{content:"";position:absolute;left:-20px;top:6px;width:7px;height:7px;
+.tl::before{content:"";font-size:0;position:absolute;left:-20px;top:6px;width:7px;height:7px;
   border-radius:50%;background:#fff;border:1.5px solid var(--brand)}
 .tl .h{display:flex;align-items:baseline;gap:9px}
 .tl .h .o{font-weight:600;font-size:10.5pt}
@@ -168,7 +170,7 @@ def render(r) -> str:
         practice_items.append(
             '<div class="item">'
             + item_hd(e.company, e.title, e.period)
-            + bullets_html(exp_bullets(e))
+            + exp_content_html(e)
             + "</div>"
         )
     if practice_items:
@@ -184,7 +186,7 @@ def render(r) -> str:
                 '<div class="tl">'
                 f'<div class="h"><span class="o" contenteditable="true">{_esc(e.company)}</span>'
                 f'<span class="d" contenteditable="true">{_esc(e.period)}</span></div>'
-                + bullets_html(exp_bullets(e))
+                + exp_content_html(e)
                 + "</div>"
             )
         inner.append(f'<div class="timeline">{"".join(rows)}</div>')

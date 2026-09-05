@@ -110,7 +110,7 @@ body {
 }
 
 .section h2::before {
-  content: "";
+  content:"";font-size:0;
   display: inline-block;
   width: 12pt;
   height: 3pt;

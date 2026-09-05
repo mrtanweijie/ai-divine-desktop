@@ -155,6 +155,60 @@ def test_string_skills_do_not_explode_into_char_chips():
     assert "框架" in body
 
 
+def test_nested_projects_in_work_are_rendered():
+    """回归：work[].projects 曾被非 kami 模板整体丢弃（用户 10 个项目"没看到项目模块"）。"""
+    data = {
+        "name": "李铭",
+        "title": "资深前端工程师",
+        "contact": {"email": "a@b.c"},
+        "work": [
+            {
+                "company": "某券商",
+                "position": "前端负责人",
+                "period": "2019 - 至今",
+                "projects": [
+                    {
+                        "name": "机构级实时行情交易工作台",
+                        "summary": "服务 500 家机构客户",
+                        "points": ["行情延迟 P99 降至 80ms"],
+                    },
+                    {"name": "智能风控运营中台", "points": ["风控处置效率提升 3 倍"]},
+                ],
+            }
+        ],
+    }
+    resume = ResumeData.from_dict(data)
+    assert resume.experiences[0].projects  # 归一化保留嵌套项目
+    for template_id in ("tpl_professional", "tpl_modern", "finance"):
+        html = build_html(resume, template_id, "single", editable=False)
+        body = html.split("<body>", 1)[1]
+        assert "机构级实时行情交易工作台" in body, f"{template_id} 丢失嵌套项目"
+        assert "智能风控运营中台" in body
+        assert "行情延迟" in body and "降至" in body  # 数字会被加粗拆开，验证文案主体
+
+
+def test_no_zero_width_ghost_artifacts():
+    """回归：content:"" 空伪元素会发射零宽填充矩形（空文本行框），
+    在部分 PDF 查看器中显示为标题旁的发丝竖线。空伪元素统一带 font-size:0。"""
+    import pymupdf
+    from weasyprint import HTML
+
+    resume = ResumeData.from_dict(SAMPLE_RESUME)
+    for template_id in ("tpl_freshgrad", "tpl_modern", "tpl_executive"):
+        html = build_html(resume, template_id, "single", editable=False)
+        pdf_path = f"/tmp/resume_audit/t_ghost_{template_id}.pdf"
+        HTML(string=html).write_pdf(pdf_path)
+        doc = pymupdf.open(pdf_path)
+        ghosts = [
+            d
+            for d in doc[0].get_drawings()
+            if (d["rect"].x1 - d["rect"].x0) < 0.01
+            and (d["rect"].y1 - d["rect"].y0) > 1
+        ]
+        assert ghosts == [], f"{template_id} 存在 {len(ghosts)} 个零宽伪影: {ghosts[:2]}"
+        doc.close()
+
+
 def test_professional_heavy_content_keeps_main_column_on_every_page():
     """回归：双栏若用 flex，WeasyPrint 无法分割容器，内容超页时主栏整体
     被搬到最后一页（前几页只有侧栏）。table-cell 布局跨页正常。"""

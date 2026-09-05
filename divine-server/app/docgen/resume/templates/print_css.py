@@ -10,8 +10,9 @@ from __future__ import annotations
 MULTI_PRINT_CSS = """
 @media print{
   @page{size:A4;margin:10mm 0 11mm}
+  @page:first{margin-top:0}
   .page{min-height:0;margin:0;box-shadow:none}
-  .item,.work,.proj,.block,.tcard,.kv,.line,.pubs li,.g,tr,.foot{break-inside:avoid}
+  .item,.work,.proj,.block,.tcard,.kv,.line,.pubs li,.g,tr{break-inside:avoid}
   h2{break-after:avoid}
   ul,ol{orphans:2;widows:2}
 }
@@ -25,7 +26,13 @@ COMPACT_MULTI_EXTRA_CSS = """
 
 def assemble_css(module, layout: str) -> str:
     """module 需提供 CSS 与 PRINT_SINGLE 属性；multi 追加通用多页块。"""
-    css = module.CSS + "\n" + module.PRINT_SINGLE
+    # 兜底：工具条只属于屏幕编辑态，打印/导出 PDF 时一律隐藏
+    # （部分模板自带该规则，这里统一保证，避免遗漏模板把 toolbar 打进 PDF）
+    css = (
+        module.CSS
+        + "\n@media print{.toolbar{display:none!important}}\n"
+        + module.PRINT_SINGLE
+    )
     if layout == "multi":
         css += "\n" + MULTI_PRINT_CSS
         if getattr(module, "MULTI_EXTRA", ""):

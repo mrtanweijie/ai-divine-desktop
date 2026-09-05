@@ -14,6 +14,7 @@ try:
         bullets_html,
         contact_items,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
     )
@@ -25,6 +26,7 @@ except ImportError:  # 兼容脚本直接运行
         bullets_html,
         contact_items,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
     )
@@ -76,7 +78,7 @@ body{background:#eceae5;color:var(--ink);font-family:var(--sans);font-size:10pt;
 .date{margin-left:auto;font-size:8.5pt;color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap}
 ul{list-style:none;margin-top:4px}
 li{position:relative;padding-left:11px;margin-bottom:3px;font-size:9.3pt;line-height:1.58;text-align:justify}
-li::before{content:"";position:absolute;left:0;top:7px;width:4px;height:4px;border-radius:50%;background:var(--brand);opacity:.55}
+li::before{content:"";font-size:0;position:absolute;left:0;top:7px;width:4px;height:4px;border-radius:50%;background:var(--brand);opacity:.55}
 li b{font-weight:600;color:#2b4468}
 
 .two{display:flex;gap:18px}
@@ -144,7 +146,7 @@ def render(r) -> str:
 
     main: list[str] = []
     if r.summary:
-        main.append(_h2("个人简介"))
+        main.append(_h2(getattr(r, "summary_title", "") or "个人简介"))
         main.append(f'<p class="summary" contenteditable="true">{bold_numbers(r.summary)}</p>')
 
     if r.experiences:
@@ -153,7 +155,7 @@ def render(r) -> str:
             main.append(
                 '<div class="item">'
                 + item_hd(e.company, exp_meta(e), e.period)
-                + bullets_html(exp_bullets(e))
+                + exp_content_html(e)
                 + "</div>"
             )
 

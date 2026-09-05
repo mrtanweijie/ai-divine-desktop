@@ -10,9 +10,9 @@ try:
         bullets_html,
         contact_lines_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
-        page_foot,
         skill_kv_pairs,
     )
 except ImportError:  # 兼容脚本直接运行
@@ -23,9 +23,9 @@ except ImportError:  # 兼容脚本直接运行
         bullets_html,
         contact_lines_html,
         exp_bullets,
+        exp_content_html,
         exp_meta,
         item_hd,
-        page_foot,
         skill_kv_pairs,
     )
 
@@ -57,7 +57,7 @@ body{background:#eceae5;color:var(--ink);font-family:var(--sans);font-size:10.5p
 
 h2{font-size:9pt;font-weight:600;letter-spacing:.26em;color:var(--mute);
   margin:13px 0 8px;text-transform:uppercase}
-h2::before{content:"";display:inline-block;width:16px;height:1px;background:var(--accent);
+h2::before{content:"";font-size:0;display:inline-block;width:16px;height:1px;background:var(--accent);
   vertical-align:middle;margin-right:9px}
 
 .intro{font-size:10.5pt;color:var(--sub);line-height:1.64;max-width:150mm}
@@ -86,8 +86,6 @@ li b{font-weight:600}
 .skills .g .h{font-size:8.5pt;letter-spacing:.12em;color:var(--mute);margin-bottom:3px}
 .skills .g .v{font-size:9.5pt;color:var(--sub);line-height:1.7}
 
-.foot{margin-top:16px;padding-top:9px;border-top:.5px solid var(--line);
-  display:flex;justify-content:space-between;font-size:8.5pt;color:var(--mute)}
 """ + EDITABLE_CSS
 
 PRINT_SINGLE = """
@@ -120,7 +118,7 @@ def render(r) -> str:
     parts: list[str] = [header]
 
     if r.summary:
-        parts.append(_h2("About"))
+        parts.append(_h2(getattr(r, "summary_title", "") or "About"))
         parts.append(f'<p class="intro" contenteditable="true">{bold_numbers(r.summary)}</p>')
 
     works = r.works or []
@@ -161,7 +159,7 @@ def render(r) -> str:
             parts.append(
                 '<div class="item">'
                 + item_hd(e.company, exp_meta(e), e.period)
-                + bullets_html(exp_bullets(e))
+                + exp_content_html(e)
                 + "</div>"
             )
 
@@ -193,9 +191,4 @@ def render(r) -> str:
             lis = "".join(f"<li>{_esc(x)}</li>" for x in r.honors)
             parts.append(f'<ul contenteditable="true">{lis}</ul>')
 
-    foot = page_foot(
-        f"{r.name} · {r.title}" if r.title else r.name,
-        r.contact.website or r.contact.github or r.contact.linkedin or r.contact.phone,
-    )
-    parts.append(foot)
     return '<div class="page">' + "".join(parts) + "</div>"

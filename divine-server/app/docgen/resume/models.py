@@ -94,6 +94,7 @@ class ResumeData:
     en_name: str = ""                                          # 英文姓名（国际版）
     en_title: str = ""
     en_summary: str = ""                                       # 英文摘要
+    summary_title: str = ""                                    # 摘要板块自定义标题；缺省用模板默认（如"高管摘要"/"个人简介"）
     certifications: list[str] = field(default_factory=list)    # 资质证书
     languages: list[str] = field(default_factory=list)         # 语言能力
     honors: list[str] = field(default_factory=list)            # 荣誉/奖项/媒体报道

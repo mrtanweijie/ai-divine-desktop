@@ -159,7 +159,7 @@ a { color: var(--brand); text-decoration: none; }
   gap: 2mm;
 }
 .section-title::before {
-  content: "";
+  content:"";font-size:0;
   position: absolute;
   left: 0;
   top: 0.65mm;
@@ -350,7 +350,7 @@ section:first-of-type .section-title { margin-top: 0; }
   break-after: avoid;
 }
 .project-name::before {
-  content: "";
+  content:"";font-size:0;
   position: absolute;
   left: 0;
   top: 0.7mm;
