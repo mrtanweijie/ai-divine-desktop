@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { ArrowDown } from "lucide-react";
@@ -9,6 +9,16 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ConversationMinimap } from "./ConversationMinimap";
 
 import "./index.less";
+
+// B4：倒序找最近一条用户消息的 id（零分配），替代
+// `[...messages].reverse().find()` 的每 chunk 整数组拷贝反转。
+function findLastUserId(messages: ChatMessage[]): string | undefined {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i].role === "user") return messages[i].id;
+  }
+  return undefined;
+}
+
 interface MessageTimelineProps {
   messages: ChatMessage[];
   streaming: boolean;
@@ -48,6 +58,8 @@ export function MessageList({
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  // onScroll 的高频状态提交按帧合并（见 handleScroll 内注释）
+  const scrollRafRef = useRef<number | null>(null);
 
   const virtualizer = useVirtualizer({
     count: messages.length,
@@ -70,8 +82,15 @@ export function MessageList({
 
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
-  const minimapVisible =
-    messages.filter((message) => message.role === "assistant").length > 5;
+  // Minimap 显隐：长会话每帧渲染都会到这里，用 useMemo + 计数提前退出
+  // 替代每次渲染分配整个过滤数组。
+  const minimapVisible = useMemo(() => {
+    let assistantCount = 0;
+    for (const message of messages) {
+      if (message.role === "assistant" && ++assistantCount > 5) return true;
+    }
+    return false;
+  }, [messages]);
 
   const handleScroll = () => {
     const container = scrollRef.current;
@@ -79,7 +98,7 @@ export function MessageList({
     const newTop = container.scrollTop;
     const distance =
       container.scrollHeight - newTop - container.clientHeight;
-    // 用滚动方向判断用户意图：
+    // 用滚动方向判断用户意图（只写 ref，无渲染成本）：
     // - 向上滚动（查看历史）→ 立即解除自动跟随（哪怕只滚了几像素）；
     // - 滚回/位于底部 → 恢复自动跟随。
     if (newTop < lastScrollTopRef.current) {
@@ -88,12 +107,29 @@ export function MessageList({
       stickToBottom.current = true;
     }
     lastScrollTopRef.current = newTop;
-    setScrollTop(newTop);
-    setViewportHeight(container.clientHeight);
-    setShowScrollToBottom(distance > 120);
     if (container.scrollTop < 40 && hasMoreOlder && !loadingOlder) {
       onLoadOlder?.();
     }
+    // 滚动事件每帧都会触发（流式自动跟随也在持续改 scrollTop）：
+    // rAF 对齐，每帧至多提交一次状态；值未变时函数式 setState 让
+    // React 原地跳过，避免每帧 3 个 setState 带动列表 + Minimap
+    // 整帧重渲染（长会话下与流式 chunk 重渲染叠乘，是卡顿源之一）。
+    if (scrollRafRef.current !== null) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const el = scrollRef.current;
+      if (!el) return;
+      const top = el.scrollTop;
+      setScrollTop((prev) => (prev === top ? prev : top));
+      setViewportHeight((prev) =>
+        prev === el.clientHeight ? prev : el.clientHeight
+      );
+      const bottomGap = el.scrollHeight - top - el.clientHeight;
+      const showButton = bottomGap > 120;
+      setShowScrollToBottom((prev) =>
+        prev === showButton ? prev : showButton
+      );
+    });
   };
 
   useEffect(() => {
@@ -107,7 +143,13 @@ export function MessageList({
     updateViewport();
     const observer = new ResizeObserver(updateViewport);
     observer.observe(container);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (scrollRafRef.current !== null) {
+        cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -136,13 +178,12 @@ export function MessageList({
     if (!container) return;
     const sessionChanged = previousSessionId.current !== sessionId;
     previousSessionId.current = sessionId;
-    const lastUser = [...messages].reverse().find(
-      (message) => message.role === "user"
-    );
+    // B4：见模块顶部 findLastUserId 说明
+    const lastUserId = findLastUserId(messages);
     const userChanged =
-      lastUser !== undefined && lastUser.id !== lastUserMessageId.current;
+      lastUserId !== undefined && lastUserId !== lastUserMessageId.current;
     if (userChanged) {
-      lastUserMessageId.current = lastUser.id;
+      lastUserMessageId.current = lastUserId;
     }
     const scrollToBottom = () => {
       // 只信任 stickToBottom（由滚动方向维护的用户意图）：
@@ -163,7 +204,7 @@ export function MessageList({
       return;
     }
     if (userChanged) {
-      if (String(lastUser.id).startsWith("local-user-")) {
+      if (String(lastUserId).startsWith("local-user-")) {
         // 真正的发送（本地乐观消息）：强制回到底部查看新消息与回复
         stickToBottom.current = true;
         lastScrollTopRef.current = -1;
