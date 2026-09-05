@@ -72,6 +72,7 @@ export interface ToolEvent {
   commands?: string[];
   confirm_type?:
     | "terminal"
+    | "git"
     | "external_file"
     | "plan"
     | "plan_choice"

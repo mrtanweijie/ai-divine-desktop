@@ -671,7 +671,9 @@
     "askUserAnswered": "已收到補充資訊",
     "askUserTimeout": "使用者未回應，Agent 已依最佳判斷繼續",
     "answerFailed": "回答傳送失敗，請重試",
-    "askUserAnswerLabel": "你的回答"
+    "askUserAnswerLabel": "你的回答",
+    "gitConfirm": "Git 寫入操作確認",
+    "gitConfirmWait": "等待使用者確認 Git 寫入操作"
   },
   "updater": {
     "available": "發現新版本 v{{version}}",

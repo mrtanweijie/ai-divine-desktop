@@ -4,6 +4,7 @@ import {
   CalendarDays,
   FileCode2,
   FolderOpen,
+  GitBranch,
   Group,
   ListChecks,
   TerminalSquare,
@@ -71,6 +72,27 @@ export function ToolConfirmSection({
           callId={tool.call_id}
           targetSessionId={targetSessionId}
           disabled={confirmDisabled}
+        />
+      </div>
+    );
+  }
+
+  // Git 写操作确认（git_commit / git_revert）：必须放在下方带 command
+  // 的终端通用分支之前，否则会被截走显示成「终端命令确认」
+  if (tool.confirm_type === "git") {
+    return (
+      <div className="terminal-confirm git-confirm">
+        <div className="terminal-confirm-head">
+          <GitBranch size={14} />
+          <span>{t("tool.gitConfirm", "Git 写操作确认")}</span>
+        </div>
+        <pre>{tool.command || tool.message}</pre>
+        <ConfirmButtons
+          deciding={deciding}
+          disabled={confirmDisabled}
+          onDecide={onDecide}
+          allowLabel={t("tool.allowRun", "允许执行")}
+          rejectLabel={t("tool.reject", "拒绝")}
         />
       </div>
     );
@@ -371,5 +393,19 @@ export function ToolConfirmSection({
     );
   }
 
-  return null;
+  // 兜底：后端新增中断类型而前端未跟进时，也必须给出可操作的确认
+  // 按钮——此前这里返回 null，git_commit 中断（无 confirm_type）就
+  // 因此没有任何按钮，用户无从回应、Agent 卡到 180s 超时被拒。
+  return (
+    <div className="terminal-confirm">
+      <pre>{tool.message}</pre>
+      <ConfirmButtons
+        deciding={deciding}
+        disabled={confirmDisabled}
+        onDecide={onDecide}
+        allowLabel={t("tool.allowRun", "允许执行")}
+        rejectLabel={t("tool.reject", "拒绝")}
+      />
+    </div>
+  );
 }

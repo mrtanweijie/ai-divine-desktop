@@ -689,7 +689,9 @@
     "askUserAnswered": "Got it, continuing",
     "askUserTimeout": "No response — continuing on best judgment",
     "answerFailed": "Failed to send answer, please retry",
-    "askUserAnswerLabel": "Your answer"
+    "askUserAnswerLabel": "Your answer",
+    "gitConfirm": "Confirm Git write",
+    "gitConfirmWait": "Waiting for Git write approval"
   },
   "updater": {
     "available": "New version v{{version}} available",
