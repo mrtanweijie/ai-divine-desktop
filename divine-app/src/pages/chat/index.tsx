@@ -41,16 +41,16 @@ import { useInputState } from "@/pages/chat/state/inputStore";
 import { useMessageState } from "@/pages/chat/state/messageStore";
 import { useShortcutAction } from "@/hooks/useShortcuts";
 import {
-  readLastSessionSelection,
   useSessionState,
   writeLastSessionSelection,
 } from "@/pages/chat/state/sessionStore";
 import {
-  getSessionEffort,
+  defaultComposerEffort,
   setSessionEffort,
 } from "@/pages/chat/state/sessionEffort";
 import {
   getSessionModelId,
+  resolveModelTargetId,
   setSessionModelId,
 } from "@/pages/chat/state/sessionModel";
 import { Flex } from "@/components/ui/Flex";
@@ -59,6 +59,10 @@ import { SessionSearchModal } from "@/pages/chat/components/SessionList/SessionS
 import { ProjectModal } from "@/pages/chat/components/ProjectModal";
 import { ProjectPicker } from "@/pages/chat/components/ProjectPicker";
 import { useChatStream } from "@/pages/chat/hooks/useChatStream";
+import {
+  useAppBootstrap,
+  useSessionPreferenceSync,
+} from "@/pages/chat/hooks/useAppBootstrap";
 import { ChatStreamContext } from "@/pages/chat/hooks/ChatStreamContext";
 import { useSessionLoader } from "@/pages/chat/hooks/useSessionLoader";
 import { useWorkspacePanel } from "@/pages/chat/hooks/useWorkspacePanel";
@@ -159,9 +163,7 @@ export default function ChatPage() {
   const [composerKey, setComposerKey] = useState(0);
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>("ask");
   const [composerEffort, setComposerEffort] = useState("off");
-  const prevEffortSessionRef = useRef<string | null>(null);
   const [composerModelId, setComposerModelId] = useState<string | null>(null);
-  const prevModelSessionRef = useRef<string | null>(null);
   // Bumped after each stream settles so the context ring refreshes usage.
   const [contextRefreshKey, setContextRefreshKey] = useState(0);
   const lastStreamingRef = useRef(false);
@@ -278,136 +280,24 @@ export default function ChatPage() {
     }
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const savedSelection = readLastSessionSelection();
+  useAppBootstrap({
+    refreshProjects,
+    refreshSessions,
+    loadSession,
+    setSettings,
+    setComposerEffort,
+    setSelectedProjectId,
+    setSelectedId,
+    setSelectionReady,
+    t,
+  });
 
-    Promise.all([refreshProjects(), getSettings()])
-      .then(async ([projectList, currentSettings]) => {
-        if (cancelled) return;
-        setSettings(currentSettings);
-        setComposerEffort(
-          currentSettings.think_default
-            ? currentSettings.reasoning_effort ?? "high"
-            : "off"
-        );
-        const sessionList = await refreshSessions();
-        if (cancelled) return;
-        const savedSession =
-          sessionList.find(
-            (session) => session.id === savedSelection.sessionId
-          ) ?? null;
-        const preferredProjectId =
-          savedSession?.project_id ?? savedSelection.projectId;
-        const initialProject =
-          projectList.find((project) => project.id === preferredProjectId) ??
-          projectList.find(
-            (project) => project.id === savedSession?.project_id
-          ) ??
-          projectList[0] ??
-          null;
-        if (!initialProject) {
-          setSelectedProjectId(null);
-          setSelectionReady(true);
-          return;
-        }
-        setSelectedProjectId(initialProject.id);
-        const initialSession =
-          sessionList.find(
-            (session) =>
-              session.id === savedSelection.sessionId &&
-              session.project_id === initialProject.id
-          ) ??
-          sessionList.find(
-            (session) => session.project_id === initialProject.id
-          ) ??
-          null;
-        if (initialSession) {
-          await loadSession(initialSession.id);
-        } else {
-          setSelectedId(null);
-        }
-        setSelectionReady(true);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setSettings({
-          provider: "mock",
-          base_url: "",
-          model: "deepseek-v4-flash",
-          has_api_key: false,
-          has_glm_key: false,
-          workspace_dir: "",
-          username: t("common.user", "用户"),
-          think_default: false,
-          reasoning_effort: "high",
-          context_limit: 30,
-          global_shortcut_enabled: true,
-          tools: [],
-          models: [
-            {
-              id: "default",
-              name: "DeepSeek V4 Flash",
-              provider: "mock",
-              model: "deepseek-v4-flash",
-              base_url: "",
-              has_api_key: false,
-              active: true,
-            },
-          ],
-          local_llm_enabled: false,
-          local_llm_mode: "keyword",
-          local_llm_port: 8016,
-          local_llm_model: "",
-          local_llm_ctx_size: 2048,
-          local_llm_threshold: 0.75,
-          installed_models: [],
-        });
-        setSelectionReady(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [loadSession, refreshProjects, refreshSessions, t]);
-
-  // 切换会话时恢复该会话单独记住的深度思考档位；
-  // 没有记忆的会话回落到全局默认。
-  useEffect(() => {
-    if (selectedId === prevEffortSessionRef.current) return;
-    prevEffortSessionRef.current = selectedId;
-    if (!selectedId) return;
-    const saved = getSessionEffort(selectedId);
-    const valid =
-      saved === "off" || saved === "low" || saved === "high" || saved === "max";
-    setComposerEffort(
-      valid
-        ? saved
-        : settings?.think_default
-          ? settings?.reasoning_effort ?? "high"
-          : "off"
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, settings]);
-
-  // 切换会话时恢复该会话记住的模型；没有记忆的会话回落到设置里的默认模型。
-  // 若记住/默认的条目未配置 API Key，回退到第一个已配置 Key 的提供商。
-  useEffect(() => {
-    if (selectedId === prevModelSessionRef.current) return;
-    prevModelSessionRef.current = selectedId;
-    const activeId =
-      settings?.models?.find((entry) => entry.active)?.id ?? null;
-    const savedId = selectedId ? getSessionModelId(selectedId) : null;
-    const rawId = savedId ?? activeId;
-    const list = settings?.models ?? [];
-    const baseId = rawId?.split("::")[0] ?? null;
-    const entry = baseId ? list.find((m) => m.id === baseId) : undefined;
-    const targetId =
-      entry && entry.has_api_key
-        ? rawId
-        : (list.find((m) => m.has_api_key)?.id ?? null);
-    setComposerModelId(expandModelId(targetId, list));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, settings]);
+  useSessionPreferenceSync({
+    selectedId,
+    settings,
+    setComposerEffort,
+    setComposerModelId,
+  });
 
   useEffect(() => {
     if (!selectionReady) return;
@@ -494,11 +384,7 @@ export default function ChatPage() {
       setGuideCardsVisible(true);
       setComposerKey((value) => value + 1);
       setApprovalMode("ask");
-      setComposerEffort(
-        settings?.think_default
-          ? settings?.reasoning_effort ?? "high"
-          : "off"
-      );
+      setComposerEffort(defaultComposerEffort(settings));
       setSelectedId(null);
       closeSidebarForNarrow();
       setTimeout(() => composerRef.current?.focus(), 0);
@@ -688,22 +574,15 @@ export default function ChatPage() {
       const updated = await updateSettings(body);
       setSettings(updated);
       // 设置里的默认思考档位变更后立即同步到输入框，无需新建会话。
-      setComposerEffort(
-        updated.think_default ? updated.reasoning_effort ?? "high" : "off"
-      );
-      // 默认模型变更后，若当前会话没有单独记忆的模型，立即跟随。
-      // 若记住/默认的条目未配置 API Key，回退到第一个已配置 Key 的提供商。
-      const activeId = updated.models?.find((entry) => entry.active)?.id ?? null;
-      const remembered = selectedId ? getSessionModelId(selectedId) : null;
-      const rawId = remembered ?? activeId;
+      setComposerEffort(defaultComposerEffort(updated));
+      // 默认模型变更后，若当前会话没有单独记忆的模型，立即跟随；
+      // 记住/默认条目未配置 API Key 时回落到第一个已配置 Key 的提供商。
       const list = updated.models ?? [];
-      const baseId = rawId?.split("::")[0] ?? null;
-      const entry = baseId ? list.find((m) => m.id === baseId) : undefined;
-      const targetId =
-        entry && entry.has_api_key
-          ? rawId
-          : (list.find((m) => m.has_api_key)?.id ?? null);
-      setComposerModelId(expandModelId(targetId, list));
+      const activeId = list.find((entry) => entry.active)?.id ?? null;
+      const remembered = selectedId ? getSessionModelId(selectedId) : null;
+      setComposerModelId(
+        expandModelId(resolveModelTargetId(list, remembered, activeId), list)
+      );
       setSettingsOpen(false);
       await refreshWorkspace();
     },
@@ -715,17 +594,12 @@ export default function ChatPage() {
     async (body: SettingsSaveBody) => {
       const updated = await updateSettings(body);
       setSettings(updated);
-      const activeId = updated.models?.find((entry) => entry.active)?.id ?? null;
-      const remembered = selectedId ? getSessionModelId(selectedId) : null;
-      const rawId = remembered ?? activeId;
       const list = updated.models ?? [];
-      const baseId = rawId?.split("::")[0] ?? null;
-      const entry = baseId ? list.find((m) => m.id === baseId) : undefined;
-      const targetId =
-        entry && entry.has_api_key
-          ? rawId
-          : (list.find((m) => m.has_api_key)?.id ?? null);
-      setComposerModelId(expandModelId(targetId, list));
+      const activeId = list.find((entry) => entry.active)?.id ?? null;
+      const remembered = selectedId ? getSessionModelId(selectedId) : null;
+      setComposerModelId(
+        expandModelId(resolveModelTargetId(list, remembered, activeId), list)
+      );
     },
     [selectedId]
   );

@@ -18,3 +18,11 @@ export function setSessionEffort(
   if (!sessionId) return;
   storageSetRaw(EFFORT_KEY_PREFIX + sessionId, effort);
 }
+
+/** 全局默认开关 → 输入框档位：think_default 开时取 reasoning_effort（缺省 high）。 */
+export function defaultComposerEffort(settings: {
+  think_default: boolean;
+  reasoning_effort?: string;
+} | null): string {
+  return settings?.think_default ? (settings.reasoning_effort ?? "high") : "off";
+}
