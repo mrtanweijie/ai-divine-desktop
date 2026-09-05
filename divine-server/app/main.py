@@ -68,6 +68,14 @@ async def lifespan(_: FastAPI):
         get_manager().stop()
     except Exception:
         pass
+    # 关闭 LangGraph checkpointer 的 aiosqlite 连接（worker 线程非
+    # daemon，不关闭会阻止进程退出）
+    try:
+        from .agent.core.checkpointer import close_checkpointers
+
+        await close_checkpointers()
+    except Exception:
+        pass
 
 
 app = FastAPI(
