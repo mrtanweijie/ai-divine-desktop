@@ -116,7 +116,9 @@ AGENT_RECURSION_LIMIT = MAX_TOOL_TURNS * 4
 OPTIONS_CARD_HINT = (
     "（系统提醒：若你的回答需要询问用户是否生成某产物或下一步做什么"
     "——需要我…吗/要不要我…/整理成 X 还是 Y——必须用 ```options 卡片，"
-    "且候选动作不超过 3 个时，最后一项固定为 {\"label\": \"暂时不用\"}，"
+    "且候选动作不超过 3 个时，最后一项固定为 "
+    "{\"label\": \"暂时不用\", \"action\": \"decline\"}"
+    "（label 可按用户语言书写，action 必须是 decline），"
     "other 传 false，禁止纯文字提问；"
     "常规的风格/方案选择卡（4 个以上选项）不需要「暂时不用」。）"
 )
