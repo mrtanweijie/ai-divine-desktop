@@ -46,10 +46,10 @@ from ..registry import register_tool
             "force_save": {
                 "type": "boolean",
                 "description": (
-                    "仅当误判时使用：页面只是标题提到简历、内容并非简历"
-                    "（如简历写作指南、模板资讯页）却被拦截时，传 true 跳过。"
-                    "注意：完整的简历版式（含简历章节结构或 resume 类名）无条件拦截，"
-                    "force_save 无法越过，必须改用 pdf_generate"
+                    "用户明确要求自定义简历输出时传 true：跳过简历检查且不注入风格"
+                    " token 基座，HTML 原样保存（适用于用户自带 HTML 简历模板、"
+                    "明确不要内置模板/基座的场景）。注意：仅为省事自行手写简历"
+                    "不属于此场景，默认仍应走 pdf_generate 模板管线"
                 ),
             },
         },

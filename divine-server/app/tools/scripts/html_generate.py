@@ -63,15 +63,18 @@ _RESUME_SECTION_MARKERS = (
     "work history",
 )
 _RESUME_REDIRECT_MESSAGE = (
-    "检测到简历类页面（{reason}）：个人简历请改用 pdf_generate 生成"
+    "检测到简历类页面（{reason}）：简历默认走 pdf_generate 模板管线"
     "（传 kind=resume、resume_data，output_format=html 或 both），"
-    "其内置 12 套简历模板并输出可编辑 HTML；不要用 html_generate 手写简历版式，"
-    "也不要用 force_save 绕过。"
+    "其内置 12 套简历模板并输出可编辑 HTML。"
+    "若用户明确要求自定义输出（如用户提供了自己的 HTML 简历模板、"
+    "明确不要内置模板），重新调用时传 force_save=true：跳过检查且不注入风格基座，原样保存。"
 )
 _RESUME_STRONG_REDIRECT_MESSAGE = (
-    "检测到完整的简历版式（{reason}）：个人简历必须走 pdf_generate 模板管线"
-    "（传 kind=resume、resume_data，output_format=html 或 both），"
-    "该检查对完整简历不可用 force_save 越过。"
+    "检测到完整的简历版式（{reason}）：简历默认必须走 pdf_generate 模板管线"
+    "（传 kind=resume、resume_data，output_format=html 或 both）。"
+    "例外：用户明确要求自定义输出（如用户提供了自己的 HTML 简历模板、明确不要内置模板）时，"
+    "传 force_save=true 可原样保存（不注入风格基座）；"
+    "若只是你自行选择手写简历而非用户要求，请改用模板管线。"
 )
 
 
@@ -133,10 +136,11 @@ def main() -> None:
 
     title = derive_title(str(params.get("title") or ""), content)
 
-    # 简历护栏：完整简历版式（强信号）无条件拦截；仅标题提到简历的弱信号
-    # 才允许 force_save 逃生（供「简历写作指南」等非简历页面误判时使用）。
+    # 简历护栏：简历默认走 pdf_generate 模板管线。force_save 表示「用户明确
+    # 要求自定义输出」（如用户自带 HTML 模板）——跳过检查且不注入风格基座，
+    # 原样保存；注入基座会污染用户模板的版式与配色。
     force_save = str(params.get("force_save") or "").strip().lower() in ("true", "1", "yes")
-    reason = detect_resume_page(title, content)
+    reason = None if force_save else detect_resume_page(title, content)
     if reason:
         strong = detect_strong_resume_signal(content) is not None
         if not (force_save and not strong):
@@ -183,7 +187,11 @@ def main() -> None:
         return
 
     # lint 跑在**原始** content 上：注入基座的色值会污染 hex 计数。
-    final_content, scaffolded = inject_scaffold(content, style)
+    # force_save（用户明确要求自定义输出）时原样保存，不注入风格基座。
+    if force_save:
+        final_content, scaffolded = content, False
+    else:
+        final_content, scaffolded = inject_scaffold(content, style)
     warnings = lint_html(content, scaffolded=scaffolded)
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -191,6 +199,8 @@ def main() -> None:
     output_path.write_text(final_content, encoding="utf-8")
 
     message = "HTML 页面已生成"
+    if force_save:
+        message = "HTML 页面已按原样保存（force_save：未注入风格基座）"
     if requested_style and requested_style not in ALLOWED_STYLES:
         message += f"（style 取值 {requested_style} 无效，已回落 {DEFAULT_STYLE}）"
     elif scaffolded:

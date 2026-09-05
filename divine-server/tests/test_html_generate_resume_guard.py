@@ -104,22 +104,38 @@ def test_script_force_save_escapes_title_only_hit(monkeypatch, capsys):
     assert list(Path(_OUTPUT_DIR).rglob("*.html"))
 
 
-def test_script_force_save_cannot_bypass_full_resume(monkeypatch, capsys):
-    """强信号（完整简历版式）无条件拦截：force_save 不是手写简历的后门。"""
+def test_script_force_save_saves_custom_resume_verbatim(monkeypatch, capsys):
+    """用户明确要求自定义输出（force_save）：完整简历原样保存，且不注入风格基座。"""
     result = _run_script(
         {"content": _RESUME_HTML, "force_save": True}, monkeypatch, capsys
     )
+    assert result["success"] is True
+    assert "原样保存" in result["message"]
+    saved = list(Path(_OUTPUT_DIR).rglob("*.html"))
+    assert saved
+    text = saved[0].read_text(encoding="utf-8")
+    assert text == _RESUME_HTML  # 原样：无基座注入
+    assert 'id="divine-scaffold"' not in text
+
+
+def test_script_strong_resume_blocked_without_explicit_custom(monkeypatch, capsys):
+    """没有用户明确要求的自定义时，完整简历版式仍被拦截并指引模板管线/force_save。"""
+    result = _run_script({"content": _RESUME_HTML}, monkeypatch, capsys)
     assert result["success"] is False
-    assert "不可用 force_save 越过" in result["message"]
+    assert "pdf_generate" in result["message"]
+    assert "force_save" in result["message"]
     assert not list(Path(_OUTPUT_DIR).rglob("*.html"))
 
 
-def test_script_force_save_cannot_bypass_resume_class(monkeypatch, capsys):
+def test_script_force_save_saves_resume_class_template(monkeypatch, capsys):
+    """用户自带 resume 类名的 HTML 模板：force_save 后原样保存。"""
     result = _run_script(
         {"content": _CLASS_HIT_HTML, "force_save": True}, monkeypatch, capsys
     )
-    assert result["success"] is False
-    assert not list(Path(_OUTPUT_DIR).rglob("*.html"))
+    assert result["success"] is True
+    saved = list(Path(_OUTPUT_DIR).rglob("*.html"))
+    assert saved
+    assert saved[0].read_text(encoding="utf-8") == _CLASS_HIT_HTML
 
 
 def test_script_saves_normal_report(monkeypatch, capsys):
