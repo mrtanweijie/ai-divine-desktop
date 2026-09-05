@@ -81,11 +81,14 @@ def _parse_table_rows(block_text: str) -> list[list[str]]:
 
 
 def _render_alert_block(kind: str, title: str, body: list[str]) -> str:
-    esc = html_lib.escape
     if kind in ("note", "info", "warning", "success", "error"):
         icon = _CALLOUT_ICONS[kind]
-        title_html = f'<div class="callout-title">{esc(title) or kind.capitalize()}</div>' if title else ""
-        text = " ".join(esc(line) for line in body)
+        title_html = (
+            f'<div class="callout-title">{_inline_md(title) or kind.capitalize()}</div>'
+            if title
+            else ""
+        )
+        text = " ".join(_inline_md(line) for line in body)
         return (
             f'<div class="callout-box {kind}"><div class="ci">{icon}</div>'
             f"<div>{title_html}<div class=\"callout-body\">{text}</div></div></div>"
@@ -95,10 +98,10 @@ def _render_alert_block(kind: str, title: str, body: list[str]) -> str:
         quote_lines = []
         for line in body:
             if line.startswith(("—", "-", "——")):
-                attribution = f'<div class="attribution">{esc(line.lstrip("-— "))}</div>'
+                attribution = f'<div class="attribution">{_inline_md(line.lstrip("-— "))}</div>'
             else:
-                quote_lines.append(esc(line))
-        title_html = f'<div class="module-label">{esc(title)}</div>' if title else ""
+                quote_lines.append(_inline_md(line))
+        title_html = f'<div class="module-label">{_inline_md(title)}</div>' if title else ""
         return (
             '<div class="module pull-quote" data-emphasis="medium">'
             f"{title_html}<blockquote>"
@@ -110,21 +113,21 @@ def _render_alert_block(kind: str, title: str, body: list[str]) -> str:
     if kind == "conclusion":
         return (
             '<div class="module conclusion-box">'
-            f'<div class="conclusion-label">{esc(title) or "总结"}</div>'
-            f'<div class="conclusion-text">{" ".join(esc(line) for line in body)}</div>'
+            f'<div class="conclusion-label">{_inline_md(title) or "总结"}</div>'
+            f'<div class="conclusion-text">{" ".join(_inline_md(line) for line in body)}</div>'
             "</div>"
         )
     if kind == "bio":
         name, sep, role = title.partition("|")
         name = name.strip()
         role = role.strip()
-        initials = esc(name[:2] or "?")
+        initials = html_lib.escape(name[:2] or "?")
         return (
             '<div class="module bio-card">'
             f'<div class="bio-avatar">{initials}</div>'
-            f"<div><div class=\"bio-name\">{esc(name)}</div>"
-            f'<div class="bio-title">{esc(role)}</div></div>'
-            f'<div class="bio-text">{" ".join(esc(line) for line in body)}</div>'
+            f"<div><div class=\"bio-name\">{_inline_md(name)}</div>"
+            f'<div class="bio-title">{_inline_md(role)}</div></div>'
+            f'<div class="bio-text">{" ".join(_inline_md(line) for line in body)}</div>'
             "</div>"
         )
     return ""
@@ -142,41 +145,110 @@ def _split_stat_unit(raw: str) -> tuple[str, str]:
     return text, ""
 
 
+# 行内 markdown（docs/fix/002-pdf-module-style-20260906.md §3.1）：模块内容此前只做 escape，
+# 模型写的 **加粗** 字面输出。先 escape 再替换，替换结果安全。
+_INLINE_BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
+_INLINE_EM_RE = re.compile(r"(?<!\*)\*([^*\n]+)\*(?!\*)")
+_INLINE_CODE_RE = re.compile(r"`([^`]+)`")
+
+
+def _inline_md(text: str) -> str:
+    """escape 后解析行内 markdown：**粗**、*斜*、`码`。"""
+    escaped = html_lib.escape(text or "")
+    escaped = _INLINE_BOLD_RE.sub(r"<strong>\1</strong>", escaped)
+    escaped = _INLINE_EM_RE.sub(r"<em>\1</em>", escaped)
+    escaped = _INLINE_CODE_RE.sub(r"<code>\1</code>", escaped)
+    return escaped
+
+
+# hero-stat 自适应列宽估算（docs/fix/002-pdf-module-style-20260906.md §3.2）：
+# 版心近似宽（A4 210mm − 2×20mm 页边距 ≈ 643px @96dpi，留安全余量）
+_EST_CONTENT_WIDTH_PX = 640.0
+_STAT_GAP_PX = 24.0
+_STAT_PAD_PX = 64.0  # .hero-stat 左右 padding
+_HERO_STAT_FONTS = (36.0, 30.0, 26.0)
+
+
+def _text_width_px(text: str, font_px: float) -> float:
+    """粗排宽度估算：CJK ≈1em，数字/字母 ≈0.6em，其余 ≈0.5em。"""
+    width = 0.0
+    for ch in text:
+        if ord(ch) > 0x2E7F:
+            width += 1.0
+        elif ch.isalnum():
+            width += 0.6
+        else:
+            width += 0.5
+    return width * font_px
+
+
 def _render_table_module(kind: str, rows: list[list[str]]) -> str:
     esc = html_lib.escape
     if kind == "hero-stat":
-        items = []
+        entries = []
         for cells in rows[:4]:
-            label = esc(cells[0]) if len(cells) > 0 else ""
+            label = _inline_md(cells[0]) if len(cells) > 0 else ""
             num, unit = _split_stat_unit(cells[1] if len(cells) > 1 else "")
-            unit_html = f'<span class="stat-unit">{esc(unit)}</span>' if unit else ""
-            value = f"{esc(num)}{unit_html}"
             trend = ""
             if len(cells) > 2 and cells[2].strip():
                 raw = cells[2].strip()
                 if raw.startswith("+"):
-                    trend = f'<div class="stat-trend up">▲ {esc(raw[1:])}</div>'
+                    trend = f'<div class="stat-trend up">▲ {_inline_md(raw[1:])}</div>'
                 elif raw.startswith("-"):
-                    trend = f'<div class="stat-trend down">▼ {esc(raw[1:])}</div>'
+                    trend = f'<div class="stat-trend down">▼ {_inline_md(raw[1:])}</div>'
                 else:
-                    trend = f'<div class="stat-trend up">{esc(raw)}</div>'
+                    trend = f'<div class="stat-trend up">{_inline_md(raw)}</div>'
+            entries.append((label, num, unit, trend))
+        if not entries:
+            return ""
+        # 自适应列宽：nowrap 数值在列内放不下先降字号（36→30→26），
+        # 降两档仍放不下则降为 2 列（2×2，table 布局自动分行）
+        value_texts = [f"{num}{unit}" for _, num, unit, _ in entries]
+
+        def _fits(count: int, size: float) -> bool:
+            col_w = (
+                _EST_CONTENT_WIDTH_PX - _STAT_PAD_PX - _STAT_GAP_PX * (count - 1)
+            ) / count
+            return max(_text_width_px(t, size) for t in value_texts) <= col_w * 0.95
+
+        cols = max(2, min(len(entries), 4))
+        font_size = _HERO_STAT_FONTS[-1]
+        for size in _HERO_STAT_FONTS:
+            font_size = size
+            if _fits(cols, size):
+                break
+        else:
+            if cols > 2:
+                cols = 2
+                for size in _HERO_STAT_FONTS:
+                    font_size = size
+                    if _fits(cols, size):
+                        break
+        items = []
+        for label, num, unit, trend in entries:
+            unit_html = f'<span class="stat-unit">{esc(unit)}</span>' if unit else ""
             items.append(
-                f'<div class="stat-item"><div class="stat-value">{value}</div>'
+                '<div class="stat-item">'
+                f'<div class="stat-value" style="font-size:{font_size:g}px">'
+                f"{esc(num)}{unit_html}</div>"
                 f'<div class="stat-label">{label}</div>{trend}</div>'
             )
-        cols = max(2, min(len(items), 4))
+        stat_rows = [
+            f'<div class="stat-row">{"".join(items[i:i + cols])}</div>'
+            for i in range(0, len(items), cols)
+        ]
         return (
             '<div class="module hero-stat" data-emphasis="high">'
-            f'<div class="stat-grid grid-{cols}">{"".join(items)}</div></div>'
+            f'<div class="stat-grid">{"".join(stat_rows)}</div></div>'
         )
     if kind == "compare":
         left: list[str] = []
         right: list[str] = []
         for cells in rows:
             if len(cells) > 0:
-                left.append(f"<li>{esc(cells[0])}</li>")
+                left.append(f"<li>{_inline_md(cells[0])}</li>")
             if len(cells) > 1:
-                right.append(f"<li>{esc(cells[1])}</li>")
+                right.append(f"<li>{_inline_md(cells[1])}</li>")
         return (
             '<div class="module two-col-compare"><div class="compare-grid">'
             '<div class="compare-panel before"><div class="compare-header">'
@@ -191,9 +263,9 @@ def _render_table_module(kind: str, rows: list[list[str]]) -> str:
     if kind == "timeline":
         nodes = []
         for cells in rows:
-            date = esc(cells[0]) if len(cells) > 0 else ""
-            event = esc(cells[1]) if len(cells) > 1 else ""
-            detail = esc(cells[2]) if len(cells) > 2 else ""
+            date = _inline_md(cells[0]) if len(cells) > 0 else ""
+            event = _inline_md(cells[1]) if len(cells) > 1 else ""
+            detail = _inline_md(cells[2]) if len(cells) > 2 else ""
             highlight = (
                 len(cells) > 3
                 and cells[3].strip().lower() in _HL_VALUES
@@ -213,26 +285,30 @@ def _render_table_module(kind: str, rows: list[list[str]]) -> str:
         items = []
         for cells in rows[:4]:
             icon = esc(cells[0]) if len(cells) > 0 and cells[0].strip() else ""
-            label = esc(cells[1]) if len(cells) > 1 else ""
-            desc = esc(cells[2]) if len(cells) > 2 else ""
+            label = _inline_md(cells[1]) if len(cells) > 1 else ""
+            desc = _inline_md(cells[2]) if len(cells) > 2 else ""
             icon_html = f'<div class="feature-icon">{icon}</div>' if icon else ""
             items.append(
                 f'<div class="feature-item">{icon_html}'
                 f'<div class="feature-label">{label}</div>'
                 f'<div class="feature-desc">{desc}</div></div>'
             )
-        # P0-4：按数据行数动态选择列数（2/3/4 列）
+        # table 布局（docs/fix/002-pdf-module-style-20260906.md §3.3）：按列数分块成行，
+        # 行高随内容增长，卡片不再溢出
         cols = min(max(len(items), 2), 4)
+        grid_rows = [
+            f'<div class="feature-row">{"".join(items[i:i + cols])}</div>'
+            for i in range(0, len(items), cols)
+        ]
         return (
             '<div class="module feature-grid">'
-            f'<div class="feature-grid-container cols-{cols}">'
-            f'{"".join(items)}</div></div>'
+            f'<div class="feature-grid-container">{"".join(grid_rows)}</div></div>'
         )
     if kind == "metrics":
         items = []
         for cells in rows:
-            label = esc(cells[0]) if len(cells) > 0 else ""
-            value = esc(cells[1]) if len(cells) > 1 else ""
+            label = _inline_md(cells[0]) if len(cells) > 0 else ""
+            value = _inline_md(cells[1]) if len(cells) > 1 else ""
             percent = ""
             if len(cells) > 2:
                 raw = re.sub(r"[^\d.]", "", cells[2])
@@ -255,7 +331,7 @@ def _render_table_module(kind: str, rows: list[list[str]]) -> str:
     if kind == "tags":
         tags = []
         for cells in rows:
-            text = esc(cells[0]) if len(cells) > 0 else ""
+            text = _inline_md(cells[0]) if len(cells) > 0 else ""
             hl = (
                 len(cells) > 1
                 and cells[1].strip().lower() in _HL_VALUES

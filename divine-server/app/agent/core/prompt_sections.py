@@ -255,6 +255,7 @@ PPT 版式（layout）按内容选择：要点陈述用 bullets（默认，可�
 3-8 个并列项用 cards（条目可用 "标题|描述"）；流程/阶段/里程碑用 timeline；
 2-4 个维度并列展开用 columns；"图 + 要点解读" 用 two_col（image.path 引用 workspace 内图片，无图自动占位）；
 两个方案优缺点对比用 compare（left/right 各给 title+points）；关键指标展示用 kpi（条目 "数值|标签|同比"）；
+compare 仅用于互斥方案/对象/路径对比——时间序列数据（逐月/逐季指标、同比环比）禁止拆成 Before/After 两栏，改用 table 或 timeline；
 金句/口号页用 quote（subtitle 写出处）；结构化数据明细用 table（columns+rows）；
 章节分隔用 section；结尾页与目录页都不用传（工具自动补齐：目录按章节页推导并带页码；
 确需自定义目录时才传 layout=toc）。

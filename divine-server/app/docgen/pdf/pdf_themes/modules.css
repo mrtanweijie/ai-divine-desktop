@@ -127,19 +127,31 @@
 .hero-stat[data-emphasis="high"] .stat-trend.down { color: var(--error-soft); }
 .hero-stat[data-emphasis="medium"] { background: var(--bg-surface); border: 1px solid var(--border); }
 .hero-stat[data-emphasis="low"] { background: transparent; padding: 16px 0; }
-.stat-grid { display: grid; gap: 24px; }
-.grid-2 { grid-template-columns: 1fr 1fr; }
-.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
-.grid-4 { grid-template-columns: repeat(4, 1fr); }
-.grid-4 .stat-value { font-size: 36px; }
-.stat-item { display: flex; flex-direction: column; }
+/* table 布局（docs/PDF样式修复方案.md §3.3）：WeasyPrint 66 的 grid 行高
+   在长内容下低估约一行，导致 compare/feature 卡片内容溢出边框、hero-stat
+   因 1fr 不低于 min-content 而横向溢出；table 布局行高随内容增长、
+   同行单元格等高，均为表格基石行为（正文 markdown 表格已验证稳定）。 */
+.stat-grid, .feature-grid-container, .compare-grid {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+}
+.stat-grid { border-spacing: 24px 0; margin: 0 -24px; }
+.feature-grid-container { border-spacing: 16px 0; margin: 0 -16px; }
+.compare-grid { border-spacing: 0; }
+.stat-row, .feature-row { display: table-row; }
+.stat-item, .feature-item, .compare-panel, .compare-divider {
+  display: table-cell;
+  vertical-align: top;
+}
 .stat-value {
   font-size: 44px;
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--text-main);
-  white-space: nowrap;  /* 防止 "12 项" 空格断行导致列错位 */
+  white-space: nowrap;  /* 防止 "12 项" 空格断行导致列错位；字号由渲染端自适应 */
 }
 .stat-unit { font-size: 18px; font-weight: 500; margin-left: 2px; opacity: 0.6; }
 .stat-label { font-size: 13px; color: var(--text-muted); margin-top: 6px; font-weight: 400; }
@@ -209,12 +221,6 @@
    Module 3: Two Col Compare · 左右对比
    =========================== */
 .two-col-compare { margin: 24px 0; }
-.compare-grid {
-  display: grid;
-  grid-template-columns: 1fr 48px 1fr;
-  gap: 0;
-  align-items: stretch;
-}
 .compare-panel { padding: 24px; border-radius: var(--radius); }
 .compare-panel.before { background: var(--bg-surface); border: 1px solid var(--border); }
 .compare-panel.after { background: var(--primary-light); border: 1px solid var(--primary); }
@@ -247,7 +253,7 @@
   color: var(--primary);
   font-weight: 700;
 }
-.compare-divider { display: flex; align-items: center; justify-content: center; }
+.compare-divider { width: 48px; vertical-align: middle; text-align: center; }
 .divider-label {
   font-size: 11px;
   font-weight: 700;
@@ -312,9 +318,6 @@
    =========================== */
 .feature-grid { margin: 24px 0; }
 .feature-grid-container { display: grid; gap: 16px; }
-.feature-grid-container.cols-2 { grid-template-columns: 1fr 1fr; }
-.feature-grid-container.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-.feature-grid-container.cols-4 { grid-template-columns: repeat(4, 1fr); }
 .feature-item {
   padding: 18px 16px;
   border-radius: var(--radius);

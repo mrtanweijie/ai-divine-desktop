@@ -89,6 +89,10 @@ def inspect_pdf(pdf_path: Path) -> dict[str, Any]:
                 issues.append(
                     {"type": "dense_page", "page": page_no, "chars": len(text)}
                 )
+            if "**" in text:
+                # 字面 markdown 残留（docs/fix/002-pdf-module-style-20260906.md §3.5）：
+                # 模块内容应经 _inline_md 渲染，出现 ** 即回归信号
+                issues.append({"type": "literal_markdown", "page": page_no})
             rect = page.rect
             for block in page.get_text("blocks"):
                 if _block_out_of_bounds(block[0], block[2], rect):
