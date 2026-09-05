@@ -1,0 +1,4 @@
+# Divine 前端 pre-commit：只检查暂存文件（ESLint 自动修复 + Prettier 格式化）。
+# 仓库根在上一层，先定位再运行 divine-app 的工具链。
+cd "$(git rev-parse --show-toplevel)/divine-app" || exit 1
+pnpm exec lint-staged

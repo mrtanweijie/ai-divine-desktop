@@ -1,0 +1,8 @@
+dist
+node_modules
+pnpm-lock.yaml
+../docs
+# Rust 桌面壳：native 工程与构建产物，不参与前端格式化
+src-tauri
+# vendored 第三方代码（头部 @ts-nocheck）
+src/pages/chat/components/NewChatGuide/DivineBall.ts

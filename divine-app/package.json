@@ -5,6 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --mode dev",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -b",
     "build": "tsc -b && vite build --mode prod",
     "build:test": "tsc -b && vite build --mode test",
     "i18n:extract": "i18next-cli extract",
@@ -17,7 +22,8 @@
     "tauri:build": "tauri build --config src-tauri/tauri.prod.conf.json",
     "tauri:build:debug": "tauri build --debug --config src-tauri/tauri.test.conf.json --features devtools",
     "tauri:build:prod": "tauri build --config src-tauri/tauri.prod.conf.json",
-    "tauri:build:test": "tauri build --config src-tauri/tauri.test.conf.json --features devtools --no-sign"
+    "tauri:build:test": "tauri build --config src-tauri/tauri.test.conf.json --features devtools --no-sign",
+    "prepare": "git config core.hooksPath divine-app/.husky 2>/dev/null || true"
   },
   "dependencies": {
     "@shikijs/langs": "^4.4.3",
@@ -43,20 +49,38 @@
     "thinking-orbs": "^0.2.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "husky": "^9.1.7",
     "i18next-cli": "^1.69.0",
     "less": "^4.8.1",
+    "lint-staged": "^17.4.1",
     "opencc-js": "^1.4.1",
-    "typescript": "^7.0.2",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.69.0",
     "vite": "^8.2.1"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
+    ]
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,mjs}": [
+      "prettier --write"
     ]
   }
 }

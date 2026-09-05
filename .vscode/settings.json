@@ -1,0 +1,8 @@
+{
+  // 团队统一：保存即格式化（Prettier）+ ESLint 自动修复（增量合规）
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  }
+}
