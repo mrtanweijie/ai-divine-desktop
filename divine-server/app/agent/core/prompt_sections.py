@@ -286,23 +286,37 @@ work（[{company,dept,position,period,description,projects[{name,summary,points[
 education（[{school,degree,period,description,gpa,courses}]）、highlights、public_work（可选）、
 sections（可选，板块顺序）；metrics 始终显示在头部下方，不参与 sections 排序；
 也兼容 basics、experience、startDate/endDate、level 1-5 等常见字段；
-整理完成后再调用 pdf_generate，传 kind=resume 和 resume_data；
+resume_data 整理完成后，先按下方模板选择流程弹 ```options 选项卡让用户挑模板，
+用户选定后再按其要的形态调用工具：PDF 用 pdf_generate、可编辑 HTML 用 html_resume
+（都传 resume_data 与选定的 template/theme）；
 字段结构只是规范示例，内容必须根据用户实际信息生成，不要套用示例简历内容；
 用户信息不足时简单询问姓名、目标岗位、工作经历、技能即可。
-简历统一使用 19 套模板库（pdf_generate 与 html_resume 的 template/theme 同一套），按用户职业/场景选一套：
-应届生/校招/秋招 → tpl_freshgrad；CXO/高管/总监/事业部负责人 → tpl_executive；
-产品经理 → tpl_product；数据/算法/分析师 → tpl_data；
-设计师/品牌/视觉/作品集 → tpl_creative；转行/转型/跨行 → tpl_lateral；
-市场/运营/销售/职能岗（信息量大）→ tpl_compact（注意双栏对 ATS 有风险，优先内推直投）；
-金融/咨询/财会/四大 → tpl_professional；互联网/科技公司通用/前端全栈 → tpl_modern；
-资深工程师/架构师/技术管理（极简 ATS 最优）→ tpl_minimal；
-高校教职/科研/博士后（有论文列表）→ tpl_academic；
-外企/出海/国际组织/中英双语 → tpl_global（整理 resume_data 时补充英文字段：
-en_name、en_title、en_summary、work[].en_company/en_title/en_points）；
-招聘平台/ATS/海投 → boss_zhipin；银行/投行/证券/基金 → finance；
-LinkedIn/领英投递 → linkedin；内容向两页简历/排版优化 → kami（打印零风险用 kami_white）；
-留白单栏（咨询/法律）→ minimal；创意卡片风 → creative。
-用户明确点名某个模板名时按其选择；用户未说明职业或场景且难以判断时，先问一句目标岗位再选模板。
+简历统一使用 19 套模板库（pdf_generate 与 html_resume 的 template/theme 同一套）。
+生成前必须先让用户选模板（除非用户已明确指定模板/风格或处于换模板追问轮）：
+从 19 套中挑 4-5 个最贴合用户职业/行业/场景的候选（按匹配度排序），输出 ```options
+选项卡（title「选择简历模板」；label 用模板中文名；desc 一句话写适配理由，如
+「双栏信息密度高，适合市场/运营岗」）；用户点击后按中文名对照下表得到 id 再生成；
+用户通过 other 输入其他风格偏好时，就近映射到模板库中最接近的一套并说明；
+候选通常固定包含 1 个 tpl_* 精品模板 + 1 个稳妥 ATS 单栏（tpl_minimal/boss_zhipin）。
+19 套模板对照表（中文名 → id：适配人群/场景）：
+应届校招版 tpl_freshgrad：应届生/校招/秋招/实习，教育置顶突出课程竞赛；
+高管领袖版 tpl_executive：CXO/VP/总监/事业部负责人，指标条+规模标注；
+产品经理版 tpl_product：B/C 端产品经理，KPI 条+产品矩阵表格；
+数据科学版 tpl_data：数据/算法/分析师，等宽技术标签；
+创意设计版 tpl_creative：品牌/视觉/交互设计师，作品卡片网格；
+跨界转型版 tpl_lateral：转行/跨职能转型，可迁移能力三卡；
+双栏紧凑版 tpl_compact：市场/运营/销售/职能岗信息量大（双栏对 ATS 有风险）；
+经典专业版 tpl_professional：金融/咨询/财会/四大，衬线经典；
+现代科技版 tpl_modern：互联网/科技/前端/全栈，色带+技能 chip；
+极简工程版 tpl_minimal：资深工程师/架构师，纯黑白 ATS 最优；
+学术科研版 tpl_academic：高校教职/科研/博士后，论文编号列表；
+国际通用版 tpl_global：外企/出海/双语，条目中英对照（补 en_* 字段）；
+BOSS 直聘风 boss_zhipin：招聘平台/ATS 海投，单栏流式最稳；
+金融经典 finance：银行/投行/证券/基金/审计，衬线双线；
+LinkedIn 版 linkedin：领英/海外投递，品牌蓝条；
+Kami 暖色 kami / Kami 纯白 kami_white：内容向 2 页简历/排版优化，数字卡片+项目三段式；
+极简黑白（留白版）minimal：咨询/法律，大量留白细线分隔；
+现代创意紫橙 creative：创意卡片风、互联网创业。
 简历输出按用户要的形态选工具，各工具职责单一：
 PDF 版用 pdf_generate（kind=resume + resume_data，仅输出 PDF）；
 可编辑 HTML 版用 html_resume（resume_data + template，产出可编辑 HTML + 纯净投递版，
