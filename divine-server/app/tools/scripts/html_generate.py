@@ -63,18 +63,11 @@ _RESUME_SECTION_MARKERS = (
     "work history",
 )
 _RESUME_REDIRECT_MESSAGE = (
-    "检测到简历类页面（{reason}）：简历默认走 pdf_generate 模板管线"
-    "（传 kind=resume、resume_data，output_format=html 或 both），"
-    "其内置 12 套简历模板并输出可编辑 HTML。"
-    "若用户明确要求自定义输出（如用户提供了自己的 HTML 简历模板、"
-    "明确不要内置模板），重新调用时传 force_save=true：跳过检查且不注入风格基座，原样保存。"
-)
-_RESUME_STRONG_REDIRECT_MESSAGE = (
-    "检测到完整的简历版式（{reason}）：简历默认必须走 pdf_generate 模板管线"
-    "（传 kind=resume、resume_data，output_format=html 或 both）。"
-    "例外：用户明确要求自定义输出（如用户提供了自己的 HTML 简历模板、明确不要内置模板）时，"
-    "传 force_save=true 可原样保存（不注入风格基座）；"
-    "若只是你自行选择手写简历而非用户要求，请改用模板管线。"
+    "检测到简历类页面（{reason}）：简历不走本工具（本工具会注入通用风格基座，"
+    "破坏简历版式）。请按简历规则选择：PDF 用 pdf_generate"
+    "（kind=resume + resume_data）；可编辑 HTML 用 html_resume"
+    "（resume_data + template，内置 12 套模板）；"
+    "用户明确提供了自己的 HTML 简历模板或要求原样自定义输出时，用 html_common 原样保存。"
 )
 
 
@@ -88,8 +81,9 @@ def detect_resume_page(title: str, content: str) -> str | None:
 def detect_strong_resume_signal(content: str) -> str | None:
     """强信号：页面本身就是一份简历版式（而非仅提到简历的文章）。
 
-    强信号不可被 force_save 越过——手写简历只能走 pdf_generate 模板管线；
-    force_save 仅用于「标题提到简历、但内容并非简历」的误判逃生。
+    用于区分拦截提示文案的措辞，两类信号均一律拦截——简历的正规出口是
+    pdf_generate（PDF）/ html_resume（可编辑 HTML）/ html_common（用户
+    自带模板原样保存），本工具不做简历。
     """
     if _RESUME_CLASS_RE.search(content or ""):
         return "HTML 中包含 resume 结构类名"
@@ -136,29 +130,21 @@ def main() -> None:
 
     title = derive_title(str(params.get("title") or ""), content)
 
-    # 简历护栏：简历默认走 pdf_generate 模板管线。force_save 表示「用户明确
-    # 要求自定义输出」（如用户自带 HTML 模板）——跳过检查且不注入风格基座，
-    # 原样保存；注入基座会污染用户模板的版式与配色。
-    force_save = str(params.get("force_save") or "").strip().lower() in ("true", "1", "yes")
-    reason = None if force_save else detect_resume_page(title, content)
+    # 简历护栏：简历默认走模板管线（pdf_generate 出 PDF / html_resume 出
+    # 可编辑 HTML）；用户自带模板等自定义场景由 html_common 原样保存。
+    reason = detect_resume_page(title, content)
     if reason:
-        strong = detect_strong_resume_signal(content) is not None
-        if not (force_save and not strong):
-            print(
-                json.dumps(
-                    {
-                        "success": False,
-                        "message": (
-                            _RESUME_STRONG_REDIRECT_MESSAGE.format(reason=reason)
-                            if strong
-                            else _RESUME_REDIRECT_MESSAGE.format(reason=reason)
-                        ),
-                        "messageKey": "tool.actionFailed",
-                    },
-                    ensure_ascii=False,
-                )
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "message": _RESUME_REDIRECT_MESSAGE.format(reason=reason),
+                    "messageKey": "tool.actionFailed",
+                },
+                ensure_ascii=False,
             )
-            return
+        )
+        return
 
     output_dir = output_root / "html"
     raw_path = str(params.get("path") or "").strip()
@@ -187,11 +173,7 @@ def main() -> None:
         return
 
     # lint 跑在**原始** content 上：注入基座的色值会污染 hex 计数。
-    # force_save（用户明确要求自定义输出）时原样保存，不注入风格基座。
-    if force_save:
-        final_content, scaffolded = content, False
-    else:
-        final_content, scaffolded = inject_scaffold(content, style)
+    final_content, scaffolded = inject_scaffold(content, style)
     warnings = lint_html(content, scaffolded=scaffolded)
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -199,8 +181,6 @@ def main() -> None:
     output_path.write_text(final_content, encoding="utf-8")
 
     message = "HTML 页面已生成"
-    if force_save:
-        message = "HTML 页面已按原样保存（force_save：未注入风格基座）"
     if requested_style and requested_style not in ALLOWED_STYLES:
         message += f"（style 取值 {requested_style} 无效，已回落 {DEFAULT_STYLE}）"
     elif scaffolded:

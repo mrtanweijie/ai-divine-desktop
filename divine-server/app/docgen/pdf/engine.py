@@ -217,13 +217,13 @@ class PDFTool:
         color_overrides: dict[str, str] | None = None,
         cover_style: str | None = None,
         resume_layout: str | None = None,
-        output_format: str | None = None,
     ) -> dict[str, Any]:
         recipe_name = kind or detect_recipe(prompt)
         recipe = get_recipe(recipe_name)
         llm = llm or build_llm()
 
         if recipe_name == "resume" and resume_data:
+            # 职责单一：本工具只产出 PDF。简历的可编辑 HTML 走 html_resume 工具。
             resume_theme = "professional"
             if theme in (
                 "professional",
@@ -242,25 +242,21 @@ class PDFTool:
                 resume_theme = _suggest_resume_theme(prompt, resume_data)
 
             if resume_theme.startswith("tpl_"):
-                # 模板库：支持 PDF / 可编辑 HTML / 纯净 HTML 多形态输出
                 from ..resume.templates import render_template_resume
 
-                fmt = (output_format or "pdf").strip() or "pdf"
                 files = render_template_resume(
                     resume_data,
                     str(output),
                     template_id=resume_theme,
                     layout=(resume_layout or "single").strip() or "single",
-                    output_format=fmt,
+                    output_format="pdf",
                 )
                 return {
                     "recipe": recipe.name,
                     "display_name": recipe.display_name,
                     "theme": resume_theme,
                     "title": str(resume_data.get("name") or prompt[:40]),
-                    "renderer": "weasyprint" if fmt in ("pdf", "both") else "html",
-                    "output_format": fmt,
-                    "files": files,
+                    "renderer": "weasyprint",
                     "filepath": files[0] if files else str(output),
                 }
 

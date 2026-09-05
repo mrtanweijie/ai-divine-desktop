@@ -195,6 +195,8 @@ a = Analysis(
         "app.docgen.ppt.renderer.tables",
         "app.docgen.ppt.renderer.layouts",
         "app.tools.adapters.pdf_generate",
+        "app.tools.adapters.html_resume",
+        "app.tools.adapters.html_common",
         "app.tools.adapters.generate_chart",
         "app.tools.adapters.describe_svg",
         "app.tools.adapters.draw_svg",

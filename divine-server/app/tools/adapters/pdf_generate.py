@@ -11,7 +11,8 @@ from ..registry import register_tool
     "统一 PDF 生成入口：按需求选择 Report/Business/Travel/Roadmap/Book/Slide 配方并渲染。"
     "商业分析报告（kind=business）围绕价值主张、数字化成本结构、私域联名增长策略、"
     "品牌竞争壁垒四大维度推导，自动整理行业对标表格与品牌经营核心数据；"
-    "简历场景用 resume_data 传结构化 JSON；prompt 传需求；"
+    "简历场景用 resume_data 传结构化 JSON；prompt 传需求；本工具只输出 PDF，"
+    "简历的可编辑 HTML 版请用 html_resume 工具；"
     "kind/style/theme/color_scheme 均可省略（系统按场景自动识别 + LLM 设计师决策，用户风格词优先）；"
     "默认保存到应用输出目录 pdf，指定项目内目录时传 path。",
     {
@@ -40,15 +41,10 @@ from ..registry import register_tool
                 "enum": ["universal", "resume", "professional", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "kami", "kami_white", "modern", "academic", "travel", "travel_mag", "roadmap", "notion", "linear", "apple", "tpl_professional", "tpl_modern", "tpl_minimal", "tpl_academic", "tpl_executive", "tpl_creative", "tpl_product", "tpl_data", "tpl_freshgrad", "tpl_lateral", "tpl_compact", "tpl_global"],
                 "description": "主题 ID，优先于 style；tpl_* 为 12 套精品简历模板库（tpl_professional 金融咨询经典/tpl_modern 互联网科技/tpl_minimal 资深工程师极简/tpl_academic 学术科研/tpl_executive 高管/tpl_creative 设计师作品/tpl_product 产品经理/tpl_data 数据算法/tpl_freshgrad 应届校招/tpl_lateral 跨界转型/tpl_compact 市场运营双栏/tpl_global 中英双语），简历场景推荐优先使用；不传时系统按 prompt 场景自动选择（travel_mag 为杂志版旅行手册）",
             },
-            "output_format": {
-                "type": "string",
-                "enum": ["pdf", "html", "both"],
-                "description": "输出格式，默认 pdf；简历场景选 html/both 时额外生成可编辑 HTML（浏览器打开即可点击修改内容，也可 ⌘P 导出 PDF）与纯净投递版 HTML",
-            },
             "resume_layout": {
                 "type": "string",
                 "enum": ["single", "multi"],
-                "description": "简历页数布局，默认 single（单页）；内容较多或用户要求 2-3 页时传 multi（自动加断页保护）",
+                "description": "简历页数布局，默认 single（单页）；内容较多或用户要求 2-3 页时传 multi（自动加断页保护）。仅影响 PDF；可编辑 HTML 版用 html_resume 工具（其也有 layout 参数）",
             },
             "color_scheme": {
                 "type": "string",
@@ -101,7 +97,7 @@ from ..registry import register_tool
             },
             "resume_data": {
                 "type": "object",
-                "description": "简历结构化数据，推荐一页简历结构：name/target/contact/summary/core_skills/work/projects/education；kind=resume 时优先使用此数据渲染，不再走 LLM 生成。模板库扩展字段：certifications/languages/honors（字符串数组）、publications（论文 title/venue/year/tags）、works（作品 name/role/year/description/result）、transferable（转型 source/ability/description/mapping）、pivot（转型定位一句话）、en_*（双语字段）、Education.gpa/courses",
+                "description": "简历结构化数据（仅输出 PDF；可编辑 HTML 版用 html_resume 工具），推荐一页简历结构：name/target/contact/summary/core_skills/work/projects/education。模板库扩展字段：certifications/languages/honors（字符串数组）、publications（论文 title/venue/year/tags）、works（作品 name/role/year/description/result）、transferable（转型 source/ability/description/mapping）、pivot（转型定位一句话）、en_*（双语字段）、Education.gpa/courses",
             },
             "path": {
                 "type": "string",
@@ -130,7 +126,6 @@ class PdfGenerateAdapter(ToolAdapter):
             "path": str(arguments.get("path") or "").strip(),
             "markdown": str(arguments.get("markdown") or "").strip(),
             "cover_style": str(arguments.get("cover_style") or "").strip(),
-            "output_format": str(arguments.get("output_format") or "").strip(),
             "resume_layout": str(arguments.get("resume_layout") or "").strip(),
         }
         # cover/toc 仅在显式传入时透传（False 表示用户明确不要）；

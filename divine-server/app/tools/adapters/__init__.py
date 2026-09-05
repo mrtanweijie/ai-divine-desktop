@@ -31,7 +31,9 @@ from .github_skill import (  # noqa: F401
     PreviewSkillRepoAdapter,
 )
 from .grep_files import GrepFilesAdapter  # noqa: F401
+from .html_common import HtmlCommonAdapter  # noqa: F401
 from .html_generate import HtmlGenerateAdapter  # noqa: F401
+from .html_resume import HtmlResumeAdapter  # noqa: F401
 from .image_generate import ImageGenerateAdapter  # noqa: F401
 from .image_resize import ImageResizeAdapter  # noqa: F401
 from .mermaid_export import MermaidExportAdapter  # noqa: F401

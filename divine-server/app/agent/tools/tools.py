@@ -50,6 +50,8 @@ _LOCK_FREE_TOOLS: frozenset[str] = frozenset(
 # html/resume 一并放行，否则模型在追问轮拿不到简历/PDF 管线，被迫手写 HTML。
 _CONTENT_TOOLS: dict[str, str | tuple[str, ...]] = {
     "pdf_generate": ("pdf", "resume", "html"),
+    "html_resume": ("resume", "html", "pdf"),
+    "html_common": ("html", "resume"),
     "pdf_render": "pdf",
     "pdf_split_merge": "pdf",
     "word_document": "document",

@@ -302,11 +302,14 @@ en_name、en_title、en_summary、work[].en_company/en_title/en_points）；
 用户点名"简历模板/模板库/挑模板"时也按上表推荐；用户指定的其他主题词
 （boss_zhipin/kami/linkedin/finance 等 8 个旧主题）仍然支持，原样传 theme；
 用户未说明职业或场景且难以判断时，先问一句目标岗位再选模板。
-简历的 HTML 输出默认由 pdf_generate 产出（output_format=html/both），
-不要自行用 html_generate 手写简历页面：其通用 token 基座会破坏简历模板版式。
-例外——用户明确要求自定义输出时必须尊重用户，例如用户提供了自己的 HTML 简历模板、
-明确不要内置模板、或指定了自定义版式：此时用 html_generate 保存并传 force_save=true
-（跳过简历检查且不注入风格基座，原样保存）。
+简历输出按用户要的形态选工具，各工具职责单一：
+PDF 版用 pdf_generate（kind=resume + resume_data，仅输出 PDF）；
+可编辑 HTML 版用 html_resume（resume_data + template，产出可编辑 HTML + 纯净投递版，
+浏览器打开即可改内容、工具条可下载/打印导出 PDF）；
+用户提供了自己的 HTML 模板、或明确要求自定义/原样输出时，用 html_common
+原样保存（不注入风格基座，内容一字不改）。
+不要用 html_generate 手写简历页面：其通用 token 基座会破坏简历模板版式，
+且工具层会拒绝保存简历类页面。
 输出格式：默认 output_format=pdf；用户提到"要能编辑/发我 HTML/网页版/自己再改改"或
 想人工微调内容时传 output_format=both（同时产出 PDF + 可编辑 HTML + 纯净版 HTML，
 可编辑 HTML 浏览器打开点击任意文字即可修改，工具条可下载修改后的 HTML 与导出 PDF）；
@@ -493,11 +496,10 @@ chip 高22/padding 0 8/12px/圆角6/底 --primary-weak 字 --primary；语义标
 _HTML_PAGE_RULES = """用户要产出任何独立的 HTML 文件——分析报告、数据看板、仪表盘、落地页、
 文档网页版、活动页等（不含 UX 交互原型，那类走 ux_html）——一律调用 html_generate 保存，
 不要用 write_file 直接写 .html：html_generate 会注入设计 token 基座并做静态校验，write_file 不会。
-例外：个人简历默认不走本工具——按简历规则调用 pdf_generate
-（kind=resume + resume_data，output_format=html 或 both），其模板管线才保证简历版式；
-本工具的通用 token 基座会破坏简历排版。但如果用户明确要求自定义输出
-（如用户提供了自己的 HTML 简历模板、明确不要内置模板），尊重用户：
-调用本工具时传 force_save=true，跳过简历检查且不注入风格基座，原样保存。
+例外：个人简历不走本工具（基座会破坏简历版式）——PDF 用 pdf_generate
+（kind=resume + resume_data）、可编辑 HTML 用 html_resume
+（resume_data + template，内置 12 套模板）、用户提供了自己的 HTML 模板或
+明确要求原样自定义输出时用 html_common（原样保存，不注入基座）。
 style 可选：用户指定什么就传什么；用户没指定时你按内容性质自选（数据密集 Linear、
 长文报告 Notion、质感优先展示 Apple（深色随系统切换）、笔记阅读与夜间场景 Obsidian（深浅同源）），
 并在回复里说明选了哪个。content 传完整 HTML 源码
