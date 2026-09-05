@@ -487,8 +487,18 @@ def _normalize_resume_input(data: dict) -> dict:
     if direct_experiences:
         normalized["experiences"] = direct_experiences
 
+    raw_skills = normalized.get("skills")
+    if isinstance(raw_skills, str):
+        # LLM 可能把技能行拼成一个长字符串传入：含竖线/换行时按行拆
+        # （"分类|内容" 行），否则按顿号/逗号拆（关键词串）。
+        # 不收敛的话 for 循环会逐字迭代，每个字符变成一个技能。
+        text = raw_skills.strip()
+        if "|" in text or "\n" in text:
+            raw_skills = [p.strip() for p in re.split(r"[\n;；]+", text) if p.strip()]
+        else:
+            raw_skills = [p.strip() for p in re.split(r"[、，,]+", text) if p.strip()]
     skills = []
-    for item in normalized.get("skills") or []:
+    for item in raw_skills or []:
         if isinstance(item, str):
             skills.append({"name": item, "level": 80})
             continue

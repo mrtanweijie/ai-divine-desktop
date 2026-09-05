@@ -139,6 +139,22 @@ def test_kami_metric_dividers_and_break_rules():
     assert "break-after: avoid" in t18_kami.CSS
 
 
+def test_string_skills_do_not_explode_into_char_chips():
+    """回归：skills 被当成长字符串逐字迭代，每个字符变成一个 chip（一屏单字胶囊），
+    且巨型 flex chips 容器不可跨页，把首页挤出大片空白。"""
+    data = {
+        "name": "测",
+        "skills": "框架|React（Redux/Zustand）· Vue3\n语言|TypeScript · JavaScript",
+    }
+    resume = ResumeData.from_dict(data)
+    assert len(resume.skills) == 2
+    assert resume.skills[0].name == "框架|React（Redux/Zustand）· Vue3"
+    html = build_html(resume, "tpl_modern", "single", editable=False)
+    body = html.split("<body>", 1)[1]
+    assert ">框<" not in body and ">R<" not in body  # 没有逐字 chip
+    assert "框架" in body
+
+
 def test_professional_heavy_content_keeps_main_column_on_every_page():
     """回归：双栏若用 flex，WeasyPrint 无法分割容器，内容超页时主栏整体
     被搬到最后一页（前几页只有侧栏）。table-cell 布局跨页正常。"""
