@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .connection import get_conn, _json, _new_id, _now
@@ -107,9 +108,39 @@ def recent_tool_runs(
         ).fetchall()
     return [dict(row) for row in reversed(rows)]
 
-def get_tool_run(run_id: str) -> dict[str, Any]:
+def get_tool_run(run_id: str) -> dict[str, Any] | None:
     with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM tool_runs WHERE id = ?", (run_id,)
         ).fetchone()
-    return dict(row)
+    return dict(row) if row else None
+
+
+def prune_tool_runs(keep_days: int = 30, max_rows: int = 50_000) -> int:
+    """清理过期工具运行记录，防止 tool_runs 无限膨胀。
+
+    每次工具调用落一行（含 input/output JSON），长期使用会拖慢查询与
+    备份。保留最近 keep_days 天内的记录，且全表最多保留最新 max_rows 行。
+    返回删除的行数。
+    """
+    deleted = 0
+    # _now() 为 ISO-UTC 文本，与列内格式一致，可直接字符串比较
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).isoformat(
+        timespec="seconds"
+    )
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM tool_runs WHERE started_at IS NOT NULL AND started_at < ?",
+            (cutoff,),
+        )
+        deleted += cur.rowcount
+        total = conn.execute("SELECT COUNT(*) FROM tool_runs").fetchone()[0]
+        if total > max_rows:
+            cur = conn.execute(
+                "DELETE FROM tool_runs WHERE id IN ("
+                "SELECT id FROM tool_runs ORDER BY started_at DESC "
+                "LIMIT -1 OFFSET ?)",
+                (max_rows,),
+            )
+            deleted += cur.rowcount
+    return deleted

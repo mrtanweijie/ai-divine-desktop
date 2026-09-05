@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -37,6 +38,15 @@ async def lifespan(_: FastAPI):
     logger.info("=== 侧边端启动 ===")
     ensure_directories()
     db.init_db()
+    # 启动时清理过期工具运行记录（tool_runs 防膨胀 retention）
+    try:
+        from .db.tool_runs import prune_tool_runs
+
+        removed = await asyncio.to_thread(prune_tool_runs)
+        if removed:
+            logger.info("pruned %d expired tool_runs", removed)
+    except Exception:  # noqa: BLE001 — 清理失败不影响启动
+        logger.exception("tool_runs retention failed")
     # 用户插件：加载 data/plugins/ 下的工具（幂等，坏插件跳过不影响启动）
     try:
         from .config import plugins_dir
