@@ -3,6 +3,8 @@ middleware / config)."""
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from langchain_core.language_models.chat_models import SimpleChatModel
 
@@ -476,9 +478,21 @@ def test_react_sse_pipeline(tmp_path, monkeypatch):
     # The real tool card still appears (adapter emits it, not the scaffold).
     assert '"tool": "calculator"' in joined
     assert '"status": "running"' in joined
-    # Final answer streams as message events.
-    assert '"content": "计"' in joined
-    assert '"content": "2"' in joined
+    # Final answer streams as message events. B6 攒批后相邻 delta 可能
+    # 合并成一帧，因此按事件类型聚合 content 后断言全文（对攒批不敏感）。
+    message_text = ""
+    for payload in sse_payloads:
+        event_type = ""
+        for line in payload.splitlines():
+            if line.startswith("event:"):
+                event_type = line[6:].strip()
+            elif line.startswith("data:") and event_type == "message":
+                data_part = line[5:].strip()
+                try:
+                    message_text += json.loads(data_part).get("content", "")
+                except json.JSONDecodeError:
+                    continue
+    assert "计算结果是 2" in message_text
 
     # Final state: tool call + observation + rewritten final answer.
     messages = final_state["messages"]

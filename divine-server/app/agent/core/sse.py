@@ -241,6 +241,55 @@ def _interrupt_prompt(payload: dict[str, Any]) -> str:
         return str(paths[0] if paths else "外部路径需要确认")
     return str(payload.get("message") or "等待用户确认")
 
+# B6（流式渲染优化）：文本事件攒批窗口。相邻同类型 think/message 帧
+# 合并后再入队，减少本地 IPC 帧数；类型切换点立即 flush，保证
+# 思考块与正文的边界不被错误合并。
+_TEXT_FLUSH_INTERVAL = 0.05
+_TEXT_FLUSH_CHARS = 96
+
+
+def _make_text_emitter(queue: asyncio.Queue[tuple[str, Any]]):
+    """返回 (emit, flush)：按类型攒批文本事件。
+
+    只合并相邻同类型帧（flush 后才切换类型），事件相对顺序不变。
+    done/tool 等其他事件由各自路径入队；每条 message 的文本先于
+    工具事件流完（工具执行需要完整消息），故无跨事件交错。
+    """
+    batch_type: str | None = None
+    batch_parts: list[str] = []
+    batch_chars = 0
+    loop = asyncio.get_running_loop()
+    batch_started = 0.0
+
+    async def flush() -> None:
+        nonlocal batch_type, batch_parts, batch_chars
+        if batch_type is not None and batch_parts:
+            await queue.put(
+                ("sse", sse_event(batch_type, {"content": "".join(batch_parts)}))
+            )
+        batch_type = None
+        batch_parts = []
+        batch_chars = 0
+
+    async def emit(event_type: str, content: str) -> None:
+        nonlocal batch_type, batch_started, batch_chars
+        if not content:
+            return
+        if batch_type != event_type:
+            await flush()
+            batch_type = event_type
+            batch_started = loop.time()
+        batch_parts.append(content)
+        batch_chars += len(content)
+        if (
+            loop.time() - batch_started >= _TEXT_FLUSH_INTERVAL
+            or batch_chars >= _TEXT_FLUSH_CHARS
+        ):
+            await flush()
+
+    return emit, flush
+
+
 async def _consume_message(
     message: Any,
     queue: asyncio.Queue[tuple[str, Any]],
@@ -254,6 +303,8 @@ async def _consume_message(
 
         react_processor = ReActStreamProcessor()
 
+    emit, flush_text_batch = _make_text_emitter(queue)
+
     async def drain_text() -> None:
         if react_processor is None:
             # 普通文本流：用 <think> 标签分离器把推理模型的思考块
@@ -265,62 +316,41 @@ async def _consume_message(
                 for event in think_processor.push(delta):
                     if event["type"] == "think":
                         reasoning_parts.append(event["content"])
-                        await queue.put(
-                            (
-                                "sse",
-                                sse_event("think", {"content": event["content"]}),
-                            )
-                        )
+                        await emit("think", event["content"])
                     else:
                         text_parts.append(event["content"])
-                        await queue.put(
-                            (
-                                "sse",
-                                sse_event("message", {"content": event["content"]}),
-                            )
-                        )
+                        await emit("message", event["content"])
             for event in think_processor.flush():
                 if event["type"] == "think":
                     reasoning_parts.append(event["content"])
-                    await queue.put(
-                        ("sse", sse_event("think", {"content": event["content"]}))
-                    )
+                    await emit("think", event["content"])
                 else:
                     text_parts.append(event["content"])
-                    await queue.put(
-                        ("sse", sse_event("message", {"content": event["content"]}))
-                    )
+                    await emit("message", event["content"])
+            await flush_text_batch()
             return
         async for delta in message.text:
             for event in react_processor.push(delta):
                 if event["type"] == "think":
                     reasoning_parts.append(event["content"])
-                    await queue.put(
-                        ("sse", sse_event("think", {"content": event["content"]}))
-                    )
+                    await emit("think", event["content"])
                 else:
                     text_parts.append(event["content"])
-                    await queue.put(
-                        ("sse", sse_event("message", {"content": event["content"]}))
-                    )
+                    await emit("message", event["content"])
         for event in react_processor.flush():
             if event["type"] == "think":
                 reasoning_parts.append(event["content"])
-                await queue.put(
-                    ("sse", sse_event("think", {"content": event["content"]}))
-                )
+                await emit("think", event["content"])
             else:
                 text_parts.append(event["content"])
-                await queue.put(
-                    ("sse", sse_event("message", {"content": event["content"]}))
-                )
+                await emit("message", event["content"])
+        await flush_text_batch()
 
     async def drain_reasoning() -> None:
         async for delta in message.reasoning:
             reasoning_parts.append(delta)
-            await queue.put(
-                ("sse", sse_event("think", {"content": delta}))
-            )
+            await emit("think", delta)
+        await flush_text_batch()
 
     output_future = asyncio.ensure_future(message.output)
     await asyncio.gather(drain_text(), drain_reasoning())
