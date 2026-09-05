@@ -45,8 +45,11 @@ _LOCK_FREE_TOOLS: frozenset[str] = frozenset(
 # （60 个全带 ≈ 13.3k，意图=question 时裁到 ≈ 7k）。
 # 保守原则：只裁"纯内容创作 + 技能 + 子 agent"，文件/代码/网络/终端等
 # 干活主力工具一律常驻，避免意图漏判导致工具缺失。
-_CONTENT_TOOLS: dict[str, str] = {
-    "pdf_generate": "pdf",
+# 值可为 str（单意图）或 tuple（任一命中即注入）。注意多轮创作常以短追问出现
+# （"换个主题色重一份"），该轮意图常只命中 html——pdf_generate 必须随
+# html/resume 一并放行，否则模型在追问轮拿不到简历/PDF 管线，被迫手写 HTML。
+_CONTENT_TOOLS: dict[str, str | tuple[str, ...]] = {
+    "pdf_generate": ("pdf", "resume", "html"),
     "pdf_render": "pdf",
     "pdf_split_merge": "pdf",
     "word_document": "document",
@@ -96,6 +99,20 @@ def _make_tool_call(
 
     return call
 
+def _content_tool_allowed(name: str, intents: set[str] | frozenset[str]) -> bool:
+    """意图裁剪判定：无门槛工具恒注入；有门槛时任一意图命中即注入。
+
+    intents 为空视为无信号，全量放行（首轮兜底）。
+    """
+    required = _CONTENT_TOOLS.get(name)
+    if not required:
+        return True
+    if not intents:
+        return True
+    needed = {required} if isinstance(required, str) else set(required)
+    return bool(needed & intents)
+
+
 def _build_tools(ctx: AgentRunContext) -> list[StructuredTool]:
     """Build the full tool set for a session, including installed skills."""
     tools: list[StructuredTool] = []
@@ -107,11 +124,8 @@ def _build_tools(ctx: AgentRunContext) -> list[StructuredTool]:
         if name == "create_plan":
             continue
         # 意图工具裁减：内容创作/技能类工具仅当对应意图命中时注入。
-        # 无意图信号（intents 为空）→ 全量注入（保守，等同首轮兜底）
-        if intents:
-            content_intent = _CONTENT_TOOLS.get(name)
-            if content_intent and content_intent not in intents:
-                continue
+        if not _content_tool_allowed(name, intents):
+            continue
         adapter = registry.get(meta["name"])
         if adapter is None:
             continue

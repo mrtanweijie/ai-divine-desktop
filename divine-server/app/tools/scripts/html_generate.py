@@ -65,8 +65,13 @@ _RESUME_SECTION_MARKERS = (
 _RESUME_REDIRECT_MESSAGE = (
     "检测到简历类页面（{reason}）：个人简历请改用 pdf_generate 生成"
     "（传 kind=resume、resume_data，output_format=html 或 both），"
-    "其内置 12 套简历模板并输出可编辑 HTML；不要用 html_generate 手写简历版式。"
-    "如本页面确非个人简历（如简历写作指南、模板资讯页），重新调用时传 force_save=true 可跳过该检查。"
+    "其内置 12 套简历模板并输出可编辑 HTML；不要用 html_generate 手写简历版式，"
+    "也不要用 force_save 绕过。"
+)
+_RESUME_STRONG_REDIRECT_MESSAGE = (
+    "检测到完整的简历版式（{reason}）：个人简历必须走 pdf_generate 模板管线"
+    "（传 kind=resume、resume_data，output_format=html 或 both），"
+    "该检查对完整简历不可用 force_save 越过。"
 )
 
 
@@ -74,6 +79,15 @@ def detect_resume_page(title: str, content: str) -> str | None:
     """命中简历特征时返回原因描述，否则返回 None。"""
     if _RESUME_TITLE_RE.search(title or ""):
         return f"页面标题「{title}」指向简历"
+    return detect_strong_resume_signal(content)
+
+
+def detect_strong_resume_signal(content: str) -> str | None:
+    """强信号：页面本身就是一份简历版式（而非仅提到简历的文章）。
+
+    强信号不可被 force_save 越过——手写简历只能走 pdf_generate 模板管线；
+    force_save 仅用于「标题提到简历、但内容并非简历」的误判逃生。
+    """
     if _RESUME_CLASS_RE.search(content or ""):
         return "HTML 中包含 resume 结构类名"
     lowered = (content or "").lower()
@@ -119,16 +133,22 @@ def main() -> None:
 
     title = derive_title(str(params.get("title") or ""), content)
 
-    # 简历护栏：简历类页面改走 pdf_generate 模板管线（force_save 供误判逃生）。
+    # 简历护栏：完整简历版式（强信号）无条件拦截；仅标题提到简历的弱信号
+    # 才允许 force_save 逃生（供「简历写作指南」等非简历页面误判时使用）。
     force_save = str(params.get("force_save") or "").strip().lower() in ("true", "1", "yes")
-    if not force_save:
-        reason = detect_resume_page(title, content)
-        if reason:
+    reason = detect_resume_page(title, content)
+    if reason:
+        strong = detect_strong_resume_signal(content) is not None
+        if not (force_save and not strong):
             print(
                 json.dumps(
                     {
                         "success": False,
-                        "message": _RESUME_REDIRECT_MESSAGE.format(reason=reason),
+                        "message": (
+                            _RESUME_STRONG_REDIRECT_MESSAGE.format(reason=reason)
+                            if strong
+                            else _RESUME_REDIRECT_MESSAGE.format(reason=reason)
+                        ),
                         "messageKey": "tool.actionFailed",
                     },
                     ensure_ascii=False,

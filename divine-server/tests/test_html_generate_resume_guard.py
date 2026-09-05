@@ -88,12 +88,38 @@ def test_script_rejects_resume_class_hit(monkeypatch, capsys):
     assert "pdf_generate" in result["message"]
 
 
-def test_script_force_save_escape(monkeypatch, capsys):
+def test_script_force_save_escapes_title_only_hit(monkeypatch, capsys):
+    """弱信号（仅标题提到简历）允许 force_save 逃生：如简历写作指南文章。"""
+    article = (
+        "<!DOCTYPE html><html><head><title>简历写作指南</title></head>"
+        "<body><h1>如何写好一份简历</h1><p>简历的投递渠道与避坑清单，"
+        "覆盖内推、招聘平台与猎头的差异。</p></body></html>"
+    )
+    result = _run_script({"content": article}, monkeypatch, capsys)
+    assert result["success"] is False  # 先被拦
     result = _run_script(
-        {"content": _RESUME_HTML, "force_save": True}, monkeypatch, capsys
+        {"content": article, "force_save": True}, monkeypatch, capsys
     )
     assert result["success"] is True
     assert list(Path(_OUTPUT_DIR).rglob("*.html"))
+
+
+def test_script_force_save_cannot_bypass_full_resume(monkeypatch, capsys):
+    """强信号（完整简历版式）无条件拦截：force_save 不是手写简历的后门。"""
+    result = _run_script(
+        {"content": _RESUME_HTML, "force_save": True}, monkeypatch, capsys
+    )
+    assert result["success"] is False
+    assert "不可用 force_save 越过" in result["message"]
+    assert not list(Path(_OUTPUT_DIR).rglob("*.html"))
+
+
+def test_script_force_save_cannot_bypass_resume_class(monkeypatch, capsys):
+    result = _run_script(
+        {"content": _CLASS_HIT_HTML, "force_save": True}, monkeypatch, capsys
+    )
+    assert result["success"] is False
+    assert not list(Path(_OUTPUT_DIR).rglob("*.html"))
 
 
 def test_script_saves_normal_report(monkeypatch, capsys):
