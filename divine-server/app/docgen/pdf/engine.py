@@ -131,6 +131,12 @@ def _looks_like_generic_travel_fallback(content: str) -> bool:
 
 def _suggest_resume_theme(prompt: str, resume_data: dict[str, Any]) -> str:
     text = prompt.lower()
+    # 模板库（tpl_*）优先：人群/岗位特征明确的场景直接推荐对应设计母版
+    from ..resume.templates.registry import TEMPLATE_REGISTRY
+
+    for entry in TEMPLATE_REGISTRY.values():
+        if any(word in text for word in entry["industry_keywords"]):
+            return entry["id"]
     if any(
         word in text
         for word in ("kami_white", "kami 白色", "纯白投递", "白色版")
@@ -210,14 +216,14 @@ class PDFTool:
         resume_data: dict[str, Any] | None = None,
         color_overrides: dict[str, str] | None = None,
         cover_style: str | None = None,
+        resume_layout: str | None = None,
+        output_format: str | None = None,
     ) -> dict[str, Any]:
         recipe_name = kind or detect_recipe(prompt)
         recipe = get_recipe(recipe_name)
         llm = llm or build_llm()
 
         if recipe_name == "resume" and resume_data:
-            from ..resume.renderer import render_resume
-
             resume_theme = "professional"
             if theme in (
                 "professional",
@@ -230,8 +236,36 @@ class PDFTool:
                 "kami_white",
             ):
                 resume_theme = theme
+            elif theme and theme.startswith("tpl_"):
+                resume_theme = theme
             elif not theme or theme in ("resume", "universal", "auto"):
                 resume_theme = _suggest_resume_theme(prompt, resume_data)
+
+            if resume_theme.startswith("tpl_"):
+                # 模板库：支持 PDF / 可编辑 HTML / 纯净 HTML 多形态输出
+                from ..resume.templates import render_template_resume
+
+                fmt = (output_format or "pdf").strip() or "pdf"
+                files = render_template_resume(
+                    resume_data,
+                    str(output),
+                    template_id=resume_theme,
+                    layout=(resume_layout or "single").strip() or "single",
+                    output_format=fmt,
+                )
+                return {
+                    "recipe": recipe.name,
+                    "display_name": recipe.display_name,
+                    "theme": resume_theme,
+                    "title": str(resume_data.get("name") or prompt[:40]),
+                    "renderer": "weasyprint" if fmt in ("pdf", "both") else "html",
+                    "output_format": fmt,
+                    "files": files,
+                    "filepath": files[0] if files else str(output),
+                }
+
+            from ..resume.renderer import render_resume
+
             render_resume(resume_data, str(output), theme=resume_theme)
             return {
                 "recipe": recipe.name,

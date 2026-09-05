@@ -1,0 +1,149 @@
+"""模板库注册表：12 套设计母版的元信息（选型、推荐与展示共用）。"""
+
+from __future__ import annotations
+
+TEMPLATE_REGISTRY: dict[str, dict] = {
+    "tpl_professional": {
+        "id": "tpl_professional",
+        "module": "t01_professional",
+        "display_name": "经典专业版",
+        "style": "衬线经典",
+        "scene": "金融、咨询、法律、财会、四大",
+        "structure": "居中头部 + 双线章节，日期右对齐",
+        "ats": "高",
+        "tip": "适用：金融 / 咨询 / 法律 / 财会 · 点击任意文字即可编辑 · 用 ⌘P 导出 PDF（边距设为「无」）",
+        "industry_keywords": ("金融", "咨询", "法律", "财会", "会计", "审计", "投行", "四大", "证券"),
+    },
+    "tpl_modern": {
+        "id": "tpl_modern",
+        "module": "t02_modern",
+        "display_name": "现代科技版",
+        "style": "现代活力",
+        "scene": "互联网、科技、创业、前端/全栈",
+        "structure": "顶部色带 + 彩色小标题 + 技能 chip，单栏",
+        "ats": "高",
+        "tip": "适用：互联网 / 科技公司 / 创业团队 · 单栏结构，可安全通过 ATS · 用 ⌘P 导出 PDF",
+        "industry_keywords": ("互联网", "科技", "创业", "前端", "全栈", "软件", "程序员", "开发"),
+    },
+    "tpl_minimal": {
+        "id": "tpl_minimal",
+        "module": "t03_minimal",
+        "display_name": "极简工程版",
+        "style": "极简黑白",
+        "scene": "资深工程师、架构师、技术管理",
+        "structure": "零色彩零装饰，靠留白与字重分层",
+        "ats": "最高",
+        "tip": "适用：资深工程师 / 架构师 / 技术管理 · 纯黑白、零装饰、ATS 兼容性最佳 · 用 ⌘P 导出 PDF",
+        "industry_keywords": ("架构师", "资深工程师", "技术专家", "技术管理", "后端", "分布式"),
+    },
+    "tpl_academic": {
+        "id": "tpl_academic",
+        "module": "t04_academic",
+        "display_name": "学术科研版",
+        "style": "学术衬线",
+        "scene": "高校教职、博士后、研究院",
+        "structure": "教育置顶、论文编号列表、期刊斜体、标签",
+        "ats": "高",
+        "tip": "适用：高校教职 / 博士后 / 研究院 / 科研岗 · 论文与项目置顶 · 可跨 2 页 · 用 ⌘P 导出 PDF",
+        "industry_keywords": ("学术", "科研", "论文", "博士", "教职", "高校", "研究员", "博士后"),
+    },
+    "tpl_executive": {
+        "id": "tpl_executive",
+        "module": "t05_executive",
+        "display_name": "高管领袖版",
+        "style": "深色权威",
+        "scene": "CXO、VP、事业部负责人",
+        "structure": "深色头部 + 核心指标条（4 格大数字）+ 公司规模标注",
+        "ats": "高",
+        "tip": "适用：CXO / VP / 事业部负责人 · 董事会视角，成就与规模优先 · 用 ⌘P 导出 PDF",
+        "industry_keywords": ("高管", "CXO", "CEO", "COO", "VP", "总裁", "总监", "事业部", "总经理", "董事会"),
+    },
+    "tpl_creative": {
+        "id": "tpl_creative",
+        "module": "t06_creative",
+        "display_name": "创意设计版",
+        "style": "创意网格",
+        "scene": "品牌、视觉、交互设计师",
+        "structure": "作品卡片 2×2 网格（编号 + 关键结果）+ 能力分区",
+        "ats": "高",
+        "tip": "适用：品牌 / 视觉 / 交互设计师、创意人 · 作品导向，建议附作品集链接 · 用 ⌘P 导出 PDF",
+        "industry_keywords": ("设计师", "视觉", "品牌", "插画", "创意", "UI", "平面", "作品集"),
+    },
+    "tpl_product": {
+        "id": "tpl_product",
+        "module": "t07_product",
+        "display_name": "产品经理版",
+        "style": "指标驱动",
+        "scene": "B 端 / C 端产品经理",
+        "structure": "KPI 条 + 产品矩阵表格（产品/角色/动作/指标）",
+        "ats": "中高（含表格）",
+        "tip": "适用：B 端 / C 端产品经理、产品负责人 · 指标与产品矩阵导向 · 用 ⌘P 导出 PDF",
+        "industry_keywords": ("产品经理", "产品", "PM", "需求", "SaaS"),
+    },
+    "tpl_data": {
+        "id": "tpl_data",
+        "module": "t08_data",
+        "display_name": "数据科学版",
+        "style": "技术感",
+        "scene": "数据科学家、分析师、算法工程师",
+        "structure": "等宽字体技术标签 + 技术栈注脚 + 项目卡片",
+        "ats": "高",
+        "tip": "适用：数据科学家 / 数据分析师 / 算法工程师 · 技术栈 + 业务影响双线呈现 · 用 ⌘P 导出 PDF",
+        "industry_keywords": ("数据", "算法", "分析师", "机器学习", "深度学习", "AI", "风控", "统计"),
+    },
+    "tpl_freshgrad": {
+        "id": "tpl_freshgrad",
+        "module": "t09_freshgrad",
+        "display_name": "应届校招版",
+        "style": "清爽亲和",
+        "scene": "应届本科 / 硕士校招",
+        "structure": "教育置顶信息框（GPA/排名/课程）+ 竞赛荣誉区",
+        "ats": "高",
+        "tip": "适用：应届本科 / 硕士校招 · 教育背景置顶，突出课程、竞赛与实习 · 用 ⌘P 导出 PDF",
+        "industry_keywords": ("应届", "校招", "秋招", "春招", "实习生", "实习", "应届生", "毕业生"),
+    },
+    "tpl_lateral": {
+        "id": "tpl_lateral",
+        "module": "t10_lateral",
+        "display_name": "跨界转型版",
+        "style": "功能型",
+        "scene": "转行、跨职能转型",
+        "structure": "可迁移能力三卡 + 转型实践前置 + 时间线后置",
+        "ats": "高",
+        "tip": "适用：转行 / 跨职能转型 · 功能型结构，能力前置、时间线后置 · 用 ⌘P 导出 PDF",
+        "industry_keywords": ("转行", "转型", "跨行", "跨界", "换工作", "转岗"),
+    },
+    "tpl_compact": {
+        "id": "tpl_compact",
+        "module": "t11_compact",
+        "display_name": "双栏紧凑版",
+        "style": "双栏紧凑",
+        "scene": "市场、运营、销售、职能岗",
+        "structure": "左侧深色信息栏 + 右侧主内容，信息密度最高",
+        "ats": "中（双栏有解析风险，建议内推直投）",
+        "tip": "适用：市场 / 运营 / 销售 / 职能岗，信息量大需压缩到一页 · 注意：双栏布局对老旧 ATS 有解析风险，请优先用于内推与直投",
+        "industry_keywords": ("市场", "运营", "销售", "营销", "商务", "渠道", "职能", "HR", "人事", "行政"),
+    },
+    "tpl_global": {
+        "id": "tpl_global",
+        "module": "t12_global",
+        "display_name": "国际通用版",
+        "style": "中英双语",
+        "scene": "外企、出海、国际组织",
+        "structure": "每个条目中英对照，投递海外可只保留英文行",
+        "ats": "高",
+        "tip": "适用：外企 / 出海企业 / 国际组织 · 每个条目中英对照，投递海外可只保留英文行 · 用 ⌘P 导出 PDF",
+        "industry_keywords": ("外企", "出海", "国际", "双语", "英文简历", "跨国", "海外"),
+    },
+}
+
+TEMPLATE_IDS = list(TEMPLATE_REGISTRY)
+
+
+def get_entry(template_id: str) -> dict:
+    entry = TEMPLATE_REGISTRY.get(template_id)
+    if entry is None:
+        raise ValueError(
+            f"未知简历模板: {template_id}，可选: {', '.join(TEMPLATE_IDS)}"
+        )
+    return entry

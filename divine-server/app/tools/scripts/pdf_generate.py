@@ -92,6 +92,8 @@ async def main() -> None:
             resume_data=params.get("resume_data") or None,
             color_overrides=params.get("theme_colors") or None,
             cover_style=str(params.get("cover_style") or "").strip() or None,
+            resume_layout=str(params.get("resume_layout") or "").strip() or None,
+            output_format=str(params.get("output_format") or "").strip() or None,
         )
     except Exception as exc:
         print(
@@ -105,19 +107,28 @@ async def main() -> None:
             )
         )
         return
+    extra_files = [p for p in (meta.get("files") or []) if p != meta.get("filepath")]
+    fmt = meta.get("output_format")
+    if fmt == "html":
+        message = "简历 HTML 生成完成（含可编辑版与纯净投递版，浏览器打开可编辑 HTML 后用 ⌘P 导出 PDF）"
+    elif fmt == "both":
+        message = "简历 PDF 与可编辑 HTML 生成完成（HTML 浏览器打开即可修改内容）"
+    else:
+        message = "PDF 文档生成完成"
     print(
         json.dumps(
             {
                 "success": True,
-                "message": "PDF 文档生成完成",
-                "file_name": output_path.name,
-                "filepath": str(output_path),
+                "message": message,
+                "file_name": Path(meta.get("filepath") or output_path).name,
+                "filepath": meta.get("filepath") or str(output_path),
                 "data": {
                     "recipe": meta.get("recipe"),
                     "display_name": meta.get("display_name"),
                     "theme": meta.get("theme"),
                     "title": meta.get("title"),
                     "renderer": meta.get("renderer"),
+                    "extra_files": extra_files,
                 },
             },
             ensure_ascii=False,

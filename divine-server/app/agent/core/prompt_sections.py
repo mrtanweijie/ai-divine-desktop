@@ -278,25 +278,38 @@ kind 按报告/商业分析报告/旅行手册/学习路线/电子书手册/讲�
 用户给出品牌/行业/对标竞品时，调用 pdf_generate 前把品牌名、行业、对标品牌清单写进 prompt，
 供商业分析报告拆解使用；"""
 
-# RESUME_RULES — 个人简历：resume_data 结构、主题选择、简历优化规范
+# RESUME_RULES — 个人简历：resume_data 结构、主题/模板选择、输出格式、简历优化规范
 _RESUME_RULES = """用户要求生成个人简历时，按一页简历数据结构整理 resume_data：
 name、target、contact（"电话 | 邮箱 | 网站" 或对象，可带 status）、summary（约 80 字）、
-metrics（可选，4 个数字卡片 [{value,label}]）、skills（"分类|内容" 技能行）、
+metrics（可选，4 个数字卡片 [{value,label}]）、skills（"分类|内容" 技能行或短关键词数组）、
 work（[{company,dept,position,period,description,projects[{name,summary,points[2-4 条成果]}] 或 points[2-4 条成果]}]）、
-education（[{school,degree,period,description}]）、highlights、public_work（可选）、
+education（[{school,degree,period,description,gpa,courses}]）、highlights、public_work（可选）、
 sections（可选，板块顺序）；metrics 始终显示在头部下方，不参与 sections 排序；
 也兼容 basics、experience、startDate/endDate、level 1-5 等常见字段；
 整理完成后再调用 pdf_generate，传 kind=resume 和 resume_data；
 字段结构只是规范示例，内容必须根据用户实际信息生成，不要套用示例简历内容；
 用户信息不足时简单询问姓名、目标岗位、工作经历、技能即可。
-简历主题可选 professional/creative/minimal/boss_zhipin/finance/linkedin/kami/kami_white，用户未指定时默认 professional。
-场景推荐：BOSS 直聘/招聘平台/ATS/海投 → boss_zhipin；
-Kami/Resume Optimizer 风格/排版优化 → kami；
-Kami 纯白/白色投递版 → kami_white；
-LinkedIn/海外投递 → linkedin；金融/银行/投行/证券/基金/财务/审计 → finance；
-投大厂/外企/传统行业 → professional；
-互联网/创业/设计岗/内推 → creative；学术/咨询/法律/科研 → minimal；
-用户未说明求职场景时，可先询问目标场景再选主题。
+简历默认走 12 套精品模板库（theme 传 tpl_*），按用户职业/场景选一套：
+应届生/校招/秋招 → tpl_freshgrad；CXO/高管/总监/事业部负责人 → tpl_executive；
+产品经理 → tpl_product；数据/算法/分析师 → tpl_data；
+设计师/品牌/视觉/作品集 → tpl_creative；转行/转型/跨行 → tpl_lateral；
+市场/运营/销售/职能岗（信息量大）→ tpl_compact（注意双栏对 ATS 有风险，优先内推直投）；
+金融/咨询/法律/财会 → tpl_professional；互联网/科技公司通用/前端全栈 → tpl_modern；
+资深工程师/架构师/技术管理（极简 ATS 最优）→ tpl_minimal；
+高校教职/科研/博士后（有论文列表）→ tpl_academic；
+外企/出海/国际组织/中英双语 → tpl_global（整理 resume_data 时补充英文字段：
+en_name、en_title、en_summary、work[].en_company/en_title/en_points）；
+用户点名"简历模板/模板库/挑模板"时也按上表推荐；用户指定的其他主题词
+（boss_zhipin/kami/linkedin/finance 等 8 个旧主题）仍然支持，原样传 theme；
+用户未说明职业或场景且难以判断时，先问一句目标岗位再选模板。
+输出格式：默认 output_format=pdf；用户提到"要能编辑/发我 HTML/网页版/自己再改改"或
+想人工微调内容时传 output_format=both（同时产出 PDF + 可编辑 HTML + 纯净版 HTML，
+可编辑 HTML 浏览器打开点击任意文字即可修改，工具条可下载修改后的 HTML 与导出 PDF）；
+页数布局默认 resume_layout=single，内容特别多或用户要求 2-3 页时传 multi。
+模板库扩展字段按需使用：certifications/languages/honors（字符串数组）、
+publications（论文 [{title,venue,year,tags:["CCF-A"]}]）、
+works（作品 [{name,role,year,description,result}]）、
+transferable（转型 [{source,ability,description,mapping}]）、pivot（转型定位一句话）。
 整理简历内容遵循简历优化规范：把职责描述改成成果描述；每条经历保留 2-4 条高密度 bullet；
 bullet 使用“动作 + 产物 + 结果”结构；有量化数据优先写数字，没有精确数字时写范围/频率/流程变化；
 严禁编造指标、头衔或项目背景，缺失数据用“[量化数据待补]”占位；
