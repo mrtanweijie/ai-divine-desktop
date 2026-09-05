@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ToolEvent } from "@/types";
@@ -23,7 +23,11 @@ function formatDuration(ms: number): string {
  * 历史恢复的消息没有 duration_ms（tool_runs 不回灌进 message parts），
  * 自然不显示——只作用于本次流式会话。
  */
-export function TracePanel({ tools }: { tools: ToolEvent[] }) {
+export const TracePanel = memo(function TracePanel({
+  tools,
+}: {
+  tools: ToolEvent[];
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
@@ -117,4 +121,4 @@ export function TracePanel({ tools }: { tools: ToolEvent[] }) {
       </div>
     </details>
   );
-}
+});

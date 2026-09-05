@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowLeftRight,
@@ -59,6 +59,12 @@ export const MessageItem = memo(function MessageItem({
 }: MessageItemProps) {
   const { t } = useTranslation();
   const isUser = message.role === "user";
+  // 分组结果按 message.tools 引用缓存：内容流式期间 tools 引用不变，
+  // 分组产物（含 terminal 等可分组卡的合并对象）保持稳定引用，
+  // 下游 memo 化的 ToolStatusCard 才能在 chunk 渲染时被整体跳过。
+  const groupedTools = useMemo(() => groupToolCards(message.tools), [
+    message.tools,
+  ]);
   // 执行中插话（[用户补充] 前缀）：气泡内显示去前缀正文 + "补充"徽标
   const supplementText = parseSupplement(message.content);
   return (
@@ -218,7 +224,7 @@ export const MessageItem = memo(function MessageItem({
               streaming={streaming}
             />
           )}
-          {groupToolCards(message.tools).map((tool, index) => (
+          {groupedTools.map((tool, index) => (
             <ToolStatusCard
               key={`${tool.tool}-${index}`}
               tool={tool}

@@ -1,4 +1,5 @@
 // File download/preview actions: multi-file list and single result file.
+import { memo } from "react";
 import { Eye, FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
@@ -9,7 +10,7 @@ import type { PreviewFile, ToolEvent } from "@/types";
 import { formatSize } from "@/utils";
 import { fileIcon } from "./MessageHelpers";
 
-export function ToolFileList({
+export const ToolFileList = memo(function ToolFileList({
   tool,
   workspacePath,
   onPreviewFile,
@@ -23,14 +24,14 @@ export function ToolFileList({
   onToggleFiles: () => void;
 }) {
   const { t } = useTranslation();
-  const isReadFile = tool.tool === "read_file";
   const files = tool.files ?? [];
 
   if (files.length === 0) return null;
+  // 未展开时最多显示 6 条；展开后（收起型工具经卡片头部、其余经
+  // 「展开全部」按钮）显示全部文件。
   return (
     <div className="file-actions file-list">
-      {files
-        .slice(0, isReadFile ? files.length : 6)
+      {files.slice(0, filesOpen ? files.length : 6)
         .map((file) => {
           const fileRel =
             file.path && workspacePath
@@ -79,7 +80,7 @@ export function ToolFileList({
             </div>
           );
         })}
-      {files.length > 6 && !isReadFile && !filesOpen && (
+      {files.length > 6 && !filesOpen && (
         <div
           role="button"
           tabIndex={0}
@@ -99,7 +100,7 @@ export function ToolFileList({
       )}
     </div>
   );
-}
+});
 
 export function ToolResultFile({
   tool,

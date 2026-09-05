@@ -1,5 +1,5 @@
 // Renders a single tool status card, including approvals and file actions.
-import { useState } from "react";
+import { memo, useCallback, useState } from "react";
 import {
   AlertCircle,
   CalendarClock,
@@ -27,7 +27,7 @@ import { ToolFileList, ToolResultFile } from "./ToolFileList";
 import { toolIcon } from "./ToolStatusIcon";
 import { DiffView } from "./DiffView";
 
-export function ToolStatusCard({
+export const ToolStatusCard = memo(function ToolStatusCard({
   tool,
   sessionId,
   workspacePath,
@@ -49,9 +49,15 @@ export function ToolStatusCard({
   const running = tool.status === "running" || tool.status === "preparing";
   const urls = tool.urls ?? [];
   const hasUrls = urls.length > 0;
-  const toggleUrls = () => setUrlsOpen((value) => !value);
-  const hasFiles = tool.tool === "read_file" && (tool.files?.length ?? 0) > 0;
-  const toggleFiles = () => setFilesOpen((value) => !value);
+  const toggleUrls = useCallback(() => setUrlsOpen((value) => !value), []);
+  // 这三类工具的文件列表默认收起，点击卡片头部展开（read_file 原有行为；
+  // write_file / edit_files 批量写文件时列表过长，同样收起）。
+  const collapsibleFiles =
+    tool.tool === "read_file" ||
+    tool.tool === "write_file" ||
+    tool.tool === "edit_files";
+  const hasFiles = collapsibleFiles && (tool.files?.length ?? 0) > 0;
+  const toggleFiles = useCallback(() => setFilesOpen((value) => !value), []);
   const statusMessage =
     tool.status === "running" && tool.currentUrl
       ? t("tool.fetchingUrl", "正在抓取：{{url}}", {
@@ -231,7 +237,7 @@ export function ToolStatusCard({
       )}
       {tool.files &&
         tool.files.length > 0 &&
-        (tool.tool !== "read_file" || filesOpen) && (
+        (!collapsibleFiles || filesOpen) && (
           <ToolFileList
             tool={tool}
             workspacePath={workspacePath}
@@ -306,4 +312,4 @@ export function ToolStatusCard({
         )}
     </div>
   );
-}
+});
