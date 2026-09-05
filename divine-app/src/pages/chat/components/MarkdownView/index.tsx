@@ -110,20 +110,80 @@ export const MarkdownView = memo(function MarkdownView({
   // linkifyFilePaths 对全文跑掩码→linkify→还原 3 遍正则，结果仅依赖
   // content，缓存后流式 chunk 到达时不再对历史消息重复计算。
   const linkified = useMemo(() => linkifyFilePaths(content), [content]);
+  // 已闭合块冻结（流式渲染优化）：流式期间若存在未闭合代码围栏，把内容
+  // 拆成「冻结前缀 + 活动围栏块」——前缀引用不变，memo 后每帧只重解析
+  // 围栏内的活动块（长代码块流式的 O(n²) 重解析大头）。非流式与无未闭合
+  // 围栏时保持整段渲染，完成态与历史消息不受影响。
+  const splitIndex = streaming ? findUnclosedFenceIndex(linkified) : -1;
+  const stablePart = splitIndex > 0 ? linkified.slice(0, splitIndex) : null;
+  const tailPart = splitIndex > 0 ? linkified.slice(splitIndex) : null;
   return (
     <div className={`markdown-body ${streaming ? "streaming" : ""}`}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        // react-markdown 默认 urlTransform 会过滤非 http/https 协议，
-        // 导致 divine-path: 链接的 href 被替换为空串、点击失效。
-        // 这里放行原样保留 URL；点击行为由下方 a 渲染器拦截（仅处理
-        // http(s) 与 divine-path:）。
-        urlTransform={(url) => url}
-        components={components}
-      >
-        {linkified}
-      </ReactMarkdown>
+      {stablePart !== null ? (
+        <>
+          <StableMarkdown content={stablePart} components={components} />
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            urlTransform={(url) => url}
+            components={components}
+          >
+            {tailPart}
+          </ReactMarkdown>
+        </>
+      ) : (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          // react-markdown 默认 urlTransform 会过滤非 http/https 协议，
+          // 导致 divine-path: 链接的 href 被替换为空串、点击失效。
+          // 这里放行原样保留 URL；点击行为由下方 a 渲染器拦截（仅处理
+          // http(s) 与 divine-path:）。
+          urlTransform={(url) => url}
+          components={components}
+        >
+          {linkified}
+        </ReactMarkdown>
+      )}
     </div>
+  );
+});
+
+/**
+ * 找最后一个未闭合代码围栏（``` / ~~~）的起始偏移；无未闭合围栏返回 -1。
+ * 按行扫描（仅识别 ≤3 空格缩进的顶层围栏），行偏移用累计长度计算。
+ */
+function findUnclosedFenceIndex(content: string): number {
+  const fenceRe = /^ {0,3}(```|~~~)/;
+  let open = false;
+  let fenceStart = -1;
+  let offset = 0;
+  for (const line of content.split("\n")) {
+    if (fenceRe.test(line)) {
+      if (open) {
+        open = false;
+        fenceStart = -1;
+      } else {
+        open = true;
+        fenceStart = offset;
+      }
+    }
+    offset += line.length + 1;
+  }
+  return open ? fenceStart : -1;
+}
+
+/** 冻结前缀渲染器：content 引用不变时 memo 直接跳过整段重解析。 */
+const StableMarkdown = memo(function StableMarkdown({
+  content,
+  components,
+}: {
+  content: string;
+  components: Components;
+}) {
+  const linkified = useMemo(() => linkifyFilePaths(content), [content]);
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={(url) => url} components={components}>
+      {linkified}
+    </ReactMarkdown>
   );
 });
 
