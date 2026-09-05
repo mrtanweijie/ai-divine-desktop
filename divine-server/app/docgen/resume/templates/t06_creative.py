@@ -1,4 +1,7 @@
-"""模板 06 · 创意设计版 — 作品卡片网格，品牌/视觉/交互设计师。"""
+"""模板 06 · 创意设计版（v2）— 暖纸底 + 赭橙品牌色 + ✦ 星形 bullet。
+
+设计母版：外部模板库 v2/06-creative-创意设计版-v2.html（1:1 转写）。
+"""
 
 from __future__ import annotations
 
@@ -7,89 +10,74 @@ try:
         EDITABLE_CSS,
         _esc,
         bold_numbers,
-        bullets_html,
         contact_lines_html,
-        exp_bullets,
         exp_content_html,
-        exp_meta,
-        item_hd,
         page_foot,
-        skill_kv_pairs,
     )
 except ImportError:  # 兼容脚本直接运行
     from components import (  # type: ignore
         EDITABLE_CSS,
         _esc,
         bold_numbers,
-        bullets_html,
         contact_lines_html,
-        exp_bullets,
         exp_content_html,
-        exp_meta,
-        item_hd,
         page_foot,
-        skill_kv_pairs,
     )
 
 id = "tpl_creative"
 
 CSS = """:root{
-  --sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
-  --ink:#111; --sub:#4b4b4b; --mute:#8c8c8c; --line:#e0ddd6;
-  --accent:#c94f2c; --paper:#fbfaf7;
+  --paper:#fdfbf8; --bg:#ece9e3; --ink:#23201c; --sub:#55504a; --muted:#97907f;
+  --line:#e2dcd1; --brand:#b3542f; --brand2:#d98e4a; --soft:#f6ede3;
+  --f-d:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Helvetica,Arial,sans-serif;
+  --f-b:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Helvetica,Arial,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#eceae5;color:var(--ink);font-family:var(--sans);font-size:10.5pt;line-height:1.55;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-b);font-size:10pt;line-height:1.6;-webkit-font-smoothing:antialiased}
 
-.toolbar{position:fixed;top:0;left:0;right:0;z-index:9;display:flex;align-items:center;gap:14px;
-  padding:10px 18px;background:#111;color:#f5f3ee;font-size:12px}
-.toolbar b{font-weight:500}
-.toolbar button{font:inherit;background:#f5f3ee;color:#111;border:0;border-radius:5px;padding:5px 14px;cursor:pointer}
-.toolbar button:hover{background:#fff}
-.toolbar .tip{color:#a6a29a}
+.toolbar{position:fixed;top:0;left:0;right:0;z-index:99;display:flex;align-items:center;gap:12px;padding:9px 18px;background:#3a2a20;color:#f6efe8;font-size:12px}
+.toolbar b{font-weight:550}.toolbar .tip{margin-left:auto;color:#c2a890;font-size:11px}
+.toolbar button{font:inherit;border:0;border-radius:999px;padding:5px 14px;cursor:pointer;background:#f6efe8;color:#3a2a20}
 
-.page{width:210mm;min-height:297mm;background:var(--paper);margin:52px auto 32px;padding:13mm 15mm 11mm;
-  box-shadow:0 1px 5px rgba(0,0,0,.14)}
+.page{width:210mm;min-height:297mm;background:var(--paper);margin:56px auto 38px;box-shadow:0 2px 18px rgba(40,30,20,.10)}
 
-.hd{display:flex;align-items:flex-end;justify-content:space-between;
-  border-bottom:2px solid var(--ink);padding-bottom:10px}
-.hd .l h1{font-size:30pt;font-weight:600;letter-spacing:-.02em;line-height:1}
-.hd .l .role{margin-top:7px;font-size:10.5pt;color:var(--accent);letter-spacing:.14em}
-.hd .r{text-align:right;font-size:9pt;color:var(--sub);line-height:1.72}
+.hd{padding:14mm 15mm 7mm;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--ink)}
+.hd .l h1{font-size:30pt;font-weight:800;letter-spacing:-.02em;line-height:1.04}
+.hd .l .role{margin-top:5px;font-size:11pt;color:var(--brand);font-weight:550}
+.hd .r{text-align:right;font-size:8.8pt;color:var(--sub);line-height:1.9}
 
-h2{font-size:9pt;font-weight:600;letter-spacing:.26em;color:var(--mute);
-  margin:13px 0 8px;text-transform:uppercase}
-h2::before{content:"";font-size:0;display:inline-block;width:16px;height:1px;background:var(--accent);
-  vertical-align:middle;margin-right:9px}
+main{padding:4mm 15mm 11mm}
 
-.intro{font-size:10.5pt;color:var(--sub);line-height:1.64;max-width:150mm}
-.intro b{color:var(--ink);font-weight:600}
+h2{display:flex;align-items:baseline;gap:8px;font-size:11pt;font-weight:800;letter-spacing:.1em;margin-top:11px;break-after:avoid}
+h2 i{font-size:7.6pt;font-weight:600;letter-spacing:.2em;color:var(--brand2)}
+h2::after{content:"";flex:1;height:0;border-bottom:1px solid var(--line);transform:translateY(-3px);font-size:0}
+section:first-child h2{margin-top:0}
 
-.works{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.work{border:.5px solid var(--line);padding:8px 11px;background:#fff}
-.work .no{font-size:8.5pt;color:var(--accent);letter-spacing:.1em;font-variant-numeric:tabular-nums}
-.work .t{font-size:11pt;font-weight:600;margin-top:3px}
-.work .m{font-size:8.5pt;color:var(--mute);margin-top:2px}
-.work .d{font-size:9.4pt;color:var(--sub);margin-top:5px;line-height:1.52}
-.work .k{font-size:9.5pt;color:var(--accent);font-weight:600;margin-top:5px}
+.summary{font-size:9.9pt;line-height:1.76;color:var(--sub);margin-top:6px;max-width:170mm}
+.summary b{color:var(--ink);font-weight:650}
 
-.item{margin-bottom:12px}
+.item{margin-top:7px}
 .item-hd{display:flex;align-items:baseline;gap:10px}
-.org{font-size:11pt;font-weight:600}
-.meta{font-size:9.5pt;color:var(--sub)}
-.date{margin-left:auto;font-size:9pt;color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap}
-ul{list-style:none;margin-top:5px}
-li{position:relative;padding-left:13px;margin-bottom:3.5px;font-size:10pt;text-align:justify}
-li::before{content:"·";position:absolute;left:2px;color:var(--accent);font-weight:600}
-li b{font-weight:600}
+.item-hd .org{font-size:10.8pt;font-weight:700}
+.item-hd .meta{color:var(--brand);font-size:9.3pt}
+.item-hd .date{margin-left:auto;color:var(--muted);font-size:8.7pt;font-variant-numeric:tabular-nums;white-space:nowrap}
 
-.skills{display:flex;gap:24px;flex-wrap:wrap}
-.skills .g{min-width:120px}
-.skills .g .h{font-size:8.5pt;letter-spacing:.12em;color:var(--mute);margin-bottom:3px}
-.skills .g .v{font-size:9.5pt;color:var(--sub);line-height:1.7}
+ul{list-style:none;margin-top:4px}
+li{position:relative;padding-left:16px;margin-bottom:2.6px;font-size:9.7pt;line-height:1.66;color:var(--sub)}
+li::before{content:"✦";position:absolute;left:0;top:.1em;font-size:8pt;color:var(--brand2)}
+li b{color:var(--ink);font-weight:650}
 
-.foot{margin-top:16px;padding-top:9px;border-top:.5px solid var(--line);
-  display:flex;justify-content:space-between;font-size:8.5pt;color:var(--mute)}
+.works{display:grid;grid-template-columns:1fr 1fr;gap:3.5mm;margin-top:3.5mm}
+.work{border:1px solid var(--line);background:#fff;padding:4mm 4.5mm;break-inside:avoid}
+.work .name{font-size:10.3pt;font-weight:700}
+.work .meta{font-size:8.4pt;color:var(--brand);margin-top:1px}
+.work .r{margin-top:2.5mm;font-size:9.2pt;color:var(--sub);line-height:1.6}
+.work .r b{color:var(--ink)}
+
+.chips{display:flex;flex-wrap:wrap;gap:2mm;margin-top:3.5mm}
+.chip{background:var(--soft);border:0;padding:2.6px 11px;font-size:8.8pt;color:var(--sub)}
+
+.foot{display:flex;justify-content:space-between;margin-top:8mm;padding-top:5px;border-top:1px solid var(--line);font-size:8.2pt;color:var(--muted)}
 """ + EDITABLE_CSS
 
 PRINT_SINGLE = """
@@ -97,15 +85,109 @@ PRINT_SINGLE = """
   @page{size:A4;margin:0}
   body{background:#fff}
   .toolbar{display:none!important}
-  .page{width:auto;min-height:auto;margin:0;padding:14mm 14mm 12mm;box-shadow:none}
-  .work{break-inside:avoid}
+  .page{width:auto;min-height:auto;margin:0;box-shadow:none}
+  .hd,.work{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .item,.work{break-inside:avoid}
+  h2{break-after:avoid}
   [contenteditable="true"]:hover,[contenteditable="true"]:focus{background:none!important;outline:none!important}
 }
 """
 
 
-def _h2(title: str) -> str:
-    return f'<h2 contenteditable="true">{title}</h2>'
+def _h2(cn: str, en: str) -> str:
+    """双字体标题：中文 800 字重 + 英文小字标注（brand2 色）。"""
+    return f'<h2 contenteditable="true">{cn} <i>{en}</i></h2>'
+
+
+def _works_html(r) -> str:
+    """作品卡 2×2 网格：works 优先，缺省时由 projects 降级。"""
+    works = list(r.works) or [
+        type(
+            "W",
+            (),
+            {
+                "name": p.name,
+                "role": p.role,
+                "year": p.year,
+                "description": p.description,
+                "result": p.impact or (p.highlights[0] if p.highlights else ""),
+            },
+        )()
+        for p in r.projects
+    ]
+    if not works:
+        return ""
+    cards = []
+    for w in works[:4]:
+        meta = " · ".join(str(x) for x in (w.role, w.year) if x)
+        result = f"<b>{bold_numbers(w.result)}</b>" if w.result else ""
+        desc = bold_numbers(w.description) if w.description else ""
+        body = ""
+        if desc and w.result:
+            body = f"{desc}，{result}"
+        else:
+            body = desc or result
+        cards.append(
+            '<div class="work">'
+            f'<div class="name" contenteditable="true">{_esc(w.name)}</div>'
+            f'<div class="meta" contenteditable="true">{_esc(meta)}</div>'
+            f'<div class="r" contenteditable="true">{body}</div>'
+            "</div>"
+        )
+    return f'<div class="works">{"".join(cards)}</div>'
+
+
+def _projects_html(r) -> str:
+    """项目经历（item 条目式）：merged_projects 合并顶层与经历内嵌套项目。"""
+    merged = r.merged_projects()
+    if not merged:
+        return ""
+    items = []
+    for p in merged[:6]:
+        points = [str(h) for h in p.highlights if str(h).strip()]
+        if not points and p.description:
+            points = [line.strip() for line in p.description.splitlines() if line.strip()]
+        if not points and p.impact:
+            points = [p.impact]
+        meta = " · ".join(str(x) for x in (p.role, p.year) if x)
+        bullets = (
+            f'<ul>{"".join(f"<li>{bold_numbers(x)}</li>" for x in points)}</ul>'
+            if points
+            else ""
+        )
+        items.append(
+            '<div class="item">'
+            '<div class="item-hd">'
+            f'<span class="org" contenteditable="true">{_esc(p.name)}</span>'
+            f'<span class="meta" contenteditable="true">{_esc(meta)}</span>'
+            "</div>"
+            + bullets
+            + "</div>"
+        )
+    return "".join(items)
+
+
+def _chips_html(r) -> str:
+    """能力 chips：skill_groups 展开为散标签，其次 skills 拆分类名。"""
+    labels: list[str] = []
+    if r.skill_groups:
+        for values in r.skill_groups.values():
+            labels.extend(str(v) for v in values)
+    else:
+        for s in r.skills:
+            name = s.name.strip()
+            if not name:
+                continue
+            if "|" in name:
+                labels.append(name.split("|", 1)[0].strip())
+            else:
+                labels.append(name)
+    if not labels and r.core_skills:
+        labels = list(r.core_skills)
+    chips = "".join(
+        f'<span class="chip" contenteditable="true">{_esc(x)}</span>' for x in labels if x
+    )
+    return f'<div class="chips">{chips}</div>' if chips else ""
 
 
 def render(r) -> str:
@@ -119,85 +201,70 @@ def render(r) -> str:
         "</header>"
     )
 
-    parts: list[str] = [header]
-
+    sections: list[str] = []
     if r.summary:
-        parts.append(_h2(getattr(r, "summary_title", "") or "About"))
-        parts.append(f'<p class="intro" contenteditable="true">{bold_numbers(r.summary)}</p>')
+        sections.append(
+            "<section>"
+            + _h2("简介", "ABOUT")
+            + f'<p class="summary" contenteditable="true">{bold_numbers(r.summary)}</p>'
+            + "</section>"
+        )
 
-    works = r.works or []
-    if not works and r.merged_projects():
-        works = [
-            type(
-                "W",
-                (),
-                {
-                    "name": p.name,
-                    "role": p.role,
-                    "year": p.year,
-                    "description": p.description,
-                    "result": p.impact or (p.highlights[0] if p.highlights else ""),
-                },
-            )()
-            for p in r.merged_projects()
-        ]
-    if works:
-        parts.append(_h2("Selected Works"))
-        cards = []
-        for index, w in enumerate(works[:6], 1):
-            meta = " · ".join(str(x) for x in (w.role, w.year) if x)
-            cards.append(
-                '<div class="work">'
-                f'<div class="no" contenteditable="true">{index:02d}</div>'
-                f'<div class="t" contenteditable="true">{_esc(w.name)}</div>'
-                f'<div class="m" contenteditable="true">{_esc(meta)}</div>'
-                f'<div class="d" contenteditable="true">{bold_numbers(w.description)}</div>'
-                f'<div class="k" contenteditable="true">{bold_numbers(w.result)}</div>'
-                "</div>"
-            )
-        parts.append(f'<div class="works">{"".join(cards)}</div>')
+    works_html = _works_html(r)
+    if works_html:
+        sections.append("<section>" + _h2("精选作品", "SELECTED WORKS") + works_html + "</section>")
+
+    # 顶层 projects（含 work[].projects 合并结果）作为独立项目经历板块；
+    # 已被作品卡展示的 projects 数据在上面消费，此处仍输出避免信息丢失
+    projects_html = _projects_html(r)
+    if projects_html:
+        sections.append("<section>" + _h2("项目经历", "PROJECTS") + projects_html + "</section>")
 
     if r.experiences:
-        parts.append(_h2("Experience"))
+        items = []
         for e in r.experiences:
-            parts.append(
+            meta = " · ".join(str(x) for x in (e.title, e.dept) if x)
+            items.append(
                 '<div class="item">'
-                + item_hd(e.company, exp_meta(e), e.period)
+                '<div class="item-hd">'
+                f'<span class="org" contenteditable="true">{_esc(e.company)}</span>'
+                f'<span class="meta" contenteditable="true">{_esc(meta)}</span>'
+                f'<span class="date" contenteditable="true">{_esc(e.period)}</span>'
+                "</div>"
                 + exp_content_html(e)
                 + "</div>"
             )
+        sections.append("<section>" + _h2("工作经历", "EXPERIENCE") + "".join(items) + "</section>")
 
-    pairs, plain = skill_kv_pairs(r)
-    if pairs or plain:
-        parts.append(_h2("Capabilities"))
-        groups = []
-        for name, body in pairs:
-            groups.append(
-                '<div class="g" contenteditable="true">'
-                f'<div class="h">{_esc(name)}</div><div class="v">{bold_numbers(body)}</div></div>'
-            )
-        if plain:
-            body_html = "<br>".join(_esc(s) for s in plain)
-            groups.append(
-                f'<div class="g" contenteditable="true"><div class="h">SKILLS</div><div class="v">{body_html}</div></div>'
-            )
-        parts.append(f'<div class="skills" contenteditable="true">{"".join(groups)}</div>')
+    chips_html = _chips_html(r)
+    if chips_html:
+        sections.append("<section>" + _h2("能力与方法", "CAPABILITIES") + chips_html + "</section>")
 
-    if r.education or r.honors:
-        parts.append(_h2("Education & Awards"))
+    if r.education:
+        items = []
         for e in r.education:
-            parts.append(
+            detail = " · ".join(
+                str(x) for x in (e.degree, e.gpa and f"GPA {e.gpa}", e.description) if x
+            )
+            items.append(
                 '<div class="item">'
-                + item_hd(e.school, e.degree, e.period)
+                '<div class="item-hd">'
+                f'<span class="org" contenteditable="true">{_esc(e.school)}</span>'
+                f'<span class="meta" contenteditable="true">{_esc(e.degree)}</span>'
+                f'<span class="date" contenteditable="true">{_esc(e.period)}</span>'
+                "</div>"
+                + (f'<ul><li>{bold_numbers(detail)}</li></ul>' if detail else "")
                 + "</div>"
             )
-        if r.honors:
-            lis = "".join(f"<li>{_esc(x)}</li>" for x in r.honors)
-            parts.append(f'<ul contenteditable="true">{lis}</ul>')
+        sections.append("<section>" + _h2("教育背景", "EDUCATION") + "".join(items) + "</section>")
+
+    if r.honors:
+        lis = "".join(f"<li>{bold_numbers(x)}</li>" for x in r.honors)
+        sections.append("<section>" + _h2("荣誉", "HONORS") + f"<ul>{lis}</ul></section>")
 
     foot = page_foot(
         f"{r.name} · {r.title}" if r.title else r.name,
-        r.contact.website or r.contact.github or r.contact.linkedin or r.contact.phone,
+        r.contact.email or r.contact.phone,
     )
-    parts.append(foot)
-    return '<div class="page">' + "".join(parts) + "</div>"
+    body = "<main>" + "".join(sections) + foot + "</main>"
+    return f'<div class="page">{header}{body}</div>'
