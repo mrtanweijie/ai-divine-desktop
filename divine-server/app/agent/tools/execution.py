@@ -33,7 +33,7 @@ _EDIT_TOOLS = {"edit_files", "write_file", "edit_lines", "apply_patch"}
 # 有意不进 _EDIT_TOOLS——该集合唯一消费点是代码语法检查（syntax_check_paths），
 # 对二进制 docx/xlsx 无意义；产物"重开验证"在脚本内完成（office_files.verify_output），
 # 失败时脚本直接返回 success=false 并自动回滚备份。
-_OFFICE_EDIT_TOOLS = {"fill_template", "edit_docx", "edit_xlsx", "edit_pptx"}
+_OFFICE_EDIT_TOOLS = {"fill_template", "edit_docx", "edit_xlsx", "edit_pptx", "pdf_form_fill"}
 
 # 会话内已获用户批准的终端命令（精确匹配，规范化空白后存储）。
 # 用户批准过的同一条命令在同一会话内不再重复弹确认；仅内存存储，

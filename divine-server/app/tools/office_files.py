@@ -18,16 +18,19 @@ from typing import Any
 _DOC_SUFFIXES = (".docx",)
 _SHEET_SUFFIXES = (".xlsx", ".xlsm")
 _SLIDE_SUFFIXES = (".pptx",)
+_PDF_SUFFIXES = (".pdf",)
 _KIND_SUFFIXES = {
     "doc": _DOC_SUFFIXES,
     "sheet": _SHEET_SUFFIXES,
     "slide": _SLIDE_SUFFIXES,
+    "pdf": _PDF_SUFFIXES,
     "office": _DOC_SUFFIXES + _SHEET_SUFFIXES,  # fill_template：Word/Excel 模板皆可
 }
 _KIND_LABEL = {
     "doc": "Word(.docx)",
     "sheet": "Excel(.xlsx)",
     "slide": "PowerPoint(.pptx)",
+    "pdf": "PDF(.pdf)",
     "office": "Word(.docx)/Excel(.xlsx)",
 }
 

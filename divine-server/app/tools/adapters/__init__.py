@@ -47,8 +47,11 @@ from .list_definitions import ListDefinitionsAdapter  # noqa: F401
 from .move_file import MoveFileAdapter  # noqa: F401
 from .notes import NotesAdapter  # noqa: F401
 from .pdf_generate import PdfGenerateAdapter  # noqa: F401
+from .pdf_form_fields import PdfFormFieldsAdapter  # noqa: F401
+from .pdf_form_fill import PdfFormFillAdapter  # noqa: F401
 from .pdf_split_merge import PdfSplitMergeAdapter  # noqa: F401
 from .pdf_render import PdfRenderAdapter  # noqa: F401
+from .pdf_to_word import PdfToWordAdapter  # noqa: F401
 from .presentation import PresentationAdapter  # noqa: F401
 from .rag_index import RagIndexAdapter  # noqa: F401
 from .rag_search import RagSearchAdapter  # noqa: F401

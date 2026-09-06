@@ -173,7 +173,7 @@ pnpm tauri:dev
 
 ## 工具系统
 
-当前注册 71 个工具（随 MCP/技能动态增减），按名称排序：
+当前注册 74 个工具（随 MCP/技能动态增减），按名称排序：
 
 | 工具 | 用途 |
 | --- | --- |
@@ -210,8 +210,11 @@ pnpm tauri:dev
 | `migrate_skill` / `migrate_skills` | 把本机发现的技能迁移到 AI Divine（单个/批量） |
 | `move_file` | workspace 内移动/重命名文件或目录 |
 | `notes` | 生成 Markdown 笔记 |
+| `pdf_form_fields` | 读取 PDF 交互表单（AcroForm）字段清单：字段名/类型/可选状态/页码 |
+| `pdf_form_fill` | 按字段名填写 PDF 交互表单（复选框 true/false 语义、失败整体中止、支持备份撤销） |
 | `pdf_generate` | 统一 PDF 生成入口（报告/商业/旅行/路线图/书/幻灯片配方） |
 | `pdf_render` | 把 Markdown 渲染为排版 PDF（weasyprint，失败自动转 reportlab 富渲染） |
+| `pdf_to_word` | 把 PDF 文本内容转换为可编辑 Word（标题/表格/列表保留；扫描件不支持） |
 | `pdf_split_merge` | 拆分、合并 PDF |
 | `presentation` | 生成 PPT（14 种版式） |
 | `preview_skill_repo` | 只读预览远程仓库中的 SKILL.md 后再决定安装 |

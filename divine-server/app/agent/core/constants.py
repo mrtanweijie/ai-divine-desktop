@@ -56,6 +56,7 @@ SYSTEM_PROMPT = "\n".join((
 _READ_ONLY_TOOLS = {
     "ask_user",
     "document_outline",
+    "pdf_form_fields",
     "discover_importable_skills",
     "load_skill",
     "preview_skill_repo",

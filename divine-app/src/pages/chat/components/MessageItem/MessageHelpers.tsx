@@ -65,6 +65,9 @@ export const GROUPABLE_TOOLS = new Set([
   "edit_lines",
   "apply_patch",
   "document_outline",
+  "pdf_form_fields",
+  "pdf_form_fill",
+  "pdf_to_word",
   "fill_template",
   "edit_docx",
   "edit_xlsx",
@@ -95,6 +98,9 @@ export const GROUPABLE_TOOLS = new Set([
 /** Office 读取/编辑工具合并卡片上的聚合计数文案 key。 */
 const OFFICE_COUNT_KEYS: Record<string, string> = {
   document_outline: "tool.outlinedDocuments",
+  pdf_form_fields: "tool.formFieldsListed",
+  pdf_form_fill: "tool.formsFilled",
+  pdf_to_word: "tool.convertedPdfs",
   fill_template: "tool.filledTemplates",
   edit_docx: "tool.editedWordDocs",
   edit_xlsx: "tool.editedExcelSheets",

@@ -19,7 +19,16 @@ def test_office_tools_registered():
     from app.tools.registry import registry
 
     names = {meta["name"] for meta in registry.list()}
-    assert {"document_outline", "fill_template", "edit_docx", "edit_xlsx", "edit_pptx"} <= names
+    assert {
+        "document_outline",
+        "fill_template",
+        "edit_docx",
+        "edit_xlsx",
+        "edit_pptx",
+        "pdf_form_fields",
+        "pdf_form_fill",
+        "pdf_to_word",
+    } <= names
 
 
 def test_document_outline_is_read_only_and_lock_free():
@@ -40,6 +49,9 @@ def test_edit_tools_get_plan_first_and_are_not_content_gated():
         assert name not in _NO_PLAN_TOOLS_SET()
     assert "edit_xlsx" not in _READ_ONLY_TOOLS
     assert "edit_xlsx" not in _CONTENT_TOOLS
+    assert "pdf_form_fields" in _READ_ONLY_TOOLS
+    assert "pdf_form_fill" not in _READ_ONLY_TOOLS
+    assert "pdf_form_fill" not in _CONTENT_TOOLS
 
 
 def _NO_PLAN_TOOLS_SET():
@@ -51,7 +63,13 @@ def _NO_PLAN_TOOLS_SET():
 def test_execution_layer_office_set_is_isolated_from_edit_tools():
     from app.agent.tools.execution import _EDIT_TOOLS, _OFFICE_EDIT_TOOLS
 
-    assert _OFFICE_EDIT_TOOLS == {"fill_template", "edit_docx", "edit_xlsx", "edit_pptx"}
+    assert _OFFICE_EDIT_TOOLS == {
+        "fill_template",
+        "edit_docx",
+        "edit_xlsx",
+        "edit_pptx",
+        "pdf_form_fill",
+    }
     assert _OFFICE_EDIT_TOOLS.isdisjoint(_EDIT_TOOLS)
 
 
@@ -62,11 +80,11 @@ def test_external_paths_declared_for_edit_tools(tmp_path):
     workspace.mkdir()
     external = tmp_path / "Desktop" / "合同.docx"
 
-    for name in ("fill_template", "edit_docx", "edit_xlsx", "edit_pptx", "document_outline"):
+    for name in ("fill_template", "edit_docx", "edit_xlsx", "edit_pptx", "pdf_form_fields", "pdf_form_fill", "pdf_to_word", "document_outline"):
         adapter = registry.get(name)
         assert adapter is not None
         assert adapter.allow_external_paths is True
-        suffix = {"edit_xlsx": ".xlsx", "edit_pptx": ".pptx"}.get(name, ".docx")
+        suffix = {"edit_xlsx": ".xlsx", "edit_pptx": ".pptx", "pdf_form_fields": ".pdf", "pdf_form_fill": ".pdf", "pdf_to_word": ".pdf"}.get(name, ".docx")
         path_arg = str(external).replace("合同.docx", "合同" + suffix)
         assert adapter.external_paths(workspace, {"path": path_arg}) == [path_arg]
         # workspace 内路径不触发外部确认
