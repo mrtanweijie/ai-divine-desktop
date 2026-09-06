@@ -1,4 +1,7 @@
-"""fill_template 脚本：填充 docx 内的 {{占位符}}（list_values 支持表格行展开）。
+"""fill_template 脚本：按后缀路由填充引擎。
+
+- .docx：python-docx 填充正文/表格/页眉页脚 {{占位符}}，list_values 支持表格行展开；
+- .xlsx：openpyxl 填充所有 sheet 的字符串单元格（公式不触碰，行展开不支持）。
 
 外部文件先复制进 workspace/documents/edited/ 再编辑（原文件零风险）；
 workspace 内文件原地编辑，编辑前字节级备份到 data_dir/backups/<session>/。
@@ -14,7 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from docx import Document  # noqa: E402
 
-from app.docgen.word.editor import fill_template  # noqa: E402
+from app.docgen.word.editor import fill_template as fill_docx  # noqa: E402
+from app.docgen.xlsx_editor import fill_template as fill_xlsx  # noqa: E402
 from app.tools.office_files import (  # noqa: E402
     OfficePathError,
     prepare_edit_target,
@@ -40,7 +44,7 @@ def main() -> None:
         return
 
     try:
-        source = resolve_office_path(workspace, str(params.get("path") or ""))
+        source = resolve_office_path(workspace, str(params.get("path") or ""), kind="office")
     except OfficePathError as exc:
         print(json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False))
         return
@@ -48,22 +52,50 @@ def main() -> None:
     prep = prepare_edit_target(workspace, session_id, source)
     target: Path = prep["target"]
     try:
-        document = Document(str(target))
-        report = fill_template(document, values, list_values)
-        if not report["filled"] and not report["warnings"]:
-            print(
-                json.dumps(
-                    {
-                        "success": False,
-                        "message": "未找到任何可填充的 {{占位符}}；"
-                        "请确认文件内容或改用 edit_docx 直接编辑",
-                        "data": report,
-                    },
-                    ensure_ascii=False,
+        if source.suffix.lower() in (".xlsx", ".xlsm"):
+            from openpyxl import load_workbook  # noqa: PLC0415
+
+            workbook = load_workbook(str(target))
+            report = fill_xlsx(workbook, values)
+            if list_values:
+                for key in list_values:
+                    report["missing_keys"].append(key)
+                report["warnings"].append(
+                    "list_values 表格行展开仅支持 Word 模板，Excel 已忽略"
                 )
-            )
-            return
-        document.save(str(target))
+            report = _normalize_report(report)
+            if not report["filled"] and not report["warnings"]:
+                print(
+                    json.dumps(
+                        {
+                            "success": False,
+                            "message": "未找到任何可填充的 {{占位符}}；"
+                            "请确认文件内容或改用 edit_xlsx 直接编辑",
+                            "data": report,
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+                return
+            workbook.save(str(target))
+        else:
+            document = Document(str(target))
+            report = fill_docx(document, values, list_values)
+            report = _normalize_report(report)
+            if not report["filled"] and not report["warnings"]:
+                print(
+                    json.dumps(
+                        {
+                            "success": False,
+                            "message": "未找到任何可填充的 {{占位符}}；"
+                            "请确认文件内容或改用 edit_docx 直接编辑",
+                            "data": report,
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+                return
+            document.save(str(target))
     except Exception as exc:  # noqa: BLE001 — 保存失败需清理现场
         _cleanup(prep)
         print(
@@ -110,6 +142,14 @@ def main() -> None:
             ensure_ascii=False,
         )
     )
+
+
+def _normalize_report(report: dict) -> dict:
+    """两种引擎的报告字段对齐（filled/missing_keys/warnings 必为列表）。"""
+    report.setdefault("filled", [])
+    report.setdefault("missing_keys", [])
+    report.setdefault("warnings", [])
+    return report
 
 
 def _cleanup(prep: dict) -> None:

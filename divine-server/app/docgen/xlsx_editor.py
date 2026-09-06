@@ -1,11 +1,13 @@
-"""Excel 编辑引擎（edit_xlsx）：openpyxl 封装。
+"""Excel 编辑引擎（edit_xlsx / fill_template 的 xlsx 分支）：openpyxl 封装。
 
 设计要点（docs/design/017-office-edit-closed-loop-20260906.md §4.4）：
 - load_workbook 不传 data_only（默认保留公式）；openpyxl 3.1.5 已实测
   图表与公式往返无损（方案文档 §10）；
 - 合并单元格只允许写左上角锚点，写非锚点坐标记 warning 并改写锚点；
 - append_rows 自动探测现有数据区末行（逐列扫描真实值，不覆盖已有数据）；
-- add_sheet 复用 spreadsheet 生成器的表头/数据样式，观感与生成链路一致。
+- add_sheet 复用 spreadsheet 生成器的表头/数据样式，观感与生成链路一致；
+- fill_template 填充所有 sheet 的字符串单元格 {{key}}，公式单元格不触碰
+  （设计 §4.1 的 xlsx 分支）。
 
 定位采用 A1 坐标 + 表头文字辅助（内容匹配优先与 edit_docx 一致）。
 """
@@ -14,11 +16,15 @@ from __future__ import annotations
 
 import difflib
 import re
+from pathlib import Path
 from typing import Any
 
-from openpyxl.utils import column_index_from_string, get_column_letter
+from openpyxl.utils import column_index_from_string, get_column_letter, range_boundaries
 
 _A1_RE = re.compile(r"^([A-Za-z]{1,3})([1-9][0-9]*)$")
+# 与 docgen/word/editor.py 的占位符正则保持一致（xlsx 单元格是单字符串，
+# 无 run 结构，直接字符串替换即可）
+_PLACEHOLDER_RE = re.compile(r"\{\{\s*([A-Za-z0-9_.\-\u4e00-\u9fff]+)\s*\}\}")
 
 
 class XlsxOpError(ValueError):
@@ -107,7 +113,7 @@ def _last_data_row(ws) -> int:
     return last
 
 
-def _apply_one(workbook, op: dict, report: dict) -> None:
+def _apply_one(workbook, op: dict, report: dict, workspace=None) -> None:
     kind = str(op.get("op") or "").strip()
 
     if kind == "set_cells":
@@ -140,6 +146,16 @@ def _apply_one(workbook, op: dict, report: dict) -> None:
                 ws.cell(row=start + r_offset, column=c_offset, value=value)
         report["hits"] += len(rows)
         report["warnings"].append(f"已从第 {start} 行追加 {len(rows)} 行")
+        return
+
+    if kind == "add_chart":
+        _add_chart(workbook, op, report)
+        report["hits"] += 1
+        return
+
+    if kind == "insert_image":
+        _insert_image(workbook, op, report, workspace)
+        report["hits"] += 1
         return
 
     if kind == "add_sheet":
@@ -205,14 +221,125 @@ def _add_sheet(workbook, op: dict, report: dict) -> None:
     report["warnings"].append(f"已新增工作表 {name}")
 
 
-def apply_ops(workbook, ops: list[dict]) -> dict:
+_CHART_TYPES = {
+    "bar": ("BarChart", "bar"),
+    "column": ("BarChart", "col"),
+    "line": ("LineChart", None),
+    "area": ("AreaChart", None),
+    "pie": ("PieChart", None),
+    "doughnut": ("DoughnutChart", None),
+    "scatter": ("ScatterChart", None),
+}
+
+
+def _add_chart(workbook, op: dict, report: dict) -> None:
+    """在指定锚点插入原生图表（PowerPoint/Excel 内可二次编辑）。"""
+    from openpyxl.chart import (
+        AreaChart,
+        BarChart,
+        DoughnutChart,
+        LineChart,
+        PieChart,
+        ScatterChart,
+    )
+
+    ws = _resolve_sheet(workbook, op.get("sheet"))
+    chart_type = str(op.get("type") or "column").strip().lower()
+    if chart_type not in _CHART_TYPES:
+        raise XlsxOpError(
+            f"图表类型无效: {chart_type!r}，可选 {sorted(_CHART_TYPES)}"
+        )
+    anchor = str(op.get("anchor") or "").strip()
+    if not anchor:
+        raise XlsxOpError("add_chart 缺少 anchor（图表左上角单元格，如 E2）")
+    _parse_a1(anchor)  # 校验坐标形态
+
+    cls_name, bar_kind = _CHART_TYPES[chart_type]
+    cls = {"BarChart": BarChart, "LineChart": LineChart, "AreaChart": AreaChart,
+           "PieChart": PieChart, "DoughnutChart": DoughnutChart,
+           "ScatterChart": ScatterChart}[cls_name]
+    chart = cls()
+    if bar_kind:
+        chart.type = bar_kind
+    if str(op.get("title") or "").strip():
+        chart.title = str(op["title"])
+
+    series = op.get("series") or []
+    if not isinstance(series, list) or not series:
+        raise XlsxOpError("add_chart 缺少 series（数据引用列表）")
+    for entry in series:
+        if not isinstance(entry, dict) or not entry.get("ref"):
+            raise XlsxOpError(f"series 条目缺少 ref: {entry!r}")
+        data = _reference(ws, str(entry["ref"]), single_column=True)
+        chart.add_data(data, titles_from_data=False)
+        if entry.get("name") and chart.series:
+            from openpyxl.chart.series import SeriesLabel  # noqa: PLC0415
+
+            # 名称用字面字符串而非引用，避免依赖辅助单元格
+            chart.series[-1].tx = SeriesLabel(v=str(entry["name"]))
+    if op.get("categories_ref") and chart.series:
+        chart.set_categories(_reference(ws, str(op["categories_ref"]), single_column=True))
+    ws.add_chart(chart, anchor)
+    report["warnings"].append(f"已插入 {chart_type} 图表至 {anchor}")
+
+
+def _reference(ws, ref: str, *, single_column: bool):
+    """把 "B2:B13" 形式的纯范围解析为当前 sheet 的 Reference。
+
+    openpyxl 的 range_string 形式要求带 "sheetname!" 前缀，这里统一在
+    调用侧绑定 sheet，允许模型只写范围；single_column 校验单列引用。
+    """
+    text = str(ref or "").strip()
+    if "!" in text:  # 容错：模型可能带 sheet 前缀，剥离后仍绑定当前 sheet
+        text = text.split("!")[-1]
+    from openpyxl.chart import Reference  # noqa: PLC0415 — 与其余图表导入同策略
+
+    try:
+        min_col, min_row, max_col, max_row = range_boundaries(text)
+    except Exception as exc:  # noqa: BLE001 — 转成面向模型的报错
+        raise XlsxOpError(f"范围无效: {ref!r}（需 A1:B13 形式）") from exc
+    if single_column and min_col != max_col:
+        raise XlsxOpError(
+            f"范围 {ref!r} 跨多列——每个系列（或分类轴）只允许一列，多列请拆成多个 series"
+        )
+    return Reference(ws, min_col=min_col, min_row=min_row, max_col=max_col, max_row=max_row)
+
+
+def _insert_image(workbook, op: dict, report: dict, workspace=None) -> None:
+    """在指定锚点嵌入图片（嵌入后图片数据随文件保存，不依赖原路径）。"""
+    from openpyxl.drawing.image import Image as XLImage
+
+    ws = _resolve_sheet(workbook, op.get("sheet"))
+    raw = str(op.get("image_path") or "").strip()
+    if not raw:
+        raise XlsxOpError("insert_image 缺少 image_path")
+    image_path = Path(raw)
+    if not image_path.is_absolute() and workspace is not None:
+        image_path = Path(workspace) / image_path
+    image_path = image_path.resolve()
+    if not image_path.is_file():
+        raise XlsxOpError(f"图片不存在: {image_path}")
+    if image_path.suffix.lower() not in (".png", ".jpg", ".jpeg", ".gif", ".bmp"):
+        raise XlsxOpError(f"图片格式不支持: {image_path.suffix}（支持 png/jpg/jpeg/gif/bmp）")
+    anchor = str(op.get("anchor") or "A1").strip()
+    _parse_a1(anchor)
+    image = XLImage(str(image_path))
+    if isinstance(op.get("width"), (int, float)):
+        image.width = int(op["width"])
+    if isinstance(op.get("height"), (int, float)):
+        image.height = int(op["height"])
+    ws.add_image(image, anchor)
+    report["warnings"].append(f"已嵌入图片 {image_path.name} 至 {anchor}")
+
+
+def apply_ops(workbook, ops: list[dict], *, workspace=None) -> dict:
     """顺序应用 ops；任一步失败抛 XlsxOpError（内存态未保存=事务中止）。"""
     report: dict[str, Any] = {"ops_applied": [], "hits": 0, "warnings": []}
     for index, raw in enumerate(ops or [], 1):
         if not isinstance(raw, dict):
             raise XlsxOpError(f"第 {index} 个操作不是对象: {raw!r}")
         try:
-            _apply_one(workbook, raw, report)
+            _apply_one(workbook, raw, report, workspace)
         except XlsxOpError as exc:
             report["missed"] = [
                 {"op_index": index, "op": str(raw.get("op")), "reason": str(exc)}
@@ -220,4 +347,59 @@ def apply_ops(workbook, ops: list[dict]) -> dict:
             exc.op_index = index  # type: ignore[attr-defined]
             raise
         report["ops_applied"].append(str(raw.get("op")))
+    return report
+
+
+# ---------------------------------------------------------------------------
+# fill_template 的 xlsx 分支：所有 sheet 字符串单元格 {{key}} 替换
+# ---------------------------------------------------------------------------
+
+
+def fill_template(workbook, values: dict[str, str]) -> dict:
+    """填充所有 sheet 字符串单元格中的 {{key}}；公式单元格不触碰。
+
+    （设计 §4.1 xlsx 分支：仅做值替换；list_values 行展开仅支持 docx，
+    传入时记 warning。）
+    """
+    values = {k: str(v) for k, v in (values or {}).items()}
+    report: dict[str, Any] = {"filled": [], "missing_keys": [], "warnings": []}
+    hit_counter: dict[str, int] = {}
+
+    for worksheet in workbook.worksheets:
+        for row in worksheet.iter_rows():
+            for cell in row:
+                value = cell.value
+                if not isinstance(value, str) or not value or value.startswith("="):
+                    continue
+                new_value = value
+                for key, val in values.items():
+                    pattern = re.compile(r"\{\{\s*" + re.escape(key) + r"\s*\}\}")
+                    new_value, hits = pattern.subn(val, new_value)
+                    if hits:
+                        hit_counter[key] = hit_counter.get(key, 0) + hits
+                if new_value != value:
+                    cell.value = new_value
+
+    filled_keys = set(hit_counter)
+    missing = [k for k in values if k not in filled_keys]
+
+    # 残留占位符（文档里存在但 values 未提供值）——提示模型向用户澄清
+    residual = sorted(
+        {
+            match.group(1)
+            for worksheet in workbook.worksheets
+            for row in worksheet.iter_rows()
+            for cell in row
+            if isinstance(cell.value, str)
+            for match in _PLACEHOLDER_RE.finditer(cell.value)
+        }
+        - filled_keys
+    )
+    for key in residual:
+        report["warnings"].append(f"占位符 {key} 未提供值，已保留原文")
+
+    report["filled"] = [
+        {"key": key, "count": count} for key, count in sorted(hit_counter.items())
+    ]
+    report["missing_keys"] = missing
     return report

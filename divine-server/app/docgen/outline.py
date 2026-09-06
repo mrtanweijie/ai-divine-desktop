@@ -83,10 +83,49 @@ def xlsx_outline(path: Path) -> dict[str, Any]:
     return {"kind": "xlsx", "sheets": sheets}
 
 
+def pptx_outline(path: Path) -> dict[str, Any]:
+    """PPT 页级结构大纲：页序号 + 标题 + 文本预览 + 是否有备注。"""
+    from pptx import Presentation
+
+    prs = Presentation(str(path))
+    slides: list[dict[str, Any]] = []
+    for index, slide in enumerate(prs.slides, 1):
+        title = ""
+        try:
+            if slide.shapes.title is not None:
+                title = slide.shapes.title.text_frame.text.strip()
+        except Exception:  # noqa: BLE001 — 无标题占位符的版式
+            title = ""
+        previews: list[str] = []
+        for shape in slide.shapes:
+            if shape.has_text_frame and shape.text_frame is not title:
+                text = " ".join(shape.text_frame.text.split())
+                if text:
+                    previews.append(text[:_PREVIEW_CHARS])
+        has_note = False
+        try:
+            has_note = slide.has_notes_slide and bool(
+                slide.notes_slide.notes_text_frame.text.strip()
+            )
+        except Exception:  # noqa: BLE001 — 备注读取失败不影响大纲
+            has_note = False
+        slides.append(
+            {
+                "index": index,
+                "title": title,
+                "previews": previews[:4],
+                "has_note": has_note,
+            }
+        )
+    return {"kind": "pptx", "slides": slides}
+
+
 def outline(path: Path) -> dict[str, Any]:
     suffix = path.suffix.lower()
     if suffix == ".docx":
         return docx_outline(path)
     if suffix in (".xlsx", ".xlsm"):
         return xlsx_outline(path)
-    raise ValueError(f"不支持的文件类型: {suffix}（仅支持 .docx/.xlsx）")
+    if suffix == ".pptx":
+        return pptx_outline(path)
+    raise ValueError(f"不支持的文件类型: {suffix}（仅支持 .docx/.xlsx/.pptx）")

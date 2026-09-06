@@ -9,9 +9,9 @@ from ..registry import register_tool
 
 @register_tool(
     "document_outline",
-    "查看 Word(.docx)/Excel(.xlsx) 文档的结构大纲，输出可编辑坐标："
+    "查看 Word(.docx)/Excel(.xlsx)/PPT(.pptx) 文档的结构大纲，输出可编辑坐标："
     "docx 返回段落清单（index/样式/内容预览）与表格清单（序号/表头/行列数）；"
-    "xlsx 返回 sheet 清单（名称/数据范围/表头/公式数）。"
+    "xlsx 返回 sheet 清单（名称/数据范围/表头/公式数）；pptx 返回页清单（页码/标题/文本预览/备注）。"
     "在使用 edit_docx 修改文档前先调用本工具定位目标段落或表格",
     {
         "type": "object",

@@ -218,3 +218,28 @@ def test_document_outline_script(tmp_path):
     assert output["success"] is True
     assert output["data"]["kind"] == "docx"
     assert "表格1" in output["content"] or "表格 1" in output["content"]
+
+
+def test_pptx_outline_pages(tmp_path):
+    """document_outline pptx 分支：页码/标题/预览/备注。"""
+    from pptx import Presentation
+    from pptx.util import Inches
+
+    from app.docgen.outline import pptx_outline
+
+    prs = Presentation()
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
+    slide1 = prs.slides.add_slide(prs.slide_layouts[5])
+    slide1.shapes.title.text_frame.text = "封面标题"
+    slide2 = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide2.shapes.add_textbox(Inches(1), Inches(1), Inches(8), Inches(1.5))
+    box.text_frame.text = "第二页正文内容"
+    prs.save(str(tmp_path / "deck.pptx"))
+
+    result = pptx_outline(tmp_path / "deck.pptx")
+    assert result["kind"] == "pptx"
+    assert len(result["slides"]) == 2
+    assert result["slides"][0]["title"] == "封面标题"
+    assert result["slides"][1]["index"] == 2
+    assert any("第二页正文内容" in p for p in result["slides"][1]["previews"])

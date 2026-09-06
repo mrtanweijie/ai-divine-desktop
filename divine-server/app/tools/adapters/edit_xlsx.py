@@ -29,7 +29,14 @@ from ..registry import register_tool
                     "properties": {
                         "op": {
                             "type": "string",
-                            "enum": ["set_cells", "append_rows", "add_sheet", "set_formula"],
+                            "enum": [
+                                "set_cells",
+                                "append_rows",
+                                "add_sheet",
+                                "set_formula",
+                                "add_chart",
+                                "insert_image",
+                            ],
                             "description": "操作类型",
                         },
                         "sheet": {
@@ -78,6 +85,38 @@ from ..registry import register_tool
                             "type": "string",
                             "description": "(set_formula) 公式，如 'SUM(B2:B13)' 或 '=SUM(B2:B13)'",
                         },
+                        "type": {
+                            "type": "string",
+                            "enum": ["bar", "column", "line", "area", "pie", "doughnut", "scatter"],
+                            "description": "(add_chart) 图表类型",
+                        },
+                        "title": {"type": "string", "description": "(add_chart) 图表标题"},
+                        "anchor": {
+                            "type": "string",
+                            "description": "(add_chart/insert_image) 左上角锚点单元格，如 E2",
+                        },
+                        "categories_ref": {
+                            "type": "string",
+                            "description": "(add_chart) 分类轴数据范围，如 'A2:A13'（单列）",
+                        },
+                        "series": {
+                            "type": "array",
+                            "description": "(add_chart) 数据系列，每项单列范围",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string", "description": "系列名"},
+                                    "ref": {"type": "string", "description": "数据范围，如 'B1:B13'（单列）"},
+                                },
+                                "required": ["ref"],
+                            },
+                        },
+                        "image_path": {
+                            "type": "string",
+                            "description": "(insert_image) 图片路径（png/jpg），嵌入后不依赖原文件",
+                        },
+                        "width": {"type": "number", "description": "(insert_image) 可选，像素宽"},
+                        "height": {"type": "number", "description": "(insert_image) 可选，像素高"},
                     },
                     "required": ["op"],
                 },

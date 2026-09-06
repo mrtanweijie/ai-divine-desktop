@@ -61,7 +61,7 @@ def main() -> None:
         return
 
     try:
-        report = apply_ops(workbook, ops)
+        report = apply_ops(workbook, ops, workspace=workspace)
         workbook.save(str(target))
     except XlsxOpError as exc:
         candidates = getattr(exc, "candidates", None) or []

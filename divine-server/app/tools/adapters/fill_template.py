@@ -9,9 +9,10 @@ from ..registry import register_tool
 
 @register_tool(
     "fill_template",
-    "填充 Word(.docx) 模板中的 {{占位符}}，用于合同、offer、通知函、介绍信等套模板场景。"
+    "填充 Word(.docx)/Excel(.xlsx) 模板中的 {{占位符}}，用于合同、offer、通知函、介绍信等套模板场景。"
     "values 为占位符→值映射（键不带花括号）；list_values 支持表格整行展开"
     "（值为对象数组，模板行内用 {{key.字段名}} 引用记录字段）。"
+    "list_values 行展开仅支持 Word；Excel 填充不触碰公式单元格。"
     "外部路径文件会生成编辑副本，不修改原文件；workspace 内文件编辑前自动备份，可用 undo_last_turn 撤销。"
     "填充前可先用 read_file 查看模板内容确认占位符名称",
     {

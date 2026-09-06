@@ -306,3 +306,157 @@ def test_edit_xlsx_script_transaction_failure_untouched(tmp_path):
     )
     assert output["success"] is False
     assert xlsx.read_bytes() == before
+
+
+def test_fill_template_xlsx_engine(tmp_path):
+    """fill_template xlsx 分支：跨 sheet 替换、公式不触碰、missing/残留报告。"""
+    path = tmp_path / "tpl.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "合同"
+    ws["A1"] = "甲方：{{company}}"
+    ws["A2"] = "金额：{{amount}} 元"
+    ws["A3"] = "=SUM(1,2)"  # 公式不触碰
+    ws2 = wb.create_sheet("附件")
+    ws2["B2"] = "{{company}} 附件"
+    wb.save(str(path))
+
+    from app.docgen.xlsx_editor import fill_template as fill_xlsx
+
+    wb = load_workbook(str(path))
+    report = fill_xlsx(wb, {"company": "某某科技", "amount": 5000})
+    assert wb["合同"]["A1"].value == "甲方：某某科技"
+    assert wb["合同"]["A2"].value == "金额：5000 元"
+    assert wb["合同"]["A3"].value == "=SUM(1,2)"  # 公式保留
+    assert wb["附件"]["B2"].value == "某某科技 附件"
+    assert report["missing_keys"] == []
+    assert {item["key"] for item in report["filled"]} == {"company", "amount"}
+
+
+def test_fill_template_xlsx_missing_keys(tmp_path):
+    path = tmp_path / "tpl.xlsx"
+    wb = Workbook()
+    wb.active["A1"] = "{{company}}"
+    wb.save(str(path))
+    from app.docgen.xlsx_editor import fill_template as fill_xlsx
+
+    wb = load_workbook(str(path))
+    report = fill_xlsx(wb, {"company": "x", "nope": "y"})
+    assert report["missing_keys"] == ["nope"]
+    assert wb.active["A1"].value == "x"
+
+
+def test_add_chart_ops(tmp_path):
+    path = tmp_path / "chart.xlsx"
+    wb = Workbook()
+    wb.active.title = "数据"
+    wb.active.append(["月份", "销量"])
+    for r in [("1月", 10), ("2月", 20), ("3月", 30)]:
+        wb.active.append(r)
+    wb.save(str(path))
+
+    wb = load_workbook(str(path))
+    report = apply_ops(
+        wb,
+        [
+            {
+                "op": "add_chart",
+                "sheet": "数据",
+                "type": "column",
+                "title": "销量",
+                "anchor": "D2",
+                "categories_ref": "A2:A4",
+                "series": [{"name": "销量", "ref": "B2:B4"}],
+            }
+        ],
+        workspace=str(tmp_path),
+    )
+    assert report["hits"] == 1
+    assert len(wb["数据"]._charts) == 1
+
+    # 无效类型/跨列范围/缺锚点均报错
+    for bad_ops in (
+        [{"op": "add_chart", "sheet": "数据", "type": "sankey", "anchor": "D2", "series": [{"ref": "B2:B4"}]}],
+        [{"op": "add_chart", "sheet": "数据", "type": "column", "anchor": "D2", "series": [{"ref": "A2:B4"}]}],
+        [{"op": "add_chart", "sheet": "数据", "type": "column", "series": [{"ref": "B2:B4"}]}],
+    ):
+        with pytest.raises(XlsxOpError):
+            apply_ops(wb, bad_ops, workspace=str(tmp_path))
+
+
+def test_insert_image_op(tmp_path):
+    from io import BytesIO
+
+    from PIL import Image as PILImage
+
+    path = tmp_path / "img.xlsx"
+    wb = Workbook()
+    wb.active.title = "页"
+    wb.save(str(path))
+
+    png = tmp_path / "dot.png"
+    buf = BytesIO()
+    PILImage.new("RGB", (4, 4), (10, 120, 240)).save(buf, format="PNG")
+    png.write_bytes(buf.getvalue())
+
+    wb = load_workbook(str(path))
+    report = apply_ops(
+        wb,
+        [
+            {
+                "op": "insert_image",
+                "sheet": "页",
+                "image_path": str(png),
+                "anchor": "B2",
+                "width": 64,
+                "height": 64,
+            }
+        ],
+        workspace=str(tmp_path),
+    )
+    assert report["hits"] == 1
+    assert len(wb["页"]._images) == 1
+
+    with pytest.raises(XlsxOpError):
+        apply_ops(
+            wb,
+            [{"op": "insert_image", "sheet": "页", "image_path": str(tmp_path / "none.png"), "anchor": "B3"}],
+            workspace=str(tmp_path),
+        )
+
+
+def test_fill_template_script_xlsx(tmp_path):
+    """fill_template 脚本 xlsx 端到端：替换 + 公式保留 + 未提供键告警。"""
+    script = Path(__file__).resolve().parents[1] / "app" / "tools" / "scripts" / "fill_template.py"
+    ws_dir = tmp_path / "ws"
+    ws_dir.mkdir()
+    xlsx = ws_dir / "合同.xlsx"
+    wb = Workbook()
+    wb.active["A1"] = "甲方：{{company}}"
+    wb.active["A2"] = "邮编：{{zipcode}}"
+    wb.active["A3"] = "=SUM(1,2)"
+    wb.save(str(xlsx))
+
+    completed = subprocess.run(
+        [sys.executable, str(script)],
+        input=json.dumps(
+            {
+                "workspace": str(ws_dir),
+                "output_dir": str(ws_dir),
+                "params": {"path": str(xlsx), "session_id": "s-fill", "values": {"company": "某某科技"}},
+            },
+            ensure_ascii=False,
+        ),
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr[-2000:]
+    output = json.loads(completed.stdout)
+    assert output["success"] is True
+    reloaded = load_workbook(str(xlsx))
+    assert reloaded.active["A1"].value == "甲方：某某科技"
+    assert "{{zipcode}}" in reloaded.active["A2"].value
+    assert reloaded.active["A3"].value == "=SUM(1,2)"
+    assert any("zipcode" in w for w in output["data"]["warnings"])

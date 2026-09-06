@@ -24,6 +24,8 @@ def main() -> None:
     try:
         if suffix in (".xlsx", ".xlsm"):
             path = resolve_office_path(workspace, raw, kind="sheet")
+        elif suffix == ".pptx":
+            path = resolve_office_path(workspace, raw, kind="slide")
         elif suffix == ".doc":
             raise OfficePathError(
                 "暂不支持 .doc 老格式：请先另存为 .docx 再试"
@@ -45,6 +47,15 @@ def main() -> None:
             headers = " | ".join(table["headers"][:6])
             lines.append(
                 f"  表格{table['index']}：{table['rows']}行×{table['cols']}列，表头：{headers}"
+            )
+    elif result["kind"] == "pptx":
+        lines.append(f"幻灯片 {len(result['slides'])} 页")
+        for slide in result["slides"]:
+            previews = " / ".join(slide["previews"][:2])
+            lines.append(
+                f"  第 {slide['index']} 页：{slide['title'] or '（无标题）'}"
+                + (f" ｜ {previews}" if previews else "")
+                + (" ｜ 有备注" if slide["has_note"] else "")
             )
     else:
         lines.append(f"工作表 {len(result['sheets'])} 个")
