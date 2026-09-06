@@ -7,18 +7,20 @@ import re
 from pathlib import Path
 from typing import Any
 
-# SVG 导出固定在浅底（PDF 嵌入 / 白卡片），系列色板用科研主题定性色的
-# light 档排序；灰阶 token 对应 echarts-scientific-themes.html 的 light 档
-# （ink / inkSub / axisLabel / axisBase / axisSplit）。
+# SVG 导出固定在浅底（PDF 嵌入 / 白卡片），系列色板与 chartOptions.ts
+# 的 QUAL_LIGHT 同源、保持顺序（浅色档用户定制 9 色：奶油金/橙/粉蓝/
+# 粉玫瑰/砖红/中蓝/深蓝/珊瑚/蓝紫）；灰阶 token 对应 chartOptions 同源
+# 档（ink / inkSub / axisLabel / axisBase / axisSplit）。
 COLORS = [
-    "#F3962F",  # qual[0]
-    "#036EAD",
-    "#DD656D",
-    "#506AAA",
-    "#61A7D0",
-    "#E17692",
-    "#728DC1",
-    "#FACC8F",  # fill-only：白底对比度仅 1.49，只做兜底末位
+    "#FACC8F",  # 奶油金
+    "#F3962F",  # 橙
+    "#A3D8F4",  # 粉蓝
+    "#EF898E",  # 粉玫瑰
+    "#DD656D",  # 砖红
+    "#61A7D0",  # 中蓝
+    "#036EAD",  # 深蓝
+    "#FAAD9D",  # 珊瑚
+    "#8798C9",  # 蓝紫
 ]
 INK = "#33475F"        # 标题 / 主文字
 INK_SUB = "#7A8699"    # 图例名、饼图扇区标注
