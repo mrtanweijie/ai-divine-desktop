@@ -25,9 +25,55 @@
   z-index: 4;
   width: 36px;
   min-height: 0;
+  /* 高度上限与组件内联 height 一致：超高内容在 .conversation-minimap-scroll 内滚动 */
+  max-height: 400px;
   cursor: pointer;
   user-select: none;
   touch-action: pan-y;
+}
+/* 滚动层：rail 可视高由组件内联 height 钳制（消息视口上限），
+   轨道内容（marker 固定间距铺开）超高时在此滚动；滚动条整体隐藏。 */
+.conversation-minimap-scroll {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+/* 轨道：marker 绝对定位的包含块，高度=内容自然高，超出部分由滚动层承接 */
+.conversation-minimap-track {
+  position: relative;
+  width: 100%;
+}
+/* 上下渐变蒙版：与 message-stage 底部蒙版同源（--color-bg 渐变到透明），
+   指示轨道可继续滚动的方向；visible 由组件依据滚动边缘状态切换 */
+.conversation-minimap-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 16px;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.conversation-minimap-fade.visible {
+  opacity: 1;
+}
+.conversation-minimap-fade.top {
+  top: 0;
+  background: linear-gradient(to bottom, var(--color-bg), transparent);
+}
+.conversation-minimap-fade.bottom {
+  bottom: 0;
+  background: linear-gradient(to top, var(--color-bg), transparent);
 }
 .minimap-marker {
   position: absolute;
@@ -232,9 +278,13 @@
     transform: translateX(-50%) translateY(0);
   }
 }
-.conversation-minimap {
-  flex-basis: 24px;
-  width: 24px;
+/* 窄窗口(<760px)才收窄轨道；桌面保持 36px 设计宽度——
+   marker left:10px + hover 胶囊宽 20px 的右缘(30px)需要 ≥36px 才不被滚动层裁切 */
+@media (max-width: 760px) {
+  .conversation-minimap {
+    flex-basis: 24px;
+    width: 24px;
+  }
 }
 .minimap-preview {
   left: 32px;
