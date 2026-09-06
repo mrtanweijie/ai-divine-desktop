@@ -11,7 +11,11 @@ from ..registry import register_tool
     "② html 传遵循字段协议（data-field/data-type/data-label）的自定义表单 HTML；"
     "③ sections 声明式字段清单（兼容旧用法）。"
     "产物可被 pdf_form_fields 读取、pdf_form_fill 填写；支持 theme 换肤（minimal/corporate/tech/forest）与自定义主题色。"
-    "只要静态表单观感（不需要真控件）时用 pdf_generate 即可。扫描件不在支持范围",
+    "只要静态表单观感（不需要真控件）时用 pdf_generate 即可。扫描件不在支持范围。"
+    "**场景选型指引（重要）**：费用报销/发票/明细列表类表单 → 用 expense 模板（含明细表+金额合计，"
+    "不要把明细行拆成 item1_xxx/item2_xxx 平铺字段）；请假/采购/用车/审批申请 → application 模板；"
+    "员工信息/入职登记 → registration 模板；调查/问卷 → survey 模板。"
+    "只有内置模板覆盖不了的定制表单才用 html/sections 自拼。",
     {
         "type": "object",
         "properties": {
@@ -50,7 +54,7 @@ from ..registry import register_tool
             },
             "sections": {
                 "type": "array",
-                "description": "表单分节，按顺序渲染；空间不足自动分页",
+                "description": "表单分节，按顺序渲染；空间不足自动分页。文本类字段默认整行，可给 half:true 让两字段并排半行",
                 "items": {
                     "type": "object",
                     "properties": {
@@ -69,19 +73,22 @@ from ..registry import register_tool
                                     "label": {"type": "string", "description": "页面上的字段标签"},
                                     "type": {
                                         "type": "string",
-                                        "enum": ["text", "multiline", "checkbox", "radio", "dropdown"],
-                                        "description": "控件类型：单行文本/多行文本/复选框/单选组/下拉",
+                                        "enum": [
+                                            "text", "multiline", "checkbox", "radio",
+                                            "select", "date", "number", "money",
+                                        ],
+                                        "description": "控件类型：单行文本/多行文本/复选/单选组/下拉/日期/数字/金额",
                                     },
                                     "options": {
                                         "type": "array",
                                         "items": {"type": "string"},
-                                        "description": "(radio/dropdown 必填) 选项数组",
+                                        "description": "(radio/select 必填) 选项数组",
                                     },
                                     "default": {
-                                        "description": "默认值：text 为字符串，checkbox 为布尔，radio/dropdown 为选项",
+                                        "description": "默认值：text 为字符串，checkbox 为布尔，radio/select 为选项",
                                     },
-                                    "width": {"type": "number", "description": "控件宽度（pt），默认 240"},
-                                    "height": {"type": "number", "description": "(multiline) 高度（pt），默认 72"},
+                                    "required": {"type": "boolean", "description": "是否必填，默认 false"},
+                                    "half": {"type": "boolean", "description": "true 时该字段只占半行（与相邻 half 字段并排）"},
                                 },
                                 "required": ["name", "label", "type"],
                             },
@@ -91,7 +98,7 @@ from ..registry import register_tool
                 },
             },
         },
-        "required": ["title", "sections"],
+        "required": ["title"],
     },
 )
 class PdfFormGenerateAdapter(ToolAdapter):

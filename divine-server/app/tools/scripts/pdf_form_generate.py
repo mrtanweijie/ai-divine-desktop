@@ -27,6 +27,7 @@ from app.docgen.pdf.form_html import (  # noqa: E402
     render_pdf,
     set_theme,
     theme_override_css,
+    validate_schema,
     verify_form,
 )
 from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
@@ -41,11 +42,16 @@ def _compose_sections_html(sections: list[dict], title: str) -> str:
             return ""
         label = escape(str(field.get("label") or name))
         ftype = str(field.get("type") or "text").strip().lower()
+        # sections 用户层类型 → 协议 HTML data-type 归一：
+        # dropdown→select、multiline→textarea（协议类型名与控件元素一致）
+        ftype = {"dropdown": "select", "multiline": "textarea"}.get(ftype, ftype)
         default = field.get("default")
         req = "true" if field.get("required") else "false"
         req_star = '<i class="req">*</i>' if field.get("required") else ""
+        # half:true → col-6 半行；默认整行 col-12（field-grid 自动让相邻 half 并排）
+        span = "col-6" if field.get("half") else "col-12"
         open_field = (
-            f'<div class="field col-12" data-field="{name}" data-type="{ftype}"'
+            f'<div class="field {span}" data-field="{name}" data-type="{ftype}"'
             f' data-label="{label}" data-required="{req}">'
             f'<div class="field-label">{label}{req_star}</div>'
         )
@@ -54,7 +60,7 @@ def _compose_sections_html(sections: list[dict], title: str) -> str:
             checked = ' data-checked="true"' if default else ""
             return (
                 open_field
-                + f'<label class="opt"><span class="opt-box" data-shape="checkbox"{checked}></span>'
+                + f'<label class="opt"><span class="opt-box" data-shape="check"{checked}></span>'
                 + f"{label}</label></div>"
             )
         if ftype == "radio":
@@ -69,12 +75,16 @@ def _compose_sections_html(sections: list[dict], title: str) -> str:
             return open_field + opts_html + "</div></div>"
         if ftype == "select":
             options = [str(o) for o in (field.get("options") or [])]
-            opts_html = "".join(f"<option>{escape(o)}</option>" for o in options)
+            opts_html = "".join(
+                f'<option{" selected" if str(default) == o else ""}>{escape(o)}</option>'
+                for o in options
+            )
             return open_field + f'<select class="ctrl">{opts_html}</select></div>'
-        if ftype == "multiline":
+        if ftype == "textarea":
             value = escape(str(default or ""))
             return open_field + f'<textarea class="ctrl ctrl--textarea">{value}</textarea></div>'
-        # text / number / money / date → 下划线填空
+        # text / number / money / date → 下划线填空（data-type 随 data-field 下行，
+        # prepare_html/place_widgets 按类型映射；date 三段式不在此编译）
         value = escape(str(default or ""))
         return open_field + (
             f'<input class="ctrl ctrl--underline" type="text" value="{value}">'
@@ -160,6 +170,18 @@ def main() -> None:
 
     if theme:
         html = set_theme(html, theme)
+
+    # 期三协议校验：组合模式拼装错误逐条报出，模型可自纠（字段名重复/类型白名单/裸控件泄漏）
+    if not template_id:
+        problems = validate_schema(html)
+        if problems:
+            print(
+                json.dumps(
+                    {"success": False, "message": "HTML 协议校验失败：" + "；".join(problems)},
+                    ensure_ascii=False,
+                )
+            )
+            return
 
     prepared, meta = prepare_html(html, values)
     if not meta:

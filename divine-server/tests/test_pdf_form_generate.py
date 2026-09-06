@@ -156,7 +156,7 @@ def test_generate_from_sections_legacy(tmp_path):
 
 
 def test_contract_errors(tmp_path):
-    """未知模板 / 无字段标记 / 字段名重复 → 明确失败。"""
+    """未知模板 / 无字段标记 / 字段名重复 / 协议违例 → 明确失败。"""
     base = {"workspace": str(tmp_path), "output_dir": str(tmp_path)}
 
     out = _run_script({**base, "params": {"template_id": "nope"}}, tmp_path)
@@ -168,6 +168,71 @@ def test_contract_errors(tmp_path):
     no_field = {"title": "空表单", "html": "<html><body><p>没有字段</p></body></html>"}
     out = _run_script({**base, "params": no_field}, tmp_path)
     assert out["success"] is False and "data-field" in out["message"]
+
+
+def test_schema_validation_duplicate_and_bare(tmp_path):
+    """组合模式协议校验：字段名重复 / 容器外裸控件 → 明确报错（模型可自纠）。"""
+    base = {"workspace": str(tmp_path), "output_dir": str(tmp_path)}
+
+    # 字段名重复
+    dup_html = (
+        "<html><body><div class=\"field col-12\" data-field=\"x\" data-type=\"text\" "
+        'data-label="一"><input></div>'
+        '<div class="field col-12" data-field="x" data-type="text" data-label="二">'
+        "<input></div></body></html>"
+    )
+    out = _run_script({**base, "params": {"title": "T", "html": dup_html}}, tmp_path)
+    assert out["success"] is False and "字段名重复" in out["message"]
+
+    # 容器外裸控件（漏标 data-field）
+    bare_html = (
+        "<html><body><div class=\"field col-12\" data-field=\"a\" data-type=\"text\" "
+        'data-label="甲"><input></div>'
+        '<div class="field col-12"><input placeholder="漏标控件"></div></body></html>'
+    )
+    out = _run_script({**base, "params": {"title": "T", "html": bare_html}}, tmp_path)
+    assert out["success"] is False and "裸控件" in out["message"] or "data-field" in out["message"]
+
+    # 非法 data-type
+    bad_type = (
+        '<div class="field col-12" data-field="b" data-type="slider" data-label="乙">'
+        "<input></div>"
+    )
+    out = _run_script({**base, "params": {"title": "T", "html": bad_type}}, tmp_path)
+    assert out["success"] is False and "白名单" in out["message"]
+
+
+def test_schema_validation_container_bare_control(tmp_path):
+    """group 容器内 div 布局裸控件必须拦截（渲染期会静默丢失，校验须先行）。
+
+    回归：裸控件只要有一个 [data-field] 祖先（group）就放行，但 prepare_html 的
+    容器分支只派生 tbody tr 里的裸控件 → div 行裸控件校验放行、渲染丢弃，契约断裂。
+    """
+    base = {"workspace": str(tmp_path), "output_dir": str(tmp_path)}
+
+    # group 内 div 行裸控件（无 tbody）→ 拒绝
+    group_div_html = (
+        '<html><body><div data-field="contact" data-type="group">'
+        '<div class="field-label">联系方式</div>'
+        '<div class="kv-row"><label>电话</label>'
+        '<input class="ctrl" placeholder="手机号"></div>'
+        "</div></body></html>"
+    )
+    out = _run_script({**base, "params": {"title": "T", "html": group_div_html}}, tmp_path)
+    assert out["success"] is False, "group div 裸控件应被拒绝"
+    assert "表格行" in out["message"]
+
+    # 同容器但裸控件在 tbody 行内（表格列派生）→ 放行，且派生字段真实落位
+    group_table_html = (
+        '<html><body><div data-field="edu" data-type="table">'
+        "<table><thead><tr><th>序号</th><th>学校</th></tr></thead>"
+        '<tbody><tr><td>1</td><td><input placeholder="大学"></td></tr></tbody>'
+        "</table></div></body></html>"
+    )
+    out = _run_script({**base, "params": {"title": "T", "html": group_table_html}}, tmp_path)
+    assert out["success"] is True, out.get("message")
+    widgets = _widgets(Path(out["filepath"]))
+    assert "edu.学校#1" in widgets, "表格行裸控件应派生 edu.学校#1 并落位"
 
 
 def test_closed_loop_generate_then_fill(tmp_path):
@@ -271,3 +336,80 @@ def test_theme_color_css_derivation():
     assert "#1A1A1A" in flat and "#C9A227" in flat
 
     assert theme_override_css(None, None) == ""
+
+
+def test_table_container_subfields(tmp_path):
+    """表格容器：无 data-field 的列输入派生 '表名.列头#行号' 字段并替换为锚点。
+
+    回归：曾只构造锚点不替换 input → 无 pdf-form:// 链接 → 控件缺失
+    （education.1#1 序号列污染列名）；列名应来自 thead 列头、不含序号列。
+    """
+    from bs4 import BeautifulSoup
+
+    from app.docgen.pdf.form_html import load_template, prepare_html, render_pdf, place_widgets, form_templates_dir
+
+    tpl = load_template("registration")
+    prepared, meta = prepare_html(tpl)
+    # 表格派生字段集合 == 列头(除序号)×行数
+    soup = BeautifulSoup(tpl, "html.parser")
+    expect: set[str] = set()
+    for el in soup.select('[data-field][data-type="table"]'):
+        fname = el["data-field"]
+        headers = [th.get_text(strip=True) for th in el.select("thead th")]
+        rows = len(el.select("tbody tr"))
+        for h in headers[1:]:  # 跳序号列
+            for r in range(1, rows + 1):
+                expect.add(f"{fname}.{h}#{r}")
+    got = {m["field"] for m in meta.values()}
+    assert expect <= got, f"表格派生字段缺失: {sorted(expect - got)[:8]}"
+    # 序号列不得污染列名（历史 bug education.1#1）
+    assert not any(m["field"].endswith("1#") or ".1#" in m["field"] for m in meta.values())
+
+    # 全量控件落位（含表格字段）：registration 25 data-field + 派生字段
+    pdf = render_pdf(prepared, form_templates_dir())
+    doc, report = place_widgets(pdf, meta)
+    filled = {f["key"] for f in report["filled"]}
+    assert got <= filled
+    doc.close()
+
+
+def test_sections_extended_types_and_half(tmp_path):
+    """sections 扩展类型：dropdown 别名→COMBOBOX 且默认值落位；date/money 编译；
+    half 并排（同 y 两个半行控件）；required 标志。"""
+    output = _run_script(
+        {
+            "workspace": str(tmp_path),
+            "output_dir": str(tmp_path),
+            "params": {
+                "title": "扩展类型",
+                "sections": [
+                    {
+                        "heading": "报销",
+                        "fields": [
+                            {"name": "staff", "label": "报销人", "type": "text", "half": True},
+                            {"name": "date", "label": "日期", "type": "date", "half": True},
+                            {"name": "kind", "label": "费用类型", "type": "dropdown",
+                             "options": ["交通", "餐饮", "住宿"], "default": "餐饮"},
+                            {"name": "amt", "label": "金额", "type": "money", "required": True},
+                        ],
+                    }
+                ],
+                "file_name": "扩展类型",
+            },
+        },
+        tmp_path,
+    )
+    assert output["success"] is True, output.get("message")
+    widgets = _widgets(Path(output["filepath"]))
+    # dropdown 别名 → 下拉（type 3 = COMBOBOX）
+    kind = [w for w in widgets["kind"]]
+    assert kind and kind[0].field_type == pymupdf.PDF_WIDGET_TYPE_COMBOBOX
+    assert kind[0].field_value == "餐饮"  # default 经 option[selected] 落位
+    assert widgets["amt"][0].field_flags & 2  # required 位
+    # half：staff 与 date 并排（同 y 顶、不同 x，各约半行宽）
+    staff, date_ = widgets["staff"][0], widgets["date"][0]
+    assert staff.rect.y0 == date_.rect.y0
+    assert staff.rect.x0 != date_.rect.x0
+    staff_w = staff.rect.x1 - staff.rect.x0
+    assert staff_w < 400  # 非整行（整行约 527pt）
+    assert abs((date_.rect.x1 - date_.rect.x0) - staff_w) < 10  # 两半行等宽
