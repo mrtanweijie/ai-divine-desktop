@@ -28,6 +28,61 @@ _VISUAL_ONLY_TYPES = {"signature", "rating", "nps"}
 _CONTAINER_TYPES = {"table", "group"}
 _OPTIONS_IN_QUERY = {"select"}
 
+# 协议 data-type 白名单：放控件的类型 + 视觉占位类型 + 容器类型
+_SUPPORTED_TYPES = (
+    {"text", "textarea", "date", "number", "money", "select", "radio", "checkbox"}
+    | _VISUAL_ONLY_TYPES | _CONTAINER_TYPES
+)
+
+
+def validate_schema(html: str) -> list[str]:
+    """期三组合模式协议校验：字段名唯一 / data-type 白名单 / 关键属性齐备。
+
+    返回问题清单（空 = 合规）；调用方把问题作为失败 message 返回给模型自纠。
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    problems: list[str] = []
+    seen: dict[str, int] = {}
+    for el in soup.select("[data-field]"):
+        fname = (el.get("data-field") or "").strip()
+        if not fname:
+            continue
+        ftype = (el.get("data-type") or "text").strip().lower()
+        if ftype not in _SUPPORTED_TYPES:
+            problems.append(
+                f"字段 {fname!r} 的 data-type={ftype!r} 不在白名单"
+                f"（支持: {', '.join(sorted(_SUPPORTED_TYPES))}）"
+            )
+        seen[fname] = seen.get(fname, 0) + 1
+    dups = [f"{k}（{v} 处）" for k, v in seen.items() if v > 1]
+    if dups:
+        problems.append(f"data-field 字段名重复: {', '.join(dups)}——字段名须全文档唯一")
+    # 容器外泄漏的裸控件（无 data-field 祖先）：模型拼装漏标，会静默无控件
+    for el in soup.select("input, select, textarea"):
+        if el.has_attr("data-field"):
+            continue
+        anc = el.find_parent(attrs={"data-field": True})
+        if anc is None:
+            ctx = (el.get("placeholder") or el.get("name") or el.name).strip()
+            problems.append(
+                f"控件 <{el.name}>（{ctx[:20]}）没有 data-field 且不在任何 [data-field] 容器内——"
+                "可填写单元必须带 data-field/data-type/data-label 标记"
+            )
+            continue
+        # 裸控件在 table/group 容器内：prepare_html 只会派生「表格行 td 里的裸控件」
+        # （列名来自列头/前置文本）；容器内 div 布局、行外等其余裸控件无人处理，
+        # 会静默丢失——渲染与校验必须一致，此处报错引导模型补 data-field 或改用表格行
+        anc_type = (anc.get("data-type") or "text").strip().lower()
+        if anc_type in _CONTAINER_TYPES and not el.find_parent("tbody"):
+            ctx = (el.get("placeholder") or el.get("name") or el.name).strip()
+            problems.append(
+                f"控件 <{el.name}>（{ctx[:20]}）在容器 {anc.get('data-field')!r} 内"
+                "但不在表格行（tbody tr）——容器内裸控件仅支持表格列输入派生；"
+                "该单元须带 data-field 或用 thead/tbody 表格结构"
+            )
+    return problems
+
+
 _FILL_BOX_CSS = (
     "\n/* pdf_form_generate 控件锚点：链接注解载体（打印不可见，仅提供 rect） */\n"
     "a.fill-anchor{display:inline-block;text-decoration:none;color:inherit}\n"
@@ -92,7 +147,10 @@ def _fill_anchor(href: str, classes: str | None, extra_attrs: dict[str, str] | N
     a["href"] = href
     a["class"] = (classes.split() if classes else []) + ["fill-anchor"]
     for k, v in (extra_attrs or {}).items():
-        a[k] = v
+        if v is None:  # bs4 a[k]=None 会留下裸属性（如 data-checked），显式删除
+            a.attrs.pop(k, None)
+        else:
+            a[k] = v
     return a
 
 
@@ -124,9 +182,8 @@ def prepare_html(
             continue
         if ftype in _CONTAINER_TYPES:
             # 子表/分组容器：容器本身跳过；嵌套的 [data-field] 由通用循环处理；
-            # 无 data-field 的裸控件按 "表名.列头#行号" 派生子字段（包裹式锚点，
-            # 保留原控件元素——.cell 内的输入样式依赖元素上下文，不能替换）。
-            print(f"DBG container: {fname}", file=sys.stderr)
+            # 无 data-field 的裸控件（明细表列输入）按 "表名.列头#行号" 派生子字段，
+            # 并把 input 替换为锚点——否则没有 pdf-form:// 链接注解，控件无法落位。
             headers = [th.get_text(strip=True) for th in field_el.select("thead th")]
             for r_index, row in enumerate(field_el.select("tbody tr"), 1):
                 cells = row.select("td")
@@ -138,31 +195,35 @@ def prepare_html(
                     deeper = sub_ctrl.find_parent(attrs={"data-field": True})
                     if deeper is not None and deeper is not field_el:
                         continue
-                    # 列名：thead 列头优先；无 thead 的标签-值网格用前置单元格文本
+                    # 列名：有 thead 的明细表 → 同列列头（序号列无控件自动跳过，
+                    # 列索引一一对齐）；无 thead 的标签-值网格 → 前置单元格文本
                     col_name = ""
-                    if c_index - 2 >= 0:
-                        prev_text = re.sub(r"[\s*i]+$", "", cells[c_index - 2].get_text(strip=True))
-                        col_name = prev_text.strip()
-                    if not col_name and c_index - 1 < len(headers) and headers[c_index - 1]:
+                    if headers and c_index - 1 < len(headers):
                         col_name = headers[c_index - 1]
+                    elif c_index >= 2:
+                        prev_text = re.sub(r"[\s*]+$", "", cells[c_index - 2].get_text(strip=True))
+                        col_name = prev_text.strip()
                     if not col_name:
                         continue
                     sub_name = f"{fname}.{col_name}#{r_index}"
                     sub_type = {"textarea": "textarea", "select": "select"}.get(sub_ctrl.name, "text")
                     href = _FILL_SCHEME + quote(sub_name, safe="")
                     placeholder = sub_ctrl.get("placeholder") or ""
-                    anchor = _fill_anchor(href, "ctrl ctrl--underline fill-anchor")
-                    anchor.string = placeholder or "\u00a0"
+                    anchor = _fill_anchor(href, "fill-anchor cell-fill")
+                    # 零宽空格占位防空盒在表格行内分裂；placeholder 有值则显示为提示
+                    anchor.string = placeholder or "\u200b"
+                    sub_ctrl.replace_with(anchor)
                     meta_by_ref[sub_name] = {
                         "field": sub_name, "type": sub_type, "label": col_name,
                         "required": False, "options": [],
-                        "default": sub_ctrl.get("placeholder") or "",
+                        "default": placeholder,
                     }
             continue
 
-        if ftype == "radio" or (ftype == "checkbox" and field_el.select_one(".opt-group")):
-            # 选项组：每个 .opt-box → name::选项 锚点
-            # values 显式指定时优先于模板 data-checked（避免双勾选）
+        # 选项组：每个 .opt-box → name::选项 锚点（checkbox 单选项无需 .opt-group，
+        # 只要字段含 .opt-box 即按选项组逐盒处理；否则 checkbox 会静默丢失）
+        # values 显式指定时优先于模板 data-checked（避免双勾选）
+        if ftype == "radio" or (ftype == "checkbox" and field_el.select_one(".opt-box")):
             for box in field_el.select(".opt-box"):
                 label_el = box.find_parent("label")
                 option = (label_el.get_text(strip=True) if label_el else "") or f"选项{len(meta_by_ref)+1}"
@@ -172,7 +233,19 @@ def prepare_html(
                     checked = (values[fname] == option)
                 else:
                     checked = (box.get("data-checked") == "true")
-                anchor = _fill_anchor(href, " ".join(box.get("class", [])), {"data-checked": "true" if checked else None})
+                # 透传 data-shape（radio 圆角 / check 方角）——换 a 后
+                # forms.css 的 .opt-box[data-shape="radio"] 靠它出圆角
+                extra: dict[str, str | None] = {
+                    "data-checked": "true" if checked else None,
+                }
+                shape = box.get("data-shape")
+                if shape:
+                    extra["data-shape"] = shape
+                anchor = _fill_anchor(href, " ".join(box.get("class", [])), extra)
+                # 零宽空格占位：空盒在 WeasyPrint inline/flex 上下文中会分裂成
+                # 上下两个 fragment（链接矩形错位到下一行）；任何内容都消除分裂，
+                # 文本宽度为 0 不产生可见矩形（place_widgets 会跳过退化 rect）
+                anchor.string = "\u200b"
                 box.replace_with(anchor)
                 meta_by_ref[ref] = {
                     "field": fname, "option": option, "type": "checkbox",
@@ -217,6 +290,10 @@ def prepare_html(
         # 空元素宽高计算不可靠，内容驱动的文本盒尺寸最稳）
         if ctrl.name == "textarea":
             default = ctrl.get_text(strip=True)
+        elif ctrl.name == "select":
+            # 下拉默认值：option[selected]（模板 data-checked/编译器 selected 落点）
+            sel_opt = ctrl.select_one("option[selected]")
+            default = sel_opt.get_text(strip=True) if sel_opt is not None else ""
         elif ctrl.get("value") is not None:
             default = str(ctrl.get("value"))
         expected = values.get(fname, default)
@@ -238,9 +315,26 @@ def prepare_html(
 
 
 _ANCHOR_CSS = (
-    "\n<style>/* pdf_form_generate 控件锚点：链接注解载体（透明，仅提供 rect） */\n"
-    "a.fill-anchor{display:inline-block;box-sizing:border-box;text-decoration:none;"
-    "color:inherit;font-family:inherit}\n</style>\n"
+    "\n/* pdf_form_generate 控件锚点：链接注解载体（视觉继承原控件类，"
+    "仅承担 pdf-form:// 链接职责；!important 强制覆盖 forms.css 的 .ctrl 流规则，"
+    "确保输入锚点 width:100% / min-height 在 WeasyPrint 内真正生效）。\n"
+    "   注意：块级规则只作用于带 .ctrl 的输入型锚点；.opt-box（复选/单选盒）"
+    "必须保持 forms.css 的 15px 几何，不能被块化撑满整行。 */\n"
+    "a.fill-anchor{text-decoration:none !important;color:inherit !important;"
+    "font-family:inherit !important}\n"
+    "a.fill-anchor.ctrl{display:block !important;width:100% !important;"
+    "min-height:32px !important;box-sizing:border-box !important}\n"
+    # radio/checkbox 单框（.opt-box → a.fill-anchor.opt-box）：15px 几何
+    "a.fill-anchor.opt-box{display:inline-flex !important;flex:0 0 auto !important;"
+    "width:var(--check-size,15px) !important;height:var(--check-size,15px) !important;"
+    "min-height:0 !important;box-sizing:border-box !important}\n"
+    # 明细表单元格输入（裸 input → a.fill-anchor.cell-fill）：顶替原输入的
+    # 布局几何（宽满格、高 28px、透明无边框），格线由 td 边框绘制
+    "a.fill-anchor.cell-fill{display:block !important;width:100% !important;"
+    "height:28px !important;min-height:0 !important;box-sizing:border-box !important;"
+    "background:transparent !important;border:none !important;"
+    "padding:4px 6px !important;text-align:center;font-size:12.5px}\n"
+    "span.fill-anchor{box-sizing:border-box !important}\n"
 )
 
 
@@ -306,6 +400,11 @@ def place_widgets(pdf_bytes: bytes, meta_by_ref: dict[str, dict[str, Any]]) -> t
     filled_counter: dict[str, int] = {}
     warnings: list[str] = []
 
+    # WeasyPrint 对 inline/flex 小盒锚点会同时记录 border box 与 padding box 两个
+    # 链接矩形（位置差 = border 宽，或完全重合）。同 ref 中心距 < 5pt 视为同一槽位，
+    # 只放一次控件，避免单选/复选盒出现重复 widget。
+    seen_centers: dict[str, list[tuple[float, float]]] = {}
+
     for page in doc:
         for link in page.get_links():
             uri = link.get("uri", "")
@@ -318,8 +417,13 @@ def place_widgets(pdf_bytes: bytes, meta_by_ref: dict[str, dict[str, Any]]) -> t
                 continue
             rect = pymupdf.Rect(link["from"])
             if rect.x1 - rect.x0 <= 0.5 or rect.y1 - rect.y0 <= 0.5:
-                warnings.append(f"槽位 {ref!r} 的链接矩形退化，已跳过")
+                # 零宽 rect：单选/复选锚点的 \u200b 占位文本 fragment，
+                # 有意为之（消除空盒分裂），静默跳过不视为异常
                 continue
+            cx, cy = (rect.x0 + rect.x1) / 2, (rect.y0 + rect.y1) / 2
+            if any((cx - ox) ** 2 + (cy - oy) ** 2 < 25 for ox, oy in seen_centers.get(ref, [])):
+                continue  # 同一槽位的重复矩形（border/padding 双记录）
+            seen_centers.setdefault(ref, []).append((cx, cy))
             widget = pymupdf.Widget()
             widget.rect = rect
             widget.field_name = meta["field"]
