@@ -64,6 +64,11 @@ export const GROUPABLE_TOOLS = new Set([
   "edit_files",
   "edit_lines",
   "apply_patch",
+  "document_outline",
+  "fill_template",
+  "edit_docx",
+  "edit_xlsx",
+  "edit_pptx",
   "move_file",
   "write_file",
   "search_files",
@@ -86,6 +91,63 @@ export const GROUPABLE_TOOLS = new Set([
   "remember",
   "forget_memory",
 ]);
+
+/** Office 读取/编辑工具合并卡片上的聚合计数文案 key。 */
+const OFFICE_COUNT_KEYS: Record<string, string> = {
+  document_outline: "tool.outlinedDocuments",
+  fill_template: "tool.filledTemplates",
+  edit_docx: "tool.editedWordDocs",
+  edit_xlsx: "tool.editedExcelSheets",
+  edit_pptx: "tool.editedPptDecks",
+};
+
+/** 合并卡片的聚合计数文案（Office 工具走专用 key，其余按工具族归类）。 */
+function mergedCountMessage(tool: ToolEvent, count: number): string {
+  const officeKey = OFFICE_COUNT_KEYS[tool.tool];
+  if (officeKey) {
+    return i18next.t(officeKey, "{{tool}} 已执行 {{count}} 次", { count });
+  }
+  if (tool.tool === "web_search") {
+    return i18next.t("tool.completedSearches", "已完成 {{count}} 次搜索", { count });
+  }
+  if (tool.tool === "web_fetch" || tool.tool === "web_fetch_batch") {
+    return i18next.t("tool.fetchedSources", "已抓取 {{count}} 个数据源", { count });
+  }
+  if (tool.tool === "calculator") {
+    return i18next.t("tool.completedCalculations", "已完成 {{count}} 次计算", { count });
+  }
+  if (tool.tool === "edit_files") {
+    return i18next.t("tool.modifiedFiles", "已修改 {{count}} 个文件", { count });
+  }
+  if (tool.tool === "write_file") {
+    return i18next.t("tool.writtenFiles", "已写入 {{count}} 个文件", { count });
+  }
+  if (tool.tool === "read_file") {
+    return i18next.t("tool.readFiles", "已读取 {{count}} 个文件", { count });
+  }
+  if (tool.tool === "terminal") {
+    return i18next.t("tool.executedCommands", "已执行 {{count}} 个终端命令", { count });
+  }
+  if (tool.tool === "grep_files") {
+    return i18next.t("tool.grepSearches", "已完成 {{count}} 次内容搜索", { count });
+  }
+  if (tool.tool.startsWith("git_")) {
+    return i18next.t("tool.gitOperations", "已完成 {{count}} 次 Git 操作", { count });
+  }
+  if (tool.tool.startsWith("bg_")) {
+    return i18next.t("tool.bgOperations", "已执行 {{count}} 次后台操作", { count });
+  }
+  if (tool.tool === "list_definitions") {
+    return i18next.t("tool.listedDefinitions", "已查看 {{count}} 个文件大纲", { count });
+  }
+  if (tool.tool === "remember" || tool.tool === "forget_memory") {
+    return i18next.t("tool.memoryOperations", "已完成 {{count}} 次记忆操作", { count });
+  }
+  return i18next.t("tool.executedTimes", "{{tool}} 已执行 {{count}} 次", {
+    tool: tool.tool.toUpperCase(),
+    count,
+  });
+}
 
 /**
  * Merge consecutive runs of the same tool into one card while keeping
@@ -153,63 +215,7 @@ export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
       urls,
       files,
       commands,
-      message:
-        tool.tool === "web_search"
-          ? i18next.t("tool.completedSearches", "已完成 {{count}} 次搜索", {
-              count,
-            })
-          : tool.tool === "web_fetch" || tool.tool === "web_fetch_batch"
-            ? i18next.t("tool.fetchedSources", "已抓取 {{count}} 个数据源", {
-                count,
-              })
-            : tool.tool === "calculator"
-              ? i18next.t("tool.completedCalculations", "已完成 {{count}} 次计算", {
-                  count,
-                })
-              : tool.tool === "edit_files"
-                ? i18next.t("tool.modifiedFiles", "已修改 {{count}} 个文件", {
-                    count,
-                  })
-                : tool.tool === "write_file"
-                  ? i18next.t("tool.writtenFiles", "已写入 {{count}} 个文件", {
-                      count,
-                    })
-                  : tool.tool === "read_file"
-                    ? i18next.t("tool.readFiles", "已读取 {{count}} 个文件", {
-                        count,
-                      })
-                    : tool.tool === "terminal"
-                      ? i18next.t("tool.executedCommands", "已执行 {{count}} 个终端命令", {
-                          count,
-                        })
-                      : tool.tool === "grep_files"
-                        ? i18next.t("tool.grepSearches", "已完成 {{count}} 次内容搜索", {
-                            count,
-                          })
-                        : tool.tool.startsWith("git_")
-                          ? i18next.t("tool.gitOperations", "已完成 {{count}} 次 Git 操作", {
-                              count,
-                            })
-                          : tool.tool.startsWith("bg_")
-                            ? i18next.t("tool.bgOperations", "已执行 {{count}} 次后台操作", {
-                                count,
-                              })
-                            : tool.tool === "list_definitions"
-                              ? i18next.t("tool.listedDefinitions", "已查看 {{count}} 个文件大纲", {
-                                  count,
-                                })
-                              : tool.tool === "remember" || tool.tool === "forget_memory"
-                                ? i18next.t(
-                                    "tool.memoryOperations",
-                                    "已完成 {{count}} 次记忆操作",
-                                    {
-                                      count,
-                                    },
-                                  )
-                                : i18next.t("tool.executedTimes", "{{tool}} 已执行 {{count}} 次", {
-                                    tool: tool.tool.toUpperCase(),
-                                    count,
-                                  }),
+      message: mergedCountMessage(tool, count),
     };
   }
   return grouped;

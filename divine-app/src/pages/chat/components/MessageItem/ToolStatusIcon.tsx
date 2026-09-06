@@ -18,6 +18,7 @@ import {
   FileBox,
   FileCode2,
   FileDiff,
+  FilePenLine,
   FilePlus2,
   FileSpreadsheet,
   FileText,
@@ -25,6 +26,7 @@ import {
   FolderInput,
   FolderSearch2,
   FolderTree,
+  GalleryVertical,
   GitBranch,
   GitBranchMinus,
   GitCommit,
@@ -47,8 +49,10 @@ import {
   Regex,
   ScanSearch,
   ScrollText,
+  Stamp,
   SquareKanban,
   StickyNote,
+  Table2,
   TerminalSquare,
   Workflow,
 } from "lucide-react";
@@ -65,6 +69,12 @@ export function toolIcon(tool: string) {
   if (tool === "lint_check") return <ScanSearch size={16} />;
   if (tool === "run_tests") return <FlaskConical size={16} />;
   if (tool === "format_code") return <Paintbrush size={16} />;
+  // Office 文档读取/编辑工具
+  if (tool === "document_outline") return <ListTree size={16} />;
+  if (tool === "fill_template") return <Stamp size={16} />;
+  if (tool === "edit_docx") return <FilePenLine size={16} />;
+  if (tool === "edit_xlsx") return <Table2 size={16} />;
+  if (tool === "edit_pptx") return <GalleryVertical size={16} />;
   if (tool.startsWith("bg_")) {
     if (tool === "bg_kill") return <CircleStop size={16} />;
     if (tool === "bg_output") return <ScrollText size={16} />;
