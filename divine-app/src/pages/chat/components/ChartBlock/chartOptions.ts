@@ -931,13 +931,14 @@ function decorateCandlestick(option: Record<string, unknown>, palette: ChartPale
   option.series = series;
 
   const candle = series.find((item) => isRecord(item) && item.type === "candlestick");
+  // 仅按名称识别成交量：xAxisIndex===1 的柱状系列不一定是成交量（MACD 柱也常驻 grid1），
+  // 误判会把 MACD 数据改写成 [idx, val, ±1] 三元组并叠一层涨/跌配色 visualMap。
   const volume = series.find(
     (item) =>
       isRecord(item) &&
       item.type === "bar" &&
-      (item.xAxisIndex === 1 ||
-        item.yAxisIndex === 1 ||
-        /成交量|成交额|volume/i.test(String(item.name ?? ""))),
+      /成交量|成交额|volume/i.test(String(item.name ?? "")) &&
+      !isRecord(item.visualMap),
   );
 
   if (isRecord(candle)) {
@@ -971,7 +972,8 @@ function decorateCandlestick(option: Record<string, unknown>, palette: ChartPale
           lineStyle: { width: 1, opacity: 0.5 },
         }));
       if (maSeries.length > 0) {
-        series.splice(series.indexOf(candle) + 1, 0, ...maSeries);
+        // 推到 series 末尾，避免插到 candle 与用户已有的 MA 之间打断配色与图例对应
+        series.push(...maSeries);
       }
     }
 
@@ -980,12 +982,22 @@ function decorateCandlestick(option: Record<string, unknown>, palette: ChartPale
         ...(typeof candle.name === "string" ? [candle.name] : []),
         ...[5, 10, 20, 30].map((day) => `MA${day}`),
       ];
+      // 双 grid（图+副图）图例放底部贴近副图；单 grid（纯 K线）底部空间已被
+      // slider 占据，图例放回顶部避免与 slider 重叠挤在一起。
+      const gridCount = Array.isArray(option.grid)
+        ? option.grid.length
+        : isRecord(option.grid)
+          ? 1
+          : 0;
+      // 双 grid 图例沉到 bottom 12：副图网格底（~79%）之下还叠着 45° 旋转的
+      // 日期标签，bottom 30 时 legend 顶部几乎贴着日期文字；沉底后拉开间距。
+      const legendPos =
+        gridCount >= 2
+          ? { bottom: 12, top: "auto", left: "center", right: "auto" }
+          : { top: 5, bottom: "auto", left: "center", right: "auto" };
       option.legend = {
         ...option.legend,
-        bottom: 10,
-        left: "center",
-        top: "auto",
-        right: "auto",
+        ...legendPos,
         data: legendNames,
       };
     }
@@ -1024,29 +1036,59 @@ function decorateCandlestick(option: Record<string, unknown>, palette: ChartPale
     }
   }
 
-  if (Array.isArray(option.dataZoom)) {
-    for (const zoom of option.dataZoom) {
-      if (isRecord(zoom) && zoom.type === "slider") {
-        zoom.top = "85%";
-        zoom.bottom = "auto";
-      }
-    }
-  }
+  // ---- 布局：grid + slider 定位（按面板数量分流） ----
+  // 双 grid（图+副图）按 50% / 16% 经典比例；单 grid（纯 K线无副图）保留
+  // 模型 grid.top/bottom 自然撑满，避免下半部被压成大空白导致 slider / legend
+  // 挤在底部与图表分离。
   const grids = Array.isArray(option.grid)
     ? option.grid
     : isRecord(option.grid)
       ? [option.grid]
       : [];
-  if (grids.length > 0 && isRecord(grids[0])) {
-    grids[0] = { ...grids[0], height: "50%" };
-  }
-  if (grids.length > 1 && isRecord(grids[1])) {
-    grids[1] = { ...grids[1], top: "63%", height: "16%" };
+  if (grids.length >= 2) {
+    if (isRecord(grids[0])) {
+      grids[0] = { ...grids[0], height: "50%" };
+    }
+    if (isRecord(grids[1])) {
+      grids[1] = { ...grids[1], top: "63%", height: "16%" };
+    }
   }
   if (Array.isArray(option.grid)) {
     option.grid = grids;
   } else if (grids[0]) {
     option.grid = grids[0];
+  }
+  // slider 定位：双 grid 贴下方副图 (top 85% ≈ grid[1] 底 79% + 6px)；
+  // 单 grid 贴主图 grid.bottom 留 8px gap，避免滑块与图表拉出大段空白。
+  if (Array.isArray(option.dataZoom)) {
+    for (const zoom of option.dataZoom) {
+      if (isRecord(zoom) && zoom.type === "slider") {
+        if (grids.length >= 2) {
+          zoom.top = "85%";
+          zoom.bottom = "auto";
+        } else {
+          const g0 = grids[0];
+          const sliderH = typeof zoom.height === "number" ? zoom.height : 18;
+          const gridBottom = isRecord(g0) && typeof g0.bottom === "number" ? g0.bottom : 70;
+          zoom.bottom = Math.max(gridBottom - sliderH - 8, 8);
+          delete zoom.top;
+        }
+      }
+    }
+  }
+  // 多 grid 场景下，xAxis/yAxis 不显式 gridIndex 时 ECharts 的默认绑定不可靠，
+  // 会把 grid[1] 渲染到 grid[0] 上方，导致 K线/MA 与 MACD 子图视觉倒置。
+  // 强制把第 i 个轴绑到第 i 个 grid，规避默认推断。
+  if (grids.length > 1) {
+    for (const list of [option.xAxis, option.yAxis]) {
+      if (Array.isArray(list)) {
+        list.forEach((axis, i) => {
+          if (isRecord(axis) && axis.gridIndex === undefined && i < grids.length) {
+            axis.gridIndex = i;
+          }
+        });
+      }
+    }
   }
   if (!isRecord(option.axisPointer)) {
     option.axisPointer = {
@@ -1189,6 +1231,18 @@ export function buildChartOption(
   // 这里把字符串/数字 title 规范化为 {text:...} 对象，覆盖到 themeBase 之前。
   if (typeof option.title === "string" || typeof option.title === "number") {
     option = { ...option, title: { text: String(option.title) } };
+  }
+  // LLM 经常把 subtext 写成与 title 平级的顶层键（而非 title.subtext），
+  // ECharts 6.x 的 globalBackwardCompat 对非 Object 值用 `in` 运算符会 TypeError。
+  // 把顶层 subtext 折进 title.subtext，与字符串 title 的规范化对齐。
+  if (typeof option.subtext === "string" && option.subtext.length > 0) {
+    const titleBase = isRecord(option.title)
+      ? option.title
+      : typeof option.title === "string"
+        ? { text: option.title }
+        : {};
+    option = { ...option, title: { ...titleBase, subtext: option.subtext } };
+    delete option.subtext;
   }
 
   decorateGraphicCaptions(option);
