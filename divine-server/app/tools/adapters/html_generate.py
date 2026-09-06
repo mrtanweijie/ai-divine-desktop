@@ -13,7 +13,22 @@ from ..registry import register_tool
     "个人简历不走本工具（基座会破坏简历版式）：PDF 用 pdf_generate，可编辑 HTML 用 html_resume；"
     "用户提供了自己的 HTML 模板或明确要求原样自定义输出时用 html_common。"
     "与 ux_html 的区别：ux_html 专用于 UX 交互原型/产品界面设计稿（需用户指定风格）；"
-    "本工具覆盖其余所有「要产出一个 HTML 文件」的场景。视觉规范见系统提示。",
+    "本工具覆盖其余所有「要产出一个 HTML 文件」的场景。视觉规范见系统提示。"
+    "图表色阶规范：HTML 内若含 ECharts/Chart.js/D3 等图表，"
+    "series 颜色必须与所选 style 的 token 基座（--primary / --surface / 灰阶）调性同档——"
+    "饱和度 s≤50、明度 l≥55，与 Linear/Notion/Apple 这类低饱和克制风协调；"
+    "禁止直接使用厂商 logo 的高饱和原色（如 #10A37F / #4285F4 / #FF0000 这种 s≥70 的纯品牌色）。"
+    "通用分类色板 fallback = 前端 chartOptions.ts 的 QUAL_LIGHT（9 色："
+    "#FACC8F #F3962F #A3D8F4 #EF898E #DD656D #61A7D0 #036EAD #FAAD9D #8798C9）"
+    "或 QUAL_DARK（按 l 降序重排的同 9 色）；"
+    "深色模式用 @media(prefers-color-scheme:dark) 覆盖 series 颜色。"
+    "若业务确需厂商品牌色识别（如 Anthropic/OpenAI/Google 对比），"
+    "保留 hue 家族但按 Linear 同档降饱和："
+    "Anthropic #B4552D → #B97D64、OpenAI #10A37F → #69BFAA、Google #4285F4 → #7293CA。"
+    "图表几何规范：bar 图必须数值封顶柱宽（series.barMaxWidth: 30，与 Divine 图表同基准）——"
+    "类目 ≤4 或系列 ≥3 时 ECharts 默认自动布局会把单柱撑到近百 px 的色块；"
+    "并加顶部小圆角（series.itemStyle.borderRadius:[4,4,0,0]，"
+    "与 Linear/Notion/Apple 卡片 radius 同源，Obsidian 可 6），杜绝棱角生硬。",
     {
         "type": "object",
         "properties": {
