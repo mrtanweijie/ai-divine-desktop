@@ -110,7 +110,7 @@ export function ConversationMinimap({
     ? positionedEntries.findIndex((entry) => entry.id === hoveredId)
     : -1;
   const hoveredEntry = positionedEntries.find((entry) => entry.id === hoveredId) ?? null;
-  const previewTop = Math.max(8, Math.round((railHeight - 150) / 2));
+  const previewTop = Math.max(8, Math.round((railHeight - 120) / 2));
 
   if (entries.length === 0) return null;
   const contentHeight =
