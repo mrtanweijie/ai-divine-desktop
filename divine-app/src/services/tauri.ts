@@ -61,6 +61,15 @@ export async function savePasteFile(
   return invoke("save_paste_file", { base64, name });
 }
 
+/** 把图表导出字节（base64，无 data: 前缀）写入 <workspace>/charts/，返回落盘路径 */
+export async function saveExportFile(
+  workspace: string,
+  base64: string,
+  name: string,
+): Promise<{ name: string; path: string; size: number }> {
+  return invoke("save_export_file", { workspace, base64, name });
+}
+
 export async function getExternalFilePreview(path: string): Promise<FileDiff> {
   return invoke("get_external_file_preview", { path });
 }

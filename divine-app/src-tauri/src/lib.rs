@@ -247,6 +247,7 @@ pub fn run() {
             commands::workspace::get_binary_preview,
             commands::workspace::watch_workspace,
             commands::workspace::unwatch_workspace,
+            commands::workspace::save_export_file,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

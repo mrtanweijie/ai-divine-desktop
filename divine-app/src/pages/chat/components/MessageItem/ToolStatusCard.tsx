@@ -183,7 +183,7 @@ export const ToolStatusCard = memo(function ToolStatusCard({
       </Flex>
       {tool.status === "done" && chartOption && (
         <div className="chart-block">
-          <ChartBlock option={chartOption} />
+          <ChartBlock option={chartOption} workspacePath={workspacePath} />
         </div>
       )}
       {hasUrls && urlsOpen && (

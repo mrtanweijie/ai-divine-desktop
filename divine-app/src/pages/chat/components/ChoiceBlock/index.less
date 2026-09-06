@@ -13,6 +13,52 @@
   width: 100%;
   height: 100%;
 }
+/* 悬浮导出工具条：图表右上角 hover 态出现，PNG / SVG 各一 */
+.echarts-export-bar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 5;
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-surface) 86%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+.echarts-block:hover .echarts-export-bar,
+.echarts-export-bar:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+.echarts-export-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.echarts-export-btn:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+}
+.echarts-export-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
 /* 图表渲染失败提示：覆盖在画布上居中展示，避免白屏；画布常驻可无缝重试 */
 .echarts-error {
   position: absolute;

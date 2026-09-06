@@ -1,6 +1,8 @@
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -477,6 +479,64 @@ pub fn unwatch_workspace(
         .map_err(|_| "监听状态异常".to_string())?
         .remove(&key);
     Ok(())
+}
+
+const MAX_EXPORT_BYTES: usize = 20 * 1024 * 1024;
+
+/// Persist a chart exported from the webview's ECharts instance (base64,
+/// no data: prefix) into <workspace>/charts/. The file name is sanitized and
+/// gets a content-hash suffix so repeated exports never silently overwrite an
+/// earlier one. The returned path lets the chat surface open its location.
+#[tauri::command]
+pub fn save_export_file(
+    workspace: String,
+    base64: String,
+    name: String,
+) -> Result<serde_json::Value, String> {
+    let bytes = STANDARD
+        .decode(base64.trim())
+        .map_err(|err| format!("导出数据解码失败: {err}"))?;
+    if bytes.is_empty() {
+        return Err("导出内容为空".to_string());
+    }
+    if bytes.len() > MAX_EXPORT_BYTES {
+        return Err("导出文件超过 20MB".to_string());
+    }
+
+    let root = PathBuf::from(&workspace);
+    if !root.is_dir() {
+        return Err(format!("工作区目录不存在: {}", root.display()));
+    }
+    let chart_dir = root.join("charts");
+    std::fs::create_dir_all(&chart_dir)
+        .map_err(|err| format!("创建 charts 目录失败: {err}"))?;
+
+    // 只保留「字母数字(含中文)/_/-」，剥掉路径分隔与越界片段
+    let (stem_in, ext_in) = match name.rsplit_once('.') {
+        Some((stem, ext)) if !stem.is_empty() && !ext.is_empty() => (stem, ext),
+        _ => (name.as_str(), ""),
+    };
+    let keep = |ch: char| ch.is_alphanumeric() || ch == '_' || ch == '-';
+    let stem: String = stem_in.chars().filter(|c| keep(*c)).take(80).collect();
+    let ext: String = ext_in.chars().filter(|c| keep(*c)).take(12).collect();
+    let stem = if stem.is_empty() { "chart" } else { stem.as_str() };
+
+    let mut hasher = DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    let hash = format!("{:08x}", hasher.finish());
+    let file_name = if ext.is_empty() {
+        format!("{stem}-{hash}.bin")
+    } else {
+        format!("{stem}-{hash}.{ext}")
+    };
+    let path = chart_dir.join(&file_name);
+    std::fs::write(&path, &bytes).map_err(|err| format!("写入文件失败: {err}"))?;
+
+    Ok(serde_json::json!({
+        "name": file_name,
+        "path": path.to_string_lossy().to_string(),
+        "size": bytes.len(),
+    }))
 }
 
 #[cfg(test)]
