@@ -472,5 +472,16 @@ section:first-of-type .section-title { margin-top: 0; }
 
 PRINT_SINGLE = ""
 
+# multi 注入的通用 @page 横向 margin 为 0、background 也被覆盖；还会用
+# @page:first{margin-top:0} 把首页顶距抹掉。本模板 HTML 没有 .page 外层容器兜底，
+# 纸张底色靠 @page background 实现，且 Kami 设计把头部(名字/联系方式)放在第一页
+# 正文区需 11mm 顶距避免贴纸顶。必须在 MULTI_EXTRA 里把这三件事都补回来。
+MULTI_EXTRA = """
+@media print{
+  @page{size:A4;margin:11mm 13mm 11mm 13mm;background:#ffffff}
+  @page:first{margin-top:11mm}
+}
+"""
+
 def render(r) -> str:
     return kami_resume_html(r)

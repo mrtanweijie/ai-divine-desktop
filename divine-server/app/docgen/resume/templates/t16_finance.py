@@ -199,5 +199,15 @@ body {
 
 PRINT_SINGLE = ""
 
+# multi 注入的通用 @page 横向 margin 为 0，且会通过 @page:first{margin-top:0} 把首页顶距抹掉。
+# 本模板 HTML 没有 .page 外层容器兜底，直接用 0 会让正文贴满物理页面、首页头部贴纸顶。
+# 补回 17mm 横向 + 16mm/15mm 顶/底，与单页版一致；首页顶距同步对齐非首页。
+MULTI_EXTRA = """
+@media print{
+  @page{size:A4;margin:16mm 17mm 15mm 17mm}
+  @page:first{margin-top:16mm}
+}
+"""
+
 def render(r) -> str:
     return flat_resume_html(r, style="finance")

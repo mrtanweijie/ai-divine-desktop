@@ -206,3 +206,53 @@ def test_engine_suggests_template_by_industry():
     assert _suggest_resume_theme("做一份中英双语简历，我要投外企", {}) == "tpl_global"
     # 无模板关键词时回落到旧主题映射
     assert _suggest_resume_theme("简历，投 boss 直聘", {}) == "boss_zhipin"
+
+
+def test_flat_layout_multi_preserves_page_margin():
+    """linkedin/kami/finance 在 multi 模式下输出无 .page 容器，必须用 MULTI_EXTRA
+    把通用 @page margin 左右 0 补回横向 14mm+，否则 PDF 内容贴满物理页面。
+
+    回归自 2026-09-06：李铭 LinkedIn / Kami / Finance mock 简历 multi 布局
+    文本 x0=0、Kami 纸张底色也丢失的事故。
+    """
+    for template_id, expected_margin in [
+        ("linkedin", "12mm 14mm 12mm 14mm"),
+        ("kami", "11mm 13mm 11mm 13mm"),
+        ("finance", "16mm 17mm 15mm 17mm"),
+        ("kami_white", "11mm 13mm 11mm 13mm"),
+    ]:
+        multi = build_html(_sample_dict(), template_id, "multi", editable=False)
+        # MULTI_EXTRA 必须在通用 MULTI_PRINT_CSS 之后再次覆盖 @page
+        assert expected_margin in multi, f"{template_id} 缺 @page {expected_margin}"
+        # Kami 系列 @page 上挂 background 实现纸张底色，通用 CSS 会抹掉，必须保留
+        if template_id in ("kami", "kami_white"):
+            assert "background:#f5f4ed" in multi or "background:#ffffff" in multi
+        # multi 通用 CSS @page:first{margin-top:0} 会让首页头部贴纸顶，
+        # flat_layout 系列模板首页头部需要顶距，必须覆盖回正常值
+        if template_id == "linkedin":
+            assert "@page:first{margin-top:12mm}" in multi
+        elif template_id in ("kami", "kami_white"):
+            assert "@page:first{margin-top:11mm}" in multi
+        elif template_id == "finance":
+            assert "@page:first{margin-top:16mm}" in multi
+
+
+def test_linkedin_topbar_bleeds_to_paper_edges():
+    """LinkedIn 品牌蓝条应四边全出血贴满纸张（负 margin 突破 @page margin），
+    内容保持 14mm 间距。回归自 2026-09-06：用户反馈「蓝条需要贴边，只是内容需要间距」。
+    """
+    import re
+
+    for layout in ("single", "multi"):
+        css = build_html(_sample_dict(), "linkedin", layout, editable=False)
+        # .topbar 用 4 值简写：top=-12mm, right=-14mm, bottom=3.5mm, left=-14mm
+        # 蓝条纵向贴顶 + 横向全出血；CSS 简写 margin: 不会被解析为独立属性断言
+        assert re.search(
+            r"\.topbar\s*\{[^}]*margin:\s*-12mm\s+-14mm\s+3\.5mm\s+-14mm",
+            css,
+        ), f"{layout}: .topbar 缺少全出血负 margin 简写"
+        if layout == "multi":
+            # multi 通用 CSS 会注入 @page:first{margin-top:0} 把首页顶距抹掉，
+            # 蓝条 margin-top:-12mm 会把首页蓝条推出纸面被裁，
+            # 必须覆盖回 12mm 保证首页顶部对齐非首页。
+            assert "@page:first{margin-top:12mm}" in css

@@ -34,6 +34,9 @@ body {
   height: 2.2mm;
   background: #0a66c2;
   margin-bottom: 3.5mm;
+  /* LinkedIn 品牌条四边全出血：负 margin 突破 @page 的 12mm 顶距与 14mm 左右距，
+     蓝条贴满纸张边缘（正文内容区保持 14mm 间距不受影响） */
+  margin: -12mm -14mm 3.5mm -14mm;
 }
 
 .header {
@@ -205,6 +208,17 @@ body {
 '''
 
 PRINT_SINGLE = ""
+
+# multi 模式通用 @page margin 左右为 0，但本模板 HTML 没有 .page 外层容器做内部 padding 兜底，
+# 直接用 0 margin 会让正文贴满物理页面边。补回 14mm 横向 + 12mm 顶/11mm 底，与单页版一致；
+# 同时覆盖 @page:first{margin-top:0}（通用多页块会取消首页顶距），否则 .topbar 的
+# margin-top:-12mm 会把蓝条推出纸面被裁掉。
+MULTI_EXTRA = """
+@media print{
+  @page{size:A4;margin:12mm 14mm 12mm 14mm}
+  @page:first{margin-top:12mm}
+}
+"""
 
 def render(r) -> str:
     return flat_resume_html(r, style="linkedin")
