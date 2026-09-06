@@ -243,3 +243,71 @@ def test_pptx_outline_pages(tmp_path):
     assert result["slides"][0]["title"] == "封面标题"
     assert result["slides"][1]["index"] == 2
     assert any("第二页正文内容" in p for p in result["slides"][1]["previews"])
+def test_word_base_style_and_header(tmp_path):
+    """样式基底模式：清空正文、保留样式定义/页眉，新内容字体派生自基底。"""
+    script = Path(__file__).resolve().parents[1] / "app" / "tools" / "scripts" / "word_document.py"
+    ws_dir = tmp_path / "ws"
+    ws_dir.mkdir()
+
+    base = Document()
+    base.styles["Normal"].font.name = "Courier New"
+    base.sections[0].header.paragraphs[0].text = "公司机密"
+    base.add_paragraph("旧正文，应当被清空")
+    base.save(str(ws_dir / "模板.docx"))
+
+    completed = subprocess.run(
+        [sys.executable, str(script)],
+        input=json.dumps(
+            {
+                "workspace": str(ws_dir),
+                "output_dir": str(ws_dir),
+                "params": {
+                    "title": "新报告",
+                    "base": str(ws_dir / "模板.docx"),
+                    "markdown": "# 新报告标题\n\n生成的新内容。",
+                },
+            },
+            ensure_ascii=False,
+        ),
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr[-2000:]
+    output = json.loads(completed.stdout)
+    assert output["success"] is True and output["data"]["base"] is True
+
+    produced = Document(output["filepath"])
+    texts = [p.text for p in produced.paragraphs]
+    assert not any("旧正文" in t for t in texts)  # 基底正文已清空
+    assert any("生成的新内容" in t for t in texts)
+    assert produced.styles["Normal"].font.name == "Courier New"  # 样式定义保留
+    assert produced.sections[0].header.paragraphs[0].text == "公司机密"  # 页眉保留
+    # 新内容 run 字体派生自基底 Normal（Courier New），未被 PingFang 覆盖
+    body_run = next(p.runs[0] for p in produced.paragraphs if p.runs and "生成的新内容" in p.text)
+    assert body_run.font.name == "Courier New"
+
+
+def test_word_base_missing_file_fails_cleanly(tmp_path):
+    script = Path(__file__).resolve().parents[1] / "app" / "tools" / "scripts" / "word_document.py"
+    ws_dir = tmp_path / "ws"
+    ws_dir.mkdir()
+    completed = subprocess.run(
+        [sys.executable, str(script)],
+        input=json.dumps(
+            {
+                "workspace": str(ws_dir),
+                "output_dir": str(ws_dir),
+                "params": {"title": "x", "base": str(ws_dir / "不存在.docx")},
+            },
+            ensure_ascii=False,
+        ),
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert completed.returncode == 0
+    output = json.loads(completed.stdout)
+    assert output["success"] is False and "不存在" in output["message"]

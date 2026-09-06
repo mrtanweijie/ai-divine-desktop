@@ -7,6 +7,8 @@ from docx import Document
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from app.docgen.word.editor import base_theme_id, clear_body  # noqa: E402
+from app.tools.office_files import OfficePathError, resolve_office_path  # noqa: E402
 from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
 from app.docgen.word.elements import (  # noqa: E402
     add_body_text,
@@ -227,15 +229,34 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = unique_output_path(output_dir, title, "文档", ".docx")
 
+    # 样式基底模式：以用户 docx 的样式定义/页面设置/页眉页脚为基准，
+    # 清空正文后按现有管线重写内容；字体派生自基底 Normal，避免被主题覆盖。
+    base_raw = str(params.get("base") or "").strip()
+    base_warnings: list[str] = []
+    base_used = False
+    document = Document()
+    if base_raw:
+        try:
+            base_source = resolve_office_path(workspace, base_raw, kind="doc")
+        except OfficePathError as exc:
+            print(json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False))
+            return
+        document = Document(str(base_source))
+        clear_body(document)
+        base_used = True
+        theme = base_theme_id(document)
+        if cover:
+            base_warnings.append("base 模式下忽略 cover（沿用基底文档的开篇）")
+
     for attempt in range(2):
         try:
-            document = Document()
-            apply_word_theme(document, theme)
-            add_title_page(document, title, theme, cover=cover)
+            if not base_used:
+                apply_word_theme(document, theme)
+                add_title_page(document, title, theme, cover=cover)
             if toc:
                 add_toc(document, theme)
 
-            warnings: list[str] = []
+            warnings = list(base_warnings)
             if markdown:
                 counts = markdown_to_document(document, markdown, workspace, theme)
             elif sections:
@@ -244,8 +265,10 @@ def main() -> None:
                 )
             else:
                 counts = {}
-                document.add_paragraph("此文档由 AI Divine 自动生成。")
-            add_footer(document, theme)
+                if not base_used:
+                    document.add_paragraph("此文档由 AI Divine 自动生成。")
+            if not base_used:
+                add_footer(document, theme)
             document.save(output_path)
             break
         except Exception:
@@ -269,9 +292,10 @@ def main() -> None:
                 "file_name": output_path.name,
                 "filepath": str(output_path),
                 "data": {
-                    "theme": theme,
-                    "cover": cover,
+                    "theme": theme if not base_used else "base-derived",
+                    "cover": cover and not base_used,
                     "toc": toc,
+                    "base": base_used,
                     **(counts or {}),
                     "warnings": warnings,
                 },

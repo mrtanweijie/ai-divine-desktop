@@ -185,15 +185,15 @@ pnpm tauri:dev
 | `describe_svg` | 读取现有 SVG，返回画布、元素、关键 id 与结构摘要 |
 | `directory_tree` | 查看目录树结构（忽略 .gitignore/node_modules） |
 | `discover_importable_skills` | 扫描本机其他 AI 工具已安装的技能，列出可迁移候选 |
-| `document_outline` | 查看 Word/Excel 文档结构大纲（段落/表格/sheet），输出可编辑坐标 |
+| `document_outline` | 查看 Word/Excel/PPT 文档结构大纲（段落/表格/sheet/页），输出可编辑坐标 |
 | `draw_svg` | 从零生成 SVG 矢量图/图标/插画 |
 | `edit_docx` | 编辑已有 Word：替换文字（run 级保样式）、改表格单元格、追加章节、删段落 |
 | `edit_files` | 按 SEARCH/REPLACE 批量修改/创建文件（SEARCH 需精确匹配） |
 | `edit_lines` | 按行号范围精确编辑单个文件 |
 | `edit_pptx` | 编辑已有 PPT 文本：替换文字（含组合形状/表格）、改指定页标题 |
 | `edit_svg` | 基于现有 SVG 局部修改，只动用户提到的元素 |
-| `edit_xlsx` | 编辑已有 Excel：改单元格、追加行、新增工作表（带主题样式）、写公式 |
-| `fill_template` | 填充 Word 模板 `{{占位符}}`，支持表格整行展开（合同/通知函等套模板场景） |
+| `edit_xlsx` | 编辑已有 Excel：改单元格/样式、追加行、增删工作表、写公式、插入图表与图片 |
+| `fill_template` | 填充 Word/Excel 模板 `{{占位符}}`，Word 支持表格整行展开（合同/通知函等套模板场景） |
 | `forget_memory` | 删除一条长期记忆（用户纠正"记错了"时） |
 | `format_code` | 代码格式化（ruff format / prettier 自动识别） |
 | `generate_chart` | 生成 ECharts 图表并在对话中内联展示 |
@@ -233,7 +233,7 @@ pnpm tauri:dev
 | `ux_html` | 保存 Agent 设计的完整 UX 交互 HTML，可文件面板预览 |
 | `web_fetch` / `web_fetch_batch` | 抓取网页/批量抓取，JS 动态页自动浏览器兜底，可监听数据接口取 JSON |
 | `web_search` | 联网搜索，返回标题/链接/摘要 |
-| `word_document` | 生成 Word 文档（标题/表格/图片/代码块等元素） |
+| `word_document` | 生成 Word 文档（标题/表格/图片/代码块等元素），支持以用户 docx 为样式基底 |
 | `write_calendar` | 写入日程/日历事件 |
 | `write_file` | 创建/写入 workspace 内文本文件 |
 

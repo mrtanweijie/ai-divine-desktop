@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import difflib
 import re
+from copy import copy
 from pathlib import Path
 from typing import Any
 
@@ -146,6 +147,36 @@ def _apply_one(workbook, op: dict, report: dict, workspace=None) -> None:
                 ws.cell(row=start + r_offset, column=c_offset, value=value)
         report["hits"] += len(rows)
         report["warnings"].append(f"已从第 {start} 行追加 {len(rows)} 行")
+        return
+
+    if kind == "delete_rows":
+        ws = _resolve_sheet(workbook, op.get("sheet"))
+        start = op.get("start")
+        if not isinstance(start, int) or start < 1:
+            raise XlsxOpError(f"delete_rows 需要有效的 start 行号（1 基），收到: {start!r}")
+        count = op.get("count") if isinstance(op.get("count"), int) and op["count"] > 0 else 1
+        if start > _last_data_row(ws):
+            raise XlsxOpError(
+                f"起始行 {start} 超出数据区（末行 {_last_data_row(ws)}）"
+            )
+        ws.delete_rows(start, count)
+        report["hits"] += 1
+        report["warnings"].append(f"已删除第 {start} 行起的 {count} 行")
+        return
+
+    if kind == "delete_sheet":
+        name = str(op.get("name") or "").strip()
+        ws = _resolve_sheet(workbook, name)
+        if len(workbook.sheetnames) <= 1:
+            raise XlsxOpError("工作簿至少要保留一个工作表，无法删除")
+        workbook.remove(ws)
+        report["hits"] += 1
+        report["warnings"].append(f"已删除工作表 {ws.title}")
+        return
+
+    if kind == "style_cells":
+        _style_cells(workbook, op, report)
+        report["hits"] += 1
         return
 
     if kind == "add_chart":
@@ -330,6 +361,87 @@ def _insert_image(workbook, op: dict, report: dict, workspace=None) -> None:
         image.height = int(op["height"])
     ws.add_image(image, anchor)
     report["warnings"].append(f"已嵌入图片 {image_path.name} 至 {anchor}")
+
+
+_STYLE_MAX_CELLS = 20000
+_ALIGN_VALUES = ("left", "center", "right")
+_HEX_COLOR_RE = re.compile(r"^#?([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$")
+
+
+def _normalize_hex(color: str, what: str) -> str:
+    cleaned = str(color or "").strip().lstrip("#").upper()
+    if not _HEX_COLOR_RE.match("#" + cleaned):
+        raise XlsxOpError(f"{what} 颜色格式无效: {color!r}（需 6/8 位十六进制，如 FF0000）")
+    return cleaned
+
+
+def _style_cells(workbook, op: dict, report: dict) -> None:
+    """对范围（或单格）应用字符/填充/对齐/数字格式样式。
+
+    样式通过 copy 现有对象后局部修改，不清掉单元格已有的其他格式。
+    """
+    from openpyxl.styles import PatternFill
+
+    ws = _resolve_sheet(workbook, op.get("sheet"))
+    rng = str(op.get("range") or "").strip()
+    if "!" in rng:
+        rng = rng.split("!")[-1]
+    provided = {
+        key: op[key]
+        for key in ("bold", "italic", "underline", "font_size", "font_color",
+                    "fill_color", "align", "number_format")
+        if op.get(key) is not None
+    }
+    if not provided:
+        raise XlsxOpError(
+            "style_cells 未提供任何样式参数（bold/italic/underline/font_size/"
+            "font_color/fill_color/align/number_format）"
+        )
+    if "align" in provided and str(provided["align"]).lower() not in _ALIGN_VALUES:
+        raise XlsxOpError(
+            f"align 无效: {provided['align']!r}，可选 {'/'.join(_ALIGN_VALUES)}"
+        )
+    for color_key in ("font_color", "fill_color"):
+        if color_key in provided:
+            provided[color_key] = _normalize_hex(provided[color_key], color_key)
+    try:
+        min_col, min_row, max_col, max_row = range_boundaries(rng)
+    except Exception as exc:  # noqa: BLE001 — 转成面向模型的报错
+        raise XlsxOpError(f"范围无效: {rng!r}（需 A1:C10 或 B2 形式）") from exc
+    if min_row is None or max_row is None:
+        raise XlsxOpError(
+            f"范围 {rng!r} 是整列/整行写法——请给出明确行范围，如 A1:A200"
+        )
+    total = (max_col - min_col + 1) * (max_row - min_row + 1)
+    if total > _STYLE_MAX_CELLS:
+        raise XlsxOpError(
+            f"范围过大（{total} 个单元格，上限 {_STYLE_MAX_CELLS}）——整列样式请给出明确行范围，如 A1:A200"
+        )
+    count = 0
+    for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
+        for cell in row:
+            font = copy(cell.font)
+            if "bold" in provided:
+                font.bold = bool(provided["bold"])
+            if "italic" in provided:
+                font.italic = bool(provided["italic"])
+            if "underline" in provided:
+                font.underline = "single" if provided["underline"] else None
+            if "font_size" in provided:
+                font.size = provided["font_size"]
+            if "font_color" in provided:
+                font.color = provided["font_color"]
+            cell.font = font
+            if "fill_color" in provided:
+                cell.fill = PatternFill("solid", fgColor=provided["fill_color"])
+            if "align" in provided:
+                alignment = copy(cell.alignment)
+                alignment.horizontal = str(provided["align"]).lower()
+                cell.alignment = alignment
+            if "number_format" in provided:
+                cell.number_format = str(provided["number_format"])
+            count += 1
+    report["warnings"].append(f"已为 {count} 个单元格应用样式")
 
 
 def apply_ops(workbook, ops: list[dict], *, workspace=None) -> dict:

@@ -374,6 +374,59 @@ def apply_ops(
 
 
 # ---------------------------------------------------------------------------
+# 样式基底模式（word_document base 参数）
+# ---------------------------------------------------------------------------
+
+
+def clear_body(document) -> int:
+    """清空正文（段落 + 表格），保留样式定义、页面设置与页眉页脚。
+
+    供 word_document 的 base 样式基底模式使用：用户的模板只贡献"长相"，
+    正文内容全部由生成管线重新写入。返回移除的元素数。
+    """
+    from docx.oxml.ns import qn
+
+    body = document.element.body
+    removed = 0
+    for child in list(body):
+        if child.tag in (qn("w:p"), qn("w:tbl")):
+            body.remove(child)
+            removed += 1
+    return removed
+
+
+def base_theme_id(document) -> str:
+    """为基底文档注册派生主题：字体取基底 Normal 样式，其余沿用 universal。
+
+    生成管线的 run 级字体来自主题（add_rich_text 强制 set_run_fonts），
+    基底模式下必须派生主题，否则用户模板的字体会被 PingFang 覆盖。
+    返回可直接传给渲染函数的临时 theme_id（脚本进程短命，全局注册安全）。
+    """
+    from docx.oxml.ns import qn
+
+    from .themes import WORD_THEMES, resolve_theme
+
+    derived = dict(resolve_theme("universal"))
+    try:
+        normal = document.styles["Normal"]
+        latin = normal.font.name
+        east = None
+        rpr = normal.element.rPr
+        if rpr is not None:
+            rfonts = rpr.find(qn("w:rFonts"))
+            if rfonts is not None:
+                east = rfonts.get(qn("w:eastAsia"))
+        if latin:
+            derived["font_western"] = latin
+            derived["font"] = east or latin
+    except Exception:  # noqa: BLE001 — 样式读取失败则完全沿用 universal
+        pass
+    theme_id = f"__base_{abs(hash((derived['font'], derived['font_western']))) % 10**8}"
+    WORD_THEMES[theme_id] = derived
+    return theme_id
+
+
+# ---------------------------------------------------------------------------
 # fill_template：{{占位符}} 填充
 # ---------------------------------------------------------------------------
 

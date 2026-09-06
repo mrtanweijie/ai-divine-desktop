@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-from ..base import ToolAdapter
+from ..base import ToolAdapter, resolve_external_path
 from ..registry import register_tool
 
 
@@ -34,6 +35,14 @@ from ..registry import register_tool
             "path": {
                 "type": "string",
                 "description": "保存目录，workspace 内相对路径；默认保存到应用输出目录，不写入项目",
+            },
+            "base": {
+                "type": "string",
+                "description": (
+                    "样式基底：以该 .docx 的字体/颜色/页面设置/页眉页脚为基准生成新文档"
+                    "（其正文会被清空），新内容字体派生自基底 Normal 样式；"
+                    "base 模式忽略 cover。不传则从零新建"
+                ),
             },
             "cover": {
                 "type": "boolean",
@@ -114,6 +123,7 @@ class WordDocumentAdapter(ToolAdapter):
     script_name = "word_document.py"
     category = "documents"
     timeout = 60
+    allow_external_paths = True  # base 样式基底可引用用户提供的文档
 
     def build_params(self, arguments: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -124,4 +134,11 @@ class WordDocumentAdapter(ToolAdapter):
             "cover": bool(arguments.get("cover")),
             "toc": bool(arguments.get("toc")),
             "path": str(arguments.get("path") or ""),
+            "base": str(arguments.get("base") or ""),
         }
+
+    def external_paths(
+        self, workspace: Path, arguments: dict[str, Any]
+    ) -> list[str]:
+        external = resolve_external_path(workspace, arguments.get("base"))
+        return [external] if external else []

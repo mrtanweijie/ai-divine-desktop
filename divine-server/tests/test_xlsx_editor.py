@@ -460,3 +460,71 @@ def test_fill_template_script_xlsx(tmp_path):
     assert "{{zipcode}}" in reloaded.active["A2"].value
     assert reloaded.active["A3"].value == "=SUM(1,2)"
     assert any("zipcode" in w for w in output["data"]["warnings"])
+
+
+def test_delete_rows_ops(tmp_path):
+    path = tmp_path / "wb.xlsx"
+    _make_workbook(path)
+    wb = load_workbook(str(path))
+    report = apply_ops(
+        wb,
+        [{"op": "delete_rows", "sheet": "9月", "start": 2, "count": 1}],
+    )
+    assert report["hits"] == 1
+    assert wb["9月"]["A2"].value == "2026-09-02"  # 原 A3 上移
+    with pytest.raises(XlsxOpError):
+        apply_ops(wb, [{"op": "delete_rows", "sheet": "9月", "start": 999}])
+
+
+def test_delete_sheet_and_last_sheet_guard(tmp_path):
+    path = tmp_path / "wb.xlsx"
+    _make_workbook(path)
+    wb = load_workbook(str(path))
+    apply_ops(wb, [{"op": "delete_sheet", "name": "汇总"}])
+    assert "汇总" not in wb.sheetnames
+    with pytest.raises(XlsxOpError):
+        apply_ops(wb, [{"op": "delete_sheet", "name": "9月"}])  # 仅剩一个 sheet
+
+
+def test_style_cells_ops(tmp_path):
+    path = tmp_path / "styled.xlsx"
+    wb = Workbook()
+    wb.active["A1"] = "标题"
+    wb.active["A2"] = 1234.5
+    wb.save(str(path))
+
+    wb = load_workbook(str(path))
+    report = apply_ops(
+        wb,
+        [
+            {
+                "op": "style_cells",
+                "range": "A1",
+                "bold": True,
+                "font_size": 16,
+                "font_color": "FF0000",
+                "fill_color": "#FFFF00",
+                "align": "center",
+            },
+            {"op": "style_cells", "range": "A2", "number_format": "#,##0.00"},
+        ],
+    )
+    assert report["hits"] == 2
+    a1 = wb.active["A1"]
+    assert a1.font.bold is True and a1.font.size == 16
+    assert str(a1.font.color.rgb).endswith("FF0000")
+    assert a1.fill.fgColor.rgb.endswith("FFFF00")
+    assert a1.alignment.horizontal == "center"
+    assert wb.active["A2"].number_format == "#,##0.00"
+
+    # 非法参数
+    for bad_ops in (
+        [{"op": "style_cells", "range": "A1"}],
+        [{"op": "style_cells", "range": "A1", "font_color": "red"}],
+        [{"op": "style_cells", "range": "A:A", "bold": True}],
+        [{"op": "style_cells", "range": "不是范围", "bold": True}],
+    ):
+        with pytest.raises(XlsxOpError):
+            apply_ops(wb, bad_ops)
+
+

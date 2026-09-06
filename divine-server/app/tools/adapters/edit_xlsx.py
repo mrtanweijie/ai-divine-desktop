@@ -36,6 +36,9 @@ from ..registry import register_tool
                                 "set_formula",
                                 "add_chart",
                                 "insert_image",
+                                "delete_rows",
+                                "delete_sheet",
+                                "style_cells",
                             ],
                             "description": "操作类型",
                         },
@@ -70,7 +73,7 @@ from ..registry import register_tool
                             "type": "array",
                             "description": "(append_rows/add_sheet) 数据行，每行为值数组",
                         },
-                        "name": {"type": "string", "description": "(add_sheet) 新工作表名"},
+                        "name": {"type": "string", "description": "(add_sheet/delete_sheet) 工作表名"},
                         "headers": {
                             "type": "array",
                             "items": {"type": "string"},
@@ -114,6 +117,33 @@ from ..registry import register_tool
                         "image_path": {
                             "type": "string",
                             "description": "(insert_image) 图片路径（png/jpg），嵌入后不依赖原文件",
+                        },
+                        "start": {
+                            "type": "integer",
+                            "description": "(delete_rows) 起始行号（1 基）",
+                        },
+                        "count": {
+                            "type": "integer",
+                            "description": "(delete_rows) 删除行数，默认 1",
+                        },
+                        "range": {
+                            "type": "string",
+                            "description": "(style_cells) 目标范围，如 'A1:C10' 或单格 'B2'（整列写法会拒绝，请给明确行范围）",
+                        },
+                        "bold": {"type": "boolean", "description": "(style_cells) 加粗"},
+                        "italic": {"type": "boolean", "description": "(style_cells) 斜体"},
+                        "underline": {"type": "boolean", "description": "(style_cells) 下划线"},
+                        "font_size": {"type": "number", "description": "(style_cells) 字号"},
+                        "font_color": {"type": "string", "description": "(style_cells) 字体颜色，十六进制如 'FF0000'"},
+                        "fill_color": {"type": "string", "description": "(style_cells) 填充色，十六进制如 'FFFF00'"},
+                        "align": {
+                            "type": "string",
+                            "enum": ["left", "center", "right"],
+                            "description": "(style_cells) 水平对齐",
+                        },
+                        "number_format": {
+                            "type": "string",
+                            "description": "(style_cells) 数字格式，如 '#,##0.00'",
                         },
                         "width": {"type": "number", "description": "(insert_image) 可选，像素宽"},
                         "height": {"type": "number", "description": "(insert_image) 可选，像素高"},
