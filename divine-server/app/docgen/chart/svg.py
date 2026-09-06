@@ -130,9 +130,224 @@ def _escape(text: str) -> str:
     )
 
 
+def _axis_dict(option: dict[str, Any], key: str) -> dict[str, Any] | None:
+    """Resolve an xAxis/yAxis entry to a single dict (arrays take [0])."""
+    axis = option.get(key)
+    if isinstance(axis, list):
+        axis = axis[0] if axis else None
+    return axis if isinstance(axis, dict) else None
+
+
+def _is_horizontal_bar(option: dict[str, Any]) -> bool:
+    """True when bars run along x: value x-axis + category y-axis."""
+    x_axis = _axis_dict(option, "xAxis")
+    y_axis = _axis_dict(option, "yAxis")
+    if x_axis is None or y_axis is None:
+        return False
+    x_is_category = x_axis.get("type") == "category" or isinstance(
+        x_axis.get("data"), list
+    )
+    y_data = y_axis.get("data")
+    y_is_category = y_axis.get("type") == "category" or (
+        isinstance(y_data, list) and len(y_data) > 0
+    )
+    return y_is_category and not x_is_category
+
+
+def _text_width(text: str, size: float) -> float:
+    """Rough width: CJK glyphs are square, latin ~0.55em (sans-serif)."""
+    width = 0.0
+    for char in text:
+        width += size if ord(char) > 127 else size * 0.55
+    return width
+
+
+def _clip_text(text: str, size: float, max_width: float) -> str:
+    """Clip to max_width by glyph, appending an ellipsis when truncated."""
+    if _text_width(text, size) <= max_width:
+        return text
+    out: list[str] = []
+    width = 0.0
+    limit = max_width - _text_width("…", size)
+    for char in text:
+        char_width = size if ord(char) > 127 else size * 0.55
+        if width + char_width > limit:
+            break
+        width += char_width
+        out.append(char)
+    return "".join(out) + "…"
+
+
+# Thick bar cap (px, along the bar's minor axis). Mirrors the front-end
+# barMaxWidth: 30 so the Python SVG export and the on-page ECharts agree.
+_HBAR_MAX_THICKNESS = 30.0
+
+
+def _hbar_svg(option: dict[str, Any], title: str) -> str:
+    """Horizontal bars: y categories run top-down, values extend rightward."""
+    width = 760
+    height = 380
+    caption_lines = _bottom_caption_lines(option)
+    caption_height = sum(_caption_line_height(size) for _, size, _ in caption_lines)
+    canvas_height = height + caption_height + 8 if caption_height else height
+    right = 24
+    top = 56
+    bottom = 62
+    plot_height = height - top - bottom
+
+    series = _series_list(option)
+    y_axis = _axis_dict(option, "yAxis")
+    y_data = y_axis.get("data") if y_axis else None
+    labels = [str(item) for item in y_data] if isinstance(y_data, list) else []
+    label_rows = [label.split("\n") for label in labels]
+
+    all_values: list[float] = []
+    for item in series:
+        values = _series_values(item)
+        if not values:
+            values = [0.0] * max(1, len(labels))
+        all_values.extend(values)
+    if not labels:
+        labels = [str(index + 1) for index in range(max(len(all_values), 1))]
+        label_rows = [[label] for label in labels]
+    max_value = _nice_max(max(all_values or [1.0]))
+    category_count = max(len(labels), 1)
+    row_height = plot_height / category_count
+    series_count = max(len(series), 1)
+    slot = row_height / series_count if series_count > 1 else row_height
+
+    # Left gutter sized by the longest visible category line.
+    longest = 0.0
+    for rows in label_rows:
+        for row in rows[:2]:
+            longest = max(longest, _text_width(row, 10))
+    left = max(96, 18 + int(longest) + 10)
+    plot_width = width - left - right
+
+    def bar_thickness(item: dict[str, Any]) -> float:
+        auto = min(slot * 0.72, _HBAR_MAX_THICKNESS)
+        explicit = item.get("barWidth")
+        if isinstance(explicit, (int, float)) and not isinstance(explicit, bool):
+            return max(2.0, min(float(explicit), auto))
+        return max(2.0, auto)
+
+    parts = [
+        (
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" '
+            f'height="{canvas_height}" viewBox="0 0 {width} {canvas_height}">'
+        ),
+        "<g font-family=\"sans-serif\">",
+    ]
+    if title:
+        parts.append(
+            f'<text x="{width / 2}" y="30" text-anchor="middle" '
+            f'font-size="20" font-weight="600" fill="{INK}">{_escape(title)}</text>'
+        )
+
+    # Vertical value gridlines (baseline drawn separately below).
+    for index in range(1, 5):
+        ratio = index / 4
+        x = left + ratio * plot_width
+        parts.append(
+            f'<line x1="{x:.1f}" y1="{top}" x2="{x:.1f}" '
+            f'y2="{top + plot_height}" stroke="{AXIS_SPLIT}" stroke-width="1"/>'
+        )
+    parts.append(
+        f'<line x1="{left}" y1="{top + plot_height}" x2="{left + plot_width}" '
+        f'y2="{top + plot_height}" stroke="{AXIS_BASE}" stroke-width="1"/>'
+    )
+
+    for series_index, item in enumerate(series):
+        values = _series_values(item)
+        if not values:
+            continue
+        color = COLORS[series_index % len(COLORS)]
+        thickness = bar_thickness(item)
+        for index, value in enumerate(values[:category_count]):
+            if value <= 0:
+                continue
+            length = max(2.0, value / max_value * plot_width)
+            rect_y = top + index * row_height + series_index * slot + (
+                slot - thickness
+            ) / 2
+            parts.append(
+                f'<rect x="{left}" y="{rect_y:.1f}" width="{length:.1f}" '
+                f'height="{thickness:.1f}" rx="2" fill="{color}"/>'
+            )
+            # Value label hugs the bar end: outside when room, else inside.
+            label_x = left + length + 6
+            anchor = "start"
+            if label_x + 34 > left + plot_width:
+                label_x = left + length - 6
+                anchor = "end"
+            parts.append(
+                f'<text x="{label_x:.1f}" y="{rect_y + thickness / 2 + 3.5:.1f}" '
+                f'text-anchor="{anchor}" font-size="10" fill="{AXIS_LABEL}">'
+                f"{value:g}</text>"
+            )
+
+    # Y-axis category labels: multi-line via tspan, clipped to the gutter.
+    for index, rows in enumerate(label_rows):
+        rows = [row for row in rows if row.strip()] or [labels[index]]
+        clipped = [_clip_text(row, 10, left - 12) for row in rows[:2]]
+        cy = top + row_height * (index + 0.5)
+        baseline = cy + 4 - (len(clipped) - 1) * 6.5
+        text = (
+            f'<text x="{left - 12}" y="{baseline:.1f}" text-anchor="end" '
+            f'font-size="10" fill="{AXIS_LABEL}">'
+        )
+        text += _escape(clipped[0])
+        for row in clipped[1:]:
+            text += f'<tspan x="{left - 12}" dy="13">{_escape(row)}</tspan>'
+        text += "</text>"
+        parts.append(text)
+
+    # Bottom value scale labels.
+    for index in range(5):
+        ratio = index / 4
+        x = left + ratio * plot_width
+        value = max_value * ratio
+        parts.append(
+            f'<text x="{x:.1f}" y="{height - 22}" text-anchor="middle" '
+            f'font-size="11" fill="{AXIS_LABEL}">{value:g}</text>'
+        )
+
+    # xAxis name, bottom-right of the value axis.
+    x_axis = _axis_dict(option, "xAxis")
+    axis_name = x_axis.get("name") if x_axis else None
+    if isinstance(axis_name, str) and axis_name:
+        parts.append(
+            f'<text x="{width - right}" y="{height - 8}" text-anchor="end" '
+            f'font-size="11" fill="{AXIS_LABEL}">{_escape(axis_name)}</text>'
+        )
+
+    if len(series) > 1:
+        legend_y = height - 34
+        legend_x = left
+        for index, item in enumerate(series[:6]):
+            color = COLORS[index % len(COLORS)]
+            name = str(item.get("name") or item.get("seriesName") or f"系列{index + 1}")
+            parts.append(
+                f'<rect x="{legend_x}" y="{legend_y - 8}" width="10" '
+                f'height="10" rx="2" fill="{color}"/>'
+            )
+            parts.append(
+                f'<text x="{legend_x + 15}" y="{legend_y}" font-size="11" '
+                f'fill="{INK_SUB}">{_escape(name)}</text>'
+            )
+            legend_x += 15 + len(name) * 7 + 24
+
+    if caption_height:
+        parts.append(_bottom_caption(option, width, canvas_height))
+    parts.append("</g></svg>")
+    return "".join(parts)
+
+
 def _cartesian_svg(
     option: dict[str, Any], title: str, chart_type: str
 ) -> str:
+    if chart_type == "bar" and _is_horizontal_bar(option):
+        return _hbar_svg(option, title)
     width = 760
     height = 380
     # A "数据来源：…" caption gets its own strip appended below the chart, so
