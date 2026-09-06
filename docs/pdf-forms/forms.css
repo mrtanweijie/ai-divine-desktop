@@ -195,7 +195,45 @@ html, body {
 }
 .form-meta-bar .mb-item:last-child { border-right: none; }
 .form-meta-bar .mb-k { color: var(--text-muted); white-space: nowrap; }
-.form-meta-bar .mb-v { color: var(--text-main); font-weight: 600; }
+.form-meta-bar .mb-v { color: var(--text-main); font-weight: 600; flex: 1 1 auto; min-width: 0; display: flex; align-items: center; }
+/* 基础信息条内的可输入控件：透明底、无边框、继承 mb-v 字体视觉 */
+.form-meta-bar .mb-input {
+  flex: 1 1 auto; min-width: 0; width: 100%;
+  border: none; background: transparent;
+  color: inherit; font: inherit; font-weight: 600;
+  padding: 0; outline: none;
+}
+.form-meta-bar .mb-input::placeholder { color: var(--text-muted); font-weight: 400; opacity: 0.65; }
+.form-meta-bar select.mb-input {
+  -webkit-appearance: none; appearance: none;
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+                    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 10px) 55%, calc(100% - 6px) 55%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  padding-right: 14px;
+}
+
+/* 报销事由行：紧贴基础信息条下方，全宽输入 */
+.purpose-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  margin: -10px 0 14px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: var(--fs-small);
+}
+.purpose-bar .purpose-k { color: var(--text-muted); white-space: nowrap; }
+.purpose-bar .purpose-v { flex: 1 1 auto; min-width: 0; color: var(--text-main); font-weight: 600; display: flex; align-items: center; }
+.purpose-bar .purpose-input {
+  flex: 1 1 auto; min-width: 0; width: 100%;
+  border: none; background: transparent;
+  color: inherit; font: inherit; font-weight: 600;
+  padding: 0; outline: none;
+}
+.purpose-bar .purpose-input::placeholder { color: var(--text-muted); font-weight: 400; opacity: 0.7; }
 
 /* ===========================
    分节 Section
