@@ -25,16 +25,41 @@ class PdfFormError(ValueError):
 
 
 def list_fields(path: Path) -> dict[str, Any]:
-    """枚举 PDF 的 AcroForm 字段：名称/类型/当前值/可选状态/页码。"""
+    """枚举 PDF 的 AcroForm 字段：名称/类型/当前值/可选状态/页码。
+
+    "name::选项" 分组命名的控件（表单单选组，见 pdf_form_generate）聚合为
+    一个逻辑字段：name=组名，type=choice-list，choices=选项。
+    """
     import pymupdf
 
     doc = pymupdf.open(str(path))
     fields: list[dict[str, Any]] = []
+    index_by_name: dict[str, int] = {}
     try:
         for page_no, page in enumerate(doc, 1):
             for widget in page.widgets() or []:
+                name = widget.field_name or ""
+                if "::" in name:
+                    base, option = name.split("::", 1)
+                    if base in index_by_name:
+                        entry = fields[index_by_name[base]]
+                        if option not in entry["choices"]:
+                            entry["choices"].append(option)
+                    else:
+                        index_by_name[base] = len(fields)
+                        entry = {
+                            "name": base,
+                            "type": "choice-list",
+                            "value": "",
+                            "page": page_no,
+                            "choices": [option],
+                        }
+                        fields.append(entry)
+                    if str(widget.field_value) not in ("", "Off", "None"):
+                        entry["value"] = option
+                    continue
                 entry: dict[str, Any] = {
-                    "name": widget.field_name,
+                    "name": name,
                     "type": widget.field_type_string,
                     "value": widget.field_value,
                     "page": page_no,
@@ -79,14 +104,37 @@ def fill_fields(
 
     for page in doc:
         for widget in page.widgets() or []:
-            name = widget.field_name
+            name = widget.field_name or ""
+            # 分组单选（pdf_form_generate 生成的 "name::选项" 控件）：
+            # 值等于选项时勾选该控件，同组其余控件取消（互斥）。
+            base, group_sep, option = name.partition("::")
+            if group_sep:
+                target = normalized.get(base)
+                if target is None:
+                    continue
+                checked = option == target
+                widget.field_value = bool(checked)
+                widget.update()
+                if checked:
+                    hit_counter[base] = hit_counter.get(base, 0) + 1
+                    missed.discard(base)
+                continue
             if name not in normalized:
                 continue
             target = normalized[name]
             ftype = widget.field_type_string
             if ftype == "CheckBox" or ftype == "RadioButton":
+                # RadioButton 是选项组：按选项值匹配（如 "男"/"女"）；
+                # CheckBox 用 truthy 语义（true/1/是 → 勾选）。
+                states = (widget.button_states() or {}).get("normal") or []
+                on_states = [st for st in states if st and st != "Off"]
                 truthy = target.strip().lower() in _TRUTHY
-                widget.field_value = widget.on_state() if truthy else False
+                if target in on_states:
+                    widget.field_value = target
+                elif on_states and truthy:
+                    widget.field_value = widget.on_state()
+                else:
+                    widget.field_value = False
                 widget.update()
                 hit_counter[name] = hit_counter.get(name, 0) + 1
                 missed.discard(name)
@@ -136,15 +184,28 @@ def verify_filled(path: Path, values: dict[str, Any]) -> list[str]:
     try:
         doc = pymupdf.open(str(path))
         actual: dict[str, str] = {}
+        groups: dict[str, dict[str, str]] = {}
         for page in doc:
             for widget in page.widgets() or []:
-                if widget.field_name in normalized:
-                    actual[widget.field_name] = str(widget.field_value)
+                name = widget.field_name or ""
+                value = str(widget.field_value)
+                if "::" in name:
+                    base, option = name.split("::", 1)
+                    groups.setdefault(base, {})[option] = value
+                else:
+                    actual[name] = value
         doc.close()
     except Exception as exc:  # noqa: BLE001 — 重开失败即产物不可交付
         return [f"产物重开失败（可能已损坏）: {exc}"]
     problems = []
     for key, expected in normalized.items():
+        if key in groups:
+            checked = [opt for opt, v in groups[key].items() if v not in ("", "Off", None)]
+            if expected not in checked:
+                problems.append(
+                    f"字段 {key} 未选中 {expected!r}（当前勾选: {'/'.join(checked) or '无'}）"
+                )
+            continue
         got = actual.get(key)
         if got is None:
             continue  # 该字段不属于本 PDF（由 missed 流程负责）

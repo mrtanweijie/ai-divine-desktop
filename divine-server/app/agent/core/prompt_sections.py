@@ -216,7 +216,12 @@ _PDF_TRAVEL_RULES = """用户直接说"输出 PDF"且当前内容是旅行攻略
 注意：color_scheme 必须传英文 key（如 mistsage），禁止传中文名（如“雾凇青”）；
 用户未选择主题色时默认 teal；用户已指定颜色时不要重复询问。
 用户给出具体颜色（颜色名或色值，如“红色”“#E74C3C”“rgb(...)”）时，
-theme_colors 只需传 {"--color-primary": "<颜色>"}，系统会自动派生整套配套色
+theme_colors 只需传 {"--color-primary": "<颜色>"}，系统会自动派生整套配套色；
+用户要生成**可填写的表单/登记表/申请表/报销单/问卷**（需要真输入框和勾选框，交付给他人填写）时用 pdf_form_generate：
+① 首选 template_id 实例化内置模板（application 申请/registration 登记/survey 问卷/expense 报销）+ values 预填字段值；
+② 无合适模板时用 html 模式按字段协议自由拼装（可填写单元带 data-field/data-type/data-label，可引用 forms.css）；
+生成后可用 pdf_form_fields 查看字段、pdf_form_fill 填写（单选/下拉的值需为选项之一）；
+只要静态表单**观感**时才用 pdf_generate
 （--color-accent/--color-accent-light/--bg-highlight/--bg-cover），不要逐一手写所有变量；
 只有用户额外指定某个配套色时才显式传对应变量。
 注意：--bg-cover 是封面深色条带背景（上面是白色文字），必须保持深色，

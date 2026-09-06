@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="minimal" data-page-node-id="2Xn8XEfCmHIEFSJPEKvB84">
+<head data-page-node-id="L3dSTm4UD79uHPMAoqUMOr">
+<meta charset="UTF-8" data-page-node-id="3kDWxvg4FVLrA5CeFxfKIb">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="hsx1jAsqbf8LiMI6z32vFN">
+<title>01 · 事项申请表 — PDF 表单模板</title>
+<link rel="stylesheet" href="forms.css" data-page-node-id="tu7LTnKwZwVFzdMNzD20HY">
+</head>
+<body data-page-node-id="YlD9vrJtf0terjLL4SeAED">
+<!--
+  模板 01 · 事项申请表 (application)
+  形态：分节流式 + 下划线填空 + 三级审批栏
+  适用：请假 / 采购 / 用印 / 用车 等行政事项审批
+  字段协议：data-field(唯一名) data-type(text|textarea|date|number|radio|checkbox|select|signature)
+            data-label(中文标签) data-required(true|false)
+-->
+<div class="page-a4" data-page-node-id="LaQp8hGuFrzMBcTAyJYzCi">
+  <form class="pdf-form" data-form-id="application" data-form-title="事项申请表" data-page-node-id="WW3Bmr2ygI3cV3J3EdOXUP">
+
+    <!-- ══ 表头 ══ -->
+    <header class="form-head" data-page-node-id="QNDg249YiqpuWg9P5s4wMc">
+      <div class="form-head-main" data-page-node-id="aAb7rBqHO6FspAgSbClx5e">
+        <div class="org-name" data-page-node-id="txB1GAf4vGdM6Ur7yZFL1W">XX 科技有限公司 · 行政中心</div>
+        <h1 class="form-title" data-page-node-id="pDaOupcFMu7nT2dU7DTHVr">事项申请表</h1>
+        <div class="form-subtitle" data-page-node-id="Tv1lrkLubw4GmJmHuYAOkG">APPLICATION FORM — 适用于请假 / 采购 / 用印 / 用车等行政事项</div>
+      </div>
+      <div class="form-head-meta" data-page-node-id="kDlLZQvYRMIXm7Mr7G0ljg">
+        <div data-page-node-id="IbxQLCjZoYrFAk18CCzeqE"><span class="meta-k" data-page-node-id="L8F6v14XagRHRugnubcmEd">表单编号</span> <span class="meta-v" data-page-node-id="rIPEdWr8v4RUxeFFPsoIbX">ADM-APPLY-001</span></div>
+        <div data-page-node-id="nqojZUFgPl7qzhP9beRkPu"><span class="meta-k" data-page-node-id="iaGAGJXjOwunj878NEnIha">版本</span> <span class="meta-v" data-page-node-id="PxQmElhua5gbPSn7nBmtn2">V1.2</span></div>
+        <div data-page-node-id="yVaoHj2J7vXmYZ7Z1JaCp0"><span class="meta-k" data-page-node-id="93ght2Pi7Fc0EK8Z9ljiMf">页码</span> <span class="meta-v" data-page-node-id="RFBS2sHVFwPfnUxMR77zLl">1 / 1</span></div>
+      </div>
+    </header>
+
+    <div class="form-meta-bar" data-page-node-id="Ra1iksS0zdHIpf00Cb6h02">
+      <div class="mb-item" data-page-node-id="EgUrQYahb0ZwCNiOrsALab"><span class="mb-k" data-page-node-id="SXL9PHexiCWKcDeuB9HQ0R">申请日期</span><span class="mb-v" data-page-node-id="WwN4xrlIdc8Is38vNwLVy4">2026-09-06</span></div>
+      <div class="mb-item" data-page-node-id="mhFcKDFoloSo6KUMNVhgoC"><span class="mb-k" data-page-node-id="mC5yjStUkMmqV3P8UNyAgl">表单状态</span><span class="mb-v" data-page-node-id="G7rAO7vMgJ6RXlUinHAFPF">待审批</span></div>
+      <div class="mb-item" data-page-node-id="hJeR2Ad80jxbBvWIrZ8lCg"><span class="mb-k" data-page-node-id="Q7nAE5rVl4l4qR2jbrH5H6">受理编号</span><span class="mb-v" data-page-node-id="C3Q8iQ2JYuIbwIEH69BZnD">—</span></div>
+    </div>
+
+    <!-- ══ 01 申请人信息 ══ -->
+    <section class="form-section" data-page-node-id="dWzkF0FJBgynvaX3jdCHB3">
+      <div class="sec-head" data-page-node-id="EzmY8lMrFSNywilL6FmJtf">
+        <span class="sec-num" data-page-node-id="o0vWlU0w2m3NvAzGw71xzD">1</span>
+        <h2 class="sec-title" data-page-node-id="KsqrWHQCuqyf4sjHSRm5ll">申请人信息</h2>
+        <span class="sec-note" data-page-node-id="cDPnzDtSjANYXqh5OihmDG">Applicant</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="FbSsJkt8nfrIxUgWuT9GqF"></div>
+
+      <div class="field-grid" data-page-node-id="QmQMyLByesn50BElq3rUnv">
+        <div class="field col-4" data-field="applicant_name" data-type="text" data-label="申请人姓名" data-required="true" data-page-node-id="XURUO6uwhJQqmOAuXfBH7n">
+          <div class="field-label" data-page-node-id="2jwbAG8eivEUkON62Ooxp2">申请人姓名<i class="req" data-page-node-id="JY1OpRqQcXQlOYiWocvRsW">*</i></div>
+          <input class="ctrl ctrl--underline ctrl--filled" type="text" value="张明远" placeholder="请输入姓名" data-page-node-id="3ogaz1z82jD6GhwOTirdGC">
+        </div>
+        <div class="field col-4" data-field="employee_no" data-type="text" data-label="工号" data-required="true" data-page-node-id="2BaET16C8M4IfXvPkEfBJU">
+          <div class="field-label" data-page-node-id="pffWGEs2oWeDrZAx23B0vq">工号<i class="req" data-page-node-id="TbIjtlpJkGSJwr4yTcv1Af">*</i></div>
+          <input class="ctrl ctrl--underline" type="text" placeholder="如 EMP-0231" data-page-node-id="FqJLrbxawMsdvrLPzxeNrG">
+        </div>
+        <div class="field col-4" data-field="department" data-type="select" data-label="所属部门" data-required="true" data-page-node-id="PJy3x89p55YIxPBkYGoVyR">
+          <div class="field-label" data-page-node-id="P4H2UIpSq75XcGXoaID2xq">所属部门<i class="req" data-page-node-id="6nyd1av3sIIZ3gAeEVC7S1">*</i></div>
+          <select class="ctrl ctrl--underline" data-page-node-id="zq5DmjzVYg5F5UJ6dTMHId">
+            <option data-page-node-id="EYiZejTSjaf5tH2ngGXRox">产品技术部</option>
+            <option data-page-node-id="XkPAQaAYwAB3VmC6DLlpF1">市场运营部</option>
+            <option data-page-node-id="q4qtA4pF1ZiJ3YF8WWmCC8">财务部</option>
+            <option data-page-node-id="XePcKAvMP3jmFK0GcEx3Ex">人力资源部</option>
+          </select>
+        </div>
+
+        <div class="field col-4" data-field="position" data-type="text" data-label="岗位" data-page-node-id="cfR954CIhbXd15Vrh0ULq9">
+          <div class="field-label" data-page-node-id="oI7f6qrHX08d5mxm1BcI9X">岗位</div>
+          <input class="ctrl ctrl--underline" type="text" placeholder="如 前端工程师" data-page-node-id="NDL9gDDbtImdfXs03DYxpW">
+        </div>
+        <div class="field col-4" data-field="phone" data-type="text" data-label="联系电话" data-required="true" data-page-node-id="AWRTSFu6RzP7Fpq0jFXSd8">
+          <div class="field-label" data-page-node-id="hDqpA7ajnuTooWSKFBwT5U">联系电话<i class="req" data-page-node-id="QID8qjabvu8kBaH9XZv9yv">*</i></div>
+          <input class="ctrl ctrl--underline" type="tel" placeholder="11 位手机号" data-page-node-id="YtBlRE1nClOYpmDsvTiLeY">
+        </div>
+        <div class="field col-4" data-field="email" data-type="text" data-label="企业邮箱" data-page-node-id="cqfnbZnD81eTAAXkEGRQQw">
+          <div class="field-label" data-page-node-id="WLiwdqUOWafXC8KFWBi82r">企业邮箱</div>
+          <input class="ctrl ctrl--underline" type="email" placeholder="name@company.com" data-page-node-id="ZW604A9h839gQxWQr4pPRT">
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 02 申请事项 ══ -->
+    <section class="form-section" data-page-node-id="IOf2tGYIDjVH9QxCWR7LxC">
+      <div class="sec-head" data-page-node-id="eF02QlTPK9oJ0liKaBX9H4">
+        <span class="sec-num" data-page-node-id="AJe754o07AjgFeGGtIeXqJ">2</span>
+        <h2 class="sec-title" data-page-node-id="PoHYkIZMrGcnLe5IYTjpAo">申请事项</h2>
+        <span class="sec-note" data-page-node-id="vcizGDzHnPnNXEnD1mJkZQ">Request Details</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="BOnFRzYSlm5nBFIXm9A3qy"></div>
+
+      <div class="field-grid" data-page-node-id="Dxk2PP1KUkOQNnSgiHffsm">
+        <div class="field col-12" data-field="matter_type" data-type="radio" data-label="事项类型" data-required="true" data-page-node-id="wimTm68Myk9RqioT2fKZxQ">
+          <div class="field-label" data-page-node-id="JQQSq7FzwOBQL0LbYzYVpS">事项类型<i class="req" data-page-node-id="pE8fDdLvHkBnmhEHe0bNIX">*</i></div>
+          <div class="opt-group" data-page-node-id="A3ieRuBmLgAigADNa14fGY">
+            <label class="opt" data-page-node-id="KWKKrOC3j73hGhHcpY7mo1"><span class="opt-box" data-shape="radio" data-checked="true" data-page-node-id="TUpMApf4LIDWgID5ZJpQ0d"></span>请假</label>
+            <label class="opt" data-page-node-id="5aYIurQgau8ZH714iVK1zz"><span class="opt-box" data-shape="radio" data-page-node-id="tDDxA0BNZPQbqbRBxGunJn"></span>采购申请</label>
+            <label class="opt" data-page-node-id="ZQiRr6IbkFdqnM6QD3EAhN"><span class="opt-box" data-shape="radio" data-page-node-id="GBEirjLisBk8ZOszAAlbCG"></span>用印申请</label>
+            <label class="opt" data-page-node-id="bs6EtMPJ02JSE6trcmA7Aj"><span class="opt-box" data-shape="radio" data-page-node-id="VlxwxoWQ57GAnRgmRzQBpt"></span>用车申请</label>
+            <label class="opt" data-page-node-id="RKbGD8cTY8Vz5BC4cdDITp"><span class="opt-box" data-shape="radio" data-page-node-id="h8939eJeAjahPC3Vy9wcQj"></span>其他</label>
+          </div>
+        </div>
+
+        <div class="field col-12" data-field="matter_title" data-type="text" data-label="事项标题" data-required="true" data-page-node-id="G1imu2MdgCWa173JzeCtH9">
+          <div class="field-label" data-page-node-id="S4GoV41GDNvwY43mQWuEOV">事项标题<i class="req" data-page-node-id="kUUHO4oWqUCxKIryd20wjA">*</i></div>
+          <input class="ctrl ctrl--lg" type="text" placeholder="一句话概括申请事项，20 字以内" data-page-node-id="KV4vhiWlsFVLNfrD5Chhn1">
+        </div>
+
+        <div class="field col-4" data-field="expect_date" data-type="date" data-label="期望完成日期" data-required="true" data-page-node-id="MA1Os5eddYbFuvmlAxiY45">
+          <div class="field-label" data-page-node-id="07wuAwebBPsFXhB1MfulqB">期望完成日期<i class="req" data-page-node-id="UrEKjwApQYOmFybaPbEpYP">*</i></div>
+          <div class="date-triple" data-page-node-id="4kPFHEebZ0n8OjKAVfVR5L">
+            <input class="y" type="text" placeholder="2026" maxlength="4" data-page-node-id="76EeOHMjnkRtO1pqQfsPxy"><span class="sep" data-page-node-id="JkagJXKFyGhq4Rm0XHdwYF">年</span>
+            <input class="m" type="text" placeholder="09" maxlength="2" data-page-node-id="tJwUgxtm3KJZIC5SVheNuv"><span class="sep" data-page-node-id="gLYtGNqWmROzTeHdFI0AIV">月</span>
+            <input class="d" type="text" placeholder="06" maxlength="2" data-page-node-id="X7yJFHCjd5LSU4D3GpbU5O"><span class="sep" data-page-node-id="065bHTiLlgnGqDGlAIw5Iv">日</span>
+          </div>
+        </div>
+
+        <div class="field col-4" data-field="urgency" data-type="radio" data-label="紧急程度" data-required="true" data-page-node-id="UpMgo9nx4FA5izPgMcSOCc">
+          <div class="field-label" data-page-node-id="xj0dhPOF9iYGyIW7yyltKr">紧急程度<i class="req" data-page-node-id="JwHQPBdCr9UENKjJFpxQxK">*</i></div>
+          <div class="opt-group" data-page-node-id="2cxteR3YTkWyj1guYxfINv">
+            <label class="opt" data-page-node-id="dEzDuBnWCnAyJdm6GVWlUN"><span class="opt-box" data-shape="radio" data-page-node-id="w3BhIGwPQyLr7aTAF69Imp"></span>常规</label>
+            <label class="opt" data-page-node-id="5ydju34KzHIvqyhUE9vklN"><span class="opt-box" data-shape="radio" data-checked="true" data-page-node-id="uwNwy5omeBuxqUIOscrZYK"></span>较急</label>
+            <label class="opt" data-page-node-id="VT6fUMru1kSzuhdDAtvOwn"><span class="opt-box" data-shape="radio" data-page-node-id="kWeat04869HolkuWEPXamR"></span>特急</label>
+          </div>
+        </div>
+
+        <div class="field col-4" data-field="budget" data-type="number" data-label="预算金额" data-page-node-id="8PeB7GEF1OYSq1jOQbX4Pp">
+          <div class="field-label" data-page-node-id="Oy1Y6s3VtSiRUYjAbWtnZR">预算金额</div>
+          <div class="ctrl-affix" data-page-node-id="hOVlaMz0WKxCBQHvH45Kpf">
+            <span class="affix" data-page-node-id="ZhWPfqOTaWlL2Q7cqjqmee">¥</span>
+            <input class="ctrl" type="text" inputmode="decimal" placeholder="0.00" data-page-node-id="JWcnDxjnULlJSEPFC5FlHZ">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 03 事项说明 ══ -->
+    <section class="form-section" data-page-node-id="QnjhNHDYBBS0KBuQFTsXCN">
+      <div class="sec-head" data-page-node-id="P5idKlDY0aTQFGJSxBbCRb">
+        <span class="sec-num" data-page-node-id="KpCcaCtToH5zJzW1WpGcc9">3</span>
+        <h2 class="sec-title" data-page-node-id="XHrRUfLD3q6L889sCEKc1i">事项说明</h2>
+        <span class="sec-note" data-page-node-id="7Z1mCj95gxrj8xQcMD7FHu">Description</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="9gJb7ZeCsSbCFK3v5LQldt"></div>
+
+      <div class="field-grid" data-page-node-id="Lw6wMC4upPdCTU16Uvh2te">
+        <div class="field col-12" data-field="reason" data-type="textarea" data-label="申请事由" data-required="true" data-page-node-id="affr22HYUoGOTH2yXN9pKT">
+          <div class="field-label" data-page-node-id="fHSyQQFGaz1ldS0oRo3sWh">申请事由<i class="req" data-page-node-id="RNtQ8d3yP1sHJHLngCZBiz">*</i></div>
+          <textarea class="ctrl ctrl--textarea" placeholder="请说明申请背景、必要性及预期效果"></textarea>
+          <div class="field-hint" data-page-node-id="8IKkO0BDlgAqk0jZXfry4O">建议 100–300 字，重点说明「为什么需要」与「不做的后果」。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 04 附件材料 ══ -->
+    <section class="form-section" data-page-node-id="49Quaegq9ScZ0MLo4U4EE7">
+      <div class="sec-head" data-page-node-id="iFKVCbiBnoVwzPD9hYW0Er">
+        <span class="sec-num" data-page-node-id="iggxG05H1E1w6LUlYJbETE">4</span>
+        <h2 class="sec-title" data-page-node-id="uKzfzFiVJhEy4DfXsBZGAc">附件材料</h2>
+        <span class="sec-note" data-page-node-id="EcYbex4u36EA63e90lB53v">Attachments</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="DD7wF0f1pdXcCAWZkfaTcp"></div>
+
+      <div class="field-grid" data-page-node-id="JFVtjxKdrECazMJC9a3xBu">
+        <div class="field col-12" data-field="attachments" data-type="checkbox" data-label="已附材料" data-page-node-id="M8iAe9ePfIer1D69h4kyt0">
+          <div class="field-label" data-page-node-id="2INUiFuiVJRGOEc9Ib5qHR">已附材料（可多选）</div>
+          <div class="opt-group" data-page-node-id="j4QsztbVDCrW7H7BoFQdex">
+            <label class="opt" data-page-node-id="wPnWJ8Ec6XeHWvJOm7AXi0"><span class="opt-box" data-shape="check" data-checked="true" data-page-node-id="AnouG62GO3iB6Saj1QcJBz"></span>报价单</label>
+            <label class="opt" data-page-node-id="oOeUqFoVmYNNzuOTNIqT4I"><span class="opt-box" data-shape="check" data-page-node-id="oFXoX5GQyHphxUHy1lITe0"></span>合同草案</label>
+            <label class="opt" data-page-node-id="cU7KuRtDE6iijdDkaybpxO"><span class="opt-box" data-shape="check" data-page-node-id="41fET5FivKpKIorjhEXyF4"></span>资质证明</label>
+            <label class="opt" data-page-node-id="YyxQBV6EFQLTKiLjgHVwam"><span class="opt-box" data-shape="check" data-page-node-id="vU2FfkkzE9aho3McsmUCPt"></span>发票</label>
+            <label class="opt" data-page-node-id="PNzY2vSfIh2sUWknswtu8v"><span class="opt-box" data-shape="check" data-page-node-id="f6AqXN2bSVl0E1zlQx7Qki"></span>其他说明材料</label>
+          </div>
+        </div>
+        <div class="field col-12" data-field="attach_note" data-type="text" data-label="附件说明" data-page-node-id="nbDZdcdGHxx8Ey5uedtOu3">
+          <div class="field-label" data-page-node-id="QVSnV0mauocPCCpHOF4ntq">附件补充说明</div>
+          <input class="ctrl" type="text" placeholder="如：共 3 份附件，详见 OA 系统" data-page-node-id="BpZf2raOSpLS0X9G7LTPo2">
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 05 审批流转 ══ -->
+    <section class="form-section" data-page-node-id="jqezUA3b8hs5VFwKU5sJMq">
+      <div class="sec-head" data-page-node-id="4sYtlk8fE071Htyb7snEbr">
+        <span class="sec-num" data-page-node-id="C0HS5SmWmKGJSXCDBOS5m5">5</span>
+        <h2 class="sec-title" data-page-node-id="5CSug9OcvqpDGd1nXosoZq">审批流转</h2>
+        <span class="sec-note" data-page-node-id="1Zf5nI5m4DXEHkfuHR1Ek3">Approval</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="BItYgIpGNeXaPoKhuuoWDR"></div>
+
+      <div class="approv-grid" data-page-node-id="N4jhaTcur8xeq2Tt5ouJxB">
+        <div class="approv-cell" data-field="approver_1" data-type="signature" data-label="直属上级意见" data-page-node-id="U25hN0MZi2KwQ22XMtIQ33">
+          <div class="approv-head" data-page-node-id="feKnUV6RDwrCeIsxG8HySe">直属上级意见</div>
+          <div class="approv-body" data-page-node-id="NTHgQIGEuHiDnYHIXnBNiJ">同意 / 不同意 / 退回修改</div>
+          <div class="approv-foot" data-page-node-id="u8lGpHQBi1So7ucb2AdFpI"><span data-page-node-id="L4kGgfNHefaJki2BczpAMu">签字：</span><span data-page-node-id="Jh3cgAqc4sf4jEXKxam1c1">日期：</span></div>
+        </div>
+        <div class="approv-cell" data-field="approver_2" data-type="signature" data-label="部门负责人意见" data-page-node-id="sVU4M96Y33q50lWushZ6mH">
+          <div class="approv-head" data-page-node-id="wsQa2rGC20UaienTSdsamt">部门负责人意见</div>
+          <div class="approv-body" data-page-node-id="8AKyq6bZ1pWZFDUPIEy6Sc">同意 / 不同意 / 退回修改</div>
+          <div class="approv-foot" data-page-node-id="TFYSAK0nfOFTeGtJIkTD5v"><span data-page-node-id="OlysIVwhJ2Et7y0lC8TvNx">签字：</span><span data-page-node-id="LaklmiNAyw3MGl7kGMbHUv">日期：</span></div>
+        </div>
+        <div class="approv-cell" data-field="approver_3" data-type="signature" data-label="行政中心复核" data-page-node-id="hwiSetSAEhrMiMmJ8rYCFA">
+          <div class="approv-head" data-page-node-id="qOw1ftJDgrdu1400FUSzjQ">行政中心复核</div>
+          <div class="approv-body" data-page-node-id="TGdGJa4UoakkyuV3fHN32T">已核 / 未核</div>
+          <div class="approv-foot" data-page-node-id="raV4TxAS3rX8HsjbjuVqgn"><span data-page-node-id="J5ffbxg0ebIdK46nCnaufv">签字：</span><span data-page-node-id="ImcCU0xoLT8RICOzZVRXGX">日期：</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 声明 ══ -->
+    <div class="notice" data-page-node-id="mzfl0vr0331UQhiF08rmPX">
+      本人承诺以上填报信息真实、准确、完整。如存在虚报、瞒报情形，愿接受公司相关制度处理。
+      本表单自审批完成之日起生效，一式两份，申请人留存一份。
+    </div>
+
+    <div class="sign-row" style="margin-top:18px" data-page-node-id="ctmqtMQFXrUirCQgJ7s0jv">
+      <div class="sign-cell" data-field="signature_applicant" data-type="signature" data-label="申请人签字" data-page-node-id="vfn2ldMKwpHgH8cimbg7Ee">
+        <div class="sign-line" data-page-node-id="OgH172DaMRE2AIoSg8h75y"></div>
+        <div class="sign-cap" data-page-node-id="69NvgNEpMqwUL1aYykTuER">申请人签字</div>
+      </div>
+      <div class="sign-cell" data-field="submit_date" data-type="date" data-label="提交日期" data-page-node-id="ff8YqJMUJpw3o9vMA7sdGB">
+        <div class="sign-line" data-page-node-id="BMmGLOBQFI5LGFfL8nVPIQ"></div>
+        <div class="sign-cap" data-page-node-id="z52bU87qHzBJWJigIU6cnT">提交日期</div>
+      </div>
+    </div>
+
+    <footer class="form-foot" data-page-node-id="LDCLEwfFbcqOy32aZRi6RD">
+      <span data-page-node-id="ZfJwifEIZHpA3Ddt60Jx7s">ADM-APPLY-001 · V1.2</span>
+      <span data-page-node-id="FBNfm1aO1nA5W7eh9BSAAr">XX 科技有限公司 行政中心 制</span>
+      <span data-page-node-id="HAWbCcDzLhQ69qAcFtiDiQ">第 1 页 / 共 1 页</span>
+    </footer>
+
+  </form>
+</div>
+<script src="tagger.js" defer></script>
+</body>
+</html>

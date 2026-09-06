@@ -1,0 +1,823 @@
+/* ============================================================================
+   PDF 表单模板系统 — 共享样式层
+   ----------------------------------------------------------------------------
+   面向 PDF_FORM_GENERATE 工具的模板基座。设计要点：
+   1) 全部使用语义 CSS 变量，与主题解耦（沿用 docs/pdf-modules 的 token 体系）；
+   2) 字段通过 data-field / data-type / data-label 标记，HTML 即结构化 schema 源；
+   3) A4 精确排版 + print 规则（page-break-inside: avoid）；
+   4) 极简黑白为默认调性，--primary 仅用于结构标记，不抢内容。
+
+   主题切换：<html data-theme="corporate|minimal|tech|...">
+   ========================================================================== */
+
+/* ===========================
+   Design Tokens
+   =========================== */
+:root {
+  /* --- 排版 --- */
+  --font-sans: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-serif: 'Noto Serif SC', 'Songti SC', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  --fs-title: 22px;    /* 表单大标题 */
+  --fs-h2: 15px;       /* 分节标题 */
+  --fs-label: 12px;    /* 字段标签 */
+  --fs-body: 12.5px;   /* 正文 / 填入值 */
+  --fs-small: 11px;    /* 辅助说明 */
+  --fs-micro: 9.5px;   /* 页脚 / 标注 */
+
+  --lh-tight: 1.35;
+  --lh-normal: 1.6;
+
+  /* --- 表单控件几何 --- */
+  --field-h: 40px;          /* 标准控件高度 */
+  --field-h-sm: 32px;       /* 紧凑控件高度 */
+  --field-radius: 6px;
+  --check-size: 15px;       /* 复选/单选框边长 */
+  --grid-gap: 10px;         /* 字段栅格间距 */
+  --section-gap: 22px;      /* 分节间距 */
+
+  /* --- 色彩（minimal 默认） --- */
+  --primary: #18181B;
+  --primary-light: #F4F4F5;
+  --accent: #52525B;
+  --text-main: #18181B;
+  --text-muted: #52525B;
+  --text-light: #A1A1AA;
+  --bg-page: #FFFFFF;
+  --bg-surface: #FAFAFA;
+  --bg-dark: #27272A;
+  --border: #E4E4E7;
+  --border-strong: #D4D4D8;
+
+  /* --- 字段专属 --- */
+  --field-bg: #FFFFFF;
+  --field-bg-alt: var(--bg-surface);
+  --field-border: var(--border-strong);
+  --field-focus: var(--primary);
+
+  /* --- 阴影 --- */
+  --shadow-page: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="corporate"] {
+  --primary: #1E40AF; --primary-light: #EEF2FF; --accent: #3B82F6;
+  --text-main: #0F172A; --text-muted: #475569; --text-light: #94A3B8;
+  --bg-surface: #F8FAFC; --border: #CBD5E1; --border-strong: #94A3B8;
+}
+[data-theme="tech"] {
+  --primary: #2563EB; --primary-light: #EFF6FF; --accent: #06B6D4;
+  --text-main: #111827; --text-muted: #6B7280; --text-light: #9CA3AF;
+  --bg-surface: #F9FAFB; --border: #E5E7EB; --border-strong: #D1D5DB;
+}
+[data-theme="forest"] {
+  --primary: #166534; --primary-light: #DCFCE7; --accent: #16A34A;
+  --text-main: #14532D; --text-muted: #4D7C0F; --text-light: #86EFAC;
+  --bg-surface: #F0FDF4; --border: #BBF7D0; --border-strong: #86EFAC;
+}
+
+/* ===========================
+   Reset & Base
+   =========================== */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #E8E8EA;
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===========================
+   A4 页面容器
+   =========================== */
+@page {
+  size: A4;
+  margin: 0;
+}
+
+.page-a4 {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 24px auto;
+  padding: 16mm 15mm 14mm;
+  background: var(--bg-page);
+  box-shadow: var(--shadow-page);
+  position: relative;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+@media print {
+  html, body { background: #fff; }
+  .page-a4 {
+    width: auto; min-height: auto; margin: 0; padding: 14mm 12mm;
+    box-shadow: none;
+  }
+  .page-a4 + .page-a4 { page-break-before: always; }
+}
+
+/* ===========================
+   表单骨架
+   =========================== */
+.pdf-form { display: block; }
+
+/* --- 表头 --- */
+.form-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--text-main);
+  margin-bottom: 4px;
+}
+
+.form-head-main { flex: 1 1 auto; }
+
+.org-name {
+  font-size: var(--fs-small);
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.form-title {
+  font-size: var(--fs-title);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: var(--lh-tight);
+  margin: 0;
+  color: var(--text-main);
+}
+
+.form-subtitle {
+  font-size: var(--fs-small);
+  color: var(--text-light);
+  margin-top: 5px;
+  letter-spacing: 0.02em;
+}
+
+.form-head-meta {
+  flex: 0 0 auto;
+  text-align: right;
+  font-size: var(--fs-micro);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+.form-head-meta .meta-k { color: var(--text-light); }
+.form-head-meta .meta-v { color: var(--text-main); font-weight: 600; }
+
+/* --- 表单元信息条 --- */
+.form-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-top: none;
+  background: var(--bg-surface);
+  margin-bottom: var(--section-gap);
+}
+.form-meta-bar .mb-item {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 7px 10px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-small);
+}
+.form-meta-bar .mb-item:last-child { border-right: none; }
+.form-meta-bar .mb-k { color: var(--text-muted); white-space: nowrap; }
+.form-meta-bar .mb-v { color: var(--text-main); font-weight: 600; }
+
+/* ===========================
+   分节 Section
+   =========================== */
+.form-section {
+  margin-bottom: var(--section-gap);
+  break-inside: auto;
+}
+
+.sec-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sec-num {
+  flex: 0 0 auto;
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+}
+
+.sec-title {
+  font-size: var(--fs-h2);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin: 0;
+  color: var(--text-main);
+}
+
+.sec-note {
+  margin-left: auto;
+  font-size: var(--fs-micro);
+  color: var(--text-light);
+  letter-spacing: 0.02em;
+}
+
+.sec-rule {
+  height: 1px;
+  background: var(--border);
+  margin: -6px 0 12px;
+}
+
+/* ===========================
+   字段栅格
+   =========================== */
+.field-grid {
+  display: grid;
+  gap: var(--grid-gap);
+  grid-template-columns: repeat(12, 1fr);
+}
+
+.col-1 { grid-column: span 1; }   .col-2 { grid-column: span 2; }
+.col-3 { grid-column: span 3; }   .col-4 { grid-column: span 4; }
+.col-5 { grid-column: span 5; }   .col-6 { grid-column: span 6; }
+.col-7 { grid-column: span 7; }   .col-8 { grid-column: span 8; }
+.col-9 { grid-column: span 9; }   .col-10 { grid-column: span 10; }
+.col-11 { grid-column: span 11; } .col-12 { grid-column: span 12; }
+
+/* ===========================
+   字段 Field
+   =========================== */
+.field { min-width: 0; }
+
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 5px;
+  letter-spacing: 0.02em;
+}
+
+.req {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* --- 控件基类 --- */
+.ctrl {
+  width: 100%;
+  min-height: var(--field-h-sm);
+  padding: 6px 10px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-bg);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  color: var(--text-main);
+  line-height: 1.4;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.ctrl--lg { min-height: var(--field-h); }
+
+.ctrl--textarea {
+  min-height: 88px;
+  resize: vertical;
+  line-height: 1.65;
+}
+
+.ctrl--flat {
+  background: var(--field-bg-alt);
+  border: 1px solid var(--border);
+}
+
+/* 下划线填空变体（纸质表单语汇） */
+.ctrl--underline {
+  border: none;
+  border-bottom: 1px solid var(--border-strong);
+  border-radius: 0;
+  padding: 4px 2px;
+  background: transparent;
+  min-height: 28px;
+}
+.ctrl--underline:focus { border-bottom-color: var(--field-focus); }
+
+.ctrl:focus {
+  outline: none;
+  border-color: var(--field-focus);
+  background: var(--bg-page);
+}
+
+/* 只读预览值（已填内容） */
+.ctrl--filled {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+/* --- 字段说明 --- */
+.field-hint {
+  font-size: var(--fs-micro);
+  color: var(--text-light);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+/* --- 带前后缀的控件（金额 / 单位） --- */
+.ctrl-affix {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-bg);
+  overflow: hidden;
+}
+.ctrl-affix .affix {
+  padding: 0 9px;
+  display: flex; align-items: center;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+}
+.ctrl-affix .affix--suffix {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+.ctrl-affix .ctrl {
+  border: none; border-radius: 0; min-height: var(--field-h-sm); flex: 1 1 auto;
+}
+.ctrl-affix .ctrl:focus { background: transparent; }
+
+/* ===========================
+   日期三段式
+   =========================== */
+.date-triple {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-bg);
+  padding: 0 4px;
+  min-height: var(--field-h-sm);
+}
+.date-triple input {
+  border: none; background: transparent; outline: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-body);
+  color: var(--text-main);
+  min-width: 0; padding: 4px 2px;
+}
+.date-triple .y { flex: 0 0 44px; }
+.date-triple .m,
+.date-triple .d { flex: 0 0 30px; text-align: center; }
+.date-triple .sep { color: var(--text-light); font-size: 11px; }
+
+/* ===========================
+   单选 / 多选
+   =========================== */
+.opt-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  min-height: var(--field-h-sm);
+  padding: 8px 10px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-bg);
+}
+.opt-group--plain {
+  border: none; background: transparent; padding: 2px 0; min-height: 0;
+}
+.opt-group--col { flex-direction: column; align-items: flex-start; gap: 8px; }
+
+.opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-body);
+  color: var(--text-main);
+  cursor: pointer;
+  user-select: none;
+  line-height: 1.3;
+}
+
+.opt-box {
+  flex: 0 0 auto;
+  width: var(--check-size);
+  height: var(--check-size);
+  border: 1.5px solid var(--border-strong);
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+.opt-box[data-shape="radio"] { border-radius: 50%; }
+.opt-box[data-shape="check"] { border-radius: 3px; }
+
+/* 选中态（示例数据渲染用 data-checked） */
+.opt-box[data-checked="true"] {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+.opt-box[data-shape="radio"][data-checked="true"]::after {
+  content: ''; width: 5px; height: 5px; border-radius: 50%; background: #fff;
+}
+.opt-box[data-shape="check"][data-checked="true"]::after {
+  content: '';
+  width: 8px; height: 4px;
+  border-left: 1.8px solid #fff;
+  border-bottom: 1.8px solid #fff;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+.opt input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+/* ===========================
+   量表 Rating（矩阵题）
+   =========================== */
+.matrix { width: 100%; border-collapse: collapse; }
+
+.q-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.q-row:last-child { border-bottom: none; }
+
+.q-text {
+  font-size: var(--fs-body);
+  color: var(--text-main);
+  line-height: 1.45;
+}
+.q-index {
+  display: inline-block;
+  min-width: 20px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--text-light);
+  margin-right: 6px;
+}
+
+.scale {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: 0 0 auto;
+}
+.scale-item {
+  width: 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.scale-tick {
+  width: var(--check-size); height: var(--check-size);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+  background: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.scale-item[data-checked="true"] .scale-tick {
+  border-color: var(--primary); background: var(--primary);
+}
+.scale-item[data-checked="true"] .scale-tick::after {
+  content: ''; width: 5px; height: 5px; border-radius: 50%; background: #fff;
+}
+.scale-num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-light);
+}
+
+.scale-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-micro);
+  color: var(--text-light);
+  margin-top: 2px;
+}
+
+.scale-head {
+  display: flex;
+  gap: 0;
+  justify-content: flex-end;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+/* NPS 0-10 */
+.nps {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  overflow: hidden;
+  background: var(--field-bg);
+}
+.nps-cell {
+  flex: 1 1 0;
+  height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+  border-right: 1px solid var(--border);
+}
+.nps-cell:last-child { border-right: none; }
+.nps-cell[data-checked="true"] {
+  background: var(--primary); color: #fff; font-weight: 700;
+}
+
+/* ===========================
+   明细表格 Grid Table
+   =========================== */
+.grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-body);
+}
+
+.grid-table th,
+.grid-table td {
+  border: 1px solid var(--border-strong);
+  padding: 0;
+  vertical-align: middle;
+}
+
+.grid-table thead th {
+  background: var(--bg-surface);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  padding: 7px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.grid-table tbody td {
+  padding: 0;
+  height: 30px;
+}
+
+.grid-table td .cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 3px 8px;
+  text-align: center;
+}
+
+.grid-table td input,
+.grid-table td select {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--fs-body);
+  color: var(--text-main);
+  padding: 4px 6px;
+  text-align: center;
+  height: 28px;
+}
+.grid-table td input:focus { background: var(--primary-light); }
+
+.grid-table td.cell-left input,
+.grid-table td .cell.cell-left { text-align: left; justify-content: flex-start; }
+.grid-table td.cell-right input,
+.grid-table td .cell.cell-right { text-align: right; justify-content: flex-end; }
+
+.grid-table .idx {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--text-light);
+}
+
+.grid-table tfoot td {
+  background: var(--bg-surface);
+  font-weight: 600;
+  padding: 7px 8px;
+}
+
+.total-row { display: flex; align-items: center; gap: 10px; }
+.total-row .amt {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+/* ===========================
+   签名区
+   =========================== */
+.sign-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+.sign-cell { flex: 1 1 0; min-width: 0; }
+.sign-cell--w2 { flex: 2 1 0; }
+
+.sign-line {
+  height: 46px;
+  border-bottom: 1px solid var(--border-strong);
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 4px;
+}
+.sign-cap {
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+  margin-top: 6px;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+/* 审批栏 */
+.approv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--field-radius);
+  overflow: hidden;
+}
+.approv-cell {
+  border-right: 1px solid var(--border);
+  padding: 0;
+  min-height: 108px;
+  display: flex;
+  flex-direction: column;
+}
+.approv-cell:last-child { border-right: none; }
+.approv-head {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 10px;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.approv-body {
+  flex: 1 1 auto;
+  padding: 8px 10px;
+  font-size: var(--fs-small);
+  color: var(--text-light);
+}
+.approv-foot {
+  border-top: 1px dashed var(--border);
+  padding: 6px 10px;
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-micro);
+  color: var(--text-light);
+}
+
+/* ===========================
+   声明 / 说明块
+   =========================== */
+.notice {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-main);
+  background: var(--bg-surface);
+  border-radius: 0 var(--field-radius) var(--field-radius) 0;
+  padding: 10px 12px;
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+/* ===========================
+   页脚
+   =========================== */
+.form-foot {
+  margin-top: 18px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--fs-micro);
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+/* ===========================
+   字段标注模式（开发/预览辅助，打印隐藏）
+   =========================== */
+.field-tagger {
+  position: fixed;
+  top: 14px; right: 14px;
+  z-index: 99;
+  display: flex;
+  gap: 8px;
+  font-family: var(--font-sans);
+}
+
+.field-tagger .tg-btn {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.field-tagger .tg-btn:hover { background: var(--bg-surface); }
+.field-tagger .tg-btn[data-on="true"] {
+  background: var(--text-main); color: #fff; border-color: var(--text-main);
+}
+
+/* 标注开启时：把 data-field 名显示在标签旁 */
+body.show-fields .field,
+body.show-fields .opt-group[data-field] { position: relative; }
+
+body.show-fields [data-field] > .field-label::after,
+body.show-fields .field[data-field] > .field-label::after {
+  content: attr(data-tag);
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--primary-light);
+  color: var(--primary);
+  letter-spacing: 0;
+}
+
+body.show-fields .field[data-field]::before,
+body.show-fields .q-row[data-field]::before,
+body.show-fields .opt-group[data-field]::before {
+  content: attr(data-field) ' · ' attr(data-type);
+  position: absolute;
+  top: -1px; right: 0;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: var(--text-main);
+  color: #fff;
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* 表格内字段（无 .field-label 包裹）用虚线描边标记 */
+body.show-fields input[data-field],
+body.show-fields select[data-field],
+body.show-fields textarea[data-field] {
+  outline: 1px dashed var(--border-strong);
+  outline-offset: 1px;
+}
+
+@media print {
+  .field-tagger { display: none !important; }
+  body.show-fields [data-field]::before { display: none !important; }
+  .no-print { display: none !important; }
+}
+
+/* ===========================
+   可访问性
+   =========================== */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}

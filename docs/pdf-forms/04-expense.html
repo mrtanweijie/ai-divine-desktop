@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="minimal" data-page-node-id="ZT63R1WBfeO9ByKhFTKFMU">
+<head data-page-node-id="dtsS9bpGSzxxF0fyPh3mRd">
+<meta charset="UTF-8" data-page-node-id="DNBnKNy5xhWMCT5AvIf3a9">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="NOzSvCxV61ya2Uf3OpmxfE">
+<title>04 · 费用报销单 — PDF 表单模板</title>
+<link rel="stylesheet" href="forms.css" data-page-node-id="DGNwUkzRJqFPKK01C194Jx">
+</head>
+<body data-page-node-id="yenDkIEmQcUwPASCDJr0vD">
+<!--
+  模板 04 · 费用报销单 (expense)
+  形态：头部三栏 + 可重复明细表 + 金额合计（小写/大写）+ 收款信息 + 三级审批
+  适用：差旅报销、日常费用报销、付款申请、采购结算单
+  字段协议：data-field data-type(text|date|select|money|table|signature) data-label data-required
+-->
+<div class="page-a4" data-page-node-id="MWjYNHil3r8D0eZB1Pu9Fg">
+  <form class="pdf-form" data-form-id="expense" data-form-title="费用报销单" data-page-node-id="3dEPK8FyFmPzDLU83WGFd5">
+
+    <!-- ══ 表头 ══ -->
+    <header class="form-head" data-page-node-id="XmIGuuzMJS1Glst9Vd0wSK">
+      <div class="form-head-main" data-page-node-id="QdWuv62IsFHDoVrvoreXNu">
+        <div class="org-name" data-page-node-id="BieDXwJqMDoHkwou18bmew">XX 科技有限公司 · 财务中心</div>
+        <h1 class="form-title" data-page-node-id="UgeyKpnB2qBMLSHo5GhE7U">费用报销单</h1>
+        <div class="form-subtitle" data-page-node-id="ca1GGbRBaPrpCDC3PqQjnV">EXPENSE REIMBURSEMENT FORM — 请粘贴票据并如实填报，虚假报销将按制度处理</div>
+      </div>
+      <div class="form-head-meta" data-page-node-id="YFBezGDyzasRCPDTuB3eRv">
+        <div data-page-node-id="ft2iqF5YGgvBDhz5207eAd"><span class="meta-k" data-page-node-id="735RWyvG1ASP5DWq8Ox0Xh">单据编号</span> <span class="meta-v" data-page-node-id="AC2NO2lA3S9KFKHOigVWAG">FIN-EXP-2026-0000</span></div>
+        <div data-page-node-id="SOcnjT8WsfkRlZNx2LFQAR"><span class="meta-k" data-page-node-id="Xq7oaHiDKWgJ6rwouYU9s7">版本</span> <span class="meta-v" data-page-node-id="gFepSQPebrYdkoQUH6iDO8">V1.1</span></div>
+      </div>
+    </header>
+
+    <!-- ══ 申请人信息条 ══ -->
+    <div class="form-meta-bar" data-page-node-id="B1fpehSQie60Hqrz28xk4Q">
+      <div class="mb-item" data-page-node-id="nZeASqp9dlSqO569uOIOAo"><span class="mb-k" data-page-node-id="ZwLauREhYXPGLw6lVI8hn9">报销部门</span><span class="mb-v" data-page-node-id="WrpKU6Ie5uNNrc917WpWjL">产品技术部</span></div>
+      <div class="mb-item" data-page-node-id="jFtLrqusdbaP5PDPubF4Gr"><span class="mb-k" data-page-node-id="hlGbryOP7ousB2KouH8GB7">报销人</span><span class="mb-v" data-page-node-id="8xmja78avqww9ljOGY42S7">张明远</span></div>
+      <div class="mb-item" data-page-node-id="1PJEmELDHHcnaUqotxqaw7"><span class="mb-k" data-page-node-id="gZSX8ZNMVA1xEHUnNHW44d">工号</span><span class="mb-v" data-page-node-id="X9Qm4vQK4ZlOSxRAs0EoZJ">EMP-0231</span></div>
+      <div class="mb-item" data-page-node-id="FwHQYkkMtjWH3FAOlgfMP7"><span class="mb-k" data-page-node-id="reuXfj6JDOEGTeAwTWZFr5">报销日期</span><span class="mb-v" data-page-node-id="ic3ZPiIqxEoUYeou4CYiFv">2026-09-06</span></div>
+      <div class="mb-item" data-page-node-id="XkA4r5R5VVmXkWOBHJGXeX"><span class="mb-k" data-page-node-id="rDEz0CQA58aPd47aGOLR3K">支付方式</span><span class="mb-v" data-page-node-id="AljupwauGs6hR3lQraR4ua">银行转账</span></div>
+    </div>
+
+    <!-- ══ 01 报销明细 ══ -->
+    <section class="form-section" data-page-node-id="GA6pnzP9hLFlPtgKf06PTh">
+      <div class="sec-head" data-page-node-id="9v86iSDsWBxuBrLWLNqgWu">
+        <span class="sec-num" data-page-node-id="W7A9CkXN30X9GXx7eaeIy1">1</span>
+        <h2 class="sec-title" data-page-node-id="B9MXSjB46JuvxnsZV9kkCM">报销明细</h2>
+        <span class="sec-note" data-page-node-id="tDHZk0uqBJioy05nXQZmzY">Expense Details</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="yhSlz4xD2GujidxFYnqPry"></div>
+
+      <table class="grid-table" data-field="expense_items" data-type="table" data-label="报销明细" data-repeatable="true" data-page-node-id="eyGSZ3EDP1DxulIqHCoaDy">
+        <colgroup data-page-node-id="fXNrVHVA6JPSay4qMu0Gqr">
+          <col style="width:6%" data-page-node-id="otsnivcHoza6TqdEoM8Yh1"><col style="width:14%" data-page-node-id="YCEmFoZIhNeqkLJB8AnrTl"><col style="width:14%" data-page-node-id="onaN3FTNd2V5qYXU1PpHPL">
+          <col style="width:30%" data-page-node-id="6qS4BfMIpipekWje3zp4cR"><col style="width:18%" data-page-node-id="95eYfgBrbM1CQWXK1YMyA3"><col style="width:18%" data-page-node-id="71XUwX1PdrN1h7eZjDDIxW">
+        </colgroup>
+        <thead data-page-node-id="4uh2tPQCG7dfbh7OYE25vn">
+          <tr data-page-node-id="niRDYpSA62uLBsB2Jor9go">
+            <th data-page-node-id="3X3EexXNaAiQENRLpJXDGj">序号</th><th data-page-node-id="FYBp9MgaN2Q7wCY2P8xWJs">发生日期</th><th data-page-node-id="gMDtk0JSpPKr7UKuwya87t">费用类型</th>
+            <th data-page-node-id="fHbmzWu7n5i0mN5tJnA4N5">费用说明</th><th data-page-node-id="6wASTAP638fjlL2HfS3AXS">票据号码</th><th data-page-node-id="MLopeeNj1Elkn3wxmsUKTZ">金额（元）</th>
+          </tr>
+        </thead>
+        <tbody data-page-node-id="0efzET4XhV1wulUX1y87Fz">
+          <tr data-page-node-id="cEIMXo59NqZbTkY9YtNOXx">
+            <td data-page-node-id="dWGYQIzW1BpQJT2CcMLXDt"><div class="cell idx" data-page-node-id="lR434iMNLJVrqs9DkCI3UD">1</div></td>
+            <td data-page-node-id="zoI0CN6n1Rg3cbn6mzp5jj"><div class="cell" data-page-node-id="GyVPHJtXmbJ4a8Lo96PBZy"><input placeholder="2026-09-01" data-page-node-id="QbrUpZndGX6y9IqbAGOm8r"></div></td>
+            <td data-page-node-id="Ky1HzJf8uOgXnt5SBdOyUL"><div class="cell" data-page-node-id="V5r8rLdxDXMcQ9gTkp9LyW"><input placeholder="交通费" data-page-node-id="GdGC2jXg9ElczhWVn9IBxD"></div></td>
+            <td data-page-node-id="nfRoFjHoW8bq3HFbJYyJjI"><div class="cell cell-left" data-page-node-id="kFR71B2SlLZvEstMyT3K3G"><input placeholder="深圳 → 上海 高铁二等座" data-page-node-id="AIY8lUUUcWEVgVN4i8RTF2"></div></td>
+            <td data-page-node-id="wwbRByj4jGvgDTL0MRNjba"><div class="cell" data-page-node-id="zeejktWA0VHX2QxiqXMNU6"><input placeholder="" data-page-node-id="Asm3CHyPHLzap2GQCx2X3l"></div></td>
+            <td data-page-node-id="WRzzAMOnZogQ4AeTYySF0G"><div class="cell cell-right" data-page-node-id="WdLm9vY7AhMoVAdzGW5MHz"><input placeholder="553.00" data-page-node-id="hSXQZ3M0BOsYfn36PmH8Dq"></div></td>
+          </tr>
+          <tr data-page-node-id="jnci7smionoRhXRty6S6OR">
+            <td data-page-node-id="GvfIbkQNC2VS4HagxHmSsw"><div class="cell idx" data-page-node-id="DCMyzxOSmxEMBHgBbl4wUc">2</div></td>
+            <td data-page-node-id="tiplvT3UQLIYAmCDfojJKG"><div class="cell" data-page-node-id="0jvQTpfMJBxM9MKS0iHK0k"><input placeholder="2026-09-02" data-page-node-id="s4rSeBrouSg4F15hUGxuos"></div></td>
+            <td data-page-node-id="fBBUmMEJYE9xciopz2fKmA"><div class="cell" data-page-node-id="Eh9Pugq2kS3qTDgTJGARRT"><input placeholder="住宿费" data-page-node-id="QGaudtekug37iEnEcbNEm4"></div></td>
+            <td data-page-node-id="yHBkJXckbiG42bP7rQRjsU"><div class="cell cell-left" data-page-node-id="Zx9qhBRCPUlBWD3ACe4de2"><input placeholder="上海 XX 酒店 · 2 晚" data-page-node-id="98psOk1SDerGTmYgwp3ImT"></div></td>
+            <td data-page-node-id="PIS3whm1vaFI7kvnpEfjKg"><div class="cell" data-page-node-id="eIVCCRCFcsfGWhJ7vRPTqf"><input placeholder="" data-page-node-id="Mb6kbk5tX3brpppr7a4Kak"></div></td>
+            <td data-page-node-id="Bb0BbMKTRvR5LtyDEA02Qq"><div class="cell cell-right" data-page-node-id="elcRlyHfTswt92jjfswj8S"><input placeholder="1,360.00" data-page-node-id="bduape3jxFujNHrj11hT9U"></div></td>
+          </tr>
+          <tr data-page-node-id="o6ZvgyAEH1DaiE7YBpcKku">
+            <td data-page-node-id="bHpsvNXiPPAlnMYKdqImB4"><div class="cell idx" data-page-node-id="bqo4CutDWUcjH3075rDXAj">3</div></td>
+            <td data-page-node-id="BaYbNa6cFmE2DJnQFJAGDS"><div class="cell" data-page-node-id="jEYt0HPHtOopBaSG0xKXFD"><input placeholder="" data-page-node-id="CPPmh8vZBDqMR1DEprA02b"></div></td>
+            <td data-page-node-id="cdBzpYX8cnDHILaMRS81Wz"><div class="cell" data-page-node-id="iuwObIZbjPiryyL9nc5WAW"><input placeholder="" data-page-node-id="kYFwhJ3OsDZ1CB8tB4g1OJ"></div></td>
+            <td data-page-node-id="pvCDfWRnrEI5JTQClifEj8"><div class="cell cell-left" data-page-node-id="Y3T5EMNFLKrTGvx1LN4FEC"><input placeholder="" data-page-node-id="nvQ1TJoc5rIfVkEVCOPC4F"></div></td>
+            <td data-page-node-id="twjbMHRPu8O0QcAvortjcF"><div class="cell" data-page-node-id="TCvHC3TKKS4gaFUuj3Eq0y"><input placeholder="" data-page-node-id="Y3dqI3EcJKf4WOM0F8IHEe"></div></td>
+            <td data-page-node-id="fRxtfVpbiHWUJePf6xsaf6"><div class="cell cell-right" data-page-node-id="pQbv9BZ123PGF3iiErMRxv"><input placeholder="" data-page-node-id="5HQ00enCM5IC5NssAdI40i"></div></td>
+          </tr>
+          <tr data-page-node-id="Kgpc8zHwQmI5MBWw2bxeEn">
+            <td data-page-node-id="UXMdv0Un5W06jTm0AU4YM3"><div class="cell idx" data-page-node-id="HAtXGNuX53W0oe4Vw1JJTP">4</div></td>
+            <td data-page-node-id="NLtTrt7PLwacdVtANQGXtw"><div class="cell" data-page-node-id="ceCwdY0Dr4ceAvkBHv3cBG"><input placeholder="" data-page-node-id="dDCNWS2FYhEUYzQhxdI8Od"></div></td>
+            <td data-page-node-id="ZyRDIbCZHOGoTcz1JnA4gs"><div class="cell" data-page-node-id="Qq44iPTEoq1wy6mcN6iknG"><input placeholder="" data-page-node-id="NBn1HdOC9fbDLGqUFeaaJr"></div></td>
+            <td data-page-node-id="TzNhgSQDHphJ7Cn1F6egdr"><div class="cell cell-left" data-page-node-id="DmDNIEYGCpu044j5AoyjxI"><input placeholder="" data-page-node-id="xavLEjxLBWhSKVCr3LBji1"></div></td>
+            <td data-page-node-id="RlkqKHtUUPKBubbJAFMLYi"><div class="cell" data-page-node-id="lYgJbQZePaylITf21yz0S5"><input placeholder="" data-page-node-id="5aSGNdXuBUByGVRCi4bx6a"></div></td>
+            <td data-page-node-id="jiYLDo6IUIWnK0Azryf78A"><div class="cell cell-right" data-page-node-id="QOBjOqObjVZsPAMeAS9Ibn"><input placeholder="" data-page-node-id="R1WAFAiGHquOwe9awONH5h"></div></td>
+          </tr>
+          <tr data-page-node-id="NIcN3LFkFYbhuRDKnwygZC">
+            <td data-page-node-id="CobLJWdylcedS820DOyT7m"><div class="cell idx" data-page-node-id="PHrNIRfdTfetWUXrspHMyr">5</div></td>
+            <td data-page-node-id="IoEJE8hsyilGfZWAjT1abC"><div class="cell" data-page-node-id="Ej35eK9c9YU3Y4DXmoMCEr"><input placeholder="" data-page-node-id="S2Yg2mly6AJMTZbIXTAnOz"></div></td>
+            <td data-page-node-id="nqNJkaLy4RZ6Vt6CQY847l"><div class="cell" data-page-node-id="AcEOI2Orme1WcvnDCvFsEd"><input placeholder="" data-page-node-id="tKRWThBZDPR0fZ2xljaFRK"></div></td>
+            <td data-page-node-id="TsPeMQyGCapCI2TkPbiOBO"><div class="cell cell-left" data-page-node-id="wAykl6XsI6gLkuXECuio1p"><input placeholder="" data-page-node-id="7KPafidTuElFi8nyGn2Kvb"></div></td>
+            <td data-page-node-id="yhJE8DNKzWS6K1PAEmNZ2z"><div class="cell" data-page-node-id="UC26sQZTE6fqF8034dfjwe"><input placeholder="" data-page-node-id="s8n32N0MPpPvnwLpEphJ01"></div></td>
+            <td data-page-node-id="kD7NANO7sDnSg16Te5LF5N"><div class="cell cell-right" data-page-node-id="OeiZFdKn0BiAHH4LJhfkDc"><input placeholder="" data-page-node-id="rU4F67hjhHQuUChXUNVeSF"></div></td>
+          </tr>
+          <tr data-page-node-id="aESyAxMTgW9PUYnPVWAA6I">
+            <td data-page-node-id="vwiB0Ld0Ep6ABgZwvwZjL5"><div class="cell idx" data-page-node-id="6175ZYELrIuahCBiE9x47d">6</div></td>
+            <td data-page-node-id="qoa6k3dSDNwnX2jN6eFAnp"><div class="cell" data-page-node-id="s1FuMumpPe1L6BKGDlxMIO"><input placeholder="" data-page-node-id="q9jjtIEZ9Dpb2H9dkjS4Ez"></div></td>
+            <td data-page-node-id="wNFcEJTPYkTdguNYcYvpsa"><div class="cell" data-page-node-id="Dw9Qfflvb9hODEkxEciHf6"><input placeholder="" data-page-node-id="RaNVdKJgk6gqNmNVCwFCvN"></div></td>
+            <td data-page-node-id="bf1WwmD7Et56fZaSsnD7Ei"><div class="cell cell-left" data-page-node-id="j51ONzomtknFvLoZEJxRpl"><input placeholder="" data-page-node-id="QabxWOWRzZx8PQfGg79Moo"></div></td>
+            <td data-page-node-id="SrlydaezecgltMJoZhTuDu"><div class="cell" data-page-node-id="MrLoFpHw2Ka97vrDoai3EJ"><input placeholder="" data-page-node-id="9xcKpCBOj2A6Mi1W6puTX2"></div></td>
+            <td data-page-node-id="ihfFguwvgQHy8VWLTM5FZ4"><div class="cell cell-right" data-page-node-id="jymu9DKCJv2IUMMHo3EX45"><input placeholder="" data-page-node-id="maWU0yqh9GmmaKqdj8GM5j"></div></td>
+          </tr>
+          <tr data-page-node-id="xwMXnyTh88UQSs8HcO6HDq">
+            <td data-page-node-id="DeWJMXhyRIXPz2rxCcz5Md"><div class="cell idx" data-page-node-id="nOK5FDR20mXaCPEevE69B9">7</div></td>
+            <td data-page-node-id="bdNSo5SwtubScb9K0QUp2k"><div class="cell" data-page-node-id="msDHQ4sxSZWu4xY8hulyDw"><input placeholder="" data-page-node-id="tmwdNVIvatKW5TPMjM23v6"></div></td>
+            <td data-page-node-id="G4LhdCZkr2iXJQdw4dlZml"><div class="cell" data-page-node-id="cNKOQcD1VHDy1SiwnpAHoN"><input placeholder="" data-page-node-id="ERI0FIl1V8pB9T3QoH0TNy"></div></td>
+            <td data-page-node-id="Tovp0CHBbc8kFn6H9UkgQi"><div class="cell cell-left" data-page-node-id="W4nCmXsc1HOAue8NFU4JJp"><input placeholder="" data-page-node-id="TjUcF5QMWt24Aa7glYGMJV"></div></td>
+            <td data-page-node-id="yEt68lG7OIYZlxAOzQH5Q4"><div class="cell" data-page-node-id="K9XjWyZNECc7D7gaW08t8b"><input placeholder="" data-page-node-id="F9VsGGU71YhR2Jv1pXzgJY"></div></td>
+            <td data-page-node-id="Cl0OdRMQS0IiMCJcN6RlnD"><div class="cell cell-right" data-page-node-id="h3rOyCG2ZwuDbCJoKUKrHH"><input placeholder="" data-page-node-id="Z9TpKM9jwEFtoScVeYQrER"></div></td>
+          </tr>
+          <tr data-page-node-id="SzI2UT1h7cKad5cU6RzQdA">
+            <td data-page-node-id="4kbEyUux6gH143E7GZjK1D"><div class="cell idx" data-page-node-id="gHCK4dBoP5xs10RwBgDyYP">8</div></td>
+            <td data-page-node-id="bHLx0IrZ6j9SAkqtkZU3Hh"><div class="cell" data-page-node-id="WgSqjdcvVfOVCCAcnLr8Iz"><input placeholder="" data-page-node-id="75It3J6LJvBdcKmIQQR85P"></div></td>
+            <td data-page-node-id="rkvfvWLr8LMSWQd8cJyalP"><div class="cell" data-page-node-id="rT5YvM69P2cJl64uBzYmnP"><input placeholder="" data-page-node-id="UJVHYR05ycE5iHhtD1ECpl"></div></td>
+            <td data-page-node-id="elIp1uAkKE2u4xB52OKhBl"><div class="cell cell-left" data-page-node-id="gueTMuNi6f7Q0Fr6XVqvSg"><input placeholder="" data-page-node-id="TVyjZBKIDIe9vNySasToFs"></div></td>
+            <td data-page-node-id="0lHbtDFWt5tAyc68uo2JpJ"><div class="cell" data-page-node-id="icduGWfbhDxZAF1mSMebrl"><input placeholder="" data-page-node-id="X6d6w9fO4PB77okcwJExO7"></div></td>
+            <td data-page-node-id="J9G3F3D81IwpiM1pH7seAp"><div class="cell cell-right" data-page-node-id="MJuA4EDJ3N4D7QPatrdZw9"><input placeholder="" data-page-node-id="n9FhxHVMg4I7ca4bsNTRPV"></div></td>
+          </tr>
+        </tbody>
+        <tfoot data-page-node-id="m09MMTcJv38pHpuJPMd20V">
+          <tr data-page-node-id="NqohQcaKMHsPo9gVq94S4A">
+            <td colspan="4" style="text-align:left;padding:7px 10px" data-page-node-id="NAG16mqDCwXhlhSeket7vf">
+              <span style="font-size:11px;color:var(--text-muted)" data-page-node-id="YnkZ74nIOY7BNRcIOfJFAM">合计（大写）</span>
+              <span style="margin-left:8px;font-weight:700;letter-spacing:0.06em" data-page-node-id="zZw2AU0kXRyBpbMH2SMyR9">壹仟玖佰壹拾叁元整</span>
+            </td>
+            <td style="text-align:right;padding:7px 10px;font-size:11px;color:var(--text-muted)" data-page-node-id="rw5ThVf4RCLESvCYKnpwuw">合计金额</td>
+            <td style="text-align:right;padding:7px 10px" data-page-node-id="gbeeAC8PUUKWR3tgq4JTDB">
+              <span class="total-row" style="justify-content:flex-end" data-page-node-id="TYljsC89Q0B09twEhlMSt2">
+                <span style="font-size:11px;color:var(--text-muted)" data-page-node-id="Fp2xgIDcInqNNkn6pQIPPS">¥</span>
+                <span class="amt" data-page-node-id="pcWHvcT1MmbAc5OAKgO6hl">1,913.00</span>
+              </span>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+      <div class="field-hint" data-page-node-id="APyVv9NJS5cCdm4qX4zWH3">如行数不足，请另附明细清单并在此注明：共 ____ 张票据，合计 ¥ ______ 。</div>
+    </section>
+
+    <!-- ══ 02 收款信息 ══ -->
+    <section class="form-section" data-page-node-id="cRmS570ee7Ko1U5lpTXYVJ">
+      <div class="sec-head" data-page-node-id="axos2kzdESSu640RqDaojF">
+        <span class="sec-num" data-page-node-id="Y1oO4DY0xyJIjywzVz8z0V">2</span>
+        <h2 class="sec-title" data-page-node-id="V7VhGorrOupccb5po9K497">收款信息</h2>
+        <span class="sec-note" data-page-node-id="nQZEwJojHuPB7s59zTeFVS">Payee</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="azpxXtrkUi11RhaCsstG9G"></div>
+
+      <div class="field-grid" data-page-node-id="ovhHBTPuZU1mQzrxEHzCLE">
+        <div class="field col-4" data-field="payee_name" data-type="text" data-label="收款人户名" data-required="true" data-page-node-id="4hj0qrsB3Z3soj27uO0Szy">
+          <div class="field-label" data-page-node-id="XUYYnW2haIQbfFA2ME4bS5">收款人户名<i class="req" data-page-node-id="Lk2tBORZHBhF4qZj0fxS7C">*</i></div>
+          <input class="ctrl" type="text" placeholder="须与报销人一致" data-page-node-id="zfSLsDXUdYms4EnFOE1dFD">
+        </div>
+        <div class="field col-4" data-field="payee_bank" data-type="text" data-label="开户银行" data-required="true" data-page-node-id="nVCQJh5ush3eNJLA44hdrD">
+          <div class="field-label" data-page-node-id="y926TTex62ndGWZDNGCh1i">开户银行<i class="req" data-page-node-id="Ahb0uflr3NDO6MhvAnET98">*</i></div>
+          <input class="ctrl" type="text" placeholder="如 招商银行深圳科技园支行" data-page-node-id="ir3WH2DJ7pDSI3iLoFriMs">
+        </div>
+        <div class="field col-4" data-field="payee_account" data-type="text" data-label="银行账号" data-required="true" data-page-node-id="soA2CHElosyBtd5OldC9x9">
+          <div class="field-label" data-page-node-id="wiqiKIvZvaAq8wS1GSFKWM">银行账号<i class="req" data-page-node-id="WciNzeGgKYzDAL4BgBzhml">*</i></div>
+          <input class="ctrl" type="text" placeholder="请核对后填写" data-page-node-id="q0x5OaV3kuevBNbD0pthBk">
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 03 审批 ══ -->
+    <section class="form-section" data-page-node-id="IJAC2NlNK5zYaLdFXPPdEA">
+      <div class="sec-head" data-page-node-id="pSLSX8JgjLj8qZYDIQHQou">
+        <span class="sec-num" data-page-node-id="BrFZksR6ePDltOCLHpskqj">3</span>
+        <h2 class="sec-title" data-page-node-id="fiRKeBjvLaMmSkRks3hlxq">审批流程</h2>
+        <span class="sec-note" data-page-node-id="c3TX1GAonfzfdHnYO1YrOW">Approval</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="HXutzlv3TMsyog2ZQZQnBu"></div>
+
+      <div class="approv-grid" data-page-node-id="8EsTUfZwSrsRIOvRNKZCpY">
+        <div class="approv-cell" data-field="approver_manager" data-type="signature" data-label="直属上级审核" data-page-node-id="lDRJcGDGYzDx546L4XYB1x">
+          <div class="approv-head" data-page-node-id="mERcIDK2FSbyPREmd4nP6W">直属上级审核</div>
+          <div class="approv-body" data-page-node-id="KkaR7iVWjoOwiNKnspWt5A">费用真实性已核</div>
+          <div class="approv-foot" data-page-node-id="RjSsGVJaKAKrFw16I0cprR"><span data-page-node-id="EgbEqp4SRh1DYuTZnzUlLy">签字：</span><span data-page-node-id="xTl4jqtRbX4NazS6LDfscv">日期：</span></div>
+        </div>
+        <div class="approv-cell" data-field="approver_finance" data-type="signature" data-label="财务复核" data-page-node-id="LHk9g2WX43J3UlzqlgxULG">
+          <div class="approv-head" data-page-node-id="puBDtem05LFdD2o9b17VUt">财务复核</div>
+          <div class="approv-body" data-page-node-id="cRD1PzMBSO46MvMZNn6180">票据合规 / 金额已核</div>
+          <div class="approv-foot" data-page-node-id="HFb9QTb0rBDFafLHffSbma"><span data-page-node-id="Tt9YpHtjStghTfh6Tsl0Fq">签字：</span><span data-page-node-id="NUQRLHDt1heGA2qyTghUWC">日期：</span></div>
+        </div>
+        <div class="approv-cell" data-field="approver_gm" data-type="signature" data-label="总经理批准" data-page-node-id="DjUJGmQdRBSOQkclAaQbn2">
+          <div class="approv-head" data-page-node-id="f0IFXkDt9H7JegGJSrSa7i">总经理批准</div>
+          <div class="approv-body" data-page-node-id="mQxSbcjjSU8JEmpIBYMfrl">同意支付</div>
+          <div class="approv-foot" data-page-node-id="SBt3xdq3sLXus8FOEK6ZQ0"><span data-page-node-id="oDKtezzPoVb6yktBwHDWxb">签字：</span><span data-page-node-id="Hx1iuGX2CDSWbtxDFMZROO">日期：</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 说明 ══ -->
+    <div class="notice" data-page-node-id="JsctB8ESEIbtNqTy9J6lJZ">
+      1. 单笔金额超过 ¥5,000 须附审批通过的《费用事前申请单》；2. 票据须为合规增值税发票，抬头与税号以财务公告为准；
+      3. 报销单据须在费用发生后 30 日内提交，逾期不予受理；4. 票据请以 A4 纸整齐粘贴于《票据粘贴单》并随本单一并提交。
+    </div>
+
+    <div class="sign-row" style="margin-top:16px" data-page-node-id="kW2PrmS3aWLFZs2a7DtEW8">
+      <div class="sign-cell" data-field="signature_applicant" data-type="signature" data-label="报销人签字" data-page-node-id="9DxRIMdUeDBkCJNyidcQ5M">
+        <div class="sign-line" data-page-node-id="iAZWpNPycMu3u87jSBBSBQ"></div>
+        <div class="sign-cap" data-page-node-id="745XE6Xagoa9ROqti3d3KE">报销人签字</div>
+      </div>
+      <div class="sign-cell" data-field="signature_receiver" data-type="signature" data-label="款项签收" data-page-node-id="6DBveOmDGpemKtnpnKkBeD">
+        <div class="sign-line" data-page-node-id="MCFIO8q7zMyIaxNzDKaoxE"></div>
+        <div class="sign-cap" data-page-node-id="UFtvO33hylkoCNfZiLALUp">款项签收</div>
+      </div>
+      <div class="sign-cell" data-field="submit_date" data-type="date" data-label="提交日期" data-page-node-id="XAIbjLFevDx9nCZPiQG1qA">
+        <div class="sign-line" data-page-node-id="Xp8ekNuAbKLEaVF7BSUMCC"></div>
+        <div class="sign-cap" data-page-node-id="3nKpSvQP5OvMMJa8HGl97Y">提交日期</div>
+      </div>
+    </div>
+
+    <footer class="form-foot" data-page-node-id="H5qes8YP7dHboLEgNsNB3p">
+      <span data-page-node-id="hyBaKXyTjIsUzqwEjJCPnV">FIN-EXP · V1.1</span>
+      <span data-page-node-id="ymklTD1JVN7sJXc5b4BoUa">XX 科技有限公司 财务中心 制</span>
+      <span data-page-node-id="tsIfwFmzEigGs4gXG3VHYF">第 1 页 / 共 1 页</span>
+    </footer>
+
+  </form>
+</div>
+<script src="tagger.js" defer></script>
+</body>
+</html>

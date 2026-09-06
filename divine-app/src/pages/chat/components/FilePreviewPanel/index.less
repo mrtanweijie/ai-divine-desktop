@@ -330,12 +330,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
-
-    &:hover {
-      .file-inspector-crumb-folder {
-        opacity: 1;
-      }
-    }
   }
 
   .file-inspector-crumb-name {
@@ -345,15 +339,8 @@
     white-space: nowrap;
   }
 
-  .file-inspector-crumb-folder {
-    flex-shrink: 0;
-    color: var(--color-text-muted);
-    opacity: 0.55;
-    transition: opacity 0.15s ease;
-  }
-
   .diff-accept-button {
-    flex-shrink: 0;
+    flex-shrink: 0; /* 出现时由弹性文件名吸收宽度，右侧图标组不位移 */
   }
 
   .diff-view-state {

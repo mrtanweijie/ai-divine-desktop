@@ -202,7 +202,8 @@ def apply_resume_color(
     """返回注入配色后的 CSS（无配色或无法解析时原样返回）。
 
     - color_scheme：主色描述（中文色词 / #hex / rgb()），自动派生整套；
-    - color_overrides：CSS 变量级直接覆盖 {"--navy": "#2B2B2B"}，优先级最高。
+    - color_overrides：CSS 变量级直接覆盖 {"--navy": "#2B2B2B"}，优先级最高；
+      其中通用管线变量名 --color-primary/--color-accent 会翻译为槽位语义。
     """
     if not color_scheme and not color_overrides:
         return css
@@ -211,11 +212,36 @@ def apply_resume_color(
     var_overrides: dict[str, str] = {}
     literal_map: dict[str, str] = {}  # 旧 hex -> 新 hex（替换硬编码旧主色）
 
+    # 通用管线变量名翻译（prompt 约定的 theme_colors 形态）：
+    #   --color-primary → 主色（按槽位派生整套配色）
+    #   --color-accent  → 显式强调色（覆盖派生值；模板无 accent 槽位时跳过）
+    # 不翻译的话这些变量注入 :root 后模板根本不消费，换色会静默失效
+    # （事故：用户要求黑色 #1A1A1A，产物仍是内置主题色——2026-09-06）。
+    generic_primary = ""
+    generic_accent = ""
+    overrides_local: dict[str, str] = {}
+    if color_overrides:
+        for raw_key, raw_value in color_overrides.items():
+            key = str(raw_key).strip()
+            value = str(raw_value or "").strip()
+            if key == "--color-primary":
+                generic_primary = value
+            elif key == "--color-accent":
+                generic_accent = value
+            else:
+                overrides_local[key] = value
+    if generic_primary and not color_scheme:
+        color_scheme = generic_primary
+
     if color_scheme:
         rgb = resolve_color(color_scheme)
         slots = RESUME_SLOTS.get(template_id)
         if rgb and slots:
             palette = derive_resume_palette(rgb)
+            if generic_accent:
+                accent_rgb = resolve_color(generic_accent)
+                if accent_rgb:
+                    palette["accent"] = _rgb_to_hex(accent_rgb)
             token_vars: dict[str, list[str]] = {
                 "main": slots.get("main", []),
                 "dark": slots.get("dark", []),
@@ -230,11 +256,20 @@ def apply_resume_color(
                     if _is_color(old_default or ""):
                         literal_map[old_default.upper()] = new_value  # type: ignore[arg-type]
 
+    # 仅强调色、无主色：只覆盖模板的 accent 槽位
+    if not color_scheme and generic_accent:
+        slots = RESUME_SLOTS.get(template_id) or {}
+        accent_rgb = resolve_color(generic_accent)
+        if accent_rgb:
+            for var_name in slots.get("accent", []):
+                old_default = _root_default(css, var_name)
+                var_overrides[var_name] = _rgb_to_hex(accent_rgb)
+                if _is_color(old_default or ""):
+                    literal_map[old_default.upper()] = _rgb_to_hex(accent_rgb)
+
     # 显式变量级覆盖（最高优先级，且不触发旧色字面替换）
-    if color_overrides:
-        for key, value in color_overrides.items():
-            key = str(key).strip()
-            value = str(value).strip()
+    if overrides_local:
+        for key, value in overrides_local.items():
             if not _VAR_RE.match(key) or not value or not _COLOR_VALUE_RE.match(value):
                 continue
             var_overrides[key] = value

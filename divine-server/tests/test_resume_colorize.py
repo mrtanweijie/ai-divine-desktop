@@ -1,7 +1,5 @@
 """简历换色（colorize.py）回归：色词/hex 解析、HSL 派生、模板变量注入与字面替换。"""
 
-import re
-
 import pytest
 
 from app.docgen.resume.models import ResumeData
@@ -106,3 +104,52 @@ def test_render_template_resume_both_html_files_carry_color(tmp_path) -> None:
     assert len(files) == 2
     for path in files:
         assert "--navy:#2B2B2B" in open(path, encoding="utf-8").read()
+
+
+def test_generic_primary_theme_colors_derive_slots() -> None:
+    """事故回归：theme_colors 通用变量名 --color-primary 必须派生槽位配色。
+
+    此前该键被原样注入 :root，而模板 CSS 用的是 --brand 等自有变量名，
+    换色静默失效（用户要黑色 #1A1A1A，产物仍是内置主题色）。
+    """
+    css = apply_resume_color(
+        _CSS,
+        "tpl_data",
+        color_overrides={"--color-primary": "#1A1A1A"},
+    )
+    assert "--brand:#1A1A1A" in css
+    assert "--brand-soft:" in css
+    assert "--color-primary" not in css  # 通用名不再原样注入
+
+
+def test_generic_accent_and_primary_combined() -> None:
+    """黑金场景：primary 派生主色 + accent 显式强调色（tpl_executive 有 --gold 槽位）。"""
+    css = apply_resume_color(
+        _CSS,
+        "tpl_executive",
+        color_overrides={"--color-primary": "#1A1A1A", "--color-accent": "#C9A227"},
+    )
+    assert "--navy:#1A1A1A" in css  # tpl_executive 的 main 槽位是 --navy
+    assert "--gold:#C9A227" in css
+
+
+def test_generic_accent_only_applies_to_accent_slot() -> None:
+    css = apply_resume_color(
+        _CSS,
+        "tpl_executive",
+        color_overrides={"--color-accent": "#C9A227"},
+    )
+    assert "--gold:#C9A227" in css
+
+
+def test_build_html_generic_theme_colors_change_brand(tmp_path) -> None:
+    """端到端：build_html 收到通用形态 theme_colors，产物 CSS 品牌色变化。"""
+    default_html = build_html(SAMPLE_RESUME, "tpl_data", editable=False)
+    colored = build_html(
+        SAMPLE_RESUME,
+        "tpl_data",
+        editable=False,
+        color_overrides={"--color-primary": "#1A1A1A"},
+    )
+    assert "--brand:#1A1A1A" in colored
+    assert colored != default_html

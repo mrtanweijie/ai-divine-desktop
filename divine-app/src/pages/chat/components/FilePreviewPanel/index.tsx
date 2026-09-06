@@ -1,13 +1,5 @@
 import { memo, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import {
-  Check,
-  ChevronRight,
-  FolderOpen,
-  ListTree,
-  Maximize2,
-  Minimize2,
-  PanelRightClose,
-} from "lucide-react";
+import { Check, ChevronRight, ListTree, Maximize2, Minimize2, PanelRightClose } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
@@ -219,25 +211,24 @@ export function FilePreviewPanelInner({
                   <span className="file-inspector-crumb-name">
                     {selectedFile.fileName ?? selectedFile.relPath}
                   </span>
-                  <FolderOpen size={11} className="file-inspector-crumb-folder" />
                 </div>
+                {onAcceptFile && changedFiles.has(selectedFile.relPath) && (
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    className="diff-accept-button"
+                    onClick={() => onAcceptFile(selectedFile.relPath)}
+                    title={t("file.acceptChanges", "接受变更，清除蓝点")}
+                  >
+                    <Check size={13} />
+                    {t("common.accept", "接受")}
+                  </Button>
+                )}
               </>
             )}
           </div>
           <div className="file-inspector-actions">
             <PreviewHeaderSlot />
-            {selectedFile && onAcceptFile && changedFiles.has(selectedFile.relPath) && (
-              <Button
-                variant="ghost"
-                size="small"
-                className="diff-accept-button"
-                onClick={() => onAcceptFile(selectedFile.relPath)}
-                title={t("file.acceptChanges", "接受变更，清除蓝点")}
-              >
-                <Check size={13} />
-                {t("common.accept", "接受")}
-              </Button>
-            )}
             {(expanded || selectedFile) && (
               <IconButton
                 icon={expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}

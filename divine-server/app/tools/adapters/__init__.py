@@ -49,6 +49,7 @@ from .notes import NotesAdapter  # noqa: F401
 from .pdf_generate import PdfGenerateAdapter  # noqa: F401
 from .pdf_form_fields import PdfFormFieldsAdapter  # noqa: F401
 from .pdf_form_fill import PdfFormFillAdapter  # noqa: F401
+from .pdf_form_generate import PdfFormGenerateAdapter  # noqa: F401
 from .pdf_split_merge import PdfSplitMergeAdapter  # noqa: F401
 from .pdf_render import PdfRenderAdapter  # noqa: F401
 from .pdf_to_word import PdfToWordAdapter  # noqa: F401

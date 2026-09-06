@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+from PyInstaller.utils.hooks import collect_submodules
+
 project_root = Path(SPECPATH)
 
 # 目标 Mach-O 切片：darwin-arm64 / darwin-x64 时由 build-sidecar.sh 设置。
@@ -13,6 +15,7 @@ a = Analysis(
     pathex=[str(project_root)],
     binaries=[],
     datas=[
+        ("../docs/pdf-forms", "pdf-forms"),
         (str(project_root / "app" / "tools" / "scripts"), "app/tools/scripts"),
         (str(project_root / "app" / "docgen" / "pdf" / "pdf_themes"), "app/docgen/pdf/pdf_themes"),
         # llama-server 全套（二进制 + 全部动态库，含 openssl/libomp 等第三方
@@ -23,6 +26,7 @@ a = Analysis(
     ],
     hiddenimports=[
         "eval_type_backport",
+        "reportlab.pdfbase.cidfonts",
         "anydoc",
         "pymupdf",
         "pypinyin",
@@ -241,7 +245,7 @@ a = Analysis(
         "resvg_py",
         "weasyprint",
         "markdown",
-    ],
+    ] + collect_submodules("app.docgen") + collect_submodules("app.tools"),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

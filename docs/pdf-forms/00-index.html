@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="2kXgsjEN3OGUJtmthDGIGG">
+<head data-page-node-id="HMn6LH6cdzxJFEkhKRDS7h">
+<meta charset="UTF-8" data-page-node-id="xEzo7d0nhuLexpdIvphoR2">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="LuQK502YHBhLoNtWwtXPuJ">
+<title>PDF 表单模板库 · PDF_FORM_GENERATE 参考</title>
+<style>
+  :root{
+    --bg:#0F0F11; --panel:#17171A; --panel-2:#1D1D20; --line:#2A2A2E;
+    --tx:#F4F4F5; --tx-2:#A1A1AA; --tx-3:#71717A;
+    --acc:#FAFAFA;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--tx);
+    font-family:'Inter','PingFang SC','Hiragino Sans GB',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.6;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:64px 32px 96px}
+
+  .eyebrow{
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--tx-3);margin-bottom:14px;
+  }
+  h1{
+    font-size:40px;line-height:1.2;letter-spacing:-.02em;margin:0 0 14px;font-weight:700;
+  }
+  .lede{font-size:15px;color:var(--tx-2);max-width:720px;margin:0 0 44px}
+
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-bottom:56px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    padding:26px 26px 22px;display:flex;flex-direction:column;
+    text-decoration:none;color:inherit;
+    transition:background-color 180ms ease,border-color 180ms ease,transform 180ms ease;
+  }
+  .card:hover{background:var(--panel-2);border-color:#3A3A40;transform:translateY(-2px)}
+
+  .card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:8px}
+  .card-idx{
+    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;
+    color:var(--tx-3);letter-spacing:.08em;
+  }
+  .card-tag{
+    font-size:10px;letter-spacing:.06em;padding:3px 9px;border-radius:999px;
+    border:1px solid var(--line);color:var(--tx-2);background:#1A1A1D;
+  }
+  .card h2{font-size:21px;margin:0 0 6px;font-weight:600;letter-spacing:-.01em}
+  .card .en{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--tx-3);margin-bottom:14px}
+  .card p{font-size:13.5px;color:var(--tx-2);margin:0 0 18px;line-height:1.65}
+  .card .meta{
+    margin-top:auto;display:flex;gap:18px;padding-top:16px;border-top:1px solid var(--line);
+    font-size:11.5px;color:var(--tx-3);
+  }
+  .card .meta b{color:var(--tx-2);font-weight:600}
+
+  h3.sec{
+    font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--tx-3);
+    margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid var(--line);
+  }
+  .proto{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    padding:24px 26px;margin-bottom:24px;
+  }
+  table.kv{width:100%;border-collapse:collapse;font-size:13px}
+  table.kv th,table.kv td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.kv th{color:var(--tx-3);font-weight:500;width:200px;font-size:12px}
+  table.kv tr:last-child th,table.kv tr:last-child td{border-bottom:none}
+  code{
+    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;
+    background:#1F1F23;border:1px solid var(--line);border-radius:5px;padding:1.5px 6px;color:#E4E4E7;
+  }
+  pre{
+    background:#131316;border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;
+    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:1.7;color:#D4D4D8;margin:0;
+  }
+  .files{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+  .files span{
+    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;
+    border:1px solid var(--line);border-radius:7px;padding:5px 10px;color:var(--tx-2);background:#16161A;
+  }
+  .foot{margin-top:52px;font-size:12px;color:var(--tx-3);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+</style>
+</head>
+<body data-page-node-id="UTMxgc4PuOuDPbchgPz1FN">
+<div class="wrap" data-page-node-id="NoVzWLeNGtHslcrGWnRhGu">
+
+  <div class="eyebrow" data-page-node-id="3omu27vwK5hfRLS78Hfhu9">PDF Form Template Kit · V1</div>
+  <h1 data-page-node-id="EvkqsrcpLvyGihRJazEcNb">PDF 表单模板库</h1>
+  <p class="lede" data-page-node-id="BEge3359MR7T0LYp7wd3lG">
+    面向 <code data-page-node-id="Qu80OSOrHav3HUB7twlHQW">PDF_FORM_GENERATE</code> 工具的表单模板参考集。4 个模板覆盖主流表单形态，
+    共享同一套 design tokens 与字段协议 —— HTML 本身就是可解析的结构化 schema 源，
+    工具可直接读取 <code data-page-node-id="cW7wes4f1DwOj9BP09gY65">data-field</code> 生成 AcroForm 字段。
+  </p>
+
+  <div class="grid" data-page-node-id="AFh1Bt7W1K2YBPuEDk1KtD">
+    <a class="card" href="01-application.html" data-page-node-id="HHPHfRUYllCg4yWXceJQcX">
+      <div class="card-top" data-page-node-id="8CzOzeASglkz3Ft9IvsfEW">
+        <span class="card-idx" data-page-node-id="jbdFRNsC4EGurso58fWfj6">01</span>
+        <span class="card-tag" data-page-node-id="rzFplDAiD0HDKRaHq1ueBK">行政流程</span>
+      </div>
+      <h2 data-page-node-id="g9ogYrGAJVqNh2eYwUMzQR">事项申请表</h2>
+      <div class="en" data-page-node-id="FvCI920s5uPDHjEdAcq69l">application · ADM-APPLY-001</div>
+      <p data-page-node-id="Gu4GsSNlbSGt7vql3aGWZO">分节流式布局 + 下划线填空 + 多选/单选组 + 三级审批栏。适合请假、采购、用印、用车等需要流转签署的行政事项。</p>
+      <div class="meta" data-page-node-id="l5e0q0ANoAPBUlgd7O0GPb"><span data-page-node-id="fjXm8XVJyAfejWPxHmtfL9"><b data-page-node-id="ZBbQSVZFknX5P61jZ6tWF6">字段</b> 20</span><span data-page-node-id="0pjJMEWVPBW32xpJgDUCUf"><b data-page-node-id="fjcBROD5lgYJw1sSzkjjKF">形态</b> 纵向流式</span><span data-page-node-id="KH7eFBwdFrFnfhja1INSo1"><b data-page-node-id="S8eQSaWiy6NcI0XCfn8KLF">页数</b> 1</span></div>
+    </a>
+
+    <a class="card" href="02-registration.html" data-page-node-id="P72esq9fuJEjGiSo6fqTli">
+      <div class="card-top" data-page-node-id="DJUy26KlmpUAhr8TWNafqh">
+        <span class="card-idx" data-page-node-id="GVAglFXNXFGTvdpx69SM25">02</span>
+        <span class="card-tag" data-page-node-id="VkBolPoEpR5Kw7RpFbmHDs">信息采集</span>
+      </div>
+      <h2 data-page-node-id="MzVge7piF9aj66hnf7qNb8">员工信息登记表</h2>
+      <div class="en" data-page-node-id="cS1l68weM4XkTXl0akkSts">registration · HR-REG-002</div>
+      <p data-page-node-id="iKSL4CRspExSUKtGyp6pPw">标签-值成对网格表格，信息密度最高；含证件照位、教育/工作/家庭子表与薪酬社保区。适合入职登记、客户建档、供应商备案。</p>
+      <div class="meta" data-page-node-id="AmUxezQEpk8lZzIAUtGK4F"><span data-page-node-id="RpeYlDLHhbbw0EiAXTpbPr"><b data-page-node-id="6MwcwFmupKyVmpb4ry9GZM">字段</b> 30+</span><span data-page-node-id="9Z9ctuhlLi3wFfAWQBTkL1"><b data-page-node-id="gjscFTF5vkwJLQJ1dDaUAG">形态</b> 网格表格</span><span data-page-node-id="AxS6Fojqif7PrCoUvwuMhc"><b data-page-node-id="xeGPhCbHTgJsv0EoHdhEAR">页数</b> 1</span></div>
+    </a>
+
+    <a class="card" href="03-survey.html" data-page-node-id="nltEBTq9hCdPiqDBqb5aPU">
+      <div class="card-top" data-page-node-id="q1xFa5EYLBhUCSCChPGDEI">
+        <span class="card-idx" data-page-node-id="dnOOTBc0Z9zGbHe6QHnO01">03</span>
+        <span class="card-tag" data-page-node-id="Yx2lS9DPfqplkuh9LHFcln">调研评估</span>
+      </div>
+      <h2 data-page-node-id="VLMbkaMWFLzXAhHreSx70E">满意度调查问卷</h2>
+      <div class="en" data-page-node-id="gjNVlzbSIc8q3M01qXe29F">survey · CS-SUR-003</div>
+      <p data-page-node-id="DkITWAPRVrwp8yyNv2MHia">5 级量表矩阵 + NPS 0–10 横条 + 多选/单选 + 开放题。适合客户满意度调研、培训效果评估、内部敬业度调查。</p>
+      <div class="meta" data-page-node-id="ZePtbnlWnxtoKbG1HLr6pB"><span data-page-node-id="jbpBAi9pOeoiv0JI3M7vrm"><b data-page-node-id="DnK4BlhAjmaC9LKkErv4pf">字段</b> 16</span><span data-page-node-id="ELJ4DIylhuqnwoDmYxxBTY"><b data-page-node-id="JZGEw2g5b7A1qpSHFuyA37">形态</b> 量表矩阵</span><span data-page-node-id="1LpuG6F1YQyFIRfBONNmCd"><b data-page-node-id="5ZGwIr74rEHBO2ahgpc0FY">页数</b> 1</span></div>
+    </a>
+
+    <a class="card" href="04-expense.html" data-page-node-id="Ne6lhj2NUZd1ZqwNz3UHOD">
+      <div class="card-top" data-page-node-id="Y5nKGHjDwjgBrIG8dT6THU">
+        <span class="card-idx" data-page-node-id="awVLDYM03GmYied6xwchfL">04</span>
+        <span class="card-tag" data-page-node-id="jqxaHOn0EHYtedD70ey5fI">财务单据</span>
+      </div>
+      <h2 data-page-node-id="BmlHveKcYF0YmWKAxEbNFh">费用报销单</h2>
+      <div class="en" data-page-node-id="E0A6F5XPU0vs3ADyrxKP5c">expense · FIN-EXP</div>
+      <p data-page-node-id="3kyAK0Bs2NjbichG49eoAC">可重复明细表（8 行）+ 金额合计（小写/大写）+ 收款信息 + 三级审批。适合差旅报销、日常费用报销、付款申请。</p>
+      <div class="meta" data-page-node-id="B9qhLHtWwGHAgM4tpBTbLo"><span data-page-node-id="5fp8LeGkTQJQk6OFkKHDvA"><b data-page-node-id="yO1BqCMwx2TCrX9nGxCQQW">字段</b> 20+</span><span data-page-node-id="EBv8vt27Op94AkEyCnozXb"><b data-page-node-id="EDnYCISPwLD0LAwmcmiqB5">形态</b> 明细表格</span><span data-page-node-id="5yJP7rX9BcMCUNl1juokJE"><b data-page-node-id="Hqp9HN7HguiGDSfDPKo5Xv">页数</b> 1</span></div>
+    </a>
+  </div>
+
+  <h3 class="sec" data-page-node-id="34djnRxsyaKcJjCzDDXKaV">字段协议 · Field Protocol</h3>
+  <div class="proto" data-page-node-id="BTBfOPXCXf7AFeyQ7oI1vX">
+    <table class="kv" data-page-node-id="4Gx5bmk7PvgMTqJv4RSH0p">
+      <tr data-page-node-id="rDa6NtQ4BCVMWRh4aF9O7U"><th data-page-node-id="LQbK6onTnNgZ9RWfNIpbLZ">data-field</th><td data-page-node-id="yZPYsCGYIQKxFhiZrCzDQf">字段唯一名，工具生成 AcroForm 时即作为字段名（snake_case）</td></tr>
+      <tr data-page-node-id="cxHgiEEbgQJQGhtS5b6tOY"><th data-page-node-id="fBazxZKOshnlA974dd3LXy">data-type</th><td data-page-node-id="EZV0biXpQDSQFBvODFlTgK"><code data-page-node-id="tRdk45TI2SvbuN2zP1zvzE">text</code> <code data-page-node-id="nahA4lGug3nyp2XBQVRS3D">textarea</code> <code data-page-node-id="bj66kz7rJCuTzhRyPz6O9e">number</code> <code data-page-node-id="8FymuuG7eTgiyADOWFhePK">money</code> <code data-page-node-id="pDQJZGVTuYPZehimBkiXvN">date</code> <code data-page-node-id="nfKRW9IyJLf1NWC2KErK16">select</code> <code data-page-node-id="gV5xe97jztA6VJ7ViDZdsd">radio</code> <code data-page-node-id="rmXdXthxM4HaBxobF8a2Kb">checkbox</code> <code data-page-node-id="Gecas7WhELjFoCgmFsl2sQ">rating</code> <code data-page-node-id="9I8gsMtDXaTxgjROP9enA9">nps</code> <code data-page-node-id="AFRI0Pc7qGTXg0qItr7hRy">signature</code> <code data-page-node-id="4MGAfRdqBuzC52fGSIWZd6">table</code> <code data-page-node-id="zLysJGv8iqykeOTHezYgzh">group</code></td></tr>
+      <tr data-page-node-id="q1OvtYWs0eikLMbr5IHgmh"><th data-page-node-id="SyfE9twoUY68Jsz0J89P6N">data-label</th><td data-page-node-id="jfFTeLe711z8ZRxj4CNTAh">中文标签，用于 AcroForm 的 tooltip / 无障碍标签</td></tr>
+      <tr data-page-node-id="FjvD9lXM6X9yiz0TuwEHtC"><th data-page-node-id="DZDxvgkmp5WHQorwYkoRMf">data-required</th><td data-page-node-id="sycRARr0wiSdOKaZKMVIZu"><code data-page-node-id="5P5nnIIoaqTqg6u5Gj0ymK">true</code> 时渲染必填星号，生成 PDF 时置为必填字段</td></tr>
+      <tr data-page-node-id="eUDRYa1MRCLzqtUSzfaAKQ"><th data-page-node-id="lzWv2DKsF4tsaAUAAaKseC">data-repeatable</th><td data-page-node-id="ZaDICPaWWadM18YoDkXFZE">仅 <code data-page-node-id="ro6865mLZeGrTT5FNKe1y2">table</code> 类型，标记明细行可动态扩展</td></tr>
+      <tr data-page-node-id="QAWN5KqjPNfnmaX4EEpg0f"><th data-page-node-id="NJ4k4WC4ryePr0LaRbq3BV">data-checked</th><td data-page-node-id="j2WVFT5ZHFRMVMOTtLKpV3">选项的预填状态（单选 / 多选 / 量表 / NPS 通用）</td></tr>
+    </table>
+    <pre style="margin-top:18px" data-page-node-id="4VVyg8e8aHZvc7IETFeP0h">&lt;div class="field col-4"
+     data-field="applicant_name"
+     data-type="text"
+     data-label="申请人姓名"
+     data-required="true"&gt;
+  &lt;div class="field-label"&gt;申请人姓名&lt;i class="req"&gt;*&lt;/i&gt;&lt;/div&gt;
+  &lt;input class="ctrl ctrl--underline" type="text" placeholder="请输入姓名"&gt;
+&lt;/div&gt;</pre>
+  </div>
+
+  <h3 class="sec" data-page-node-id="00VebeEyqEBAGd5TZFhsi5">设计系统 · Design Tokens</h3>
+  <div class="proto" data-page-node-id="Z3XTGovXsT3vkZOnHCgXHi">
+    <table class="kv" data-page-node-id="yScoo2O1YJ7KEcs0lnft82">
+      <tr data-page-node-id="X0G8NdFjqpr3kej1wqHqsx"><th data-page-node-id="DnGM66TmeBP5Q3gaoMwW9Y">主题变量</th><td data-page-node-id="tlERg5ghGxvEsNDUhfXvVY"><code data-page-node-id="s4RiG1JnkBYIDGAKZQ4XkJ">--primary</code> <code data-page-node-id="Dttu6p6UT9JLajrdJUpPrr">--text-main</code> <code data-page-node-id="uMV0MRL5iJNXvPBsUL1Ojl">--text-muted</code> <code data-page-node-id="QQvYlyy2ETL5nywoSrQwj5">--bg-surface</code> <code data-page-node-id="o7Wu4tbHSAKyTtKaj7hCnb">--border</code> <code data-page-node-id="YKxKwRFgao56KZ0ArtPHwB">--border-strong</code> —— 与 <code data-page-node-id="WKq92qNIjj3F6gQBeIXjzC">docs/pdf-modules</code> 同体系，可整包换肤</td></tr>
+      <tr data-page-node-id="rRegq0j8BuAeG90EU8aryF"><th data-page-node-id="OfDR8HNEtbepzf0eMD453G">已内置主题</th><td data-page-node-id="PIA9s3KTbGSFwEQlMO3Ff9"><code data-page-node-id="KdhEAsaXirT1CaXKMYt4Vx">minimal</code>（默认·极简黑白）· <code data-page-node-id="u1JUYLjaTRV6BFZW5JMCPF">corporate</code>（稳重蓝）· <code data-page-node-id="Hez30HdGdFDh9xbNGgAbqi">tech</code>（科技蓝）· <code data-page-node-id="5QM4uYSZeJp51gxthIWNcV">forest</code>（森林绿）</td></tr>
+      <tr data-page-node-id="T5y0GsQOPgWvwKTXfF1YIm"><th data-page-node-id="yB8zUZEBehlkPAiCPlUVvI">控件几何</th><td data-page-node-id="c4QBCJDJrtGx8FqtWaRyNL">标准高度 <code data-page-node-id="LJdT0Iq2CM5VGVRDKNuUph">--field-h: 40px</code>；紧凑 <code data-page-node-id="thPhJ8jqjdTg7dqUyLWBaH">32px</code>；圆角 <code data-page-node-id="DttHiVpUu1WHbs4kDNodg1">6px</code>；勾选框 <code data-page-node-id="FUDU7aXoYNezRoEl7ku8CL">15px</code></td></tr>
+      <tr data-page-node-id="QWOc1KwnQ1mLcEVH1Dtqqb"><th data-page-node-id="XwpbjKII4ahaYPkAUSQT9q">字号阶梯</th><td data-page-node-id="3397ZRN79rvHI5zRJqNHgI">标题 22px / 分节 15px / 标签 12px / 正文 12.5px / 辅助 11px / 页脚 9.5px</td></tr>
+      <tr data-page-node-id="XiKv2TEPe6MCGgivkjsEwe"><th data-page-node-id="JkYtdeGG6dTWwbCwhwCWiF">页面规格</th><td data-page-node-id="RDqKEeBCP7cowoUReKjVmt">A4 210×297mm，页边距 15–16mm，<code data-page-node-id="1nTONogABu9ihGbGveV49P">@page { size: A4; margin: 0 }</code>，分节 <code data-page-node-id="xwjsMDGGCWImTbyQEFxECT">break-inside: auto</code></td></tr>
+      <tr data-page-node-id="otkdQY5nQ97fEEegXxmmHk"><th data-page-node-id="7iAvjxtQtY7G3Q8YN2gY7N">栅格</th><td data-page-node-id="Ba74beWvIjT8OQZqvRcE8B">12 列，<code data-page-node-id="KLoVLvdm3LGNs9M4EDwEGP">.col-1</code> ~ <code data-page-node-id="DysbrL5L9LMAjm6ww4QVFZ">.col-12</code>，间距 10px</td></tr>
+    </table>
+  </div>
+
+  <h3 class="sec" data-page-node-id="zP1ug7SUe9pselXerZKLCk">文件清单</h3>
+  <div class="files" data-page-node-id="48gYlYLMbAp1nLmey83Jfj">
+    <span data-page-node-id="HN8Pkq18ddbsaD8ysze9Fp">forms.css — 共享样式层</span>
+    <span data-page-node-id="V0v5DDj6hhjWCD2Q3GmuTI">tagger.js — 字段名标注器（预览用，打印隐藏）</span>
+    <span data-page-node-id="g2opblywUapwYDRKMXLYI2">01-application.html</span>
+    <span data-page-node-id="uEVH2bplWUv7kNEz0nEPHJ">02-registration.html</span>
+    <span data-page-node-id="mTIF5bUDMU6wm5YANH2ygP">03-survey.html</span>
+    <span data-page-node-id="NcpwAYIrmJCkqaDr2an0AN">04-expense.html</span>
+  </div>
+
+  <div class="foot" data-page-node-id="G3V0LLUMaQrlL6cDcwITe4">
+    <span data-page-node-id="fFG50YVbBSt7jCwOUSySik">PDF 表单模板库 · V1 · 2026-09-06</span>
+    <span data-page-node-id="sQ69XNcLtjRysn2TJOHa6h">预览提示：打开任一模板后点击右上角「字段名标注」可检视 schema</span>
+  </div>
+
+</div>
+</body>
+</html>

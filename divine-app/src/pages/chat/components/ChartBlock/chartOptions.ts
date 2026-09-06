@@ -5,16 +5,35 @@ import { UI_COLORS } from "@/styles/uiPalette";
 const UI_FONT =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif';
 
-const UI_PALETTE = [
-  "#7dd3fc",
-  "#a5b4fc",
-  "#6ee7b7",
-  "#f9a8d4",
-  "#fde68a",
-  "#fca5a5",
-  "#c4b5fd",
-  "#5eead4",
+// 统一科研主题 · 分层色板（源：echarts-scientific-themes.html）
+// 定性色板按模式分列：暗色下浅色更跳、深色被淹没，故按「暗底对比度降序」独立重排；
+// 同一组 8 色，浅色保持文档原序（#FACC8F 白底对比度仅 1.49，只能做填充，排末位）。
+const QUAL_LIGHT = [
+  "#F3962F",
+  "#036EAD",
+  "#DD656D",
+  "#506AAA",
+  "#61A7D0",
+  "#E17692",
+  "#728DC1",
+  "#FACC8F",
 ];
+
+const QUAL_DARK = [
+  "#FACC8F",
+  "#F3962F",
+  "#61A7D0",
+  "#E17692",
+  "#728DC1",
+  "#DD656D",
+  "#506AAA",
+  "#036EAD",
+];
+
+// A 股惯例 涨红跌绿：色值取自语义色板（error / success 的柔和不刺眼档），
+// 替代旧鲜红 #ec0000 / 鲜绿 #00da3c。
+const CHART_UP = "#DD656D";
+const CHART_DOWN = "#2F9E6E";
 
 // Pie charts with more slices than this keep hidden labels (a bare ring is
 // cleaner than a label salad); smaller ones get per-segment indicator text.
@@ -71,6 +90,8 @@ function normalizePieStyle(series: Record<string, unknown>, hasContent: boolean)
 type ChartTheme = "dark" | "light";
 
 interface ChartPalette {
+  /** 定性系列色板：light/dark 独立排序 */
+  color: string[];
   text: string;
   muted: string;
   label: string;
@@ -84,6 +105,7 @@ interface ChartPalette {
 
 const CHART_PALETTES: Record<ChartTheme, ChartPalette> = {
   dark: {
+    color: QUAL_DARK,
     text: UI_COLORS.dark.text,
     muted: UI_COLORS.dark.textSecondary,
     label: UI_COLORS.dark.text,
@@ -95,6 +117,7 @@ const CHART_PALETTES: Record<ChartTheme, ChartPalette> = {
     tooltipBorder: "rgba(255,255,255,0.12)",
   },
   light: {
+    color: QUAL_LIGHT,
     text: UI_COLORS.light.text,
     muted: UI_COLORS.light.textSecondary,
     label: UI_COLORS.light.text,
@@ -899,9 +922,9 @@ function fixCandlestickAxes(
 }
 
 function decorateCandlestick(option: Record<string, unknown>, palette: ChartPalette): void {
-  // A 股惯例：涨红跌绿
-  const upColor = "#ec0000";
-  const downColor = "#00da3c";
+  // A 股惯例：涨红跌绿（柔和语义色 #DD656D / #2F9E6E）
+  const upColor = CHART_UP;
+  const downColor = CHART_DOWN;
   const series = Array.isArray(option.series)
     ? option.series.map((item) => (isRecord(item) ? { ...item } : item))
     : [];
@@ -1086,7 +1109,7 @@ export function buildChartOption(
   const bottomCaption = bottomCaptionHeight(option);
 
   const themeBase: Record<string, unknown> = {
-    color: UI_PALETTE,
+    color: palette.color,
     textStyle: {
       fontFamily: UI_FONT,
       color: palette.muted,

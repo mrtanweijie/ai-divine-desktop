@@ -7,18 +7,24 @@ import re
 from pathlib import Path
 from typing import Any
 
+# SVG 导出固定在浅底（PDF 嵌入 / 白卡片），系列色板用科研主题定性色的
+# light 档排序；灰阶 token 对应 echarts-scientific-themes.html 的 light 档
+# （ink / inkSub / axisLabel / axisBase / axisSplit）。
 COLORS = [
-    "#2563EB",
-    "#10B981",
-    "#F59E0B",
-    "#8B5CF6",
-    "#EF4444",
-    "#06B6D4",
-    "#F97316",
-    "#84CC16",
-    "#EC4899",
-    "#14B8A6",
+    "#F3962F",  # qual[0]
+    "#036EAD",
+    "#DD656D",
+    "#506AAA",
+    "#61A7D0",
+    "#E17692",
+    "#728DC1",
+    "#FACC8F",  # fill-only：白底对比度仅 1.49，只做兜底末位
 ]
+INK = "#33475F"        # 标题 / 主文字
+INK_SUB = "#7A8699"    # 图例名、饼图扇区标注
+AXIS_LABEL = "#98A2B3" # 刻度值、柱顶数值标签
+AXIS_BASE = "#E4E9F0"  # X 轴 1px 基线（"地面"）
+AXIS_SPLIT = "#F2F5F9" # 水平网格线，明度贴近卡片底色
 
 
 def _safe_name(name: str, fallback: str) -> str:
@@ -166,7 +172,7 @@ def _cartesian_svg(
     if title:
         parts.append(
             f'<text x="{width / 2}" y="30" text-anchor="middle" '
-            f'font-size="20" font-weight="600" fill="#111827">{_escape(title)}</text>'
+            f'font-size="20" font-weight="600" fill="{INK}">{_escape(title)}</text>'
         )
 
     for index in range(5):
@@ -175,16 +181,16 @@ def _cartesian_svg(
         value = max_value * ratio
         parts.append(
             f'<line x1="{left}" y1="{y:.1f}" x2="{left + plot_width}" '
-            f'y2="{y:.1f}" stroke="#E5E7EB" stroke-width="1"/>'
+            f'y2="{y:.1f}" stroke="{AXIS_SPLIT}" stroke-width="1"/>'
         )
         parts.append(
             f'<text x="{left - 8}" y="{y + 4:.1f}" text-anchor="end" '
-            f'font-size="11" fill="#6B7280">{value:g}</text>'
+            f'font-size="11" fill="{AXIS_LABEL}">{value:g}</text>'
         )
 
     parts.append(
         f'<line x1="{left}" y1="{top + plot_height}" x2="{left + plot_width}" '
-        f'y2="{top + plot_height}" stroke="#9CA3AF" stroke-width="1"/>'
+        f'y2="{top + plot_height}" stroke="{AXIS_BASE}" stroke-width="1"/>'
     )
 
     if chart_type == "line":
@@ -223,7 +229,7 @@ def _cartesian_svg(
                 if category_count <= 12 and bar_height >= 18:
                     parts.append(
                         f'<text x="{x + bar_width / 2:.1f}" y="{y - 5:.1f}" '
-                        f'text-anchor="middle" font-size="10" fill="#6B7280">'
+                        f'text-anchor="middle" font-size="10" fill="{AXIS_LABEL}">'
                         f"{value:g}</text>"
                     )
 
@@ -232,7 +238,7 @@ def _cartesian_svg(
         text = label if len(label) <= 10 else label[:9] + "…"
         parts.append(
             f'<text x="{x:.1f}" y="{height - 22}" text-anchor="middle" '
-            f'font-size="11" fill="#6B7280">{_escape(text)}</text>'
+            f'font-size="11" fill="{AXIS_LABEL}">{_escape(text)}</text>'
         )
 
     if len(series) > 1:
@@ -247,7 +253,7 @@ def _cartesian_svg(
             )
             parts.append(
                 f'<text x="{legend_x + 15}" y="{legend_y}" font-size="11" '
-                f'fill="#374151">{_escape(name)}</text>'
+                f'fill="{INK_SUB}">{_escape(name)}</text>'
             )
             legend_x += 15 + len(name) * 7 + 24
 
@@ -347,7 +353,7 @@ def _pie_legend(option: dict[str, Any], center_y: float) -> str:
         )
         parts.append(
             f'<text x="33" y="{start_y + index * 18:.1f}" font-size="11" '
-            f'fill="#374151">{_escape(name)}</text>'
+            f'fill="{INK_SUB}">{_escape(name)}</text>'
         )
     return "".join(parts)
 
@@ -374,7 +380,7 @@ def _bottom_caption_lines(option: dict[str, Any]) -> list[tuple[str, int, str]]:
         size = style.get("fontSize")
         size = size if isinstance(size, (int, float)) else 12
         fill = style.get("fill")
-        fill = fill if isinstance(fill, str) else "#999999"
+        fill = fill if isinstance(fill, str) else INK_SUB
         for line in text.split("\n"):
             if line.strip():
                 lines.append((line.strip(), size, fill))
@@ -463,7 +469,7 @@ def _pie_svg(option: dict[str, Any], title: str) -> str:
     if title:
         parts.append(
             f'<text x="{width / 2}" y="30" text-anchor="middle" '
-            f'font-size="20" font-weight="600" fill="#111827">{_escape(title)}</text>'
+            f'font-size="20" font-weight="600" fill="{INK}">{_escape(title)}</text>'
         )
 
     start = -math.pi / 2
@@ -495,7 +501,7 @@ def _pie_svg(option: dict[str, Any], title: str) -> str:
         anchor = "start" if label_x >= center_x else "end"
         parts.append(
             f'<text x="{label_x:.1f}" y="{label_y:.1f}" text-anchor="{anchor}" '
-            f'font-size="11" fill="#374151">{_escape(text)}</text>'
+            f'font-size="11" fill="{INK_SUB}">{_escape(text)}</text>'
         )
         start = end
 

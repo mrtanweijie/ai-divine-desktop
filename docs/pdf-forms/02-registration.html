@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="minimal" data-page-node-id="7uqFclom5cjNyOHYs2w7GH">
+<head data-page-node-id="ooNCE3K0F64U63v2DjHm1v">
+<meta charset="UTF-8" data-page-node-id="gBXcv60yf9tCqE9Sdv9GBz">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="GgBK9j04mUDjSDBJDu48Tj">
+<title>02 · 员工信息登记表 — PDF 表单模板</title>
+<link rel="stylesheet" href="forms.css" data-page-node-id="9HSwt3bux36DKSgPDzHjR6">
+</head>
+<body data-page-node-id="7X1ytKIvZCVo6TqHf6mp9h">
+<!--
+  模板 02 · 员工信息登记表 (registration)
+  形态：紧凑网格（标签-值 成对表格）+ 子表（教育/工作/家庭）+ 声明签字
+  适用：入职登记、客户建档、会员注册、供应商备案等信息采集
+  字段协议：data-field(唯一名) data-type data-label data-required
+-->
+<div class="page-a4" data-page-node-id="UgWQ0SR8RFto7Nn6EZfuHS">
+  <form class="pdf-form" data-form-id="registration" data-form-title="员工信息登记表" data-page-node-id="LkuXu6VgOzSouNv6UXSpmI">
+
+    <!-- ══ 表头 ══ -->
+    <header class="form-head" data-page-node-id="8xF7h8qluRogiF0DjNYLYG">
+      <div class="form-head-main" data-page-node-id="LIdOxTXCfD0UXIkFcmcEZ6">
+        <div class="org-name" data-page-node-id="sPPBGkDbvXvYQhaMdXzWNx">XX 科技有限公司 · 人力资源部</div>
+        <h1 class="form-title" data-page-node-id="alHIK3Zq7d6ElxEHVXWg8P">员工信息登记表</h1>
+        <div class="form-subtitle" data-page-node-id="HReeGSKwHW3yNVN3SSWrZC">EMPLOYEE REGISTRATION FORM — 请如实填写，带 * 项为必填</div>
+      </div>
+      <div class="form-head-meta" data-page-node-id="NkPwvnUPhsQyQNzGHggPBj">
+        <div data-page-node-id="Fwi3lN8EKLgewMWE0E4H4N"><span class="meta-k" data-page-node-id="A2HrqFWjxxRHCIWqadKkj4">表单编号</span> <span class="meta-v" data-page-node-id="FBzqB3qwDSkQ8WA9RSlJoJ">HR-REG-002</span></div>
+        <div data-page-node-id="D4vWgnEVlZ5aZ1jALDCMMp"><span class="meta-k" data-page-node-id="3aMi6jaB9RsZv9pGPHFCWj">版本</span> <span class="meta-v" data-page-node-id="yTPDWAEGe7CmtSJZwr1ItO">V2.0</span></div>
+      </div>
+    </header>
+
+    <div class="form-meta-bar" data-page-node-id="nAkkNKfHsUFFFem1dZTPwG">
+      <div class="mb-item" data-page-node-id="zS71qpjhgEMiiVHsOZG8jx"><span class="mb-k" data-page-node-id="moOcRd9ZrP5YUQ8qY6ptBQ">登记日期</span><span class="mb-v" data-page-node-id="9zkjBdnAnUSZTDMMNLOYZJ">2026-09-06</span></div>
+      <div class="mb-item" data-page-node-id="WdyptNg3K1ZSUrNY5H7X8k"><span class="mb-k" data-page-node-id="y4aLB1CjZBrmwwd0djUS8I">入职日期</span><span class="mb-v" data-page-node-id="czAqyniisINQeKcoaNKaIs">—</span></div>
+      <div class="mb-item" data-page-node-id="Ig9SQAjS90H4fwNvUFCbOq"><span class="mb-k" data-page-node-id="RlLs7ohihnAdw0MoC21c7s">档案编号</span><span class="mb-v" data-page-node-id="b82FCW8dBzZ6X3njeVz8jm">HR-2026-0000</span></div>
+    </div>
+
+    <!-- ══ 01 基本信息 ══ -->
+    <section class="form-section" data-page-node-id="3B6s7fhIlXQlokU1jbbw1W">
+      <div class="sec-head" data-page-node-id="ZaQIPGsvaGSULDo9eUUK6T">
+        <span class="sec-num" data-page-node-id="PTujmkw52lT5wmE8FtiE3r">1</span>
+        <h2 class="sec-title" data-page-node-id="gcdgUfmldi9KovRAHecA0a">基本信息</h2>
+        <span class="sec-note" data-page-node-id="vuXeCK8Tts5wD1N5zhd66D">Basic Information</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="OUBOH57xUnYUkDw4MkwD2c"></div>
+
+      <table class="grid-table" data-field="basic_info" data-type="group" data-label="基本信息" data-page-node-id="OHk5aGuSVfTV3u5QnsOKDr">
+        <colgroup data-page-node-id="ybr8PuAEHZznhvFPf8yQ6n">
+          <col style="width:11%" data-page-node-id="bJauSK7BcQ9h1339g8AeX8"><col style="width:22%" data-page-node-id="YLjh9AyohHbodoD5MMFRvD">
+          <col style="width:11%" data-page-node-id="OKBGgiCkZeFG3aBlaayGlz"><col style="width:22%" data-page-node-id="49cghU0gmTJ3obcLDLfATQ">
+          <col style="width:11%" data-page-node-id="jNlKVhCDjCLaH6VSKaAAkI"><col style="width:23%" data-page-node-id="SDV2W2wHZ3p2cc5k2eM1om">
+        </colgroup>
+        <tbody data-page-node-id="crY1LsF8SjRCcucsKfZvwj">
+          <tr data-page-node-id="7IzO7kGA4AWgXzcHYKbfgf">
+            <td data-page-node-id="B3QKnaB0JjEhgyFmZKbSXK"><div class="cell" data-page-node-id="19vCyjLssC93Y6zwnJOwED">姓名 <i class="req" data-page-node-id="GEzmwYcwVOLJsvnFdg2gJu">*</i></div></td>
+            <td data-page-node-id="wg1bsP31zlDVJ2y8JERuAJ"><div class="cell cell-left" data-page-node-id="VH5Yc6oGI2rDapW3qTHDl0"><input data-field="name" data-type="text" data-required="true" placeholder="与身份证一致" data-page-node-id="mUFKfBCFXC8ZOfRshjaUio"></div></td>
+            <td data-page-node-id="jyaWSICfXoZOIfQDkBDF2Z"><div class="cell" data-page-node-id="xnEiK6cxZoJTkDL5Wq2bHp">性别 <i class="req" data-page-node-id="DmSSNNX3SpeklbiHxrUUSL">*</i></div></td>
+            <td data-page-node-id="DjvySFPDKhnrwC6UrYxfGq">
+              <div class="cell" data-field="gender" data-type="radio" data-page-node-id="SefIUeq1Hz8IXtIPoSBHZJ">
+                <div class="opt-group opt-group--plain" style="gap:14px" data-page-node-id="nKw6QAM85MD5xqkFjJ3AHs">
+                  <label class="opt" data-page-node-id="LTlqnyqiMFhrVDrdLDaGg8"><span class="opt-box" data-shape="radio" data-page-node-id="1XCCz6tjVHn2d6B40jfPph"></span>男</label>
+                  <label class="opt" data-page-node-id="F5FLDEYum3Hm767yFc5Kdj"><span class="opt-box" data-shape="radio" data-page-node-id="3pjqA7FSBn2WQY8vjMoV8N"></span>女</label>
+                </div>
+              </div>
+            </td>
+            <td rowspan="4" colspan="2" style="vertical-align:top;background:var(--bg-surface)" data-page-node-id="YtnALFJPSjL2mXfq24MZPt">
+              <div style="padding:10px;text-align:center" data-page-node-id="gCzLFq4gRrZwjUI9H7osMb">
+                <div style="width:78px;height:104px;margin:0 auto 6px;border:1px dashed var(--border-strong);border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--text-light);font-size:10px;line-height:1.5" data-page-node-id="9xfF7RzfAco5ZJGlMhISPQ">
+                  一寸<br data-page-node-id="kXdlSg8hovmgvhkGZCw7Xh">免冠<br data-page-node-id="SxY15hYLvWeRtbFCG7kGAy">照片
+                </div>
+                <div style="font-size:10px;color:var(--text-light)" data-page-node-id="38MeGPYXdD7jastV2NwmNi">近期彩色证件照</div>
+              </div>
+            </td>
+          </tr>
+          <tr data-page-node-id="ApFAH3jXesELOazcZM9iHT">
+            <td data-page-node-id="3XflJ5t51WGAppW94hTiFs"><div class="cell" data-page-node-id="lgHJFtZRQkD6cqIsBQTP3f">身份证号 <i class="req" data-page-node-id="JIabVFq9uVfD8H9J5zHStG">*</i></div></td>
+            <td colspan="3" data-page-node-id="olcDdlcUnGCI7Re3yRxaC0"><div class="cell cell-left" data-page-node-id="jUxvfrQTqUqCYDUbXahN1d"><input data-field="id_card" data-type="text" data-required="true" placeholder="18 位身份证号码" data-page-node-id="C9GhIJempX8kB82szLliDN"></div></td>
+          </tr>
+          <tr data-page-node-id="4L537j8ttgv6v7aCjs5Zt9">
+            <td data-page-node-id="09RO60iVskxABu5mAre7dt"><div class="cell" data-page-node-id="6436p9qIDPsBsUeop3PTio">出生日期</div></td>
+            <td data-page-node-id="kHYa3msHYg1zYrDv5o89FA">
+              <div class="cell" data-page-node-id="sA0Bbm5vA0EF2JUa9uDXsl">
+                <div class="date-triple" style="border:none;flex:1" data-field="birth_date" data-type="date" data-page-node-id="68fEG0ee3gp14IOQuBdErb">
+                  <input class="y" type="text" placeholder="YYYY" maxlength="4" data-page-node-id="B7LiTEYeyfXowxH3MzLGiN"><span class="sep" data-page-node-id="nv4N4QL8Ayh2umhJQCA6UB">-</span>
+                  <input class="m" type="text" placeholder="MM" maxlength="2" data-page-node-id="Vb48nnQK3MBysfcmc1MGHn"><span class="sep" data-page-node-id="gvQNsPTh5fh2fCkgH0DEUj">-</span>
+                  <input class="d" type="text" placeholder="DD" maxlength="2" data-page-node-id="FOjiXJJPgrbz5iJCTSLVug">
+                </div>
+              </div>
+            </td>
+            <td data-page-node-id="dvvXajXxP3NtH4HBLzwHZn"><div class="cell" data-page-node-id="AAyJrcP8niDcSB7rmojUb9">民族</div></td>
+            <td data-page-node-id="u2bm1EgHnVHYlVHP6CDS7G"><div class="cell cell-left" data-page-node-id="tNZKqCGC1hW1NdZqM1iphX"><input data-field="ethnicity" data-type="text" placeholder="汉" data-page-node-id="qq0hW9MlEBAZSEO9tQdY0p"></div></td>
+          </tr>
+          <tr data-page-node-id="bqyM3E4qIkBo1k5ogEk3cl">
+            <td data-page-node-id="kHgbR64UWCxC5se7MCVw0C"><div class="cell" data-page-node-id="y06EsDdt7m8T2aNSAFxkyr">政治面貌</div></td>
+            <td data-page-node-id="8yOyebGheyD9VjVohH6Viu"><div class="cell cell-left" data-page-node-id="Ky7A3CoRQNwILJpmvwWSDn"><input data-field="political_status" data-type="select" placeholder="请选择" data-page-node-id="FJiZ6c0W7dmHJsaV5GZcZ1"></div></td>
+            <td data-page-node-id="zeKG9zF0BGC4FafT7EaDYE"><div class="cell" data-page-node-id="mCYXaQUlAeX1SdAEajRkRr">婚姻状况</div></td>
+            <td data-page-node-id="okOzAxLrBBBW1BmQ4nVer3">
+              <div class="cell" data-field="marital_status" data-type="radio" data-page-node-id="k3cVvYcdyMz9JawsQgO7li">
+                <div class="opt-group opt-group--plain" style="gap:12px" data-page-node-id="TJrraFgJ4acZR52w5hcpDO">
+                  <label class="opt" data-page-node-id="SjB6T2RnciTt0dgjDNrdhU"><span class="opt-box" data-shape="radio" data-page-node-id="wLLlrOfpgbzCPPgO5ACS2J"></span>未婚</label>
+                  <label class="opt" data-page-node-id="fI0SEJS6hmhWdd0QOfXJgQ"><span class="opt-box" data-shape="radio" data-page-node-id="wqwHhWYpcxy9BLcWpjlNU3"></span>已婚</label>
+                  <label class="opt" data-page-node-id="IY4c4pLoCbmFlMFey4kgFh"><span class="opt-box" data-shape="radio" data-page-node-id="1L3GvISKJGB1W74XlWWyV3"></span>其他</label>
+                </div>
+              </div>
+            </td>
+          </tr>
+          <tr data-page-node-id="4w6BNUlhgxXTSntBHBe1U4">
+            <td data-page-node-id="gD26JQfvvuf1WiYbbNB82t"><div class="cell" data-page-node-id="4zg1P8yuDcgDR8AFKahTx5">手机号码 <i class="req" data-page-node-id="p00w9JtOFiALD0hQA0aj0w">*</i></div></td>
+            <td data-page-node-id="pq9YiboAXw6sAYLef1A5dA"><div class="cell cell-left" data-page-node-id="4qNzMQlMOtPmDcbiDIRusI"><input data-field="mobile" data-type="text" data-required="true" placeholder="11 位手机号" data-page-node-id="LMuw7WjhXss0aczEMdaHbW"></div></td>
+            <td data-page-node-id="aULBuGg2FgEAmR2td1jl55"><div class="cell" data-page-node-id="obUA2f73m6IFkwEJazCMGU">电子邮箱</div></td>
+            <td colspan="3" data-page-node-id="mbKf57AkrnwmxUdEmEItw6"><div class="cell cell-left" data-page-node-id="GC5Fa2EPz2dSmvEYj52Sss"><input data-field="email" data-type="text" placeholder="常用邮箱" data-page-node-id="i5uyXsQcVqxBaq4fwpVUOs"></div></td>
+          </tr>
+          <tr data-page-node-id="Hmq4eOu624GHhOPpJ2xPcP">
+            <td data-page-node-id="O0NQFDjhelwqopeDiTbpNW"><div class="cell" data-page-node-id="irFTlAeXvJ9CWK3yqpdfRD">户籍地址</div></td>
+            <td colspan="3" data-page-node-id="moHjmjnziyn7igkALJWGjR"><div class="cell cell-left" data-page-node-id="AV9JZlTwDLWdVa1GusuLaF"><input data-field="domicile" data-type="text" placeholder="省 / 市 / 区 + 详细地址" data-page-node-id="b4vC0odhYx127O3SA4Ev91"></div></td>
+            <td data-page-node-id="N93rYQLm4ThDAY4cUSmQnm"><div class="cell" data-page-node-id="LOjtRWF57hHd8pWOoqV6HR">邮政编码</div></td>
+            <td data-page-node-id="dMjJD06vemHhNIxc70vf7L"><div class="cell cell-left" data-page-node-id="0fG9EzFEQT75N9ZRNTl2Bo"><input data-field="zip_code" data-type="text" data-page-node-id="eCKDOgyHXDiDmak1s0xEmY"></div></td>
+          </tr>
+          <tr data-page-node-id="yjD8x5c6gNIFjSe0SmBwEv">
+            <td data-page-node-id="P3g5rMUwUnSqd7xL45zdUt"><div class="cell" data-page-node-id="GDMmRbmrvXqPvCcI5AX6Lc">现居住地址 <i class="req" data-page-node-id="Xai2Iaz4hZ0vE9vzKDLrce">*</i></div></td>
+            <td colspan="3" data-page-node-id="0wkcmXPKaf4ucdQ2WNAIrK"><div class="cell cell-left" data-page-node-id="334WDixIQ2ArFlLZ9n0bKL"><input data-field="address" data-type="text" data-required="true" placeholder="现居住详细地址" data-page-node-id="TK9Za9eI9bD4SHzKElQXtz"></div></td>
+            <td data-page-node-id="6R3Pu9idcfiEzxFW5fY6mv"><div class="cell" data-page-node-id="uA3wE7S4wFREEpna4XzST6">紧急联系人</div></td>
+            <td data-page-node-id="dlAPbkCUIPo9OmK9rRRlpo"><div class="cell cell-left" data-page-node-id="RldCFq1Bs3FYyN2VHDNOSK"><input data-field="emergency_contact" data-type="text" placeholder="姓名 / 电话" data-page-node-id="ULeDELUt6kGxmi9ea1Eyj3"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ══ 02 教育经历 ══ -->
+    <section class="form-section" data-page-node-id="C2GkCqEZEL1i4nsqrKSKKc">
+      <div class="sec-head" data-page-node-id="fMxxPHzW4DTeHg8UdQboYc">
+        <span class="sec-num" data-page-node-id="npT12nmqYJhRb5yara7gsd">2</span>
+        <h2 class="sec-title" data-page-node-id="bb4giZmvlQ9Bv52ToyUJYS">教育经历</h2>
+        <span class="sec-note" data-page-node-id="Rv7LhFUokQLBBTgvPJYQoJ">Education（由近及远填写）</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="t76AHq5aewS70fFyihtrPe"></div>
+
+      <table class="grid-table" data-field="education" data-type="table" data-label="教育经历" data-page-node-id="fBLXCQNAOw2aERvClLpOXl">
+        <colgroup data-page-node-id="BUv6VXXE48JAsiEyhDTSxb">
+          <col style="width:6%" data-page-node-id="cKGaSMlEKgBj9m6vMRACRQ"><col style="width:22%" data-page-node-id="eO8x4PDEjf2qLPZ6LTlurE"><col style="width:26%" data-page-node-id="dTKGfzV1OjGzczFVS6S3a9">
+          <col style="width:20%" data-page-node-id="rC6TvC5MV0UPsNfV8oeQgZ"><col style="width:14%" data-page-node-id="LyulhDAk4CaCD6wi0n4tY9"><col style="width:12%" data-page-node-id="uh7GAm6vOAg9WLRKRUsgdJ">
+        </colgroup>
+        <thead data-page-node-id="Jo7YqOGYXRS1ycgAZGK7FJ">
+          <tr data-page-node-id="FMvlLJYYbzRGkDvtJue91k">
+            <th data-page-node-id="w3iAETJdhTC0GdgCAt7EHP">序号</th><th data-page-node-id="bqhi1q6aeyrif6Pboai4Dw">起止时间</th><th data-page-node-id="MkCSv9lPoAsAzZRSw30F3c">学校名称</th>
+            <th data-page-node-id="hAsYhVsihF5NFNX0jG9SlX">专业</th><th data-page-node-id="ZUjoVPvpB4qc1sth88V0a1">学历</th><th data-page-node-id="CAN2hLqnY1sAqsg7NiUs0G">学习方式</th>
+          </tr>
+        </thead>
+        <tbody data-page-node-id="qYXCgSbyuLHvmVr5fSEz8z">
+          <tr data-page-node-id="Zc4lmu5HzJEhxwFSuFj0Ue">
+            <td data-page-node-id="E3IVeYEkmgcRd72HaYhuGF"><div class="cell idx" data-page-node-id="OnDZ9eMdJBH5qSVPvigNIQ">1</div></td>
+            <td data-page-node-id="dGPcClrtbbXFxyB6Dn5MSe"><div class="cell" data-page-node-id="Ysd520Uxn7wxjdcMeMw6r4"><input placeholder="2018.09 – 2022.06" data-page-node-id="sf7oji48WVrxxSwhxCb5uF"></div></td>
+            <td data-page-node-id="vEBRO0rH9hGmCQXHADqwcr"><div class="cell cell-left" data-page-node-id="jewCALiga94jLLmTbRGEVp"><input placeholder="" data-page-node-id="svli3QICPwftEWdoyWt0rb"></div></td>
+            <td data-page-node-id="tXN54nkMQ8CVg8IH51nHJ5"><div class="cell cell-left" data-page-node-id="sdCRE0tnc84OHaOxCwnq1f"><input placeholder="" data-page-node-id="vnjzB8Ok2ySCIAXXzXOWYG"></div></td>
+            <td data-page-node-id="CLwVyrGq2caXH3MeAH91aC"><div class="cell" data-page-node-id="ghwDvJ4r0BBU31EivvjsMC"><input placeholder="本科" data-page-node-id="HmbdjPp1Wm7OrHHrO5mpZe"></div></td>
+            <td data-page-node-id="V7CT1TPC8lTEE0qH4kjPUX"><div class="cell" data-page-node-id="3JqV2uHWrky6rbRuizSYYL"><input placeholder="全日制" data-page-node-id="JvQsV4ehrSL6v1YQfEYEgl"></div></td>
+          </tr>
+          <tr data-page-node-id="dO0oXj5EBwFaYBViFkZZWZ">
+            <td data-page-node-id="xskK0C0lXyY730WOPWDsJ4"><div class="cell idx" data-page-node-id="dIGus3H4DBOseTlpLPYBFj">2</div></td>
+            <td data-page-node-id="ePecObB3K8GDYyIH6ctO4O"><div class="cell" data-page-node-id="hI82H7tOCMRM7KyGNuUWMC"><input placeholder="" data-page-node-id="4qR1NaQhsZYxlaE58z7SrB"></div></td>
+            <td data-page-node-id="zDBBu5ZzzQ6uwnNHnWuZPZ"><div class="cell cell-left" data-page-node-id="YBLoUALjUiS8qysKp5jmZW"><input placeholder="" data-page-node-id="7trCk6CgFtkH42CHl6WyGK"></div></td>
+            <td data-page-node-id="lxPb5fy5td6qzr5BRiS6Cz"><div class="cell cell-left" data-page-node-id="RdEG6qgRo8CybzuvyWC01M"><input placeholder="" data-page-node-id="ndMtGCWq9Q9YV2bYFzt8KZ"></div></td>
+            <td data-page-node-id="NDADGj1KGSH7ebIW9di7qI"><div class="cell" data-page-node-id="AH97ytdt73jPo0sOlE2KrZ"><input placeholder="" data-page-node-id="Brdp65s9cg6xvOe0KYGr3o"></div></td>
+            <td data-page-node-id="E325KJocoBmFIg3UxrvENK"><div class="cell" data-page-node-id="kdjhZCnIfgmIxZfeny8UiY"><input placeholder="" data-page-node-id="dGxaM7lfcG3cqOsVCneFEf"></div></td>
+          </tr>
+          <tr data-page-node-id="nG4p3bA4A3zsxP6mSeSLz0">
+            <td data-page-node-id="DUswFSM4eUpbslcgsI6DkE"><div class="cell idx" data-page-node-id="HJ4DbUk6Cv5ZEptBlcMoK0">3</div></td>
+            <td data-page-node-id="THddnUV5C70crcdmU6qQyO"><div class="cell" data-page-node-id="C4bU4uIDELFGcSUpzaFU2b"><input placeholder="" data-page-node-id="GhUhCUFaIGaCiozd8vL2nF"></div></td>
+            <td data-page-node-id="APpOg1FvvwH3x5UNW5J47X"><div class="cell cell-left" data-page-node-id="TefvD3i1NkOL9gEH7Cmpqs"><input placeholder="" data-page-node-id="9qzwI4wnSsD2qylRQTClDG"></div></td>
+            <td data-page-node-id="JGbrGTuuHWyCKJoEd98QEA"><div class="cell cell-left" data-page-node-id="gayMQLQKEsYwHhtrYunR9K"><input placeholder="" data-page-node-id="EdtIzdGBkqx27DtKtoFN7x"></div></td>
+            <td data-page-node-id="2ExOeOLgAOh0fwm22jtPVL"><div class="cell" data-page-node-id="NkH3QHqNT88iq55gXZRwFC"><input placeholder="" data-page-node-id="VD79xpy3ijwBopgQVPIeBD"></div></td>
+            <td data-page-node-id="l5NQeyOglyz4HyOggSWkkl"><div class="cell" data-page-node-id="ZsOLLICK4gYyvRJKLiAPU7"><input placeholder="" data-page-node-id="uG7MgQBuVTo7DprxRBXeVz"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ══ 03 工作经历 ══ -->
+    <section class="form-section" data-page-node-id="bLLk48CxT2yaWfgUC899CT">
+      <div class="sec-head" data-page-node-id="luyzpDw0nq73ZCH6rQAxiO">
+        <span class="sec-num" data-page-node-id="SmnTJ8T0LiVGfZnerdnBdF">3</span>
+        <h2 class="sec-title" data-page-node-id="HneFOtFYyGHyFyZAxi2oA6">工作经历</h2>
+        <span class="sec-note" data-page-node-id="vzq8dgPwn15LmZ1oauW2F8">Work Experience</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="uYi29k9TYWNCvK12ZPCRhd"></div>
+
+      <table class="grid-table" data-field="work_experience" data-type="table" data-label="工作经历" data-page-node-id="pgCWYtgKODo3r0d97YtAcB">
+        <colgroup data-page-node-id="FfwaVYzDnn8JFKHi1ZBeJT">
+          <col style="width:6%" data-page-node-id="a1gKPZozA8B29Q25NkW3nM"><col style="width:22%" data-page-node-id="KSeAmz1xRXKyLxbRb46RPg"><col style="width:26%" data-page-node-id="tu2qMmt0CahcLOrP6hAPZE">
+          <col style="width:20%" data-page-node-id="q3Jt6L6eeqEY4HqnsFuchA"><col style="width:16%" data-page-node-id="xEUWt3s8dugwV97xmNU09g"><col style="width:10%" data-page-node-id="Bkf4GK9HQgurxCTzfGDByU">
+        </colgroup>
+        <thead data-page-node-id="BZKiJMQwomf39Zozk6wQZH">
+          <tr data-page-node-id="bzCM4ro2rNg2xP9pzZcDaB"><th data-page-node-id="xjjqTXlooRSKCkSdXBhwz7">序号</th><th data-page-node-id="xDZg3y6N8etmjQoEpa4HX1">起止时间</th><th data-page-node-id="ZyCYHVXSu7iReC9SXCiVsp">工作单位</th><th data-page-node-id="vn3QwvWcPrWV6HWrMAMBwt">职务</th><th data-page-node-id="jcyBykhuVUJr2EO0A3noVz">证明人</th><th data-page-node-id="MCHFgFou0v2V5XkwR93Htv">联系电话</th></tr>
+        </thead>
+        <tbody data-page-node-id="ORAOC5pYtaRTreRz8pWoAu">
+          <tr data-page-node-id="PeQj5gteuhPtFDMlFZPqLD">
+            <td data-page-node-id="IOrbiUKPi0H6G7BrsmfzMi"><div class="cell idx" data-page-node-id="MFyyKkwNDzbc5beDNOnxhs">1</div></td>
+            <td data-page-node-id="c9oQJVPwdZFLOCEj6yAA3i"><div class="cell" data-page-node-id="5i4K8nGEaqAuD9uPO4A3u1"><input placeholder="" data-page-node-id="pI8LOXQcNhALQkOHKOAWhH"></div></td>
+            <td data-page-node-id="WGRS1Ncme5rCHiDWH5yLv0"><div class="cell cell-left" data-page-node-id="QwnOfq4MlsCOhJRo97Y5E5"><input placeholder="" data-page-node-id="gMzzvBWg91lQ2OSkFniRBh"></div></td>
+            <td data-page-node-id="Tw1q9C7DX4nho2PFLMrmpQ"><div class="cell cell-left" data-page-node-id="xUTOoZWEfN6aZSKZoWfcxD"><input placeholder="" data-page-node-id="9FcGWfGoY2GdSODNPrLCRq"></div></td>
+            <td data-page-node-id="BNNFHxsZIVzKFgCd4oijbd"><div class="cell" data-page-node-id="TLtfDWR9Q2KOergAxjdhyO"><input placeholder="" data-page-node-id="zgIYJVKh4qpSrmJJ4EPEoW"></div></td>
+            <td data-page-node-id="Rd09KEKWKXVTQHs6Zu7Zii"><div class="cell" data-page-node-id="Ht5UASw994H5aUrK9GfFzg"><input placeholder="" data-page-node-id="SaanhYEX0eSnj4zCBQWoHV"></div></td>
+          </tr>
+          <tr data-page-node-id="b7wIu170B2iamShEta91uM">
+            <td data-page-node-id="TGf3Ie3lSKfUgYW7VQi57B"><div class="cell idx" data-page-node-id="Otd1Bq6gycLka63n3tHaga">2</div></td>
+            <td data-page-node-id="2mOIMgtdDDsrTkezULKg7V"><div class="cell" data-page-node-id="OMhnE1z6CADAAywSdVNBlG"><input placeholder="" data-page-node-id="yBJTC2KG59y4vSwmJeBGDj"></div></td>
+            <td data-page-node-id="SiRPNvGfFiE5yv1vflBGPr"><div class="cell cell-left" data-page-node-id="uSLtmk7H11vYow9vpF77Dw"><input placeholder="" data-page-node-id="JhcbFABHCUqbeoFTQVbi39"></div></td>
+            <td data-page-node-id="FWa4Alf27DL6SmXKLxVF9o"><div class="cell cell-left" data-page-node-id="wXSivgPtAyzHPiKIXQYf4C"><input placeholder="" data-page-node-id="cuHC53AA1E6AVFWG5Tmn9Z"></div></td>
+            <td data-page-node-id="vZow3edyJB1dXIYx3q0zwW"><div class="cell" data-page-node-id="rSIvktpzSQKXeDFyo0ie74"><input placeholder="" data-page-node-id="nU3Dfhvm9RCwniQiBzl1Ww"></div></td>
+            <td data-page-node-id="BZFlvw1oCHwIvxKHC3fzHl"><div class="cell" data-page-node-id="DE7UMEMLm7FzOipmnO897k"><input placeholder="" data-page-node-id="5FvbMIDMGwA8oEQic2aDc3"></div></td>
+          </tr>
+          <tr data-page-node-id="OOFWftPxBE7NbjPkYwwf05">
+            <td data-page-node-id="Uv52ltXMlcD40ASRVQEdlj"><div class="cell idx" data-page-node-id="UgrV3COvbUHXSh1dm6HkQ8">3</div></td>
+            <td data-page-node-id="ORQkjXSDe4Ap9p3R8KYb14"><div class="cell" data-page-node-id="4HpZuB7OwvYvgRPAlEa91d"><input placeholder="" data-page-node-id="5sLASdYae6gScou7JKI9Z4"></div></td>
+            <td data-page-node-id="lkIHSrU8MSDYCeNisr9TQ8"><div class="cell cell-left" data-page-node-id="xA46RiuIFT1133rhlVUMgB"><input placeholder="" data-page-node-id="fVsIU9VnQISN5eOzizdhjP"></div></td>
+            <td data-page-node-id="1UuFONz0QeCTW7I3Ax6R8k"><div class="cell cell-left" data-page-node-id="UZmrKpDzBz103rWOC7GZaB"><input placeholder="" data-page-node-id="8yuftiFsovZWVY2tDr1R5X"></div></td>
+            <td data-page-node-id="oMs5B7G1gWgqRYxirCXGPP"><div class="cell" data-page-node-id="HUGaqZkfJEoNmHk9RQfy03"><input placeholder="" data-page-node-id="gWl3gnFoYRsJWIFAfJ2Sox"></div></td>
+            <td data-page-node-id="E90eFHsVEYSygbSO7cnqyH"><div class="cell" data-page-node-id="6wnE1tIrMqjkKtqZF4RBJt"><input placeholder="" data-page-node-id="fsRmpxvocN5kdTxcXJIhFB"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ══ 04 家庭成员 ══ -->
+    <section class="form-section" data-page-node-id="ypfrwuCSLhFjfIZuzTQKLl">
+      <div class="sec-head" data-page-node-id="PKwz3K3hFLyUIEQo4qGyxj">
+        <span class="sec-num" data-page-node-id="4U0tpnGA29UXyCUjoePRgX">4</span>
+        <h2 class="sec-title" data-page-node-id="noubzRZ3tjSa3wOTzS9tgX">主要家庭成员</h2>
+        <span class="sec-note" data-page-node-id="NpkJhNCK6zSyEm5C5SLP9w">Family Members</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="7ZzkcEgrqur765tZsyoNWd"></div>
+
+      <table class="grid-table" data-field="family" data-type="table" data-label="主要家庭成员" data-page-node-id="cpPHFn4UviLRQC3TXTrrAq">
+        <colgroup data-page-node-id="A9zuQrwLz7PNxkdqm6Rait">
+          <col style="width:6%" data-page-node-id="ElGPu7nBlFj2NcqCdNyT2a"><col style="width:16%" data-page-node-id="mEMIsi035B61h8U3pNZlej"><col style="width:14%" data-page-node-id="nCpcaujq0YqT7MK50Jku6C">
+          <col style="width:16%" data-page-node-id="qT8KpZ8rIbCHTUYy9v4I1u"><col style="width:24%" data-page-node-id="lbkWpH38lFtTvwjR47UtuL"><col style="width:24%" data-page-node-id="R5tbDVkLAdXJ1ZMeu812IH">
+        </colgroup>
+        <thead data-page-node-id="rkIVN3tRB6ZuuJ1uh9kg0o">
+          <tr data-page-node-id="DjgLiP08GnE5XZj5Ph22Zg"><th data-page-node-id="5IhxnmljKv1ATrqxpfCHXM">序号</th><th data-page-node-id="BG9lmotpVPVSt49qqN7gFp">姓名</th><th data-page-node-id="Xv7PZSZ6QHFkTa8sxtiu52">关系</th><th data-page-node-id="fwOl1HmvP95wXS3yq7XJz2">年龄</th><th data-page-node-id="GSFOeS5EyGXSgmpoSX1wOY">工作单位</th><th data-page-node-id="gpJZXiqq05TVeEcrDcl2Ke">联系电话</th></tr>
+        </thead>
+        <tbody data-page-node-id="UoZN6SIH8UmDn0B91PLdBy">
+          <tr data-page-node-id="0AtQrDnsV84IPwt1GePlCE">
+            <td data-page-node-id="hOERpBRlHthhXTNTMTt7ig"><div class="cell idx" data-page-node-id="vLpyOByCt3Y18qROY00CIK">1</div></td>
+            <td data-page-node-id="mRRXSDydaVJCG6lev6eB3K"><div class="cell" data-page-node-id="eUMIKTL6PTfhFGkUYeDgYH"><input placeholder="" data-page-node-id="dCOkxHAz26WhRnayBFXm9t"></div></td>
+            <td data-page-node-id="whw5FUzpLMTYaFXQvgNWjv"><div class="cell" data-page-node-id="T6HaxFZ5yLoJpNvmqMRg6z"><input placeholder="" data-page-node-id="RdffcfSLIUlHwtnb4FMHLH"></div></td>
+            <td data-page-node-id="DSET2XAlOPq01GCEDqFkLQ"><div class="cell" data-page-node-id="EJ5tlbJOmEQChHQ4pfvFpK"><input placeholder="" data-page-node-id="y8ROYhpfLsYTOpB3DzdCAf"></div></td>
+            <td data-page-node-id="AG8OPu19oWzBif8jxci8UY"><div class="cell cell-left" data-page-node-id="CMV8gaPo5JNt3pPjyXMpPZ"><input placeholder="" data-page-node-id="GGtrbnEFjf6vypvjKQEx9e"></div></td>
+            <td data-page-node-id="6gcYvwBCbXwxfpTcevXakY"><div class="cell" data-page-node-id="REbRxFYhlTRsoFm4TuCsXF"><input placeholder="" data-page-node-id="QGz79F3DdHEAHrajoEivTl"></div></td>
+          </tr>
+          <tr data-page-node-id="JPanKQX8B7PBNUM2bt7nch">
+            <td data-page-node-id="G19njiVq5o9Ph9pDjlfAWx"><div class="cell idx" data-page-node-id="SmRiEFJtnRPmrtN97FtcQN">2</div></td>
+            <td data-page-node-id="BexqBlCAyXTqCb8sKAU9cx"><div class="cell" data-page-node-id="bsRCZgObgSzFBBchgIRjhU"><input placeholder="" data-page-node-id="RoFZxa47MbiMa8cPv9wncr"></div></td>
+            <td data-page-node-id="rbIcdQKRWMuqudkp5OcQ6y"><div class="cell" data-page-node-id="zBY6RGE6DBEkQnxFXQzd8L"><input placeholder="" data-page-node-id="Er1WBgF1HYZxvYUdhtRtT3"></div></td>
+            <td data-page-node-id="nGmeOJUixkoiz5E0GAT5DE"><div class="cell" data-page-node-id="hl6xnEiopdFGbxKViPv7x2"><input placeholder="" data-page-node-id="8ckvyH6p32qrih5tdt0Kjl"></div></td>
+            <td data-page-node-id="FRIFCP6PlT1U824duyzEA2"><div class="cell cell-left" data-page-node-id="r3Q2QM8rwP0yqvrzuo38gD"><input placeholder="" data-page-node-id="BxdhevpaYRQaBwqWOwOCqE"></div></td>
+            <td data-page-node-id="mAD1nc6wUh1LoCgd4fK8WA"><div class="cell" data-page-node-id="TOf5JgEBmpk2VSMlP8YMGx"><input placeholder="" data-page-node-id="tncOXt9r6wG6B1ymBELmHM"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ══ 05 薪酬与社保 ══ -->
+    <section class="form-section" data-page-node-id="TpZHNGpV2XUVOS0u0vPj1s">
+      <div class="sec-head" data-page-node-id="G4Q85Vv7ugasAqZjlHJewe">
+        <span class="sec-num" data-page-node-id="TC3wuBDnR7kvJ9KRlMzG32">5</span>
+        <h2 class="sec-title" data-page-node-id="SgkS8ql4KIaxDQsc8fxwQb">薪酬与社保信息</h2>
+        <span class="sec-note" data-page-node-id="l9q8GGxiXEzyZ4ogcdWjs4">Payroll &amp; Social Security</span>
+      </div>
+      <div class="sec-rule" data-page-node-id="GMH43bIOCBYGkhd7Jt8x1V"></div>
+
+      <div class="field-grid" data-page-node-id="2sOhcGtgejvwzVTmyeyJFt">
+        <div class="field col-4" data-field="bank_name" data-type="text" data-label="开户银行" data-required="true" data-page-node-id="gBvaCyl466M2oAz2rFVYr8">
+          <div class="field-label" data-page-node-id="EDEaie6pVmJJfxwDuMGonZ">开户银行<i class="req" data-page-node-id="AfqhAZA6luBolvUfRAlfGx">*</i></div>
+          <input class="ctrl" type="text" placeholder="如 招商银行深圳分行" data-page-node-id="A3FD6YaGRxqGssOXVKiGKY">
+        </div>
+        <div class="field col-4" data-field="bank_account" data-type="text" data-label="银行账号" data-required="true" data-page-node-id="16mEGU9xGrTu72AsOGI8sE">
+          <div class="field-label" data-page-node-id="HQsxzGDeQZjljq6M3Go93C">银行账号<i class="req" data-page-node-id="fr0hJASRivpdVUBE9K8Yc2">*</i></div>
+          <input class="ctrl" type="text" placeholder="工资卡卡号" data-page-node-id="eiFYV5JksvyzytkKCc4h9n">
+        </div>
+        <div class="field col-4" data-field="social_security_no" data-type="text" data-label="社保账号" data-page-node-id="oYI5MAgWbz21xgH29NHvHY">
+          <div class="field-label" data-page-node-id="PVPJBt3lL4a1Beoeogj28v">社保账号</div>
+          <input class="ctrl" type="text" placeholder="首次参保可留空" data-page-node-id="kYAXPfZSSkkFwMAQLRK5za">
+        </div>
+        <div class="field col-6" data-field="has_social_security" data-type="radio" data-label="社保缴纳情况" data-page-node-id="WyYYoFmAJH5fOFDAhVayd5">
+          <div class="field-label" data-page-node-id="hB9Ejp6u6vEu7S8fYwvMDg">社保缴纳情况</div>
+          <div class="opt-group" data-page-node-id="cIFpIurPepkQGfAEaYCqfm">
+            <label class="opt" data-page-node-id="qO8qOAxYGKz08DGNadAnWp"><span class="opt-box" data-shape="radio" data-checked="true" data-page-node-id="lOWDjWNv9CObHIynEoN8YP"></span>首次参保</label>
+            <label class="opt" data-page-node-id="XiLPyiKWeENeRHZG358UlF"><span class="opt-box" data-shape="radio" data-page-node-id="iVtHkbWEIioyGvke8B2WMP"></span>已参保待转入</label>
+            <label class="opt" data-page-node-id="YJqOzmRXsh0uj9Gvkz5Ybx"><span class="opt-box" data-shape="radio" data-page-node-id="uAtsvJsRIAIIh55u7YVBVb"></span>自行缴纳</label>
+          </div>
+        </div>
+        <div class="field col-6" data-field="fund_account" data-type="text" data-label="公积金账号" data-page-node-id="Zmw38T4t7HrrTU3tTgxeDc">
+          <div class="field-label" data-page-node-id="ufUrAhLmLqu6g335EIQBwQ">公积金账号</div>
+          <input class="ctrl" type="text" placeholder="" data-page-node-id="oJyCPajprX4q68Lw6zdEmb">
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 声明 ══ -->
+    <div class="notice" data-page-node-id="0yhygVZ1oUehFkzhfl3kvg">
+      本人确认以上所填写内容真实无误，如有虚假愿承担由此产生的一切责任；并授权公司就上述信息进行必要的背景核实。
+      本人已知悉《员工手册》及公司相关管理制度，同意遵守各项规定。
+    </div>
+
+    <div class="sign-row" style="margin-top:16px" data-page-node-id="cTad5jUMs0difCPioSZ7y4">
+      <div class="sign-cell" data-field="signature_employee" data-type="signature" data-label="员工本人签字" data-page-node-id="8PBIRQ4t3QO6BFQt5n1esE">
+        <div class="sign-line" data-page-node-id="iKHTO4GzxGhG5f3BrkNb6r"></div>
+        <div class="sign-cap" data-page-node-id="1WFyrVTxOOsRB7doXQBYcg">员工本人签字</div>
+      </div>
+      <div class="sign-cell" data-field="signature_hr" data-type="signature" data-label="HR 审核" data-page-node-id="R8bA8fLtKu2kI1DsKSzGBY">
+        <div class="sign-line" data-page-node-id="Sh2bUz70YpbKQnJbbVbRGl"></div>
+        <div class="sign-cap" data-page-node-id="UaVyCUXQbbwDcr4KPzEUOW">人力资源部审核</div>
+      </div>
+      <div class="sign-cell" data-field="sign_date" data-type="date" data-label="日期" data-page-node-id="KGTMVQSz4bg6Pyqr4AClk8">
+        <div class="sign-line" data-page-node-id="Pt5z8skoqM4JZh84Wrcifj"></div>
+        <div class="sign-cap" data-page-node-id="GZAxW7QXB1m4dl6adMrXSv">日期</div>
+      </div>
+    </div>
+
+    <footer class="form-foot" data-page-node-id="6BmVRkfbqKPs5bCQQsarEk">
+      <span data-page-node-id="7Abqu8ulH1CBnFfEsaJBVo">HR-REG-002 · V2.0</span>
+      <span data-page-node-id="LlWxtlyGvpbkethANXZTVh">本表信息仅用于人事管理，公司承诺严格保密</span>
+      <span data-page-node-id="q986plAjTEbokFcgcmXGQb">第 1 页 / 共 1 页</span>
+    </footer>
+
+  </form>
+</div>
+<script src="tagger.js" defer></script>
+</body>
+</html>
