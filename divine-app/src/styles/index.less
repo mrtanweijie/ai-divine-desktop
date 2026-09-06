@@ -22,6 +22,11 @@
   --color-accent-hover: #d1d5db;
   --color-on-accent: #0b0d0f;
   --color-accent-soft: rgba(255, 255, 255, 0.08);
+  /* 执行轨迹耗时条三态：默认中性灰（黑白体系不引入强调色），
+     慢/失败为低饱和语义色，避免纯黑白实条突兀 */
+  --color-trace: #7e8894;
+  --color-trace-slow: #d0a45e;
+  --color-trace-failed: #e08a80;
   --color-success: #34d399;
   --color-danger: #f47b6e;
   --color-warning: #fbbf24;
@@ -56,6 +61,10 @@
   --color-accent-hover: #374151;
   --color-on-accent: #ffffff;
   --color-accent-soft: rgba(17, 24, 39, 0.08);
+  /* 执行轨迹耗时条三态（light 档比 dark 略深，保证浅底可读） */
+  --color-trace: #9aa4b1;
+  --color-trace-slow: #c4924f;
+  --color-trace-failed: #d26a61;
   --color-success: #16a34a;
   --color-danger: #dc2626;
   --color-warning: #b45309;

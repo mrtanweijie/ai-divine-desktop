@@ -813,18 +813,24 @@
   flex: 1;
   align-items: center;
   gap: 6px;
+  /* 胶囊轨道底：让 5px 耗时条"躺"在浅色凹槽里而非悬空色块 */
+  padding: 3px 6px;
+  background: var(--color-surface-2);
+  border-radius: 999px;
 }
 .trace-bar {
   height: 5px;
-  border-radius: 4px;
-  background: var(--color-accent, #5dcaa5);
-  opacity: 0.85;
+  border-radius: 999px;
+  /* 默认态用中性浅灰 token，不用 accent（黑白主题下 accent=文本主色，
+     实黑/实白条在灰阶 UI 里突兀）；慢/失败为低饱和语义色 */
+  background: var(--color-trace, #9aa4b1);
+  opacity: 0.9;
 }
 .trace-bar.slow {
-  background: #ef9f27;
+  background: var(--color-trace-slow, #c4924f);
 }
 .trace-bar.failed {
-  background: #ef4444;
+  background: var(--color-trace-failed, #d26a61);
 }
 .trace-bar-duration {
   flex-shrink: 0;
