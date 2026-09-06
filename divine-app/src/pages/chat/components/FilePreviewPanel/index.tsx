@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { openFileLocation } from "@/services/tauri";
+import { toast } from "@/components/ui/Toast";
 import type { PreviewFile } from "@/types";
 import { FilePreview } from "./FilePreview";
 import { FileTree } from "./FileTree";
@@ -89,12 +90,19 @@ export function FilePreviewPanelInner({
     }
   }, [selectedFile?.relPath]);
 
-  // 头部文件名点击 → 在系统文件管理器中打开文件所在目录
+  // 头部文件名点击 → 在系统文件管理器中打开文件所在目录。
+  // 树选择/tool 结果构造的 PreviewFile 可能没有绝对 path，
+  // 用 repoPath + relPath 兜底拼接；失败以 Toast 提示（不静默）。
   const handleOpenContainingFolder = () => {
-    const absPath = selectedFile?.path;
+    if (!selectedFile) return;
+    const absPath =
+      selectedFile.path ??
+      (repoPath && selectedFile.relPath
+        ? `${repoPath.replace(/\/+$/, "")}/${selectedFile.relPath.replace(/^\//, "")}`
+        : "");
     if (!absPath) return;
     openFileLocation(absPath).catch(() => {
-      // 目录打开失败（文件可能已被移动/删除）静默处理
+      toast.error(t("file.openFolderFailed", "打开目录失败，文件可能已被移动或删除"));
     });
   };
 
@@ -197,31 +205,21 @@ export function FilePreviewPanelInner({
                 <ChevronRight size={12} className="file-inspector-crumb-sep" />
                 <div
                   role="button"
-                  tabIndex={selectedFile.path ? 0 : -1}
+                  tabIndex={0}
                   className="file-inspector-crumb"
-                  title={
-                    selectedFile.path
-                      ? `${t("chat.openFileLocation", "打开所在目录")} · ${selectedFile.relPath}`
-                      : selectedFile.relPath
-                  }
-                  onClick={selectedFile.path ? handleOpenContainingFolder : undefined}
-                  onKeyDown={
-                    selectedFile.path
-                      ? (event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            handleOpenContainingFolder();
-                          }
-                        }
-                      : undefined
-                  }
+                  title={`${t("chat.openFileLocation", "打开所在目录")} · ${selectedFile.relPath}`}
+                  onClick={handleOpenContainingFolder}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleOpenContainingFolder();
+                    }
+                  }}
                 >
                   <span className="file-inspector-crumb-name">
                     {selectedFile.fileName ?? selectedFile.relPath}
                   </span>
-                  {selectedFile.path && (
-                    <FolderOpen size={11} className="file-inspector-crumb-folder" />
-                  )}
+                  <FolderOpen size={11} className="file-inspector-crumb-folder" />
                 </div>
               </>
             )}

@@ -102,6 +102,7 @@
     "dragResizeTree": "拖曳調整檔案樹寬度",
     "dragExpandTree": "向右拖曳展開檔案樹",
     "expandTree": "展開檔案樹",
+    "openFolderFailed": "開啟目錄失敗，檔案可能已被移動或刪除",
     "dragResizeWidth": "拖曳調整寬度",
     "emptyContent": "檔案內容為空",
     "emptyDirectory": "空目錄",
