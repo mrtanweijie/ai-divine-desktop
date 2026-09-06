@@ -293,10 +293,21 @@ function axisDataCount(value: unknown): number {
 }
 
 function titleHeight(option: Record<string, unknown>): number {
-  const title = option.title;
-  if (!isRecord(title)) return 0;
-  const hasText = typeof title.text === "string" && title.text.length > 0;
-  const hasSubtext = typeof title.subtext === "string" && title.subtext.length > 0;
+  // A 字符串 title 与顶层 subtext（ECharts 6.x 全局 backwardCompat 不接受
+  // 这两种形态，但 buildChartOption 已经把它们折进 {text, subtext}）也要
+  // 计入预算——否则 chartHeight(option) 用 raw 算会少 36~56 px，副标题和
+  // 环/legend 顶在一起。
+  let hasText = false;
+  let hasSubtext = false;
+  if (isRecord(option.title)) {
+    hasText = typeof option.title.text === "string" && option.title.text.length > 0;
+    hasSubtext = typeof option.title.subtext === "string" && option.title.subtext.length > 0;
+  } else if (typeof option.title === "string" || typeof option.title === "number") {
+    hasText = String(option.title).length > 0;
+  }
+  if (typeof option.subtext === "string" && option.subtext.length > 0) {
+    hasSubtext = true;
+  }
   if (!hasText && !hasSubtext) return 0;
   return hasSubtext ? 56 : 36;
 }
@@ -587,7 +598,12 @@ function decorateSeries(option: Record<string, unknown>, palette: ChartPalette):
           delete next.barWidth;
           next.barMaxWidth = next.barMaxWidth ?? "70%";
         } else {
-          next.barWidth = "70%";
+          // 单系列横向 bar：类目少（1~3 个）时类目带极宽，固定 barWidth
+          // "70%" 会渲染成近百 px 的巨柱（LLM 还常写死 50~70px 的 barWidth）。
+          // 删掉显式 barWidth 交给自动布局按带宽取宽，barMaxWidth 数值上限
+          // 兜底——类目多时带宽 < 30px 柱宽不受影响，与纵向 bar 上限一致。
+          delete next.barWidth;
+          next.barMaxWidth = next.barMaxWidth ?? 30;
         }
         next.barCategoryGap = "10%";
         next.barGap = next.barGap ?? "15%";
@@ -1157,11 +1173,20 @@ export function buildChartOption(
       color: palette.muted,
     },
     title: {
+      // 主副标题之间 >=10 才分开得清楚（ECharts 默认 10，加上副标题字号
+      // 也继承主标题 13 px 时，肉眼仍贴在一起——所以 subtextStyle 单独弱化）
+      itemGap: 12,
       textStyle: {
         fontFamily: UI_FONT,
         color: palette.text,
         fontSize: 13,
         fontWeight: 600,
+      },
+      subtextStyle: {
+        fontFamily: UI_FONT,
+        color: palette.muted,
+        fontSize: 12,
+        fontWeight: 400,
       },
     },
     legend: {
@@ -1359,11 +1384,13 @@ export function buildChartOption(
     ) {
       firstSeries.center = ["50%", "49%"];
     }
-    // Leave a comfortable gap between the title and the ring: hug a top title
-    // to the top edge, cap the outer radius and thin the band so a big thick
-    // donut can't crowd the title.
+    // Hug a top title to the top-left corner (pie titles read best there,
+    // clear of the ring and any right/top legend), capping ring radius and
+    // thinning the band so a big thick donut can't crowd the title.
+    // Subtext already shares the same left anchor — subtextStyle keeps it
+    // visually subordinate to the main title (smaller, muted color).
     if (isRecord(merged.title) && !isBottomAnchored(merged.title)) {
-      merged.title = { ...merged.title, top: 10 };
+      merged.title = { ...merged.title, top: 10, left: merged.title.left ?? 16 };
     }
     if (isRecord(firstSeries)) {
       normalizePieStyle(firstSeries, bottomCaption > 0 || hasTitle);
