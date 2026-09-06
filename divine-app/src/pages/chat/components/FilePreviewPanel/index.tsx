@@ -195,8 +195,9 @@ export function FilePreviewPanelInner({
             {selectedFile && (
               <>
                 <ChevronRight size={12} className="file-inspector-crumb-sep" />
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={selectedFile.path ? 0 : -1}
                   className="file-inspector-crumb"
                   title={
                     selectedFile.path
@@ -204,6 +205,16 @@ export function FilePreviewPanelInner({
                       : selectedFile.relPath
                   }
                   onClick={selectedFile.path ? handleOpenContainingFolder : undefined}
+                  onKeyDown={
+                    selectedFile.path
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleOpenContainingFolder();
+                          }
+                        }
+                      : undefined
+                  }
                 >
                   <span className="file-inspector-crumb-name">
                     {selectedFile.fileName ?? selectedFile.relPath}
@@ -211,7 +222,7 @@ export function FilePreviewPanelInner({
                   {selectedFile.path && (
                     <FolderOpen size={11} className="file-inspector-crumb-folder" />
                   )}
-                </button>
+                </div>
               </>
             )}
           </div>
