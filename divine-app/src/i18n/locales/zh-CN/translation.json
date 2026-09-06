@@ -57,6 +57,7 @@
     "modelSwitcherTooltip": "切换当前对话使用的模型",
     "newProject": "新建项目",
     "noMatchingProject": "没有匹配的项目",
+    "openFileLocation": "打开所在目录",
     "openFilePanel": "打开文件面板",
     "openSessionList": "打开会话列表",
     "preview": "预览",

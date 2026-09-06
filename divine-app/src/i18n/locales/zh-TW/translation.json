@@ -57,6 +57,7 @@
     "modelSwitcherTooltip": "切換目前對話使用的模型",
     "newProject": "新增專案",
     "noMatchingProject": "沒有符合的專案",
+    "openFileLocation": "開啟所在目錄",
     "openFilePanel": "開啟檔案面板",
     "openSessionList": "開啟對話清單",
     "preview": "預覽",

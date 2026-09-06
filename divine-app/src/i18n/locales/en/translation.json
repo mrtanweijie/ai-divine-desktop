@@ -57,6 +57,7 @@
     "modelSwitcherTooltip": "Switch the model used by this conversation",
     "newProject": "New project",
     "noMatchingProject": "No matching projects",
+    "openFileLocation": "Open containing folder",
     "openFilePanel": "Open file panel",
     "openSessionList": "Open session list",
     "preview": "Preview",

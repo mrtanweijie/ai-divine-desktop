@@ -1,8 +1,17 @@
 import { memo, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Check, ChevronRight, ListTree, Maximize2, Minimize2, PanelRightClose } from "lucide-react";
+import {
+  Check,
+  ChevronRight,
+  FolderOpen,
+  ListTree,
+  Maximize2,
+  Minimize2,
+  PanelRightClose,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
+import { openFileLocation } from "@/services/tauri";
 import type { PreviewFile } from "@/types";
 import { FilePreview } from "./FilePreview";
 import { FileTree } from "./FileTree";
@@ -79,6 +88,15 @@ export function FilePreviewPanelInner({
       setExpandTo(next);
     }
   }, [selectedFile?.relPath]);
+
+  // 头部文件名点击 → 在系统文件管理器中打开文件所在目录
+  const handleOpenContainingFolder = () => {
+    const absPath = selectedFile?.path;
+    if (!absPath) return;
+    openFileLocation(absPath).catch(() => {
+      // 目录打开失败（文件可能已被移动/删除）静默处理
+    });
+  };
 
   if (!repoPath) return null;
 
@@ -177,9 +195,23 @@ export function FilePreviewPanelInner({
             {selectedFile && (
               <>
                 <ChevronRight size={12} className="file-inspector-crumb-sep" />
-                <span className="file-inspector-crumb" title={selectedFile.relPath}>
-                  {selectedFile.fileName ?? selectedFile.relPath}
-                </span>
+                <button
+                  type="button"
+                  className="file-inspector-crumb"
+                  title={
+                    selectedFile.path
+                      ? `${t("chat.openFileLocation", "打开所在目录")} · ${selectedFile.relPath}`
+                      : selectedFile.relPath
+                  }
+                  onClick={selectedFile.path ? handleOpenContainingFolder : undefined}
+                >
+                  <span className="file-inspector-crumb-name">
+                    {selectedFile.fileName ?? selectedFile.relPath}
+                  </span>
+                  {selectedFile.path && (
+                    <FolderOpen size={11} className="file-inspector-crumb-folder" />
+                  )}
+                </button>
               </>
             )}
           </div>

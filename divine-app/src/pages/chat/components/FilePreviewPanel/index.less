@@ -54,6 +54,7 @@
 }
 
 .file-inspector-title {
+  flex-shrink: 0; /* 长文件名挤压面包屑，标题"文件"保持原宽 */
   color: var(--color-text);
   font-size: 12.5px;
   font-weight: 600;
@@ -313,13 +314,45 @@
   }
 
   .file-inspector-crumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     min-width: 0;
     overflow: hidden;
+    padding: 1px 4px;
+    margin: -1px -4px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
     color: var(--color-text);
+    font: inherit;
     font-size: 12.5px;
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-hover-soft);
+
+      .file-inspector-crumb-folder {
+        opacity: 1;
+      }
+    }
+  }
+
+  .file-inspector-crumb-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-inspector-crumb-folder {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    opacity: 0.55;
+    transition: opacity 0.15s ease;
   }
 
   .diff-accept-button {
