@@ -386,7 +386,7 @@ export function ChoiceBlock({
           })}
         </div>
       ) : (
-        <div className="choice-options">
+        <div className={`choice-options${options.length >= 5 ? " wrap" : ""}`}>
           {options.map((opt) => {
             const active = multiple ? selectedMulti.includes(opt.label) : selected === opt.label;
             return (

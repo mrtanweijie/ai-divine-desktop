@@ -84,10 +84,17 @@
   color: var(--color-text);
   margin-bottom: 10px;
 }
+/* ≤4 个选项：单行铺满，不换行（多数询问卡片都是 2~4 项）。
+   ≥5 个选项：加 .wrap 切 3 列网格，避免均分一行挤成窄竖条。 */
 .choice-options {
   display: flex;
   flex-direction: row;
   gap: 8px;
+}
+.choice-options.wrap {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
 }
 .choice-swatches {
   display: grid;
