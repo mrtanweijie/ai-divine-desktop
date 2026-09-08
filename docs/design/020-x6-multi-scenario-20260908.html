@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark" data-page-node-id="1z6RM76doKTDPhBBtzJWal">
+<head data-page-node-id="rR0BNwL0m2tEe0LGQ5DgP8">
+<meta charset="UTF-8" data-page-node-id="Qk4OuOenwmc3FMWEFXNXE0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="CMF1XPyAAU9qsy2kanIqdI" />
+<title>GraphBlock · X6 多场景图形渲染 UI 设计方案</title>
+<style>
+/* ============================================================
+   Design Tokens —— 与 divine-app/src/styles/index.less 同源
+   ============================================================ */
+:root,
+:root[data-theme="dark"] {
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px;
+  --radius-lg: 12px; --radius-xl: 16px; --radius-full: 999px;
+
+  --bg: #0b0d0f; --surface: #121517; --surface-2: #171b1f; --code-bg: #0d1013;
+  --text: #f2f4f6; --text-2: #a4adba; --text-3: #6f7783;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.16);
+  --accent: #ffffff; --accent-soft: rgba(255,255,255,0.08); --on-accent: #0b0d0f;
+  --focus-ring: 0 0 0 2px rgba(255,255,255,0.35);
+
+  --line: #7c8794;
+  --tone-neutral: #8a94a6; --tone-info: #61a7d0;
+  --tone-success: #3fb98a; --tone-warning: #f3962f; --tone-error: #e07a82;
+
+  --node-bg: #191d22; --node-stroke: #343a44; --node-stroke-hl: #5a636f;
+  --cluster-bg: rgba(255,255,255,0.022); --cluster-stroke: rgba(255,255,255,0.10);
+  --lane-bg: rgba(255,255,255,0.016);
+  --elabel-bg: #121517;
+  /* 分支色：仅用于结构性元素（连线 / 分支竖条），不染节点本体 */
+  --bc-0: #facc8f; --bc-1: #61a7d0; --bc-2: #e17692; --bc-3: #f3962f; --bc-4: #728dc1;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-move: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 140ms; --dur-base: 220ms; --dur-slow: 600ms;
+}
+:root[data-theme="light"] {
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #eef1f4; --code-bg: #f2f4f7;
+  --text: #1f2937; --text-2: #5b6472; --text-3: #8a94a3;
+  --border: rgba(15,23,42,0.10); --border-strong: rgba(15,23,42,0.18);
+  --accent: #111827; --accent-soft: rgba(17,24,39,0.08); --on-accent: #ffffff;
+  --focus-ring: 0 0 0 2px rgba(17,24,39,0.28);
+
+  --line: #7a8494;
+  --tone-neutral: #7a8494; --tone-info: #036ead;
+  --tone-success: #2f9e6e; --tone-warning: #c77f1e; --tone-error: #c9525b;
+
+  --node-bg: #ffffff; --node-stroke: #d6dae0; --node-stroke-hl: #9aa3af;
+  --cluster-bg: rgba(15,23,42,0.018); --cluster-stroke: rgba(15,23,42,0.12);
+  --lane-bg: rgba(15,23,42,0.022);
+  --elabel-bg: #ffffff;
+  --bc-0: #f3962f; --bc-1: #036ead; --bc-2: #dd656d; --bc-3: #506aaa; --bc-4: #728dc1;
+}
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font-sans);
+  font-size:14px; line-height:1.65; -webkit-font-smoothing:antialiased; }
+a { color:inherit; }
+
+/* ---------------- 页头 ---------------- */
+.topbar { position:sticky; top:0; z-index:50; display:flex; align-items:center;
+  justify-content:space-between; gap:16px; padding:12px 28px;
+  background:color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter:saturate(180%) blur(14px);
+  border-bottom:1px solid var(--border); }
+.brand { display:flex; align-items:baseline; gap:12px; min-width:0; }
+.brand h1 { font-size:15px; font-weight:600; margin:0; letter-spacing:.2px; }
+.brand .sub { font-size:12px; color:var(--text-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tbtn { font:inherit; font-size:12px; color:var(--text-2); background:var(--surface);
+  border:1px solid var(--border); border-radius:var(--radius-full);
+  padding:6px 14px; cursor:pointer; transition:all var(--dur-fast) var(--ease-move); }
+.tbtn:hover { color:var(--text); border-color:var(--border-strong); }
+.tbtn:focus-visible { outline:none; box-shadow:var(--focus-ring); }
+
+.wrap { max-width:1280px; margin:0 auto; padding:0 28px 96px; }
+
+/* ---------------- 通用块 ---------------- */
+section { padding-top:56px; scroll-margin-top:64px; }
+.sec-head { display:flex; align-items:baseline; gap:12px; margin:0 0 6px; }
+.sec-num { font-family:var(--font-mono); font-size:11px; color:var(--text-3);
+  border:1px solid var(--border); border-radius:var(--radius-xs); padding:1px 6px; flex:none; }
+.sec-head h2 { font-size:20px; font-weight:600; margin:0; letter-spacing:.2px; }
+.sec-desc { color:var(--text-2); margin:0 0 22px; max-width:78ch; font-size:13.5px; }
+h3 { font-size:14px; font-weight:600; margin:26px 0 10px; }
+p { margin:0 0 12px; }
+ul { margin:0 0 12px; padding-left:20px; }
+li { margin-bottom:5px; }
+code { font-family:var(--font-mono); font-size:.88em; background:var(--code-bg);
+  border:1px solid var(--border); border-radius:var(--radius-xs); padding:1px 5px; }
+
+.card { background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius-xl); padding:20px 22px; }
+.grid2 { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+.grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+@media (max-width:1080px){ .grid2,.grid3{ grid-template-columns:1fr; } }
+
+/* ---------------- 表格 ---------------- */
+.tbl-scroll { overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface); }
+table { width:100%; border-collapse:collapse; font-size:12.5px; }
+th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+th { font-weight:600; color:var(--text-2); font-size:11.5px; letter-spacing:.4px;
+  text-transform:uppercase; background:var(--surface-2); position:sticky; top:0; }
+tbody tr:last-child td { border-bottom:none; }
+tbody tr:hover { background:var(--surface-2); }
+td.mono, th.mono { font-family:var(--font-mono); font-size:12px; white-space:nowrap; }
+.tag { display:inline-block; font-family:var(--font-mono); font-size:11px;
+  padding:1px 7px; border-radius:var(--radius-full); border:1px solid var(--border-strong);
+  color:var(--text-2); white-space:nowrap; }
+.tag.s { color:var(--tone-success); border-color:color-mix(in srgb,var(--tone-success) 45%,transparent); }
+.tag.w { color:var(--tone-warning); border-color:color-mix(in srgb,var(--tone-warning) 45%,transparent); }
+.tag.e { color:var(--tone-error); border-color:color-mix(in srgb,var(--tone-error) 45%,transparent); }
+.tag.i { color:var(--tone-info); border-color:color-mix(in srgb,var(--tone-info) 45%,transparent); }
+
+/* ---------------- 代码块 ---------------- */
+pre { background:var(--code-bg); border:1px solid var(--border); border-radius:var(--radius-lg);
+  padding:16px 18px; overflow-x:auto; font-family:var(--font-mono); font-size:12px;
+  line-height:1.7; margin:0 0 14px; color:var(--text-2); }
+pre b { color:var(--text); font-weight:600; }
+pre i { color:var(--text-3); font-style:normal; }
+
+/* ---------------- 结论条 ---------------- */
+.callout { border:1px solid var(--border); border-left:2px solid var(--accent);
+  border-radius:var(--radius-lg); background:var(--surface); padding:16px 20px; margin:0 0 18px; }
+.callout .k { font-size:11px; letter-spacing:.6px; text-transform:uppercase;
+  color:var(--text-3); font-weight:600; margin-bottom:6px; }
+.callout p:last-child { margin-bottom:0; }
+.callout.warn { border-left-color:var(--tone-warning); }
+.callout.err { border-left-color:var(--tone-error); }
+
+/* ============================================================
+   场景画廊
+   ============================================================ */
+.gallery { display:grid; grid-template-columns:1fr; gap:18px; }
+.scene { background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius-xl); overflow:hidden; display:flex; flex-direction:column; }
+.scene-hd { display:flex; align-items:flex-start; justify-content:space-between;
+  gap:12px; padding:14px 16px 12px; border-bottom:1px solid var(--border); }
+.scene-hd .title { font-size:14px; font-weight:600; margin:0 0 3px; }
+.scene-hd .ask { font-size:11.5px; color:var(--text-3); font-family:var(--font-mono); }
+.tools { display:flex; gap:6px; flex:none; }
+.mini { font:inherit; font-size:11px; color:var(--text-3); background:transparent;
+  border:1px solid var(--border); border-radius:var(--radius-full); padding:3px 10px;
+  cursor:pointer; transition:all var(--dur-fast) var(--ease-move); white-space:nowrap; }
+.mini:hover { color:var(--text); border-color:var(--border-strong); }
+.mini[aria-pressed="true"] { color:var(--on-accent); background:var(--accent); border-color:var(--accent); }
+.mini:focus-visible { outline:none; box-shadow:var(--focus-ring); }
+
+.stage { padding:14px 12px 10px; min-height:220px; display:flex;
+  align-items:center; justify-content:center; background:
+  radial-gradient(120% 90% at 50% 0%, var(--surface-2) 0%, var(--surface) 70%); }
+/* 不无限放大（max-width 按图画幅内联给定），也不无限拉高 */
+.stage svg { display:block; width:100%; height:auto; max-height:560px; overflow:visible; }
+
+.anatomy { display:flex; justify-content:center; padding:6px 0 2px; }
+.anatomy svg { width:100%; max-width:440px; height:auto; overflow:visible; }
+.state-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:6px; }
+.state-row .sw { background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--radius-lg); padding:10px 14px 10px 10px; display:flex; align-items:center; gap:12px; }
+.state-row .sw span { font-size:11.5px; color:var(--text-3); max-width:170px; line-height:1.45; }
+.legend-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+.legend-row .lg { background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--radius-lg); padding:12px 14px; display:flex; flex-direction:column; gap:7px; }
+.legend-row .lg > b { font-size:11.5px; font-weight:600; color:var(--text-2); }
+.legend-row .lg .row { display:flex; align-items:center; gap:8px;
+  font-size:11px; color:var(--text-3); line-height:1.4; }
+.legend-row .lg .row.cols { display:grid; grid-template-columns:auto 1fr; gap:4px 8px; align-items:center; }
+.ln-swatch { width:34px; height:10px; flex:none; }
+
+.icon-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.icon-row .ic { background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--radius-md); padding:10px 12px 8px; display:flex; flex-direction:column;
+  align-items:center; gap:6px; font-family:var(--font-mono); font-size:10.5px; color:var(--text-3); }
+
+.scene-ft { padding:10px 16px 14px; border-top:1px solid var(--border);
+  display:flex; flex-wrap:wrap; gap:6px; }
+.chip { font-size:11px; font-family:var(--font-mono); color:var(--text-3);
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--radius-xs); padding:2px 8px; }
+.chip b { color:var(--text-2); font-weight:600; }
+
+/* ---------------- SVG 图形样式 ---------------- */
+.node { cursor:pointer; }
+.node .n-body { fill:var(--node-bg); stroke:var(--node-stroke); stroke-width:1.25;
+  transition:fill var(--dur-fast) var(--ease-move), stroke var(--dur-fast) var(--ease-move); }
+.node:hover .n-body { stroke:var(--node-stroke-hl); }
+.node .n-tint { opacity:.001; transition:opacity var(--dur-fast) var(--ease-move); }
+.node.tone-success .n-tint { fill:var(--tone-success); opacity:.10; }
+.node.tone-warning .n-tint { fill:var(--tone-warning); opacity:.10; }
+.node.tone-error   .n-tint { fill:var(--tone-error);   opacity:.10; }
+.node.tone-info    .n-tint { fill:var(--tone-info);    opacity:.10; }
+.node.tone-success .n-body { stroke:var(--tone-success); }
+.node.tone-warning .n-body { stroke:var(--tone-warning); }
+.node.tone-error   .n-body { stroke:var(--tone-error); }
+.node.tone-info    .n-body { stroke:var(--tone-info); }
+.node .n-label { fill:var(--text); font-size:12.5px; font-weight:500;
+  font-family:var(--font-sans); pointer-events:none; }
+.node .n-sub { fill:var(--text-3); font-size:10.5px; font-family:var(--font-sans); pointer-events:none; }
+.node .n-title { fill:var(--text); font-size:12px; font-weight:600; font-family:var(--font-sans); pointer-events:none; }
+.node .n-prop { fill:var(--text-2); font-size:10.5px; font-family:var(--font-mono); pointer-events:none; }
+.node .n-div { stroke:var(--node-stroke); stroke-width:1; }
+
+.edge-base { fill:none; stroke:var(--line); stroke-width:1.25; stroke-linecap:round; stroke-linejoin:round; }
+.edge-base.dashed { stroke-dasharray:5 4; }
+.edge-flow { fill:none; stroke-width:1.6; stroke-linecap:round; opacity:0; stroke-dasharray:6 7; }
+.flow-on .edge-flow { opacity:1; animation:dash 1.1s linear infinite; }
+.flow-on .edge-flow.speed-05 { animation-duration:2.2s; }
+.flow-on .edge-flow.speed-2  { animation-duration:.58s; }
+@keyframes dash { to { stroke-dashoffset:-13; } }
+.edge-base.tone-success { stroke:var(--tone-success); }
+.edge-base.tone-warning { stroke:var(--tone-warning); }
+.edge-base.tone-error   { stroke:var(--tone-error); }
+.edge-base.tone-info    { stroke:var(--tone-info); }
+.edge-flow.tone-success { stroke:var(--tone-success); }
+.edge-flow.tone-warning { stroke:var(--tone-warning); }
+.edge-flow.tone-error   { stroke:var(--tone-error); }
+.edge-flow.tone-info    { stroke:var(--tone-info); }
+.edge-flow:not([class*="tone-"]) { stroke:var(--tone-info); }
+
+.elabel-bg { fill:var(--elabel-bg); stroke:none; }
+.elabel { fill:var(--text-3); font-size:10.5px; font-family:var(--font-sans); }
+.elabel-guard { fill:var(--text-3); font-size:9.5px; font-family:var(--font-mono); opacity:.8; }
+
+.cluster rect { fill:var(--cluster-bg); stroke:var(--cluster-stroke); stroke-width:1; stroke-dasharray:4 4; }
+.cluster text { fill:var(--text-3); font-size:10.5px; font-family:var(--font-mono); }
+.lane rect.ln-bg { fill:var(--lane-bg); stroke:none; }
+.lane line.ln-sep { stroke:var(--border); stroke-width:1; }
+.lane text { fill:var(--text-3); font-size:10.5px; font-family:var(--font-sans); font-weight:600; }
+.axis { stroke:var(--line); stroke-width:1.25; }
+.axis-dot { fill:var(--line); }
+.spine { stroke:var(--text-2); stroke-width:2; stroke-linecap:round; }
+.rib { stroke:var(--line); stroke-width:1.25; }
+.fb-label { fill:var(--text-2); font-size:10.5px; font-family:var(--font-sans); }
+
+/* ---------------- DAG 自定义富节点 ---------------- */
+.dag-icon { fill:none; stroke:var(--text-2); stroke-width:1.5;
+  stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
+.node.tone-success .dag-icon { stroke:var(--tone-success); }
+.node.tone-error .dag-icon { stroke:var(--tone-error); }
+.node.tone-info .dag-icon { stroke:var(--tone-info); }
+.node.tone-warning .dag-icon { stroke:var(--tone-warning); }
+.dp-tile { fill:var(--surface-2); stroke:none; }
+.dp-icon { fill:none; stroke:var(--text-2); stroke-width:1.4;
+  stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
+.node.tone-success .dp-icon { stroke:var(--tone-success); }
+.node.tone-error .dp-icon { stroke:var(--tone-error); }
+.node.tone-info .dp-icon { stroke:var(--tone-info); }
+.node.tone-warning .dp-icon { stroke:var(--tone-warning); }
+/* 状态徽标 */
+.st { fill:none; stroke:var(--line); stroke-width:1.7;
+  stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
+.node.tone-success .st { stroke:var(--tone-success); }
+.node.tone-error   .st { stroke:var(--tone-error); }
+.node.tone-warning .st { stroke:var(--tone-warning); }
+.st-dot { fill:var(--tone-info); stroke:none; transform-box:fill-box;
+  transform-origin:center; animation:stpulse 1.5s var(--ease-move) infinite; }
+@keyframes stpulse { 0%,100%{opacity:1; transform:scale(1);} 50%{opacity:.32; transform:scale(.68);} }
+@media (prefers-reduced-motion: reduce){ .st-dot{ animation:none; } }
+/* 端口 */
+.port { fill:var(--node-bg); stroke:var(--line); stroke-width:1.2; }
+.node:hover .port { stroke:var(--node-stroke-hl); }
+
+/* ---------------- 分支色（仅结构性元素） ---------------- */
+.n-bar { stroke:none; }
+.n-bar.bc-0,.map-leaf-bar.bc-0{fill:var(--bc-0)} .map-leaf-bar.bc-0{stroke:var(--bc-0)}
+.n-bar.bc-1,.map-leaf-bar.bc-1{fill:var(--bc-1)} .map-leaf-bar.bc-1{stroke:var(--bc-1)}
+.n-bar.bc-2,.map-leaf-bar.bc-2{fill:var(--bc-2)} .map-leaf-bar.bc-2{stroke:var(--bc-2)}
+.n-bar.bc-3,.map-leaf-bar.bc-3{fill:var(--bc-3)} .map-leaf-bar.bc-3{stroke:var(--bc-3)}
+.n-bar.bc-4,.map-leaf-bar.bc-4{fill:var(--bc-4)} .map-leaf-bar.bc-4{stroke:var(--bc-4)}
+.edge-base.bc-0{stroke:var(--bc-0)} .edge-base.bc-1{stroke:var(--bc-1)}
+.edge-base.bc-2{stroke:var(--bc-2)} .edge-base.bc-3{stroke:var(--bc-3)}
+.edge-base.bc-4{stroke:var(--bc-4)}
+.edge-base.dotted { stroke-dasharray:1.5 3.5; }
+
+/* ---------------- 状态机节点 ---------------- */
+.n-accent { fill:var(--node-stroke-hl); stroke:none; }
+.node.tone-success .n-accent { fill:var(--tone-success); }
+.node.tone-warning .n-accent { fill:var(--tone-warning); }
+.node.tone-error   .n-accent { fill:var(--tone-error); }
+.node.tone-info    .n-accent { fill:var(--tone-info); }
+.act-ring { fill:none; stroke:var(--tone-info); stroke-width:1.2; opacity:0;
+  transform-box:fill-box; transform-origin:center; }
+.node.active .act-ring { opacity:1; animation:actpulse 2.2s var(--ease-move) infinite; }
+@keyframes actpulse { 0%,100%{opacity:.55;transform:scale(1)} 50%{opacity:0;transform:scale(1.09)} }
+.pseudo-ring { fill:none; stroke:var(--text-2); stroke-width:1.6; }
+.pseudo-core { fill:var(--text-2); stroke:none; }
+.node.tone-success .pseudo-ring,.node.tone-success .pseudo-core { stroke:var(--tone-success); }
+.node.tone-error .pseudo-ring,.node.tone-error .pseudo-core { stroke:var(--tone-error); }
+.node.tone-success .pseudo-core,.node.tone-error .pseudo-core { fill:currentColor; }
+
+/* ---------------- 组织树节点 ---------------- */
+.av-bg { fill:var(--surface-2); stroke:var(--node-stroke); stroke-width:1; }
+.av-tx { fill:var(--text-2); font-size:13px; font-weight:600; font-family:var(--font-sans); pointer-events:none; }
+.node.tone-info .av-tx { fill:var(--tone-info); }
+.fold-bg { fill:var(--node-bg); stroke:var(--node-stroke); stroke-width:1.2; }
+.fold-tx { fill:var(--text-3); font-size:9.5px; font-family:var(--font-mono); pointer-events:none; }
+
+/* ---------------- 思维导图节点 ---------------- */
+.map-root-tx { fill:var(--text); font-size:13.5px; font-weight:600; font-family:var(--font-sans); pointer-events:none; }
+.map-leaf-tx { fill:var(--text-2); font-size:11.5px; font-family:var(--font-sans); pointer-events:none; }
+.map-leaf-bar { fill:none; stroke-width:2; stroke-linecap:round; }
+
+/* ---------------- 知识图谱节点 ---------------- */
+.cn-icon { fill:none; stroke:var(--text-2); stroke-width:1.5;
+  stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
+.cn-name { fill:var(--text-2); font-size:10.5px; font-family:var(--font-sans);
+  text-anchor:middle; pointer-events:none; }
+.node .hub .cn-name { fill:var(--text); font-weight:600; }
+/* 尺寸标注（解剖图） */
+.anno { stroke:var(--text-3); stroke-width:1; }
+.anno-d { stroke:var(--text-3); stroke-width:1; stroke-dasharray:3 3; }
+.anno-t { fill:var(--text-3); font-size:10px; font-family:var(--font-mono); }
+
+/* hover 关联高亮 */
+svg.focusing .node { opacity:.24; }
+svg.focusing .node.hl { opacity:1; }
+svg.focusing .edge-base, svg.focusing .edge-flow { opacity:.12; }
+svg.focusing .edge-base.hl { opacity:1; }
+svg.focusing .edge-flow.hl { opacity:1; }
+svg.focusing .elabel, svg.focusing .elabel-bg { opacity:.15; }
+svg.focusing .elabel.hl, svg.focusing .elabel-bg.hl { opacity:1; }
+.node, .edge-base, .edge-flow, .elabel { transition:opacity var(--dur-base) var(--ease-move); }
+
+/* 生长式入场 */
+@keyframes pop { from { opacity:0; transform:scale(.92); } to { opacity:1; transform:scale(1); } }
+@keyframes draw { from { stroke-dashoffset:var(--len); } to { stroke-dashoffset:0; } }
+svg.entering .node { animation:pop 280ms var(--ease-out) backwards; }
+svg.entering .edge-base, svg.entering .edge-flow { animation:draw 480ms var(--ease-move) backwards; }
+@media (prefers-reduced-motion: reduce) {
+  svg.entering .node, svg.entering .edge-base, svg.entering .edge-flow { animation:none; }
+  .flow-on .edge-flow { animation:none; }
+}
+</style>
+</head>
+<body data-page-node-id="u0fKmhtt7F8f58zBxTzELY">
+
+<div class="topbar" data-page-node-id="OlQwBBsCdEvX8u74mLMKD2">
+  <div class="brand" data-page-node-id="JAmqGvxr28HmAn3Tivcvp9">
+    <h1 data-page-node-id="vIzW3X2K2qsuWAeA1hJvBD">GraphBlock · X6 多场景图形渲染</h1>
+    <span class="sub" data-page-node-id="jegVcI98THrIex94ciFDOZ">UI 设计方案 · 场景无关 GraphIR + Preset 驱动 · 2026-09-08</span>
+  </div>
+  <button class="tbtn" id="themeBtn" type="button" data-page-node-id="KTUhknMURcceT57eK7XFnP">切换明暗</button>
+</div>
+
+<div class="wrap" data-page-node-id="4Xv5nmMXV4SobjQ6bqdbVT">
+
+<!-- ══════════════ 0 结论 ══════════════ -->
+<section id="s0" data-page-node-id="FBbnVDde18u58JLNZp3M4E">
+  <div class="sec-head" data-page-node-id="BuaQeIPjtJNDF9mzd7zMPz"><span class="sec-num" data-page-node-id="kYakekLUFUAZNFCuKkECVj">00</span><h2 data-page-node-id="oakkKWhYMYiVnLkKdApU2M">一句话结论</h2></div>
+  <p class="sec-desc" data-page-node-id="jndQJiJCHzFbqh66eNTmMT">X6 真正的产品价值是一台<b data-page-node-id="8bmzftOrfxJoGG6HX4YnJ3">通用图渲染机</b>——只要输入是「节点 + 边 + 语义」，它就能渲染流程图、DAG、状态机、组织架构、思维导图、拓扑、ER、泳道、知识图谱、类图、鱼骨、时间线。</p>
+
+  <div class="callout" data-page-node-id="1ZmLgvlZD1u28CnfGPFndN">
+    <div class="k" data-page-node-id="mB9k6x6EEOqQyaoMGJSq21">核心架构决策</div>
+    <p data-page-node-id="cb9VGyVNEodzzsYUAFiwvU"><b data-page-node-id="smILbkF8odXoxm4N9iUhJj">把「画什么」和「怎么画」彻底拆开。</b>Agent 只输出 <code data-page-node-id="CfH4wpmN5a9t2CFmEaJ2Aw">kind</code>（场景名）+ 拓扑 + 语义意图；布局引擎、节点形态、连线路由、交互等级、动效策略全部收敛到前端一张 <b data-page-node-id="orLxFjb7WQh60915bEzEfV">ScenarioPreset 常量表</b>。加一个新场景 = 表里加一行，<b data-page-node-id="ZNWZ2WPz2kv7xF8I4FQcFe">不改 schema、不改后端、不改渲染器</b>。</p>
+  </div>
+
+  <div class="grid3" data-page-node-id="p03U8pTqgLjGcFSr6i8Lq6">
+    <div class="card" data-page-node-id="vXJ01gFQ0EcxLo8lrOuwO6">
+      <h3 style="margin-top:0" data-page-node-id="k2QAnQ4LXdOdrDS1rHMSEf">① IR 场景无关</h3>
+      <p style="color:var(--text-2);font-size:13px;margin:0" data-page-node-id="N1N9BsMj3UHiSyiqei1jfE">IR 里不出现写死的 <code data-page-node-id="F4OU7B3yEe09hUJcR0WE7g">direction</code> / <code data-page-node-id="YHJxqD4sAORuKz28uHdmRG">shape</code> / <code data-page-node-id="XGawllFutx9MmQMwTzUU31">flow</code> 三件套。图谱结构只有 <code data-page-node-id="XU88DvGUfzygXES9FmVkLN">nodes</code> / <code data-page-node-id="yrNZfPyctIwwvYy3Dy8g4m">edges</code> / <code data-page-node-id="b6ZbXanAL3qbLZSKJ1wAm2">groups</code> / <code data-page-node-id="NC0JOYxgLDHCWWdG8Nkmnx">meta</code>，场景差异外置到 Preset。</p>
+    </div>
+    <div class="card" data-page-node-id="toBGCQKyh2VVdbz9FpZxc0">
+      <h3 style="margin-top:0" data-page-node-id="38HG8m8lePBrDTQLRSJsk7">② Preset 驱动</h3>
+      <p style="color:var(--text-2);font-size:13px;margin:0" data-page-node-id="0bgWFFZ4Q42BCTvHMIkjOR">13 个场景各一行配置：布局引擎 + 参数、节点族、边族、容器族、交互等级、动效、规模上限、视口策略。前端常量，不需要 LLM 参与。</p>
+    </div>
+    <div class="card" data-page-node-id="uS9ReLapyNAr6fSbfBbGE4">
+      <h3 style="margin-top:0" data-page-node-id="E9Cx5PzDCvph2MKdQdRVrK">③ 交互分级</h3>
+      <p style="color:var(--text-2);font-size:13px;margin:0" data-page-node-id="MJ5jecFrPFy4BOXGYizcak">L0 静态 / L1 探索 / L2 流动 / L3 编排。场景决定等级，等级决定加载哪些 X6 插件——避免所有图都背上拖拽编辑器的一整套成本。</p>
+    </div>
+  </div>
+
+  <div class="callout warn" style="margin-top:16px" data-page-node-id="EaPJJaFKXUpTNz30JmuEiF">
+    <div class="k" data-page-node-id="FLrlpQly3wiS0DAn79HCLP">明确不做的（避免过度设计）</div>
+    <p data-page-node-id="BeMDKKHVuwfWbPXC7UyRZb"><b data-page-node-id="0SUhHhAb6NK9rFRqfdDMXP">L3 在线编排（拖拽建边、编辑标签、撤销重做）首期不做。</b>它是另一个产品（画布编辑器），与「AI 生成图给人看」是两件事。X6 支持 ≠ 我们应该做。<br data-page-node-id="JZyBwyOiSFudK53isIg8kk">
+    <b data-page-node-id="M7DxezVUULhzH82wAi5HgA">时序图 / 甘特图 / 纯数据图表不进本链路</b>——Mermaid 与 ECharts 已有成熟解，重复建设只会让渲染体系从 2 套变 3 套。</p>
+  </div>
+</section>
+
+<!-- ══════════════ 1 架构 ══════════════ -->
+<section id="s1" data-page-node-id="HNRLp9EfjJhoovCIa38JQd">
+  <div class="sec-head" data-page-node-id="x4Yc0FFr6D0ck31VtD1PPk"><span class="sec-num" data-page-node-id="LuTPHNHYeSMNZodJONdlak">01</span><h2 data-page-node-id="2BerOjCjhn8bUZAFVi9GAh">架构：GraphIR + Preset Resolver</h2></div>
+  <p class="sec-desc" data-page-node-id="PoEmFowbuoNljN4QBCRF5x">IR 渲染链路的核心是 <b data-page-node-id="v0GCZGuWlIBUQRquhX3A78">Preset Resolver</b>。它是整套方案里唯一知道「场景」的模块，其余全部场景无关。</p>
+
+<pre data-page-node-id="xgQ1xE5S2j24MBAjHTuZnR"><i data-page-node-id="cpqBF51ErK7ybkNoEl8kK8">// 后端 divine-server</i>
+Agent (LangGraph)
+  └─ 工具 <b data-page-node-id="E78GQx6pOIIOTBweMJQKQb">render_graph</b>            <i data-page-node-id="pdUaU5mC6qjKBGKTlyJi3l">唯一图形渲染工具入口</i>
+       ├─ 入参：GraphIR（JSON Schema 校验，<b data-page-node-id="ZaQ9BwOsNKa0p2Xe8olOcR">kind 是唯一场景字段</b>）
+       └─ 出参：增量事件流（JSON Lines）走现有 SSE tool 通道
+             add_node / add_edge / add_group / set_meta / done
+
+<i data-page-node-id="tD8OM9KpLstbkxXzOZZbxl">// 前端 divine-app · src/pages/chat/components/GraphBlock/</i>
+GraphIR.ts            <i data-page-node-id="nHDFYGpQDCgmBcOEOZ19o6">// 类型 + 白名单校验（IR 来自 LLM，按不可信输入处理）</i>
+presets/
+  index.ts            <i data-page-node-id="hsbs7KewQbP7Hbta1djG8b">// <b data-page-node-id="HwEjCwVQVwAdiiFztZsuHn">ScenarioPreset 表</b>：kind → 布局/形态/交互/动效</i>
+  layout.ts           <i data-page-node-id="DnWRYssEZ2HyEIbEsnEqeg">// 布局引擎映射：dagre | elk | compactBox | mindmap | force | 自定义</i>
+shapes/
+  registry.ts         <i data-page-node-id="pPi0DsIvixMdAmKAIHr4lg">// 节点形态注册表（纯 SVG markup，可导出）</i>
+  edges.ts            <i data-page-node-id="1J4ZFHZSOs2HXsCtgFtknI">// 边族：orth | curve | straight | selfLoop</i>
+GraphRenderer.ts      <i data-page-node-id="GUUA9tYPi1ioqo0l8WaKoA">// <b data-page-node-id="blX7gTMnN6DFTyhR0k7LVr">场景无关</b>：IR × Preset → X6 渲染</i>
+RenderScheduler.ts    <i data-page-node-id="3TU4S0XewBPpcHvOhVqadv">// 80ms 批处理</i>
+AnimationManager.ts   <i data-page-node-id="je8NzC7C7yLKh0g4F8PtEB">// 动画池 + 视口外暂停</i>
+GraphToolbar.tsx      <i data-page-node-id="fkOSlx0DljfTteoIBHtHxj">// 按 Preset.capabilities 渲染按钮</i>
+GraphInspector.tsx    <i data-page-node-id="Th3HTb4mNufz8h6igGVPjG">// 节点/边详情面板</i>
+</pre>
+
+  <h3 data-page-node-id="T2DH2QXYvusrhjwKmacqCT">Preset Resolver 的解析顺序</h3>
+<pre data-page-node-id="pudMGlCEAd34ckTb46dxa1">kind ──► PRESETS[kind] ──► {
+            layout:  { engine, opts },      <i data-page-node-id="Hfavj1ZKR3CYIiMFoPEWpI">// 布局引擎 + 参数</i>
+            shapes:  NodeFamily,            <i data-page-node-id="1krHthqjgGWxpHVavCnaOm">// 节点形态族</i>
+            edges:   EdgeFamily,            <i data-page-node-id="mSATjjUN2y43lTWyvL2cDB">// 边族 + 路由</i>
+            groups:  GroupFamily | null,    <i data-page-node-id="7p7JJL9wWlJFKeVU733YRq">// lane / cluster / combo</i>
+            level:   'L0'|'L1'|'L2',        <i data-page-node-id="kl2ipgXETG2EAJKeUHvr68">// 交互等级 → 决定加载哪些插件</i>
+            motion:  MotionSpec,            <i data-page-node-id="QWwFaAAGDFZpqDOs0eFAY2">// 入场 / 流动 / 播放</i>
+            limit:   { nodes, edges },      <i data-page-node-id="FwAbCDfFcCsYLxt53fwbfg">// 规模上限</i>
+            view:    'fit' | 'center' | 'scroll',
+            capabilities: ['export','flow','play','fold','minimap']
+         }
+</pre>
+  <p style="font-size:13px;color:var(--text-2)" data-page-node-id="NKx8o8uGYQJMrQ8UnLxH8w"><b data-page-node-id="HyBXtA3jVDLFauaZTM58z1">关键约束：</b><code data-page-node-id="168bEIqIODODN1DHvpVkEk">kind</code> 必须是封闭枚举。LLM 输出未知 kind → 后端校验拒绝并结构化报错让 Agent 自纠（与 source/target 引用校验同一机制），<b data-page-node-id="jEpZ2AeED6y8ZAElLYcrQv">不要静默 fallback 到 flowchart</b>——静默降级会让错误形态被当成正确结果固化下来。</p>
+</section>
+
+<!-- ══════════════ 2 GraphIR ══════════════ -->
+<section id="s2" data-page-node-id="H2MAki0r83ODFXKKaeBFXq">
+  <div class="sec-head" data-page-node-id="lz0RtRTGqUeGkn7POpRCdh"><span class="sec-num" data-page-node-id="mdv2vHBYiho4j4BoLAVhHe">02</span><h2 data-page-node-id="KIVfHAfz0QqbhQJFQwNOvo">GraphIR 规范</h2></div>
+  <p class="sec-desc" data-page-node-id="wo1hH1qEvkoxcBLj4fgzaz">GraphIR 的字段设计：<b data-page-node-id="PaohFGl4IkaH6UnW3NqFZu">不含</b> <code data-page-node-id="vo3i70YOtV9x0xJDpQB4rH">direction</code>、<code data-page-node-id="T4FaLR5LZ6NwQ7BSjeZrGo">shape</code>、<code data-page-node-id="YAxYVBimzycQuuSHjiIpDt">flow</code>（全部下沉到 Preset）；<b data-page-node-id="jGuoGhWaBnlar1yEhPU7Rn">增</b> <code data-page-node-id="oL8w8D4H2cyP63PoH2CFbF">kind</code>、<code data-page-node-id="MHfoXLPrI1enccGxJpkdCH">groups</code>、节点 <code data-page-node-id="KWY9AoACFbBQntcyWtJOIn">role</code>、边 <code data-page-node-id="cVRHz2gjfTdyatv6cQtjP4">kind</code>。</p>
+
+<pre data-page-node-id="YNswVTGUGQbIC0Jq6Fym80">{
+  <b data-page-node-id="8SAWXXYo0yEyB9RP8rnxn7">"kind"</b>: "flow",                        <i data-page-node-id="jGss0q51i36Xc3VMCrI19E">// 唯一场景字段，封闭枚举，见 §3</i>
+  "meta": { "title": "订单支付链路", "summary": "…" },
+  "nodes": [
+    { "id": "start", "label": "提交订单",
+      <b data-page-node-id="U7E4hFNf8ZGUVXUuc3d39l">"role"</b>: "start",                    <i data-page-node-id="oKE2CE9ELoPOrQ4Q78A71k">// start|end|process|decision|data|entity|state|group_root|milestone</i>
+      "tone": "info",                       <i data-page-node-id="zy08ZP7gWDjFXzQJnYhQ4x">// success|warning|error|info|neutral</i>
+      <b data-page-node-id="bkL3uTeECGgcFgQRuUad33">"lane"</b>: "order",                     <i data-page-node-id="RSYz41or8TmWSwLLbtXFHT">// 泳道归属（kind=swimlane 时必填）</i>
+      <b data-page-node-id="opZyoql2vatYgM413dJQf8">"parent"</b>: "g1",                      <i data-page-node-id="TNUKjaYhcd1QNvrYdisLvi">// 层次归属（org/mindmap 可选，冗余于边）</i>
+      "note": "点击节点查看的详情",
+      "badge": "P0" }                       <i data-page-node-id="q4YbM5CU794PDZFJdnwHka">// 右上角小标，可选</i>
+  ],
+  "edges": [
+    { "id": "e1", "source": "start", "target": "stock",
+      "label": "校验",
+      <b data-page-node-id="pB8LNry2RXx1fbUiNaOhkg">"kind"</b>: "flow",                      <i data-page-node-id="RGTL4SDG16fmmdXjV4ahRn">// flow|dep|transit|inherit|assoc|contain</i>
+      "tone": "info",
+      "style": "solid",                     <i data-page-node-id="fRsCxy2TATlvOpREzpUS0K">// solid|dashed</i>
+      "flow": { "mode": "antline", "speed": 1 } }  <i data-page-node-id="diY71cRPBQHLvDbNgvo8bu">// 可选，仅 L2 场景生效</i>
+  ],
+  <b data-page-node-id="3BOePT5qD6ACGhv0A7pOPh">"groups"</b>: [                              <i data-page-node-id="Dg4QuRewBO3FXoQCTbV6t0">// 容器：泳道 / 集群 / 分组</i>
+    { "id": "g1", "label": "接入层", "type": "cluster", "members": ["cdn","waf","gw"] }
+  ],
+  "demoPath": ["start", "stock", "pay"]     <i data-page-node-id="St8IqWvBBXqiwFWsy1QSMp">// 可选，节奏由前端编排</i>
+}
+</pre>
+
+  <h3 data-page-node-id="VZm2taZsUBUER6Cr4d2KKo">字段约束（后端强校验）</h3>
+  <div class="tbl-scroll" data-page-node-id="7FOMvNRJ0kucq80miKvwHD"><table data-page-node-id="beDmNoOBAK1ICBPP8JVUz0">
+    <thead data-page-node-id="e91tulh4Tcm170vYVcipxA"><tr data-page-node-id="7cHDPVHVIEONTom5LbMbWA"><th class="mono" data-page-node-id="eJQAF5kncHERzQ87GyNOpj">字段</th><th data-page-node-id="w8XiBbdxsdY3wbeUBdDe19">规则</th><th data-page-node-id="y5S4fYPeDNDcyWQabqC1KQ">理由</th></tr></thead>
+    <tbody data-page-node-id="ttMBiLpjku1PxxYuHpmDHz">
+      <tr data-page-node-id="jGqp8ownKpEq7kDEBsFADv"><td class="mono" data-page-node-id="XRAitcQNQswaoJd7EHAQGv">kind</td><td data-page-node-id="BTnybw64UQDbdztyQDOEAf">封闭枚举 13 项，未知即拒绝</td><td data-page-node-id="rVFhCRv3158hAJlVipV29S">防止 LLM 发明场景导致 Preset 缺失</td></tr>
+      <tr data-page-node-id="f06CIN14NcOW0A5IECGGMm"><td class="mono" data-page-node-id="Aex3QWsUb9zIgX35XXBsqk">role</td><td data-page-node-id="eimoUmWVVS3fSxAvDHfXc3">封闭枚举；Preset 决定 role → shape 的映射</td><td data-page-node-id="iKKM4UkA2s5ZyLZZ7qbEmz">Agent 说「这是什么角色」，不指定长什么样</td></tr>
+      <tr data-page-node-id="dcqsbR7w3pq4bMUIfDm6CP"><td class="mono" data-page-node-id="vaYGK3tsYdCex8AtvfP8XI">tone</td><td data-page-node-id="ytJM1D44aUjg5q2uagEyI6">5 档语义色名，<b data-page-node-id="Au5Zhx3smiNvUb8cDc6A5y">禁止色值</b></td><td data-page-node-id="BvXcCKrIneyGeWmiAHHn7z">主题切换与对比度由前端统一兜底</td></tr>
+      <tr data-page-node-id="T6Eyh0Ep6jFbdcGW11xHb0"><td class="mono" data-page-node-id="uddWYr6rhsbRlNkBP3gGUu">lane / parent</td><td data-page-node-id="zBNrVuihdYZwTAImAatZ3s">必须指向已声明的 group / node</td><td data-page-node-id="bEa0aGlV19FAWVLSnKZZ0x">层次与泳道是结构，不能靠坐标表达</td></tr>
+      <tr data-page-node-id="fPPB1qqhWPzW2Kn05XsKRl"><td class="mono" data-page-node-id="hoEJKe9aZTBIhg36itWASF">flow</td><td data-page-node-id="5SBpYYUXBSmKdUivdr6q1t">仅 <code data-page-node-id="rgzxwBCLIGvwwgwA2vCfWy">mode: antline|pulse</code>、<code data-page-node-id="SGWbjVWeJcjDwMaICFClCz">speed: 0.5|1|2</code></td><td data-page-node-id="wiK1S9Ru2CmS5RXsr5Xdon">守住「不算时序」原则</td></tr>
+      <tr data-page-node-id="ZVFqc2dV4JBDnQEOL304Cw"><td class="mono" data-page-node-id="de59Lx1dzlmXOW3gZLlTh0">坐标</td><td data-page-node-id="p8yoxlYOkGqYqz2gq0AHyp"><b data-page-node-id="jdiZBMz83bx3IbbVF85L8Y">禁止任何 x/y/w/h 字段</b></td><td data-page-node-id="GDZPVQCEbOLOSRmgaA2kuT">布局是前端职责</td></tr>
+      <tr data-page-node-id="TCnYIzNGGIvDGpQoUDsNCe"><td class="mono" data-page-node-id="egGa7jfWIKGcls77FdvKNE">规模</td><td data-page-node-id="GF6dZUPZYU2FWEykvBVokJ">nodes ≤ Preset.limit.nodes，超限结构化报错</td><td data-page-node-id="NGlNc92TLF7TQa9caxUcvF">不同场景上限不同（见 §3）</td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-size:13px;color:var(--text-2);margin-top:12px" data-page-node-id="bRLwYHBYW8aRQHxBQsQ80Q"><b data-page-node-id="qV92vx4pPZ3REdTtpdl3Og">安全：</b>白名单校验、拒绝 <code data-page-node-id="sKbbafCwV84tCBVqwYUVZW">__proto__</code> / <code data-page-node-id="l5MK8uVry0AiD68NDHA1IW">on*</code> / 任意 attrs 注入。新增的是 <code data-page-node-id="xuhBmPTY9kbHB5XiQ5dznA">kind</code> 与 <code data-page-node-id="BD69wmc7Wx93bZkrquvpfm">role</code> 也必须白名单，否则 LLM 可以借 role 名注入形态。</p>
+</section>
+
+<!-- ══════════════ 3 Preset 表 ══════════════ -->
+<section id="s3" data-page-node-id="rOMJQIWcvSSgaorpVp3MFp">
+  <div class="sec-head" data-page-node-id="BBaE5v73UlsmN3LSblSeSC"><span class="sec-num" data-page-node-id="pzuZkyIYN9c37Vsp2qIB7W">03</span><h2 data-page-node-id="QfTDTVGFoGeK7glMeeluBO">ScenarioPreset 总表</h2></div>
+  <p class="sec-desc" data-page-node-id="cioumGas7ButK4TZqsjzpJ">这张表就是「加场景」的全部成本。下面 12 行覆盖 X6 官方示例中与对话场景强相关的全部类型。</p>
+  <div class="tbl-scroll" data-page-node-id="G6vzWbsCVT4DQmzaQdO8Nn"><table data-page-node-id="GuMv0DqByfC43Tg8ZSFiky">
+    <thead data-page-node-id="nH62Fkc9Hbb0jM4NKXbBAu"><tr data-page-node-id="cJ37zBB6E8ASHY2LyXuKIk">
+      <th class="mono" data-page-node-id="1wodQPfkGgQfS5ZOtMtAae">kind</th><th data-page-node-id="JHn6hFWsQFHud47UqICtI8">场景</th><th class="mono" data-page-node-id="YJioU5GBdjrhrZfMnRH0yr">布局引擎</th><th data-page-node-id="O6WVqZ68GwOqlI3Twu9twT">节点族</th><th data-page-node-id="1k6dysaLmQWJvBYRCVGBP5">边族</th><th data-page-node-id="xjb9Mz7psusvu6I4gazpZK">容器</th><th class="mono" data-page-node-id="drEVATQVeOOzaDXgh4vi8p">Lv</th><th data-page-node-id="QLpFfiToeYwhxLrX5PFctQ">动效</th><th class="mono" data-page-node-id="5vNqSgY8GJoI3xww9kQvBY">上限</th><th data-page-node-id="WIlWC4Z0kMp04D6YzDZcBB">视口</th>
+    </tr></thead>
+    <tbody data-page-node-id="jANSipX8BaFQ0QC1gVVupV">
+      <tr data-page-node-id="Am9DpoG6utkzavvESCR3UP"><td class="mono" data-page-node-id="qkeSfISeeOXfsfMyaQiYWD">flow</td><td data-page-node-id="PBsSt2QWXqaphIJmWdVoHg">业务流程 / 决策流</td><td class="mono" data-page-node-id="MkvceygXb65SMAZCGbfi5U">dagre LR</td><td data-page-node-id="rSmWJkxTfrrACSfGEggotY">start/end pill · process rounded · decision diamond</td><td class="mono" data-page-node-id="2Q8Bu6PVdkKrIi1zGrKioM">orth · arrow</td><td data-page-node-id="5zQMxdqVQ8mR8PJqnQjqSG">—</td><td data-page-node-id="JRbkaKgzriSBURqb3v8C3O"><span class="tag s" data-page-node-id="woY69r6v9YBDC8g7CoaojP">L2</span></td><td data-page-node-id="t7bVWAiHjnD5kCEUw8qBlw">入场 + 流动 + 播放</td><td data-page-node-id="OTPf84DGMlBkckPwitmslq">80</td><td data-page-node-id="MDWoCjJ4nwB1NsSgdkIRZ8">fit</td></tr>
+      <tr><td class="mono">dag</td><td>任务编排 DAG</td><td class="mono">dagre TB</td><td><b>dag-node</b> 188×40<br><span style="color:var(--text-3)">类型图标 + 标题 + 状态徽标</span></td><td class="mono">orth · arrow · ports TB</td><td>cluster（阶段）</td><td><span class="tag s">L2</span></td><td>入场 + 运行态入边流动</td><td>120</td><td>fit</td></tr>
+      <tr><td class="mono">dataflow</td><td>数据加工 DAG</td><td class="mono">dagre LR</td><td><b>dp-node</b> 212×48<br><span style="color:var(--text-3)">类型图标瓦片 + 标题 + 状态</span></td><td class="mono">orth · arrow · ports LR</td><td>—</td><td><span class="tag s">L2</span></td><td>入场 + 运行态入边流动</td><td>80</td><td>fit</td></tr>
+      <tr data-page-node-id="egAluQ6Ag8pH0ErgttfWMm"><td class="mono">state</td><td>状态机</td><td class="mono">dagre LR</td><td>state-node 152×44 · 伪状态 initial/final</td><td class="mono">curve · arrow · selfLoop · 事件[守卫]标签</td><td>—</td><td><span class="tag s">L2</span></td><td>入场 + 迁移路径播放 + active 脉冲</td><td>40</td><td>center</td></tr>
+      <tr data-page-node-id="5NstbDVa1eBGZx7KxYoAys"><td class="mono">org</td><td>组织架构 / 层级</td><td class="mono">compactBox TB</td><td>org-node 176×56 · 头像首字 + 职位 + 折叠角标</td><td class="mono">orth 直角折线</td><td>—</td><td><span class="tag i">L1</span></td><td>入场 + 折叠展开</td><td>150</td><td>fit</td></tr>
+      <tr data-page-node-id="vJ2NcnJYsxeqrn4Q86Kqmz"><td class="mono">mindmap</td><td>思维导图</td><td class="mono">mindmap LR</td><td>map 三级形态 · 分支色走连线与竖条</td><td class="mono">curve 锥形（分支色）</td><td>—</td><td><span class="tag i">L1</span></td><td>入场 + 折叠展开</td><td>120</td><td>fit</td></tr>
+      <tr data-page-node-id="LgF28w54YYU2x4zkArbC9o"><td class="mono" data-page-node-id="JVtHSU1RzLnxCz9LLniBme">topology</td><td data-page-node-id="lkzBNJIXBpBcOig6Nv7SgB">系统 / 网络拓扑</td><td class="mono" data-page-node-id="nKzsFVdSpdCYgueZOdm1fr">dagre TB + cluster</td><td data-page-node-id="QTNagsCH0V8AinBQ0xFXDd">rounded · icon</td><td class="mono" data-page-node-id="iDYO1AgEREH5BK8ccGxPYw">orth / straight</td><td data-page-node-id="xTyefbJ5bEXXqjblJDTeco">cluster（分层）</td><td data-page-node-id="pZqHAcHBNskWR5nmbDMQf5"><span class="tag i" data-page-node-id="voWcKKIPcJ6FBf9Swpankr">L1</span></td><td data-page-node-id="yfkJAf2qqZ0ZUOxQtEwmMg">入场 + 心跳脉冲</td><td data-page-node-id="3b6v0PkxUyXj9jmcAHuf9x">100</td><td data-page-node-id="FoeL2hPsH8fidcqkqgsv6G">fit</td></tr>
+      <tr data-page-node-id="Ac3rwZw4TJEG21wMh9EpDV"><td class="mono" data-page-node-id="U5pTvXfpk0Gc956xESFOP6">er</td><td data-page-node-id="ycai8pV0ATEYCvYFIle7FM">实体关系</td><td class="mono" data-page-node-id="S4Ohx5HhQVH7iJ3m5Kug6f">force（低斥力）</td><td data-page-node-id="GgOjbIwlK03lXkOH3GyDjH">section 三段式</td><td class="mono" data-page-node-id="5i3k3378sFvcb8KmMmzJQf">straight · 基数标注</td><td data-page-node-id="WFLpQDgzQexrE2LM81FJ09">—</td><td data-page-node-id="bSZxPjYcAceoOYRQQN24Wv"><span class="tag" data-page-node-id="CS9UC2LIIDNFOl0YTP41K7">L0</span></td><td data-page-node-id="ooZJ3SZOSc0eVPA1f26DqV">入场</td><td data-page-node-id="INo14pbb923INU4sqffcJp">24</td><td data-page-node-id="um7M5EOCXCmYgDMZ8LyelH">fit</td></tr>
+      <tr data-page-node-id="QRuyh9xE9znRaYnEKtPPno"><td class="mono" data-page-node-id="MeQpHg4bxAo8UmbVE2xqGA">swimlane</td><td data-page-node-id="bHCMEfINENqieJ12x2JcRB">跨职能流程</td><td class="mono" data-page-node-id="tEXHJod6fb02wTYjZLznze">dagre LR × lane</td><td data-page-node-id="tMJN6XynSZthM1NMHIA7Ni">rounded</td><td class="mono" data-page-node-id="obCcc4smSw3ahZMjZkYFaq">orth 跨 lane</td><td data-page-node-id="DLHtwKjzDIAfrRQnnm9mm6">lane（横向带）</td><td data-page-node-id="xTl6u5C8HSynoq9EHnOpO1"><span class="tag s" data-page-node-id="iDqtBP5yQE2oGmzTmCw9jS">L2</span></td><td data-page-node-id="kIg4sjS3bBKUcAmNS3Yipk">入场 + 流动</td><td data-page-node-id="q1LAWQNVngUBHU3CtbWtAP">60</td><td data-page-node-id="xvDkFuZtJ6lH21Mw15MHDF">scroll</td></tr>
+      <tr data-page-node-id="eL0aEdicChiybVjbobovH3"><td class="mono">concept</td><td>知识图谱 / 关系网</td><td class="mono">force</td><td>concept-node · 圆按度定尺寸 + 类型图标 + 外置名</td><td class="mono">straight · 无箭头 · 线型表关系</td><td>—</td><td><span class="tag i">L1</span></td><td>入场 + 力导收敛动画</td><td>80</td><td>fit</td></tr>
+      <tr data-page-node-id="hkX6ld6MzKL1SnjIvvq5Bl"><td class="mono" data-page-node-id="3HO4ALjZkdvPVeW14An8Ab">class</td><td data-page-node-id="wq1wvplbZarm38CSH0Pvr6">UML 类图</td><td class="mono" data-page-node-id="36Go3UA2yCboFDke42NmFV">dagre LR</td><td data-page-node-id="4eqqYvrRBAL7hpAAsGXXBV">section 三段式</td><td class="mono" data-page-node-id="015sb62HlqDChR5qAP8jRP">orth · 空心菱形</td><td data-page-node-id="Fh1weXw9HAFkXAtL31Tlrj">—</td><td data-page-node-id="5gYJkGrQfrmEqmq79TWBc4"><span class="tag" data-page-node-id="mBNRoo60BvpPRYCArCj5EJ">L0</span></td><td data-page-node-id="Dt4NQ3qbP5S4AaBADNaZzR">入场</td><td data-page-node-id="kOhjGASw24nPtFdBtaBWBe">20</td><td data-page-node-id="r38JBkdZxj6A9KpPnIdg3V">fit</td></tr>
+      <tr data-page-node-id="tNWYEE2qd1NXqsNHdnAQr0"><td class="mono" data-page-node-id="4upr6060mN3G0xXOUKJMvx">fishbone</td><td data-page-node-id="cTvDnh0I8BwC6cmdIGC6EV">鱼骨 / 因果分析</td><td class="mono" data-page-node-id="i4dElw5Wai562RnhZSr2HN">自定义（脊柱 +  ribs）</td><td data-page-node-id="WnGDje1klp2VYVovY9paxQ">spine + rib 标签</td><td class="mono" data-page-node-id="gVIjQdcEBaTJfbvUJFfnVv">straight 斜肋</td><td data-page-node-id="Ss5Izsys3MQiQSouNZJt2Y">—</td><td data-page-node-id="AD88ZN1CFZsmbn25EQmWjB"><span class="tag" data-page-node-id="lna2ysu2aFfk6DMy6Pi1ss">L0</span></td><td data-page-node-id="8J2QUwGZfkU7rzlglFApTs">入场（按肋分组）</td><td data-page-node-id="gpFg7b0rj9tVqTCsWWp6dL">40</td><td data-page-node-id="EIQXGQSxY6X9VisgxW3Iqf">fit</td></tr>
+      <tr data-page-node-id="DKbDNKOnUYtKLTcASaukSw"><td class="mono" data-page-node-id="QxldE3Mm36aEfJOaMaifod">timeline</td><td data-page-node-id="uvlgEfaPbwKtmzMgGTHE6S">时间线 / 里程碑</td><td class="mono" data-page-node-id="3fxqMGslgImtvo18qgy3CD">自定义（轴 + 交错）</td><td data-page-node-id="LDncjohPEK5V1bFxGAw8OR">rounded + 日期</td><td class="mono" data-page-node-id="weGFko3TWpNaBBjIkAjpLs">axis 短桩</td><td data-page-node-id="AyhjZUlv22lBuFzExkqoPD">—</td><td data-page-node-id="3XkTCthjvBwwL1nWWClD2o"><span class="tag" data-page-node-id="0Jlv6gf4KWmElOaD1oxYzX">L0</span></td><td data-page-node-id="h63fHFxKOderOou17GAHd9">入场（从左到右）</td><td data-page-node-id="HqImdiLEKDi8oLEoeizfRd">30</td><td data-page-node-id="FzpEsSrEkSvJKpfz7YLXcS">fit</td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-size:13px;color:var(--text-2);margin-top:12px" data-page-node-id="cDTcbvtUojr4VB9F8mtwnd"><b data-page-node-id="wy5phDm8dbitB7bJfwEbuq">布局引擎建议：</b>统一用 <code data-page-node-id="thU5CUBxueOtB6iIG4yivX">@antv/layout</code>（dagre / antv-dagre / force / compactBox / mindmap 已覆盖 8 个场景），<b data-page-node-id="ncsGCjX8pXZzvarF73fqOm">不要引入 elkjs</b>——elkjs 是 wasm/大体积，只有 swimlane 的多层嵌套约束必要时才考虑。多场景下一套 <code data-page-node-id="Dyfffmhb6Gz6v0peS9jONS">@antv/layout</code> 即可覆盖。fishbone / timeline 无通用算法，写 60 行自定义函数即可。</p>
+</section>
+
+<!-- ══════════════ 4 画廊 ══════════════ -->
+<section id="s4" data-page-node-id="MpT98JIrqtO50PebBzo3Mh">
+  <div class="sec-head" data-page-node-id="fWkSSSXZwBBw9dOkQnCNpQ"><span class="sec-num" data-page-node-id="gW86pEvXyPhKBV0kHeex57">04</span><h2 data-page-node-id="6xnpwx9seSmNwCDMTwuCsF">场景画廊 · 13 个真实渲染样板</h2></div>
+  <p class="sec-desc" data-page-node-id="mme5jhedNcyuvmRD06WFVX">下面每张图都由<b data-page-node-id="Pz3qOxJuoHkJ91KUbD79pE">同一套渲染代码 + 不同 Preset</b> 生成（页面内置迷你布局引擎模拟 X6 输出）。<b data-page-node-id="0YwaoBtGswOvqMN6HIpYxZ">鼠标移到节点上</b>看关联高亮，<b data-page-node-id="J6GnjTbIAxgANt2AmFDOsY">点「流动」</b>看数据流，<b data-page-node-id="EAX4vMuJLTF1RvjmVt2AGf">点「重播」</b>看生长式入场。</p>
+  <h3>4.1　DAG 自定义节点 · 对照 X6 showcase <code>dag</code> / <code>dataProcessingDag</code></h3>
+  <p style="font-size:13px;color:var(--text-2)">通用矩形节点在 DAG 场景里信息密度太低——看不出「跑到哪一步」「这步是干嘛的」。X6 官方这两个 showcase 用<b>自定义富节点</b>解决：节点内嵌<b>类型图标 + 标题 + 状态徽标</b>。这里把它适配到 Divine 的设计体系。</p>
+
+  <div class="grid2" style="margin-top:14px">
+    <div class="card">
+      <div class="anatomy" id="anatomyA"></div>
+      <ul style="font-size:12.5px;color:var(--text-2);margin:14px 0 0">
+        <li><b>dag-node</b>　任务编排型（对应 X6 <code>dag</code> 的 <code>AlgoNode</code>）</li>
+        <li>① 类型图标 16×16，距左 16px，<b>stroke 描边</b>不吃 tone 色</li>
+        <li>② 标题 12.5px，距左 36px，超长省略号截断</li>
+        <li>③ 状态徽标 14×14，距右 16px</li>
+        <li>④ 端口 r 3.4，TB 布局时在上/下</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="anatomy" id="anatomyB"></div>
+      <ul style="font-size:12.5px;color:var(--text-2);margin:14px 0 0">
+        <li><b>dp-node</b>　数据加工型（对应 X6 <code>dataProcessingDag</code>）</li>
+        <li>① 类型图标放 28×28 圆角色块（rx 7）内，色块用 <code>surface-2</code></li>
+        <li>② 加工类型枚举：INPUT / FILTER / JOIN / UNION / AGG / OUTPUT</li>
+        <li>③ 标题距左 62px，状态距右 18px</li>
+        <li>④ 端口在左/右（in / out），与 LR 布局一致</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>状态徽标（4 态）</h3>
+  <div id="stateRow" class="state-row"></div>
+
+  <h3>类型图标（全部内联 path，不外链图片）</h3>
+  <div id="iconRow" class="icon-row"></div>
+
+  <div class="callout warn" style="margin-top:8px">
+    <div class="k">与 X6 原版的取舍：三处必须改</div>
+    <p><b>① 不用 React/HTML 节点。</b>X6 这两个示例都用 <code>@antv/x6-react-shape</code> 注册组件节点（渲染进 <code>foreignObject</code>）。但 <code>foreignObject</code> 在 WKWebView 下 <code>toPNG</code> 极易失败、且样式是外联 CSS，导出即丢——<b>与「导出 PNG/SVG 是硬需求」直接冲突</b>。改用等价的纯 SVG markup，导出链路与现有节点完全一致。<br>
+    <b>② 图标全部内联 path，禁止外链图片。</b>官方示例用的是 <code>gw.alipayobjects.com</code> 外链图。我们是本地优先 + 隐私可控，外链既泄隐私又会在导出后失效。<br>
+    <b>③ 砍掉编辑器交互。</b>官方示例的「+ 添加下游节点」下拉菜单、节点「更多操作」菜单、antd Tooltip / Dropdown 都是 L3 画布编辑器能力，首期不做（见 §6）。</p>
+  </div>
+
+  <h3>Preset / IR 侧的变化</h3>
+  <div class="tbl-scroll" style="margin-bottom:22px"><table>
+    <thead><tr><th>项</th><th>决定</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">kind</td><td>拆为 <code>dag</code>（任务编排）+ <code>dataflow</code>（数据加工）两个</td><td>节点形态与信息密度差异足够大，各自一行 Preset 比塞进一个 kind 加开关更清晰</td></tr>
+      <tr><td class="mono">node.state</td><td>新增<b>场景特有可选字段</b>：<code>pending | running | success | failed</code></td><td>Preset 可声明自己支持哪些额外字段，这是 Preset 架构的应有之义；其他场景忽略即可</td></tr>
+      <tr><td class="mono">tone 关系</td><td><code>state</code> 映射到 tone（running→info、success→success、failed→error、pending→neutral）</td><td>不引入第二套语义色；不改通用设计层定稿的「neutral≡info 不上色」原则</td></tr>
+      <tr><td class="mono">node.icon</td><td>封闭枚举（8 个任务图标 / 6 个加工类型），<b>禁止 URL</b></td><td>白名单校验，防 LLM 注入外链资源</td></tr>
+      <tr><td>边</td><td>目标节点 <code>state=running</code> 时，其<b>入边</b>自动开 antline</td><td>与 X6 示例的 <code>running-line</code> dash 动画同效果，但走我们既有的双层边机制，可关可导</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>4.2　状态机 / 组织树 / 思维导图 / 知识图谱 · 四类富节点</h3>
+  <p style="font-size:13px;color:var(--text-2)">这四个场景的通用节点是<b>最撑不住的</b>：状态机看不出初态终态、组织树没有身份信息、思维导图分不清层级、知识图谱既挤又无类型。下面四类各自解决一个具体的信息缺口。</p>
+
+  <div class="grid2" style="margin-top:14px">
+    <div class="card">
+      <div class="anatomy" id="anatomyC"></div>
+      <ul style="font-size:12.5px;color:var(--text-2);margin:14px 0 0">
+        <li><b>state-node 152×44</b>　UML 圆角状态框（rx 10）</li>
+        <li>① 左侧 3.5px 竖条 = tone，状态类型一眼可辨</li>
+        <li>② 状态名距左 18px，超长省略号</li>
+        <li>③ 右侧时限徽标（<code>badge</code>），如 <code>30m</code></li>
+        <li>④ <code>active</code> 态：外扩 4px 脉冲环，2.2s 循环</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="anatomy" id="anatomyD"></div>
+      <ul style="font-size:12.5px;color:var(--text-2);margin:14px 0 0">
+        <li><b>org-node 176×56</b>　组织树节点</li>
+        <li>① 头像 36×36 圆角 10，<b>取首字</b>（禁外链头像图）</li>
+        <li>② 姓名 12.5px + ③ 职位/编制 10.5px 双行</li>
+        <li>④ 下边缘折叠角标 = 直属子节点数</li>
+        <li>头像首字比图片更稳：无外链、无 404、导出不丢</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="anatomy" id="anatomyE"></div>
+      <ul style="font-size:12.5px;color:var(--text-2);margin:14px 0 0">
+        <li><b>map-root 140×46</b> / <b>branch 118×34</b> / <b>leaf</b> 三级</li>
+        <li>① root 描边加粗至 2px，标题 13.5px/600</li>
+        <li>② branch 左侧 3.5px 分支色竖条</li>
+        <li>③ leaf 退化为「文字 + 2px 底线」（挂在线上）</li>
+        <li>三级形态差异 = 层级，不用颜色也读得懂</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="anatomy" id="anatomyF"></div>
+      <ul style="font-size:12.5px;color:var(--text-2);margin:14px 0 0">
+        <li><b>concept-node</b>　圆直径 36–56，<b>按度定尺寸</b></li>
+        <li>① 圆内只放<b>类型图标</b>，不放文字</li>
+        <li>② 名称<b>外置</b>到圆下方 10.5px</li>
+        <li>③ hub 节点（≥52px）名称加粗提亮</li>
+        <li>三条信息各占一个通道：大小=重要性、图标=类型、文字=名称</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>图例：伪状态 · 分支色 · 实体类型 · 边线型</h3>
+  <div id="legendRow" class="legend-row"></div>
+
+  <div class="callout warn" style="margin-top:8px">
+    <div class="k">四个设计判断（都不是照抄示例，是取舍）</div>
+    <p><b>① 分支色只染「结构性元素」，不染节点本体。</b>思维导图天然需要分支配色，但直接给节点上色会破掉极简黑白体系。所以分支色只出现在<b>连线和左侧竖条</b>上，节点本体保持中性灰描边——分支识别力不减，黑白基底不动。<br>
+    <b>② 知识图谱圆内不写字。</b>原来把「LangGraph」塞进 78px 圆里，字被压到 10px 还换行。真实图谱的做法是圆点 + 外置标签，圆只承载「大小（度）」和「类型（图标）」两个通道，名称放外面。<br>
+    <b>③ 状态机补上伪状态。</b>UML 里圆形是<b>伪状态专用</b>（初态/终态），普通状态必须是圆角矩形——原来全用 circle 是语义错的。初态实心圆、终态同心圆、choice 菱形。<br>
+    <b>④ 组织树头像用首字而非图片。</b>外链头像既泄隐私又会在导出后失效，和「本地优先 + 可导出」两条硬约束冲突。</p>
+  </div>
+
+  <h3>Preset / IR 侧的变化</h3>
+  <div class="tbl-scroll" style="margin-bottom:22px"><table>
+    <thead><tr><th>场景</th><th>新增字段</th><th>约束</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">state</td><td><code>node.active</code> · <code>node.badge</code> · <code>node.pseudo</code></td><td><code>pseudo</code> ∈ <code>initial|final|choice</code>；<code>active</code> 全图最多 1 个</td><td>激活态是「当前在哪一步」，是状态机最常被问的信息</td></tr>
+      <tr><td class="mono">state</td><td>边标签支持 <code>事件[守卫]</code></td><td>守卫段渲染为等宽淡色 tspan，由前端解析</td><td>UML 迁移标准写法，LLM 本来就会这么输出</td></tr>
+      <tr><td class="mono">org</td><td><code>node.role</code> · <code>node.count</code></td><td><code>count</code> 为整数，缺失则不画折叠角标</td><td>职位/编制是组织树的第二信息位；角标提示「还能展开」</td></tr>
+      <tr><td class="mono">mindmap</td><td><code>node.bc</code> · <code>edge.bc</code></td><td>整数 0–4，<b>由前端按分支顺序自动分配</b>，IR 里不必写</td><td>让 LLM 选颜色是灾难；同一分支的节点与边必须同色</td></tr>
+      <tr><td class="mono">concept</td><td><code>node.type</code></td><td>∈ <code>module|tech|data|process|concept</code>，5 类封闭枚举</td><td>类型决定圆内图标；不引入第二套语义色</td></tr>
+      <tr><td class="mono">concept</td><td>边线型 <code>style</code></td><td>实线=包含 / 虚线=依赖 / 点线=引用</td><td>关系网的关系类型必须可读，否则只是「一堆连线」</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="gallery" id="gallery" data-page-node-id="Td9l241WSYxWMiVulnutHS"></div>
+</section>
+
+<!-- ══════════════ 5 通用设计层 ══════════════ -->
+<section id="s5" data-page-node-id="SpwqYEUtHK3Mx0tXwvgfbs">
+  <div class="sec-head" data-page-node-id="N3IHUI80BT8mlXVf4qn3ex"><span class="sec-num" data-page-node-id="WGNgd01bACiIVbt0EeiTOY">05</span><h2 data-page-node-id="ED1XWdEuCRcOFRO4OQNCmG">通用设计层（跨场景同源）</h2></div>
+  <p class="sec-desc" data-page-node-id="CHVJuPDbx7waiJAf2RBDJy">场景可以千变万化，但这四层必须全局一致——否则 13 个场景就是 13 套视觉，比现在的 2 套渲染体系更糟。</p>
+
+  <div class="grid2" data-page-node-id="vdQnOQcyt4J9eHIpUONsgx">
+    <div class="card" data-page-node-id="F8rWsYHMqboyjMMOkPCEnn">
+      <h3 style="margin-top:0" data-page-node-id="DLVR9qB5wZkGWbWiPojwVG">节点形态族</h3>
+      <p style="font-size:13px;color:var(--text-2)" data-page-node-id="PcFjGEASoCLosPEnSm5WLg">按 <code data-page-node-id="ttFVBNBdqxxI0JvGX0BOgN">role</code> 映射，Preset 可覆盖。全部<b data-page-node-id="KsoAFm1EIszFRbpUdua1EM">纯 SVG markup</b>，禁用 HTML 节点——HTML 节点无法被 <code data-page-node-id="ge8IHTux4LM4JeN8zSeUy5">toSVG/toPNG</code> 导出，而导出是硬需求。</p>
+      <div class="tbl-scroll" style="margin-top:10px" data-page-node-id="WMQcXlSRb4WDlHoYHkBNM2"><table data-page-node-id="wvVO8N34SeIWSOAcamvgPo">
+        <thead data-page-node-id="F2HBCx5FGex9uQjzdIBIX7"><tr data-page-node-id="74W3LyTpsdOD6Kz2YCfpsn"><th class="mono" data-page-node-id="CQvUiltRglZm6PNqlHVM4F">role</th><th data-page-node-id="hjbX2y0aV5PYG133bevxeY">形态</th><th data-page-node-id="MdHRCjdgCesmVPoTiXS8KF">尺寸（w×h）</th></tr></thead>
+        <tbody data-page-node-id="szRAzBFRY50KsfDN9wpmvF">
+          <tr data-page-node-id="QdTuF8DZdZrMjft1gi1XWb"><td class="mono" data-page-node-id="SBjUOaEk8qKHGZRxBMoLli">start / end</td><td data-page-node-id="eeYAQa4JMsEc8nKdWUEsM4">胶囊 pill，rx = h/2</td><td class="mono" data-page-node-id="OA1dt7m2AjHOnKIwhNsJBq">112 × 38</td></tr>
+          <tr data-page-node-id="QcxNbMChapocBI9lytVtEw"><td class="mono" data-page-node-id="FdGQXZ10sA22LYjIJiJjlX">process</td><td data-page-node-id="aLKHlXzoZPwoJpsEQuUCFo">圆角矩形，rx 8</td><td class="mono" data-page-node-id="w475BMWgTdhyxi6IrR1adc">136 × 46</td></tr>
+          <tr data-page-node-id="ZMirllUG7Fa0QB0Ni8BRpS"><td class="mono" data-page-node-id="LlpA97BaNa26zZVieJj9YH">decision</td><td data-page-node-id="3iXpN9AoHMSmuPUJpQlbQu">菱形</td><td class="mono" data-page-node-id="CTIooAb31zOEEOJ55gm1kq">124 × 58</td></tr>
+          <tr data-page-node-id="GGp4ynKLdPUaOlCWAlM3Dg"><td class="mono" data-page-node-id="9Tw9spR10XF3a2g47dr0Zb">data</td><td data-page-node-id="dD1sTtz2zGHfId0cQRedgs">圆柱（数据库）</td><td class="mono" data-page-node-id="QGUv281CD7WIgSwCuInFik">118 × 58</td></tr>
+          <tr data-page-node-id="o61fDVAgvgE9IR51nEwCr9"><td class="mono">state</td><td>state-node 圆角框 + 伪状态（initial 实心圆 / final 双圆）</td><td class="mono">152 × 44 · 30 × 30</td></tr>
+          <tr data-page-node-id="6mBSLHI5UE4jTAcpyDIMgc"><td class="mono" data-page-node-id="Jqku08O38w2arb2DIW0zvP">entity / class</td><td data-page-node-id="aRTEFdYjfE4gW4U8Zq6Ctl">三段式（标题/属性/方法）</td><td class="mono" data-page-node-id="JqjFoYlEOG2WgFIaWI3nyQ">176 × 自适应</td></tr>
+          <tr data-page-node-id="xNlfuAAqr3Q3BvkzVzF9o1"><td class="mono" data-page-node-id="gwqBEMYXhRDeqQA8jeCmPH">milestone</td><td data-page-node-id="9QYYKHOBONNxOwHOr1tOiM">圆角矩形 + 日期副标</td><td class="mono" data-page-node-id="IbSQnaXF7IpwXya7jtDFb6">132 × 52</td></tr>
+        </tbody>
+      </table></div>
+      <p style="font-size:12.5px;color:var(--text-3);margin:10px 0 0" data-page-node-id="XbSXf6gJsdwGXrfWwUwpjR">统一三层结构：<code data-page-node-id="6Lsq7bfPlr24WxmnYxStck">body</code>（底 + 描边）→ <code data-page-node-id="8AIuyShdk1TdNvrziOrb5Y">tint</code>（语义微染 10%）→ <code data-page-node-id="VbLLeldovq7VJ352jtmbV1">label</code>（文本）。换形态不换配色逻辑。</p>
+    </div>
+
+    <div class="card" data-page-node-id="kazB95CPoyHRZt3K7rLd2T">
+      <h3 style="margin-top:0" data-page-node-id="jRKq0RLLfyoE2jEREIknAF">边族</h3>
+      <p style="font-size:13px;color:var(--text-2)" data-page-node-id="els80xkGq0Ew5Hdns5q3mI">口径定稿：<b data-page-node-id="3yNvIDT2J9MwWFmNBbnvr2">静态底线 + 流动层双层叠加</b>。底线讲拓扑，流动层讲动态，职责分离后可关、可导、可回放。</p>
+      <div class="tbl-scroll" style="margin-top:10px" data-page-node-id="lvUim3zBEwBOmbdGy7XCbv"><table data-page-node-id="AV74ewPOtg2EqkfYJ4AHo4">
+        <thead data-page-node-id="zYWAD2HA6FMaKrGitwBJuV"><tr data-page-node-id="dAEYO9zcs3ffAjBZLwBxr4"><th class="mono" data-page-node-id="g1nfOFVVC1xesELEpWQu9V">边族</th><th data-page-node-id="AAjARTG2BRBsSS9Rnzvnwy">路由</th><th data-page-node-id="6yFdqgHUmW8CAsZ9T6FocY">适用场景</th></tr></thead>
+        <tbody data-page-node-id="Nmie33xBujcX7hy5t2SIyC">
+          <tr data-page-node-id="j4nUOspRIBmCsF6sGH5GAX"><td class="mono" data-page-node-id="GcS31H9fTqbIHV1pw5YKN1">flow</td><td data-page-node-id="Fvu0yOhGSEok0AvXxAaMuF">orth 圆角折线 + 实心箭头</td><td data-page-node-id="HixCGP2SB0vjIGLwDz9plK">flow / dag / swimlane</td></tr>
+          <tr data-page-node-id="oPGXG8fxCQofMsqLGk2YC9"><td class="mono" data-page-node-id="avvtfwKaCZPCvWdIH9Q00c">transit</td><td data-page-node-id="wGftXgTAZ2qLkUFx8ugxYH">curve 贝塞尔 + 实心箭头</td><td data-page-node-id="Is9fdBk5Whc1S9OLM3py6o">state（含自环）</td></tr>
+          <tr data-page-node-id="RXpWax1MBubvGrMPmBx7S2"><td class="mono" data-page-node-id="9wC8jQjmksduuSPLHGCLMT">dep</td><td data-page-node-id="XyORFvbXNbXL98TNxk6RA3">orth + 空心箭头</td><td data-page-node-id="ZEdzoGeHQAURGM0vK61rFo">dag / class</td></tr>
+          <tr data-page-node-id="NZktMHgC1SvV9qcKc56PDb"><td class="mono" data-page-node-id="jHTh4vzcUYwIRDmPBetUmt">assoc</td><td data-page-node-id="gk3LczJuf64owmZu7HWBNd">straight 直线、无箭头</td><td data-page-node-id="HMOStqRnKrvE2ddHWQDYmg">concept</td></tr>
+          <tr data-page-node-id="hnqIO3YYidFPkzQjZMMsNK"><td class="mono" data-page-node-id="5AkL0BRqvld8v12RAFBrFz">inherit</td><td data-page-node-id="fZ8j1soD2J5WC6emetFi0R">orth + 空心三角</td><td data-page-node-id="8oT22MRWAnk08azH5ko3fN">class</td></tr>
+          <tr data-page-node-id="ISwPJyGA3UFasn2ATwRLnD"><td class="mono" data-page-node-id="kJxXs9NsRmHFyyELd81zpc">contain</td><td data-page-node-id="3sEDrxAq3Q1WOtjDUSQ2be">直角折线（无箭头）</td><td data-page-node-id="q5alO6UAX6R0DKfLwdjgoJ">org / mindmap</td></tr>
+        </tbody>
+      </table></div>
+      <p style="font-size:12.5px;color:var(--text-3);margin:10px 0 0" data-page-node-id="Uwcyn8zKOSYzZNrbiFcAGw">线宽 1.25（选中 1.75）；流动层 <code data-page-node-id="TQoOT8oOm5vpht22hJpm2X">dasharray 6 7</code>，speed 0.5/1/2 → 2.2s / 1.1s / 0.58s 循环。</p>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:16px" data-page-node-id="ZPqMHvU2yN81EW8yePvulX">
+    <div class="card" data-page-node-id="KgtCT8H5f0f6dJFSwFIfnR">
+      <h3 style="margin-top:0" data-page-node-id="52lwtEYHlbQBr49QreuHW0">语义 tone（定稿）</h3>
+      <p style="font-size:13px;color:var(--text-2)" data-page-node-id="6h9p8akz4LcScK82bQvfnj"><b data-page-node-id="jR9unN48Jp0xHkEp91TbEK">neutral 与 info 视觉等同</b>（中性灰描边），只有 success / warning / error 上语义色。默认态是干净的黑白图，异常节点才跳出来——这样语义反而更强，也不会把极简黑白体系染成「彩色流程图」。</p>
+      <p style="font-size:12.5px;color:var(--text-3);margin-bottom:0" data-page-node-id="tTXFMtnvJD2Var4ccN7QXL">dark 档 <code data-page-node-id="l2fXcpwCUDWhV9Zyw1YOKz">info = #61A7D0</code>（<b data-page-node-id="WGbpVA9326XCgUazhG4cd8">不复用</b>图表色 <code data-page-node-id="Q9j4lRdoWT6LNqRSFAloq8">#036EAD</code>，暗底 1px 描边不可见）。建议单独建 <code data-page-node-id="tMdyKItVht4mZ3Bk189ItE">graphTones.ts</code>，不复用 <code data-page-node-id="DpjhV72IdO3QISFcuMaxBb">chartOptions.ts</code>。</p>
+    </div>
+    <div class="card" data-page-node-id="EYHrBvEgYmmHpHiGcwODUy">
+      <h3 style="margin-top:0" data-page-node-id="KRNtbQvJMVHqD5DZJjfIy4">容器族（group）</h3>
+      <ul style="font-size:13px;color:var(--text-2);margin-bottom:0" data-page-node-id="TyemGbcSP8LjVdCasj7ClS">
+        <li data-page-node-id="VrkXAu8VN5w2cEvc7c5xO7"><b data-page-node-id="N27E7CgHZBEbXV8FS2gW3A">lane</b>：横向泳道带，标签左置，底色 1.6% 中性</li>
+        <li data-page-node-id="zC7clgnGjmcV1tv5CtGpc2"><b data-page-node-id="lE1ZcidNyq7tVn3HKA31Da">cluster</b>：虚线圆角包围盒，标签左上，底色 2.2%</li>
+        <li data-page-node-id="9FdsPFPg60KxVCAOADPaZG"><b data-page-node-id="TcehM5H6HdwsEDwO4awBSO">combo</b>：可折叠分组（org / mindmap），首期用「折叠角标」替代真 combo</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 6 交互分级 ══════════════ -->
+<section id="s6" data-page-node-id="Ubpr06sORBfiUiaPmB9ORx">
+  <div class="sec-head" data-page-node-id="y10WjMBROuf3hM7bDQs0F9"><span class="sec-num" data-page-node-id="q7fWAkmx3P4fphuGXk8RHH">06</span><h2 data-page-node-id="1fX1Z7NrLPxBFkW6GmI9dV">交互分级 L0–L3</h2></div>
+  <p class="sec-desc" data-page-node-id="DrnD7YYs2pD74FquDjupJM">等级由 Preset 决定，直接决定<b data-page-node-id="p1MGv47ANDVONh6sB6BfBg">加载哪些 X6 插件</b>——避免一张静态 ER 图也背上 Selection + Transform + History 一整套。</p>
+  <div class="tbl-scroll" data-page-node-id="uCXQsZB5UyECftqLUxQnWq"><table data-page-node-id="2chGfvqQHkO2VIwF0OZOKG">
+    <thead data-page-node-id="4un81mnqaiXTXmqrGhBXEE"><tr data-page-node-id="5PMuz1p6E4YWmHA3L5gwBp"><th class="mono" data-page-node-id="VFTyBqceYeIqv1x1NX8mu7">Lv</th><th data-page-node-id="EJigGOrVCi5C9hdscApFGW">能力</th><th data-page-node-id="W2DIIklPdcuePrlhgMPkS4">加载的 X6 插件</th><th data-page-node-id="10mApYMXvgICOX0d3bsE0O">适用 kind</th></tr></thead>
+    <tbody data-page-node-id="gwRgtXGvokxr8JSKZUg8Tq">
+      <tr data-page-node-id="m1vtk8XoQrMXDs0AVf20XC"><td data-page-node-id="WGZqwXZr8ADStiClIyPmPY"><span class="tag" data-page-node-id="2bBDG21FjYK86hs4FQI9GP">L0</span></td><td data-page-node-id="fgmhHKPEsCJgBW9UfT5X95">渲染 · hover tooltip · 点击详情面板 · 导出</td><td class="mono" data-page-node-id="AEahKvAV5TKDQFJ6gnzc6W">—（核心包）</td><td data-page-node-id="eZMZGB5mG5BNfFasdIeknY">er · class · fishbone · timeline</td></tr>
+      <tr data-page-node-id="RxpXrvhNn8eMnZjKvZDAz9"><td data-page-node-id="022ZC61fSdRGmVja9YoY0Z"><span class="tag i" data-page-node-id="wvvgl0dK54UCtXCz7OS0bh">L1</span></td><td data-page-node-id="DU2Gr7L82MPFRJeZ99HU4s">L0 + 缩放平移 · hover 关联高亮 · 折叠展开 · minimap（大图）</td><td class="mono" data-page-node-id="C9D8nmdV53bjStqSJPUW1Y">Scroller · Minimap</td><td data-page-node-id="NMeH1AruFpfWHWdf2lviZ2">org · mindmap · topology · concept</td></tr>
+      <tr data-page-node-id="0rg3XABLyZkPnR9cDCLZ52"><td data-page-node-id="zXutnPRffLd7J4AZNpAxWx"><span class="tag s" data-page-node-id="DdvAAis2GnMSFLcjANI2wt">L2</span></td><td data-page-node-id="hWZhF4Wdok9m3fLHKi56yd">L1 + 数据流动画 · demoPath 播放 · 工具条</td><td class="mono" data-page-node-id="r1gTg2Vo1pcz7wEVLwwBzK">Scroller · Minimap · Selection</td><td data-page-node-id="UHUnkNDbQoExmYSpol66Xv">flow · dag · state · swimlane</td></tr>
+      <tr data-page-node-id="0WkqLIDn0VcsIVUzkYEqDh"><td data-page-node-id="JDLWXqNxG0D4A7uWv5oUBZ"><span class="tag e" data-page-node-id="JNMsVPUC2uqEfXyExzPOXI">L3</span></td><td data-page-node-id="gbPVGO6ZDakDvWiq4lWUGB">L2 + 拖拽建边 · 编辑标签 · 撤销重做 · 吸附对齐</td><td class="mono" data-page-node-id="AxCbBmjedNMvG6WyLQpF4h">+ Transform · History · Snapline · Clipboard · Keyboard · Stencil</td><td data-page-node-id="egRgdlCGY2MjhuSZzWlbpV"><b data-page-node-id="B32xjgwXEFWiNJHhlpKcRW">首期不做</b></td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout err" style="margin-top:16px" data-page-node-id="wI6v5Pj2Wyq4g8AyCDo5qO">
+    <div class="k" data-page-node-id="6hS8WECFMQRnXymB6rJiKE">为什么 L3 不做</div>
+    <p data-page-node-id="iH9WAtbR9CDpeBqrJ2525C">拖拽编辑意味着「AI 生成的图是草稿，用户要自己改」——这与产品定位（AI 直接产出可用结果）冲突，且会引入持久化、冲突合并、撤销栈等一整套问题。<b data-page-node-id="D0gGZrEZ3CwqO7XwUwbVgs">X6 支持不等于该做。</b>如果将来确实要，应该是独立的「画布页」而非聊天消息内的组件。</p>
+  </div>
+</section>
+
+<!-- ══════════════ 7 动效 ══════════════ -->
+<section id="s7" data-page-node-id="SqK0WAGUtCIE4f3zfFXl2u">
+  <div class="sec-head" data-page-node-id="mLsJpxU5UphGPHhvjBEODF"><span class="sec-num" data-page-node-id="P0dIrTppWW5vwXm00nBzpE">07</span><h2 data-page-node-id="5fibmyUalCwzgSEYI91FxZ">动效策略矩阵</h2></div>
+  <p class="sec-desc" data-page-node-id="fGihPsinC4b4K7ZTG1evRx">定稿节奏（节点 280ms / 边 480ms / stagger 45ms），按场景族微调。所有动画只碰 <code data-page-node-id="cJP1fwiXK91YtDw7XzGb4e">transform</code> / <code data-page-node-id="TICqLJ9qOPznH0e05RUDCp">opacity</code> / <code data-page-node-id="eQhARlNgc7gM3jd7tK88rs">stroke-dashoffset</code>。</p>
+  <div class="tbl-scroll" data-page-node-id="O4FpS8V8hlNSi4vmBYNGZE"><table data-page-node-id="CZKFRw2ZLRMHgE5wUDhaUv">
+    <thead data-page-node-id="05MlZW7Y2ahQ4gdBIfyIC8"><tr data-page-node-id="IF7Kpaa3Z2cXRQUEpQ20e2"><th data-page-node-id="eKG85lY1xiU9BzA88pzLOx">场景族</th><th data-page-node-id="9Lx3soW5BKmQd9QdgnDouf">入场</th><th data-page-node-id="ggysscsxvoHFPpZZTEQrEQ">持续动效</th><th data-page-node-id="ThZmN7G5oR9ehTmCvVRisa">播放编排</th><th data-page-node-id="VA9O3DJu2V9yAKo6TmHuQY">历史回放</th></tr></thead>
+    <tbody data-page-node-id="ZNb2enWsu39tmL5tZAMFmc">
+      <tr data-page-node-id="nos7g1NdLpY2tBWP94BUoJ"><td data-page-node-id="C3QVsT0nEwEHO2JQJE9HNC"><b data-page-node-id="eAFBUM54TpTjEo8t0jLNoV">线性流程</b><br data-page-node-id="efxNqLGgy4B4eCC1HS9mSl"><span style="color:var(--text-3);font-size:12px" data-page-node-id="HGpPlkEDL02kEXT8iPHV5o">flow · dag · swimlane</span></td><td data-page-node-id="CIgNHitRPRoQ0SeFWAAf0x">按拓扑序 pop 弹入，stagger 45ms</td><td data-page-node-id="c8h5AdX0lIJE4c5hQQCVqz">antline 双向流动（仅标记 flow 的边）</td><td data-page-node-id="aY7xqMAZdhFoayAThfKW27">demoPath 600ms/跳，循环可选</td><td data-page-node-id="Rx2D3WqDqgPNA6jgXYcVtc">直渲染终态，工具条手动播放</td></tr>
+      <tr data-page-node-id="MHZ50s4pFok1hVPL0ejNAq"><td data-page-node-id="oMPgaWDQ7JAi3imYgAkgW4"><b data-page-node-id="IWuxj5tI2HPqzCBdR8uthW">状态迁移</b><br data-page-node-id="FpG0eoUGrUGfVOGIzTZbK0"><span style="color:var(--text-3);font-size:12px" data-page-node-id="xrq4UPnPdTCVTHTvoZ4TE2">state</span></td><td data-page-node-id="eCw6p1GiLNXe0h3DtZbraN">按层级 pop</td><td data-page-node-id="WhijfLM105njg6oKih9if7">无（静态更清晰）</td><td data-page-node-id="FZ2adNOitBMjEFhNc22ouH">迁移路径逐段点亮，边随跳变</td><td data-page-node-id="mh1eLOjTYj6E1sihZFeulr">同上</td></tr>
+      <tr data-page-node-id="CGVBttG6iaEmxav6XxMBHp"><td data-page-node-id="Fbk5f8KPiG1a7AZPyKC2Kp"><b data-page-node-id="gfby2Tm7PghMuXjEZTZfBr">层次结构</b><br data-page-node-id="0pvrXNxdXkVhDzhP0RTzOb"><span style="color:var(--text-3);font-size:12px" data-page-node-id="zjtXoEAPOP7faUfdAy8EmF">org · mindmap</span></td><td data-page-node-id="xsvlT92eF1076tB7g5l087">自上而下逐层展开，stagger 35ms</td><td data-page-node-id="PRCJbp1gWb7YcMSpka7Txy">无</td><td data-page-node-id="s45KdRiAdgENTGBKsodww8">无播放；折叠展开 220ms 位移</td><td data-page-node-id="1kTTkrkU3zcijFkcgrBPK8">直渲染，保留折叠状态</td></tr>
+      <tr data-page-node-id="ODg8zB15pOCQHFW30W10DK"><td data-page-node-id="GCX1Qer7x07sdui20tIaJw"><b data-page-node-id="liT4ndhaeoSZpXmEqy434e">自由图</b><br data-page-node-id="cdPlG5eXcdhzjaBKn6fZUw"><span style="color:var(--text-3);font-size:12px" data-page-node-id="z35aGTTlKf8gg2M9y53T8P">concept · er</span></td><td data-page-node-id="tuXP4rAHB9OE0zCMRtG6Ws">力导收敛（600ms）或 pop</td><td data-page-node-id="6RHvrWJ9ndJ3gzRuRsRA8G">心跳脉冲（topology）</td><td data-page-node-id="2r7aCKsOIjVGuwu1Wfx1Db">无</td><td data-page-node-id="gZx8I8AcRIkHeECofXxXpN">直渲染终态（力导结果需固化坐标）</td></tr>
+      <tr data-page-node-id="lbnhv2EVmYG8B5pU2OtK4S"><td data-page-node-id="2gn0CIrdc6IMlaApn7joB7"><b data-page-node-id="mvNPWIUI7DUNanY7VCEaqB">静态版式</b><br data-page-node-id="VRuLZuowTOAuKNDAlRWoxQ"><span style="color:var(--text-3);font-size:12px" data-page-node-id="UUr2gwGIxsGHal90wJOrgQ">class · fishbone · timeline</span></td><td data-page-node-id="MD8znoOKWi5ZXLQaJtus0B">按版式顺序 pop</td><td data-page-node-id="8wjNYfBk8EE9xh5rfMCBFB">无</td><td data-page-node-id="ELaDBB7UqbTmaYGHC2Sbv4">无</td><td data-page-node-id="WG4Sgc0z3TVXrOuB1HYCst">直渲染</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn" style="margin-top:16px" data-page-node-id="2TPZX4bGIiMnHIX6KVAR5F">
+    <div class="k" data-page-node-id="E3Q7gCxUatBHMQqFaYxjF1">性能硬约束（通用规则）</div>
+    <p data-page-node-id="sEEiaulvD8jFCDcsRHMupC">① 动画池上限 20，超限直接置终态；② <b data-page-node-id="StlOFuoFksKHCs1uOYiL4W">视口外暂停</b>——antline 是无限循环动画，长会话里滚出视口不暂停会持续吃 CPU，用 <code data-page-node-id="NCG7cIN7IMYw6JwM5sUPbC">IntersectionObserver</code> 统一控制；③ 尊重 <code data-page-node-id="l9R3ajv5HR6tu4hQY4jQU7">prefers-reduced-motion</code>；④ 力导布局结果在 <code data-page-node-id="cclrB9J2mELZDCC2FpVNqz">done</code> 后固化坐标，历史回放不再跑力导。</p>
+  </div>
+</section>
+
+<!-- ══════════════ 8 边界 ══════════════ -->
+<section id="s8" data-page-node-id="td05gtDY4owQKU1YJ6PaFx">
+  <div class="sec-head" data-page-node-id="f093Gh0WgWKjcKLF0NVpaU"><span class="sec-num" data-page-node-id="ikHW13bRESzM3VgdCzTgFx">08</span><h2 data-page-node-id="fH8Syis8dWmqvYglFJvDXB">能力边界：什么不进这条链路</h2></div>
+  <p class="sec-desc" data-page-node-id="o9NFBcrX4B9bvKX1CHYWj8">收敛目标：X6 链路稳定后，把 Mermaid 承担的静态流程图场景迁过来，避免渲染体系永久并行——但必须先写清边界，否则多场景会变成无限扩张。</p>
+  <div class="tbl-scroll" data-page-node-id="4Qgc1pXBlSibjClf57ZibC"><table data-page-node-id="5eDGgXn2nq6fpV3tyIe2vC">
+    <thead data-page-node-id="p3vbVyRUVRumq5jeiQseJ4"><tr data-page-node-id="WqwVtzpLOwvmLYzfLvYBHw"><th data-page-node-id="HjTa4TULg68QM1qEmpGOPD">图形类型</th><th data-page-node-id="qU6x8cOwjw69zpcGHPWnU9">归属</th><th data-page-node-id="7y7n9KOyyiQtpzmEbRzuId">理由</th></tr></thead>
+    <tbody data-page-node-id="Wh6UYlsHMkOigOtFqU4k0d">
+      <tr data-page-node-id="r1oVKRCW93GfwxIHpoReNH"><td data-page-node-id="RYLQuGyNCKUNZdTNPs6yyn">本文 12 类「节点 + 边」图</td><td data-page-node-id="pUJZrViSdAuc5fCDlImXfL"><span class="tag s" data-page-node-id="pTmUVSBfvnVRdiR8ItGgBF">render_graph</span></td><td data-page-node-id="uv2CivUhivSAczmTQKuJ0m">X6 原生强项，交互与导出都可控</td></tr>
+      <tr data-page-node-id="qMzc5SPXCSf8KI3H1JVoKT"><td data-page-node-id="6LpVviy66dzG8rKITcXzPr">时序图 sequence</td><td data-page-node-id="gtm0seDFalVrIoe70nnMyj"><span class="tag" data-page-node-id="1R7wdmc2WjX9boEazGbKrN">Mermaid</span></td><td data-page-node-id="GiG0I7xsGhlyquFUogol5R">Mermaid 语法成熟、LLM 生成准确率高；X6 需自建生命线版式，投入产出比差</td></tr>
+      <tr data-page-node-id="DPYDEHuQZ8ZxcBHnyBSAa6"><td data-page-node-id="IpWiuVzBIMGvxkGMXS3sif">甘特图 gantt</td><td data-page-node-id="PctQpUvCJdDDvNbo7VTGpE"><span class="tag" data-page-node-id="sQXBYvVQAMfHrO7H9y8djJ">Mermaid</span></td><td data-page-node-id="2GZ5KIX03fpjLgGTyHu9tM">本质是时间刻度条，非拓扑图</td></tr>
+      <tr data-page-node-id="WFwm0iDU9sCMo7WCvRUmC6"><td data-page-node-id="k0Gvfy9DmwaA5LPWaJ69xt">类图 <code data-page-node-id="Ei4sT7c5IyTRyD7ON59ICM">classDiagram</code></td><td data-page-node-id="714zEd3tAxntsXHGa5V8zm"><span class="tag" data-page-node-id="EjXW7IMxeViA95EqbHsP5z">Mermaid（默认）</span> / X6（需交互时）</td><td data-page-node-id="m5jzO2UwdMF7XW2kTQiAcE">双轨：Mermaid 走「快速看」，需要点击详情时走 X6</td></tr>
+      <tr data-page-node-id="SX9QDzuYuDfB1MMuMfGclE"><td data-page-node-id="HPJFDX2osGTBolw1Vc9dMB">统计图表（折线/柱/饼/K线）</td><td data-page-node-id="ubifr75MGiqujQYSjGbCRZ"><span class="tag i" data-page-node-id="MAkdOXcFfKEJ837J0UDJND">generate_chart</span></td><td data-page-node-id="cutEdD3peCYcVPmRPhSulW">ECharts 已有完整体系与配色规范（图表主题同源）</td></tr>
+      <tr data-page-node-id="jwZOE9Cxijp0J1eUG6PxRH"><td data-page-node-id="Dua6oeHI9PpEXlFndMgYh9">地图 / 平面图 / 电路图</td><td data-page-node-id="P5WrcBB8Q5iIpUjFtvAG7G"><span class="tag e" data-page-node-id="NXnsukrezOmggEPsVLDCDl">不做</span></td><td data-page-node-id="sFvoBuDGatTb73lLXkgkir">非「节点 + 边」抽象，X6 无优势</td></tr>
+      <tr data-page-node-id="t1A9nVVqnaMv5dClFp4Th8"><td data-page-node-id="wGj6qgXM7lYOZX84iJmZr9">在线编辑画布（拖拽编排）</td><td data-page-node-id="E6443XX8ZxwmY32jXIqezR"><span class="tag e" data-page-node-id="QfIFfcUK0klhhtNuBnVCEV">不做</span></td><td data-page-node-id="qnMzFzQ7WpCAPokav4ravP">L3，见 §6</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout" style="margin-top:16px" data-page-node-id="nYT8PWJhefWrwe7oi7EHBC">
+    <div class="k" data-page-node-id="vpkiZPXD8algFKRBZ5pJyN">分流话术（写进工具描述，对齐 generate_chart 风格）</div>
+    <p data-page-node-id="vi9mbs2opYyMcof92YKJHk">「需要<b data-page-node-id="jb8NclYCrswUzJShySnCkP">交互、数据流向动画、生长式呈现</b>的节点关系图 → <code data-page-node-id="u4gpEXMH89LU4ck9FebbE8">render_graph</code>；仅需静态展示的流程图 / 时序图 / 甘特图 → Mermaid 代码块；数据图表 → <code data-page-node-id="I4fC66qQt1d1fGFAVK7lhL">generate_chart</code>。」<br data-page-node-id="B6wOlF49EczKZmTU9wiZmE">
+    同时给 <code data-page-node-id="euFofa1WfemwsXV4kVGsCq">kind</code> 的选择提示：在工具描述里列 13 个 kind 及<b data-page-node-id="OI67XdyhwbgsVBJ3HHS6eU">典型问法</b>（见 §4 每张卡片底部的"典型问法"），让 Agent 一次选对。</p>
+  </div>
+</section>
+
+<!-- ══════════════ 9 路线图 ══════════════ -->
+<section id="s9" data-page-node-id="XNC93yCbyymMfeDRHkTBjK">
+  <div class="sec-head" data-page-node-id="R1mrHOPePTFc9OgWuinEOp"><span class="sec-num" data-page-node-id="NVkEgn598NaroG6mhECyiY">09</span><h2 data-page-node-id="D0DDgxqvymDotOEAcrb23X">分期落地</h2></div>
+  <p class="sec-desc" data-page-node-id="IbfKh6imnyF6vZd1vGIuG5">分期的关键：P0 先用 demo 验证 API 与阈值，P1 就把「GraphIR + Preset 骨架 + 3 个场景」立起来，P2.5 场景扩列时验收「表里加一行即生效」。</p>
+  <div class="tbl-scroll" data-page-node-id="upGE8C60JnjBo2FflxJ7lg"><table data-page-node-id="QJlNNi1UvFxhmMJSIM8jzV">
+    <thead data-page-node-id="myUTjLrGwQjSp0LwcqLH4P"><tr data-page-node-id="kN9ykC7E1mbehLpLk38DhJ"><th class="mono" data-page-node-id="2ZL0MoW4rIFswFGBYCsuby">阶段</th><th data-page-node-id="x7FRQLesSAa9WPqwkevEcU">内容</th><th data-page-node-id="BBzJXYM1kKGRnz8VCWuNch">验收</th></tr></thead>
+    <tbody data-page-node-id="Q2aoLdwAiSTeXdVGQfBbcL">
+      <tr data-page-node-id="I0hg9CA4BA6MyvTMXdEmYx"><td class="mono" data-page-node-id="J0Vp2FG8pCNLomfPN0Kf6A">P0<br data-page-node-id="gq0fZvgWGGP6YMiPCbcd3r"><span style="color:var(--text-3)" data-page-node-id="pnZI3xeqiKbMBmiOEQWQcU">验证</span></td><td data-page-node-id="a1ub7xqoYbrxGiX1FQkMlZ">50 行 X6 3.x demo：① <code data-page-node-id="4gGJaOD58DvOpGT5PCsbF1">animate</code> API 真实形状 ② 边的第二条 path 能否复用连接数据（<code data-page-node-id="DSQOoj6Haki02lkBEifuMD">connection:true</code> 未实测）③ <code data-page-node-id="FwNfMhiubDMW5QdZwFp3CL">@antv/layout</code> 各引擎在 WKWebView 的真实耗时 ④ 帧率拐点实测 ⑤ <code data-page-node-id="kdfcJi726Lb4d31pVgda32">toSVG</code> 对自定义 markup 的输出</td><td data-page-node-id="k1B7uNH3oBeHasCPZrwQid">布局引擎选型定稿、动画 API 定稿、帧率拐点写回本文档</td></tr>
+      <tr data-page-node-id="rXNVT7zSdDOKBJqCGxyna7"><td class="mono" data-page-node-id="HF6fwp6CQAeUbuPVOzb6JU">P1<br data-page-node-id="APl28UUPGoIUWJ5EAYpGxf"><span style="color:var(--text-3)" data-page-node-id="PqrkDQmloBXgmpyh8VRrUg">骨架</span></td><td data-page-node-id="Tuc99EVAnU4RojBb62dSOM">GraphIR + 白名单校验 + <code data-page-node-id="Hg0lBRQPMCU90z3kAp5gHT">render_graph</code> 工具 + 增量事件流 + Preset Resolver + 渲染器 + <b data-page-node-id="JNCK4eaAUUoSAeGIG1A7jG">3 个场景</b>（flow / dag / state）</td><td data-page-node-id="mROLsPCqjTseDiUvZQjWs8">Agent 输出 IR，聊天内出现三种正确布局的图；历史回放直渲染</td></tr>
+      <tr data-page-node-id="t1TvLEw0INB20pXoVde6Vs"><td class="mono" data-page-node-id="9U8sw7WDlfvKtzavMNh6OC">P2<br data-page-node-id="AUzZ1DTwJTD9XDokVS5MnI"><span style="color:var(--text-3)" data-page-node-id="7XKpiBfv8I5smKWYEFXI1I">动效</span></td><td data-page-node-id="so9uvEXcMdG8ODB0wWwEuc">入场动效 + antline/pulse + demoPath 播放 + 工具条（能力按 Preset.capabilities 渲染）+ 导出 PNG/SVG</td><td data-page-node-id="AqopxowkBrbVTaxE4R1EEL">生成过程逐节点生长；流动可开关；导出可嵌入 PDF</td></tr>
+      <tr data-page-node-id="0GV4bLcmM0G1Vdb5Rg4eHJ"><td class="mono" data-page-node-id="LVEeW70fKpNThb0xl2SKjM">P2.5<br data-page-node-id="Y5tTxV7FBPcpa5AVUhDGWf"><span style="color:var(--text-3)" data-page-node-id="GFtsuUbj3pzCvmnbTOTx8Q">扩列</span></td><td data-page-node-id="iAuEQCrbEKkEJomJu6kFt8">剩余 10 个场景（dataflow / org / mindmap / topology / er / swimlane / concept / class / fishbone / timeline）</td><td data-page-node-id="6SJe2UKoet6voiPCXB7Geb">每个场景表里加一行即生效，<b data-page-node-id="O5djiThyKCITj6dD03Hzqw">不改 schema 不改后端</b>（这条本身就是验收）</td></tr>
+      <tr data-page-node-id="4Q4aEmoehXRMQ7YcfOI6kC"><td class="mono" data-page-node-id="7HbEwvpUBrXJTeAfeZFKtp">P3<br data-page-node-id="lNHDFyAvKCjMURSYqo5Ft5"><span style="color:var(--text-3)" data-page-node-id="Hed6uRSABJ2lXWhT55H1k1">打磨</span></td><td data-page-node-id="qgwgkLGM65lKhMQHDB2wEh">hover 关联高亮 + 详情面板 + minimap（大图）+ 折叠展开 + 视口外暂停动画</td><td data-page-node-id="6Rz8YJvVK3QfxHeJwtJUIX">大图浏览流畅；长会话 CPU 无异常占用</td></tr>
+      <tr data-page-node-id="j2S52N5I380C9NghAAMbkF"><td class="mono" data-page-node-id="0uAJO5knru6rOZZg0fkWtI">P4<br data-page-node-id="fMXlQCNDCdO0fGM3vmX0Dv"><span style="color:var(--text-3)" data-page-node-id="YG5FjUZz8dIsSlRf5z42CT">观察</span></td><td data-page-node-id="WvZwqr0wKclDa8TQKpV0L6">particles 粒子模式；CoT 思考面板与图生长同步；kind 自动推断（Agent 只给拓扑，前端猜场景）</td><td data-page-node-id="eEbWK0qp5NCMhlBoZNDooA">视 P2 效果决定</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+</div><!-- /wrap -->
+
+<script>
+/* ==================================================================
+   迷你图渲染器 —— 模拟 X6 输出，证明「一套 IR + 不同 Preset」
+   ================================================================== */
+const SIZES = {
+  pill:[112,38], rounded:[136,46], rect:[128,44], diamond:[124,58],
+  circle:[64,64], hexagon:[132,50], cylinder:[118,58], section:[176,86],
+  note:[144,56], small:[92,34], wide:[168,46], text:[0,0],
+  dagNode:[188,40], dpNode:[212,48],
+  stateNode:[152,44], statePseudo:[30,30],
+  orgNode:[176,56], mapRoot:[140,46], mapBranch:[118,34], mapLeaf:[96,26],
+  conceptNode:[44,44]
+};
+
+/* ---- 内联图标（16×16 坐标系，中心 0,0）----
+   禁止外链图片：本地优先 + 导出 SVG 后外链会失效。全部内联 path。 */
+const TASK_ICONS = {
+  code:   'M-2 -5 L-6 0 L-2 5 M2 -5 L6 0 L2 5',
+  box:    'M-5 -4 H5 V4 H-5 Z M-5 0 H5 M0 -4 V4',
+  check:  'M-5 0.5 L-1.5 4 L5 -3.5',
+  flask:  'M-2 -6 H2 M-1 -6 V-2 L-4.5 4 A1.5 1.5 0 0 0 -3 6 H3 A1.5 1.5 0 0 0 4.5 4 L1 -2 V-6',
+  stack:  'M-5 -5.5 H5 V-2 H-5 Z M-5 2 H5 V5.5 H-5 Z',
+  layers: 'M0 -6 L6 -3 L0 0 L-6 -3 Z M-6 2 L0 5 L6 2',
+  upload: 'M0 5 V-4 M-3.5 -1 L0 -4.5 L3.5 -1 M-5 6.5 H5',
+  gear:   'M0 -5.5 A5.5 5.5 0 1 0 0 5.5 A5.5 5.5 0 1 0 0 -5.5 M0 -2.2 A2.2 2.2 0 1 0 0 2.2 A2.2 2.2 0 1 0 0 -2.2'
+};
+/* ---- 数据加工类型图标（24×24 坐标系，中心 0,0）---- */
+const FLOW_ICONS = {
+  INPUT:  'M-6 -4.5 A6 2.6 0 0 1 6 -4.5 V4.5 A6 2.6 0 0 1 -6 4.5 Z M-6 -4.5 A6 2.6 0 0 0 6 -4.5',
+  FILTER: 'M-7 -6 H7 L1.5 1 V7 L-1.5 5.5 V1 Z',
+  JOIN:   'M-2.6 0 A4.4 4.4 0 1 1 2.6 0 A4.4 4.4 0 1 1 -2.6 0',
+  UNION:  'M-7 -5 H1 V5 H-7 M1 0 H7',
+  AGG:    'M-7 -6 L0 0 M-7 0 L0 0 M-7 6 L0 0 M0 0 H7',
+  OUTPUT: 'M-6 -5 H1 V5 H-6 M1 0 H7 M4.6 -2.4 L7.4 0 L4.6 2.4'
+};
+/* ---- 知识图谱实体类型图标（16×16 坐标系，中心 0,0）---- */
+const CONCEPT_ICONS = {
+  module:  'M-5 -5.5 H5 V-1.5 H-5 Z M-5 1.5 H5 V5.5 H-5 Z',
+  tech:    'M-3.5 -3.5 H3.5 V3.5 H-3.5 Z M-6 -1.5 H-3.5 M-6 1.5 H-3.5 M3.5 -1.5 H6 M3.5 1.5 H6 M-1.5 -6 V-3.5 M1.5 -6 V-3.5 M-1.5 3.5 V6 M1.5 3.5 V6',
+  data:    'M-5 -4.6 A5 2.4 0 0 1 5 -4.6 V4.6 A5 2.4 0 0 1 -5 4.6 Z M-5 -4.6 A5 2.4 0 0 0 5 -4.6 M-5 0 A5 2.4 0 0 0 5 0',
+  process: 'M0 -5.5 A5.5 5.5 0 1 0 0 5.5 A5.5 5.5 0 1 0 0 -5.5 M0 -2.2 A2.2 2.2 0 1 0 0 2.2 A2.2 2.2 0 1 0 0 -2.2',
+  concept: 'M-3.6 0.8 A3.8 3.8 0 1 1 3.6 0.8 M-2.6 0.8 H2.6 M-2.2 3.6 H2.2 M-1.8 6 H1.8'
+};
+/* ---- 状态徽标（14×14 坐标系）---- */
+function statusSVG(state){
+  switch(state){
+    case 'running': return '<circle class="st-dot" r="4"/>';
+    case 'success': return '<path class="st" d="M-4 0 L-1.5 3 L4 -2.6"/>';
+    case 'failed':  return '<path class="st" d="M-3 -3 L3 3 M3 -3 L-3 3"/>';
+    case 'warning': return '<path class="st" d="M0 -4 V1 M0 3.2 V3.4"/>';
+    default:        return '<circle class="st" r="3.6"/>';
+  }
+}
+function portsSVG(w,h,mode){
+  if(mode==='lr') return `<circle class="port" cx="${-w/2}" cy="0" r="3.4"/><circle class="port" cx="${w/2}" cy="0" r="3.4"/>`;
+  if(mode==='tb') return `<circle class="port" cx="0" cy="${-h/2}" r="3.4"/><circle class="port" cx="0" cy="${h/2}" r="3.4"/>`;
+  return '';
+}
+const CJK = /[\u3000-\u9fff\uff00-\uffef]/;
+function cw(ch, fs){ return CJK.test(ch) ? fs : fs*0.56; }
+function wrapText(t, maxW, fs){
+  const out=[]; let cur='', w=0;
+  for(const ch of String(t)){ const c=cw(ch,fs);
+    if(w+c>maxW && cur){ out.push(cur); cur=ch; w=c; } else { cur+=ch; w+=c; } }
+  if(cur) out.push(cur);
+  return out;
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function sizeMap(nodes){
+  const m={};
+  nodes.forEach(n=>{ const s=SIZES[n.shape||'rounded']||SIZES.rounded; m[n.id]={w:n.w||s[0], h:n.h||s[1]}; });
+  return m;
+}
+
+/* ---------- 布局 1：分层（dagre 近似） ---------- */
+function layered(spec, dir){
+  dir = dir || 'LR';
+  const nodes=spec.nodes, S=sizeMap(nodes);
+  const out={}, inn={}; nodes.forEach(n=>{ out[n.id]=[]; inn[n.id]=[]; });
+  const es=(spec.edges||[]).filter(e=>e.s!==e.t);
+  es.forEach(e=>{ if(out[e.s] && inn[e.t]){ out[e.s].push(e.t); inn[e.t].push(e.s); } });
+  const depth={}, indeg={};
+  nodes.forEach(n=>{ depth[n.id]=0; indeg[n.id]=inn[n.id].length; });
+  const q=nodes.filter(n=>indeg[n.id]===0).map(n=>n.id);
+  const seen=new Set();
+  while(q.length){ const id=q.shift(); if(seen.has(id)) continue; seen.add(id);
+    out[id].forEach(t=>{ depth[t]=Math.max(depth[t], depth[id]+1); indeg[t]--; if(indeg[t]===0) q.push(t); }); }
+  const maxD=Math.max(0, ...Object.values(depth));
+  const L=[]; for(let d=0; d<=maxD; d++) L.push([]);
+  nodes.forEach(n=>L[depth[n.id]].push(n.id));
+  const order={}; L.forEach(l=>l.forEach((id,i)=>order[id]=i));
+  for(let p=0;p<4;p++){
+    L.forEach(l=>{
+      const score={};
+      l.forEach(id=>{
+        const pre=inn[id].filter(x=>order[x]!==undefined);
+        const suc=out[id].filter(x=>order[x]!==undefined);
+        const arr=(p%2? suc: pre);
+        score[id]= arr.length ? arr.reduce((a,b)=>a+order[b],0)/arr.length : order[id];
+      });
+      l.sort((a,b)=>score[a]-score[b]);
+      l.forEach((id,i)=>order[id]=i);
+    });
+  }
+  const pos={};
+  if(dir==='TB'){
+    let cy=0;
+    L.forEach(l=>{
+      const lh=Math.max(...l.map(id=>S[id].h));
+      const tw=l.reduce((a,id)=>a+S[id].w,0)+28*(l.length-1);
+      let cx=-tw/2;
+      l.forEach(id=>{ pos[id]={x:cx+S[id].w/2, y:cy+S[id].h/2}; cx+=S[id].w+28; });
+      cy+=lh+56;
+    });
+  } else {
+    let cx=0;
+    L.forEach(l=>{
+      const lw=Math.max(...l.map(id=>S[id].w));
+      const th=l.reduce((a,id)=>a+S[id].h,0)+24*(l.length-1);
+      let cy=-th/2;
+      l.forEach(id=>{ pos[id]={x:cx+S[id].w/2, y:cy+S[id].h/2}; cy+=S[id].h+24; });
+      cx+=lw+62;
+    });
+  }
+  return {pos,S};
+}
+
+/* ---------- 布局 2：树（compactBox 近似） ---------- */
+function treeLayout(spec){
+  const nodes=spec.nodes, S=sizeMap(nodes);
+  const kids={}, hasParent=new Set();
+  nodes.forEach(n=>kids[n.id]=[]);
+  (spec.edges||[]).forEach(e=>{ if(kids[e.s] && e.s!==e.t){ kids[e.s].push(e.t); hasParent.add(e.t); } });
+  const root=(nodes.find(n=>!hasParent.has(n.id))||nodes[0]).id;
+  const maxH=Math.max(...nodes.map(n=>S[n.id].h));
+  const pos={}; let cursor=0;
+  (function walk(id,d){
+    const k=kids[id].filter(x=>!pos[x]);
+    if(!k.length){ const x=cursor+S[id].w/2; cursor+=S[id].w+22; pos[id]={x, y:d*(maxH+62)+maxH/2}; return x; }
+    const xs=k.map(c=>walk(c,d+1));
+    pos[id]={x:(Math.min(...xs)+Math.max(...xs))/2, y:d*(maxH+62)+maxH/2};
+    return pos[id].x;
+  })(root,0);
+  nodes.forEach(n=>{ if(!pos[n.id]) pos[n.id]={x:0,y:0}; });
+  return {pos,S};
+}
+
+/* ---------- 布局 3：思维导图 ---------- */
+function mindmapLayout(spec){
+  const nodes=spec.nodes, S=sizeMap(nodes);
+  const kids={}, hasParent=new Set();
+  nodes.forEach(n=>kids[n.id]=[]);
+  (spec.edges||[]).forEach(e=>{ if(kids[e.s]){ kids[e.s].push(e.t); hasParent.add(e.t); } });
+  const root=(nodes.find(n=>!hasParent.has(n.id))||nodes[0]).id;
+  const colW=200, gapY=14, pos={};
+  (function place(id,d,yTop){
+    const k=kids[id].filter(x=>!pos[x]);
+    const h=S[id].h;
+    if(!k.length){ pos[id]={x:d*colW+S[id].w/2, y:yTop+h/2}; return h; }
+    let cy=yTop, total=0;
+    k.forEach(c=>{ const ch=place(c,d+1,cy); cy+=ch+gapY; total+=ch+gapY; });
+    total-=gapY;
+    const f=pos[k[0]], l=pos[k[k.length-1]];
+    pos[id]={x:d*colW+S[id].w/2, y:(f.y+l.y)/2};
+    return Math.max(h,total);
+  })(root,0,0);
+  nodes.forEach(n=>{ if(!pos[n.id]) pos[n.id]={x:0,y:0}; });
+  return {pos,S};
+}
+
+/* ---------- 布局 4：力导（FR，确定性初值） ---------- */
+function forceLayout(spec){
+  const nodes=spec.nodes, S=sizeMap(nodes), n=nodes.length;
+  const W=spec.fw||520, H=spec.fh||330;
+  const idx={}; nodes.forEach((nd,i)=>idx[nd.id]=i);
+  const P=nodes.map((nd,i)=>{ const a=i/n*Math.PI*2; return {x:Math.cos(a)*W*.28+W/2, y:Math.sin(a)*H*.28+H/2}; });
+  const E=(spec.edges||[]).map(e=>[idx[e.s],idx[e.t]]).filter(p=>p[0]!==undefined&&p[1]!==undefined);
+  const k=Math.sqrt(W*H/n)*0.92;
+  for(let it=0; it<320; it++){
+    const dsp=nodes.map(()=>({x:0,y:0}));
+    for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){
+      let dx=P[i].x-P[j].x, dy=P[i].y-P[j].y; const d=Math.hypot(dx,dy)||.01;
+      const f=k*k/d; dsp[i].x+=dx/d*f; dsp[i].y+=dy/d*f; dsp[j].x-=dx/d*f; dsp[j].y-=dy/d*f;
+    }
+    E.forEach(([a,b])=>{ let dx=P[a].x-P[b].x, dy=P[a].y-P[b].y; const d=Math.hypot(dx,dy)||.01;
+      const f=d*d/k; dsp[a].x-=dx/d*f; dsp[a].y-=dy/d*f; dsp[b].x+=dx/d*f; dsp[b].y+=dy/d*f; });
+    const t=Math.max(1, 46*(1-it/320));
+    for(let i=0;i<n;i++){ const d2=Math.hypot(dsp[i].x,dsp[i].y)||.01;
+      P[i].x+=dsp[i].x/d2*Math.min(d2,t); P[i].y+=dsp[i].y/d2*Math.min(d2,t); }
+    // 直接作用于坐标的向心重力：防止非连通分量被斥力推散（FR 经典问题）
+    for(let i=0;i<n;i++){ P[i].x += (W/2-P[i].x)*0.03; P[i].y += (H/2-P[i].y)*0.03; }
+  }
+  /* 归一化画幅：等比缩放并居中到目标框，保证不同场景尺寸可控 */
+  let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+  nodes.forEach((nd,i)=>{ const s=S[nd.id];
+    x1=Math.min(x1,P[i].x-s.w/2); x2=Math.max(x2,P[i].x+s.w/2);
+    y1=Math.min(y1,P[i].y-s.h/2); y2=Math.max(y2,P[i].y+s.h/2); });
+  const bw=Math.max(1,x2-x1), bh=Math.max(1,y2-y1);
+  const sc=Math.min((W-24)/bw, (H-24)/bh, 1.6);
+  const cx=(x1+x2)/2, cy=(y1+y2)/2;
+  const pos={};
+  nodes.forEach((nd,i)=>{
+    pos[nd.id]={ x:(P[i].x-cx)*sc + W/2, y:(P[i].y-cy)*sc + H/2 };
+  });
+  return {pos,S};
+}
+
+/* ---------- 布局 5：泳道 ---------- */
+function swimlaneLayout(spec){
+  const base=layered(spec,'LR');
+  const lanes=spec.lanes||[], laneH=spec.laneH||124;
+  const li={}; lanes.forEach((l,i)=>li[l.id]=i);
+  const pos={};
+  spec.nodes.forEach(n=>{
+    const i = li[n.lane]!==undefined ? li[n.lane] : 0;
+    pos[n.id]={x:base.pos[n.id].x, y:i*laneH + 34 + base.S[n.id].h/2};
+  });
+  return {pos, S:base.S, lanes, laneH};
+}
+
+/* ---------- 布局 6：鱼骨 ---------- */
+function fishboneLayout(spec){
+  const S=sizeMap(spec.nodes);
+  const ribs=spec.ribs||[];
+  const spineEnd=ribs.length*118;
+  const pos={}, ribInfo=[];
+  ribs.forEach((r,i)=>{
+    const ax=70+i*118;
+    const side=(i%2===0)? -1 : 1;
+    ribInfo.push({...r, ax, side, bx:ax+96, by:side*112});
+  });
+  const eff=spec.nodes.find(n=>n.id==='effect');
+  pos['effect']={x:spineEnd+130, y:0};
+  ribInfo.forEach(r=>{
+    pos[r.id]={x:r.bx, y:r.by};
+    (r.items||[]).forEach((it,k)=>{
+      const t=0.42+k*0.3;
+      pos[it.id]={x:r.ax+(r.bx-r.ax)*t+30, y:(r.by)*t + (k%2? -0: 0)};
+    });
+  });
+  return {pos,S,ribInfo,spineEnd,effect:eff};
+}
+
+/* ---------- 布局 7：时间线 ---------- */
+function timelineLayout(spec){
+  const S=sizeMap(spec.nodes);
+  const pos={};
+  spec.nodes.forEach((n,i)=>{ pos[n.id]={x:i*152+S[n.id].w/2, y:(i%2? 84 : -84)}; });
+  return {pos,S,axis:true};
+}
+
+const LAYOUT={layered,tree:treeLayout,mindmap:mindmapLayout,force:forceLayout,swimlane:swimlaneLayout,fishbone:fishboneLayout,timeline:timelineLayout};
+
+/* ---------- 几何 ---------- */
+function anchor(from,to,w,h,shape){
+  const dx=to.x-from.x, dy=to.y-from.y;
+  if(shape==='circle'||shape==='conceptNode'||shape==='statePseudo'){ const a=Math.atan2(dy,dx); return {x:from.x+Math.cos(a)*(w/2+3), y:from.y+Math.sin(a)*(h/2+3)}; }
+  if(shape==='diamond'){ const a=Math.atan2(dy,dx); const t=1/(Math.abs(Math.cos(a))/(w/2+3)+Math.abs(Math.sin(a))/(h/2+3)); return {x:from.x+Math.cos(a)*t, y:from.y+Math.sin(a)*t}; }
+  if(!dx && !dy) return {x:from.x, y:from.y-h/2};
+  const sx=dx? (w/2+3)/Math.abs(dx) : Infinity, sy=dy? (h/2+3)/Math.abs(dy) : Infinity;
+  const s=Math.min(sx,sy);
+  return {x:from.x+dx*s, y:from.y+dy*s};
+}
+function pathOrth(a,b,mode){
+  const r=Math.min(10, Math.abs(b.y-a.y)/2 || 10);
+  if(mode==='TB'){ const my=(a.y+b.y)/2;
+    const sd=Math.sign(b.x-a.x)||1;
+    return `M${a.x},${a.y} V${my} Q${a.x},${my} ${a.x+r*sd},${my} H${b.x-r*sd} Q${b.x},${my} ${b.x},${my+r*Math.sign(b.y-my)} V${b.y}`;
+  }
+  const mx=(a.x+b.x)/2; const sd=Math.sign(b.y-a.y)||1;
+  return `M${a.x},${a.y} H${mx-r*1} Q${mx},${a.y} ${mx},${a.y+r*sd} V${b.y-r*sd} Q${mx},${b.y} ${mx+r*1},${b.y} H${b.x}`;
+}
+function pathCurve(a,b){
+  const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+  const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy)||1;
+  const off=Math.min(34, len*0.22);
+  return `M${a.x},${a.y} Q${mx - dy/len*off},${my + dx/len*off} ${b.x},${b.y}`;
+}
+function selfLoop(p,w,h){
+  const r=Math.max(20,h*0.42);
+  return `M${p.x-w*0.16},${p.y-h/2} C${p.x-w*0.6},${p.y-h/2-r} ${p.x+w*0.6},${p.y-h/2-r} ${p.x+w*0.16},${p.y-h/2}`;
+}
+
+/* ---------- 节点 markup ---------- */
+function ellipsis(t, maxW, fs){
+  let w=0, out='';
+  for(const ch of String(t)){ const c=cw(ch,fs); if(w+c>maxW) return out+'…'; out+=ch; w+=c; }
+  return out;
+}
+const STATE_TONE={running:'info',success:'success',failed:'error',warning:'warning',pending:'neutral'};
+/* 组织树头像首字（禁止外链头像图：本地优先 + 导出后外链失效） */
+function initialOf(t){ const s=String(t||'').trim(); return s ? s.charAt(0) : '·'; }
+function textW(t, fs){ let w=0; for(const ch of String(t)) w+=cw(ch,fs); return w; }
+
+function nodeSVG(n,x,y,w,h){
+  const t=n.shape||'rounded';
+  const tone=n.tone || STATE_TONE[n.state] || 'neutral';
+  let g=`<g class="node tone-${tone}" data-node="${n.id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">`;
+  const body=(d)=>`<path class="n-body" d="${d}"/><path class="n-tint" d="${d}"/>`;
+  if(t==='circle'){
+    g+=`<ellipse class="n-body" cx="0" cy="0" rx="${w/2}" ry="${h/2}"/><ellipse class="n-tint" cx="0" cy="0" rx="${w/2}" ry="${h/2}"/>`;
+    const L=wrapText(n.label||'', w-16, 12.5);
+    L.forEach((ln,i)=>{ g+=`<text class="n-label" text-anchor="middle" x="0" y="${(i-(L.length-1)/2)*15+4}">${esc(ln)}</text>`; });
+  } else if(t==='diamond'){
+    const d=`M0,${-h/2} ${w/2},0 0,${h/2} ${-w/2},0 Z`;
+    g+=body(d);
+    const L=wrapText(n.label||'', w*0.62, 12.5);
+    L.forEach((ln,i)=>{ g+=`<text class="n-label" text-anchor="middle" x="0" y="${(i-(L.length-1)/2)*15+4}">${esc(ln)}</text>`; });
+  } else if(t==='pill'){
+    g+=`<rect class="n-body" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="${h/2}"/><rect class="n-tint" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="${h/2}"/>`;
+    g+=`<text class="n-label" text-anchor="middle" x="0" y="4">${esc(n.label||'')}</text>`;
+  } else if(t==='section'){
+    const lines=n.lines||[]; const lh=15, th=24;
+    const hh=Math.max(h, th+lines.length*lh+10);
+    g+=`<rect class="n-body" x="${-w/2}" y="${-hh/2}" width="${w}" height="${hh}" rx="8"/><rect class="n-tint" x="${-w/2}" y="${-hh/2}" width="${w}" height="${hh}" rx="8"/>`;
+    g+=`<line class="n-div" x1="${-w/2}" y1="${-hh/2+th}" x2="${w/2}" y2="${-hh/2+th}"/>`;
+    g+=`<text class="n-title" text-anchor="middle" x="0" y="${-hh/2+th/2+4}">${esc(n.label||'')}</text>`;
+    let cy=-hh/2+th+15;
+    lines.forEach(ln=>{
+      if(ln==='--'){ g+=`<line class="n-div" x1="${-w/2}" y1="${cy-9}" x2="${w/2}" y2="${cy-9}"/>`; }
+      else { g+=`<text class="n-prop" x="${-w/2+10}" y="${cy-4}">${esc(ln)}</text>`; }
+      cy+=lh;
+    });
+  } else if(t==='cylinder'){
+    const ry=9;
+    const d=`M${-w/2},${-h/2+ry} A${w/2},${ry} 0 0 1 ${w/2},${-h/2+ry} V${h/2-ry} A${w/2},${ry} 0 0 1 ${-w/2},${h/2-ry} Z`;
+    g+=body(d);
+    g+=`<path class="n-div" d="M${-w/2},${-h/2+ry} A${w/2},${ry} 0 0 0 ${w/2},${-h/2+ry}" fill="none"/>`;
+    g+=`<text class="n-label" text-anchor="middle" x="0" y="${4+ry/2}">${esc(n.label||'')}</text>`;
+  } else if(t==='dagNode'){
+    g+=`<rect class="n-body" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="6"/>`;
+    g+=`<rect class="n-tint" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="6"/>`;
+    g+=portsSVG(w,h,n.ports||'tb');
+    if(n.icon && TASK_ICONS[n.icon]) g+=`<g transform="translate(${-w/2+16},0)"><path class="dag-icon" d="${TASK_ICONS[n.icon]}"/></g>`;
+    g+=`<text class="n-label" x="${-w/2+36}" y="4">${esc(ellipsis(n.label||'', w-72, 12.5))}</text>`;
+    g+=`<g transform="translate(${w/2-16},0)">${statusSVG(n.state||'pending')}</g>`;
+  } else if(t==='dpNode'){
+    g+=`<rect class="n-body" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="8"/>`;
+    g+=`<rect class="n-tint" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="8"/>`;
+    g+=portsSVG(w,h,n.ports||'lr');
+    const cx=-w/2+24;
+    g+=`<rect class="dp-tile" x="${cx-14}" y="-14" width="28" height="28" rx="7"/>`;
+    if(n.icon && FLOW_ICONS[n.icon]) g+=`<g transform="translate(${cx},0)"><path class="dp-icon" d="${FLOW_ICONS[n.icon]}"/></g>`;
+    g+=`<text class="n-label" x="${-w/2+62}" y="4">${esc(ellipsis(n.label||'', w-96, 12.5))}</text>`;
+    g+=`<g transform="translate(${w/2-18},0)">${statusSVG(n.state||'pending')}</g>`;
+  } else if(t==='stateNode'){
+    /* 状态机：UML 圆角状态框 + 左侧类型竖条 + 状态名 + 右侧时限 */
+    const r=10;
+    g+=`<rect class="n-body" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="${r}"/>`;
+    if(n.active) g+=`<rect class="act-ring" x="${-w/2-4}" y="${-h/2-4}" width="${w+8}" height="${h+8}" rx="${r+4}"/>`;
+    g+=`<rect class="n-tint" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="${r}"/>`;
+    g+=`<rect class="n-accent" x="${-w/2+1.5}" y="${-h/2+r*0.6}" width="3.5" height="${h-r*1.2}" rx="1.75"/>`;
+    g+=`<text class="n-label" x="${-w/2+18}" y="4">${esc(ellipsis(n.label||'', n.badge? w-64 : w-40, 12.5))}</text>`;
+    if(n.badge) g+=`<text class="n-sub" text-anchor="end" x="${w/2-12}" y="4">${esc(n.badge)}</text>`;
+  } else if(t==='statePseudo'){
+    /* 伪状态：initial 实心圆 / final 同心圆 / choice 菱形 */
+    if(n.pseudo==='final'){
+      g+=`<circle class="pseudo-ring" cx="0" cy="0" r="9.5"/><circle class="pseudo-core" cx="0" cy="0" r="4.2"/>`;
+    } else if(n.pseudo==='choice'){
+      const d=`M0,-11 L11,0 L0,11 L-11,0 Z`; g+=body(d);
+    } else {
+      g+=`<circle class="pseudo-core" cx="0" cy="0" r="7"/>`;
+    }
+  } else if(t==='orgNode'){
+    /* 组织树：头像 + 姓名 + 职位 + 子树折叠角标 */
+    g+=`<rect class="n-body" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="10"/>`;
+    g+=`<rect class="n-tint" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="10"/>`;
+    const ax=-w/2+12;
+    g+=`<rect class="av-bg" x="${ax}" y="-18" width="36" height="36" rx="10"/>`;
+    g+=`<text class="av-tx" text-anchor="middle" x="${ax+18}" y="4.5">${esc(initialOf(n.label))}</text>`;
+    const tx=ax+46;
+    g+=`<text class="n-label" x="${tx}" y="-2.5">${esc(ellipsis(n.label||'', w/2-tx-14, 12.5))}</text>`;
+    if(n.role) g+=`<text class="n-sub" x="${tx}" y="13">${esc(ellipsis(n.role, w/2-tx-14, 10.5))}</text>`;
+    if(n.count!=null){
+      g+=`<g><circle class="fold-bg" cx="0" cy="${h/2}" r="9.5"/>`;
+      g+=`<text class="fold-tx" text-anchor="middle" x="0" y="${h/2+3.5}">${esc(String(n.count))}</text></g>`;
+    }
+  } else if(t==='mapRoot'){
+    g+=`<rect class="n-body" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="12" style="stroke-width:2"/>`;
+    g+=`<rect class="n-tint" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="12"/>`;
+    g+=`<text class="map-root-tx" text-anchor="middle" x="0" y="5">${esc(ellipsis(n.label||'', w-24, 13.5))}</text>`;
+  } else if(t==='mapBranch'){
+    g+=`<rect class="n-body" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="8"/>`;
+    g+=`<rect class="n-tint" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="8"/>`;
+    g+=`<rect class="n-bar bc-${n.bc??0}" x="${-w/2+1.5}" y="${-h/2+7}" width="3.5" height="${h-14}" rx="1.75"/>`;
+    g+=`<text class="n-label" x="${-w/2+16}" y="4">${esc(ellipsis(n.label||'', w-30, 12.5))}</text>`;
+  } else if(t==='mapLeaf'){
+    const tw=textW(n.label||'', 11.5);
+    g+=`<text class="map-leaf-tx" x="${-w/2}" y="${-h/2+11}">${esc(n.label||'')}</text>`;
+    g+=`<line class="map-leaf-bar bc-${n.bc??0}" x1="${-w/2}" y1="${-h/2+16.5}" x2="${-w/2+Math.min(tw,w)}" y2="${-h/2+16.5}"/>`;
+  } else if(t==='conceptNode'){
+    /* 知识图谱：圆（尺寸=度，36–56）+ 圆内类型图标 + 圆外全名；hub（≥52）名称加粗 */
+    const r=w/2;
+    g+=`<g class="${w>=52?'hub':''}"><circle class="n-body" cx="0" cy="0" r="${r}"/><circle class="n-tint" cx="0" cy="0" r="${r}"/>`;
+    if(n.type && CONCEPT_ICONS[n.type]) g+=`<path class="cn-icon" d="${CONCEPT_ICONS[n.type]}"/>`;
+    g+=`<text class="cn-name" x="0" y="${r+12}">${esc(n.label||'')}</text></g>`;
+  } else if(t==='text'){
+    g+=`<text class="fb-label" text-anchor="${n.anchor||'start'}" x="0" y="0">${esc(n.label||'')}</text>`;
+  } else {
+    g+=`<rect class="n-body" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="8"/><rect class="n-tint" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="8"/>`;
+    if(n.sub){
+      g+=`<text class="n-label" text-anchor="middle" x="0" y="-2">${esc(n.label||'')}</text>`;
+      g+=`<text class="n-sub" text-anchor="middle" x="0" y="14">${esc(n.sub)}</text>`;
+    } else {
+      const L=wrapText(n.label||'', w-18, 12.5);
+      L.forEach((ln,i)=>{ g+=`<text class="n-label" text-anchor="middle" x="0" y="${(i-(L.length-1)/2)*15+4}">${esc(ln)}</text>`; });
+    }
+  }
+  if(n.badge && !['dagNode','dpNode','stateNode','orgNode'].includes(t)){
+    g+=`<g transform="translate(${w/2-14},${-h/2+12})"><circle r="9" class="n-body"/><text class="n-sub" text-anchor="middle" y="3.5" style="font-size:9px">${esc(n.badge)}</text></g>`;
+  }
+  g+=`</g>`;
+  return g;
+}
+
+/* ---------- 主渲染 ---------- */
+function buildSVG(spec){
+  const [lname, larg]=(spec.layout||'layered').split(':');
+  const L=(LAYOUT[lname]||LAYOUT.layered)(spec, larg);
+  const {pos,S}=L;
+  const drawNodes = spec.nodes.filter(n=>(n.shape||'rounded')!=='text');
+  let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
+  drawNodes.forEach(n=>{ const p=pos[n.id], s=S[n.id]; const ext=n.shape==='conceptNode'?17:0;
+    minX=Math.min(minX,p.x-s.w/2); maxX=Math.max(maxX,p.x+s.w/2);
+    minY=Math.min(minY,p.y-s.h/2); maxY=Math.max(maxY,p.y+s.h/2+ext); });
+  (L.ribInfo||[]).forEach(r=>{ (r.items||[]).forEach(it=>{ const p=pos[it.id]; if(p){ minX=Math.min(minX,p.x-70); maxX=Math.max(maxX,p.x+70); minY=Math.min(minY,p.y-10); maxY=Math.max(maxY,p.y+10);} }); });
+  const pad=34;
+  const W=(maxX-minX)+pad*2, H=(maxY-minY)+pad*2;
+  const ox=pad-minX, oy=pad-minY;
+  const P=id=>({x:pos[id].x+ox, y:pos[id].y+oy});
+  const byId={}; drawNodes.forEach(n=>byId[n.id]=n);
+
+  let defs=`<defs>`;
+  ['neutral','info','success','warning','error'].forEach(t=>{
+    defs+=`<marker id="ar-${t}-${spec.kind}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="var(--tone-${t})"/></marker>`;
+  });
+  defs+=`</defs>`;
+
+  let pre='';
+  /* 泳道带 */
+  if(lname==='swimlane'){
+    const lanes=L.lanes||[], laneH=L.laneH||124;
+    const left=0, right=W;
+    lanes.forEach((ln,i)=>{
+      pre+=`<g class="lane"><rect class="ln-bg" x="${left}" y="${i*laneH+oy}" width="${W}" height="${laneH}" rx="8"/>`;
+      pre+=`<text x="${left+12}" y="${i*laneH+oy+18}">${esc(ln.label)}</text>`;
+      if(i) pre+=`<line class="ln-sep" x1="${left}" y1="${i*laneH+oy}" x2="${right}" y2="${i*laneH+oy}"/>`;
+      pre+=`</g>`;
+    });
+  }
+  /* 集群包围盒 */
+  (spec.groups||[]).forEach(gp=>{
+    const ids=(gp.members||[]).filter(id=>pos[id]);
+    if(!ids.length) return;
+    let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+    ids.forEach(id=>{ const p=P(id), s=S[id];
+      x1=Math.min(x1,p.x-s.w/2); x2=Math.max(x2,p.x+s.w/2);
+      y1=Math.min(y1,p.y-s.h/2); y2=Math.max(y2,p.y+s.h/2); });
+    const pd=16;
+    pre+=`<g class="cluster"><rect x="${x1-pd}" y="${y1-pd}" width="${(x2-x1)+pd*2}" height="${(y2-y1)+pd*2}" rx="12"/>`;
+    pre+=`<text x="${x1-pd+10}" y="${y1-pd-6}">${esc(gp.label)}</text></g>`;
+  });
+  /* 鱼骨脊柱 */
+  if(lname==='fishbone'){
+    const ey=P('effect').y;
+    pre+=`<line class="spine" x1="14" y1="${ey}" x2="${L.spineEnd+oy+40}" y2="${ey}"/>`;
+    (L.ribInfo||[]).forEach(r=>{
+      const ay=P(r.id).y;
+      pre+=`<line class="rib" x1="${r.ax+ox}" y1="${ey}" x2="${r.bx-S[r.id].w/2+ox}" y2="${r.by+oy}"/>`;
+      (r.items||[]).forEach(it=>{
+        const p=P(it.id);
+        pre+=`<line class="rib" x1="${p.x-4}" y1="${p.y}" x2="${p.x-26}" y2="${p.y}"/>`;
+        pre+=`<text class="fb-label" x="${p.x}" y="${p.y+3.5}">${esc(it.label)}</text>`;
+      });
+    });
+  }
+  /* 时间轴 */
+  if(lname==='timeline'){
+    pre+=`<line class="axis" x1="14" y1="${oy}" x2="${W-14}" y2="${oy}"/>`;
+    drawNodes.forEach(n=>{ const p=P(n.id);
+      pre+=`<line class="axis" x1="${p.x}" y1="${oy}" x2="${p.x}" y2="${p.y + (p.y>oy? -S[n.id].h/2 : S[n.id].h/2)}"/>`;
+      pre+=`<circle class="axis-dot" cx="${p.x}" cy="${oy}" r="3.5"/>`;
+    });
+  }
+
+  /* 边 */
+  let edges=''; const edgeIndex={};
+  (spec.edges||[]).forEach((e,i)=>{
+    const a=byId[e.s], b=byId[e.t];
+    if(!a||!b) return;
+    const pa=P(e.s), pb=P(e.t);
+    const tone=e.tone||'neutral';
+    let d;
+    if(e.s===e.t){ d=selfLoop(pa, S[e.s].w, S[e.s].h); }
+    else {
+      const A=anchor(pa,pb,S[e.s].w,S[e.s].h,a.shape), B=anchor(pb,pa,S[e.t].w,S[e.t].h,b.shape);
+      if(spec.edgeStyle==='curve') d=pathCurve(A,B);
+      else if(spec.edgeStyle==='straight') d=`M${A.x},${A.y} L${B.x},${B.y}`;
+      else d=pathOrth(A,B,spec.orthDir||'LR');
+    }
+    const mk = spec.noArrow ? '' : ` marker-end="url(#ar-${tone==='neutral'?'info':tone}-${spec.kind})"`;
+    const flowTone = e.flow ? (e.flow.tone||'info') : null;
+    const spd = e.flow ? String(e.flow.speed||1).replace('.','-') : '';
+    edges+=`<path class="edge-base ${e.style||''} ${e.bc!=null?'bc-'+e.bc:''} ${tone!=='neutral'?'tone-'+tone:''}" d="${d}"${mk} data-edge="${i}" data-s="${e.s}" data-t="${e.t}"/>`;
+    if(e.flow) edges+=`<path class="edge-flow tone-${flowTone} speed-${spd}" d="${d}" data-edge="${i}" data-s="${e.s}" data-t="${e.t}"/>`;
+    if(e.label){
+      /* UML 迁移标签：事件[守卫条件] —— 守卫用等宽字体降级显示。
+         自环标签放在环顶上方（状态机超时迁移是典型自环）。 */
+      const m = e.s===e.t
+        ? {x:pa.x, y:pa.y - S[e.s].h/2 - Math.max(20, S[e.s].h*0.42) - 7}
+        : sampleMid(d);
+      const gm=String(e.label).match(/^(.*?)\s*\[([^\]]*)\]\s*$/);
+      const plain=gm?gm[1]:String(e.label), guard=gm?gm[2]:'';
+      const tw=textW(plain,10.5)+(guard?textW('['+guard+']',9.5)+5:0)+10;
+      edges+=`<rect class="elabel-bg" x="${m.x-tw/2}" y="${m.y-9}" width="${tw}" height="16" rx="4"/>`;
+      edges+=`<text class="elabel" text-anchor="middle" x="${m.x}" y="${m.y+2}" data-edge="${i}" data-s="${e.s}" data-t="${e.t}">${
+        guard ? `<tspan>${esc(plain)}</tspan><tspan class="elabel-guard"> [${esc(guard)}]</tspan>`
+              : esc(plain)
+      }</text>`;
+    }
+  });
+  function sampleMid(d){
+    const nums=d.match(/-?\d+(\.\d+)?/g);
+    if(!nums) return {x:0,y:0};
+    const pts=[]; for(let i=0;i+1<nums.length;i+=2) pts.push({x:+nums[i], y:+nums[i+1]});
+    if(!pts.length) return {x:0,y:0};
+    return pts[Math.min(pts.length-1, Math.floor(pts.length/2))];
+  }
+
+  /* 节点 */
+  let nodes='';
+  drawNodes.forEach((n,i)=>{
+    const p=P(n.id);
+    nodes+=nodeSVG(n,p.x,p.y,S[n.id].w,S[n.id].h);
+  });
+
+  const svg=`<svg viewBox="0 0 ${W.toFixed(0)} ${H.toFixed(0)}" style="max-width:${Math.round(W*1.15)}px" role="img" aria-label="${esc(spec.name)}示意图">${defs}${pre}${edges}${nodes}</svg>`;
+  return svg;
+}
+
+/* ---------- 场景数据 ---------- */
+const SCENES=[
+{
+ kind:'flow', name:'业务流程 / 决策流', ask:'「画一个订单支付流程」',
+ layout:'layered:LR', edgeStyle:'orth',
+ meta:['dagre LR','pill / rounded / diamond','orth · arrow','L2','入场 + 流动 + 播放','≤ 80'],
+ nodes:[
+  {id:'start',label:'提交订单',shape:'pill'},
+  {id:'stock',label:'库存充足?',shape:'diamond'},
+  {id:'risk',label:'风控通过?',shape:'diamond'},
+  {id:'pay',label:'调用支付网关',shape:'rounded',tone:'info'},
+  {id:'manual',label:'人工审核',shape:'rounded',tone:'warning'},
+  {id:'done',label:'订单成立',shape:'pill',tone:'success'},
+  {id:'fail',label:'订单关闭',shape:'pill',tone:'error'}
+ ],
+ edges:[
+  {s:'start',t:'stock'},
+  {s:'stock',t:'risk',label:'是'},
+  {s:'stock',t:'fail',label:'否'},
+  {s:'risk',t:'pay',label:'是',flow:{speed:1}},
+  {s:'risk',t:'manual',label:'待定'},
+  {s:'pay',t:'done',flow:{speed:1}},
+  {s:'manual',t:'done',label:'通过'},
+  {s:'manual',t:'fail',label:'驳回'}
+ ]
+},
+{
+ kind:'dag', name:'任务编排 DAG', ask:'「这个 CI 流水线跑到哪一步了」',
+ layout:'layered:TB', edgeStyle:'orth', orthDir:'TB',
+ meta:['dagre TB','dag-node 富节点 · 状态徽标','orth · arrow · ports TB','L2','入场 + 运行态流动','≤ 120'],
+ nodes:[
+  {id:'src',label:'拉取源码',shape:'dagNode',icon:'code',state:'success',ports:'tb'},
+  {id:'dep',label:'安装依赖',shape:'dagNode',icon:'box',state:'success',ports:'tb'},
+  {id:'lint',label:'代码检查',shape:'dagNode',icon:'check',state:'success',ports:'tb'},
+  {id:'type',label:'类型检查',shape:'dagNode',icon:'layers',state:'success',ports:'tb'},
+  {id:'test',label:'单元测试',shape:'dagNode',icon:'flask',state:'running',ports:'tb'},
+  {id:'build',label:'构建产物',shape:'dagNode',icon:'gear',state:'running',ports:'tb'},
+  {id:'img',label:'生成镜像',shape:'dagNode',icon:'stack',state:'pending',ports:'tb'},
+  {id:'dep2',label:'部署预发',shape:'dagNode',icon:'upload',state:'pending',ports:'tb'}
+ ],
+ edges:[
+  {s:'src',t:'dep'},{s:'dep',t:'lint'},{s:'dep',t:'type'},{s:'dep',t:'test'},
+  {s:'lint',t:'build'},{s:'type',t:'build'},{s:'test',t:'build',flow:{speed:1,tone:'info'}},
+  {s:'build',t:'img',flow:{speed:1,tone:'info'}},{s:'img',t:'dep2'}
+ ]
+},
+{
+ kind:'dataflow', name:'数据加工 DAG', ask:'「这张报表的加工链路」',
+ layout:'layered:LR', edgeStyle:'orth',
+ meta:['dagre LR','dp-node 类型图标节点','orth · arrow · ports LR','L2','入场 + 运行态流动','≤ 80'],
+ nodes:[
+  {id:'i1',label:'用户行为日志',shape:'dpNode',icon:'INPUT',state:'success',ports:'lr'},
+  {id:'i2',label:'订单明细表',shape:'dpNode',icon:'INPUT',state:'success',ports:'lr'},
+  {id:'f1',label:'脏数据清洗',shape:'dpNode',icon:'FILTER',state:'success',ports:'lr'},
+  {id:'j1',label:'维度表关联',shape:'dpNode',icon:'JOIN',state:'running',ports:'lr'},
+  {id:'a1',label:'GMV 指标聚合',shape:'dpNode',icon:'AGG',state:'pending',ports:'lr'},
+  {id:'o1',label:'经营看板输出',shape:'dpNode',icon:'OUTPUT',state:'pending',ports:'lr'}
+ ],
+ edges:[
+  {s:'i1',t:'f1'},{s:'i2',t:'j1'},{s:'f1',t:'a1'},
+  {s:'j1',t:'a1',flow:{speed:1,tone:'info'}},{s:'a1',t:'o1'}
+ ]
+},
+{
+ kind:'state', name:'状态机', ask:'「订单有哪些状态，怎么流转」',
+ layout:'layered:LR', edgeStyle:'curve',
+ meta:['dagre LR','state-node + 伪状态','curve · arrow · selfLoop','L2','迁移路径播放','≤ 40'],
+ nodes:[
+  {id:'ini',label:'',shape:'statePseudo',pseudo:'initial'},
+  {id:'s1',label:'待支付',shape:'stateNode',badge:'30m',active:true,tone:'warning'},
+  {id:'s2',label:'已支付',shape:'stateNode'},
+  {id:'s3',label:'已发货',shape:'stateNode'},
+  {id:'s4',label:'已完成',shape:'stateNode',tone:'success'},
+  {id:'s6',label:'退款中',shape:'stateNode',tone:'info'},
+  {id:'s5',label:'已取消',shape:'stateNode',tone:'error'},
+  {id:'fin',label:'',shape:'statePseudo',pseudo:'final'}
+ ],
+ edges:[
+  {s:'ini',t:'s1'},
+  {s:'s1',t:'s2',label:'支付成功',flow:{speed:1}},
+  {s:'s1',t:'s1',label:'超时 [未支付]'},
+  {s:'s1',t:'s5',label:'用户取消'},
+  {s:'s2',t:'s3',label:'仓库出库',flow:{speed:1}},
+  {s:'s3',t:'s4',label:'确认收货',flow:{speed:1}},
+  {s:'s2',t:'s6',label:'申请退款'},
+  {s:'s6',t:'s5',label:'退款完成'},
+  {s:'s4',t:'fin'},{s:'s5',t:'fin'}
+ ]
+},
+{
+ kind:'org', name:'组织架构 / 层级树', ask:'「画一下技术中心的组织结构」',
+ layout:'tree', edgeStyle:'orth', orthDir:'TB', wide:true,
+ meta:['compactBox TB','org-node 头像 + 姓名 + 职位','orth 直角折线','L1','逐层展开','≤ 150'],
+ nodes:[
+  {id:'r',label:'技术中心',role:'负责全线产品研发',shape:'orgNode',tone:'info',count:6},
+  {id:'fe',label:'前端组',role:'4 人 · 端侧体验',shape:'orgNode',count:2},
+  {id:'be',label:'后端组',role:'6 人 · 服务与数据',shape:'orgNode',count:2},
+  {id:'da',label:'数据组',role:'3 人 · 数仓与指标',shape:'orgNode'},
+  {id:'web',label:'Web 端',role:'React 19',shape:'orgNode'},
+  {id:'desk',label:'桌面端',role:'Tauri 2',shape:'orgNode'},
+  {id:'biz',label:'业务服务',role:'FastAPI',shape:'orgNode'}
+ ],
+ edges:[
+  {s:'r',t:'fe'},{s:'r',t:'be'},{s:'r',t:'da'},
+  {s:'fe',t:'web'},{s:'fe',t:'desk'},{s:'be',t:'biz'}
+ ]
+},
+{
+ kind:'mindmap', name:'思维导图', ask:'「帮我梳理中亚旅行的准备事项」',
+ layout:'mindmap', edgeStyle:'curve', wide:true,
+ meta:['mindmap LR','map-root / branch / leaf + 分支色','curve 锥形','L1','逐层展开 + 折叠','≤ 120'],
+ nodes:[
+  {id:'root',label:'中亚旅行筹备',shape:'mapRoot'},
+  {id:'v',label:'签证',shape:'mapBranch',bc:0},{id:'t',label:'交通',shape:'mapBranch',bc:1},
+  {id:'h',label:'住宿',shape:'mapBranch',bc:2},{id:'b',label:'预算',shape:'mapBranch',bc:3},
+  {id:'g',label:'装备',shape:'mapBranch',bc:4},
+  {id:'v1',label:'哈萨克电子签',shape:'mapLeaf',bc:0},{id:'v2',label:'乌兹别克落地签',shape:'mapLeaf',bc:0},
+  {id:'t1',label:'阿拉木图入境',shape:'mapLeaf',bc:1},{id:'t2',label:'跨境火车',shape:'mapLeaf',bc:1},
+  {id:'h1',label:'提前 30 天订',shape:'mapLeaf',bc:2},{id:'b1',label:'人均 1.2w',shape:'mapLeaf',bc:3},
+  {id:'g1',label:'保暖层',shape:'mapLeaf',bc:4}
+ ],
+ edges:[
+  {s:'root',t:'v',bc:0},{s:'root',t:'t',bc:1},{s:'root',t:'h',bc:2},{s:'root',t:'b',bc:3},{s:'root',t:'g',bc:4},
+  {s:'v',t:'v1',bc:0},{s:'v',t:'v2',bc:0},{s:'t',t:'t1',bc:1},{s:'t',t:'t2',bc:1},
+  {s:'h',t:'h1',bc:2},{s:'b',t:'b1',bc:3},{s:'g',t:'g1',bc:4}
+ ]
+},
+{
+ kind:'topology', name:'系统 / 网络拓扑', ask:'「我们的服务部署拓扑长什么样」',
+ layout:'layered:TB', edgeStyle:'orth', orthDir:'TB',
+ meta:['dagre TB + cluster','rounded + icon','orth / straight','L1','入场 + 心跳脉冲','≤ 100'],
+ nodes:[
+  {id:'cdn',label:'CDN 加速',shape:'rounded'},
+  {id:'waf',label:'WAF 防护',shape:'rounded'},
+  {id:'gw',label:'API 网关',shape:'rounded',tone:'info'},
+  {id:'user',label:'用户服务',shape:'rounded'},
+  {id:'order',label:'订单服务',shape:'rounded'},
+  {id:'pay',label:'支付服务',shape:'rounded',tone:'warning'},
+  {id:'mysql',label:'MySQL 主从',shape:'cylinder'},
+  {id:'redis',label:'Redis 集群',shape:'cylinder'},
+  {id:'mq',label:'消息队列',shape:'cylinder'}
+ ],
+ edges:[
+  {s:'cdn',t:'waf'},{s:'waf',t:'gw'},
+  {s:'gw',t:'user'},{s:'gw',t:'order'},
+  {s:'order',t:'pay'},{s:'user',t:'mysql'},{s:'order',t:'mysql'},
+  {s:'user',t:'redis'},{s:'order',t:'redis'},{s:'pay',t:'mq'}
+ ],
+ groups:[
+  {id:'g1',label:'接入层',members:['cdn','waf','gw']},
+  {id:'g2',label:'应用层',members:['user','order','pay']},
+  {id:'g3',label:'数据层',members:['mysql','redis','mq']}
+ ]
+},
+{
+ kind:'er', name:'实体关系 ER', ask:'「订单系统的表关系是怎样的」',
+ layout:'force', edgeStyle:'straight', fw:580, fh:400,
+ meta:['force 低斥力','section 三段式','straight + 基数标注','L0','入场','≤ 24'],
+ nodes:[
+  {id:'u',label:'user 用户',shape:'section',w:190,lines:['user_id  PK','nickname','phone  UQ']},
+  {id:'o',label:'order 订单',shape:'section',w:190,lines:['order_id  PK','user_id  FK','amount']},
+  {id:'p',label:'sku 商品',shape:'section',w:190,lines:['sku_id  PK','title','price']},
+  {id:'pay',label:'payment 支付',shape:'section',w:190,lines:['pay_id  PK','order_id  FK','status']}
+ ],
+ edges:[
+  {s:'u',t:'o',label:'1 : N'},{s:'o',t:'p',label:'N : M'},{s:'o',t:'pay',label:'1 : 1'}
+ ]
+},
+{
+ kind:'swimlane', name:'跨职能泳道', ask:'「下单这个流程涉及哪几个系统」',
+ layout:'swimlane', edgeStyle:'orth', laneH:118,
+ lanes:[{id:'u',label:'用户'},{id:'o',label:'订单系统'},{id:'p',label:'支付系统'},{id:'w',label:'仓储系统'}],
+ meta:['dagre LR × lane','rounded','orth 跨 lane','L2','入场 + 流动','≤ 60'],
+ nodes:[
+  {id:'u1',label:'提交订单',shape:'rounded',lane:'u'},
+  {id:'o1',label:'创建订单',shape:'rounded',lane:'o'},
+  {id:'o2',label:'锁定库存',shape:'rounded',lane:'o'},
+  {id:'o3',label:'订单完成',shape:'rounded',lane:'o',tone:'success'},
+  {id:'p1',label:'发起支付',shape:'rounded',lane:'p'},
+  {id:'p2',label:'支付回调',shape:'rounded',lane:'p',tone:'info'},
+  {id:'w1',label:'拣货出库',shape:'rounded',lane:'w'}
+ ],
+ edges:[
+  {s:'u1',t:'o1'},{s:'o1',t:'p1'},{s:'p1',t:'p2',flow:{speed:1}},
+  {s:'p2',t:'o2',flow:{speed:1}},{s:'o2',t:'w1',flow:{speed:1}},{s:'w1',t:'o3'}
+ ]
+},
+{
+ kind:'concept', name:'知识图谱 / 关系网', ask:'「Divine 的架构由哪些模块构成」',
+ layout:'force', edgeStyle:'straight', noArrow:true, fw:780, fh:560, wide:true,
+ meta:['force','concept-node 圆按度定尺寸 + 外置名','straight 无箭头 · 线型表关系','L1','力导收敛','≤ 80'],
+ nodes:[
+  {id:'a',label:'LangGraph',type:'process',shape:'conceptNode',w:56,h:56},
+  {id:'b',label:'ReAct',type:'concept',shape:'conceptNode',w:44,h:44},
+  {id:'c',label:'中间件',type:'module',shape:'conceptNode',w:42,h:42},
+  {id:'d',label:'工具系统',type:'module',shape:'conceptNode',w:52,h:52},
+  {id:'e',label:'SQLite',type:'data',shape:'conceptNode',w:42,h:42},
+  {id:'f',label:'RAG',type:'module',shape:'conceptNode',w:42,h:42},
+  {id:'g',label:'BM25',type:'concept',shape:'conceptNode',w:38,h:38},
+  {id:'h',label:'SSE',type:'tech',shape:'conceptNode',w:38,h:38},
+  {id:'i',label:'Tauri',type:'tech',shape:'conceptNode',w:44,h:44},
+  {id:'j',label:'React',type:'tech',shape:'conceptNode',w:52,h:52},
+  {id:'k',label:'X6',type:'tech',shape:'conceptNode',w:38,h:38},
+  {id:'l',label:'ECharts',type:'tech',shape:'conceptNode',w:38,h:38}
+ ],
+ edges:[
+  {s:'a',t:'b'},{s:'a',t:'c'},{s:'c',t:'d'},{s:'d',t:'e',style:'dashed'},{s:'d',t:'f'},
+  {s:'f',t:'g',style:'dotted'},{s:'a',t:'h'},{s:'h',t:'j'},{s:'i',t:'j'},
+  {s:'j',t:'k',style:'dashed'},{s:'j',t:'l'},{s:'b',t:'d'}
+ ]
+},
+{
+ kind:'class', name:'UML 类图', ask:'「订单服务的类结构」',
+ layout:'layered:LR', edgeStyle:'orth',
+ meta:['dagre LR','section 三段式','orth + 基数','L0','入场','≤ 20'],
+ nodes:[
+  {id:'os',label:'OrderService',shape:'section',w:186,lines:['- repo: OrderRepo','--','+ create(dto)','+ cancel(id)','+ pay(id)']},
+  {id:'od',label:'Order',shape:'section',w:186,lines:['- id: Long','- amount: Decimal','--','+ status(): State']},
+  {id:'pm',label:'Payment',shape:'section',w:186,lines:['- payId: String','--','+ refund()']}
+ ],
+ edges:[
+  {s:'os',t:'od',label:'1..*'},{s:'od',t:'pm',label:'1'}
+ ]
+},
+{
+ kind:'fishbone', name:'鱼骨 / 因果分析', ask:'「项目延期的原因有哪些」',
+ layout:'fishbone', edgeStyle:'straight',
+ meta:['自定义脊柱 + 肋','rib 标签','straight 斜肋','L0','按肋分组入场','≤ 40'],
+ nodes:[{id:'effect',label:'交付延期',shape:'rounded',tone:'error',w:118}],
+ ribs:[
+  {id:'r1',label:'人力',items:[{id:'i1',label:'缺前端'},{id:'i2',label:'新人上手慢'}]},
+  {id:'r2',label:'需求',items:[{id:'i3',label:'中途变更'},{id:'i4',label:'验收标准模糊'}]},
+  {id:'r3',label:'技术',items:[{id:'i5',label:'第三方接口不稳'},{id:'i6',label:'历史债'}]},
+  {id:'r4',label:'流程',items:[{id:'i7',label:'评审滞后'},{id:'i8',label:'跨端联调晚'}]},
+  {id:'r5',label:'环境',items:[{id:'i9',label:'预发资源不足'}]}
+ ],
+ edges:[]
+},
+{
+ kind:'timeline', name:'时间线 / 里程碑', ask:'「这个项目的关键节点」',
+ layout:'timeline', edgeStyle:'straight',
+ meta:['自定义轴 + 交错','rounded + 日期副标','axis 短桩','L0','从左到右入场','≤ 30'],
+ nodes:[
+  {id:'t1',label:'需求评审',sub:'03-12',shape:'rounded',w:126},
+  {id:'t2',label:'方案定稿',sub:'03-20',shape:'rounded',w:126,tone:'info'},
+  {id:'t3',label:'开发联调',sub:'04-15',shape:'rounded',w:126},
+  {id:'t4',label:'灰度发布',sub:'05-08',shape:'rounded',w:126,tone:'warning'},
+  {id:'t5',label:'全量上线',sub:'05-22',shape:'rounded',w:126,tone:'success'}
+ ],
+ edges:[]
+}
+];
+
+/* ---------- 鱼骨 / 时间线的额外节点注入 ---------- */
+SCENES.forEach(s=>{
+  if(s.layout==='fishbone'){
+    s.ribs.forEach(r=>{
+      s.nodes.push({id:r.id,label:r.label,shape:'rounded',w:112,h:36});
+    });
+  }
+});
+
+/* ---------- 解剖图 / 图例 ---------- */
+function anatomySVG(shape, node, guides){
+  const [w,h]=SIZES[shape];
+  const padX=52, padTop=34, padBot=46;
+  const W=w+padX*2, H=h+padTop+padBot;
+  const cx=W/2, cy=padTop+h/2, nx=cx-w/2;
+  const off = shape==='dpNode' ? 18 : 16;
+  const gl = guides || (shape==='dpNode' ? [16,62,w-18] : (shape==='dagNode' ? [16,36,w-16] : null));
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  if(gl) gl.forEach(gx=>{
+    s+=`<line class="anno-d" x1="${nx+gx}" y1="${padTop-12}" x2="${nx+gx}" y2="${padTop+h+8}"/>`;
+  });
+  s+=nodeSVG(Object.assign({shape, id:'demo-'+shape}, node), cx, cy, w, h);
+  const dy=padTop+h+24;
+  s+=`<line class="anno" x1="${nx}" y1="${dy}" x2="${nx+w}" y2="${dy}"/>`;
+  s+=`<line class="anno" x1="${nx}" y1="${dy-5}" x2="${nx}" y2="${dy+5}"/>`;
+  s+=`<line class="anno" x1="${nx+w}" y1="${dy-5}" x2="${nx+w}" y2="${dy+5}"/>`;
+  s+=`<text class="anno-t" text-anchor="middle" x="${cx}" y="${dy+20}">${w}</text>`;
+  const dx=nx+w+18;
+  s+=`<line class="anno" x1="${dx}" y1="${padTop}" x2="${dx}" y2="${padTop+h}"/>`;
+  s+=`<line class="anno" x1="${dx-5}" y1="${padTop}" x2="${dx+5}" y2="${padTop}"/>`;
+  s+=`<line class="anno" x1="${dx-5}" y1="${padTop+h}" x2="${dx+5}" y2="${padTop+h}"/>`;
+  s+=`<text class="anno-t" x="${dx+9}" y="${padTop+h/2+3.5}">${h}</text>`;
+  s+=`</svg>`;
+  return s;
+}
+const elA=document.getElementById('anatomyA'), elB=document.getElementById('anatomyB');
+if(elA) elA.innerHTML = anatomySVG('dagNode',{label:'单元测试',icon:'flask',state:'running',ports:'tb'});
+if(elB) elB.innerHTML = anatomySVG('dpNode',{label:'维度表关联',icon:'JOIN',state:'running',ports:'lr'});
+
+const elS=document.getElementById('stateRow');
+if(elS){
+  const [w,h]=SIZES.dagNode;
+  elS.innerHTML = [
+    ['pending','待执行','空心圆环 r 3.6，中性色'],
+    ['running','进行中','实心点 + 1.5s 脉冲，tone-info'],
+    ['success','已完成','对勾，tone-success'],
+    ['failed','失败','叉，tone-error']
+  ].map(([st,name,desc])=>
+    `<div class="sw"><svg viewBox="${-w/2-4} ${-h/2-4} ${w+8} ${h+8}" style="width:198px;height:48px">${
+      nodeSVG({id:'st-'+st,label:name,shape:'dagNode',icon:'gear',state:st,ports:'tb'},0,0,w,h)
+    }</svg><span>${desc}</span></div>`).join('');
+}
+const elI=document.getElementById('iconRow');
+if(elI){
+  let ih='';
+  Object.keys(TASK_ICONS).forEach(k=>{
+    ih+=`<div class="ic"><svg viewBox="-9 -9 18 18" width="22" height="22"><path class="dag-icon" d="${TASK_ICONS[k]}"/></svg>${k}</div>`; });
+  Object.keys(FLOW_ICONS).forEach(k=>{
+    ih+=`<div class="ic"><svg viewBox="-13 -13 26 26" width="22" height="22"><path class="dp-icon" d="${FLOW_ICONS[k]}"/></svg>${k}</div>`; });
+  elI.innerHTML=ih;
+}
+
+/* §4.2 解剖图：四类新形态 */
+const elC=document.getElementById('anatomyC');
+if(elC) elC.innerHTML = anatomySVG('stateNode',{label:'待支付',badge:'30m',active:true,tone:'warning'},[18,140]);
+const elD=document.getElementById('anatomyD');
+if(elD) elD.innerHTML = anatomySVG('orgNode',{label:'技术中心',role:'负责全线产品研发',count:6,tone:'info'},[12,58,88]);
+const elE=document.getElementById('anatomyE');
+if(elE) elE.innerHTML = anatomySVG('mapBranch',{label:'签证',bc:0},[2,16,110]);
+const elF=document.getElementById('anatomyF');
+if(elF) elF.innerHTML = anatomySVG('conceptNode',{label:'工具系统',type:'module'},null);
+
+const elL=document.getElementById('legendRow');
+if(elL){
+  let lh='';
+  lh+=`<div class="lg"><b>伪状态（state）</b>`;
+  [['initial','初态'],['final','终态'],['choice','分支']].forEach(([p,name])=>{
+    lh+=`<div class="row"><svg viewBox="-15 -15 30 30" width="26" height="26">${
+      nodeSVG({id:'ps-'+p,shape:'statePseudo',pseudo:p},0,0,30,30)}</svg>${name}</div>`;
+  });
+  lh+=`</div>`;
+  lh+=`<div class="lg"><b>分支色（mindmap）</b><div class="row cols">`;
+  [0,1,2,3,4].forEach(i=>{ lh+=`<span class="ln-swatch" style="background:var(--bc-${i})"></span><span>分支 ${i+1}</span>`; });
+  lh+=`</div></div>`;
+  lh+=`<div class="lg"><b>实体类型（concept）</b><div class="row cols">`;
+  Object.keys(CONCEPT_ICONS).forEach(k=>{
+    lh+=`<svg viewBox="-9 -9 18 18" width="20" height="20"><path class="cn-icon" d="${CONCEPT_ICONS[k]}"/></svg>`
+      + `<span style="font-family:var(--font-mono)">${k}</span>`;
+  });
+  lh+=`</div></div>`;
+  lh+=`<div class="lg"><b>边线型（concept）</b>`;
+  [['','包含 / 组成'],['dashed','依赖'],['dotted','引用 / 派生']].forEach(([c,name])=>{
+    lh+=`<div class="row"><svg class="ln-swatch" viewBox="0 0 34 10"><line class="edge-base ${c}" x1="1" y1="5" x2="33" y2="5"/></svg>${name}</div>`;
+  });
+  lh+=`</div>`;
+  elL.innerHTML=lh;
+}
+
+/* ---------- 挂载 ---------- */
+const gallery=document.getElementById('gallery');
+SCENES.forEach((spec, i)=>{
+  const card=document.createElement('div');
+  card.className='scene';
+  const labels = ['布局','节点族','边族','等级','动效','上限'];
+  const chips = spec.meta.map((m,k)=>`<span class="chip"><b>${labels[k]}</b> ${esc(m)}</span>`).join('');
+  card.innerHTML=`
+    <div class="scene-hd">
+      <div>
+        <p class="title">${esc(spec.name)} <span class="tag i">${esc(spec.kind)}</span></p>
+        <p class="ask">典型问法：${esc(spec.ask)}</p>
+      </div>
+      <div class="tools">
+        <button class="mini" data-act="flow" aria-pressed="false" type="button">流动</button>
+        <button class="mini" data-act="replay" type="button">重播</button>
+      </div>
+    </div>
+    <div class="stage">${buildSVG(spec)}</div>
+    <div class="scene-ft">${chips}</div>`;
+  gallery.appendChild(card);
+
+  const svg=card.querySelector('svg');
+  const stage=card.querySelector('.stage');
+
+  /* 入场（延后触发，制造逐张生长的观感） */
+  function play(){
+    svg.classList.remove('entering'); void svg.offsetWidth; svg.classList.add('entering');
+    const ns=svg.querySelectorAll('.node');
+    ns.forEach((n,k)=>{ n.style.animationDelay=(k*45)+'ms'; });
+    const es=svg.querySelectorAll('.edge-base');
+    es.forEach((e,k)=>{ e.style.animationDelay=(140+k*30)+'ms'; });
+    setTimeout(()=>svg.classList.remove('entering'), 140+es.length*30+600);
+  }
+  /* hover 关联高亮 */
+  svg.querySelectorAll('.node').forEach(n=>{
+    n.addEventListener('mouseenter',()=>{
+      const id=n.getAttribute('data-node');
+      svg.classList.add('focusing');
+      n.classList.add('hl');
+      svg.querySelectorAll('[data-s][data-t]').forEach(el=>{
+        if(el.getAttribute('data-s')===id || el.getAttribute('data-t')===id){
+          el.classList.add('hl');
+          const other = el.getAttribute('data-s')===id ? el.getAttribute('data-t') : el.getAttribute('data-s');
+          const on=svg.querySelector(`.node[data-node="${other}"]`); if(on) on.classList.add('hl');
+        }
+      });
+    });
+    n.addEventListener('mouseleave',()=>{
+      svg.classList.remove('focusing');
+      svg.querySelectorAll('.hl').forEach(el=>el.classList.remove('hl'));
+    });
+  });
+  card.querySelector('[data-act="flow"]').addEventListener('click',(ev)=>{
+    const on=svg.classList.toggle('flow-on');
+    ev.currentTarget.setAttribute('aria-pressed', on?'true':'false');
+  });
+  card.querySelector('[data-act="replay"]').addEventListener('click', play);
+
+  /* 进入视口时播一次 */
+  if('IntersectionObserver' in window){
+    let done=false;
+    const io=new IntersectionObserver(es=>{
+      es.forEach(e=>{ if(e.isIntersecting && !done){ done=true; setTimeout(play, 80+i%2*120); io.disconnect(); } });
+    },{threshold:.25});
+    io.observe(stage);
+  } else { play(); }
+});
+
+/* ---------- 主题切换 ---------- */
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  const cur=document.documentElement.getAttribute('data-theme');
+  document.documentElement.setAttribute('data-theme', cur==='dark'?'light':'dark');
+});
+</script>
+</body>
+</html>
