@@ -612,3 +612,70 @@ def test_recursion_limit_persists_partial_output(tmp_path, monkeypatch):
     assistant = [m for m in rows if m["role"] == "assistant"]
     assert assistant, "撞限后必须持久化已生成的部分输出"
     assert "一半" in assistant[-1]["content"]
+
+
+def test_model_error_persists_tool_turn_and_partial_output(tmp_path, monkeypatch):
+    """模型侧异常（如 429 限流）时，已流出的内容必须落库。
+
+    历史 bug：异常兜底只覆盖 GraphRecursionError 与断连取消；429 穿透到
+    chat 层只发 server_error，本轮已渲染的工具轮次与正文刷新即丢。
+    工具轮次从 checkpointer 快照捞回，正文只补快照之外的尾部（防双写）。
+    """
+    import asyncio
+
+    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+    from app import db
+    from app.agent import orchestrator
+    from app.agent.core.sse import sse_event
+
+    session_id = _init_db(tmp_path, monkeypatch)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(exist_ok=True)
+
+    thread_messages = [
+        HumanMessage(content="做个分析"),
+        AIMessage(
+            content="",
+            tool_calls=[
+                {"id": "c1", "name": "calculator", "args": {}, "type": "tool_call"}
+            ],
+        ),
+        ToolMessage(content="ok", tool_call_id="c1", name="calculator"),
+    ]
+
+    class _StubAgent:
+        async def aget_state(self, config):
+            class _Snapshot:
+                values = {"messages": list(thread_messages)}
+
+            return _Snapshot()
+
+    monkeypatch.setattr(orchestrator, "_build_llm", lambda **kw: object())
+    monkeypatch.setattr(orchestrator, "_build_agent", lambda *a, **k: _StubAgent())
+
+    async def fake_stream(*args, **kwargs):
+        yield "sse", sse_event("message", {"content": "我来为您生成分析："})
+        raise RuntimeError("Error code: 429 - 该模型当前访问量过大")
+
+    monkeypatch.setattr(orchestrator, "_stream_agent_run", fake_stream)
+
+    async def run():
+        agen = orchestrator.run_agent(
+            session_id,
+            [{"role": "user", "content": "做个分析"}],
+            think=False,
+            workspace=workspace,
+            approval_mode="ask",
+            tool_mode="default",
+        )
+        with pytest.raises(RuntimeError):
+            async for _ in agen:
+                pass
+
+    asyncio.run(run())
+    rows = db.list_messages(session_id)
+    assert any(m["role"] == "tool" for m in rows), "工具结果必须从快照落库"
+    contents = [m["content"] for m in rows if m["role"] == "assistant"]
+    assert any("我来为您生成分析" in c for c in contents), "正文必须落库"
+    assert sum("我来为您生成分析" in c for c in contents) == 1, "正文不得双写"

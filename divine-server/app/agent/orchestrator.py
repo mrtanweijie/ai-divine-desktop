@@ -788,6 +788,48 @@ async def run_agent(
                 "persist partial generation failed session=%s", session_id
             )
         raise
+    except Exception:
+        # 模型/工具异常（如 429 限流）：已流出的内容同样必须落库——与
+        # GraphRecursionError、断连同款兜底，否则前端已渲染的内容刷新即丢。
+        # 工具轮次从 checkpointer 线程快照捞（异常时 astream 拿不到终态，
+        # 快照保留最后一个完成的 super-step）；快照中已持久化的完整文本是
+        # 流式累积内容的词法前缀（同序、完整消息），只补尾部避免文本双写。
+        # 异常原样上抛，由 chat 层发 server_error 事件，此处只负责不丢数据。
+        persisted_prefix = ""
+        try:
+            from langchain_core.messages import AIMessage
+
+            state = await agent.aget_state(config)
+            state_messages = (state.values or {}).get("messages") or []
+            await asyncio.to_thread(
+                _persist_new_messages, session_id, input_messages, state_messages, {}
+            )
+            persisted_prefix = "".join(
+                _content_text(message.content)
+                for message in state_messages
+                if isinstance(message, AIMessage) and not message.tool_calls
+            )
+        except Exception:  # noqa: BLE001 — 快照失败退回纯流式部分持久化
+            logger.exception(
+                "persist checkpointed tool turns failed session=%s", session_id
+            )
+        content = "".join(partial_content)
+        tail = (
+            content[len(persisted_prefix):]
+            if persisted_prefix and content.startswith(persisted_prefix)
+            else content
+        )
+        if tail or partial_think:
+            try:
+                await asyncio.to_thread(db.abort_todos, session_id)
+                await _persist_partial_generation(
+                    session_id, tail, "".join(partial_think)
+                )
+            except Exception:  # noqa: BLE001 — 清理路径尽力而为
+                logger.exception(
+                    "persist partial generation failed session=%s", session_id
+                )
+        raise
 
     if final_state is None:
         await asyncio.to_thread(db.abort_todos, session_id)
