@@ -41,8 +41,12 @@ export const ToolStatusCard = memo(function ToolStatusCard({
   const toggleUrls = useCallback(() => setUrlsOpen((value) => !value), []);
   // 这三类工具的文件列表默认收起，点击卡片头部展开（read_file 原有行为；
   // write_file / edit_files 批量写文件时列表过长，同样收起）。
+  // generate_chart 合并卡（SVG 图表 ≥2 个）同样默认收起，点击展开。
   const collapsibleFiles =
-    tool.tool === "read_file" || tool.tool === "write_file" || tool.tool === "edit_files";
+    tool.tool === "read_file" ||
+    tool.tool === "write_file" ||
+    tool.tool === "edit_files" ||
+    (tool.tool === "generate_chart" && (tool.files?.length ?? 0) > 1);
   const hasFiles = collapsibleFiles && (tool.files?.length ?? 0) > 0;
   const toggleFiles = useCallback(() => setFilesOpen((value) => !value), []);
   const statusMessage =

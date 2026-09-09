@@ -1,15 +1,23 @@
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import "./index.less";
 
 export type ToastType = "success" | "error" | "info";
 
+/** 可选的点击动作（如"打开文件夹"）；触发后 toast 随之关闭 */
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface ToastItem {
   id: number;
   type: ToastType;
   message: string;
+  action?: ToastAction;
 }
 
 type Listener = (items: ToastItem[]) => void;
@@ -22,11 +30,12 @@ function notify() {
   listeners.forEach((callback) => callback([...currentItems]));
 }
 
-function push(type: ToastType, message: string, duration: number) {
+function push(type: ToastType, message: string, duration: number, action?: ToastAction) {
   const id = nextId++;
-  currentItems = [...currentItems, { id, type, message }];
+  currentItems = [...currentItems, { id, type, message, action }];
   notify();
-  window.setTimeout(() => dismiss(id), duration);
+  // 带动作的 toast 需要留给用户点击的时间，自动延长到至少 5s
+  window.setTimeout(() => dismiss(id), action ? Math.max(duration, 5000) : duration);
 }
 
 function dismiss(id: number) {
@@ -35,16 +44,29 @@ function dismiss(id: number) {
 }
 
 export const toast = {
-  success(message: string) {
-    push("success", message, 2400);
+  success(message: string, action?: ToastAction) {
+    push("success", message, 2400, action);
   },
-  error(message: string) {
-    push("error", message, 3600);
+  error(message: string, action?: ToastAction) {
+    push("error", message, 3600, action);
   },
-  info(message: string) {
-    push("info", message, 2400);
+  info(message: string, action?: ToastAction) {
+    push("info", message, 2400, action);
   },
 };
+
+/** 动作元素：普通可点击元素走 div + role 语义 + 键盘事件（项目 UI 规范，不用原生 button） */
+function handleActionKeyDown(
+  event: ReactKeyboardEvent<HTMLDivElement>,
+  action: ToastAction,
+): boolean {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    action.onClick();
+    return true;
+  }
+  return false;
+}
 
 export function Toaster() {
   const [items, setItems] = useState<ToastItem[]>(currentItems);
@@ -72,6 +94,24 @@ export function Toaster() {
             )}
           </span>
           <span className="toast-message">{item.message}</span>
+          {item.action && (
+            <div
+              role="button"
+              tabIndex={0}
+              className="toast-action"
+              onClick={() => {
+                item.action?.onClick();
+                dismiss(item.id);
+              }}
+              onKeyDown={(event) => {
+                if (item.action && handleActionKeyDown(event, item.action)) {
+                  dismiss(item.id);
+                }
+              }}
+            >
+              {item.action.label}
+            </div>
+          )}
           <Button
             variant="icon"
             size="small"

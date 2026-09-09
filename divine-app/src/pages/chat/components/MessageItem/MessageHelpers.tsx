@@ -95,6 +95,16 @@ export const GROUPABLE_TOOLS = new Set([
   "forget_memory",
 ]);
 
+/**
+ * generate_chart 的 SVG 导出运行（export_svg=true）可合并：这类调用不渲染
+ * 内联图表（chartOptionFromResult 返回 null），只落一个 SVG 文件，连排多次
+ * 逐条成卡是纯刷屏。内联图表运行（export_svg=false/缺省，含尚未出结果的
+ * running 态）绝不进组——避免「多张图表只显示最后一张」的回归。
+ */
+function isSvgChartRun(tool: ToolEvent): boolean {
+  return tool.tool === "generate_chart" && tool.result?.data?.export_svg === true;
+}
+
 /** Office 读取/编辑工具合并卡片上的聚合计数文案 key。 */
 const OFFICE_COUNT_KEYS: Record<string, string> = {
   document_outline: "tool.outlinedDocuments",
@@ -115,6 +125,10 @@ function mergedCountMessage(tool: ToolEvent, count: number): string {
   }
   if (tool.tool === "web_search") {
     return i18next.t("tool.completedSearches", "已完成 {{count}} 次搜索", { count });
+  }
+  if (tool.tool === "generate_chart") {
+    // 只合并 SVG 导出运行（isSvgChartRun 把关）
+    return i18next.t("tool.generatedSvgCharts", "已生成 {{count}} 个 SVG 图表", { count });
   }
   if (tool.tool === "web_fetch" || tool.tool === "web_fetch_batch") {
     return i18next.t("tool.fetchedSources", "已抓取 {{count}} 个数据源", { count });
@@ -168,8 +182,10 @@ function mergedCountMessage(tool: ToolEvent, count: number): string {
 export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
   const grouped: ToolEvent[] = [];
   for (const tool of tools) {
-    const last = grouped[grouped.length - 1];
-    if (!GROUPABLE_TOOLS.has(tool.tool)) {
+    // 白名单工具 + generate_chart 的 SVG 导出运行走全局合并
+    const groupable = GROUPABLE_TOOLS.has(tool.tool) || isSvgChartRun(tool);
+    if (!groupable) {
+      const last = grouped[grouped.length - 1];
       // 仅当上一张卡以失败收尾时才续链：error→error 续链、error→done 收链。
       // 成功卡永远开新卡——多次成功调用可能有各自结果（如多张图表），
       // 不能被之前的重试历史永久吸附（已踩坑：多图表只显示最后一张）。

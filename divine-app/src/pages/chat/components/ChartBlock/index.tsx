@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle, Download, FileCode2, LoaderCircle } from "lucide-react";
 import type { ECharts } from "echarts";
 import { useTheme } from "@/services/theme";
-import { isTauri, saveExportFile } from "@/services/tauri";
+import { isTauri, openFileLocation, saveExportFile } from "@/services/tauri";
 import { toast } from "@/components/ui/Toast";
 import { buildChartOption, chartHeight } from "./chartOptions";
 
@@ -188,6 +188,15 @@ export function ChartBlock({ option, workspacePath }: ChartBlockProps) {
           t("chat.exportSaved", "已导出：{{name}}", {
             name: `charts/${saved.name}`,
           }),
+          {
+            label: t("chat.openFolder", "打开"),
+            onClick: () => {
+              openFileLocation(saved.path).catch((err) => {
+                console.error("Open export folder failed:", err);
+                toast.error(t("chat.openFolderFailed", "无法打开文件夹"));
+              });
+            },
+          },
         );
       } else {
         // 浏览器/dev：直接下载

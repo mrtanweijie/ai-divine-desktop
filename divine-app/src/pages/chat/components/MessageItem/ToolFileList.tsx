@@ -52,7 +52,10 @@ export const ToolFileList = memo(function ToolFileList({
               {fileIcon(file)}
               <span className="file-name">{file.name}</span>
               {file.size != null && <span className="file-size">{formatSize(file.size)}</span>}
-              {file.path && <span className="file-path">{file.path}</span>}
+              {/* 图表 SVG 统一落在 <workspace>/charts/，逐行重复全路径是纯噪音 */}
+              {file.path && tool.tool !== "generate_chart" && (
+                <span className="file-path">{file.path}</span>
+              )}
             </a>
             {fileRel && isTauri() && (
               <Button

@@ -91,6 +91,47 @@ function normalizePieStyle(series: Record<string, unknown>, hasContent: boolean)
   series.radius = [`${round1(innerPercent)}%`, `${round1(outerPercent)}%`];
 }
 
+/** Outer radius of a pie series as a percent number, or null if not percent-based. */
+function pieOuterRadiusPercent(series: Record<string, unknown>): number | null {
+  const parse = (value: unknown): number | null => {
+    if (typeof value !== "string" || !value.endsWith("%")) return null;
+    const n = Number(value.slice(0, -1));
+    return Number.isNaN(n) ? null : n;
+  };
+  if (Array.isArray(series.radius) && series.radius.length >= 2) {
+    return parse(series.radius[1]);
+  }
+  return parse(series.radius);
+}
+
+/** Vertical center of a pie series as a 0–1 fraction, or null if not percent-based. */
+function pieCenterYPercent(series: Record<string, unknown>): number | null {
+  const center = series.center;
+  if (!Array.isArray(center) || center.length < 2) return null;
+  const value = center[1];
+  if (typeof value !== "string" || !value.endsWith("%")) return null;
+  const n = Number(value.slice(0, -1));
+  return Number.isNaN(n) ? null : n / 100;
+}
+
+/** Cap a pie series' outer radius (percent), scaling a donut's inner radius along. */
+function clampPieOuterRadius(series: Record<string, unknown>, maxOuterPercent: number): void {
+  if (typeof series.radius === "string") {
+    const percent = Number(series.radius.replace("%", ""));
+    if (!Number.isNaN(percent) && percent > maxOuterPercent) {
+      series.radius = `${maxOuterPercent}%`;
+    }
+    return;
+  }
+  if (!Array.isArray(series.radius) || series.radius.length < 2) return;
+  const inner = Number(String(series.radius[0]).replace("%", ""));
+  const outer = Number(String(series.radius[1]).replace("%", ""));
+  if (Number.isNaN(inner) || Number.isNaN(outer) || outer <= maxOuterPercent) return;
+  const scale = maxOuterPercent / outer;
+  const round1 = (value: number) => Math.round(value * 10) / 10;
+  series.radius = [`${round1(inner * scale)}%`, `${maxOuterPercent}%`];
+}
+
 type ChartTheme = "dark" | "light";
 
 interface ChartPalette {
@@ -1343,6 +1384,12 @@ export function buildChartOption(
     const firstSeries = series[0];
     const radius =
       isRecord(firstSeries) && Array.isArray(firstSeries.radius) ? firstSeries.radius : null;
+    // Keep the LLM's own title (a pie without its subject title looks bare).
+    const hasTitle = isRecord(merged.title)
+      ? titleHasText(merged.title)
+      : Array.isArray(merged.title)
+        ? merged.title.some((item) => isRecord(item) && titleHasText(item))
+        : false;
     if (radius && radius.length > 1 && isRecord(merged.legend)) {
       merged.legend = {
         ...merged.legend,
@@ -1351,6 +1398,23 @@ export function buildChartOption(
         top: "middle",
         right: "auto",
         bottom: "auto",
+      };
+    } else if (
+      hasTitle &&
+      isRecord(merged.legend) &&
+      !(isRecord(merged.title) && isBottomAnchored(merged.title))
+    ) {
+      // LLM 常把图例钉在左上（legend.left:"left"）或顶部，与左上角标题同位
+      // 重叠——ECharts 各组件独立排版、互不避让。带顶部标题的饼图把图例
+      // 沉底横排居中：标题独占左上、环居中，底部空间由 chartHeight 的
+      // legendExtra 预算。竖排左锚的甜甜圈分支走上面，保持原布局。
+      merged.legend = {
+        ...merged.legend,
+        orient: "horizontal",
+        left: "center",
+        top: "auto",
+        right: "auto",
+        bottom: 8,
       };
     }
     // LLMs often hide pie labels ("label.show: false" plus a legend), leaving
@@ -1373,20 +1437,54 @@ export function buildChartOption(
         delete merged.legend;
       }
     }
-    // Keep the LLM's own title (a pie without its subject title looks bare)
-    // and shift the ring down slightly so it clears a top title and/or a
-    // bottom "数据来源：…" caption instead of overlapping them.
-    const hasTitle = isRecord(merged.title)
-      ? titleHasText(merged.title)
-      : Array.isArray(merged.title)
-        ? merged.title.some((item) => isRecord(item) && titleHasText(item))
-        : false;
-    if (
-      (bottomCaption > 0 || hasTitle) &&
-      isRecord(firstSeries) &&
-      firstSeries.center === undefined
-    ) {
+    // Shift the ring down so it clears a top title instead of overlapping it.
+    // ECharts lays the title and the series out independently, and pie
+    // outside labels reach ~30px above the ring — a center at the vertical
+    // middle (LLM favorite: ["50%","49%"]) lands the top slices' labels right
+    // on the centered title/subtitle. Recompute the vertical center (shrinking
+    // the ring first when the canvas is too short) so ring-top + label
+    // headroom sits below the title block. The LLM's horizontal center and an
+    // already-lower vertical center are kept.
+    if (isRecord(firstSeries) && bottomCaption > 0 && firstSeries.center === undefined) {
       firstSeries.center = ["50%", "49%"];
+    }
+    if (
+      isRecord(firstSeries) &&
+      hasTitle &&
+      isRecord(merged.title) &&
+      !isBottomAnchored(merged.title)
+    ) {
+      const titleCfg = merged.title;
+      const titleTop = typeof titleCfg.top === "number" ? titleCfg.top : 10;
+      const hasMain = typeof titleCfg.text === "string" && titleCfg.text.length > 0;
+      const hasSub = typeof titleCfg.subtext === "string" && titleCfg.subtext.length > 0;
+      // 主标题行高（13px ≈ 17）+ itemGap 12 + 副标题行高（12px ≈ 15）
+      const titleBottom = titleTop + (hasMain ? 17 : 0) + (hasSub ? 27 : 0);
+      const LABEL_HEADROOM = 32; // 顶部外侧标签 + 引导线所需空间
+      const BOTTOM_HEADROOM = 26; // 底部外侧标签 + 引导线所需空间
+      const canvasHeight = chartHeight(option);
+      const outerPercent = pieOuterRadiusPercent(firstSeries);
+      const maxRadius = (canvasHeight - titleBottom - LABEL_HEADROOM - BOTTOM_HEADROOM) / 2;
+      if (outerPercent !== null && maxRadius > 0) {
+        // 半径百分比按 min(width, height)/2 解析；聊天气泡面板宽 > 高，
+        // 按画布高度解析。
+        let ringRadius = (outerPercent / 100) * (canvasHeight / 2);
+        if (ringRadius > maxRadius) {
+          clampPieOuterRadius(firstSeries, ((maxRadius * 2) / canvasHeight) * 100);
+          ringRadius = maxRadius;
+        }
+        const minCenterY = (titleBottom + LABEL_HEADROOM + ringRadius) / canvasHeight;
+        const maxCenterY = (canvasHeight - ringRadius - BOTTOM_HEADROOM) / canvasHeight;
+        const centerY = Math.min(Math.max(minCenterY, 0.5), Math.max(maxCenterY, 0.5));
+        const currentCenterY = pieCenterYPercent(firstSeries);
+        if (currentCenterY === null || currentCenterY < minCenterY) {
+          const center = Array.isArray(firstSeries.center) ? firstSeries.center : [];
+          const centerX = typeof center[0] === "string" ? center[0] : "50%";
+          firstSeries.center = [centerX, `${(centerY * 100).toFixed(1)}%`];
+        }
+      } else if (firstSeries.center === undefined) {
+        firstSeries.center = ["50%", "54%"];
+      }
     }
     // Hug a top title to the top-left corner (pie titles read best there,
     // clear of the ring and any right/top legend), capping ring radius and
