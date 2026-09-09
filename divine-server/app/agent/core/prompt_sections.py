@@ -371,7 +371,17 @@ spreadsheet 支持标题行、主题配色、自动求和，详见工具参数�
 _MERMAID_RULES = """用户要求查看/绘制/输出流程图、时序图、架构图时，直接在正文输出 ```mermaid ... ```
 代码块，前端会自动渲染；不要调用 mermaid_export，也不要生成文件。
 只有用户明确要求保存/导出/下载为 .mmd 文件时，才调用 mermaid_export，
-content 传 Mermaid 源码（不要带围栏代码块）。"""
+content 传 Mermaid 源码（不要带围栏代码块）。
+输出架构类图（分层架构、部署拓扑、模块关系、系统结构）后，在末尾用 options 卡片询问用户是否需要
+SVG 增强版（可导出 PNG、项目配色、精细排版），不要自作主张直接生成：
+```options
+{"title": "需要 SVG 增强版吗", "options": [
+  {"label": "要 SVG 版", "desc": "可导出 PNG，项目配色与精细排版"},
+  {"label": "就这样", "desc": "mermaid 够用，不再生成"}
+], "other": true}
+```
+用户确认后再调用 draw_svg；用户拒绝或不再回应则到此为止，不要追问第二次。
+流程图、时序图、甘特图等非架构类图不要询问。"""
 
 # SVG_RULES — SVG 绘制：draw_svg / edit_svg / describe_svg / svg_to_png / svg_to_png_batch
 _SVG_RULES = """用户要求生成/绘制 SVG 矢量图、图标、插画、角色或自定义图形时，按以下规则执行：
@@ -386,7 +396,73 @@ _SVG_RULES = """用户要求生成/绘制 SVG 矢量图、图标、插画、角�
   如果同时要展示给用户，直接在正文放 ```svg 代码块，前端会自动渲染预览。
 - 关键元素必须带简短、语义化、唯一的 id（如 eye-left、hair、body、head、arm-left），
   方便后续按 id 精确修改；不要使用外部图片，所有图形用 SVG 基本元素绘制。
-- 用户要求的是趋势/对比/占比/分布等数据图表时仍使用 generate_chart，不要调用 draw_svg。"""
+- 用户要求的是趋势/对比/占比/分布等数据图表时仍使用 generate_chart，不要调用 draw_svg。
+
+【绘制架构图 / 分层图 / 拓扑图 / 部署图 / 模块关系图】除上述规则外还必须遵守：
+- 版式：自上而下分层，层间距统一；卡片尺寸一律由容器反推，禁止逐个手写 x 坐标：
+  内容区 = 容器宽 − 左右内边距×2；n 张卡等宽时 w = (内容区 − 间距×(n−1)) / n，x 依次累加 w+gap。
+  手写坐标极易出现间距 12/1/1 这种卡片粘连且右缘对不齐的问题。
+- 间距：同层卡片间距全图统一（推荐 12）；容器左右内边距相等；
+  各层首卡左缘、末卡右缘必须对齐同一条竖线；画布上下留白对称。
+- 字阶：主标题 12.5 / 副标题 12 / 层标签 10.5，级差 ≥1.5px；字重主 500、副 400 分级；
+  中文必须加 letter-spacing 0.2–0.5，否则小字号发闷。
+- 层次靠色块不靠线：卡片底与容器底明度差 ΔL ≥ 0.02；边框对比度控制在 1.5–1.7，线宽固定 0.5
+  ——绝不加粗描边来强调层次（“线显粗”几乎都是色块没拉开导致的，改 stroke-width 无效）。
+- 圆角：容器 14 / 独立卡 10 / 内卡片 6，逐层递减。
+- 多行文字行距必须统一，且整块按卡片高度垂直居中，不要凭手感排 y。
+- 字体栈必须含 Microsoft YaHei（Windows 回退）：
+  -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif。
+- 每个图层、卡片带语义 id（layer-* / card-* / arrow-*），便于 edit_svg 局部修改。
+- 文字对比度 ≥ 4.5（WCAG AA），生成后自查。
+
+【架构图配色】
+- 画布默认透明：不要画全幅 bg 矩形（用户要求"带背景"时才画，色取 UI_COLORS.bg）。
+  透明底导出 PNG 保留 alpha；对比度由墨水（文字/卡片色）对目标表面的关系保证。
+- 主题只决定墨水色：默认只输出一份，文字/卡片/边框必须匹配系统提示中的
+  「当前桌面端 UI 主题」（dark / light），dark 档配深色表面、light 档配浅色表面。
+  不要自作主张出两份，也不要反问用户要哪种主题；用户明确说图要放到另一侧表面时按用户说的档出。
+- 只有两种情况才输出 dark + light 两份（调用两次 draw_svg，file_name 分别加 -dark / -light）：
+  ① 用户明确要求「两份」「明暗各来一版」「都要」；② 经你询问后用户确认需要。
+- 禁止用单个 SVG 内的 CSS 变量实现双主题：resvg 不解析 var()，fill 会回落成黑色；
+  也禁止用 @media (prefers-color-scheme)，resvg 恒取 light 分支。必须出两份定色文件。
+- dark 档：主色取 QUAL_DARK，墨水取 UI_COLORS.dark
+  （surface #121517 / text #f2f4f6 / textSecondary #a4adba / textMuted #6f7783）。
+- light 档：主色取 QUAL_LIGHT，墨水取 UI_COLORS.light
+  （text #1f2937 / textSecondary #5b6472 / textMuted #8a94a3）。
+  注意：透明底 + light 档时卡片底禁止用纯白（白文档上会隐形），用 surface 偏灰一档
+  （如 #eef0f3），层次感靠边框 + 卡片底明度差补足。
+- QUAL_LIGHT 九色：#FACC8F #F3962F #A3D8F4 #EF898E #DD656D #61A7D0 #036EAD #FAAD9D #8798C9
+  QUAL_DARK  九色：#A3D8F4 #FAAD9D #FACC8F #EF898E #8798C9 #DD656D #61A7D0 #F3962F #036EAD
+  真源：divine-app/src/pages/chat/components/ChartBlock/chartOptions.ts（QUAL_*）
+        与 divine-app/src/styles/uiPalette.ts（UI_COLORS）。若本规则与代码冲突，以代码为准。
+- 分层选色必须跨色族（同色族相邻层在暗底上几乎分不开）；层多于色相数时循环取用。
+- 派生用 HSL（s 取原色 0.70、h 不变）：dark 档容器底 l≈0.10、卡片底 l≈0.19、边框 l≈0.30、
+  主文字 l≈0.84、次文字 l≈0.68；light 档容器底 l≈0.93、卡片底 0.94（透明底时禁纯白）、
+  边框 0.80、主文字 ≤0.25、次文字 0.42。
+- 用户指定配色时，用用户给的色值替换主色，其余派生规则不变。
+
+【配色方案库（8 种）】按层自上而下取用，层多则循环；dark/light 共用同一套色相，只调 s 与 l：
+1 科技蓝 techblue：#036EAD → #61A7D0 → #A3D8F4（默认，系统/前端分层架构）
+2 石墨灰 graphite：#8A94A6 → #8798C9 → #A3D8F4（正式汇报、论文，极简克制）
+3 暮山紫 duskviolet：#8798C9 → #FAAD9D → #A3D8F4（产品/平台架构，柔和）
+4 暖砂橙 amber：#F3962F → #FACC8F → #FAAD9D（强调服务层/数据链路）
+5 晨雾青 mistcyan：#A3D8F4 → #2F9E6E → #61A7D0（基础设施/部署拓扑/运维）
+6 珊瑚红 coral：#DD656D → #EF898E → #FACC8F（风险链路/告警/审计）
+7 蓝橙对偶 duotone：#61A7D0 与 #F3962F 交替（前后端/客户端-服务分野，对比最强）
+8 极简单色 mono：#8A94A6（#61A7D0 仅用于关键层）（留白优先，文档插图）
+
+【出图后询问换色】架构图生成后，在正文末尾附一张换色卡片：从上述 8 种里按图的领域与内容
+挑选最贴合的 4 个（排除当前已用的那个），每次恰好 4 个，不要固定输出同一组：
+```options
+{"title": "当前配色：科技蓝 · 需要换一种吗", "options": [
+  {"label": "暮山紫", "palette": "duskviolet", "desc": "蓝紫 + 藕粉，柔和"},
+  {"label": "晨雾青", "palette": "mistcyan", "desc": "浅蓝 + 松绿，适合拓扑/基础设施"},
+  {"label": "暖砂橙", "palette": "amber", "desc": "橙系，突出服务层与数据链路"},
+  {"label": "石墨灰", "palette": "graphite", "desc": "低饱和灰，正式汇报更克制"}
+], "other": true}
+```
+用户选择后用 edit_svg 换色——图层结构、坐标、尺寸、文案一律不动，只替换色值，不要重画版式；
+用户未点击也未回复则到此为止，不追问第二次。"""
 
 # UX_HTML_RULES — UX 交互原型：ux_html、交互风格询问、视觉与交互完整性规范
 _UX_HTML_RULES = """用户要求把需求文档/PRD 实现成交互式产品界面、UX 交互原型、可点击演示页面时，

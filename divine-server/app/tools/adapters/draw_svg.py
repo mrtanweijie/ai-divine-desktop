@@ -8,8 +8,10 @@ from ..registry import register_tool
 
 @register_tool(
     "draw_svg",
-    "从零生成 SVG 矢量图/图标/插画；content 传完整合法 SVG 源码（以 <svg 开头）。"
-    "关键元素加简短唯一 id（如 eye-left、hair、body）便于 edit_svg 局部修改；不要在正文输出解释。",
+    "从零生成 SVG 矢量图/图标/插画/架构图；架构图、分层图、拓扑图、部署图、模块关系图同样适用，"
+    "content 传完整合法 SVG 源码（以 <svg 开头）。"
+    "关键元素加简短唯一 id（如 eye-left、hair、body、layer-api、card-cache）便于 edit_svg 局部修改；"
+    "不要在正文输出解释。",
     {
         "type": "object",
         "properties": {

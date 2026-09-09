@@ -36,6 +36,7 @@
 | 023 | [design-agent-progress-observability](design/015-agent-progress-observability-20260904.md) | 2026-09-04 | P0/P2 已实施，P1 已回退 |
 | 024 | [design-streaming-performance](design/016-streaming-performance-20260904.md) | 2026-09-04 | 未实施（B1–B6 待实施） |
 | 026 | [design-office-edit-closed-loop](design/017-office-edit-closed-loop-20260906.md) | 2026-09-06 | 已实施（期一/二/三） |
+| 031 | [design-svg-architecture-routing](design/021-svg-architecture-routing-20260909.md) | 2026-09-09 | 未实施（方案待审） |
 
 ### 修复（fix）
 

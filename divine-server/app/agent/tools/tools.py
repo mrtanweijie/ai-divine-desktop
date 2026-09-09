@@ -59,7 +59,9 @@ _CONTENT_TOOLS: dict[str, str | tuple[str, ...]] = {
     "spreadsheet": "document",
     "image_generate": "image",
     "image_resize": "image",
-    "draw_svg": "svg",
+    # draw_svg 放宽到 svg + mermaid：架构图首轮走 mermaid 正文输出（不调工具），
+    # 追问轮"要 SVG 版"意图仍判 mermaid 时，draw_svg 必须可用，否则模型拿不到工具。
+    "draw_svg": ("svg", "mermaid"),
     "edit_svg": "svg",
     "describe_svg": "svg",
     "svg_to_png": "svg",
