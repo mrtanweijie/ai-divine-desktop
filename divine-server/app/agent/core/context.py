@@ -18,6 +18,18 @@ from pathlib import Path
 _CJK_RE = re.compile(r"[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff]")
 _NON_CJK_RE = re.compile(r"[^\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff\s]")
 
+_VALID_UI_THEMES = ("dark", "light")
+
+
+def normalize_ui_theme(value: str | None) -> str:
+    """Normalize the client-reported UI theme to "dark" / "light".
+
+    Anything unknown (None, "", "system", typos) falls back to "dark", so the
+    downstream prompt always gets a definite value to match against.
+    """
+    v = (value or "").strip().lower()
+    return v if v in _VALID_UI_THEMES else "dark"
+
 
 def estimate_tokens(text: str) -> int:
     """Local token estimate: CJK chars ≈ 1 token, other chars ≈ 0.25 token."""
@@ -42,6 +54,9 @@ class AgentRunContext:
     workspace: Path
     approval_mode: str
     locale: str = "zh-CN"
+    # 桌面端当前 UI 主题（"dark" / "light"），由请求带入；用于让 SVG 等定色产物
+    # 匹配当前外观。规范化后只会是 "dark" / "light"，默认 "dark"。
+    ui_theme: str = "dark"
     plan_choice_resolved: bool = False
     plan_first_pending: bool = False
     plan_approved: bool = False

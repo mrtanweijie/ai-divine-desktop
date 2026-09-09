@@ -29,6 +29,7 @@ from .core import (
     canonical_path,
     estimate_tokens,
     generate_session_title,
+    normalize_ui_theme,
 )
 from .intent import classify_intents, is_question_like
 from .state import (
@@ -343,6 +344,7 @@ async def run_agent(
     approved_paths: list[str] | None = None,
     tool_mode: str | None = None,
     output_hint: str | None = None,
+    ui_theme: str | None = None,
 ) -> AsyncIterator[str]:
     """Stream one agent turn as SSE strings, handling interrupts and persistence."""
     workspace_path = workspace if isinstance(workspace, Path) else Path(workspace)
@@ -355,6 +357,7 @@ async def run_agent(
         locale=normalize_locale(
             locale or (session or {}).get("locale") or "zh-CN"
         ),
+        ui_theme=normalize_ui_theme(ui_theme),
         approved_paths=frozenset(
             canonical_path(path, workspace_path) for path in (approved_paths or [])
         ),

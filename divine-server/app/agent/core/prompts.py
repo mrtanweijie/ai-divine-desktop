@@ -436,6 +436,10 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
             rule_sections.replace("create_plan", "write_todos"),
             language_instruction(ctx.locale),
             (
+                f"当前桌面端 UI 主题：{ctx.ui_theme}。"
+                "生成 SVG 架构图等定色产物时必须匹配此主题，详见 SVG 规则。"
+            ),
+            (
                 f"当前会话所属项目工作目录：{ctx.workspace}\n"
                 "请以该目录作为方案设计和文件操作的工作区。"
             ),

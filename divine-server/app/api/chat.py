@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from .. import db
 from ..agent.core.constants import approval_timeout_seconds
 from ..agent import run_agent
+from ..agent.core import normalize_ui_theme
 from ..agent.core.injection import (
     MAX_CONTENT_LENGTH,
     MAX_PENDING_INJECTIONS,
@@ -114,6 +115,7 @@ async def stream_chat(request: StreamChatRequest):
     except Exception as exc:  # noqa: BLE001 — 提取失败不影响对话
         logger.warning("file:// 附件提取失败: %s", exc)
     locale = normalize_locale(request.locale)
+    ui_theme = normalize_ui_theme(request.ui_theme)
     if request.session_id:
         existing_session = await asyncio.to_thread(
             db.get_session, request.session_id
@@ -629,6 +631,7 @@ async def stream_chat(request: StreamChatRequest):
                 model_id=request.model_id,
                 approved_paths=approved_paths,
                 tool_mode=request.tool_mode,
+                ui_theme=ui_theme,
             ):
                 yield event
             # 兜底清理：云端没产出 assistant 消息时，转云端标记不泄漏到下一轮
@@ -709,6 +712,7 @@ async def retry_cloud(request: RetryCloudRequest):
     locale = normalize_locale(
         request.locale or session.get("locale") or "zh-CN"
     )
+    ui_theme = normalize_ui_theme(request.ui_theme)
     workspace = Path(
         db.session_workspace(request.session_id) or workspace_dir()
     )
@@ -730,6 +734,7 @@ async def retry_cloud(request: RetryCloudRequest):
                 model_id=request.model_id,
                 approved_paths=[],
                 tool_mode=request.tool_mode,
+                ui_theme=ui_theme,
             ):
                 yield event
         except Exception as exc:  # noqa: BLE001

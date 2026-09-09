@@ -12,6 +12,7 @@ import {
 } from "@/services/api";
 import { requestRaw } from "@/services/request";
 import { consumeSSE } from "@/services/sse";
+import { readThemePreference, resolveTheme } from "@/services/theme";
 import { createStreamBuffer } from "@/pages/chat/hooks/streamBuffer";
 import { setSessionEffort } from "@/pages/chat/state/sessionEffort";
 import { setSessionModelId } from "@/pages/chat/state/sessionModel";
@@ -391,6 +392,8 @@ export function useChatStream(options: UseChatStreamOptions) {
             ...(think ? { reasoning_effort: effort } : {}),
             ...(modelId ? { model_id: modelId } : {}),
             locale: i18next.language || "zh-CN",
+            // 传 resolved 值（dark/light），不传 preference——后端不认 "system"
+            ui_theme: resolveTheme(readThemePreference()),
             attachments: files.map((file) => ({
               name: file.name,
               size: file.size,
@@ -488,6 +491,8 @@ export function useChatStream(options: UseChatStreamOptions) {
             ...(think ? { reasoning_effort: effort } : {}),
             ...(modelId ? { model_id: modelId } : {}),
             locale: i18next.language || "zh-CN",
+            // 传 resolved 值（dark/light），不传 preference——后端不认 "system"
+            ui_theme: resolveTheme(readThemePreference()),
           }),
         });
         await consumeSSE(response, handlers);

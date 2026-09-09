@@ -24,6 +24,9 @@ class StreamChatRequest(BaseModel):
     think: bool = False
     reasoning_effort: ReasoningEffort | None = None
     locale: str | None = None
+    # 桌面端当前 UI 主题（"dark" / "light"），由前端解析 system 后传 resolved 值。
+    # 用于让 SVG/图表等定色产物匹配当前外观；缺省或非法值服务端回落 "dark"。
+    ui_theme: str | None = None
     attachments: list[Attachment] = []
     model_id: str | None = None
     # Per-request tool-calling override ("native" / "react"); only for
@@ -43,6 +46,7 @@ class RetryCloudRequest(BaseModel):
     think: bool = False
     reasoning_effort: ReasoningEffort | None = None
     locale: str | None = None
+    ui_theme: str | None = None
     model_id: str | None = None
     tool_mode: str | None = None
 

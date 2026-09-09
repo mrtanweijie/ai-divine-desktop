@@ -22,7 +22,12 @@ from .constants import (
     _NO_PLAN_TOOLS,
     _READ_ONLY_TOOLS,
 )
-from .context import AgentRunContext, canonical_path, estimate_tokens
+from .context import (
+    AgentRunContext,
+    canonical_path,
+    estimate_tokens,
+    normalize_ui_theme,
+)
 from .llm import (
     MockChatModel,
     _build_llm,
@@ -59,4 +64,5 @@ __all__ = [
     "get_manager",
     "get_recommended_models",
     "local_model_entry",
+    "normalize_ui_theme",
 ]
