@@ -271,8 +271,23 @@ function buildComponents(
         }
         return <CodeBlock code={code} language={language} streaming={streaming} />;
       }
-      if ((language === "html" || language === "htm" || language === "svg") && !streaming) {
-        return <WebPreviewBlock code={code} language={language === "svg" ? "svg" : "html"} />;
+      if (language === "svg") {
+        // SVG 流式中途就进预览（浏览器可渲染未闭合的半截 SVG），边画边看；
+        // WebPreviewBlock 内部对 srcDoc 做 250ms 节流，避免每个 token 整页重载
+        return (
+          <WebPreviewBlock code={code} language="svg" defaultMode="preview" streaming={streaming} />
+        );
+      }
+      if ((language === "html" || language === "htm") && !streaming) {
+        return (
+          <WebPreviewBlock
+            code={code}
+            language="html"
+            // HTML 保持默认源码且流式结束后才渲染——聊天里的多为片段，
+            // 半截 HTML 直接渲染易闪白/布局突兀
+            defaultMode="source"
+          />
+        );
       }
       return <CodeBlock code={code} language={language} streaming={streaming} />;
     },

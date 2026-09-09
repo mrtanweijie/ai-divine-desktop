@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Code2, Copy, Eye } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
@@ -18,6 +18,8 @@ interface WebPreviewBlockProps {
   language: WebPreviewLanguage;
   variant?: WebPreviewVariant;
   defaultMode?: PreviewMode;
+  /** 流式输出中：srcDoc 按 250ms 节流刷新，实现边画边预览而不逐 token 重载 iframe */
+  streaming?: boolean;
 }
 
 type PreviewMode = "preview" | "source";
@@ -85,12 +87,36 @@ export function WebPreviewBlock({
   language,
   variant = "chat",
   defaultMode = "source",
+  streaming = false,
 }: WebPreviewBlockProps) {
   const { t } = useTranslation();
   const cacheKey = `${variant}\u0000${language}\u0000${code}`;
   const [mode, setMode] = useState<PreviewMode>(() => modeCache.get(cacheKey) ?? defaultMode);
   const [copied, setCopied] = useState(false);
-  const srcDoc = useMemo(() => buildPreviewDocument(code, language), [code, language]);
+  // 流式时节流刷新：srcDoc 每次变化都会整页重载 iframe，逐 token 刷新会闪烁；
+  // 非流式（流结束/静态内容）直接同步最终文档
+  const [liveDoc, setLiveDoc] = useState(() => buildPreviewDocument(code, language));
+  const lastApplyRef = useRef(0);
+  const timerRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const apply = () => {
+      lastApplyRef.current = Date.now();
+      setLiveDoc(buildPreviewDocument(code, language));
+    };
+    if (!streaming) {
+      apply();
+      return;
+    }
+    const elapsed = Date.now() - lastApplyRef.current;
+    if (elapsed >= 250) {
+      apply();
+    } else {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(apply, 250 - elapsed);
+    }
+    return () => window.clearTimeout(timerRef.current);
+  }, [code, language, streaming]);
+  const srcDoc = liveDoc;
   const title =
     language === "html"
       ? t("markdown.htmlPreview", "HTML 预览")
