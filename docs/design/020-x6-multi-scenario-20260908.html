@@ -223,6 +223,17 @@ pre i { color:var(--text-3); font-style:normal; }
 .elabel-guard { fill:var(--text-3); font-size:9.5px; font-family:var(--font-mono); opacity:.8; }
 
 .cluster rect { fill:var(--cluster-bg); stroke:var(--cluster-stroke); stroke-width:1; stroke-dasharray:4 4; }
+.cluster.sg rect { stroke-dasharray:none; stroke-width:1.2; }
+/* 类别色带（arch/工作流场景）：描边与图例胶囊，复用分支色板 */
+.node.cat-0 .n-body{stroke:var(--bc-0)} .node.cat-1 .n-body{stroke:var(--bc-1)}
+.node.cat-2 .n-body{stroke:var(--bc-2)} .node.cat-3 .n-body{stroke:var(--bc-3)}
+.node.cat-4 .n-body{stroke:var(--bc-4)}
+.lg-chip rect { fill:var(--surface-2); stroke-width:1.1; }
+.lg-chip .cat-dot { stroke:none; }
+.lane.lane-frame rect.ln-frame { fill:var(--lane-bg); stroke:var(--cluster-stroke); stroke-width:1; stroke-dasharray:5 4; }
+.lane .ln-title { fill:var(--text-2); font-size:10.5px; font-family:var(--font-mono); font-weight:600; letter-spacing:.4px; }
+/* 时序生命线 */
+.lifeline { stroke:var(--line); stroke-width:1; stroke-dasharray:4 4; }
 .cluster text { fill:var(--text-3); font-size:10.5px; font-family:var(--font-mono); }
 .lane rect.ln-bg { fill:var(--lane-bg); stroke:none; }
 .lane line.ln-sep { stroke:var(--border); stroke-width:1; }
@@ -307,6 +318,15 @@ pre i { color:var(--text-3); font-style:normal; }
 .cn-name { fill:var(--text-2); font-size:10.5px; font-family:var(--font-sans);
   text-anchor:middle; pointer-events:none; }
 .node .hub .cn-name { fill:var(--text); font-weight:600; }
+
+/* ---------------- 架构图节点与图例 ---------------- */
+.arch-icon { fill:none; stroke:var(--text-2); stroke-width:1.4;
+  stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
+.arch-tag { fill:var(--text-3); font-size:9.5px; font-family:var(--font-mono);
+  text-anchor:end; pointer-events:none; }
+.lg-title { fill:var(--text-3); font-size:10px; font-family:var(--font-mono); }
+.lg-item { fill:var(--text-3); font-size:10px; font-family:var(--font-sans); pointer-events:none; }
+.lg-line { fill:none; stroke:var(--line); stroke-width:1.25; stroke-linecap:round; }
 /* 尺寸标注（解剖图） */
 .anno { stroke:var(--text-3); stroke-width:1; }
 .anno-d { stroke:var(--text-3); stroke-width:1; stroke-dasharray:3 3; }
@@ -362,7 +382,7 @@ svg.entering .edge-base, svg.entering .edge-flow { animation:draw 480ms var(--ea
     </div>
     <div class="card" data-page-node-id="toBGCQKyh2VVdbz9FpZxc0">
       <h3 style="margin-top:0" data-page-node-id="38HG8m8lePBrDTQLRSJsk7">② Preset 驱动</h3>
-      <p style="color:var(--text-2);font-size:13px;margin:0" data-page-node-id="0bgWFFZ4Q42BCTvHMIkjOR">13 个场景各一行配置：布局引擎 + 参数、节点族、边族、容器族、交互等级、动效、规模上限、视口策略。前端常量，不需要 LLM 参与。</p>
+      <p style="color:var(--text-2);font-size:13px;margin:0" data-page-node-id="0bgWFFZ4Q42BCTvHMIkjOR">15 个场景各一行配置：布局引擎 + 参数、节点族、边族、容器族、交互等级、动效、规模上限、视口策略。前端常量，不需要 LLM 参与。</p>
     </div>
     <div class="card" data-page-node-id="uS9ReLapyNAr6fSbfBbGE4">
       <h3 style="margin-top:0" data-page-node-id="E9Cx5PzDCvph2MKdQdRVrK">③ 交互分级</h3>
@@ -456,7 +476,7 @@ GraphInspector.tsx    <i data-page-node-id="Th3HTb4mNufz8h6igGVPjG">// 节点/�
   <div class="tbl-scroll" data-page-node-id="7FOMvNRJ0kucq80miKvwHD"><table data-page-node-id="beDmNoOBAK1ICBPP8JVUz0">
     <thead data-page-node-id="e91tulh4Tcm170vYVcipxA"><tr data-page-node-id="7cHDPVHVIEONTom5LbMbWA"><th class="mono" data-page-node-id="eJQAF5kncHERzQ87GyNOpj">字段</th><th data-page-node-id="w8XiBbdxsdY3wbeUBdDe19">规则</th><th data-page-node-id="y5S4fYPeDNDcyWQabqC1KQ">理由</th></tr></thead>
     <tbody data-page-node-id="ttMBiLpjku1PxxYuHpmDHz">
-      <tr data-page-node-id="jGqp8ownKpEq7kDEBsFADv"><td class="mono" data-page-node-id="XRAitcQNQswaoJd7EHAQGv">kind</td><td data-page-node-id="BTnybw64UQDbdztyQDOEAf">封闭枚举 13 项，未知即拒绝</td><td data-page-node-id="rVFhCRv3158hAJlVipV29S">防止 LLM 发明场景导致 Preset 缺失</td></tr>
+      <tr data-page-node-id="jGqp8ownKpEq7kDEBsFADv"><td class="mono" data-page-node-id="XRAitcQNQswaoJd7EHAQGv">kind</td><td data-page-node-id="BTnybw64UQDbdztyQDOEAf">封闭枚举 15 项，未知即拒绝</td><td data-page-node-id="rVFhCRv3158hAJlVipV29S">防止 LLM 发明场景导致 Preset 缺失</td></tr>
       <tr data-page-node-id="f06CIN14NcOW0A5IECGGMm"><td class="mono" data-page-node-id="Aex3QWsUb9zIgX35XXBsqk">role</td><td data-page-node-id="eimoUmWVVS3fSxAvDHfXc3">封闭枚举；Preset 决定 role → shape 的映射</td><td data-page-node-id="iKKM4UkA2s5ZyLZZ7qbEmz">Agent 说「这是什么角色」，不指定长什么样</td></tr>
       <tr data-page-node-id="dcqsbR7w3pq4bMUIfDm6CP"><td class="mono" data-page-node-id="vaYGK3tsYdCex8AtvfP8XI">tone</td><td data-page-node-id="ytJM1D44aUjg5q2uagEyI6">5 档语义色名，<b data-page-node-id="Au5Zhx3smiNvUb8cDc6A5y">禁止色值</b></td><td data-page-node-id="BvXcCKrIneyGeWmiAHHn7z">主题切换与对比度由前端统一兜底</td></tr>
       <tr data-page-node-id="T6Eyh0Ep6jFbdcGW11xHb0"><td class="mono" data-page-node-id="uddWYr6rhsbRlNkBP3gGUu">lane / parent</td><td data-page-node-id="zBNrVuihdYZwTAImAatZ3s">必须指向已声明的 group / node</td><td data-page-node-id="bEa0aGlV19FAWVLSnKZZ0x">层次与泳道是结构，不能靠坐标表达</td></tr>
@@ -484,8 +504,10 @@ GraphInspector.tsx    <i data-page-node-id="Th3HTb4mNufz8h6igGVPjG">// 节点/�
       <tr data-page-node-id="5NstbDVa1eBGZx7KxYoAys"><td class="mono">org</td><td>组织架构 / 层级</td><td class="mono">compactBox TB</td><td>org-node 176×56 · 头像首字 + 职位 + 折叠角标</td><td class="mono">orth 直角折线</td><td>—</td><td><span class="tag i">L1</span></td><td>入场 + 折叠展开</td><td>150</td><td>fit</td></tr>
       <tr data-page-node-id="vJ2NcnJYsxeqrn4Q86Kqmz"><td class="mono">mindmap</td><td>思维导图</td><td class="mono">mindmap LR</td><td>map 三级形态 · 分支色走连线与竖条</td><td class="mono">curve 锥形（分支色）</td><td>—</td><td><span class="tag i">L1</span></td><td>入场 + 折叠展开</td><td>120</td><td>fit</td></tr>
       <tr data-page-node-id="LgF28w54YYU2x4zkArbC9o"><td class="mono" data-page-node-id="JVtHSU1RzLnxCz9LLniBme">topology</td><td data-page-node-id="lkzBNJIXBpBcOig6Nv7SgB">系统 / 网络拓扑</td><td class="mono" data-page-node-id="nKzsFVdSpdCYgueZOdm1fr">dagre TB + cluster</td><td data-page-node-id="QTNagsCH0V8AinBQ0xFXDd">rounded · icon</td><td class="mono" data-page-node-id="iDYO1AgEREH5BK8ccGxPYw">orth / straight</td><td data-page-node-id="xTyefbJ5bEXXqjblJDTeco">cluster（分层）</td><td data-page-node-id="pZqHAcHBNskWR5nmbDMQf5"><span class="tag i" data-page-node-id="voWcKKIPcJ6FBf9Swpankr">L1</span></td><td data-page-node-id="yfkJAf2qqZ0ZUOxQtEwmMg">入场 + 心跳脉冲</td><td data-page-node-id="3b6v0PkxUyXj9jmcAHuf9x">100</td><td data-page-node-id="FoeL2hPsH8fidcqkqgsv6G">fit</td></tr>
+      <tr><td class="mono">arch</td><td>系统架构图</td><td class="mono">dagre TB + boundary 就近</td><td>arch-node 176×52（类型图标 + 技术栈 + 徽标）</td><td class="mono">orth · 线型表关系 · legend</td><td>region / sg 重叠边界</td><td><span class="tag i">L1</span></td><td>boundary 先画 + 入场</td><td>60</td><td>fit</td></tr>
       <tr data-page-node-id="Ac3rwZw4TJEG21wMh9EpDV"><td class="mono" data-page-node-id="U5pTvXfpk0Gc956xESFOP6">er</td><td data-page-node-id="ycai8pV0ATEYCvYFIle7FM">实体关系</td><td class="mono" data-page-node-id="S4Ohx5HhQVH7iJ3m5Kug6f">force（低斥力）</td><td data-page-node-id="GgOjbIwlK03lXkOH3GyDjH">section 三段式</td><td class="mono" data-page-node-id="5i3k3378sFvcb8KmMmzJQf">straight · 基数标注</td><td data-page-node-id="WFLpQDgzQexrE2LM81FJ09">—</td><td data-page-node-id="bSZxPjYcAceoOYRQQN24Wv"><span class="tag" data-page-node-id="CS9UC2LIIDNFOl0YTP41K7">L0</span></td><td data-page-node-id="ooZJ3SZOSc0eVPA1f26DqV">入场</td><td data-page-node-id="INo14pbb923INU4sqffcJp">24</td><td data-page-node-id="um7M5EOCXCmYgDMZ8LyelH">fit</td></tr>
       <tr data-page-node-id="QRuyh9xE9znRaYnEKtPPno"><td class="mono" data-page-node-id="MeQpHg4bxAo8UmbVE2xqGA">swimlane</td><td data-page-node-id="bHCMEfINENqieJ12x2JcRB">跨职能流程</td><td class="mono" data-page-node-id="tEXHJod6fb02wTYjZLznze">dagre LR × lane</td><td data-page-node-id="tMJN6XynSZthM1NMHIA7Ni">rounded</td><td class="mono" data-page-node-id="obCcc4smSw3ahZMjZkYFaq">orth 跨 lane</td><td data-page-node-id="DLHtwKjzDIAfrRQnnm9mm6">lane（横向带）</td><td data-page-node-id="xTl6u5C8HSynoq9EHnOpO1"><span class="tag s" data-page-node-id="iDqtBP5yQE2oGmzTmCw9jS">L2</span></td><td data-page-node-id="kIg4sjS3bBKUcAmNS3Yipk">入场 + 流动</td><td data-page-node-id="q1LAWQNVngUBHU3CtbWtAP">60</td><td data-page-node-id="xvDkFuZtJ6lH21Mw15MHDF">scroll</td></tr>
+      <tr><td class="mono">sequence</td><td>异步任务往返时序</td><td class="mono">lifeline 自定义版式</td><td>archNode 参与者（顶部横排）</td><td class="mono">水平消息箭头 · 实线同步/虚线异步</td><td>—</td><td><span class="tag i">L1</span></td><td>消息按序入场</td><td>24</td><td>fit</td></tr>
       <tr data-page-node-id="eL0aEdicChiybVjbobovH3"><td class="mono">concept</td><td>知识图谱 / 关系网</td><td class="mono">force</td><td>concept-node · 圆按度定尺寸 + 类型图标 + 外置名</td><td class="mono">straight · 无箭头 · 线型表关系</td><td>—</td><td><span class="tag i">L1</span></td><td>入场 + 力导收敛动画</td><td>80</td><td>fit</td></tr>
       <tr data-page-node-id="hkX6ld6MzKL1SnjIvvq5Bl"><td class="mono" data-page-node-id="3HO4ALjZkdvPVeW14An8Ab">class</td><td data-page-node-id="wq1wvplbZarm38CSH0Pvr6">UML 类图</td><td class="mono" data-page-node-id="36Go3UA2yCboFDke42NmFV">dagre LR</td><td data-page-node-id="4eqqYvrRBAL7hpAAsGXXBV">section 三段式</td><td class="mono" data-page-node-id="015sb62HlqDChR5qAP8jRP">orth · 空心菱形</td><td data-page-node-id="Fh1weXw9HAFkXAtL31Tlrj">—</td><td data-page-node-id="5gYJkGrQfrmEqmq79TWBc4"><span class="tag" data-page-node-id="mBNRoo60BvpPRYCArCj5EJ">L0</span></td><td data-page-node-id="Dt4NQ3qbP5S4AaBADNaZzR">入场</td><td data-page-node-id="kOhjGASw24nPtFdBtaBWBe">20</td><td data-page-node-id="r38JBkdZxj6A9KpPnIdg3V">fit</td></tr>
       <tr data-page-node-id="tNWYEE2qd1NXqsNHdnAQr0"><td class="mono" data-page-node-id="4upr6060mN3G0xXOUKJMvx">fishbone</td><td data-page-node-id="cTvDnh0I8BwC6cmdIGC6EV">鱼骨 / 因果分析</td><td class="mono" data-page-node-id="i4dElw5Wai562RnhZSr2HN">自定义（脊柱 +  ribs）</td><td data-page-node-id="WnGDje1klp2VYVovY9paxQ">spine + rib 标签</td><td class="mono" data-page-node-id="gVIjQdcEBaTJfbvUJFfnVv">straight 斜肋</td><td data-page-node-id="Ss5Izsys3MQiQSouNZJt2Y">—</td><td data-page-node-id="AD88ZN1CFZsmbn25EQmWjB"><span class="tag" data-page-node-id="lna2ysu2aFfk6DMy6Pi1ss">L0</span></td><td data-page-node-id="8J2QUwGZfkU7rzlglFApTs">入场（按肋分组）</td><td data-page-node-id="gpFg7b0rj9tVqTCsWWp6dL">40</td><td data-page-node-id="EIQXGQSxY6X9VisgxW3Iqf">fit</td></tr>
@@ -497,7 +519,7 @@ GraphInspector.tsx    <i data-page-node-id="Th3HTb4mNufz8h6igGVPjG">// 节点/�
 
 <!-- ══════════════ 4 画廊 ══════════════ -->
 <section id="s4" data-page-node-id="MpT98JIrqtO50PebBzo3Mh">
-  <div class="sec-head" data-page-node-id="fWkSSSXZwBBw9dOkQnCNpQ"><span class="sec-num" data-page-node-id="gW86pEvXyPhKBV0kHeex57">04</span><h2 data-page-node-id="6xnpwx9seSmNwCDMTwuCsF">场景画廊 · 13 个真实渲染样板</h2></div>
+  <div class="sec-head" data-page-node-id="fWkSSSXZwBBw9dOkQnCNpQ"><span class="sec-num" data-page-node-id="gW86pEvXyPhKBV0kHeex57">04</span><h2 data-page-node-id="6xnpwx9seSmNwCDMTwuCsF">场景画廊 · 16 个真实渲染样板</h2></div>
   <p class="sec-desc" data-page-node-id="mme5jhedNcyuvmRD06WFVX">下面每张图都由<b data-page-node-id="Pz3qOxJuoHkJ91KUbD79pE">同一套渲染代码 + 不同 Preset</b> 生成（页面内置迷你布局引擎模拟 X6 输出）。<b data-page-node-id="0YwaoBtGswOvqMN6HIpYxZ">鼠标移到节点上</b>看关联高亮，<b data-page-node-id="J6GnjTbIAxgANt2AmFDOsY">点「流动」</b>看数据流，<b data-page-node-id="EAX4vMuJLTF1RvjmVt2AGf">点「重播」</b>看生长式入场。</p>
   <h3>4.1　DAG 自定义节点 · 对照 X6 showcase <code>dag</code> / <code>dataProcessingDag</code></h3>
   <p style="font-size:13px;color:var(--text-2)">通用矩形节点在 DAG 场景里信息密度太低——看不出「跑到哪一步」「这步是干嘛的」。X6 官方这两个 showcase 用<b>自定义富节点</b>解决：节点内嵌<b>类型图标 + 标题 + 状态徽标</b>。这里把它适配到 Divine 的设计体系。</p>
@@ -536,6 +558,13 @@ GraphInspector.tsx    <i data-page-node-id="Th3HTb4mNufz8h6igGVPjG">// 节点/�
     <p><b>① 不用 React/HTML 节点。</b>X6 这两个示例都用 <code>@antv/x6-react-shape</code> 注册组件节点（渲染进 <code>foreignObject</code>）。但 <code>foreignObject</code> 在 WKWebView 下 <code>toPNG</code> 极易失败、且样式是外联 CSS，导出即丢——<b>与「导出 PNG/SVG 是硬需求」直接冲突</b>。改用等价的纯 SVG markup，导出链路与现有节点完全一致。<br>
     <b>② 图标全部内联 path，禁止外链图片。</b>官方示例用的是 <code>gw.alipayobjects.com</code> 外链图。我们是本地优先 + 隐私可控，外链既泄隐私又会在导出后失效。<br>
     <b>③ 砍掉编辑器交互。</b>官方示例的「+ 添加下游节点」下拉菜单、节点「更多操作」菜单、antd Tooltip / Dropdown 都是 L3 画布编辑器能力，首期不做（见 §6）。</p>
+  </div>
+
+  <h3>4.3　系统架构图 · arch-node / boundaries / legend</h3>
+  <p style="font-size:13px;color:var(--text-2)">架构图是第 14 个 kind（<code>arch</code>）。三块能力：<b>arch-node</b>（类型图标瓦片 + 名称 + 技术栈副行 + 徽标，176×52）、<b>boundaries</b>（region / security-group 平面列表，<b>按面积降序重叠绘制</b>——大框套小框即嵌套视觉，不做递归分组）、<b>legend</b>（实体类型图标 + 边线型图例区画在画布底部，随 toSVG 导出带走）。画廊中的样例即典型三层 Web 栈：边缘交付 → 安全组内的网关与服务 → 缓存 / 主库 / 队列 / 后台任务。</p>
+  <div class="callout warn" style="margin-top:8px">
+    <div class="k">三个边界约束</div>
+    <p><b>① 禁绝对坐标。</b>布局交给引擎（boundary 就近约束是否可用 compound 布局进 P0 验证，退路是分区域布局后拼接）；<b>② 包裹深度 ≤ 2</b>（region 内套 security-group 即到顶，校验拒绝更深嵌套）；<b>③ type 六类封闭枚举</b> external / security / cloud / backend / database / messagebus，图标全部内联 path、禁止 URL。边线型语义：实线=同步调用 / 虚线=异步消息 / 点线=数据复制，协议文本放边 label。</p>
   </div>
 
   <h3>Preset / IR 侧的变化</h3>
@@ -626,7 +655,7 @@ GraphInspector.tsx    <i data-page-node-id="Th3HTb4mNufz8h6igGVPjG">// 节点/�
 <!-- ══════════════ 5 通用设计层 ══════════════ -->
 <section id="s5" data-page-node-id="SpwqYEUtHK3Mx0tXwvgfbs">
   <div class="sec-head" data-page-node-id="N3IHUI80BT8mlXVf4qn3ex"><span class="sec-num" data-page-node-id="WGNgd01bACiIVbt0EeiTOY">05</span><h2 data-page-node-id="ED1XWdEuCRcOFRO4OQNCmG">通用设计层（跨场景同源）</h2></div>
-  <p class="sec-desc" data-page-node-id="CHVJuPDbx7waiJAf2RBDJy">场景可以千变万化，但这四层必须全局一致——否则 13 个场景就是 13 套视觉，比现在的 2 套渲染体系更糟。</p>
+  <p class="sec-desc" data-page-node-id="CHVJuPDbx7waiJAf2RBDJy">场景可以千变万化，但这四层必须全局一致——否则 15 个场景就是 15 套视觉，比现在的 2 套渲染体系更糟。</p>
 
   <div class="grid2" data-page-node-id="vdQnOQcyt4J9eHIpUONsgx">
     <div class="card" data-page-node-id="F8rWsYHMqboyjMMOkPCEnn">
@@ -774,7 +803,7 @@ const SIZES = {
   dagNode:[188,40], dpNode:[212,48],
   stateNode:[152,44], statePseudo:[30,30],
   orgNode:[176,56], mapRoot:[140,46], mapBranch:[118,34], mapLeaf:[96,26],
-  conceptNode:[44,44]
+  conceptNode:[44,44], archNode:[176,52]
 };
 
 /* ---- 内联图标（16×16 坐标系，中心 0,0）----
@@ -805,6 +834,15 @@ const CONCEPT_ICONS = {
   data:    'M-5 -4.6 A5 2.4 0 0 1 5 -4.6 V4.6 A5 2.4 0 0 1 -5 4.6 Z M-5 -4.6 A5 2.4 0 0 0 5 -4.6 M-5 0 A5 2.4 0 0 0 5 0',
   process: 'M0 -5.5 A5.5 5.5 0 1 0 0 5.5 A5.5 5.5 0 1 0 0 -5.5 M0 -2.2 A2.2 2.2 0 1 0 0 2.2 A2.2 2.2 0 1 0 0 -2.2',
   concept: 'M-3.6 0.8 A3.8 3.8 0 1 1 3.6 0.8 M-2.6 0.8 H2.6 M-2.2 3.6 H2.2 M-1.8 6 H1.8'
+};
+/* ---- 架构图实体类型图标（16×16 坐标系，中心 0,0）---- */
+const ARCH_ICONS = {
+  external:   'M-7 -5 H7 V4 H-7 Z M0 4 V6.5 M-3.5 6.5 H3.5',
+  security:   'M0 -6.5 L5.5 -4.5 V0.5 C5.5 4 3 6 0 7 C-3 6 -5.5 4 -5.5 0.5 V-4.5 Z M0 -3 V1.5 M0 3 V3.2',
+  cloud:      'M-4.5 4 H4 A3.5 3.5 0 0 0 4 -3 A5 5 0 0 0 -5.5 -1.5 A3.2 3.2 0 0 0 -4.5 4 Z',
+  backend:    'M-5.5 -3 L0 -6 L5.5 -3 V3 L0 6 L-5.5 3 Z M-5.5 -3 L0 0 L5.5 -3 M0 0 V6',
+  database:   'M-5 -4.2 A5 2.3 0 0 1 5 -4.2 V4.2 A5 2.3 0 0 1 -5 4.2 Z M-5 -4.2 A5 2.3 0 0 0 5 -4.2 M-5 0 A5 2.3 0 0 0 5 0',
+  messagebus: 'M-6 -4.5 H6 V3.5 H-6 Z M-6 -4.5 L0 0.5 L6 -4.5'
 };
 /* ---- 状态徽标（14×14 坐标系）---- */
 function statusSVG(state){
@@ -1015,7 +1053,21 @@ function timelineLayout(spec){
   return {pos,S,axis:true};
 }
 
-const LAYOUT={layered,tree:treeLayout,mindmap:mindmapLayout,force:forceLayout,swimlane:swimlaneLayout,fishbone:fishboneLayout,timeline:timelineLayout};
+/* ---------- 布局 8：时序（生命线） ---------- */
+function sequenceLayout(spec){
+  const nodes=spec.nodes, S=sizeMap(nodes);
+  const colW=spec.colW||190;
+  const topY=50;
+  const pos={};
+  nodes.forEach((nd,i)=>{ pos[nd.id]={x:i*colW+S[nd.id].w/2, y:topY}; });
+  const count=(spec.edges||[]).length;
+  const rowH=spec.rowH||44;
+  const firstY=topY + 50;
+  const extBottom= firstY - topY + Math.max(0,count-1)*rowH + 26;
+  return {pos, S, seq:{rowH, firstY, count, extBottom}};
+}
+
+const LAYOUT={layered,tree:treeLayout,mindmap:mindmapLayout,force:forceLayout,swimlane:swimlaneLayout,fishbone:fishboneLayout,timeline:timelineLayout,sequence:sequenceLayout};
 
 /* ---------- 几何 ---------- */
 function anchor(from,to,w,h,shape){
@@ -1061,7 +1113,7 @@ function textW(t, fs){ let w=0; for(const ch of String(t)) w+=cw(ch,fs); return 
 function nodeSVG(n,x,y,w,h){
   const t=n.shape||'rounded';
   const tone=n.tone || STATE_TONE[n.state] || 'neutral';
-  let g=`<g class="node tone-${tone}" data-node="${n.id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">`;
+  let g=`<g class="node tone-${tone}${n._ci!=null?' cat-'+n._ci:''}" data-node="${n.id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">`;
   const body=(d)=>`<path class="n-body" d="${d}"/><path class="n-tint" d="${d}"/>`;
   if(t==='circle'){
     g+=`<ellipse class="n-body" cx="0" cy="0" rx="${w/2}" ry="${h/2}"/><ellipse class="n-tint" cx="0" cy="0" rx="${w/2}" ry="${h/2}"/>`;
@@ -1154,6 +1206,18 @@ function nodeSVG(n,x,y,w,h){
     const tw=textW(n.label||'', 11.5);
     g+=`<text class="map-leaf-tx" x="${-w/2}" y="${-h/2+11}">${esc(n.label||'')}</text>`;
     g+=`<line class="map-leaf-bar bc-${n.bc??0}" x1="${-w/2}" y1="${-h/2+16.5}" x2="${-w/2+Math.min(tw,w)}" y2="${-h/2+16.5}"/>`;
+  } else if(t==='archNode'){
+    /* 架构图节点：类型图标瓦片 + 名称 + 技术栈副行 + 可选徽标 */
+    g+=`<rect class="n-body" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="10"/>`;
+    g+=`<rect class="n-tint" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="10"/>`;
+    const ax=-w/2+9;
+    g+=`<rect class="dp-tile" x="${ax}" y="${-h/2+9}" width="34" height="34" rx="9"/>`;
+    if(n.type && ARCH_ICONS[n.type]) g+=`<g transform="translate(${ax+17},0)"><path class="arch-icon" d="${ARCH_ICONS[n.type]}"/></g>`;
+    const tx=ax+44;
+    const lw=w/2-tx-14-(n.tag?58:0);
+    g+=`<text class="n-label" x="${tx}" y="${n.sublabel?-1.5:4}">${esc(ellipsis(n.label||'', lw, 12.5))}</text>`;
+    if(n.sublabel) g+=`<text class="n-sub" x="${tx}" y="15">${esc(ellipsis(n.sublabel, lw, 10.5))}</text>`;
+    if(n.tag) g+=`<text class="arch-tag" x="${w/2-12}" y="${-h/2+15}">${esc(n.tag)}</text>`;
   } else if(t==='conceptNode'){
     /* 知识图谱：圆（尺寸=度，36–56）+ 圆内类型图标 + 圆外全名；hub（≥52）名称加粗 */
     const r=w/2;
@@ -1180,18 +1244,31 @@ function nodeSVG(n,x,y,w,h){
 }
 
 /* ---------- 主渲染 ---------- */
+function assignCategories(spec){
+  const map={}; let n=0;
+  spec.nodes.forEach(nd=>{
+    if(nd.category==null){ nd._ci=null; return; }
+    if(map[nd.category]==null){ map[nd.category]= n<5 ? n++ : -1; }
+    nd._ci=map[nd.category]<0? null : map[nd.category];
+  });
+  spec._cats=Object.keys(map).map(k=>({name:k, idx:map[k], count:spec.nodes.filter(x=>x.category===k).length}))
+    .filter(c=>c.idx>=0);
+}
 function buildSVG(spec){
+  assignCategories(spec);
   const [lname, larg]=(spec.layout||'layered').split(':');
   const L=(LAYOUT[lname]||LAYOUT.layered)(spec, larg);
   const {pos,S}=L;
+  const SEQ = lname==='sequence' ? (L.seq||{rowH:44,firstY:100,count:0}) : null;
   const drawNodes = spec.nodes.filter(n=>(n.shape||'rounded')!=='text');
   let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
   drawNodes.forEach(n=>{ const p=pos[n.id], s=S[n.id]; const ext=n.shape==='conceptNode'?17:0;
     minX=Math.min(minX,p.x-s.w/2); maxX=Math.max(maxX,p.x+s.w/2);
     minY=Math.min(minY,p.y-s.h/2); maxY=Math.max(maxY,p.y+s.h/2+ext); });
+  if(lname==='sequence' && L.seq) maxY += L.seq.extBottom;
   (L.ribInfo||[]).forEach(r=>{ (r.items||[]).forEach(it=>{ const p=pos[it.id]; if(p){ minX=Math.min(minX,p.x-70); maxX=Math.max(maxX,p.x+70); minY=Math.min(minY,p.y-10); maxY=Math.max(maxY,p.y+10);} }); });
   const pad=34;
-  const W=(maxX-minX)+pad*2, H=(maxY-minY)+pad*2;
+  const W=(maxX-minX)+pad*2, H=(maxY-minY)+pad*2+(spec.legend?54:0);
   const ox=pad-minX, oy=pad-minY;
   const P=id=>({x:pos[id].x+ox, y:pos[id].y+oy});
   const byId={}; drawNodes.forEach(n=>byId[n.id]=n);
@@ -1207,23 +1284,40 @@ function buildSVG(spec){
   if(lname==='swimlane'){
     const lanes=L.lanes||[], laneH=L.laneH||124;
     const left=0, right=W;
+    const frame = spec.laneStyle==='frame';
     lanes.forEach((ln,i)=>{
-      pre+=`<g class="lane"><rect class="ln-bg" x="${left}" y="${i*laneH+oy}" width="${W}" height="${laneH}" rx="8"/>`;
-      pre+=`<text x="${left+12}" y="${i*laneH+oy+18}">${esc(ln.label)}</text>`;
-      if(i) pre+=`<line class="ln-sep" x1="${left}" y1="${i*laneH+oy}" x2="${right}" y2="${i*laneH+oy}"/>`;
-      pre+=`</g>`;
+      if(frame){
+        pre+=`<g class="lane lane-frame"><rect class="ln-frame" x="${left+6}" y="${i*laneH+oy+5}" width="${W-12}" height="${laneH-10}" rx="12"/>`;
+        pre+=`<text class="ln-title" x="${left+22}" y="${i*laneH+oy+26}">${esc(ln.label)}</text>`;
+        pre+=`</g>`;
+      } else {
+        pre+=`<g class="lane"><rect class="ln-bg" x="${left}" y="${i*laneH+oy}" width="${W}" height="${laneH}" rx="8"/>`;
+        pre+=`<text x="${left+12}" y="${i*laneH+oy+18}">${esc(ln.label)}</text>`;
+        if(i) pre+=`<line class="ln-sep" x1="${left}" y1="${i*laneH+oy}" x2="${right}" y2="${i*laneH+oy}"/>`;
+        pre+=`</g>`;
+      }
     });
   }
-  /* 集群包围盒 */
-  (spec.groups||[]).forEach(gp=>{
+  /* 时序生命线 */
+  if(lname==='sequence'){
+    drawNodes.forEach(n=>{ const p=P(n.id);
+      pre+=`<line class="lifeline" x1="${p.x.toFixed(1)}" y1="${(p.y+S[n.id].h/2+6).toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${(oy+maxY-16).toFixed(1)}"/>`;
+    });
+  }
+  /* 集群 / 边界包围盒：按面积降序绘制（大框在底层，小框叠上 → 重叠即嵌套视觉） */
+  (spec.groups||[]).slice()
+    .sort((a,b)=>((b.members||[]).length)-((a.members||[]).length))
+    .forEach(gp=>{
     const ids=(gp.members||[]).filter(id=>pos[id]);
     if(!ids.length) return;
     let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
     ids.forEach(id=>{ const p=P(id), s=S[id];
       x1=Math.min(x1,p.x-s.w/2); x2=Math.max(x2,p.x+s.w/2);
       y1=Math.min(y1,p.y-s.h/2); y2=Math.max(y2,p.y+s.h/2); });
-    const pd=16;
-    pre+=`<g class="cluster"><rect x="${x1-pd}" y="${y1-pd}" width="${(x2-x1)+pd*2}" height="${(y2-y1)+pd*2}" rx="12"/>`;
+    const kind=gp.type||'cluster';
+    const pd= kind==='region' ? 22 : kind==='security-group' ? 12 : 16;
+    const cls= kind==='security-group' ? 'cluster sg' : 'cluster';
+    pre+=`<g class="${cls}"><rect x="${(x1-pd).toFixed(1)}" y="${(y1-pd).toFixed(1)}" width="${((x2-x1)+pd*2).toFixed(1)}" height="${((y2-y1)+pd*2).toFixed(1)}" rx="${kind==='region'?14:kind==='security-group'?10:12}"/>`;
     pre+=`<text x="${x1-pd+10}" y="${y1-pd-6}">${esc(gp.label)}</text></g>`;
   });
   /* 鱼骨脊柱 */
@@ -1257,14 +1351,18 @@ function buildSVG(spec){
     const pa=P(e.s), pb=P(e.t);
     const tone=e.tone||'neutral';
     let d;
-    if(e.s===e.t){ d=selfLoop(pa, S[e.s].w, S[e.s].h); }
+    if(lname==='sequence'){
+      const y=SEQ.firstY + i*SEQ.rowH;
+      d=`M${pa.x.toFixed(1)},${y.toFixed(1)} H${pb.x.toFixed(1)}`;
+    }
+    else if(e.s===e.t){ d=selfLoop(pa, S[e.s].w, S[e.s].h); }
     else {
       const A=anchor(pa,pb,S[e.s].w,S[e.s].h,a.shape), B=anchor(pb,pa,S[e.t].w,S[e.t].h,b.shape);
       if(spec.edgeStyle==='curve') d=pathCurve(A,B);
       else if(spec.edgeStyle==='straight') d=`M${A.x},${A.y} L${B.x},${B.y}`;
       else d=pathOrth(A,B,spec.orthDir||'LR');
     }
-    const mk = spec.noArrow ? '' : ` marker-end="url(#ar-${tone==='neutral'?'info':tone}-${spec.kind})"`;
+    const mk = spec.noArrow ? '' : ` marker-end="url(#ar-${tone}-${spec.kind})"`;
     const flowTone = e.flow ? (e.flow.tone||'info') : null;
     const spd = e.flow ? String(e.flow.speed||1).replace('.','-') : '';
     edges+=`<path class="edge-base ${e.style||''} ${e.bc!=null?'bc-'+e.bc:''} ${tone!=='neutral'?'tone-'+tone:''}" d="${d}"${mk} data-edge="${i}" data-s="${e.s}" data-t="${e.t}"/>`;
@@ -1278,8 +1376,9 @@ function buildSVG(spec){
       const gm=String(e.label).match(/^(.*?)\s*\[([^\]]*)\]\s*$/);
       const plain=gm?gm[1]:String(e.label), guard=gm?gm[2]:'';
       const tw=textW(plain,10.5)+(guard?textW('['+guard+']',9.5)+5:0)+10;
-      edges+=`<rect class="elabel-bg" x="${m.x-tw/2}" y="${m.y-9}" width="${tw}" height="16" rx="4"/>`;
-      edges+=`<text class="elabel" text-anchor="middle" x="${m.x}" y="${m.y+2}" data-edge="${i}" data-s="${e.s}" data-t="${e.t}">${
+      const lyOff = lname==='sequence' ? -13 : 0;
+      edges+=`<rect class="elabel-bg" x="${m.x-tw/2}" y="${m.y-9+lyOff}" width="${tw}" height="16" rx="4"/>`;
+      edges+=`<text class="elabel" text-anchor="middle" x="${m.x}" y="${m.y+2+lyOff}" data-edge="${i}" data-s="${e.s}" data-t="${e.t}">${
         guard ? `<tspan>${esc(plain)}</tspan><tspan class="elabel-guard"> [${esc(guard)}]</tspan>`
               : esc(plain)
       }</text>`;
@@ -1300,7 +1399,40 @@ function buildSVG(spec){
     nodes+=nodeSVG(n,p.x,p.y,S[n.id].w,S[n.id].h);
   });
 
-  const svg=`<svg viewBox="0 0 ${W.toFixed(0)} ${H.toFixed(0)}" style="max-width:${Math.round(W*1.15)}px" role="img" aria-label="${esc(spec.name)}示意图">${defs}${pre}${edges}${nodes}</svg>`;
+  let legend='';
+  if(spec.legend){
+    const ly=oy+maxY+26;
+    let lg=`<g class="legend"><text class="lg-title" x="${(ox+minX).toFixed(1)}" y="${ly.toFixed(1)}">图例</text>`;
+    let ix=ox+minX+42;
+    if(spec._cats && spec._cats.length){
+      /* Archify 式胶囊图例：类别色块 + 类别名 + 计数 */
+      spec._cats.forEach(c=>{
+        const nameW=textW(c.name,10)+6+textW('×'+c.count,9.5);
+        const cw=30+nameW;
+        lg+=`<g class="lg-chip"><rect x="${ix.toFixed(1)}" y="${(ly-11).toFixed(1)}" width="${cw.toFixed(1)}" height="20" rx="10" style="stroke:var(--bc-${c.idx})"/>`;
+        lg+=`<circle cx="${(ix+14).toFixed(1)}" cy="${(ly-1).toFixed(1)}" r="3.5" class="cat-dot" style="fill:var(--bc-${c.idx})"/>`;
+        lg+=`<text class="lg-item" x="${(ix+22).toFixed(1)}" y="${(ly+3).toFixed(1)}">${esc(c.name)}</text>`;
+        lg+=`<text class="lg-item" x="${(ix+22+textW(c.name,10)+6).toFixed(1)}" y="${(ly+3).toFixed(1)}" style="opacity:.7">×${c.count}</text></g>`;
+        ix+=cw+10;
+      });
+    } else {
+      Object.keys(ARCH_ICONS).forEach(k=>{
+        lg+=`<g transform="translate(${ix.toFixed(1)},${(ly-3.5).toFixed(1)})"><path class="arch-icon" d="${ARCH_ICONS[k]}"/></g>`;
+        lg+=`<text class="lg-item" x="${(ix+11).toFixed(1)}" y="${ly.toFixed(1)}">${k}</text>`;
+        ix+=11+textW(k,10)+20;
+      });
+    }
+    const ly2=ly+19;
+    let lx2=ox+minX+42;
+    [['','同步调用'],['dashed','异步消息'],['dotted','数据复制']].forEach(([cls,name])=>{
+      lg+=`<line class="lg-line ${cls}" x1="${lx2.toFixed(1)}" y1="${(ly2-3.5).toFixed(1)}" x2="${(lx2+24).toFixed(1)}" y2="${(ly2-3.5).toFixed(1)}" marker-end="url(#ar-neutral-${spec.kind})"/>`;
+      lg+=`<text class="lg-item" x="${(lx2+36).toFixed(1)}" y="${ly2.toFixed(1)}">${name}</text>`;
+      lx2+=36+textW(name,10)+26;
+    });
+    lg+='</g>';
+    legend=lg;
+  }
+  const svg=`<svg viewBox="0 0 ${W.toFixed(0)} ${H.toFixed(0)}" style="max-width:${Math.round(W*1.15)}px" role="img" aria-label="${esc(spec.name)}示意图">${defs}${pre}${edges}${nodes}${legend}</svg>`;
   return svg;
 }
 
@@ -1457,6 +1589,100 @@ const SCENES=[
   {id:'g2',label:'应用层',members:['user','order','pay']},
   {id:'g3',label:'数据层',members:['mysql','redis','mq']}
  ]
+},
+{
+ kind:'arch', name:'系统架构图', ask:'「画一下我们 Web 服务的部署架构」',
+ layout:'layered:TB', edgeStyle:'orth', orthDir:'TB',
+ meta:['dagre TB + boundary 就近','arch-node 图标+技术栈+徽标','orth · 线型表关系 · legend','L1','boundary 先画 + 入场','≤ 60'],
+ nodes:[
+  {id:'users',label:'用户',shape:'archNode',sublabel:'Browser / Mobile',type:'external'},
+  {id:'auth',label:'认证服务',shape:'archNode',sublabel:'OAuth 2.0',type:'security',tag:'JWT + PKCE'},
+  {id:'cdn',label:'CDN',shape:'archNode',sublabel:'CloudFront',type:'cloud'},
+  {id:'s3',label:'静态资源',shape:'archNode',sublabel:'S3',type:'cloud',tag:'OAI'},
+  {id:'lb',label:'负载均衡',shape:'archNode',sublabel:'ALB :443',type:'cloud'},
+  {id:'api',label:'API 服务',shape:'archNode',sublabel:'FastAPI :8000',type:'backend'},
+  {id:'cache',label:'缓存',shape:'archNode',sublabel:'Redis',type:'database'},
+  {id:'db',label:'主库',shape:'archNode',sublabel:'PostgreSQL',type:'database'},
+  {id:'queue',label:'任务队列',shape:'archNode',sublabel:'SQS',type:'messagebus'},
+  {id:'worker',label:'后台任务',shape:'archNode',sublabel:'Worker',type:'backend'}
+ ],
+ edges:[
+  {s:'users',t:'cdn',label:'HTTPS'},
+  {s:'users',t:'auth'},
+  {s:'cdn',t:'s3',label:'回源',style:'dotted'},
+  {s:'cdn',t:'lb'},
+  {s:'lb',t:'api',label:'HTTPS'},
+  {s:'api',t:'auth',label:'verify JWT',style:'dashed'},
+  {s:'api',t:'cache',label:'read-through',style:'dotted'},
+  {s:'api',t:'db',label:'SQL'},
+  {s:'api',t:'queue',label:'enqueue',style:'dashed'},
+  {s:'queue',t:'worker',style:'dashed'},
+  {s:'worker',t:'db',label:'SQL',style:'dashed'}
+ ],
+ groups:[
+  {id:'region',label:'AWS Region · us-west-2',type:'region',members:['cdn','lb','api','cache','db','s3','queue','worker']},
+  {id:'sg',label:'sg-api :443/:8000',shape:'archNode',type:'security-group',members:['lb','api']}
+ ],
+ legend:true
+},
+{
+ kind:'swimlane', name:'Agent 工具调用工作流', ask:'「画一下 Agent 处理一次请求的完整链路」',
+ layout:'swimlane', edgeStyle:'orth', laneH:124, laneStyle:'frame',
+ meta:['dagre LR × lane','archNode 类别色 + 图标 + tone','orth · 主路径流动 · 线型','L2','主路径 antline + 入场','≤ 60'],
+ lanes:[
+  {id:'u',label:'01 · 用户交互'},{id:'r',label:'02 · Agent 运行时'},
+  {id:'p',label:'EX · 策略与恢复'},{id:'t',label:'03 · 工具执行与证据'}
+ ],
+ nodes:[
+  {id:'user',label:'用户',shape:'archNode',type:'external',category:'用户界面',sublabel:'发起请求',lane:'u'},
+  {id:'chat',label:'对话界面',shape:'archNode',type:'external',category:'用户界面',sublabel:'线程 + 文件',lane:'u'},
+  {id:'reply',label:'最终回复',shape:'archNode',type:'backend',category:'用户界面',sublabel:'答复 + 变更',lane:'u',tone:'success'},
+  {id:'planner',label:'规划器',shape:'archNode',type:'backend',category:'Agent 逻辑',sublabel:'决定下一步',lane:'r'},
+  {id:'router',label:'工具路由',shape:'archNode',type:'backend',category:'Agent 逻辑',sublabel:'选择能力',lane:'r'},
+  {id:'gate',label:'审批门',shape:'archNode',type:'security',category:'策略恢复',sublabel:'范围 + 内容',lane:'p',tone:'warning'},
+  {id:'blocked',label:'已拦截',shape:'archNode',type:'security',category:'策略恢复',sublabel:'等待或拒绝',lane:'p',tone:'error'},
+  {id:'retry',label:'重试路径',shape:'archNode',type:'backend',category:'策略恢复',sublabel:'修订后重新发起',lane:'p'},
+  {id:'trace',label:'轨迹日志',shape:'archNode',type:'database',category:'证据记录',sublabel:'事件 + 输出',lane:'t'},
+  {id:'tool',label:'工具调用',shape:'archNode',type:'backend',category:'工具执行',sublabel:'shell / 浏览器 / MCP',lane:'t'},
+  {id:'api',label:'外部 API',shape:'archNode',type:'cloud',category:'工具执行',sublabel:'网络服务',lane:'t'}
+ ],
+ edges:[
+  {s:'chat',t:'planner',label:'计划',flow:{speed:1}},
+  {s:'planner',t:'router',flow:{speed:1}},
+  {s:'router',t:'gate',label:'需审批'},
+  {s:'gate',t:'tool',label:'放行',flow:{speed:1}},
+  {s:'gate',t:'blocked',label:'拦截',style:'dashed'},
+  {s:'blocked',t:'retry',style:'dashed'},
+  {s:'tool',t:'api',label:'调用',flow:{speed:1}},
+  {s:'tool',t:'trace',label:'记录',style:'dotted'},
+  {s:'api',t:'reply',label:'结果',flow:{speed:1}},
+  {s:'trace',t:'reply',label:'证据',style:'dotted'}
+ ],
+ legend:true
+},
+{
+ kind:'sequence', name:'异步任务往返时序', ask:'「画一下异步任务的完整往返：提交、确认、执行、回调、轮询」',
+ layout:'sequence', edgeStyle:'orth', colW:186, rowH:44,
+ meta:['lifeline 自定义版式','archNode 参与者','水平消息箭头 · 实线同步/虚线异步','L1','消息按序入场','≤ 24'],
+ nodes:[
+  {id:'client',label:'客户端',shape:'archNode',type:'external',sublabel:'提交 / 轮询'},
+  {id:'api',label:'API 服务',shape:'archNode',type:'backend',sublabel:':8000'},
+  {id:'queue',label:'任务队列',shape:'archNode',type:'messagebus',sublabel:'持久化'},
+  {id:'worker',label:'后台任务',shape:'archNode',type:'backend',sublabel:'重试 ×3'},
+  {id:'store',label:'终态存储',shape:'archNode',type:'database',sublabel:'结果 + 状态'},
+  {id:'hook',label:'回调方',shape:'archNode',type:'cloud',sublabel:'webhook'}
+ ],
+ edges:[
+  {s:'client',t:'api',label:'提交任务'},
+  {s:'api',t:'client',label:'202 已受理',style:'dashed'},
+  {s:'api',t:'queue',label:'enqueue',style:'dashed'},
+  {s:'queue',t:'worker',label:'投递'},
+  {s:'worker',t:'store',label:'写结果'},
+  {s:'worker',t:'hook',label:'webhook',style:'dashed'},
+  {s:'client',t:'api',label:'轮询状态',style:'dashed'},
+  {s:'api',t:'client',label:'返回结果',style:'dashed'}
+ ],
+ legend:true
 },
 {
  kind:'er', name:'实体关系 ER', ask:'「订单系统的表关系是怎样的」',

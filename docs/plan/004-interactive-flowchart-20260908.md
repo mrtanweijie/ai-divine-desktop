@@ -8,7 +8,7 @@
 
 现状：图形能力 = Agent 在正文输出 ```mermaid 代码块 → 前端 `MermaidBlock.tsx` 静态渲染；导出走 `mermaid_export` 存 `.mmd`。无交互动画、无数据流向指示，且只有流程图一种。
 
-目标：新增一条与 Mermaid 并存的交互式图形链路——Agent 输出声明式 GraphIR → 前端按 ScenarioPreset 确定性渲染（AntV X6 3.x）。**范围从单一流程图扩展为 13 类「节点 + 边」图**（flow / dag / dataflow / state / org / mindmap / topology / er / swimlane / concept / class / fishbone / timeline），支持：
+目标：新增一条与 Mermaid 并存的交互式图形链路——Agent 输出声明式 GraphIR → 前端按 ScenarioPreset 确定性渲染（AntV X6 3.x）。**范围覆盖 15 类「节点 + 边」图**（flow / dag / dataflow / state / org / mindmap / topology / arch / er / swimlane / sequence / concept / class / fishbone / timeline），支持：
 
 - 数据流向动画（antline / pulse；particles 降为观察项）
 - 生成过程中的"生长式"呈现（真流式增量渲染）
@@ -21,19 +21,21 @@
 ## 关键设计决策
 
 1. **GraphIR + 工具 `render_graph`**。IR 只含 `kind` + `role` + 拓扑与语义意图，不含任何视觉形态——布局、节点形态、路由、交互等级、动效全部在前端 **ScenarioPreset** 常量表。加场景 = Preset 表加一行，不改 schema、不改后端、不改渲染器。
-2. **`kind` 封闭枚举 13 项**。校验失败**不静默 fallback 到 `flow`**——静默降级会把错误形态固化成正确结果，Agent 永远学不会选对场景。结构化报错让 Agent 自纠。
-3. **布局引擎用 `@antv/layout`**。一套库覆盖 9/13 场景（dagre / antv-dagre / force / compactBox / mindmap）；fishbone / timeline 无通用算法，各写一个自定义布局函数。
-4. **节点上限按场景分档**（flow 80 / dag 120 / dataflow 80 / state 40 / org 150 / mindmap 120 / topology 100 / er 24 / swimlane 60 / concept 80 / class 20 / fishbone 40 / timeline 30），仍以 P0 实测帧率拐点为准修正。
-5. **新增交互分级 L0–L3 + 插件按需加载**：L0 核心包（er/class/fishbone/timeline）→ L1 +Scroller/Minimap（org/mindmap/topology/concept）→ L2 +Selection/History（flow/dag/dataflow/state/swimlane）。**L3 在线编排（拖拽建边、编辑标签、撤销重做）首期不做**——与「AI 直接产出可用结果」的定位冲突。
+2. **`kind` 封闭枚举 15 项**。校验失败**不静默 fallback 到 `flow`**——静默降级会把错误形态固化成正确结果，Agent 永远学不会选对场景。结构化报错让 Agent 自纠。
+3. **布局引擎用 `@antv/layout`**。一套库覆盖 10/15 场景（dagre / antv-dagre / force / compactBox / mindmap）；fishbone / timeline / sequence 无通用算法，各写一个自定义布局函数（sequence 为生命线版式）。
+4. **节点上限按场景分档**（flow 80 / dag 120 / dataflow 80 / state 40 / org 150 / mindmap 120 / topology 100 / er 24 / swimlane 60 / concept 80 / class 20 / fishbone 40 / timeline 30 / arch 60 / sequence 24），仍以 P0 实测帧率拐点为准修正。
+5. **新增交互分级 L0–L3 + 插件按需加载**：L0 核心包（er/class/fishbone/timeline）→ L1 +Scroller/Minimap（org/mindmap/topology/concept/arch/sequence）→ L2 +Selection/History（flow/dag/dataflow/state/swimlane）。**L3 在线编排（拖拽建边、编辑标签、撤销重做）首期不做**——与「AI 直接产出可用结果」的定位冲突。
 6. **富节点用纯 SVG markup，禁用 `@antv/x6-react-shape` 与一切 HTML 节点**。React 节点渲染进 `foreignObject`：WKWebView 下 `toPNG` 极易失败、样式是外联 CSS 导出即丢——与「导出 PNG/SVG 是硬需求」直接冲突（P0 清单第 11 条保留反证通道）。
 7. **DAG 场景分为 `dag`（任务编排）与 `dataflow`（数据加工）两个 kind**，各用自定义富节点（dag-node 188×40 / dp-node 212×48，图标 + 标题 + 状态徽标）。图标全部内联 path 白名单，**禁止 URL / 外链图片**（本地优先 + 导出后外链失效）。
 8. **四类通用矩形撑不住的场景富节点化**：state（UML 状态框 + 伪状态 initial/final/choice + active 脉冲，全图最多 1 个）、org（头像首字 + 职位 + 折叠角标）、mindmap（三级形态 + 分支色）、concept（圆按度定尺寸 + 类型图标 + 名称外置 + 边线型表关系）。规格见 020 §5.5 / §5.6。
 9. **tone 收敛**：`neutral ≡ info` 不上色——只有 `success / warning / error` 上语义色且底色仅 8% 微染，info 的蓝只出现在流动线上。默认态是干净的黑白图。dark 档 `info = #61A7D0`（不复用图表色 `#036EAD`，暗底 1px 描边不可见），色值放独立 `graphTones.ts`，**不复用 `chartOptions.ts` 常量**。
 10. **双层边**：静态底线（中性色、常驻）讲拓扑 + 流动层（tone 色、可关）讲数据流。导出、历史回放、关动画时图都完整可读。
 11. **动效时序定稿**：节点入场 280ms + stagger 45ms；边入场 480ms（必须比节点慢，否则"线画完等节点"观感倒置）；工具条**常驻**（opacity .72→1，播放/流动是持续状态，hover 才出现判断不了当前状态）；分支色（mindmap `bc`）由**前端按分支顺序自动分配，IR 中禁止出现**。
-12. **渲染体系边界明确**：时序图 / 甘特图归 Mermaid（X6 自建生命线版式投入产出比差）；类图双轨（快速看 Mermaid、点击详情 X6）；统计图表归 ECharts；地图 / 平面图 / 电路图不做。X6 链路稳定后评估迁移"静态流程图"场景，时序/甘特永久保留 Mermaid。
-13. **"生长式"呈现分两档，形态由 P0 定**：tool 参数在 LLM 生成完整 JSON 后才到达 adapter，"后端把完整 IR 拆成事件逐个下发"在时间上无增益（等效伪流式）。真·逐节点生长需在 `core/sse.py` 消息层捕获 `tool_call_chunks` 参数增量 + 流式 JSON 解析（现有 `_consume_message` 只 drain text/reasoning，该管道需新建）——可行性列入 P0 验证（020 §10 增补第 16 条）；验证不通过则采用**回放式生长**（完整 IR 到达后按 nodes→edges 顺序节流播放入场动画）。两档共用同一前端调度器，差异仅在事件到达时机。
+12. **渲染体系边界明确**：UML 全量时序与甘特图归 Mermaid（激活条 / 分组 / 时间刻度等全量语义）；轻量消息时序（异步任务往返类）进 `sequence` kind；类图双轨（快速看 Mermaid、点击详情 X6）；统计图表归 ECharts；地图 / 平面图 / 电路图不做。X6 链路稳定后评估迁移"静态流程图"场景。
+13. **"生长式"呈现分两档，形态由 P0 定**：tool 参数在 LLM 生成完整 JSON 后才到达 adapter，"后端把完整 IR 拆成事件逐个下发"在时间上无增益（等效伪流式）。真·逐节点生长需在 `core/sse.py` 消息层捕获 `tool_call_chunks` 参数增量 + 流式 JSON 解析（现有 `_consume_message` 只 drain text/reasoning，该管道需新建）——可行性列入 P0 验证（020 §10 第 17 条）；验证不通过则采用**回放式生长**（完整 IR 到达后按 nodes→edges 顺序节流播放入场动画）。两档共用同一前端调度器，差异仅在事件到达时机。
 14. **导出为前端主导**：generate_chart 的后端 SVG 导出是纯 Python 手写渲染器（`app/docgen/chart/svg.py`），不跑 ECharts；X6 无后端等价物，后端复用导出脚本模式的类比不成立。流程图导出统一走前端 `graph.toSVG()/toPNG()` + Tauri 写文件；PDF 嵌入由前端导出文件后走既有文件引用。**不做后端 export_svg**。
+
+15. **Mermaid 优先，`render_graph` 按需升级**（两段式分流）：默认一切图形需求先输出 Mermaid 代码块（轻、快、省 token）；仅当用户要求交互 / 动画 / 导出 / 演示时，Agent 把已确认的拓扑转成 GraphIR 调 `render_graph` 重绘。工具描述里显式写「默认不要调用本工具」。
 
 ## 架构
 
@@ -54,21 +56,23 @@ Agent (LangGraph, divine-server)
   └─ GraphRenderer：X6 渲染（自定义 SVG markup 节点）+ 双层边 + 动效编排
 ```
 
-与现有链路分流（写进工具描述，对齐 `generate_chart` 的引导话术风格）：
+与现有链路分流——**Mermaid 优先，`render_graph` 按需升级**（两段式，写进工具描述）：
 
-| 需求 | 链路 |
-| --- | --- |
-| 时序图 / 甘特图 / 快速类图 / 静态流程图 | Mermaid 代码块（不动） |
-| 13 类「节点 + 边」图，需要动画 / 交互 / 演示 / 导出 | `render_graph` |
-| 数据图表 | `generate_chart`（ECharts） |
-| 地图 / 平面图 / 电路图 | **不做**，分流话术明确拒绝 |
-| C4 / 正经架构图 | 首期不做；`topology` 可近似覆盖，三增强方案见「后续演进」节 |
+| 段 | 触发 | 链路 |
+| --- | --- | --- |
+| **默认段** | 一切图形需求的第一响应 | Mermaid 代码块（静态、轻量、即时渲染） |
+| **升级段** | 用户在静态图基础上要求**动画 / 流动 / 交互 / 演示播放 / 导出 PNG·SVG**，或明确要求可交互图形 | `render_graph` 以同一拓扑重绘（GraphIR 交互版） |
+| 数据图表 | — | `generate_chart`（ECharts） |
+| 地图 / 平面图 / 电路图 | — | **不做**，分流话术明确拒绝 |
+| C4 / 正经架构图 | — | 首期不做；`topology` 可近似覆盖，见「架构图能力」节 |
+
+**升级语义**：`render_graph` 的输入不是用户的原始问题，而是「已确认的拓扑」——Agent 把刚才 Mermaid 图的内容转成 GraphIR 重绘，用户无需重新描述。工具描述判定句：「默认图形需求**不要**调用本工具（走 mermaid 代码块）；仅当用户要求交互 / 动画 / 导出 / 演示时调用」。
 
 ## GraphIR 设计
 
 ```jsonc
 {
-  "kind": "flow",                        // 唯一场景字段，13 项封闭枚举
+  "kind": "flow",                        // 唯一场景字段，15 项封闭枚举
   "meta": { "title": "订单支付链路", "summary": "…" },
   "nodes": [
     { "id": "user", "label": "提交订单",
@@ -95,7 +99,10 @@ Agent (LangGraph, divine-server)
       "flow": { "mode": "antline", "tone": "success", "speed": 1 } }
   ],
   "groups": [
-    { "id": "g1", "label": "接入层", "type": "cluster", "members": ["cdn","waf","gw"] }
+    { "id": "g1", "label": "接入层", "type": "cluster", "members": ["cdn","waf","gw"] },
+    { "id": "region", "label": "AWS Region · us-west-2", "type": "region",
+      "members": ["cdn","lb","api","cache","db"] },          // ★ arch：重叠绘制（面积降序），深度 ≤ 2
+    { "id": "sg", "label": "sg-api :443/:8000", "type": "security-group", "members": ["lb","api"] }
   ],
   "demoPath": ["user", "gateway", "pay"] // 可选：演示路径，节奏由前端编排
 }
@@ -105,7 +112,7 @@ Agent (LangGraph, divine-server)
 
 ### 后端强校验清单（完整版见 020 §3）
 
-1. `kind` ∈ 13 项枚举，未知即拒绝（**不静默 fallback**）
+1. `kind` ∈ 15 项枚举，未知即拒绝（**不静默 fallback**）
 2. `role` ∈ 枚举；`icon` ∈ 封闭枚举（8 任务图标 / 6 加工类型），禁止任何 URL
 3. `pseudo` ∈ `initial|final|choice`；`active=true` 全图最多 1 个；`type` ∈ 5 类枚举
 4. `tone` ∈ 5 项枚举，禁止色值字符串；`speed` ∈ `0.5|1|2`
@@ -150,7 +157,7 @@ Agent (LangGraph, divine-server)
 ### 后端 divine-server
 
 1. `app/tools/adapters/render_graph.py`：新 adapter，套用 `generate_chart.py` 模式。接收完整 GraphIR → 按 §校验清单强校验（失败结构化报错，不降级）→ 完整 IR 作为 tool 结果。`category = "diagrams"`。
-2. 工具描述分流话术：13 个 kind 各给一句典型问法 + 封闭枚举清单 + 分流规则（Mermaid / ECharts / render_graph / 拒绝），对齐 `generate_chart` 风格。
+2. 工具描述分流话术：**两段式判定句**（默认不要调用本工具，仅交互 / 动画 / 导出 / 演示时调用）+ 15 个 kind 各一句典型问法 + 封闭枚举清单，对齐 `generate_chart` 风格。
 3. （仅真流式形态，P0 通过后）`core/sse.py` 增量管道：tool_call_chunks 消费 + 流式 JSON 解析，仅对 render_graph 启用。
 
 ### 前端 divine-app
@@ -181,36 +188,34 @@ Agent (LangGraph, divine-server)
 
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
-| **P0** 验证 | X6 3.x 验证 demo：`animate` API 形状、边第二条 path 复用连接数据（`connection:true` 未实测）、`@antv/layout` 各引擎 WKWebView 耗时、帧率拐点、toSVG 对自定义 markup 输出、foreignObject 反证（仅当考虑 react-shape）、**`run.messages` 能否拿到 tool_call_chunks 参数增量（定"生长"形态，见决策 13）**。清单见 020 §10（含增补第 16 条），结论写回 020 | 布局引擎与动画 API 定稿，节点上限/动画池按实测定；生长形态（回放式/真流式）定稿 |
+| **P0** 验证 | X6 3.x 验证 demo：`animate` API 形状、边第二条 path 复用连接数据（`connection:true` 未实测）、`@antv/layout` 各引擎 WKWebView 耗时、帧率拐点、toSVG 对自定义 markup 输出、foreignObject 反证（仅当考虑 react-shape）、**`run.messages` 能否拿到 tool_call_chunks 参数增量（定"生长"形态，见决策 13）**。清单见 020 §10（含增补第 16–18 条），结论写回 020 | 布局引擎与动画 API 定稿，节点上限/动画池按实测定；生长形态（回放式/真流式）定稿 |
 | **P1** 骨架 | GraphIR + 白名单校验 + `render_graph` 工具 + 增量事件流 + Preset Resolver + 渲染器 + **3 个场景**（flow / dag / state） | Agent 输出 IR，聊天内出现三种正确布局的图；错误 kind 被结构化拒绝；历史回放直渲染 |
 | **P2** 动效 | 入场动效（280/480/45）+ antline/pulse + demoPath 播放 + 常驻工具条（按 capabilities）+ 导出 PNG/SVG | 生成过程逐节点生长；流动可开关；导出可嵌入 PDF |
-| **P2.5** 扩列 | 剩余 10 个场景（dataflow / org / mindmap / topology / er / swimlane / concept / class / fishbone / timeline） | 每个场景**表里加一行即生效，不改 schema 不改后端**（本条即验收） |
+| **P2.5** 扩列 | 剩余 11 个场景（dataflow / org / mindmap / topology / er / swimlane / sequence / concept / class / fishbone / timeline） | 每个场景**表里加一行即生效，不改 schema 不改后端**（本条即验收） |
 | **P3** 打磨 | hover 关联高亮 + 详情面板 + minimap + 折叠展开 + 视口外暂停 | 大图浏览流畅；长会话 CPU 无异常占用 |
 | **P4** 观察 | particles 粒子模式；CoT 面板与图生长同步；kind 自动推断 | 视 P2 效果决定 |
 
 P0–P2 达成"美观 + 交互动画 + 生长式呈现"；P2.5 场景全覆盖；P3 补全浏览与交付能力；P4 择机。
 
-## 后续演进：架构图三增强（调研结论存档，不进 P0–P3）
+## 架构图能力（P2.6，已定稿）
 
-> 现状：`topology`（cluster 分层）+ `dag` + `concept` + `er` + `swimlane` 已能覆盖服务拓扑类架构图的
-> 大部分诉求，但离"正经的架构图"（C4 / 部署图 / 分层架构）还差三个能力。以下结论来自 2026-09-08 对
-> [Archify Proof Lab](https://tt-a1i.github.io/archify/gallery.html)（MIT 开源，IR-first 同路线项目）
-> `web-app.architecture` 样本的调研，存档备查，触发真实需求时直接取用。
+> `arch` 是第 14 个 kind，三层 Web 栈样例与完整规格见 020 §4 / §5.7。设计要点：
 
-1. **嵌套分组不用递归——重叠绘制**。IR 的 `groups` 保持平面列表（`members` 不嵌套 group），渲染器按
-   包围盒面积**从大到小排序绘制**即出嵌套视觉（region 大框内套 security-group 小框）。校验只查
-   `members` 指向已声明节点。比递归 groups 更轻，schema 零改动。
-2. **架构节点三信息位**。`topology` 富节点化时补：`sublabel`（技术栈/端口，如 `FastAPI :8000`）+
-   `tag`（可选徽标，如 `OAI protected`）+ `type` 六类架构角色封闭枚举
-   （`external | security | cloud | backend | database | messagebus`，决定圆内图标）。
-   复用 dag-node 的三层 markup，配色逻辑不变。
-3. **`cards` 图例通道**。Preset 声明线型/色点语义（实线=同步调用 / 虚线=异步消息 / 点线=数据复制），
-   渲染器在画布角落自动生成图例区，导出随 SVG 带走。IR 侧仅允许引用 Preset 已声明的语义名。
+1. **嵌套分组不用递归——重叠绘制**。IR 的 `groups` 保持平面列表（`members` 不嵌套 group），
+   渲染器按包围盒面积**从大到小排序绘制**即出嵌套视觉（region 大框内套 security-group 小框）。
+   校验只查 `members` 指向已声明节点 + 包裹深度 ≤ 2。schema 零新增结构。
+2. **arch-node 三信息位**。`sublabel`（技术栈/端口）+ `tag`（可选徽标）+ `type` 六类架构角色
+   封闭枚举（`external | security | cloud | backend | database | messagebus`，决定图标瓦片）。
+   176×52，三层 markup 复用，配色逻辑不变。
+3. **legend 图例通道**。Preset 声明 `legend: true`，渲染器在画布底部自动生成图例区
+   （实体类型图标 + 边线型语义），随 toSVG/toPNG 导出带走。IR 侧不写图例内容。
 
 **立场（不跟 Archify 的部分）**：**禁绝对坐标**。Archify 的 IR 含 `pos` / `size` / `via` 折线 /
 `fromSide` / `toSide`——手工编排的坐标制换来像素级排版，但 LLM 产坐标不可靠（重叠、出界、换主题
 溢出），与本项目「禁色值、禁形态」是同一条原则。布局继续交给 `@antv/layout`；边界归属类布局意图
 用 boundary 约束布局（组内成员就近）近似。
+
+**视觉验收基准**：`021-agent-workflow-hero-20260908.html`（手工精排效果图）为本能力的像素级对照—— swimlane 跨泳道走线按 020 §10 第 18 条收敛，视觉要素（类别色描边 / 框式泳道 / 胶囊图例 / 主路径流动）均已在 020 渲染器规格内。
 
 **落地路径**（触发时执行）：不新增 `arch` kind——架构图 = `topology` 换一行 Preset + 上述三增强；
 C4 Context / Container 图 = topology 再换 Preset 参数。预估规模：schema 加 2 个可选字段 +

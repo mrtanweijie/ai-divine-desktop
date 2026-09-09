@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="jwK0JdVNbpmuM0RcCVWvJq">
+<head data-page-node-id="nLMcVzWzVFwpvHJpZ5hdhR">
+<meta charset="UTF-8" data-page-node-id="pO1fKDDI9iUAL6hvIEKAcu">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="xddCsaz5PXF5xWtSKRRDbB">
+<title>Agent 工具调用工作流 · 效果图（Divine 设计体系）</title>
+<style>
+:root, :root[data-theme="dark"]{
+  --bg:#0b0d0f; --panel:#121517; --canvas:#101317; --node:#161a20; --node-2:#171b1f;
+  --text:#f2f4f6; --text-2:#a4adba; --text-3:#6f7783;
+  --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.15);
+  --line:#7c8794;
+  --cat-0:#61a7d0; --cat-1:#facc8f; --cat-2:#e17692; --cat-3:#f3962f; --cat-4:#728dc1;
+  --success:#3fb98a; --warning:#f3962f; --error:#e07a82;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+:root[data-theme="light"]{
+  --bg:#eef0f3; --panel:#ffffff; --canvas:#f7f8fa; --node:#ffffff; --node-2:#eef1f4;
+  --text:#1f2937; --text-2:#5b6472; --text-3:#8a94a3;
+  --border:rgba(15,23,42,.10); --border-2:rgba(15,23,42,.2);
+  --line:#7a8494;
+  --cat-0:#036ead; --cat-1:#b4751d; --cat-2:#c9525b; --cat-3:#d97a14; --cat-4:#506aaa;
+  --success:#2f9e6e; --warning:#c77f1e; --error:#c9525b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);
+  font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  transition:background .3s}
+.wrap{max-width:1160px;margin:0 auto;padding:28px 20px 40px}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.top h1{font-size:17px;font-weight:600;margin:0 0 4px}
+.top .sub{font-size:12px;color:var(--text-3);font-family:var(--mono)}
+.tools{display:flex;gap:8px}
+.btn{font:inherit;font-size:12px;color:var(--text-2);background:var(--panel);
+  border:1px solid var(--border-2);border-radius:999px;padding:6px 16px;cursor:pointer;
+  transition:all .15s var(--ease)}
+.btn:hover{color:var(--text);border-color:var(--text-3)}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 2px var(--cat-0)}
+
+/* ---------- 画布 ---------- */
+.stage{position:relative;border:1px solid var(--border);border-radius:16px;
+  background:var(--canvas);overflow:hidden;
+  box-shadow:0 8px 30px rgba(0,0,0,.18)}
+.stage::before{ /* 网格 + 顶部光晕 */
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(var(--gridc) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--gridc) 1px,transparent 1px);
+  background-size:26px 26px;
+  -webkit-mask-image:radial-gradient(120% 90% at 50% 0%,#000 30%,transparent 85%);
+          mask-image:radial-gradient(120% 90% at 50% 0%,#000 30%,transparent 85%);
+}
+:root[data-theme="dark"]{--gridc:rgba(255,255,255,.035)}
+:root[data-theme="light"]{--gridc:rgba(15,23,42,.045)}
+.stage svg{display:block;width:100%;height:auto}
+
+/* ---------- 泳道框 ---------- */
+.lane-frame{fill:rgba(255,255,255,.014);stroke:var(--border-2);stroke-width:1;stroke-dasharray:6 5}
+:root[data-theme="light"] .lane-frame{fill:rgba(15,23,42,.012)}
+.lane-title{fill:var(--text-3);font:600 10.5px var(--mono);letter-spacing:1.2px}
+.lane-note{fill:var(--text-3);font:10px var(--mono);letter-spacing:.5px;opacity:.75}
+
+/* ---------- 节点 ---------- */
+.node{cursor:pointer}
+.node .box{fill:var(--node);stroke:var(--catc);stroke-width:1.4;
+  transition:stroke-width .16s,filter .16s}
+.node:hover .box,.node.hl .box{stroke-width:2;filter:drop-shadow(0 0 5px var(--glowc))}
+.node .ic{fill:none;stroke:var(--catc);stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.node .nm{fill:var(--text);font:600 12.5px var(--font)}
+.node .sb{fill:var(--text-3);font:400 10.5px var(--font)}
+.node .tone-dot{stroke:none}
+.node.dim{opacity:.32}
+svg.focusing .node:not(.hl){opacity:.3}
+svg.focusing .edge:not(.hl){opacity:.14}
+.node,.edge,.msg-label{transition:opacity .2s}
+
+/* ---------- 边 ---------- */
+.edge{fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.edge.main{stroke:var(--cat-0);filter:drop-shadow(0 0 3px rgba(97,167,208,.45))}
+.edge.ghost{stroke:var(--line);stroke-dasharray:5 4;opacity:.75}
+.edge.warn{stroke:var(--error);stroke-dasharray:5 4;opacity:.8}
+.edge.alt{stroke:var(--warning);stroke-dasharray:5 4;opacity:.8}
+.edge.hl{stroke-width:2;opacity:1!important}
+.edge.main.flow{stroke-dasharray:7 6;animation:dash 1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-13}}
+.elabel{fill:var(--text-3);font:10.5px var(--font)}
+.elabel.mono{font-family:var(--mono);font-size:9.5px;letter-spacing:.3px}
+.elabel-bg{fill:var(--canvas);opacity:.92}
+.mtag{fill:var(--text-3);font:9.5px var(--mono);letter-spacing:.6px;
+  text-transform:uppercase;opacity:.85}
+
+/* ---------- 图例 ---------- */
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+  padding:14px 18px 4px}
+.lg-title{font:600 10.5px var(--mono);color:var(--text-3);letter-spacing:1px;margin-right:4px}
+.chip{display:inline-flex;align-items:center;gap:7px;height:24px;padding:0 12px 0 9px;
+  background:var(--node-2);border:1px solid var(--catc);border-radius:999px;
+  font-size:11px;color:var(--text-2)}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--catc)}
+.chip .n{color:var(--text-2)}
+.chip .c{color:var(--text-3);font-family:var(--mono);font-size:10px}
+.lg-sep{width:1px;height:16px;background:var(--border-2);margin:0 4px}
+.lg-line{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--text-3)}
+.lg-line svg{display:block}
+.foot{font-size:11px;color:var(--text-3);padding:14px 4px 0;font-family:var(--mono)}
+
+@media (prefers-reduced-motion:reduce){.edge.main.flow{animation:none}}
+</style>
+</head>
+<body data-page-node-id="CCEzIjMG2rJAQC0kXbCNiu">
+<div class="wrap" data-page-node-id="FeIfSzJ3BAjqSDEYFhouKc">
+  <div class="top" data-page-node-id="zKw16e9Enz3Uj3HUD6CqL3">
+    <div data-page-node-id="TIKd2oZuKKLg3np7621Ho0">
+      <h1 data-page-node-id="Zyek0gawrL73Vd2LypbkM8">Agent 工具调用工作流</h1>
+      <div class="sub" data-page-node-id="DbYggvxdl87ZOuI4YR6xVX">Divine 设计体系 · 手工精排 · 4 泳道 / 12 节点 / 5 类别</div>
+    </div>
+    <div class="tools" data-page-node-id="B1LKpqboSSIpwMAe006mGE">
+      <button class="btn" id="playBtn" type="button" data-page-node-id="ZHnWN6iStzR9dWb27A6Edu">▶ 播放主路径</button>
+      <button class="btn" id="themeBtn" type="button" data-page-node-id="BKJ0gBM2y1KeNk52mWk0H0">◐ 明 / 暗</button>
+    </div>
+  </div>
+
+  <div class="stage" data-page-node-id="t1l6qpDOLuziCgaqXMHKyO">
+    <svg id="cv" viewBox="0 0 1080 660" role="img" aria-label="Agent 工具调用工作流示意图" data-page-node-id="u7qbYBzKeVwxenWwvDQ1zT"></svg>
+  </div>
+
+  <div class="legend" id="legend" data-page-node-id="LKm5z4hCTJHtzyE7XrlnbT"></div>
+  <div class="foot" data-page-node-id="OmF8xmWTDvz63Xidi9WXiG">实线 = 同步调用 · 虚线 = 异步 / 回退 · 节点描边色 = 实体类别（图例）· 主路径为高亮流动线</div>
+</div>
+
+<script>
+/* ================= 数据（手工精排坐标） ================= */
+const CAT=[
+  {name:'用户界面', v:'--cat-0'},
+  {name:'Agent 逻辑',v:'--cat-1'},
+  {name:'策略恢复', v:'--cat-2'},
+  {name:'工具执行', v:'--cat-3'},
+  {name:'证据记录', v:'--cat-4'}
+];
+const ICON={ /* 16×16 坐标系 */
+  person:'M0 -3.4 A3.3 3.3 0 1 1 -0.01 -3.4 M-5.5 7 C-5.5 2.6 5.5 2.6 5.5 7',
+  screen:'M-7 -5 H7 V4 H-7 Z M0 4 V6.5 M-3.5 6.5 H3.5',
+  cube:'M-5.5 -3 L0 -6 L5.5 -3 V3 L0 6 L-5.5 3 Z M-5.5 -3 L0 0 L5.5 -3 M0 0 V6',
+  shield:'M0 -6.5 L5.5 -4.5 V0.5 C5.5 4 3 6 0 7 C-3 6 -5.5 4 -5.5 0.5 V-4.5 Z',
+  db:'M-5 -4.2 A5 2.3 0 0 1 5 -4.2 V4.2 A5 2.3 0 0 1 -5 4.2 Z M-5 -4.2 A5 2.3 0 0 0 5 -4.2 M-5 0 A5 2.3 0 0 0 5 0',
+  gear:'M0 -5.5 A5.5 5.5 0 1 0 0 5.5 A5.5 5.5 0 1 0 0 -5.5 M0 -2.2 A2.2 2.2 0 1 0 0 2.2 A2.2 2.2 0 1 0 0 -2.2',
+  cloud:'M-4.5 4 H4 A3.5 3.5 0 0 0 4 -3 A5 5 0 0 0 -5.5 -1.5 A3.2 3.2 0 0 0 -4.5 4 Z',
+  log:'M-5.5 -5.5 H5.5 V5.5 H-5.5 Z M-3 -3 H3 M-3 0 H3 M-3 3 H1'
+};
+const W=150, H=56;
+const NODES=[
+  {id:'user',   x:110, y:125, ic:'person', cat:0, label:'用户',     sub:'发起请求'},
+  {id:'chat',   x:270, y:125, ic:'screen', cat:0, label:'对话界面', sub:'线程 + 文件'},
+  {id:'reply',  x:930, y:125, ic:'cube',   cat:0, label:'最终回复', sub:'答复 + 变更', tone:'success'},
+  {id:'planner',x:455, y:280, ic:'gear',   cat:1, label:'规划器',   sub:'决定下一步'},
+  {id:'router', x:625, y:280, ic:'cube',   cat:1, label:'工具路由', sub:'选择能力'},
+  {id:'gate',   x:500, y:425, ic:'shield', cat:2, label:'审批门',   sub:'范围 + 内容', tone:'warning'},
+  {id:'blocked',x:690, y:425, ic:'shield', cat:2, label:'已拦截',   sub:'等待或拒绝', tone:'error'},
+  {id:'retry',  x:855, y:425, ic:'gear',   cat:2, label:'重试路径', sub:'修订后重新发起'},
+  {id:'context',x:275, y:570, ic:'db',     cat:4, label:'上下文库', sub:'仓库 + 记忆'},
+  {id:'trace',  x:470, y:570, ic:'log',    cat:4, label:'轨迹日志', sub:'事件 + 输出'},
+  {id:'tool',   x:700, y:570, ic:'gear',   cat:3, label:'工具调用', sub:'shell / 浏览器 / MCP'},
+  {id:'api',    x:875, y:570, ic:'cloud',  cat:3, label:'外部 API', sub:'网络服务'}
+];
+const LANES=[
+  {y:50,  h:150, t:'01 · 用户交互',        x:46},
+  {y:210, h:140, t:'02 · Agent 运行时',    x:46},
+  {y:360, h:130, t:'EX · 策略与恢复',      x:46},
+  {y:500, h:140, t:'03 · 工具执行与证据',  x:46}
+];
+const MTAGS=[
+  {x:455,y:236,t:'planning loop'},
+  {x:300,y:538,t:'evidence path'},
+  {x:700,y:538,t:'tool work'},
+  {x:875,y:510,t:'network'}
+];
+/* cls: main=主路径(青·流动) ghost=灰虚线 warn=拦截(红虚线) alt=重试(黄虚线) */
+const EDGES=[
+  {from:'chat',to:'planner', d:'M270,153 V280 H380',  cls:'main',  label:'计划',   lx:298, ly:222},
+  {from:'planner',to:'router', d:'M530,280 H550',     cls:'main'},
+  {from:'user',to:'chat',      d:'M185,125 H195',     cls:'main'},
+  {from:'router',to:'gate',    d:'M625,308 V425 H575',cls:'ghost', label:'needs approval', lx:648, ly:372},
+  {from:'gate',to:'blocked',   d:'M575,425 H615',     cls:'warn',  label:'拦截',   lx:573, ly:410},
+  {from:'blocked',to:'retry',  d:'M765,425 H780',     cls:'alt'},
+  {from:'retry',to:'planner',  d:'M855,397 V355 H455 V308', cls:'ghost', label:'re-plan', lx:620, ly:348},
+  {from:'gate',to:'tool',      d:'M500,453 V570 H625',cls:'main',  label:'放行',   lx:520, ly:520},
+  {from:'tool',to:'api',       d:'M775,570 H800',     cls:'main'},
+  {from:'api',to:'reply',      d:'M875,542 V125 H1005',cls:'main', label:'结果',   lx:890, ly:330},
+  {from:'tool',to:'trace',     d:'M625,570 H530',     cls:'ghost', label:'记录',   lx:558, ly:558},
+  {from:'context',to:'trace',  d:'M360,570 H395',     cls:'ghost'}
+];
+/* 邻接：边起点/终点就近匹配节点（nearNode 定义见下方 hover 部分） */
+const svg=document.getElementById('cv');
+const NS='http://www.w3.org/2000/svg';
+function el(t,attrs,parent){const e=document.createElementNS(NS,t);
+  for(const k in attrs)e.setAttribute(k,attrs[k]); (parent||svg).appendChild(e); return e;}
+function txt(x,y,str,cls,anchor){const e=el('text',{x,y,'class':cls});
+  if(anchor)e.setAttribute('text-anchor',anchor); e.textContent=str; return e;}
+
+/* 箭头 marker（三种色：青 / 线灰 / 粉 / 黄） */
+const defs=el('defs',{});
+[['ar-main','var(--cat-0)'],['ar-ghost','var(--line)'],['ar-warn','var(--error)'],['ar-alt','var(--warning)']].forEach(([id,fill])=>{
+  const mk=el('marker',{id,viewBox:'0 0 10 10',refX:8.5,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'},defs);
+  el('path',{d:'M0,1 L9,5 L0,9 z',fill},mk);
+});
+
+/* 泳道框 */
+LANES.forEach(l=>{
+  el('rect',{x:30,y:l.y,width:1020,height:l.h,rx:14,'class':'lane-frame'});
+  txt(l.x,l.y+22,l.t,'lane-title');
+  txt(988,l.y+22,'','lane-note'); /* 占位：右侧留白 */
+});
+MTAGS.forEach(m=>txt(m.x,m.y,m.t,'mtag','middle'));
+
+/* 边（先画，节点压上层） */
+EDGES.forEach(e=>{
+  const p=el('path',{d:e.d,'class':'edge '+e.cls});
+  const mk = e.cls==='main'?'ar-main':e.cls==='warn'?'ar-warn':e.cls==='alt'?'ar-alt':'ar-ghost';
+  p.setAttribute('marker-end',`url(#${mk})`);
+  if(e.cls==='main')p.classList.add('flow');
+  e.el=p;
+  if(e.label){
+    txt(e.lx,e.ly,e.label,'elabel');
+  }
+});
+
+/* 节点 */
+NODES.forEach(n=>{
+  const g=el('g',{'class':'node','data-node':n.id});
+  g.setAttribute('style',`--catc:var(${CAT[n.cat].v});--glowc:var(${CAT[n.cat].v})`);
+  el('rect',{x:n.x-W/2,y:n.y-H/2,width:W,height:H,rx:12,'class':'box'},g);
+  const g2=el('g',{transform:`translate(${n.x-W/2+17},${n.y})`,'class':'icw'},g);
+  el('path',{d:ICON[n.ic],'class':'ic'},g2);
+  const tx=n.x-W/2+38;
+  const t1=txt(tx,n.sub?n.y-2:n.y+4,n.label,'nm'); g.appendChild(t1);
+  if(n.sub){const t2=txt(tx,n.y+15,n.sub,'sb');g.appendChild(t2);}
+  if(n.tone){
+    const cx=n.x+W/2-14;
+    el('circle',{cx,cy:n.y-H/2+14,r:4.2,'class':'tone-dot',
+      fill:n.tone==='success'?'var(--success)':n.tone==='warning'?'var(--warning)':'var(--error)'},g);
+  }
+  n.el=g;
+});
+
+/* hover 关联高亮（邻接为显式声明） */
+const byId={};NODES.forEach(n=>byId[n.id]=n);
+NODES.forEach(n=>{
+  n.el.addEventListener('mouseenter',()=>{
+    svg.classList.add('focusing');n.el.classList.add('hl');
+    EDGES.forEach(e=>{
+      if(e.from===n.id||e.to===n.id){
+        e.el.classList.add('hl');
+        const o=e.from===n.id?e.to:e.from;
+        byId[o]&&byId[o].el.classList.add('hl');
+      }
+    });
+  });
+  n.el.addEventListener('mouseleave',()=>{
+    svg.classList.remove('focusing');
+    document.querySelectorAll('.hl').forEach(x=>x.classList.remove('hl'));
+  });
+});
+
+/* 主路径重播 */
+document.getElementById('playBtn').addEventListener('click',()=>{
+  EDGES.filter(e=>e.cls==='main').forEach((e,k)=>{
+    e.el.style.animationDelay=(k*0.28)+'s';
+    e.el.classList.remove('flow');void e.el.getBBox;e.el.classList.add('flow');
+  });
+  setTimeout(()=>EDGES.filter(e=>e.cls==='main').forEach(e=>e.el.style.animationDelay=''),2800);
+});
+
+/* 主题切换 */
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  const r=document.documentElement;
+  r.setAttribute('data-theme', r.getAttribute('data-theme')==='light'?'dark':'light');
+});
+
+/* ================= 图例 ================= */
+const lg=document.getElementById('legend');
+lg.innerHTML='<span class="lg-title">图例</span>';
+CAT.forEach((c,i)=>{
+  const count=NODES.filter(n=>n.cat===i).length;
+  const ch=document.createElement('span');ch.className='chip';
+  ch.style.setProperty('--catc',`var(${c.v})`);
+  ch.innerHTML=`<span class="dot"></span><span class="n">${c.name}</span><span class="c">×${count}</span>`;
+  lg.appendChild(ch);
+});
+lg.insertAdjacentHTML('beforeend','<span class="lg-sep"></span>'+
+  '<span class="lg-line"><svg width="34" height="10"><line x1="1" y1="5" x2="26" y2="5" stroke="var(--cat-0)" stroke-width="1.5" marker-end="url(#ar-main)"/></svg>同步调用</span>'+
+  '<span class="lg-line"><svg width="34" height="10"><line x1="1" y1="5" x2="26" y2="5" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar-ghost)"/></svg>异步 / 回退</span>');
+</script>
+</body>
+</html>
