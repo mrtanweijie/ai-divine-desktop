@@ -481,6 +481,14 @@
   padding: 12px;
   overflow: auto;
   color: var(--color-text);
+  /* 隐藏滚动条：滚轮/触控板仍可滚动，视觉上不破坏图面（与 SVG 预览内层同策略） */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 .mermaid-canvas svg {
   display: block;
@@ -589,9 +597,14 @@
   background: #ffffff;
 }
 .web-preview-block.svg .web-preview-frame {
-  height: 300px;
+  /* 宽度铺满 + 内部纵向滚动：高度决定一屏可见量，与 HTML 预览对齐；
+     内边距让图与块边缘留出呼吸空间，不贴边 */
+  box-sizing: border-box;
+  height: 420px;
+  padding: 24px;
   background: transparent;
 }
+
 .web-preview-block.svg .web-preview-source {
   height: 300px;
   max-height: 300px;

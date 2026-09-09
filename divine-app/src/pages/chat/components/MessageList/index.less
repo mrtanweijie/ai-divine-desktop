@@ -215,9 +215,11 @@
 }
 .message-timeline {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
+  overflow-y: auto;
   overflow-anchor: auto;
+  /* 容器查询锚点：子级（SVG 预览破格 80cqw）以此宽度为基准 */
+  container-type: inline-size;
 }
 .message-loading-older {
   display: flex;

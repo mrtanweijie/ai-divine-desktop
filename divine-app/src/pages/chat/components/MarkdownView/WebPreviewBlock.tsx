@@ -43,23 +43,29 @@ function buildPreviewDocument(code: string, language: WebPreviewLanguage): strin
     return code;
   }
   if (language === "svg") {
+    // 宽度铺满、高度自然生长，超出容器高度由 iframe 内部滚动：
+    // 不用 max-height 缩放塞满，保证图内文字始终是设计尺寸（架构图细读优先）
     return `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8">
     <style>
   html, body {
-    height: 100%;
     margin: 0;
-    overflow: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    overflow-x: hidden;
+    overflow-y: auto;
     background: transparent;
+    /* 隐藏滚动条：滚轮/触控板仍可滚动，视觉上不破坏图面 */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
   svg {
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;
     height: auto;
     display: block;
   }
