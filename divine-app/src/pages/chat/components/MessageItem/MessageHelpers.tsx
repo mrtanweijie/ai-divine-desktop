@@ -21,6 +21,7 @@ import {
   Radar,
 } from "lucide-react";
 import i18next from "@/i18n";
+import { type GraphIR, parseGraphIR } from "@/pages/chat/components/GraphBlock/GraphIR";
 import { isTauri, openUrl } from "@/services/tauri";
 import type { ToolEvent, ToolFileLink } from "@/types";
 
@@ -39,6 +40,22 @@ export function chartOptionFromResult(
     return result.option as Record<string, unknown>;
   }
   return null;
+}
+
+/**
+ * render_graph 的 GraphIR：与 chartOptionFromResult 同一个提取层。
+ * 校验（白名单 / 枚举 / 引用完整性）在 GraphBlock/GraphIR.ts 里做——
+ * IR 来自 LLM 且会从持久化结果里二次读取，一律按不可信输入处理。
+ */
+export function graphIRFromResult(result?: ToolEvent["result"]): GraphIR | null {
+  const raw = result?.data?.graphIR;
+  if (!raw) return null;
+  const parsed = parseGraphIR(raw);
+  if (!parsed.ok) {
+    console.warn("[GraphBlock] 拒绝渲染非法 GraphIR:", parsed.reason);
+    return null;
+  }
+  return parsed.ir;
 }
 
 export const GROUPABLE_TOOLS = new Set([

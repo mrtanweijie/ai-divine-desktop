@@ -26,6 +26,8 @@
     "prepare": "git config core.hooksPath divine-app/.husky 2>/dev/null || true"
   },
   "dependencies": {
+    "@antv/layout": "^0.3.25",
+    "@antv/x6": "^3.0.0",
     "@shikijs/langs": "^4.4.3",
     "@shikijs/stream": "^4.4.3",
     "@shikijs/themes": "^4.4.3",

@@ -11,7 +11,7 @@
 目标：新增一条与 Mermaid 并存的交互式图形链路——Agent 输出声明式 GraphIR → 前端按 ScenarioPreset 确定性渲染（AntV X6 3.x）。**范围覆盖 15 类「节点 + 边」图**（flow / dag / dataflow / state / org / mindmap / topology / arch / er / swimlane / sequence / concept / class / fishbone / timeline），支持：
 
 - 数据流向动画（antline / pulse；particles 降为观察项）
-- 生成过程中的"生长式"呈现（真流式增量渲染）
+- 生成过程中的"生长式"呈现（完整 IR 到达后回放式入场）
 - 节点点击详情、hover 关联高亮
 - 导出 PNG/SVG
 - **历史回放直接渲染最终图，不自动播动画**（既定决策）
@@ -32,7 +32,7 @@
 10. **双层边**：静态底线（中性色、常驻）讲拓扑 + 流动层（tone 色、可关）讲数据流。导出、历史回放、关动画时图都完整可读。
 11. **动效时序定稿**：节点入场 280ms + stagger 45ms；边入场 480ms（必须比节点慢，否则"线画完等节点"观感倒置）；工具条**常驻**（opacity .72→1，播放/流动是持续状态，hover 才出现判断不了当前状态）；分支色（mindmap `bc`）由**前端按分支顺序自动分配，IR 中禁止出现**。
 12. **渲染体系边界明确**：UML 全量时序与甘特图归 Mermaid（激活条 / 分组 / 时间刻度等全量语义）；轻量消息时序（异步任务往返类）进 `sequence` kind；类图双轨（快速看 Mermaid、点击详情 X6）；统计图表归 ECharts；地图 / 平面图 / 电路图不做。X6 链路稳定后评估迁移"静态流程图"场景。
-13. **"生长式"呈现分两档，形态由 P0 定**：tool 参数在 LLM 生成完整 JSON 后才到达 adapter，"后端把完整 IR 拆成事件逐个下发"在时间上无增益（等效伪流式）。真·逐节点生长需在 `core/sse.py` 消息层捕获 `tool_call_chunks` 参数增量 + 流式 JSON 解析（现有 `_consume_message` 只 drain text/reasoning，该管道需新建）——可行性列入 P0 验证（020 §10 第 17 条）；验证不通过则采用**回放式生长**（完整 IR 到达后按 nodes→edges 顺序节流播放入场动画）。两档共用同一前端调度器，差异仅在事件到达时机。
+13. **不做流式渲染，"生长式"呈现用回放式**：tool 参数在 LLM 生成完整 JSON 后才到达 adapter，`render_graph` 一次性返回完整 GraphIR，"把 IR 拆成事件逐个下发"在时间上无增益；逐 token 生长需在 `core/sse.py` 消息层新建 `tool_call_chunks` 增量管道 + 流式 JSON 解析（现有 `_consume_message` 只 drain text/reasoning），**明确不做**。采用**回放式生长**：完整 IR 到达后，前端按 nodes→edges 顺序展开为入场事件序列，经 RenderScheduler 节流播放入场动画。
 14. **导出为前端主导**：generate_chart 的后端 SVG 导出是纯 Python 手写渲染器（`app/docgen/chart/svg.py`），不跑 ECharts；X6 无后端等价物，后端复用导出脚本模式的类比不成立。流程图导出统一走前端 `graph.toSVG()/toPNG()` + Tauri 写文件；PDF 嵌入由前端导出文件后走既有文件引用。**不做后端 export_svg**。
 
 15. **Mermaid 优先，`render_graph` 按需升级**（两段式分流）：默认一切图形需求先输出 Mermaid 代码块（轻、快、省 token）；仅当用户要求交互 / 动画 / 导出 / 演示时，Agent 把已确认的拓扑转成 GraphIR 调 `render_graph` 重绘。工具描述里显式写「默认不要调用本工具」。
@@ -44,15 +44,14 @@ Agent (LangGraph, divine-server)
   └─ 新工具 render_graph
        ├─ 参数：GraphIR（kind 封闭枚举 + 白名单校验，后端结构校验，拒绝即结构化报错）
        └─ 输出：tool 结果携带完整 GraphIR（持久化 + 前端渲染数据源），经 SSE tool 事件下发（带 call_id）
-             │  前端按既定编排规则节流播放（回放式生长）；
-             │  若 P0 验证 tool_call_chunks 可行，则升级为真流式（见决策 13）
+             │  前端按既定编排规则节流播放（回放式生长，见决策 13）
              ▼
 前端渲染进程 (divine-app, React)
   ├─ GraphIR：类型 + 白名单校验（IR 来自 LLM，按不可信输入处理）
   ├─ Preset Resolver：kind → 布局引擎 + 参数 / 节点形态族 / 边族 / 交互等级 / 动效 / 上限
   ├─ RenderScheduler：80ms 窗口批处理，防高频事件卡顿
   ├─ AnimationManager：并发动画 ≤ 20（P0 实测后调整），超限直接置终态
-  ├─ LayoutService：流式阶段占位布局 → done 后 @antv/layout 终局布局一次
+  ├─ LayoutService：完整 IR 到达后 @antv/layout 布局一次（无占位坐标阶段）
   └─ GraphRenderer：X6 渲染（自定义 SVG markup 节点）+ 双层边 + 动效编排
 ```
 
@@ -124,11 +123,11 @@ Agent (LangGraph, divine-server)
 
 ### ScenarioPreset（概要）
 
-13 个场景各一行常量：布局引擎 + 参数、节点形态、边族、容器族、交互等级（L0–L3）、动效、节点上限、视口策略（fit/center/scroll）。完整表见 020 §4。实现上是一张前端常量表 + Resolver，**新增场景不改 schema、不改后端、不改渲染器**——这条本身是 P2.5 的验收标准。
+15 个场景各一行常量：布局引擎 + 参数、节点形态、边族、容器族、交互等级（L0–L3）、动效、节点上限、视口策略（fit/center/scroll）。完整表见 020 §4。实现上是一张前端常量表 + Resolver，**新增场景不改 schema、不改后端、不改渲染器**——这条本身是 P2.5 的验收标准。
 
-## 增量事件协议（回放式形态下的内部表示）
+## 入场事件序列（前端内部表示）
 
-事件流是**前端调度器的输入接口**，不是后端流式下发通道（见决策 13）：前端收到完整 IR 后自行展开为事件序列、经 RenderScheduler 节流播放；真流式形态下同一接口改由后端 token 级解析供给，前端零改动：
+事件序列是**前端调度器的内部输入**，不由后端下发（见决策 13）：前端收到完整 IR 后按 nodes→edges 顺序展开、经 RenderScheduler 节流播放。**后端不感知该协议**，只负责返回并持久化完整 IR：
 
 ```jsonc
 { "op": "set_meta",  "data": { "kind": "flow", "title": "订单支付链路" } }
@@ -137,12 +136,12 @@ Agent (LangGraph, divine-server)
 { "op": "done" }
 ```
 
-**持久化**：`done` 后后端把完整 IR 合并存入 tool 调用结果（与 generate_chart 存 option 同模式）。历史回放从完整 IR 直接渲染终态，**不播入场动画、不自动开流动**；`demoPath` 场景在工具条提供"播放演示"按钮，由用户手动触发。
+**持久化**：tool 执行完成后，后端把完整 GraphIR 存入 tool 调用结果（与 generate_chart 存 option 同模式）。历史回放从完整 IR 直接渲染终态，**不播入场动画、不自动开流动**；`demoPath` 场景在工具条提供"播放演示"按钮，由用户手动触发。
 
 ### 中断 / 失败 / 重试语义
 
 - **用户取消**：已渲染部分保留并显示"未完成"标记；对齐现有 `_persist_partial_once` 机制——仅校验通过的完整 IR 落库，半截 IR 不落库
-- **校验失败 Agent 重试**：前端按 call_id 对旧图整体 reset 后重渲染；同一 call_id 事件流带序号，乱序/重复丢弃
+- **校验失败 Agent 重试**：前端按 call_id 对旧图整体 reset 后按新 IR 重渲染（事件序列在前端本地生成，天然有序）
 - **编辑已有图**：Agent 重发完整 GraphIR，按新 call_id 全量替换；`remove/update` 增量语义留给 P4
 
 ### 前端编排规则（定稿数值）
@@ -158,7 +157,6 @@ Agent (LangGraph, divine-server)
 
 1. `app/tools/adapters/render_graph.py`：新 adapter，套用 `generate_chart.py` 模式。接收完整 GraphIR → 按 §校验清单强校验（失败结构化报错，不降级）→ 完整 IR 作为 tool 结果。`category = "diagrams"`。
 2. 工具描述分流话术：**两段式判定句**（默认不要调用本工具，仅交互 / 动画 / 导出 / 演示时调用）+ 15 个 kind 各一句典型问法 + 封闭枚举清单，对齐 `generate_chart` 风格。
-3. （仅真流式形态，P0 通过后）`core/sse.py` 增量管道：tool_call_chunks 消费 + 流式 JSON 解析，仅对 render_graph 启用。
 
 ### 前端 divine-app
 
@@ -168,8 +166,8 @@ Agent (LangGraph, divine-server)
    - `presets.ts`：ScenarioPreset 常量表 + Resolver（布局引擎 / 形态 / 交互等级 / 动效 / 上限）
    - `graphTones.ts`：语义色常量（light/dark 双档，dark info = #61A7D0），**不复用 chartOptions.ts**
    - `nodes.ts`：形态族注册——通用 12 形态 + 富节点（dagNode / dpNode / stateNode / statePseudo / orgNode / mapRoot / mapBranch / mapLeaf / conceptNode），全部纯 SVG markup（body → tint → label 三层 + 图标内联 path），换形态不换配色逻辑
-   - `GraphBlock.tsx`：消息内容器；**新增消息走增量事件 + 动效；历史消息走完整 IR 直渲染（零动画）**
-   - `GraphRenderer.ts`：流式阶段占位坐标（规则网格，只增不减）→ `done` 后 `@antv/layout` 终局布局一次 + `animate` 平滑过渡（600ms）；`router: 'orth'`、`connector: 'rounded'`；双层边：静态底线 + 流动层（`connection: true` 未实测，退路手动同步 `flow.attr('d', line.attr('d'))`）
+   - `GraphBlock.tsx`：消息内容器；**新增消息走完整 IR + 回放式入场编排；历史消息走完整 IR 直渲染（零动画）**
+   - `GraphRenderer.ts`：完整 IR 到达后 `@antv/layout` 布局一次（无增量布局）+ 回放式入场编排（`animate`，600ms 平滑过渡）；`router: 'orth'`、`connector: 'rounded'`；双层边：静态底线 + 流动层（`connection: true` 未实测，退路手动同步 `flow.attr('d', line.attr('d'))`）
    - `RenderScheduler.ts` / `AnimationManager.ts`：80ms 批处理 + 动画池（≤20，实测后修正）
    - 视口外暂停：IntersectionObserver 挂动画与 antline（无限循环动画在长会话持续吃 CPU）
 3. 消息侧接线：`MessageHelpers` 增 `graphIRFromResult()`（对齐 `chartOptionFromResult`），`ToolStatusCard` 增图标。
@@ -177,7 +175,7 @@ Agent (LangGraph, divine-server)
 
 ## 性能与安全要点
 
-- 流式阶段绝不调布局引擎（占位坐标），`done` 后一次 `@antv/layout`
+- 布局引擎全流程只调一次（完整 IR 到达后），不做增量布局
 - 动画仅 transform / opacity / dashoffset；并发动画池上限，超限置终态；视口外暂停
 - IR 白名单校验，防 LLM 注入任意 SVG attrs 与外链资源（图标仅白名单枚举）
 - 历史回放零动画，长列表滚动性能与普通静态图一致
@@ -188,9 +186,9 @@ Agent (LangGraph, divine-server)
 
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
-| **P0** 验证 | X6 3.x 验证 demo：`animate` API 形状、边第二条 path 复用连接数据（`connection:true` 未实测）、`@antv/layout` 各引擎 WKWebView 耗时、帧率拐点、toSVG 对自定义 markup 输出、foreignObject 反证（仅当考虑 react-shape）、**`run.messages` 能否拿到 tool_call_chunks 参数增量（定"生长"形态，见决策 13）**。清单见 020 §10（含增补第 16–18 条），结论写回 020 | 布局引擎与动画 API 定稿，节点上限/动画池按实测定；生长形态（回放式/真流式）定稿 |
-| **P1** 骨架 | GraphIR + 白名单校验 + `render_graph` 工具 + 增量事件流 + Preset Resolver + 渲染器 + **3 个场景**（flow / dag / state） | Agent 输出 IR，聊天内出现三种正确布局的图；错误 kind 被结构化拒绝；历史回放直渲染 |
-| **P2** 动效 | 入场动效（280/480/45）+ antline/pulse + demoPath 播放 + 常驻工具条（按 capabilities）+ 导出 PNG/SVG | 生成过程逐节点生长；流动可开关；导出可嵌入 PDF |
+| **P0** 验证 | X6 3.x 验证 demo：`animate` API 形状、边第二条 path 复用连接数据（`connection:true` 未实测）、`@antv/layout` 各引擎 WKWebView 耗时、帧率拐点、toSVG 对自定义 markup 输出、foreignObject 反证（仅当考虑 react-shape）。清单见 020 §10（含增补第 16–17 条），结论写回 020 | 布局引擎与动画 API 定稿，节点上限/动画池按实测定；回放式生长编排定稿 |
+| **P1** 骨架 | GraphIR + 白名单校验 + `render_graph` 工具 + 回放式入场编排 + Preset Resolver + 渲染器 + **3 个场景**（flow / dag / state） | Agent 输出 IR，聊天内出现三种正确布局的图；错误 kind 被结构化拒绝；历史回放直渲染 |
+| **P2** 动效 | 入场动效（280/480/45）+ antline/pulse + demoPath 播放 + 常驻工具条（按 capabilities）+ 导出 PNG/SVG | 生成完成后回放式逐节点生长；流动可开关；导出可嵌入 PDF |
 | **P2.5** 扩列 | 剩余 11 个场景（dataflow / org / mindmap / topology / er / swimlane / sequence / concept / class / fishbone / timeline） | 每个场景**表里加一行即生效，不改 schema 不改后端**（本条即验收） |
 | **P3** 打磨 | hover 关联高亮 + 详情面板 + minimap + 折叠展开 + 视口外暂停 | 大图浏览流畅；长会话 CPU 无异常占用 |
 | **P4** 观察 | particles 粒子模式；CoT 面板与图生长同步；kind 自动推断 | 视 P2 效果决定 |
@@ -215,7 +213,7 @@ P0–P2 达成"美观 + 交互动画 + 生长式呈现"；P2.5 场景全覆盖�
 溢出），与本项目「禁色值、禁形态」是同一条原则。布局继续交给 `@antv/layout`；边界归属类布局意图
 用 boundary 约束布局（组内成员就近）近似。
 
-**视觉验收基准**：`021-agent-workflow-hero-20260908.html`（手工精排效果图）为本能力的像素级对照—— swimlane 跨泳道走线按 020 §10 第 18 条收敛，视觉要素（类别色描边 / 框式泳道 / 胶囊图例 / 主路径流动）均已在 020 渲染器规格内。
+**视觉验收基准**：`021-agent-workflow-hero-20260908.html`（手工精排效果图）为本能力的像素级对照—— swimlane 跨泳道走线按 020 §10 第 17 条收敛，视觉要素（类别色描边 / 框式泳道 / 胶囊图例 / 主路径流动）均已在 020 渲染器规格内。
 
 **落地路径**（触发时执行）：不新增 `arch` kind——架构图 = `topology` 换一行 Preset + 上述三增强；
 C4 Context / Container 图 = topology 再换 Preset 参数。预估规模：schema 加 2 个可选字段 +

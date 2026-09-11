@@ -1,0 +1,285 @@
+// GraphBlock 样式。全部类名以 gb- 前缀 + 规则嵌套在 .gb-block 下：
+// 项目出过一次全局类名冲突事故（.diff-view 污染聊天消息），此文件必须自包含。
+
+.gb-block {
+  margin: 12px 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface);
+
+  // ── 头部：与 MermaidBlock 完全对齐
+  .gb-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 34px;
+    padding: 5px 8px 5px 12px;
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.3px;
+  }
+
+  // 工具条常驻（持续状态必须随时可见），hover / 聚焦时提亮
+  .gb-tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px;
+    border-radius: var(--radius-sm);
+    opacity: 0.72;
+    transition: opacity 140ms ease;
+
+    &:hover,
+    &:focus-within {
+      opacity: 1;
+    }
+  }
+
+  .gb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-xs);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+
+    &:hover {
+      background: var(--color-accent-soft);
+      color: var(--color-text);
+    }
+
+    &:focus-visible {
+      outline: 1px solid var(--color-border-strong);
+      outline-offset: 1px;
+    }
+
+    &.on {
+      background: var(--color-accent-soft);
+      color: var(--color-text);
+    }
+
+    &[aria-disabled="true"] {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  }
+
+  // ── 画布：横向滚动而非缩放（缩放会让 12.5px 字不可读）
+  .gb-canvas-wrap {
+    position: relative;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .gb-canvas {
+    min-height: 200px;
+    max-height: 520px;
+    padding: 20px;
+    overflow: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+
+    .x6-graph {
+      background: transparent;
+    }
+  }
+
+  .gb-error {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    // 与 ChoiceBlock 的 .echarts-error 同款：danger 6% 覆盖层（带兜底色）
+    background: color-mix(in srgb, var(--color-danger, #e5484d) 6%, transparent);
+    color: var(--color-text-secondary);
+    font-size: 12px;
+  }
+
+  // ── 图例：胶囊（类别 + 计数）+ 线型
+  .gb-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px 10px;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-size: 10.5px;
+  }
+
+  .gb-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 20px;
+    padding: 0 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface-2);
+
+    i {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    em {
+      font-style: normal;
+      opacity: 0.7;
+    }
+  }
+
+  .gb-chip-line {
+    background: transparent;
+
+    svg line {
+      stroke: var(--color-text-muted);
+      stroke-width: 1.25;
+
+      &.dashed {
+        stroke-dasharray: 5 4;
+      }
+    }
+  }
+
+  // ── 详情面板：容器底部内联展开（浮层在横向滚动容器里会漂）
+  .gb-inspector {
+    position: relative;
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface-2);
+    animation: gb-slide-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .gb-inspector-bar {
+    flex: 0 0 auto;
+    width: 3px;
+    border-radius: 2px;
+  }
+
+  .gb-inspector-body {
+    min-width: 0;
+  }
+
+  .gb-inspector-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .gb-inspector-body p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--color-text-secondary);
+  }
+
+  // ── 流动层可见性：由容器上的 .gb-flow 控制（关闭 = 只留静态底线）
+  &:not(.gb-flow) .x6-edge path:nth-of-type(2) {
+    display: none;
+  }
+
+  // ── 回放式入场：CSS 类驱动（不依赖 X6 animate API），终态优先
+  &.gb-entering {
+    .x6-node {
+      animation: gb-pop 280ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+
+    .x6-edge {
+      animation: gb-fade 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+  }
+
+  // ── hover 关联高亮：非关联元素压暗，关联边提亮
+  &.gb-focus {
+    .x6-node:not(.gb-hl),
+    .x6-edge:not(.gb-hl) {
+      opacity: 0.38;
+      transition: opacity 220ms ease;
+    }
+  }
+
+  // ── demoPath 播放：当前节点外全部压暗
+  &.gb-demo {
+    .x6-node:not(.gb-active) {
+      opacity: 0.38;
+      transition: opacity 220ms ease;
+    }
+
+    .x6-node.gb-active {
+      filter: drop-shadow(0 0 6px var(--color-accent-soft));
+    }
+  }
+}
+
+@keyframes gb-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes gb-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes gb-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 视口外暂停：AnimationManager 在滚出视口时挂上 gb-paused
+.gb-paused .gb-block {
+  .x6-node,
+  .x6-edge {
+    animation-play-state: paused !important;
+  }
+}
+
+// 尊重「减少动态效果」：入场直接终态、流动转静态虚线
+@media (prefers-reduced-motion: reduce) {
+  .gb-block {
+    &.gb-entering {
+      .x6-node,
+      .x6-edge {
+        animation: none;
+      }
+    }
+
+    .x6-edge path:nth-of-type(2) {
+      animation: none !important;
+      stroke-dasharray: 3 4 !important;
+    }
+  }
+}

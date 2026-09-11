@@ -109,6 +109,7 @@ export function toolIcon(tool: string) {
   if (tool.includes("pdf")) return <BookAudio size={16} />;
   if (tool.includes("directory") || tool.includes("tree")) return <FolderTree size={16} />;
   if (tool === "generate_chart" || tool.includes("chart")) return <BarChart3 size={16} />;
+  if (tool === "render_graph") return <Workflow size={16} />;
   if (tool.includes("mermaid") || tool.includes("diagram")) return <Workflow size={16} />;
   if (
     tool.includes("requirements") ||

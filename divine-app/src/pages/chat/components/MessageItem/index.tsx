@@ -208,6 +208,7 @@ export const MessageItem = memo(function MessageItem({
               tool={tool}
               sessionId={sessionId}
               workspacePath={workspacePath}
+              live={streaming}
               onPreviewFile={onPreviewFile}
             />
           ))}

@@ -36,8 +36,8 @@ X6 的真实定位是**通用图渲染机**：只要输入是「节点 + 边 + �
   Agent (LangGraph)
     └─ 工具 render_graph            ← 唯一的图形渲染工具
          ├─ 入参：GraphIR（JSON Schema 强校验，kind 是唯一场景字段）
-         └─ 出参：增量事件流（JSON Lines），走现有 SSE tool 通道
-               add_node / add_edge / add_group / set_meta / done
+         └─ 出参：完整 GraphIR（JSON），作为 tool 结果持久化并经 SSE tool 事件下发
+               前端收到后展开为入场事件（set_meta / add_node / add_group / add_edge / done）节流播放
 
 前端 divine-app · src/pages/chat/components/GraphBlock/
   GraphIR.ts            类型 + 白名单校验（IR 来自 LLM，按不可信输入处理）
@@ -88,7 +88,8 @@ kind ──► PRESETS[kind] ──► {
       "icon": "flask",                   // ★ 场景特有可选字段，封闭枚举，禁止 URL
       "pseudo": "initial",               // ★ state 场景：initial|final|choice（伪状态，无 label）
       "active": true,                    // ★ state 场景：当前激活态，全图最多 1 个
-      "role": "member",                  // ★ org 场景：职位/编制描述（org-node 第二行）
+      "role_desc": "技术中心负责人",      // ★ org 场景：职位/编制描述（org-node 第二行）
+      //   注意：职位文本不能用 role —— role 是语义角色封闭枚举，写非枚举值会被拒绝
       "count": 4,                        // ★ org 场景：直属子节点数（画折叠角标）
       "type": "module",                  // ★ concept 场景：module|tech|data|process|concept（圆内图标）
       "lane": "order",                   // 泳道归属（kind=swimlane 时必填）
@@ -127,7 +128,7 @@ kind ──► PRESETS[kind] ──► {
 5. `flow` 仅 `mode: antline|pulse`、`speed: 0.5|1|2`
 6. **禁止任何 `x/y/w/h` 坐标字段**
 7. `nodes.length` ≤ `PRESETS[kind].limit.nodes`（Preset 上限需后端镜像一份常量）
-8. 拒绝 `__proto__`、`on*`、任意 attrs 注入（继承 004）
+8. 拒绝 `__proto__`、`on*`、任意 attrs 注入
 
 ---
 
@@ -144,7 +145,7 @@ kind ──► PRESETS[kind] ──► {
 | `topology` | 系统 / 网络拓扑 | dagre TB + cluster | rounded + icon | orth / straight | cluster | L1 | 入场 + 心跳脉冲 | 100 | fit |
 | `er` | 实体关系 | force（低斥力） | section 三段式 | straight + 基数标注 | — | L0 | 入场 | 24 | fit |
 | `swimlane` | 跨职能流程 | dagre LR × lane | rounded | orth 跨 lane | lane | L2 | 入场 + 流动 | 60 | scroll |
-| `sequence` | 异步任务往返时序 | lifeline 自定义版式 | **archNode** 参与者（顶部横排） | 水平消息箭头 · 实线同步/虚线异步 | — | L1 | 消息按序入场 | 24 | fit |
+| `sequence` | 异步任务往返时序 | lifeline 自定义版式 | **archNode** 参与者（顶部横排） | 水平消息箭头 · 实线同步/虚线异步 | — | L1 | 消息按序入场 | 12 / 24 | fit |
 | `arch` | 系统架构图 | dagre TB + boundary 就近 | **arch-node** 176×52（类型图标 + 技术栈副行 + 徽标） | orth · 线型表关系 · legend | region / sg 重叠边界 | L1 | boundary 先画 + 入场 | 60 | fit |
 | `concept` | 知识图谱 | force | **concept-node**（圆按度定尺寸 36–56 + 圆内类型图标 + 圆外名称） | straight 无箭头 · 线型表关系（实线包含 / 虚线依赖 / 点线引用） | — | L1 | 力导收敛 | 80 | fit |
 | `class` | UML 类图 | dagre LR | section 三段式 | orth + 空心菱形 | — | L0 | 入场 | 20 | fit |
@@ -302,7 +303,7 @@ kind ──► PRESETS[kind] ──► {
 | 容器 | 176×56，rx 10 |
 | ① 头像 | 36×36 圆角 10，`surface-2` 底 + 描边，内放**姓名/部门首字**（13px/600） |
 | ② 姓名 | 12.5px/500 |
-| ③ 职位/编制 | `node.role`，10.5px，text-3 |
+| ③ 职位/编制 | `node.role_desc`，10.5px，text-3 |
 | ④ 折叠角标 | `node.count`（直属子节点数），r9.5 圆挂下边缘中点 |
 
 **头像用首字而非图片**：外链头像泄隐私 + 导出后失效，与两条硬约束冲突。首字是零依赖、导出安全的身份表达。
@@ -340,7 +341,7 @@ kind ──► PRESETS[kind] ──► {
 | --- | --- | --- |
 | `state` | `node.pseudo` | ∈ `initial\|final\|choice`；`active` 全图最多 1 个 |
 | `state` | 边 `label` | 支持 `事件[守卫]`，守卫由前端解析渲染 |
-| `org` | `node.role` / `node.count` | count 为整数，缺失则不画角标 |
+| `org` | `node.role_desc` / `node.count` | count 为整数，缺失则不画角标 |
 | `mindmap` | `bc`（**前端分配**） | 整数 0–4，**不出现在 IR 中** |
 | `concept` | `node.type` | 5 类封闭枚举；边 `style` ∈ `solid\|dashed\|dotted` |
 
@@ -367,7 +368,7 @@ kind ──► PRESETS[kind] ──► {
 - IR 为平面列表：`{ id, kind: region|vpc|security-group, label, wraps[] }`，`wraps` 指向已声明节点
 - 渲染按**包围盒面积降序**绘制——region 大框（虚线、rx 14、pad 22）在底层，security-group 小框（实线、rx 10、pad 12）叠上层，重叠即嵌套视觉
 - **不做递归分组**；校验约束包裹深度 ≤ 2
-- 增量事件复用 `add_group`，boundary 在节点前下发（动效：boundary 先画 → 节点入场）
+- 入场事件序列复用 `add_group`，boundary 在节点前下发（动效：boundary 先画 → 节点入场）
 
 **legend：图例通道**
 
@@ -380,7 +381,7 @@ kind ──► PRESETS[kind] ──► {
 
 **组合示范**：可视化页画廊中的「Agent 工具调用工作流」即 `swimlane × archNode` 的组合——四条框式泳道（用户交互 / Agent 运行时 / 策略与恢复 / 工具执行与证据）+ 11 个带类别色的 arch-node + 主路径 antline + 虚线拦截/证据支路 + 胶囊图例。**不新增 kind**：workflow 类叙事用既有场景组合即可表达，这也是 Preset 架构的组合能力验证。
 
-**视觉验收基准**：`021-agent-workflow-hero-20260908.html` 为本组合的手工精排效果图（坐标制单场景精雕，不经通用渲染器）——P2.5 / P2.6 实施时以其为像素级对照基准；自动布局与精排的走线差距按 §10 第 18 条收敛。
+**视觉验收基准**：`021-agent-workflow-hero-20260908.html` 为本组合的手工精排效果图（坐标制单场景精雕，不经通用渲染器）——P2.5 / P2.6 实施时以其为像素级对照基准；自动布局与精排的走线差距按 §10 第 17 条收敛。
 
 ### 5.9 类别色带与胶囊图例（对齐 Archify 视觉水准）
 
@@ -423,6 +424,8 @@ kind ──► PRESETS[kind] ──► {
 
 定稿节奏（节点 280ms / 边 480ms / stagger 45ms），按场景族微调。所有动画只碰 `transform` / `opacity` / `stroke-dashoffset`。
 
+**触发时机**：IR 一次性到达——`render_graph` 返回完整 GraphIR，**不做逐 token 流式渲染**；入场动效由前端在完整 IR 到达后按序展开播放（回放式生长）。
+
 | 场景族 | 入场 | 持续动效 | 播放编排 | 历史回放 |
 | --- | --- | --- | --- | --- |
 | 线性流程（flow / dag / swimlane） | 按拓扑序 pop 弹入，stagger 45ms | antline 双向流动（仅标记 flow 的边） | demoPath 600ms/跳 | 直渲染终态，工具条手动播放 |
@@ -443,7 +446,7 @@ kind ──► PRESETS[kind] ──► {
 
 ## 8. 能力边界：什么不进这条链路
 
-方案 004 的收敛条件写的是「X6 稳定后评估把 Mermaid 迁过来，避免三套体系并行」。方向对，但要写清边界，否则多场景会无限扩张。
+收敛目标：X6 链路稳定后，把 Mermaid 承担的静态图场景迁过来，避免渲染体系永久并行。方向对，但必须先写清边界，否则多场景会无限扩张。
 
 | 图形类型 | 归属 | 理由 |
 | --- | --- | --- |
@@ -469,8 +472,8 @@ kind ──► PRESETS[kind] ──► {
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
 | **P0** 验证 | 50 行 X6 3.x demo：① `animate` API 真实形状 ② 边的第二条 path 能否复用连接数据（`connection:true` **未实测**）③ `@antv/layout` 各引擎在 WKWebView 的真实耗时 ④ 帧率拐点实测 ⑤ `toSVG` 对自定义 markup 的输出 | 布局引擎选型定稿、动画 API 定稿、帧率拐点写回本文档 |
-| **P1** 骨架 | GraphIR + 白名单校验 + `render_graph` 工具 + 增量事件流 + Preset Resolver + 渲染器 + **3 个场景**（flow / dag / state） | Agent 输出 IR，聊天内出现三种正确布局的图；历史回放直渲染 |
-| **P2** 动效 | 入场动效 + antline/pulse + demoPath 播放 + 工具条（按 `Preset.capabilities` 渲染）+ 导出 PNG/SVG | 生成过程逐节点生长；流动可开关；导出可嵌入 PDF |
+| **P1** 骨架 | GraphIR + 白名单校验 + `render_graph` 工具 + 回放式入场编排 + Preset Resolver + 渲染器 + **3 个场景**（flow / dag / state） | Agent 输出 IR，聊天内出现三种正确布局的图；历史回放直渲染 |
+| **P2** 动效 | 入场动效 + antline/pulse + demoPath 播放 + 工具条（按 `Preset.capabilities` 渲染）+ 导出 PNG/SVG | 生成完成后回放式逐节点生长；流动可开关；导出可嵌入 PDF |
 | **P2.5** 扩列 | 剩余 11 个场景（dataflow / org / mindmap / topology / er / swimlane / sequence / concept / class / fishbone / timeline） | 每个场景**表里加一行即生效，不改 schema 不改后端**（这条本身就是验收） |
 | **P2.6** 架构图 | `arch` kind + arch-node + boundaries 重叠绘制 + legend 通道 + 工具描述 arch 话术 | 三层 Web 栈架构图正确渲染；boundary 嵌套视觉正确；图例随导出带走 |
 | **P3** 打磨 | hover 关联高亮 + 详情面板 + minimap + 折叠展开 + 视口外暂停 | 大图浏览流畅；长会话 CPU 无异常占用 |
@@ -478,7 +481,7 @@ kind ──► PRESETS[kind] ──► {
 
 ---
 
-## 10. P0 验收清单（18 条，结论写回本文档）
+## 10. P0 验收清单（17 条，结论写回本文档）
 
 1. `graph.animate` 的真实 API 形状（是 `node.animate` 还是 `transition`？回调如何拿？）
 2. **边的第二条 path 能否拿到连接数据**（`connection: true` 是二手结论，未实测）。退路：手动同步 `flow.attr('d', line.attr('d'))`
@@ -496,8 +499,7 @@ kind ──► PRESETS[kind] ──► {
 14. **`textWrap.ellipsis` 在中文下是否按字符截断**——决定是否需要前端自算文本宽度
 15. **主题切换**：不重建 graph、只更新 attrs 是否可行（避免滚动位置丢失）
 16. **boundary 约束布局**：`@antv/layout` 的 compound / combo 能否让组内成员就近、组间分层（arch 场景的核心依赖）；退路是分区域布局后拼接，跨 boundary 边路由质量需目测
-17. **真流式可行性**：`_stream_agent_run` 的 `run.messages`（`app/agent/core/sse.py`）能否稳定拿到 tool_call 参数的 token 级增量（`tool_call_chunks`）。可行 → 真流式生长（token 流 + 流式 JSON 解析提前下发节点）；不可行 → 回放式生长（完整 IR 到达后前端节流播放，见 plan 004 决策 13）
-18. **swimlane 跨泳道边路由实测**：自动 orth 边在泳道间隙的走线质量目测打分（对照 `021-agent-workflow-hero-20260908.html` 手工精排基准）；不足则渲染器内置「跨泳道沿间隙绕行」后处理规则，或 IR 加受控路由提示枚举（`route: right-bypass|lane-gap`）
+17. **swimlane 跨泳道边路由实测**：自动 orth 边在泳道间隙的走线质量目测打分（对照 `021-agent-workflow-hero-20260908.html` 手工精排基准）；不足则渲染器内置「跨泳道沿间隙绕行」后处理规则，或 IR 加受控路由提示枚举（`route: right-bypass|lane-gap`）
 
 ---
 
@@ -711,4 +713,5 @@ pages/chat/components/GraphBlock/
 - **样式隔离**：`GraphBlock/index.less` 的类名加 `gb-` 前缀或直接用 CSS Modules。项目已出过一次全局 `.diff-view` 类名冲突事故（见 MEMORY.md 2026-09-04）。
 - **不要复用 `chartOptions.ts` 的色值常量**，建独立的 `graphTones.ts`。
 - **前端改动不做编译验证**（用户既定约定：AI 只改代码，不跑 `tsc`/`vite build`）；后端 pytest 照旧。
+- **不做流式渲染**：后端不建 `tool_call_chunks` 增量管道、不做流式 JSON 解析；`render_graph` 出参为完整 GraphIR，入场生长由前端回放式编排。
 - 工具输出路径必须落在 workspace 或 output_dir 内（项目既有安全约束）。

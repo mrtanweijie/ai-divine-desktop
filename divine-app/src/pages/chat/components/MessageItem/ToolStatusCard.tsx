@@ -6,10 +6,16 @@ import { Button } from "@/components/ui/Button";
 import { Flex } from "@/components/ui/Flex";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { ChartBlock } from "@/pages/chat/components/ChartBlock";
+import { GraphBlock } from "@/pages/chat/components/GraphBlock";
 import { request } from "@/services/request";
 import type { PreviewFile, ToolEvent } from "@/types";
 import { copyText } from "@/utils";
-import { chartOptionFromResult, chartTypeIcon, openToolUrl } from "./MessageHelpers";
+import {
+  chartOptionFromResult,
+  chartTypeIcon,
+  graphIRFromResult,
+  openToolUrl,
+} from "./MessageHelpers";
 import { ToolCommands } from "./ToolCommands";
 import { ToolConfirmSection } from "./ToolConfirmSection";
 import { ToolFileList, ToolResultFile } from "./ToolFileList";
@@ -20,11 +26,15 @@ export const ToolStatusCard = memo(function ToolStatusCard({
   tool,
   sessionId,
   workspacePath,
+  live = false,
   onPreviewFile,
 }: {
   tool: ToolEvent;
   sessionId?: string | null;
   workspacePath?: string | null;
+  /** 该消息仍在流式输出 = 本轮新生成的图，播放回放式入场；
+   *  历史消息直渲染终态（零动画、不自动开流动）。 */
+  live?: boolean;
   onPreviewFile?: (file: PreviewFile) => void;
 }) {
   const { t } = useTranslation();
@@ -63,6 +73,7 @@ export const ToolStatusCard = memo(function ToolStatusCard({
             : tool.message;
   const chartOption = chartOptionFromResult(tool.result);
   const chartIcon = chartOption ? chartTypeIcon(chartOption) : null;
+  const graphIR = graphIRFromResult(tool.result);
   const icon = toolIcon(tool.tool);
 
   const copyJson = async () => {
@@ -189,6 +200,9 @@ export const ToolStatusCard = memo(function ToolStatusCard({
         <div className="chart-block">
           <ChartBlock option={chartOption} workspacePath={workspacePath} />
         </div>
+      )}
+      {tool.status === "done" && graphIR && (
+        <GraphBlock ir={graphIR} workspacePath={workspacePath} animate={live} />
       )}
       {hasUrls && urlsOpen && (
         <div className="tool-url-list">

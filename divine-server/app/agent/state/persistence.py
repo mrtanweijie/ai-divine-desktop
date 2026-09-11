@@ -176,6 +176,13 @@ def _sync_todos_from_state(
 
 _FRONTEND_STRING_LIMIT = 4000
 
+#: ``data`` 里的整块 payload：前端渲染器需要完整内容，截断会静默丢数据。
+#: ``graphIR`` 的 nodes/edges 一旦超过 50 项就会被砍半，图画出来直接缺节点；
+#: 规模已在工具侧强校验（节点/边上限、字符串长度上限、总字节上限），
+#: 因此这里原样透传，不做二次截断。
+#: 见 docs/design/020-x6-multi-scenario-20260908.md §3。
+_FRONTEND_OPAQUE_KEYS = frozenset({"graphIR"})
+
 def _frontend_truncate(value: Any) -> Any:
     """Recursively cap long strings/lists in tool results sent to the UI."""
     if isinstance(value, str):
@@ -203,9 +210,10 @@ def _frontend_tool_result(output: dict[str, Any]) -> dict[str, Any]:
             result[key] = value[:4000] + f"\n...[截断，共 {len(value)} 字符]"
     data = result.get("data")
     if isinstance(data, dict):
-        data_copy = dict(data)
-        # diff/matches 等长字段统一递归截断（此前漏网，导致大 payload 推给 WebView）
-        data_copy = _frontend_truncate(data_copy)
+        data_copy = {}
+        for key, value in data.items():
+            # 全量 payload（如 graphIR）原样透传；其余字段照旧递归截断。
+            data_copy[key] = value if key in _FRONTEND_OPAQUE_KEYS else _frontend_truncate(value)
         results = data_copy.get("results")
         if isinstance(results, list) and len(results) > 12:
             data_copy["results"] = results[:12] + [
