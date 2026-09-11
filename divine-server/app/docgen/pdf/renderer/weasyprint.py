@@ -46,6 +46,20 @@ def _color_scheme_overrides(color_scheme: str) -> dict[str, str]:
 
 _WEASYPRINT_OK: bool | None = None
 
+def _recolor_charts(
+    body: str,
+    primary: str | None,
+    base_dir: Path | None,
+) -> str:
+    from ...chart.recolor import recolor_body_svg
+
+    try:
+        return recolor_body_svg(body, primary, base_dir)
+    except Exception:
+        # 重着色是锦上添花，失败时保留原图表继续渲染
+        return body
+
+
 def _weasyprint_available() -> bool:
     global _WEASYPRINT_OK
     if _WEASYPRINT_OK is not None:
@@ -116,6 +130,8 @@ def _render_with_weasyprint(
     )
     # 给 h2/h3 注入 id，供目录 target-counter 页码与锚点跳转使用
     body = _add_heading_ids(body)
+    # 图表 SVG 跟随主题色：把内嵌图表的固定色板替换为主题主色派生色板
+    body = _recolor_charts(body, merged_overrides.get("--primary"), base_dir)
     cover_html = ""
     if cover:
         custom_cover = ""
