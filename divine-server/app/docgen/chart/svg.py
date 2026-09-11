@@ -377,7 +377,10 @@ def _cartesian_svg(
     category_count = max(len(labels), 1)
     group_width = plot_width / category_count
     series_count = max(len(series), 1)
-    bar_width = max(2.0, group_width / series_count * 0.72)
+    # 与横向条形图一致：柱厚封顶 _HBAR_MAX_THICKNESS（对齐前端 barMaxWidth: 30），
+    # 分类少时整组居中，避免柱子过粗且偏离分类标签。
+    bar_width = max(2.0, min(group_width / series_count * 0.72, _HBAR_MAX_THICKNESS))
+    group_offset = max(0.0, (group_width - series_count * bar_width) / 2)
 
     parts = [
         (
@@ -436,7 +439,12 @@ def _cartesian_svg(
                 continue
             color = COLORS[series_index % len(COLORS)]
             for index, value in enumerate(values[:category_count]):
-                x = left + index * group_width + series_index * bar_width
+                x = (
+                    left
+                    + index * group_width
+                    + group_offset
+                    + series_index * bar_width
+                )
                 y = top + plot_height - (value / max_value) * plot_height
                 bar_height = max(0.0, top + plot_height - y)
                 parts.append(
