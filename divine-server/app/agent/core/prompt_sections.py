@@ -192,11 +192,13 @@ _PDF_TRAVEL_RULES = """用户直接说"输出 PDF"且当前内容是旅行攻略
 生成旅行手册 PDF 时默认生成封面、不要生成目录，也不要传 toc=true；
 旅行攻略禁止用 pdf_render 兜底，pdf_generate 失败时重试一次，仍失败则把错误原样告诉用户。
 用户要求旅行手册换主题色时，把 color_scheme 设为预设（teal/blue/green/warm/purple/monochrome）；
-只有风格为旅行杂志风（travel_mag）或新旅行主题（travel_swiss/travel_bento/travel_aurora）时，
-选完风格后若用户未指定主题色，才弹一张主题色选项卡片
-（```options）让用户选择；经典旅行手册（travel）和通用现代（universal）不弹主题色卡片，
-直接使用默认 teal，除非用户主动要求换色；
-弹主题色卡片时，必须根据用户的目的地/旅行内容，从下表 12 个主题中挑选最贴合场景的 4 个，
+【流程硬性要求】选完风格后禁止弹主题色选项卡、禁止用文字询问配色（本条优先于「先确认再执行」类通用规则），
+必须直接调用 pdf_generate 生成第一版：
+经典旅行手册（travel）、旅行杂志风（travel_mag）、通用现代（universal）用默认 teal；
+新旅行主题（travel_swiss/travel_bento/travel_aurora）优先用主题自带设计色板（不传 color_scheme），
+或你根据目的地/旅行内容从下表自主挑一套最贴合的 color_scheme 一并生成；
+第一版生成完成后，才允许输出一张主题色选项卡询问是否需要更换主题色
+（```options），根据用户的目的地/旅行内容，从下表 12 个主题中挑选最贴合场景的 4 个，
 每次恰好输出 4 个选项（不要多也不要少，也不要每次固定输出同一组）：
 - 深青绿 teal：经典万能
 - 极地冰蓝 iceblue：冰川/极光/雪山/海洋
@@ -210,9 +212,9 @@ _PDF_TRAVEL_RULES = """用户直接说"输出 PDF"且当前内容是旅行攻略
 - 复古胶片 vintage：古城/人文/怀旧
 - 午夜墨黑 midnight：星空/夜景/都市
 - 纯黑 pureblack：极简/黑白
-选项的 theme 字段省略、color_scheme 字段填下表 key，如（海岛行程示例）：
+选项的 theme 字段省略、color_scheme 字段填下表 key，如（海岛行程示例，第一版已生成后询问换色）：
 ```options
-{"title": "请选择主题色", "options": [
+{"title": "是否需要更换主题色？保持当前配色可忽略", "options": [
   {"label": "晨雾灰蓝", "color_scheme": "mistblue", "desc": "灰蓝 + 浅雾蓝，宁静柔和"},
   {"label": "极地冰蓝", "color_scheme": "iceblue", "desc": "冰川质感"},
   {"label": "雾凇青", "color_scheme": "mistsage", "desc": "雾灰青 + 灰白，清冷淡雅"},
