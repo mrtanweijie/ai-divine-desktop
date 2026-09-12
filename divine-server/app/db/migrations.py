@@ -158,6 +158,7 @@ CREATE TABLE IF NOT EXISTS token_usage (
     output_tokens INTEGER NOT NULL DEFAULT 0,
     total_tokens INTEGER NOT NULL DEFAULT 0,
     source TEXT NOT NULL DEFAULT 'real',
+    duration_ms INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_token_usage_session ON token_usage(session_id);
@@ -300,6 +301,12 @@ def init_db() -> None:
             "  WHERE s.id = user_memories.source_session_id"
             ") WHERE project_id IS NULL AND source_session_id IS NOT NULL"
         )
+        token_usage_columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(token_usage)")
+        }
+        if "duration_ms" not in token_usage_columns:
+            conn.execute("ALTER TABLE token_usage ADD COLUMN duration_ms INTEGER")
         summary_columns = {
             row["name"]
             for row in conn.execute("PRAGMA table_info(session_summaries)")

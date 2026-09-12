@@ -44,6 +44,14 @@ export function formatTokens(count: number): string {
   return `${text}${suffix}`;
 }
 
+/** 回复耗时：分钟内显示秒（一位小数），跨分钟显示 分+秒。 */
+export function formatDuration(ms: number): string {
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(ms / 60_000);
+  const seconds = Math.round((ms % 60_000) / 1000);
+  return `${minutes}分${seconds}秒`;
+}
+
 /** 数字补零到两位：3 → "03"。 */
 export function pad(value: number): string {
   return String(value).padStart(2, "0");

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from typing import Any
 
 from .connection import get_conn, _new_id, _now
@@ -68,16 +69,37 @@ def add_message(
     return get_message(message_id)
 
 def _attach_token_usage(message: dict[str, Any], row) -> None:
-    """Attach token_usage (if any) from a LEFT JOIN row onto the message dict."""
+    """Attach token_usage (if any) from a LEFT JOIN row onto the message dict.
+
+    ``created_at`` 是 usage 记录时间，即该条回复的完成时间。
+    """
     usage_total = row["usage_total"]
-    for key in ("usage_input", "usage_output", "usage_total", "usage_source"):
+    for key in ("usage_input", "usage_output", "usage_total", "usage_source",
+                "usage_created_at", "usage_duration_ms"):
         message.pop(key, None)
     if usage_total is not None:
+        created = row["usage_created_at"]
+        # SQLite datetime('now') 是无时区 UTC 串，转成带时区 ISO，前端按本地时区渲染
+        if created:
+            try:
+                created = (
+                    datetime.strptime(created, "%Y-%m-%d %H:%M:%S")
+                    .replace(tzinfo=timezone.utc)
+                    .isoformat(timespec="seconds")
+                )
+            except (TypeError, ValueError):
+                pass
         message["token_usage"] = {
             "input_tokens": int(row["usage_input"] or 0),
             "output_tokens": int(row["usage_output"] or 0),
             "total_tokens": int(usage_total or 0),
             "source": row["usage_source"] or "real",
+            "created_at": created,
+            "duration_ms": (
+                int(row["usage_duration_ms"])
+                if row["usage_duration_ms"] is not None
+                else None
+            ),
         }
 
 
@@ -86,7 +108,8 @@ def list_messages(session_id: str) -> list[dict[str, Any]]:
         rows = conn.execute(
             "SELECT m.*, u.input_tokens AS usage_input, "
             "u.output_tokens AS usage_output, u.total_tokens AS usage_total, "
-            "u.source AS usage_source "
+            "u.source AS usage_source, u.created_at AS usage_created_at, "
+            "u.duration_ms AS usage_duration_ms "
             "FROM messages m "
             "LEFT JOIN token_usage u ON u.message_id = m.id "
             "WHERE m.session_id = ? ORDER BY m.created_at ASC, m.rowid ASC",

@@ -365,7 +365,8 @@ def load_session_page(
             rows = conn.execute(
                 "SELECT m.*, m.rowid, u.input_tokens AS usage_input, "
                 "u.output_tokens AS usage_output, u.total_tokens AS usage_total, "
-                "u.source AS usage_source "
+                "u.source AS usage_source, u.created_at AS usage_created_at, "
+                "u.duration_ms AS usage_duration_ms "
                 "FROM messages m "
                 "LEFT JOIN token_usage u ON u.message_id = m.id "
                 "WHERE m.session_id = ? AND m.rowid < "
@@ -377,7 +378,8 @@ def load_session_page(
             rows = conn.execute(
                 "SELECT m.*, m.rowid, u.input_tokens AS usage_input, "
                 "u.output_tokens AS usage_output, u.total_tokens AS usage_total, "
-                "u.source AS usage_source "
+                "u.source AS usage_source, u.created_at AS usage_created_at, "
+                "u.duration_ms AS usage_duration_ms "
                 "FROM messages m "
                 "LEFT JOIN token_usage u ON u.message_id = m.id "
                 "WHERE m.session_id = ? "

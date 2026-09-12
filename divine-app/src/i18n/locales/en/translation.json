@@ -179,7 +179,8 @@
     "tokenUsageDetail": "Input {{input}} · Output {{output}} · Total {{total}} tokens (reported by API)",
     "tokenUsageEstimated": "Input {{input}} · Output {{output}} · Total {{total}} tokens (estimated)",
     "working": "Working...",
-    "preprocessWorking": "Organizing the long text locally (starting model / chunking)…"
+    "preprocessWorking": "Organizing the long text locally (starting model / chunking)…",
+    "durationTitle": "Response time (incl. tool runs)"
   },
   "project": {
     "addFolder": "Add a readable and editable folder",

@@ -19,7 +19,7 @@ import { Flex } from "@/components/ui/Flex";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
 import type { ChatMessage, PreviewFile, TodoItem } from "@/types";
-import { copyText, formatSize, formatTime, formatTokens } from "@/utils";
+import { copyText, formatDuration, formatSize, formatTime, formatTokens } from "@/utils";
 import { parseSupplement } from "@/pages/chat/chatUtils";
 import { ToolStatusCard } from "./ToolStatusCard";
 import { SubAgentPanel } from "./SubAgentPanel";
@@ -103,6 +103,14 @@ export const MessageItem = memo(function MessageItem({
                 {t("message.tokenTotal", "{{count}} tokens", {
                   value: formatTokens(message.token_usage.total_tokens),
                 })}
+              </span>
+            )}
+            {!isUser && message.token_usage?.duration_ms != null && (
+              <span
+                className="message-token-usage"
+                title={t("message.durationTitle", "本条回复耗时（含工具执行）")}
+              >
+                {formatDuration(message.token_usage.duration_ms)}
               </span>
             )}
             {message.content && message.source === "local" && onRetryCloud && (

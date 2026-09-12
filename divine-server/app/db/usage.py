@@ -14,17 +14,20 @@ def save_token_usage(
     output_tokens: int,
     total_tokens: int,
     source: str = "real",
+    duration_ms: int | None = None,
 ) -> None:
     """Record the token consumption of one assistant reply.
 
     ``source`` is "real" when reported by the model API, "estimated" when
-    computed locally as a fallback.
+    computed locally as a fallback. ``duration_ms`` is the turn wall time
+    (question in → answer persisted), shown next to the token stats.
     """
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO token_usage "
-            "(session_id, message_id, input_tokens, output_tokens, total_tokens, source) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "(session_id, message_id, input_tokens, output_tokens, total_tokens, "
+            " source, duration_ms) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 session_id,
                 message_id,
@@ -32,6 +35,7 @@ def save_token_usage(
                 int(output_tokens or 0),
                 int(total_tokens or 0),
                 source,
+                int(duration_ms) if duration_ms is not None else None,
             ),
         )
         conn.commit()

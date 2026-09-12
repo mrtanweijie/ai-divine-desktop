@@ -178,7 +178,8 @@
     "tokenUsageEstimated": "輸入 {{input}} · 輸出 {{output}} · 總計 {{total}} tokens（估算）",
     "working": "Working...",
     "preprocessWorking": "正在本地整理長文本（啟動模型/分塊整理），請稍候…",
-    "subagentChangedFiles_other": "改动 {{count}} 个文件"
+    "subagentChangedFiles_other": "改动 {{count}} 个文件",
+    "durationTitle": "本條回覆耗時（含工具執行）"
   },
   "project": {
     "addFolder": "新增可讀取和編輯的資料夾",

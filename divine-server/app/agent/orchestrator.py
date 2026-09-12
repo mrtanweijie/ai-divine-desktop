@@ -347,6 +347,9 @@ async def run_agent(
     ui_theme: str | None = None,
 ) -> AsyncIterator[str]:
     """Stream one agent turn as SSE strings, handling interrupts and persistence."""
+    import time as _time
+
+    turn_started = _time.monotonic()
     workspace_path = workspace if isinstance(workspace, Path) else Path(workspace)
     session = await asyncio.to_thread(db.get_session, session_id)
     resolved_tool_mode = _resolve_tool_mode(tool_mode, model_id)
@@ -901,6 +904,7 @@ async def run_agent(
                 usage["output"],
                 usage["total"],
                 usage["source"],
+                int((_time.monotonic() - turn_started) * 1000),
             )
         except Exception:  # noqa: BLE001 - usage tracking must never fail a turn
             logger.exception("save token usage failed session=%s", session_id)

@@ -175,7 +175,8 @@
     "tokenUsageDetail": "输入 {{input}} · 输出 {{output}} · 总计 {{total}} tokens（API 上报）",
     "tokenUsageEstimated": "输入 {{input}} · 输出 {{output}} · 总计 {{total}} tokens（估算）",
     "working": "Working...",
-    "preprocessWorking": "正在本地整理长文本（启动模型/分块整理），请稍候…"
+    "preprocessWorking": "正在本地整理长文本（启动模型/分块整理），请稍候…",
+    "durationTitle": "本条回复耗时（含工具执行）"
   },
   "project": {
     "addFolder": "添加可读取和编辑的文件夹",

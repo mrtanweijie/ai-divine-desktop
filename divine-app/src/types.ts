@@ -54,6 +54,8 @@ export interface Message {
     output_tokens: number;
     total_tokens: number;
     source: "real" | "estimated";
+    created_at?: string;
+    duration_ms?: number | null;
   };
 }
 
@@ -241,6 +243,8 @@ export interface ChatMessage {
     output_tokens: number;
     total_tokens: number;
     source: "real" | "estimated";
+    created_at?: string;
+    duration_ms?: number | null;
   };
 }
 
