@@ -647,18 +647,118 @@ def _image_data_uri(src: str) -> str | None:
     return f"data:{ctype};base64,{base64.b64encode(data).decode('ascii')}"
 
 
-def _keyword_to_image_url(keyword: str) -> str:
-    """把景点关键词转成稳定的图片 URL。
+# ═══ 关键词 → 真实图片（必应中国，免 key、国内可达） ═══════════════════
 
-    优先 Unsplash（若关键词本身是 unsplash photo 链接则直接用）；
-    否则用 picsum.photos 的 seed 模式（按关键词生成固定图，无需 API key），
-    seed 用 URL 编码的中文+英文关键词，保证同景点多次生成图片一致。
+_BING_IMAGE_CACHE: dict[str, str | None] = {}
+_BING_SEARCH_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+)
+_BING_MURL_RE = re.compile(r'm="([^"]+)"')
+
+
+def _parse_bing_image_results(html_text: str) -> list[str]:
+    """从必应图片搜索的 async 响应提取原图 URL（m 属性是 HTML 转义的 JSON）。"""
+    import json as _json
+
+    urls: list[str] = []
+    for raw in _BING_MURL_RE.findall(html_text or ""):
+        try:
+            payload = _json.loads(html_lib.unescape(raw))
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        murl = str(payload.get("murl") or "").strip()
+        if murl.startswith(("http://", "https://")) and murl not in urls:
+            urls.append(murl)
+    return urls
+
+
+def _search_image_url(keyword: str) -> str | None:
+    """按关键词搜真实图片；搜索或下载验证失败返回 None（调用方降级 picsum）。
+
+    结果按关键词进程内缓存，None 也缓存——避免失败关键词在整份文档里反复重试。
+    """
+    keyword = (keyword or "").strip()
+    if not keyword:
+        return None
+    if keyword in _BING_IMAGE_CACHE:
+        return _BING_IMAGE_CACHE[keyword]
+
+    url: str | None = None
+    try:
+        import urllib.parse
+        import urllib.request
+
+        endpoint = (
+            "https://cn.bing.com/images/async?"
+            f"q={urllib.parse.quote(keyword)}&first=0&count=8&mmasync=1"
+        )
+        request = urllib.request.Request(
+            endpoint, headers={"User-Agent": _BING_SEARCH_UA}
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            page = response.read(512 * 1024).decode("utf-8", "replace")
+        # 前 5 个候选逐一验证"确实可下载且是图片"，第一个成功的入选
+        for candidate in _parse_bing_image_results(page)[:5]:
+            if _fetch_image_data(candidate):
+                url = candidate
+                break
+    except Exception:
+        url = None
+    _BING_IMAGE_CACHE[keyword] = url
+    return url
+
+
+def _prewarm_image_cache(keywords: list[str]) -> None:
+    """并行预热关键词图片缓存（搜索+验证放子线程，避免整份文档串行等待）。"""
+    todo = [
+        kw
+        for kw in dict.fromkeys(k.strip() for k in keywords if k and k.strip())
+        if kw not in _BING_IMAGE_CACHE
+    ][:60]
+    if not todo:
+        return
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            list(pool.map(_search_image_url, todo))
+    except Exception:  # noqa: BLE001 — 预热失败不影响主流程，内联时会逐个重试
+        pass
+
+
+def _collect_image_keywords(html_body: str) -> list[str]:
+    """收集正文里的配图关键词：keyword: 源 + photo-placeholder 的 photo-note。"""
+    keywords: list[str] = []
+    for match in _IMG_SRC_RE.finditer(html_body):
+        src = (match.group(2) or "").strip()
+        if src.startswith("keyword:"):
+            keywords.append(src[len("keyword:"):])
+    for match in _PLACEHOLDER_RE.finditer(html_body):
+        note = re.search(
+            r"photo-note[^>]*>(.*?)<", match.group(1), re.IGNORECASE | re.DOTALL
+        )
+        if note:
+            keywords.append(note.group(1))
+    return keywords
+
+
+def _keyword_to_image_url(keyword: str) -> str:
+    """把景点关键词转成真实图片 URL：必应中国搜索优先，失败降级 picsum。
+
+    若关键词本身是图片链接则直接用；picsum seed 模式按关键词生成固定图，
+    保证同景点多次生成图片一致（仅作为搜索失败时的兜底）。
     """
     from urllib.parse import quote
 
     keyword = (keyword or "").strip()
     if keyword.startswith(("http://", "https://")):
         return keyword
+    found = _search_image_url(keyword)
+    if found:
+        return found
     seed = quote(keyword or "travel", safe="")
     return f"https://picsum.photos/seed/{seed}/900/600"
 
@@ -713,8 +813,6 @@ def _inline_placeholder_images(html_body: str, auto_fill: bool = True) -> str:
     """
     # 先兜底：LLM 省略 placeholder 时自动插入（确保配图有占位可处理）
     html_body = _ensure_placeholder_blocks(html_body)
-    if "photo-placeholder" not in html_body:
-        return html_body
 
     def _inline_existing(match: re.Match[str]) -> str:
         tag = match.group(0)
@@ -723,6 +821,19 @@ def _inline_placeholder_images(html_body: str, auto_fill: bool = True) -> str:
             return ""
         if src.startswith("data:") or src.startswith("file:"):
             return tag
+        if src.startswith("keyword:"):
+            # 关键词源：必应中国搜真实图，失败移除 img 保留渐变占位
+            url = _keyword_to_image_url(src[len("keyword:"):].strip())
+            uri = _image_data_uri(url) if url else None
+            if not uri:
+                return ""
+            return re.sub(
+                r'\bsrc=(["\'])(.*?)\1',
+                f'src="{uri}"',
+                tag,
+                count=1,
+                flags=re.IGNORECASE,
+            )
         if not src.startswith(("http://", "https://")):
             # 本地相对路径：交给 WeasyPrint base_url 解析
             return tag
@@ -737,11 +848,15 @@ def _inline_placeholder_images(html_body: str, auto_fill: bool = True) -> str:
             flags=re.IGNORECASE,
         )
 
-    # 先处理已有 img（下载或移除）
+    # 先处理已有 img（keyword: 搜索内嵌 / http 下载内嵌 / 失败移除）。
+    # 注意：现代主题的 .ph 图片不含 photo-placeholder，必须在判空之前处理，
+    # 否则外链 img 会漏过内嵌流程、由 WeasyPrint 渲染时直连外网（慢且失败成白块）。
     if "<img" in html_body:
         html_body = _IMG_SRC_RE.sub(_inline_existing, html_body)
 
     # 再给没有 img 的 placeholder 自动补图（仅用户要求配图时）
+    if "photo-placeholder" not in html_body:
+        return html_body
     if not auto_fill:
         return html_body
 
@@ -790,6 +905,8 @@ def build_travel_html_document(
     # 图片占位/配图仅结构化旅行主题使用（travel_mag/swiss/bento/aurora）：
     # 经典模板（travel）没有 photo-placeholder 样式，插入会显示原始文本。
     if theme in TRAVEL_RICH_THEMES:
+        if images:
+            _prewarm_image_cache(_collect_image_keywords(html_body))
         html_body = _inline_placeholder_images(html_body, auto_fill=images)
     return (
         "<!doctype html><html><head><meta charset=\"utf-8\">"
