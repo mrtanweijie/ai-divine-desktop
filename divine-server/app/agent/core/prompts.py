@@ -60,6 +60,7 @@ _MEMORY_CATEGORY_LABELS = {
     "preference": "偏好",
     "fact": "事实",
     "event": "事件",
+    "procedure": "做法",
 }
 
 # Hard cap for the injected memory block (tokens ≈ chars / 1.5 for CJK).

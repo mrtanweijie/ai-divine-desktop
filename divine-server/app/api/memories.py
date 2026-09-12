@@ -18,6 +18,31 @@ class MemoryReviewRequest(BaseModel):
     note: str | None = None  # 预留：确认/拒绝时的备注，暂不落库
 
 
+class MemoryImportRequest(BaseModel):
+    """L3 程序记忆的人工导入通道（022 §4.4：只人工导入，不自动写）。"""
+
+    content: str
+    category: str = "procedure"  # procedure=做法/runbook；也接受 preference/fact/event
+    importance: float = 0.7
+    confidence: float = 1.0
+    project_id: str | None = None
+
+
+@router.post("", status_code=201)
+def import_memory(payload: MemoryImportRequest):
+    try:
+        memory = db.save_memory(
+            payload.content.strip(),
+            category=payload.category,
+            importance=payload.importance,
+            confidence=payload.confidence,
+            project_id=payload.project_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"memory": memory}
+
+
 @router.get("")
 def list_memories(status: str = "active", category: str | None = None):
     try:

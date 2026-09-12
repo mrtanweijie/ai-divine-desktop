@@ -267,6 +267,15 @@ async def compact_session(
         newest_rowid,
         saved.get("saved_tokens", 0),
     )
+
+    # 隐式记忆抽取（022 §5.5）：压缩即一次“会话收尾”，用本地小模型对增量
+    # 对话抽取候选记忆；不可用/失败静默跳过，绝不影响压缩主流程。
+    try:
+        from ..memory_extract import extract_and_store
+
+        await extract_and_store(session_id, text)
+    except Exception:  # noqa: BLE001 — 抽取失败不影响压缩
+        logger.exception("implicit memory extraction failed")
     return saved
 
 

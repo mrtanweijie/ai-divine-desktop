@@ -35,7 +35,9 @@ _SUPERSEDED = "superseded"
 _ALLOWED_STATUSES = (_ACTIVE, _PENDING)
 
 # Soft-deletion keeps audit history; only active rows are returned by default.
-_ALLOWED_CATEGORIES = ("preference", "fact", "event")
+# procedure（程序记忆/L3，022 §4.4）只经人工导入通道写入（/api/memories
+# POST），模型侧 remember 工具的 enum 不含它，避免自动沉淀错误 workflow。
+_ALLOWED_CATEGORIES = ("preference", "fact", "event", "procedure")
 
 # 极性闸门：命中任一提示词视为负极性。子串匹配必然误判，所以它只决定
 # 「冲突时新记忆是否挂起」，永不直接触发删除（原则 5：失败模式良性）。
@@ -72,6 +74,7 @@ _CATEGORY_RECENCY = {
     "preference": (180.0, 0.05),
     "fact": (90.0, 0.10),
     "event": (30.0, 0.20),
+    "procedure": (365.0, 0.05),
 }
 _RECENCY_DEFAULT = (180.0, 0.05)
 

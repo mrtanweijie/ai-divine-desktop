@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import json
+
 
 def _init(tmp_path, monkeypatch):
     data_dir = tmp_path / "data"
@@ -426,3 +428,144 @@ def test_session_summary_project_id_deduped_on_save(tmp_path, monkeypatch):
     s1 = db.create_session(title="会话1", project_id=pa["id"])
     row = db.save_summary(s1["id"], "结论：用 pnpm。", cutoff_rowid=1)
     assert row["project_id"] == pa["id"]
+
+
+# --- 五期：隐式抽取 + L3 人工导入通道（022 §5.5 / §4.4）------------------
+
+
+def test_parse_candidates_handles_fences_and_garbage():
+    from app.agent.memory_extract import parse_candidates
+
+    raw = '```json\n[{"content": "用户喜欢深色主题", "category": "preference", "importance": 0.6, "confidence": 0.9}]\n```'
+    parsed = parse_candidates(raw)
+    assert len(parsed) == 1
+    assert parsed[0]["confidence"] == 0.9
+
+    assert parse_candidates("没有值得记的") == []
+    assert parse_candidates("not json [ at all") == []
+    assert parse_candidates("") == []
+    # 非法 category / 空 content / 超长内容被丢弃，数值越界被夹紧
+    raw = (
+        '[{"content": "", "category": "fact"},'
+        '{"content": "x", "category": "nope"},'
+        '{"content": "用户在上海工作", "category": "fact", "confidence": 5},'
+        f'{{"content": "{"长" * 300}", "category": "fact"}}]'
+    )
+    parsed = parse_candidates(raw)
+    assert len(parsed) == 1
+    assert parsed[0]["confidence"] == 1.0
+    # 候选数量上限
+    raw = json.dumps(
+        [
+            {"content": f"记忆{index}", "category": "fact", "confidence": 0.9}
+            for index in range(20)
+        ]
+    )
+    assert len(parse_candidates(raw)) == 5
+
+
+def test_store_candidates_confidence_threshold(tmp_path, monkeypatch):
+    from app.agent.memory_extract import store_candidates
+
+    db = _init(tmp_path, monkeypatch)
+    stored = store_candidates(
+        "session-1",
+        [
+            {
+                "content": "用户对花生过敏",
+                "category": "fact",
+                "confidence": 0.95,
+                "importance": 0.8,
+            },
+            {
+                "content": "用户可能喜欢 Rust",
+                "category": "preference",
+                "confidence": 0.5,
+                "importance": 0.4,
+            },
+        ],
+    )
+    assert len(stored) == 2
+    by_content = {m["content"]: m["status"] for m in stored}
+    assert by_content["用户对花生过敏"] == "active"
+    assert by_content["用户可能喜欢 Rust"] == "pending"
+    # 重复内容跳过
+    again = store_candidates(
+        "session-1",
+        [
+            {
+                "content": "用户对花生过敏",
+                "category": "fact",
+                "confidence": 0.99,
+            }
+        ],
+    )
+    assert again == []
+
+
+def test_compact_extraction_is_silent_without_local_llm(tmp_path, monkeypatch):
+    """本地模型不可用时压缩照常完成、抽取静默跳过。"""
+    db = _init(tmp_path, monkeypatch)
+    session = db.create_session(title="压缩会话")
+    import asyncio
+
+    from app.agent.state.compact import compact_session
+
+    async def _fake_summarize(previous, text, budget, locale):
+        return "结论：采用方案 A。"
+
+    import app.agent.state.compact as compact_module
+
+    original = compact_module._summarize
+    compact_module._summarize = _fake_summarize
+    try:
+        for index in range(15):
+            db.add_message(session["id"], "user", f"问题{index}")
+            db.add_message(session["id"], "assistant", f"回答{index}")
+        saved = asyncio.run(compact_session(session["id"]))
+    finally:
+        compact_module._summarize = original
+    assert saved is not None  # 压缩未被打断
+
+
+def test_procedure_category_manual_import(tmp_path, monkeypatch):
+    """L3 程序记忆：人工导入通道可写 procedure，检索可召回。"""
+    db = _init(tmp_path, monkeypatch)
+    saved = db.save_memory(
+        "构建命令：pnpm build 后 pnpm test", "procedure", confidence=1.0
+    )
+    assert saved["status"] == "active"
+    hits = db.search_memories("构建命令", limit=3)
+    assert hits and "pnpm" in hits[0]["content"]
+    # 注入标签含"做法"
+    from app.agent.core.prompts import _MEMORY_CATEGORY_LABELS
+
+    assert _MEMORY_CATEGORY_LABELS["procedure"] == "做法"
+
+
+def test_memory_import_api(tmp_path, monkeypatch):
+    db = _init(tmp_path, monkeypatch)
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/memories",
+            json={
+                "content": "部署流程：先跑迁移再重启服务",
+                "category": "procedure",
+            },
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["memory"]["category"] == "procedure"
+
+        resp = client.get("/api/memories", params={"category": "procedure"})
+        assert resp.status_code == 200
+        assert any("迁移" in m["content"] for m in resp.json()["memories"])
+
+        resp = client.post(
+            "/api/memories", json={"content": "", "category": "procedure"}
+        )
+        assert resp.status_code == 400
