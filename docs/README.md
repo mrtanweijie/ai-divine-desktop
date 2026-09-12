@@ -68,9 +68,15 @@
 | 005 | [sample-mobile-app-ui-spec](templates/005-mobile-app-ui-spec-20260904.html) | 2026-09-04 |
 | 006 | [sample-pop-ppt-style](templates/006-pop-style-20260912.html) | 2026-09-12 |
 | 007 | [sample-pop-pptx](templates/007-pop-pptx-sample-20260912.pptx) ｜ [预览图](templates/007-pop-pptx-sample-20260912-preview.png) | 2026-09-12 |
+| 008 | [sample-travel-swiss](templates/008-travel-template-swiss-20260912.html) ｜ [预览 PDF](templates/008-travel-swiss-preview.pdf) | 2026-09-12 |
+| 009 | [sample-travel-bento](templates/009-travel-template-bento-20260912.html) ｜ [预览 PDF](templates/009-travel-bento-preview.pdf) | 2026-09-12 |
+| 010 | [sample-travel-aurora](templates/010-travel-template-aurora-20260912.html) ｜ [预览 PDF](templates/010-travel-aurora-preview.pdf) | 2026-09-12 |
+| 008 | [sample-travel-template-swiss](templates/008-travel-template-swiss-20260912.html) | 2026-09-12 |
+| 009 | [sample-travel-template-bento](templates/009-travel-template-bento-20260912.html) | 2026-09-12 |
+| 010 | [sample-travel-template-aurora](templates/010-travel-template-aurora-20260912.html) | 2026-09-12 |
 
 ## 附属目录
 
-- `templates/`：HTML / PPT 视觉样张（独立编号 001–007）
+- `templates/`：HTML / PPT 视觉样张（独立编号 001–010，含预览 PDF）
 - `assets/`：文档引用的图片资源
 - `pdf-modules/`：PDF 模块 JSON/CSS/HTML 资源（由 docgen 管线引用）

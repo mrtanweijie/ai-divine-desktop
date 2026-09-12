@@ -156,11 +156,59 @@ class TravelRecipe(PDFRecipe):
 
     def content_system_prompt(self, intent: PDFIntent) -> str:
         from .theme_manager import travel_template_skeleton
+        from .theme_registry import THEMES
 
         meta = intent.meta or {}
         theme = str(meta.get("theme") or "travel")
         skeleton = travel_template_skeleton(theme)
-        skeleton_name = "travel_optimized.html" if theme == "travel_mag" else "travel_template.html"
+        skeleton_name = THEMES.get(theme, {}).get("file") or (
+            "travel_optimized.html" if theme == "travel_mag" else "travel_template.html"
+        )
+        # 结构化旅行主题（mag/swiss/bento/aurora）共用 day-cards + photo-placeholder
+        # + layers/todo-list 富内容契约；经典 travel 用 day-section 紧凑契约
+        rich_theme = theme != "travel"
+        modern_theme = theme in ("travel_swiss", "travel_bento", "travel_aurora")
+        if modern_theme:
+            return (
+                "你是资深旅行手册作者。严格按下述【模板骨架】的页面结构与 CSS 类名，"
+                "输出一份可直接打印为 PDF 的现代风格旅行攻略 HTML body。\n"
+                f"══════════════ 模板骨架（{skeleton_name}） ══════════════\n"
+                + skeleton
+                + "\n══════════════ 输出规则 ══════════════\n"
+                "1. 只输出 HTML body：以 `<div class=\"page\">` 开头的一串页面片段，"
+                "不要输出 ```html 围栏，不要包含 <html>、<head>、<style>、<body>、"
+                "<div class=\"page-footer\">，也不要输出解释文字。\n"
+                "2. 封面由系统自动生成（标题、导语、标签、行程数据卡来自元信息），"
+                "你不要输出封面页。\n"
+                "3. 页面顺序固定：路线总览 → 每日行程（每天一个独立 <div class=\"page\">，"
+                "同构重复）→ 预算与行前准备。总页数 = 2 + 天数，一页都不要漏。\n"
+                "4. 路线总览页：page-head（page-title 内含 <span class=\"lt\"> 高亮字、"
+                "meta 短语）→ card「路线走向」内 .stepper：站点依次 .step（.s-dot 序号、"
+                ".s-name 城市、.s-stay 停留天数），站点间放 .s-line，末站 class=\"step end\" → "
+                "card「每日速览」内 .row-list：每天一个 .row-item（ri-day=D{n}、ri-main=当日主线、"
+                "ri-note=住宿、ri-tag=城际交通）→ card「节奏说明」内一段 .body-text + "
+                ".chip-row 内 2-3 个 .chip（强度/人群/预约提示）→ card「住宿建议」内 check-list。\n"
+                "5. 每日行程页：.day-bar（.day-pill 内 .dp-n=D{n} 与 .dp-d=DAY、.db-main 内 "
+                ".db-title=当日主题 与 .db-route=城市及交通方式、.db-chips 可选 1-2 个 .chip）→ "
+                ".tl-card 内 3 个 .tl-item（tl-time=上午/下午/晚上、tl-title=事项、"
+                "tl-body 内 p 一句话 ≤40 字；晚间的 li 用 class=\"tl-item evening\"）→ "
+                ".info-grid 内两个 .ig-row，每行两个 .ig-cell（各包一个 .info-card，.ic-label 分别为：吃什么(卡片加 class food)、"
+                "交通与预订、备选方案(加 class alt)、今日提醒(加 class tip)）。\n"
+                "6. 预算与行前准备页：page-head → .info-grid 单个 .ig-row 两格 .ig-cell："
+                "左格 .budget-big（.bb-num=总预算、.bb-cap=估算口径），右格 .budget-bars"
+                "（每个类目一个 .bar-row：.br-top 左名称右 "
+                ".amt=\"金额 · 百分比\"、.bar-track 内 .bar-fill style=\"width:百分比%\"，"
+                "第 2-5 个 bar-fill 依次加 b2/b3/b4/b5）→ .grid-table-card 内 .mini-table "
+                "3-5 行（cat=类目、amt=金额、note=说明）→ .info-grid 两个 .ig-row，每行两个 .ig-cell 各包一个 .info-card："
+                "行李与天气(check-list)、关键风险(check-list 且 ul 的 class=\"check-list risk\")、"
+                "实用链接(link-list：.ln 名称 / .lv 地址)、紧急信息(link-list)。\n"
+                "7. 只使用骨架中出现过的 CSS 类名，不要自创类名；时间/价格/班次标注\"以官方为准\"；"
+                "内容精炼，宁可每页短也不要漏页。\n"
+                f"目的地：{meta.get('destination', intent.topic)}，"
+                f"天数：{meta.get('days', '未指定')}，"
+                f"路线：{meta.get('route', '未指定')}，"
+                f"风格：{meta.get('style', '现代旅行')}"
+            )
         return (
             "你是资深旅行手册作者。严格按下述【模板骨架】的页面结构与 CSS 类名，"
             "输出一份可直接打印为 PDF 的完整旅行攻略 HTML body。\n"
@@ -188,14 +236,14 @@ class TravelRecipe(PDFRecipe):
                 "，用 `<div class=\"day-cards\">` 里的三个 `<div class=\"day-card\">`"
                 "（day-card-title/day-card-text）。每张卡片文字控制在 1-2 句、"
                 "40 字以内，务必精炼。\n"
-                if theme == "travel_mag"
+                if rich_theme
                 else "，用三个 `<div class=\"day-section\">`（day-section-title/day-section-text）。\n"
             )
             + (
                 "4.0 每天必须输出一个 `<div class=\"photo-placeholder\">`（放在 day-title 之后），"
                 "内含 `<span class=\"photo-note\">当日代表景点 · 看点</span>`，"
                 "不要省略这个区块。\n"
-                if theme == "travel_mag"
+                if rich_theme
                 else ""
             )
             + "4.1 全程内容必须精简紧凑：每日 time-table 每个时段只写 1 句话（40 字内），"
@@ -207,7 +255,7 @@ class TravelRecipe(PDFRecipe):
             + (
                 "；分层穿衣用 `<div class=\"layers\">` 的 layer-card（layer-no/layer-name/layer-desc），"
                 "核对清单用 `<ul class=\"todo-list\">`。\n"
-                if theme == "travel_mag"
+                if rich_theme
                 else "；分层穿衣和核对清单用 check-list。\n"
             )
             + "6. 如需扩展板块（专题页/城市读本/预算/链接），使用模板 CSS 中已有的类名："

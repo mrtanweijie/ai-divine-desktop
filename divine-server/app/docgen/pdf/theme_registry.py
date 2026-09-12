@@ -138,6 +138,63 @@ THEMES: dict[str, dict[str, Any]] = {
             "--border-table": "#d8e2e1",
         },
     },
+    "travel_swiss": {
+        "file": "travel_swiss.html",
+        "display_name": "旅行瑞士网格",
+        "description": "近黑 + 朱红单强调色，排版驱动的极简现代风，适合都市与人文路线",
+        "variables": {
+            "--color-primary": "#E4572E",
+            "--color-accent": "#C74722",
+            "--color-accent-light": "#F08A68",
+            "--bg-page": "#FAFAF8",
+            "--bg-highlight": "#FBE9E2",
+            "--bg-cover": "#141414",
+            "--text-primary": "#1d1d1b",
+            "--text-secondary": "#5C5C58",
+            "--text-muted": "#8F8F89",
+            "--text-inverse": "#ffffff",
+            "--border-light": "#E2DFD8",
+            "--border-table": "#D6D2C8",
+        },
+    },
+    "travel_bento": {
+        "file": "travel_bento.html",
+        "display_name": "旅行便当卡片",
+        "description": "靛蓝 + 圆角卡片的产品化现代风，chip 与渐变胶囊点缀，适合亲子与轻户外",
+        "variables": {
+            "--color-primary": "#4F46E5",
+            "--color-accent": "#6D28D9",
+            "--color-accent-light": "#A5B4FC",
+            "--bg-page": "#ffffff",
+            "--bg-highlight": "#EEF0FE",
+            "--bg-cover": "#312E81",
+            "--text-primary": "#1B1F27",
+            "--text-secondary": "#5B6472",
+            "--text-muted": "#9AA3B2",
+            "--text-inverse": "#ffffff",
+            "--border-light": "#E7E9EE",
+            "--border-table": "#E7E9EE",
+        },
+    },
+    "travel_aurora": {
+        "file": "travel_aurora.html",
+        "display_name": "旅行暗夜极光",
+        "description": "深夜蓝封面 + 青紫光晕，科技感现代风，适合自然风光与星空路线",
+        "variables": {
+            "--color-primary": "#0891B2",
+            "--color-accent": "#7C3AED",
+            "--color-accent-light": "#67E8F9",
+            "--bg-page": "#ffffff",
+            "--bg-highlight": "#0B1020",
+            "--bg-cover": "#0B1020",
+            "--text-primary": "#171C2B",
+            "--text-secondary": "#5A6172",
+            "--text-muted": "#98A0B3",
+            "--text-inverse": "#ffffff",
+            "--border-light": "#E5E8F0",
+            "--border-table": "#E5E8F0",
+        },
+    },
     "roadmap": {
         "file": "roadmap.css",
         "display_name": "知识图谱",
@@ -219,7 +276,7 @@ class ThemeManager:
             return cached
 
         theme = self.get_theme(theme_id)
-        if theme_id in ("travel", "travel_mag"):
+        if theme_id.startswith("travel"):
             css = self._travel_css(theme_id)
         else:
             css = Path(theme.css_path or "").read_text(encoding="utf-8")
@@ -244,11 +301,7 @@ class ThemeManager:
         return css
 
     def _travel_css(self, theme_id: str = "travel") -> str:
-        filename = (
-            "travel_optimized.html"
-            if theme_id == "travel_mag"
-            else "travel_template.html"
-        )
+        filename = THEMES.get(theme_id, {}).get("file") or "travel_template.html"
         template_path = self.themes_dir / filename
         template = template_path.read_text(encoding="utf-8")
         match = re.search(
@@ -273,9 +326,11 @@ def travel_template_skeleton(theme: str = "travel") -> str:
     cached = _TRAVEL_SKELETON_CACHE.get(theme)
     if cached:
         return cached
-    filename = (
-        "travel_optimized.html" if theme == "travel_mag" else "travel_template.html"
-    )
+    filename = THEMES.get(theme, {}).get("file")
+    if not filename:
+        filename = (
+            "travel_optimized.html" if theme == "travel_mag" else "travel_template.html"
+        )
     template_path = (
         Path(__file__).resolve().parent / "pdf_themes" / filename
     )
@@ -311,6 +366,15 @@ def travel_template_skeleton(theme: str = "travel") -> str:
     }
 
     def classify(page: str) -> str:
+        # 现代旅行主题（swiss/bento/aurora）页面标记（优先判定，
+        # 其 body 不含下方经典/mag 标记，不会互相误判）
+        if 'class="stepper"' in page:
+            return "overview"
+        if 'class="day-bar"' in page:
+            return "day"
+        if 'class="budget-bars"' in page:
+            return "budget"
+        # 经典（travel）/ 杂志（travel_mag）页面标记
         if "cover-band" in page:
             return "cover"
         if ">路线总览<" in page:

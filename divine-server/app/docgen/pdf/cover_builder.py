@@ -10,8 +10,20 @@ import re
 from typing import Any
 from .theme_registry import get_theme_manager, load_theme_css
 
-COVER_TEMPLATES: dict[str, str] = {
-    "resume": """
+# 结构化旅行主题（复用 travel_mag 封面 DOM 与数据机制：cover-hero/cover-band/
+# cover-body/stat-row + watermark/stat_pills/tag 胶囊），视觉差异由各主题 CSS 决定。
+# 经典 travel 不在此列（无 cover-hero/photo-placeholder 样式）。
+TRAVEL_RICH_THEMES: frozenset[str] = frozenset(
+    {"travel_mag", "travel_swiss", "travel_bento", "travel_aurora"}
+)
+
+# 现代旅行主题（swiss/bento/aurora）：专属封面 DOM（cv-* 现代版式），
+# 与 mag 的 cover-hero/cover-band 结构完全不同；视觉差异由各主题 CSS 决定。
+MODERN_TRAVEL_THEMES: frozenset[str] = frozenset(
+    {"travel_swiss", "travel_bento", "travel_aurora"}
+)
+
+COVER_TEMPLATES: dict[str, str] = {    "resume": """
     <div class="cover">
       <h1>{title}</h1>
       <div class="subtitle">{subtitle}</div>
@@ -119,6 +131,21 @@ COVER_TEMPLATES: dict[str, str] = {
         <p class="cover-summary">{summary}</p>
         <div class="stat-row">{stat_pills}</div>
       </div>
+    </div>
+    """,
+    "travel_modern": """
+    <div class="page cover">
+      <div class="cv-brand">
+        <span class="cv-logo">{cv_logo}</span>
+        <span class="cv-issue">{cv_issue}</span>
+      </div>
+      <div class="cv-main">
+        <span class="cv-kicker">{cv_kicker}</span>
+        <h1 class="cv-title">{title}</h1>
+        <div class="cv-sub">{cv_sub}</div>
+        <div class="cv-tags">{cv_tags}</div>
+      </div>
+      <div class="cv-band">{stat_cards}</div>
     </div>
     """,
     "roadmap": """
@@ -375,12 +402,21 @@ def build_cover_html(
 ) -> str:
     # 通用文档封面风格（非旅行/简历）：cover_data.cover_style 指定
     style = ""
-    if cover_data and theme_id not in ("travel", "travel_mag", "resume"):
+    if cover_data and not (
+        theme_id.startswith("travel") or theme_id == "resume"
+    ):
         style = str(cover_data.get("cover_style") or "").strip()
     if style in _COVER_STYLES:
         return _build_style_cover(style, title, subtitle, cover_data or {})
     theme = get_theme_manager().get_theme(theme_id)
-    template = COVER_TEMPLATES.get(theme_id, COVER_TEMPLATES["universal"])
+    template = COVER_TEMPLATES.get(theme_id)
+    if template is None and theme_id in MODERN_TRAVEL_THEMES:
+        template = COVER_TEMPLATES["travel_modern"]
+    if template is None and theme_id.startswith("travel"):
+        # 其余旅行主题（mag）复用杂志封面 DOM（样式由主题 CSS 决定）
+        template = COVER_TEMPLATES["travel_mag"]
+    if template is None:
+        template = COVER_TEMPLATES["universal"]
     data = {
         "title": title,
         "subtitle": subtitle,
@@ -402,6 +438,12 @@ def build_cover_html(
         "total_weeks": "",
         "total_nodes": "",
         "goal": "",
+        "cv_logo": "",
+        "cv_issue": "",
+        "cv_kicker": "",
+        "cv_sub": "",
+        "cv_tags": "",
+        "stat_cards": "",
     }
     extra = dict(cover_data or {})
     route = extra.pop("route", None)
@@ -455,8 +497,9 @@ def build_cover_html(
             continue
         extra[key] = html_lib.escape(str(value))
     data.update(extra)
-    if theme_id == "travel_mag":
-        # 水印优先用 LLM 提供的真实简称（2-6 字），否则从标题智能提取
+    if theme_id in TRAVEL_RICH_THEMES and theme_id not in MODERN_TRAVEL_THEMES:
+        # mag 专属封面数据处理（水印/胶囊行）；现代主题走下方 modern 分支，
+        # 否则 meta_line 会先被转成 tag-span，modern 分支二次转义成可见文本。
         wm = str(data.get("watermark") or "").strip()
         wm = re.sub(r"\s+", "", wm)
         if not (2 <= len(wm) <= 6):
@@ -508,6 +551,54 @@ def build_cover_html(
                 f'<span class="stat-pill"><span class="dot"></span>交通 <b>{transport}</b></span>'
             )
         data["stat_pills"] = "\n      ".join(pills)
+    if theme_id in MODERN_TRAVEL_THEMES:
+        # 现代旅行主题封面：品牌行 + kicker + 标题/导语 + 标签 + 四格数据卡
+        data["cv_logo"] = "AI Divine"
+        data["cv_issue"] = "Travel Guide"
+        data["cv_kicker"] = "Itinerary / 行程手册"
+        data["cv_sub"] = str(data.get("summary") or "")
+        meta_line = str(data.get("meta_line") or "")
+        tag_names: list[str] = []
+        if "｜" in meta_line:
+            tag_part = meta_line.partition("｜")[0]
+            tag_names = [
+                t.strip() for t in re.split(r"×|x|X", tag_part) if t.strip()
+            ]
+        elif meta_line:
+            tag_names = [meta_line]
+        if not tag_names:
+            countries = str(data.get("countries") or "")
+            tag_names = [
+                c.strip() for c in re.split(r"[×xX,]", countries) if c.strip()
+            ][:2]
+        data["cv_tags"] = "".join(
+            f'<span class="tag">{html_lib.escape(t)}</span>'
+            for t in tag_names[:4]
+        )
+        cards: list[tuple[str, str, str]] = []
+        days = str(data.get("days") or "").strip()
+        cities = str(data.get("city_count") or "").strip()
+        distance = str(data.get("distance") or "").strip()
+        duration = str(data.get("duration") or "").strip()
+        transport = str(data.get("transport") or "").strip()
+        if days:
+            cards.append((days, "天", "Duration"))
+        if cities:
+            cards.append((cities, "城", "Cities"))
+        if distance:
+            cards.append((f"≈{distance}", "km", "Distance"))
+        if duration:
+            cards.append((duration, "", "Trip"))
+        if transport and len(cards) < 4:
+            cards.append((transport, "", "Transit"))
+        if not cards:
+            cards.append(("—", "", "Travel"))
+        data["stat_cards"] = "\n      ".join(
+            '<div class="cv-stat">'
+            f'<div class="v">{v}<em>{em}</em></div><div class="k">{k}</div>'
+            "</div>"
+            for v, em, k in cards[:4]
+        )
     return template.format(**data)
 
 
@@ -694,9 +785,9 @@ def build_travel_html_document(
         if include_cover
         else ""
     )
-    # 图片占位/配图仅旅行杂志风（travel_mag）使用：
+    # 图片占位/配图仅结构化旅行主题使用（travel_mag/swiss/bento/aurora）：
     # 经典模板（travel）没有 photo-placeholder 样式，插入会显示原始文本。
-    if theme == "travel_mag":
+    if theme in TRAVEL_RICH_THEMES:
         html_body = _inline_placeholder_images(html_body, auto_fill=images)
     return (
         "<!doctype html><html><head><meta charset=\"utf-8\">"

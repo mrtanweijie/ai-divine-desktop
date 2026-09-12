@@ -189,7 +189,7 @@ def main() -> None:
             for keyword in ("旅行", "旅游", "攻略", "行程", "目的地")
         ):
             theme = "travel"
-        if theme in ("travel", "travel_mag"):
+        if theme.startswith("travel"):
             from app.docgen.pdf.theme_manager import travel_color_overrides
             from app.docgen.pdf.travel_html import (
                 looks_like_travel_html,

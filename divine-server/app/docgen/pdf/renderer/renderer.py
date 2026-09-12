@@ -47,7 +47,7 @@ def render_markdown_to_pdf(
             else "blue"
         )
     normalized_paper = _normalize(paper_size, PAPER_KEYS, "a4")
-    if theme == "travel":
+    if theme.startswith("travel"):
         cover = True
         toc = False
     if _weasyprint_available():

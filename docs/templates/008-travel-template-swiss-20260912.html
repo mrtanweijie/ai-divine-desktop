@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>{{旅行手册标题}} - 通用模板 A · 瑞士网格（Swiss Grid）</title>
+<!--
+  ═══════════════════════════════════════════════════════════════
+  通用旅游攻略模板 A · Swiss Grid 瑞士网格极简风（travel_swiss）
+  ═══════════════════════════════════════════════════════════════
+
+  【设计语言】
+  1. 排版驱动：无阴影、无渐变卡片，靠字号层级 + 细分割线 + 留白建立秩序
+  2. 色彩：暖纸底 #FAFAF8 + 近黑 #141414 + 朱红强调 #E4572E（单强调色）
+  3. 字体：全无衬线（PingFang SC / Noto Sans SC），英文 kicker 大写 + 宽字距
+  4. 日程编号用超大阿拉伯数字（56px）做视觉锚点，段落间 hairline 分隔
+  5. 表格走瑞士网格线（横竖细线），表头反白黑底
+
+  【渲染兼容】WeasyPrint 安全：仅 linear-gradient / 纯色，无 conic / mask / backdrop-filter
+  【占位符】{{双花括号}} 由 Agent 填充；示例内容仅示意结构
+  【页面映射】P1 封面 ｜ P2 路线总览 ｜ P3 每日行程（D 页同构复用）｜ P4 预算 + 行李风险 + 实用链接
+-->
+<style>
+:root {
+  --paper: #FAFAF8;
+  --ink: #141414;
+  --ink-60: #5C5C58;
+  --ink-40: #8F8F89;
+  --accent: #E4572E;
+  --accent-soft: #FBE9E2;
+  --hairline: #DEDBD3;
+  --hairline-dark: #141414;
+  --font-sans: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+  --sp-xs: 4px; --sp-sm: 8px; --sp-md: 16px; --sp-lg: 26px; --sp-xl: 40px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-sans); color: var(--ink); font-size: 14px; line-height: 1.7; background: #fff; -webkit-font-smoothing: antialiased; }
+
+/* ── 页面容器：A4 竖版，一页一 PDF 页 ── */
+.page { min-height: 297mm; padding: 14mm 16mm 16mm; background: var(--paper); position: relative; }
+
+.page-footer { position: absolute; bottom: 9mm; left: 16mm; right: 16mm; display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-40); border-top: 1px solid var(--hairline); padding-top: 8px; }
+.page-footer .num { color: var(--ink); font-weight: 600; }
+
+/* ── Kicker：大写宽字距眉题 ── */
+.kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.32em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+
+/* ── 页面主标题：黑重 + 细线 ── */
+.section-title { font-size: 32px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; }
+.title-rule { width: 100%; height: 2px; background: var(--ink); margin: 14px 0 6px; }
+.section-subtitle { font-size: 13px; color: var(--ink-60); margin-bottom: var(--sp-lg); }
+
+/* ═══════════ P1 封面 ═══════════ */
+.cover { display: flex; flex-direction: column; }
+.cover-top { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 2px solid var(--ink); }
+.cover-brand { font-size: 12px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; }
+.cover-issue { font-size: 12px; color: var(--ink-60); letter-spacing: 0.1em; }
+.cover-main { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--sp-xl) 0; }
+.cover-title { font-size: 64px; font-weight: 900; line-height: 1.08; letter-spacing: -0.02em; }
+.cover-title .accent { color: var(--accent); }
+.cover-sub { margin-top: 22px; font-size: 16px; color: var(--ink-60); max-width: 70%; }
+.cover-tags { display: flex; gap: 8px; margin-top: 30px; flex-wrap: wrap; }
+.tag { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; padding: 6px 14px; border: 1.5px solid var(--ink); border-radius: 999px; }
+.tag.solid { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cover-band { border-top: 2px solid var(--ink); padding-top: 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.cover-stat .v { font-size: 26px; font-weight: 800; line-height: 1.1; }
+.cover-stat .v em { font-style: normal; font-size: 13px; color: var(--accent); font-weight: 700; margin-left: 2px; }
+.cover-stat .k { font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-40); margin-top: 4px; }
+
+/* ═══════════ P2 路线总览 ═══════════ */
+.route-strip { display: flex; align-items: flex-start; margin: var(--sp-lg) 0 var(--sp-xl); }
+.route-stop { flex: 1; text-align: center; position: relative; }
+.route-stop::before { content: ""; position: absolute; top: 9px; left: -50%; width: 100%; height: 1.5px; background: var(--ink); }
+.route-stop:first-child::before { display: none; }
+.route-dot { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; border-radius: 50%; background: var(--ink); color: var(--paper); font-size: 10px; font-weight: 700; position: relative; z-index: 1; }
+.route-stop.end .route-dot { background: var(--accent); }
+.route-stop .name { display: block; margin-top: 8px; font-size: 12.5px; font-weight: 700; }
+.route-stop .stay { display: block; font-size: 10px; color: var(--ink-40); letter-spacing: 0.08em; margin-top: 1px; }
+
+.grid-table { width: 100%; border-collapse: collapse; }
+.grid-table th { background: var(--ink); color: var(--paper); font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em; text-align: left; padding: 9px 12px; }
+.grid-table td { border: 1px solid var(--hairline); padding: 10px 12px; font-size: 13px; vertical-align: top; }
+.grid-table td.day-cell { font-weight: 800; font-size: 15px; white-space: nowrap; }
+.grid-table td.day-cell span { display: block; font-size: 10.5px; font-weight: 400; color: var(--ink-40); letter-spacing: 0.08em; }
+
+.note-block { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 14px 18px; margin-top: var(--sp-lg); }
+.note-block .nb-title { font-size: 13px; font-weight: 800; letter-spacing: 0.06em; margin-bottom: 6px; color: var(--ink); }
+.note-block p { font-size: 13px; color: var(--ink-60); }
+
+/* ═══════════ P3 每日行程 ═══════════ */
+.day-header { display: flex; align-items: flex-end; gap: 18px; margin-bottom: 6px; }
+.day-number { font-size: 58px; font-weight: 900; line-height: 0.9; color: var(--accent); letter-spacing: -0.03em; }
+.day-header .day-meta { padding-bottom: 4px; }
+.day-header .day-name { font-size: 24px; font-weight: 800; line-height: 1.2; }
+.day-header .day-route { font-size: 12px; color: var(--ink-60); letter-spacing: 0.06em; margin-top: 2px; }
+
+.timeline { margin: var(--sp-lg) 0; }
+.tl-item { display: grid; grid-template-columns: 64px 1fr; gap: 16px; padding: 13px 0; border-top: 1px solid var(--hairline); }
+.tl-item:first-child { border-top: none; }
+.tl-time { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); padding-top: 2px; }
+.tl-body .tl-title { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+.tl-body p { font-size: 13px; color: var(--ink-60); }
+
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 2px solid var(--ink); margin-top: var(--sp-md); }
+.info-cell { padding: 14px 2px 14px 0; }
+.info-cell:nth-child(odd) { border-right: 1px solid var(--hairline); padding-right: 16px; }
+.info-cell:nth-child(even) { padding-left: 16px; }
+.info-cell .ic-label { font-size: 11px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+.info-cell p { font-size: 13px; color: var(--ink-60); }
+
+/* ═══════════ P4 预算 / 风险 / 链接 ═══════════ */
+.budget-total { display: flex; align-items: baseline; gap: 10px; margin: var(--sp-md) 0; }
+.budget-total .bt-num { font-size: 40px; font-weight: 900; letter-spacing: -0.02em; }
+.budget-total .bt-cap { font-size: 12px; color: var(--ink-60); letter-spacing: 0.08em; }
+.budget-total .bt-num em { font-style: normal; font-size: 18px; color: var(--accent); }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-lg); margin-top: var(--sp-lg); }
+.col-block .cb-title { font-size: 15px; font-weight: 800; padding-bottom: 8px; border-bottom: 2px solid var(--ink); margin-bottom: 10px; }
+.check-list { list-style: none; }
+.check-list li { font-size: 13px; color: var(--ink-60); padding: 5px 0 5px 18px; position: relative; }
+.check-list li::before { content: ""; position: absolute; left: 0; top: 12px; width: 7px; height: 7px; background: var(--accent); }
+.check-list.risk li::before { background: var(--ink); }
+.link-list { list-style: none; }
+.link-list li { font-size: 12.5px; padding: 6px 0; border-bottom: 1px solid var(--hairline); display: flex; justify-content: space-between; }
+.link-list li span:first-child { font-weight: 600; color: var(--ink); }
+.link-list li span:last-child { color: var(--ink-40); font-size: 11px; letter-spacing: 0.04em; }
+</style>
+</head>
+<body>
+
+<!-- ════════ P1 · 封面 ════════ -->
+<div class="page cover">
+  <div class="cover-top">
+    <div class="cover-brand">{{手册品牌名}}</div>
+    <div class="cover-issue">TRAVEL GUIDE · {{年份}}</div>
+  </div>
+  <div class="cover-main">
+    <div class="kicker">Itinerary / 行程手册</div>
+    <div class="cover-title">{{目的地主标题}}<br><span class="accent">{{副标题短语}}</span></div>
+    <div class="cover-sub">{{一句话导语：概括这条路线的节奏与亮点，建议 40 字以内}}</div>
+    <div class="cover-tags">
+      <span class="tag solid">{{行程天数}} 日</span>
+      <span class="tag">{{路线类型：城市漫游/自然风光/人文历史}}</span>
+      <span class="tag">{{最佳季节}}</span>
+      <span class="tag">{{出行方式}}</span>
+    </div>
+  </div>
+  <div class="cover-band">
+    <div class="cover-stat"><div class="v">{{4}}<em>天</em></div><div class="k">Duration</div></div>
+    <div class="cover-stat"><div class="v">{{3}}<em>城</em></div><div class="k">Cities</div></div>
+    <div class="cover-stat"><div class="v">¥{{6000}}</div><div class="k">Budget / 人</div></div>
+    <div class="cover-stat"><div class="v">{{春季}}</div><div class="k">Best Season</div></div>
+  </div>
+  <div class="page-footer"><span>{{手册品牌名}} · Travel Guide</span><span class="num">01</span></div>
+</div>
+
+<!-- ════════ P2 · 路线总览 ════════ -->
+<div class="page">
+  <div class="kicker">Overview</div>
+  <div class="section-title">路线总览</div>
+  <div class="title-rule"></div>
+  <div class="section-subtitle">整条路线以{{交通干线}}串联，节奏为先紧后松，预留{{半天}}机动时间应对天气变化。</div>
+
+  <div class="route-strip">
+    <div class="route-stop"><span class="route-dot">1</span><span class="name">{{城市A}}</span><span class="stay">D1–D2</span></div>
+    <div class="route-stop"><span class="route-dot">2</span><span class="name">{{城市B}}</span><span class="stay">D3</span></div>
+    <div class="route-stop"><span class="route-dot">3</span><span class="name">{{城市C}}</span><span class="stay">D4</span></div>
+    <div class="route-stop end"><span class="route-dot">✈</span><span class="name">{{返程地}}</span><span class="stay">D4 晚</span></div>
+  </div>
+
+  <table class="grid-table">
+    <thead><tr><th style="width:16%">日程</th><th style="width:44%">当日主线</th><th style="width:22%">住宿</th><th style="width:18%">城际交通</th></tr></thead>
+    <tbody>
+      <tr><td class="day-cell">D1<span>DAY ONE</span></td><td>{{抵达 → 老城漫步 → 夜市晚餐}}</td><td>{{城市A · 老城区酒店}}</td><td>{{航班抵达}}</td></tr>
+      <tr><td class="day-cell">D2<span>DAY TWO</span></td><td>{{核心景点全天 → 咖啡馆休整}}</td><td>{{城市A · 同上}}</td><td>—</td></tr>
+      <tr><td class="day-cell">D3<span>DAY THREE</span></td><td>{{城际移动 → 湖区徒步}}</td><td>{{城市B · 湖景民宿}}</td><td>{{高铁 2h}}</td></tr>
+      <tr><td class="day-cell">D4<span>DAY FOUR</span></td><td>{{早市采购 → 返程}}</td><td>—</td><td>{{航班返程}}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note-block">
+    <div class="nb-title">住宿建议</div>
+    <p>{{建议整段行程锚定 2 个住宿基地，减少搬运行李次数；城市A 连住两晚、城市B 一晚，具体街区选择以步行 10 分钟内有地铁站为优先。}}</p>
+  </div>
+  <div class="page-footer"><span>Route Overview · 路线总览</span><span class="num">02</span></div>
+</div>
+
+<!-- ════════ P3 · 每日行程（D 页同构，逐日复用） ════════ -->
+<div class="page">
+  <div class="kicker">Daily Plan</div>
+  <div class="day-header">
+    <div class="day-number">D1</div>
+    <div class="day-meta">
+      <div class="day-name">抵达 · 老城第一印象</div>
+      <div class="day-route">{{城市A}} ｜ 全程市内步行 + 地铁</div>
+    </div>
+  </div>
+  <div class="title-rule"></div>
+
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-time">上午</div>
+      <div class="tl-body">
+        <div class="tl-title">{{抵达与入住}}</div>
+        <p>{{航班 XX:XX 抵达，机场快线约 40 分钟进市区；酒店寄存行李后先解决午餐，不建议一落地就排景点。}}</p>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">下午</div>
+      <div class="tl-body">
+        <div class="tl-title">{{老城核心街区漫步}}</div>
+        <p>{{从地标广场出发，沿 {{街巷名}} 一路步行，重点看 {{建筑/店铺}}；全程约 3km，穿舒适的鞋。}}</p>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">晚上</div>
+      <div class="tl-body">
+        <div class="tl-title">{{夜市晚餐}}</div>
+        <p>{{推荐 {{夜市名}}，本地人晚饭时段 19:00 后排队明显，建议 18:00 前到。}}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-cell"><div class="ic-label">吃什么</div><p>{{招牌菜 1 / 招牌菜 2 / 特色小吃；人均 ¥40–60，忌口与辣度可提前和店家说明。}}</p></div>
+    <div class="info-cell"><div class="ic-label">交通与预订</div><p>{{地铁日票 ¥XX 当日无限次；夜市与景点均无需预订，机场快线可现场购票。}}</p></div>
+    <div class="info-cell"><div class="ic-label">备选方案</div><p>{{如遇降雨，将下午老城漫步替换为 {{室内博物馆}}，需提前一天在公众号预约。}}</p></div>
+    <div class="info-cell"><div class="ic-label">今日提醒</div><p>{{护照/身份证随身；当地插座为 {{类型}}，酒店可借转换头但数量有限。}}</p></div>
+  </div>
+  <div class="page-footer"><span>Daily Plan · D1</span><span class="num">03</span></div>
+</div>
+
+<!-- ════════ P4 · 预算 + 行李风险 + 链接 ════════ -->
+<div class="page">
+  <div class="kicker">Budget & Notes</div>
+  <div class="section-title">预算与行前准备</div>
+  <div class="title-rule"></div>
+
+  <div class="budget-total"><span class="bt-num">¥{{6000}}<em>/人</em></span><span class="bt-cap">按 {{1}} 人 · {{4}} 天估算，含大交通</span></div>
+
+  <table class="grid-table">
+    <thead><tr><th style="width:28%">类目</th><th style="width:17%">预估</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>城际大交通</td><td>¥{{2200}}</td><td>{{往返机票 + 段内高铁，提前 30 天预订可省约 15%}}</td></tr>
+      <tr><td>住宿</td><td>¥{{1600}}</td><td>{{3 晚，均价 ¥530/晚，旺季上浮 20%}}</td></tr>
+      <tr><td>餐饮</td><td>¥{{900}}</td><td>{{日均 ¥225，含 1 次正式餐厅晚餐}}</td></tr>
+      <tr><td>门票与体验</td><td>¥{{600}}</td><td>{{核心景点 2 处 + 1 次付费体验}}</td></tr>
+      <tr><td>市内交通与机动</td><td>¥{{700}}</td><td>{{地铁/打车 + 10% 应急余量}}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="two-col">
+    <div class="col-block">
+      <div class="cb-title">行李与天气</div>
+      <ul class="check-list">
+        <li>{{昼夜温差大，洋葱式穿搭 + 一件防风外套}}</li>
+        <li>{{舒适徒步鞋（日均步行 1.5 万步）}}</li>
+        <li>{{防晒与雨具同备，山区天气切换快}}</li>
+        <li>{{常用药、充电宝（≤100Wh）、证件复印件}}</li>
+      </ul>
+    </div>
+    <div class="col-block">
+      <div class="cb-title">关键风险</div>
+      <ul class="check-list risk">
+        <li>{{航班延误：返程预留 3 小时以上缓冲，勿排当晚行程}}</li>
+        <li>{{旺季房源紧张：住宿需提前 {{2 周}} 锁定可免费取消档}}</li>
+        <li>{{景点限流：核心景点开票即约，备好 Plan B 场馆}}</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="col-block">
+      <div class="cb-title">实用链接</div>
+      <ul class="link-list">
+        <li><span>{{官方旅游门户}}</span><span>{{example.com/official}}</span></li>
+        <li><span>{{交通票务平台}}</span><span>{{example.com/transit}}</span></li>
+        <li><span>{{景点预约入口}}</span><span>{{example.com/booking}}</span></li>
+      </ul>
+    </div>
+    <div class="col-block">
+      <div class="cb-title">紧急信息</div>
+      <ul class="link-list">
+        <li><span>报警 / 急救</span><span>{{110 / 120}}</span></li>
+        <li><span>{{使领馆或领事保护}}</span><span>{{+86-10-12308}}</span></li>
+        <li><span>旅游投诉热线</span><span>{{12345}}</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="page-footer"><span>Budget & Notes · 预算与准备</span><span class="num">04</span></div>
+</div>
+
+</body>
+</html>

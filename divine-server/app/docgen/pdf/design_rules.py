@@ -27,6 +27,9 @@ KNOWN_THEMES: frozenset[str] = frozenset(
         "academic",
         "travel",
         "travel_mag",
+        "travel_swiss",
+        "travel_bento",
+        "travel_aurora",
         "roadmap",
         "minimal",
     }
@@ -349,7 +352,9 @@ def parse_cover_style(text: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 # DesignSpec 的 base_theme 不允许跨到旅行/简历的独立主题体系
-_SPEC_THEME_BLOCKLIST = frozenset({"travel", "travel_mag", "resume"})
+_SPEC_THEME_BLOCKLIST = frozenset(
+    {"travel", "travel_mag", "travel_swiss", "travel_bento", "travel_aurora", "resume"}
+)
 _KNOWN_COVER_STYLES = frozenset(style for style, _ in COVER_STYLE_ALIASES)
 
 

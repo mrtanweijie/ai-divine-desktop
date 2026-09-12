@@ -228,7 +228,7 @@ class PDFTool:
             if recipe_name == "travel":
                 source = markdown
                 meta = dict(intent.meta)
-                if theme in ("travel", "travel_mag"):
+                if theme.startswith("travel"):
                     meta["theme"] = theme
                 intent = PDFIntent(
                     title=intent.title,
@@ -246,7 +246,7 @@ class PDFTool:
                 markdown = await generate_content(intent, recipe, llm)
         else:
             intent = await parse_intent(prompt, recipe, llm)
-            if recipe_name == "travel" and theme in ("travel", "travel_mag"):
+            if recipe_name == "travel" and theme.startswith("travel"):
                 intent.meta["theme"] = theme
             # markdown 类配方的配图开关：内容生成时注入配图提示
             intent.meta["images_requested"] = bool(images)
@@ -331,14 +331,14 @@ class PDFTool:
                 )
             elif effective_cover_style == "hero-graphic":
                 intent.meta.setdefault("cta_text", "→ 详见正文")
-        if recipe_name == "travel" or final_theme in ("travel", "travel_mag"):
+        if recipe_name == "travel" or final_theme.startswith("travel"):
             cover = True
             toc = False
         # 非旅行配方开启配图时：远程图/keyword 图下载内嵌，失败降级占位块
         #（travel 的配图在 render_html_to_pdf 内部处理）
         if images and recipe_name != "travel":
             markdown = inline_markdown_images(markdown)
-        if recipe_name == "travel" and final_theme in ("travel", "travel_mag"):
+        if recipe_name == "travel" and final_theme.startswith("travel"):
             # 主色优先级：theme_colors 显式值 > DesignSpec 主色 > color_scheme 预设
             travel_custom = color_overrides
             if not travel_custom and design.primary_color:

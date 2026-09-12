@@ -30,7 +30,7 @@ def enforce_design(
         and not resolve_color(decision.color_scheme)
     ):
         decision.color_scheme = recipe.color_scheme
-    if decision.theme in ("travel", "travel_mag"):
+    if decision.theme.startswith("travel"):
         decision.cover = True
         decision.toc = False
     return decision

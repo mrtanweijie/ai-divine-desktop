@@ -464,3 +464,150 @@ def test_travel_generates_pdf_without_html_output(tmp_path, monkeypatch):
     assert meta["renderer"] == "weasyprint"
     assert (tmp_path / "guide.pdf").exists()
     assert "html_filepath" not in meta
+
+
+# ---------------------------------------------------------------------------
+# 新增现代化旅行主题：travel_swiss / travel_bento / travel_aurora（2026-09-12）
+# 与 travel_mag 同构：复用 travel_optimized 的 DOM 契约，仅 CSS 视觉层不同
+# ---------------------------------------------------------------------------
+
+NEW_TRAVEL_THEMES = ("travel_swiss", "travel_bento", "travel_aurora")
+
+_THEME_SIGNATURE_VARS = {
+    "travel_swiss": "--color-primary: #E4572E",
+    "travel_bento": "--color-primary: #4F46E5",
+    "travel_aurora": "--color-primary: #0891B2",
+}
+
+
+def test_new_travel_themes_registered():
+    from app.docgen.pdf.theme_manager import list_available_themes
+
+    ids = {t["id"] for t in list_available_themes()}
+    for theme in NEW_TRAVEL_THEMES:
+        assert theme in ids
+
+
+def test_new_travel_theme_css_reuses_handbook_contract():
+    for theme in NEW_TRAVEL_THEMES:
+        css = load_theme_css(theme)
+        # DOM 契约类名齐全（与 travel/travel_mag 同一套）
+        for token in (
+            ".cv-title",
+            ".stepper",
+            ".row-item",
+            ".day-bar",
+            ".tl-card",
+            ".info-card",
+            ".budget-bars",
+            ".page.day-block",
+            "@page cover",
+        ):
+            assert token in css, (theme, token)
+        # 各主题签名主色注入
+        assert _THEME_SIGNATURE_VARS[theme] in css, theme
+
+
+def test_new_travel_theme_skeleton_matches_mag_structure():
+    from app.docgen.pdf.theme_manager import travel_template_skeleton
+
+    for theme in NEW_TRAVEL_THEMES:
+        skeleton = travel_template_skeleton(theme)
+        assert "<style" not in skeleton
+        assert "页面映射总表" in skeleton
+        # 现代契约：步进器总览 + day-bar 日页 + 预算占比条
+        assert 'class="stepper"' in skeleton, theme
+        assert 'class="day-bar"' in skeleton, theme
+        assert 'class="budget-bars"' in skeleton, theme
+        assert skeleton.count('class="day-bar"') == 1
+
+
+def test_new_travel_theme_cover_uses_rich_markup():
+    for theme in NEW_TRAVEL_THEMES:
+        html = build_cover_html(
+            theme,
+            "中亚陆路旅行手册",
+            "AI Divine 生成文档",
+            {
+                "countries": "中国 × 哈萨克斯坦",
+                "route": ["阿拉木图", "塔什干"],
+                "duration": "12天11晚",
+                "days": 12,
+                "city_count": 5,
+            },
+        )
+        # 现代封面 DOM：品牌行 + kicker + 标题 + 标签 + 四格数据卡
+        assert "cv-brand" in html, theme
+        assert "cv-title" in html, theme
+        assert "cv-kicker" in html, theme
+        assert "cv-stat" in html, theme
+        assert "12" in html, theme
+
+
+def test_new_travel_theme_content_prompt_uses_rich_contract():
+    from app.docgen.pdf.theme_manager import travel_template_skeleton
+
+    for theme in NEW_TRAVEL_THEMES:
+        recipe = TravelRecipe()
+        intent = PDFIntent(
+            title="测试攻略",
+            topic="中亚",
+            style="travel",
+            color_scheme="teal",
+            meta={"theme": theme, "destination": "中亚", "days": 5},
+        )
+        prompt = recipe.content_system_prompt(intent)
+        assert "day-bar" in prompt, theme
+        assert "tl-card" in prompt, theme
+        assert "budget-bars" in prompt, theme
+        assert "info-grid" in prompt, theme
+
+
+def test_new_travel_theme_markdown_path_forces_cover(monkeypatch, tmp_path):
+    import app.docgen.pdf.renderer.renderer as renderer_module
+
+    for theme in NEW_TRAVEL_THEMES:
+        captured: dict[str, bool] = {}
+
+        def fake_render(markdown, output, title, style, color_scheme,
+                        paper_size, cover, toc, base_dir, theme,
+                        cover_data, overrides=None, extra_css=None):
+            captured["cover"] = cover
+            captured["toc"] = toc
+            output.write_bytes(b"%PDF-1.4")
+
+        monkeypatch.setattr(
+            renderer_module, "_render_with_weasyprint", fake_render
+        )
+        monkeypatch.setattr(renderer_module, "_weasyprint_available", lambda: True)
+        renderer_module.render_markdown_to_pdf(
+            "## 章节",
+            tmp_path / f"{theme}.pdf",
+            theme=theme,
+            toc=True,
+        )
+        assert captured["cover"] is True, theme
+        assert captured["toc"] is False, theme
+
+
+def test_new_travel_theme_color_overrides_recolor():
+    # 结构化旅行主题命中 mag 预设时整套换色（含经典变量映射）
+    for theme in NEW_TRAVEL_THEMES:
+        css = load_theme_css(
+            theme, overrides=travel_color_overrides("mistsage", theme=theme)
+        )
+        # mistsage 雾凇青 --teal-600 → 经典 --color-primary
+        assert "--color-primary: #5A8A82" in css, theme
+
+
+def test_new_travel_theme_default_teal_is_noop():
+    # 关键回归：engine/recipes 的默认 color_scheme 是 "teal"（mag 的原生默认），
+    # 对新三套主题必须原样透传（返回空），禁止用 mag teal 预设污染设计色板
+    # ——否则 hero 渐变/条带/重点块被整套 teal 覆盖，渲染回旧旅行手册观感。
+    for theme in NEW_TRAVEL_THEMES:
+        assert travel_color_overrides("teal", theme=theme) == {}
+        # 用户显式给主色（或 theme_colors）时仍然生效
+        explicit = travel_color_overrides(
+            "teal", {"--color-primary": "#123456"}, theme=theme
+        )
+        assert explicit["--color-primary"] == "#123456", theme

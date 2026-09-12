@@ -703,13 +703,31 @@ def travel_color_overrides(
         resolved = _resolve_theme_key(key)
         if resolved:
             key = resolved
-    # travel_mag 且命中完整主题预设：直接用整套主题色（精确颜色，不做 HSL 派生）
-    if theme == "travel_mag" and key in TRAVEL_MAG_THEMES:
+    # 结构化旅行主题（mag/swiss/bento/aurora）且命中完整主题预设：
+    # 直接用整套主题色（精确颜色，不做 HSL 派生）
+    rich_travel = theme.startswith("travel") and theme != "travel"
+    # 新三套主题（swiss/bento/aurora）有各自的固定设计色板；
+    # "teal" 是管线默认 color_scheme（engine/recipes 的 recipe 默认值），
+    # 不是用户显式选择 —— 默认透传时禁止用 mag 的 teal 预设污染新主题
+    # （否则 hero 渐变/条带/重点块被整套 teal 覆盖，看起来还是旧旅行手册）。
+    new_gen_travel = theme in ("travel_swiss", "travel_bento", "travel_aurora")
+    if new_gen_travel and key == "teal":
+        custom = dict(custom or {})
+        if not custom.get("--color-primary"):
+            return custom
+    if rich_travel and key in TRAVEL_MAG_THEMES:
         overrides = dict(TRAVEL_MAG_THEMES[key])
         # 仍保留经典变量映射，供封面/通用样式使用
         preset = TRAVEL_COLOR_PRESETS.get(key)
         if preset:
             overrides.update(preset)
+        else:
+            # swiss/bento/aurora 的 CSS 使用经典变量（--color-primary 等）：
+            # mag 预设（雾凇青等）没有经典映射时，从 teal 阶梯派生
+            overrides.setdefault("--color-primary", overrides["--teal-600"])
+            overrides.setdefault("--color-primary-dark", overrides["--teal-800"])
+            overrides.setdefault("--color-accent", overrides["--teal-500"])
+            overrides.setdefault("--color-accent-light", overrides["--teal-400"])
         primary = custom.get("--color-primary") if custom else None
         if primary:
             # 用户自定义主色（如通过“其他”输入）：
@@ -759,7 +777,7 @@ def travel_color_overrides(
         if derived:
             overrides.update(derived)
         primary_source = str(primary)
-    if theme == "travel_mag" and primary_source:
+    if rich_travel and primary_source:
         scale = derive_teal_scale(primary_source)
         if scale:
             overrides.update(scale)

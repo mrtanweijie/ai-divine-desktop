@@ -38,8 +38,8 @@ from ..registry import register_tool
             },
             "theme": {
                 "type": "string",
-                "enum": ["universal", "resume", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "kami", "kami_white", "modern", "academic", "travel", "travel_mag", "roadmap", "notion", "linear", "apple", "tpl_professional", "tpl_modern", "tpl_minimal", "tpl_academic", "tpl_executive", "tpl_creative", "tpl_product", "tpl_data", "tpl_freshgrad", "tpl_lateral", "tpl_compact", "tpl_global"],
-                "description": "简历/PDF 主题 ID（简历为统一模板库 19 套，与 html_resume 同一套）；简历场景推荐 tpl_* 12 套精品模板，creative/minimal/boss_zhipin/finance/linkedin/kami/kami_white 为经典风格；不传时系统按 prompt 场景自动选择（travel_mag 为杂志版旅行手册）",
+                "enum": ["universal", "resume", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "kami", "kami_white", "modern", "academic", "travel", "travel_mag", "travel_swiss", "travel_bento", "travel_aurora", "roadmap", "notion", "linear", "apple", "tpl_professional", "tpl_modern", "tpl_minimal", "tpl_academic", "tpl_executive", "tpl_creative", "tpl_product", "tpl_data", "tpl_freshgrad", "tpl_lateral", "tpl_compact", "tpl_global"],
+                "description": "简历/PDF 主题 ID（简历为统一模板库 19 套，与 html_resume 同一套）；简历场景推荐 tpl_* 12 套精品模板，creative/minimal/boss_zhipin/finance/linkedin/kami/kami_white 为经典风格；不传时系统按 prompt 场景自动选择（旅行手册四套：travel_mag 杂志版 / travel_swiss 瑞士网格极简 / travel_bento 便当卡片 / travel_aurora 暗夜极光）",
             },
             "resume_layout": {
                 "type": "string",
