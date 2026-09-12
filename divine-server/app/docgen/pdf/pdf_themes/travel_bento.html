@@ -1088,6 +1088,27 @@ body {
 .page-head .meta { display: table-cell; float: none; text-align: right; vertical-align: bottom; padding-top: 0; white-space: nowrap; }
 .chip { white-space: nowrap; }
 .cv-gap { display: table-cell; width: 10px; }
+
+/* ═══ 当日景点图 photo-grid（1/2/3/4 张四种排列） ═══ */
+.photo-grid { font-size: 0; margin: 0 0 12px; }
+.photo-grid::after { content: ""; display: block; clear: both; }
+.ph { display: inline-block; vertical-align: top; position: relative; overflow: hidden; border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--indigo) 0%, var(--cv-hero-2) 55%, var(--cv-hero-3) 100%);
+  box-shadow: var(--shadow-card); min-height: 28mm; }
+.ph img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; }
+.ph-cap { position: absolute; left: 8px; bottom: 8px; z-index: 1; max-width: 90%; box-sizing: border-box;
+  background: rgba(255,255,255,0.88); color: var(--text-primary); font-size: 10.5px; font-weight: 600;
+  padding: 3px 12px; border-radius: 999px; }
+.photo-grid.p1 .ph { width: 100%; height: 56mm; }
+.photo-grid.p2 .ph { width: 49%; height: 44mm; margin: 0 1.5% 8px 0; }
+.photo-grid.p2 .ph:nth-child(2n) { margin-right: 0; }
+.photo-grid.p3 .ph { width: 65%; height: 45mm; margin: 0; }
+.photo-grid.p3 .ph-side { display: inline-block; vertical-align: top; width: 33.5%; margin-left: 1.5%; }
+.photo-grid.p3 .ph-side .ph { display: block; width: 100%; height: 21.5mm; min-height: 0; margin: 0 0 2mm; }
+.photo-grid.p3 .ph-side .ph:last-child { margin-bottom: 0; }
+.photo-grid.p3 .ph:nth-child(3n) { margin-right: 0; }
+.photo-grid.p4 .ph { width: 49%; height: 40mm; margin: 0 1.5% 8px 0; }
+.photo-grid.p4 .ph:nth-child(2n) { margin-right: 0; }
 </style>
 </head>
 <body>
@@ -1152,6 +1173,14 @@ body {
     <div class="db-chips"><span class="chip plain">步行 {{8}}km</span><span class="chip mint">无预约</span></div>
   </div>
 
+
+  <div class="photo-grid p3">
+    <div class="ph"><img src="https://picsum.photos/seed/day1a/900/600"/><span class="ph-cap">{{当日景点 1 · 看点}}</span></div>
+    <div class="ph-side">
+      <div class="ph"><img src="https://picsum.photos/seed/day1b/900/600"/><span class="ph-cap">{{当日景点 2 · 看点}}</span></div>
+      <div class="ph"><img src="https://picsum.photos/seed/day1c/900/600"/><span class="ph-cap">{{当日景点 3 · 看点}}</span></div>
+    </div>
+  </div>
   <div class="tl-card">
     <div class="tl-item">
       <div class="tl-dot"></div><div class="tl-time">上午</div>
