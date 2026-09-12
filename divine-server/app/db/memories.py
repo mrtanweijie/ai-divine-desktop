@@ -106,6 +106,7 @@ def save_memory(
     supersede_similar: bool = True,
     supersede_id: str | None = None,
     status: str = _ACTIVE,
+    project_id: str | None = None,
 ) -> dict[str, Any]:
     """Insert one memory, handling overlap with existing active entries.
 
@@ -185,8 +186,9 @@ def save_memory(
         conn.execute(
             "INSERT INTO user_memories "
             "(id, category, content, importance, confidence, status, "
-            " source_session_id, created_at, updated_at, superseded_by) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+            " source_session_id, created_at, updated_at, superseded_by, "
+            " project_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)",
             (
                 memory_id,
                 category,
@@ -197,6 +199,7 @@ def save_memory(
                 source_session_id,
                 now,
                 now,
+                project_id,
             ),
         )
         if supersede_id and final_status != _PENDING:
@@ -287,7 +290,45 @@ def _recency(memory: dict[str, Any]) -> float:
     return math.exp(-delta_days / tau)
 
 
-def search_memories(query: str, limit: int = 5) -> list[dict[str, Any]]:
+def _active_rows(
+    project_id: str | None = None, search_all: bool = False
+) -> list[dict[str, Any]]:
+    """Load active memories for a retrieval scope.
+
+    - ``search_all``  — everything (fuzzy delete 等管理动作需要跨作用域);
+    - ``project_id``  — 该项目记忆 + 全局记忆（其他项目的记忆不可见）;
+    - 否则            — 仅全局记忆（project_id IS NULL）。
+    """
+    with get_conn() as conn:
+        if search_all:
+            rows = conn.execute(
+                "SELECT * FROM user_memories WHERE status = ? "
+                "ORDER BY updated_at DESC, rowid DESC LIMIT 500",
+                (_ACTIVE,),
+            ).fetchall()
+        elif project_id:
+            rows = conn.execute(
+                "SELECT * FROM user_memories WHERE status = ? "
+                "AND (project_id IS NULL OR project_id = ?) "
+                "ORDER BY updated_at DESC, rowid DESC LIMIT 500",
+                (_ACTIVE, project_id),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM user_memories WHERE status = ? "
+                "AND project_id IS NULL "
+                "ORDER BY updated_at DESC, rowid DESC LIMIT 500",
+                (_ACTIVE,),
+            ).fetchall()
+    return [_row_to_dict(row) for row in rows]
+
+
+def search_memories(
+    query: str,
+    limit: int = 5,
+    project_id: str | None = None,
+    search_all: bool = False,
+) -> list[dict[str, Any]]:
     """Rank active memories against a query with local TF-IDF cosine scoring.
 
     Mirrors ``app.rag_store.search_workspace`` so results are comparable and
@@ -298,8 +339,11 @@ def search_memories(query: str, limit: int = 5) -> list[dict[str, Any]]:
     confidence and recency — weights are closed over any w_recency, see the
     ``_CATEGORY_RECENCY`` table. Callers should :func:`touch_memory_access`
     the returned ids so hot memories keep their recency.
+
+    项目作用域（022 §5.3）：给定 ``project_id`` 时项目记忆优先、全局记忆
+    预留席位（若存在全局候选），其他项目的记忆一律不可见。
     """
-    memories = list_active_memories(limit=500)
+    memories = _active_rows(project_id=project_id, search_all=search_all)
     if not memories:
         return []
     query_tokens = _term_frequency(_tokenize(query or ""))
@@ -356,10 +400,27 @@ def search_memories(query: str, limit: int = 5) -> list[dict[str, Any]]:
         )
         scored.append((final, memory, sim))
     scored.sort(key=lambda item: item[0], reverse=True)
-    return [
+    ranked = [
         dict(memory, score=round(final, 4), sim=round(sim, 4))
-        for final, memory, sim in scored[: max(1, limit)]
+        for final, memory, sim in scored
     ]
+
+    if not project_id:
+        return ranked[: max(1, limit)]
+
+    project_hits = [m for m in ranked if m.get("project_id") == project_id]
+    global_hits = [m for m in ranked if not m.get("project_id")]
+    # 项目记忆优先，但为全局记忆预留 2 席（若存在全局候选）——避免项目内
+    # 记忆较多时把用户的通用偏好（饮食禁忌等）完全挤出注入面。
+    global_reserve = 2 if global_hits else 0
+    project_quota = max(1, limit - global_reserve)
+    selected: list[dict[str, Any]] = project_hits[:project_quota]
+    for hit in global_hits + project_hits[project_quota:]:
+        if len(selected) >= limit:
+            break
+        if hit not in selected:
+            selected.append(hit)
+    return selected
 
 
 def touch_memory_access(memory_ids: list[str]) -> None:
@@ -442,7 +503,7 @@ def forget_memory_by_query(
             "deleted": [],
             "candidates": [],
         }
-    hits = search_memories(content, limit=3)
+    hits = search_memories(content, limit=3, search_all=True)
     if hits:
         top = hits[0]
         second_sim = float(hits[1].get("sim") or 0.0) if len(hits) > 1 else 0.0
@@ -473,11 +534,17 @@ def recall_memories(
 ) -> list[dict[str, Any]]:
     """Unified recall entry for the ``recall_memories`` tool.
 
-    scope=project / session 由三期（项目作用域）/ 四期（情景检索）激活，
-    激活前一律回退 user 语义，工具参数先稳定暴露给模型。命中条目会刷新
-    last_accessed_at（访问续命）。
+    scope=user 查全局记忆；scope=project 查项目记忆 + 全局合并（项目优先），
+    scope=session 查历史会话结论（四期）。命中条目会刷新 last_accessed_at
+    （访问续命）。
     """
-    hits = search_memories(query, limit=limit)
+    if scope == "session":
+        # 四期接入 session_summaries 全文检索
+        return []
+    if scope == "project":
+        hits = search_memories(query, limit=limit, project_id=project_id)
+    else:
+        hits = search_memories(query, limit=limit)
     if hits:
         now = _now()
         touch_memory_access([str(hit["id"]) for hit in hits])

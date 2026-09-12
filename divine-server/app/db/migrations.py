@@ -133,7 +133,8 @@ CREATE TABLE IF NOT EXISTS user_memories (
     updated_at TEXT NOT NULL,
     superseded_at TEXT,
     superseded_by TEXT,
-    last_accessed_at TEXT
+    last_accessed_at TEXT,
+    project_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_memories_status ON user_memories(status);
@@ -284,6 +285,20 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE user_memories ADD COLUMN last_accessed_at TEXT"
             )
+        if "project_id" not in memory_columns:
+            conn.execute("ALTER TABLE user_memories ADD COLUMN project_id TEXT")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_memories_project "
+            "ON user_memories(project_id)"
+        )
+        # 历史记忆回填：按写入时的 source_session_id 反查所属项目；
+        # 查不到会话的旧记忆保持 NULL（全局作用域），宁缺勿错。
+        conn.execute(
+            "UPDATE user_memories SET project_id = ("
+            "  SELECT s.project_id FROM sessions s"
+            "  WHERE s.id = user_memories.source_session_id"
+            ") WHERE project_id IS NULL AND source_session_id IS NOT NULL"
+        )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_project "
             "ON sessions(project_id)"

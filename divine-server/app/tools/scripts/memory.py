@@ -10,6 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from app import db  # noqa: E402
 
+# main() 把 payload 顶层的 workspace 暂存到这里，供项目作用域解析。
+_WORKSPACE = ""
+
 
 def _ok(message: str, data: dict | None = None) -> None:
     print(
@@ -24,6 +27,24 @@ def _err(message: str) -> None:
     print(json.dumps({"success": False, "message": message}, ensure_ascii=False))
 
 
+def _resolve_project_id(workspace: str) -> str | None:
+    """按当前工作区路径反查项目 id（scope=project 写入/检索用）。"""
+    workspace = str(workspace or "").strip()
+    if not workspace:
+        return None
+    try:
+        resolved = str(Path(workspace).resolve())
+    except OSError:
+        return None
+    for project in db.list_projects():
+        try:
+            if str(Path(str(project.get("path") or "")).resolve()) == resolved:
+                return str(project["id"])
+        except OSError:
+            continue
+    return None
+
+
 def _remember(params: dict) -> None:
     content = str(params.get("content") or "").strip()
     if not content:
@@ -31,11 +52,18 @@ def _remember(params: dict) -> None:
         return
     category = str(params.get("category") or "preference").strip()
     supersede_id = str(params.get("supersede_id") or "").strip() or None
+    scope = str(params.get("scope") or "user").strip()
     try:
         importance = float(params.get("importance") or 0.5)
         confidence = float(params.get("confidence") or 0.8)
     except (TypeError, ValueError):
         importance, confidence = 0.5, 0.8
+    project_id = None
+    if scope == "project":
+        project_id = _resolve_project_id(_WORKSPACE)
+        if not project_id:
+            _err("当前工作区没有对应的项目，无法保存项目级记忆")
+            return
     try:
         memory = db.save_memory(
             content,
@@ -43,6 +71,7 @@ def _remember(params: dict) -> None:
             importance=importance,
             confidence=confidence,
             supersede_id=supersede_id,
+            project_id=project_id,
         )
     except ValueError as exc:
         _err(str(exc))
@@ -60,6 +89,7 @@ def _remember(params: dict) -> None:
             "id": memory["id"],
             "category": memory["category"],
             "status": status,
+            "scope": "project" if project_id else "user",
         },
     )
 
@@ -68,7 +98,11 @@ def _format_hit(hit: dict) -> str:
     label = {"preference": "偏好", "fact": "事实", "event": "事件"}.get(
         str(hit.get("category") or ""), "记忆"
     )
-    return f"- [{label}] {hit.get('content')}（id: {hit.get('id')}）"
+    scope_label = "项目" if hit.get("project_id") else "全局"
+    return (
+        f"- [{label}/{scope_label}] {hit.get('content')}"
+        f"（id: {hit.get('id')}）"
+    )
 
 
 def _forget(params: dict) -> None:
@@ -116,7 +150,13 @@ def _recall(params: dict) -> None:
         limit = max(1, min(20, int(params.get("limit") or 5)))
     except (TypeError, ValueError):
         limit = 5
-    hits = db.recall_memories(query, scope=scope, limit=limit)
+    project_id = None
+    if scope == "project":
+        project_id = _resolve_project_id(_WORKSPACE)
+        if not project_id:
+            _ok("当前工作区没有对应的项目，已回退全局检索")
+            return
+    hits = db.recall_memories(query, scope=scope, limit=limit, project_id=project_id)
     if not hits:
         _ok("没有找到相关记忆")
         return
@@ -125,7 +165,9 @@ def _recall(params: dict) -> None:
 
 
 def main() -> None:
+    global _WORKSPACE
     data = json.load(sys.stdin)
+    _WORKSPACE = str(data.get("workspace") or "")
     params = data.get("params") or {}
     action = str(params.get("action") or "").strip()
     if action == "remember":

@@ -100,13 +100,17 @@ _HISTORY_WINDOW_SKIP_THRESHOLD = 0.6
 # 指代性提问打空，取最近几条拼接后 TF-IDF 天然按词聚合。
 _MEMORY_QUERY_MESSAGES = 3
 
-def _memory_context(messages: list[Any]) -> str | None:
+def _memory_context(
+    messages: list[Any], project_id: str | None = None
+) -> str | None:
     """Build a compact 'known user info' block from long-term memories.
 
     The last few user messages drive similarity search (referential
     questions like “还是刚才那个吗” need earlier turns too); ranking mixes
-    similarity with importance/recency inside db.search_memories. Output is
-    bounded so the system prompt never balloons.
+    similarity with importance/recency inside db.search_memories. When the
+    session belongs to a project, project-scoped memories rank first while
+    global ones keep reserved slots; other projects' memories are excluded.
+    Output is bounded so the system prompt never balloons.
     """
     recent_user_texts: list[str] = []
     for message in reversed(messages):
@@ -118,7 +122,7 @@ def _memory_context(messages: list[Any]) -> str | None:
                 break
     query_text = " ".join(reversed(recent_user_texts))
     try:
-        hits = db.search_memories(query_text, limit=5)
+        hits = db.search_memories(query_text, limit=5, project_id=project_id)
     except Exception:  # noqa: BLE001 — memory must never break the agent
         return None
     if not hits:
@@ -147,6 +151,17 @@ def _memory_context(messages: list[Any]) -> str | None:
         return None
     header = "## 关于你已知的用户信息（自然运用，不要刻意提及；若与用户当前说法冲突，以用户当前说法为准）"
     return header + "\n" + "\n".join(lines)
+
+
+def _session_project_id(session_id: str) -> str | None:
+    """会话所属项目 id（记忆项目作用域用）；查不到返回 None（仅全局记忆）。"""
+    try:
+        session = db.get_session(session_id)
+    except Exception:  # noqa: BLE001 — scoping must never break a turn
+        return None
+    if not session:
+        return None
+    return str(session.get("project_id") or "") or None
 
 
 def _top_score(query: str, docs: list[str]) -> float:
@@ -475,7 +490,10 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
         )
         if plan_progress:
             parts.append(plan_progress)
-        memory_block = _memory_context(request.state.get("messages") or [])
+        memory_block = _memory_context(
+            request.state.get("messages") or [],
+            project_id=_session_project_id(ctx.session_id),
+        )
         if memory_block:
             parts.append(memory_block)
         history_block = _history_backtrack_context(ctx.session_id, last_user_text)

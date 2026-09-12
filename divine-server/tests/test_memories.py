@@ -306,3 +306,80 @@ def test_fuzzy_forget_no_match_is_noop(tmp_path, monkeypatch):
     assert not result["deleted"]
     assert not result["candidates"]
     assert len(db.list_active_memories()) == 1
+
+
+# --- 三期：项目作用域（022 §5.3）----------------------------------------
+
+
+def _make_project(db, name: str, path: str) -> dict:
+    return db.create_project(name=name, path=path)
+
+
+def test_project_scope_isolation(tmp_path, monkeypatch):
+    """项目 A 的约定不出现在项目 B / 全局注入中。"""
+    db = _init(tmp_path, monkeypatch)
+    pa = _make_project(db, "项目A", str(tmp_path / "a"))
+    pb = _make_project(db, "项目B", str(tmp_path / "b"))
+    db.save_memory("项目A用 pnpm 构建有坑", "fact", project_id=pa["id"])
+    db.save_memory("项目B用 npm workspaces", "fact", project_id=pb["id"])
+    db.save_memory("用户对花生过敏", "fact")
+
+    hits_a = db.search_memories("构建", limit=5, project_id=pa["id"])
+    contents = [h["content"] for h in hits_a]
+    assert any("pnpm" in c for c in contents)
+    assert not any("npm workspaces" in c for c in contents)
+
+    hits_b = db.search_memories("构建", limit=5, project_id=pb["id"])
+    assert not any("pnpm" in h["content"] for h in hits_b)
+
+    # 全局查询只见全局记忆
+    hits_global = db.search_memories("构建", limit=5)
+    assert hits_global == []
+
+
+def test_project_memories_rank_first_with_global_reserved(tmp_path, monkeypatch):
+    """合并检索：项目记忆优先，但全局记忆保留席位。"""
+    db = _init(tmp_path, monkeypatch)
+    pa = _make_project(db, "项目A", str(tmp_path / "a"))
+    for index in range(5):
+        db.save_memory(f"项目A规范第{index}条", "fact", project_id=pa["id"])
+    db.save_memory("用户对花生过敏", "fact")
+
+    hits = db.search_memories("规范 过敏", limit=5, project_id=pa["id"])
+    contents = [h["content"] for h in hits]
+    assert "用户对花生过敏" in contents  # 全局席位保留
+    assert contents[-1] == "用户对花生过敏"  # 且排在项目记忆之后
+    assert len(hits) <= 5
+
+
+def test_save_and_recall_project_scope(tmp_path, monkeypatch):
+    db = _init(tmp_path, monkeypatch)
+    pa = _make_project(db, "项目A", str(tmp_path / "a"))
+    saved = db.save_memory("项目A部署用 Docker", "fact", project_id=pa["id"])
+    assert saved["project_id"] == pa["id"]
+
+    hits = db.recall_memories(
+        "部署 Docker", scope="project", limit=5, project_id=pa["id"]
+    )
+    assert any("Docker" in h["content"] for h in hits)
+
+
+def test_legacy_backfill_via_source_session(tmp_path, monkeypatch):
+    """历史记忆按 source_session_id 反查项目回填（022 §5.3）。"""
+    db = _init(tmp_path, monkeypatch)
+    pa = _make_project(db, "项目A", str(tmp_path / "a"))
+    session = db.create_session(title="旧会话", project_id=pa["id"])
+    import sqlite3
+
+    saved = db.save_memory(
+        "旧项目记忆", "fact", source_session_id=session["id"]
+    )
+    assert saved["project_id"] is None
+    # 重新跑 init_db 触发回填
+    db.init_db()
+    conn = sqlite3.connect(str(tmp_path / "memories.db"))
+    row = conn.execute(
+        "SELECT project_id FROM user_memories WHERE id = ?", (saved["id"],)
+    ).fetchone()
+    conn.close()
+    assert row[0] == pa["id"]

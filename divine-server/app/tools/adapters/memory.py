@@ -39,6 +39,11 @@ from ..registry import register_tool
                 "type": "string",
                 "description": "（可选）被本条记忆取代的旧记忆 id。更新用户改述过的旧偏好/事实时必传",
             },
+            "scope": {
+                "type": "string",
+                "enum": ["user", "project"],
+                "description": "user=全局用户记忆（默认），project=当前项目的约定/规范（如代码规范、构建命令）",
+            },
         },
         "required": ["content", "category"],
     },
@@ -56,6 +61,7 @@ class RememberAdapter(ToolAdapter):
             "importance": arguments.get("importance", 0.5),
             "confidence": arguments.get("confidence", 0.8),
             "supersede_id": str(arguments.get("supersede_id") or ""),
+            "scope": str(arguments.get("scope") or "user"),
         }
 
 
