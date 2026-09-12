@@ -155,3 +155,115 @@ def test_empty_generation_falls_back():
     llm = FakeLLM([""])
     markdown = asyncio.run(generate_content(_intent(sections), ReportRecipe(), llm))
     assert markdown.startswith("#")
+
+
+# --- 旅行配方预算页 QA（页序固定 + max_tokens 截断兜底） -------------------
+
+
+def _travel_intent() -> PDFIntent:
+    return PDFIntent(
+        title="新疆12天游",
+        topic="新疆12天游",
+        style="travel_aurora",
+        color_scheme=None,
+        sections=[],
+        meta={"theme": "travel_aurora", "destination": "新疆", "days": "12天"},
+    )
+
+
+def _travel_pages() -> str:
+    overview = '<div class="page"><h2 class="page-title">路线总览</h2></div>'
+    days = "".join(
+        f'<div class="page"><h2 class="day-title">D{i}</h2><p>行程</p></div>'
+        for i in range(1, 13)
+    )
+    return overview + days
+
+
+def test_budget_page_present_skips_patch():
+    from app.docgen.pdf.content import ensure_travel_budget_page
+    from app.docgen.pdf.recipes import TravelRecipe
+
+    markdown = _travel_pages() + (
+        '<div class="page"><div class="budget-big">'
+        '<span class="bb-num">2.0万</span></div>'
+        '<div class="budget-bars">预算</div></div>'
+    )
+    llm = FakeLLM([])
+    result = asyncio.run(
+        ensure_travel_budget_page(markdown, _travel_intent(), TravelRecipe(), llm)
+    )
+    assert llm.calls == 0
+    assert result == markdown
+
+
+def test_budget_page_missing_gets_patched():
+    from app.docgen.pdf.content import ensure_travel_budget_page
+    from app.docgen.pdf.recipes import TravelRecipe
+
+    patch = (
+        '<div class="page"><div class="budget-big">'
+        '<span class="bb-num">2.0万</span></div>'
+        '<div class="budget-bars">人均预算</div></div>'
+    )
+    llm = FakeLLM([patch])
+    markdown = _travel_pages()
+    result = asyncio.run(
+        ensure_travel_budget_page(markdown, _travel_intent(), TravelRecipe(), llm)
+    )
+    assert llm.calls == 1
+    assert 'class="budget-big"' in result
+    assert result.count('<div class="page"') == 14
+    # 追加页在末尾且结构完整
+    assert result.rstrip().endswith("</div>")
+
+
+def test_budget_patch_rejected_when_invalid():
+    from app.docgen.pdf.content import ensure_travel_budget_page
+    from app.docgen.pdf.recipes import TravelRecipe
+
+    # 补页输出不含预算标记：放弃拼接，原文保留
+    llm = FakeLLM(['<div class="page"><p>随便什么</p></div>'])
+    markdown = _travel_pages()
+    result = asyncio.run(
+        ensure_travel_budget_page(markdown, _travel_intent(), TravelRecipe(), llm)
+    )
+    assert llm.calls == 1
+    assert result == markdown
+
+
+def test_budget_patch_after_truncated_tail_repairs():
+    from app.docgen.pdf.content import ensure_travel_budget_page
+    from app.docgen.pdf.recipes import TravelRecipe
+
+    patch = (
+        '<div class="page"><div class="budget-big">'
+        '<span class="bb-num">2.0万</span>'
+        '<span class="bb-cap">人均预算（经济型）</span></div></div>'
+    )
+    llm = FakeLLM([patch])
+    truncated = _travel_pages() + '<div class="page"><h2 class="day-title">D13<'  # 截断残页
+    result = asyncio.run(
+        ensure_travel_budget_page(truncated, _travel_intent(), TravelRecipe(), llm)
+    )
+    assert llm.calls == 1
+    # 残页被丢弃、预算页为顶层 page：div 数量守恒
+    assert result.count("<div") == result.count("</div>")
+    assert "D13" not in result
+    assert 'class="budget-big"' in result
+
+
+def test_budget_patch_failure_keeps_original():
+    from app.docgen.pdf.content import ensure_travel_budget_page
+    from app.docgen.pdf.recipes import TravelRecipe
+
+    class BoomLLM:
+        async def stream(self, messages):
+            raise RuntimeError("llm down")
+            yield  # pragma: no cover
+
+    markdown = _travel_pages()
+    result = asyncio.run(
+        ensure_travel_budget_page(markdown, _travel_intent(), TravelRecipe(), BoomLLM())
+    )
+    assert result == markdown

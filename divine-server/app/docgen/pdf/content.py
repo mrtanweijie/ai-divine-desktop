@@ -259,6 +259,74 @@ async def _generate_by_sections(
     return markdown, regenerated, unresolved
 
 
+# 预算页判定标记：现代旅行主题为 .budget-big / .budget-bars，经典主题为
+# budget-table。页序固定时预算页排最后，单次生成被 max_tokens 截断即整页丢失。
+_BUDGET_PAGE_MARKERS = ('class="budget-big"', "budget-table")
+
+
+def _budget_patch_user_prompt(intent: PDFIntent) -> str:
+    meta = intent.meta or {}
+    return (
+        "此前生成的旅行手册正文遗漏了「预算与行前准备」页（它是固定页序的最后一页）。"
+        "现在只补齐这一页：输出恰好一个 <div class=\"page\">…</div> 页面片段，"
+        "严格使用上文规则中预算页的 CSS 类名与结构"
+        "（现代主题：.budget-big / .budget-bars / .mini-table + 行李天气 / 关键风险 / 实用链接；"
+        "经典主题：budget-table / booking-step / payment-note）。"
+        "不要输出其他页面，不要解释文字，不要 markdown 围栏。\n"
+        f"目的地：{meta.get('destination', intent.topic)}，"
+        f"天数：{meta.get('days', '未指定')}，"
+        "预算为合理估算并标注\"以官方为准\"。"
+    )
+
+
+def _drop_incomplete_tail(markdown: str) -> str:
+    """截断残留（未闭合标签）时，回退到最后一个闭合完整的顶层元素末尾。
+
+    旅行正文是一串顶层 `<div class="page">…</div>`（内部允许嵌套 div）：
+    按 div 开闭配对扫深度，深度归零处即一个完整页面的结束；其后的残页
+    直接丢弃，保证后续追加的预算页不会嵌进残页内部。
+    """
+    if markdown.count("<div") == markdown.count("</div>"):
+        return markdown
+    depth = 0
+    last_balanced_end = 0
+    for match in re.finditer(r"<div\b|</div>", markdown):
+        if match.group(0) == "</div>":
+            depth -= 1
+            if depth == 0:
+                last_balanced_end = match.end()
+        else:
+            depth += 1
+    return markdown[:last_balanced_end] if last_balanced_end else ""
+
+
+async def ensure_travel_budget_page(
+    markdown: str, intent: PDFIntent, recipe: PDFRecipe, llm: Any
+) -> str:
+    """旅行配方 QA：预算页缺失时单独补生成并追加（宁缺勿错，失败不打断主流程）。"""
+    if not markdown or any(marker in markdown for marker in _BUDGET_PAGE_MARKERS):
+        return markdown
+    try:
+        patch = await _llm_text(
+            llm,
+            [
+                {"role": "system", "content": _system_prompt(intent, recipe)},
+                {"role": "user", "content": _budget_patch_user_prompt(intent)},
+            ],
+        )
+    except Exception:
+        return markdown
+    patch = _strip_non_icon_svg(patch or "").strip()
+    # 基本校验：必须是恰好一页、含预算内容的旅行片段，否则放弃拼接
+    if patch.count('<div class="page"') != 1 or "预算" not in patch:
+        return markdown
+    markdown = _drop_incomplete_tail(markdown)
+    if not markdown:
+        # 整份输出坏到没有完整页：补页无意义，保持原样交由渲染端兜底
+        return markdown or ""
+    return markdown.rstrip() + "\n" + patch
+
+
 async def _generate_single_shot(
     intent: PDFIntent,
     recipe: PDFRecipe,

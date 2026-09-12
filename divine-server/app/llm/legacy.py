@@ -28,7 +28,9 @@ class DeepSeekLLM:
             "model": self.settings.get("model") or "deepseek-v4-flash",
             "messages": messages,
             "stream": True,
-            "max_tokens": 8192,
+            # 旅行手册等单次直出整份 HTML 的场景（页序固定、重内容页可达 14+ 页）
+            # 8192 会恰好截掉末尾页（如预算页），提到 16384 覆盖 16 天内的行程
+            "max_tokens": 16384,
         }
         # Explicit thinking-mode toggle. DeepSeek thinking mode ignores
         # sampling params (temperature/top_p/penalties), so temperature is
@@ -70,6 +72,7 @@ class DeepSeekLLM:
         timeout = httpx.Timeout(120.0, connect=20.0)
         dsml = DsmlStreamProcessor()
         event_count = 0
+        last_finish_reason: str | None = None
         async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream(
                 "POST", url, headers=headers, json=payload
@@ -97,6 +100,9 @@ class DeepSeekLLM:
                     choices = chunk.get("choices") or []
                     if not choices:
                         continue
+                    finish_reason = choices[0].get("finish_reason")
+                    if finish_reason:
+                        last_finish_reason = finish_reason
                     delta = choices[0].get("delta") or {}
                     if delta.get("reasoning_content"):
                         event_count += 1
@@ -122,10 +128,17 @@ class DeepSeekLLM:
                     event_count += 1
                     yield event
         logger.info(
-            "DeepSeek stream end model=%s events=%d",
+            "DeepSeek stream end model=%s events=%d finish=%s",
             payload.get("model"),
             event_count,
+            last_finish_reason,
         )
+        if last_finish_reason == "length":
+            logger.warning(
+                "DeepSeek 输出被 max_tokens(%s) 截断 finish=length，"
+                "本次生成可能缺少末尾内容",
+                payload.get("max_tokens"),
+            )
 
 class MockLLM:
     """Local demo provider so the app is usable before a DeepSeek key exists."""

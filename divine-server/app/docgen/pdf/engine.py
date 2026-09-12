@@ -17,7 +17,7 @@ from .theme_manager import (
     universal_color_overrides,
 )
 from .base import PDFIntent
-from .content import generate_content
+from .content import ensure_travel_budget_page, generate_content
 from .design_enforcer import enforce_design
 from .design_rules import resolve_design
 from .illustration import inline_markdown_images
@@ -257,6 +257,10 @@ class PDFTool:
             or _looks_like_generic_travel_fallback(markdown)
         ):
             markdown = travel_prompt_to_html(prompt) or markdown
+
+        # 预算页 QA：页序固定且预算页排最后，单次生成被 max_tokens 截断时整页丢失
+        if recipe_name == "travel":
+            markdown = await ensure_travel_budget_page(markdown, intent, recipe, llm)
 
         # 设计决策层：显式参数 > prompt 风格词 > DesignSpec（LLM 设计师）
         # > 场景分类 > 配方默认。
