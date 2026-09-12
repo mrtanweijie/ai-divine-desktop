@@ -3,7 +3,7 @@
 
 .gb-block {
   margin: 12px 0;
-  border: 1px solid var(--color-border);
+  // 无边框：与正文融合，边界靠头部标题与留白表达
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-surface);
@@ -70,16 +70,13 @@
     }
   }
 
-  // ── 画布：横向滚动而非缩放（缩放会让 12.5px 字不可读）
+  // ── 画布：高度自适应内容（由 JS 按渲染器的 measure() 设置 .gb-canvas 的 height，
+  // 区间为 CANVAS_MIN_HEIGHT(360) ~ CANVAS_MAX_HEIGHT(900)，定义在 GraphRenderer.ts）。
+  // 这里只设「可视上限」，与那个常量保持一致：再高的图才需要滚动，
+  // 画布本身保持全高，否则 X6 的 SVG 视口会把超出部分裁掉、滚动也找不回来。
   .gb-canvas-wrap {
     position: relative;
-    border-top: 1px solid var(--color-border);
-  }
-
-  .gb-canvas {
-    min-height: 200px;
-    max-height: 520px;
-    padding: 20px;
+    max-height: 900px; // = CANVAS_MAX_HEIGHT
     overflow: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -89,6 +86,12 @@
       width: 0;
       height: 0;
     }
+  }
+
+  .gb-canvas {
+    // 高度与最小高度都交给 JS（渲染器的 measure()）统一定，这里不设 min-height：
+    // CSS 的 min-height 会让 clientHeight 大于 style 高度，导致 X6 按错误的尺寸渲染。
+    // 内边距由渲染器的 PADDING 给出（坐标已含），这里也不加 padding，否则同样错位。
 
     .x6-graph {
       background: transparent;

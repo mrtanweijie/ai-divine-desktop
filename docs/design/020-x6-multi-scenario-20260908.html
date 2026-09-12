@@ -768,8 +768,15 @@ GraphInspector.tsx    <i data-page-node-id="Th3HTb4mNufz8h6igGVPjG">// 节点/�
   </table></div>
   <div class="callout" style="margin-top:16px" data-page-node-id="nYT8PWJhefWrwe7oi7EHBC">
     <div class="k" data-page-node-id="vpkiZPXD8algFKRBZ5pJyN">分流话术（写进工具描述，对齐 generate_chart 风格）</div>
-    <p data-page-node-id="vi9mbs2opYyMcof92YKJHk">「需要<b data-page-node-id="jb8NclYCrswUzJShySnCkP">交互、数据流向动画、生长式呈现</b>的节点关系图 → <code data-page-node-id="u4gpEXMH89LU4ck9FebbE8">render_graph</code>；仅需静态展示的流程图 / 时序图 / 甘特图 → Mermaid 代码块；数据图表 → <code data-page-node-id="I4fC66qQt1d1fGFAVK7lhL">generate_chart</code>。」<br data-page-node-id="B6wOlF49EczKZmTU9wiZmE">
-    同时给 <code data-page-node-id="euFofa1WfemwsXV4kVGsCq">kind</code> 的选择提示：在工具描述里列 13 个 kind 及<b data-page-node-id="OI67XdyhwbgsVBJ3HHS6eU">典型问法</b>（见 §4 每张卡片底部的"典型问法"），让 Agent 一次选对。</p>
+    <p data-page-node-id="vi9mbs2opYyMcof92YKJHk"><b data-page-node-id="jb8NclYCrswUzJShySnCkP">两段式</b>：默认一切图形需求先输出 Mermaid 代码块（轻、快、省 token）；
+    仅当用户在静态图基础上要求 <b data-page-node-id="vi9mbs2opYyMcof92YKJHk">交互 / 动画 / 数据流动 / 演示播放 / 导出图片</b>，
+    或明确要求可交互图形时，才调用 <code data-page-node-id="u4gpEXMH89LU4ck9FebbE8">render_graph</code>，
+    把<b>已确认的拓扑</b>转成 GraphIR 重绘（用户无需重新描述）。数据图表 → <code data-page-node-id="I4fC66qQt1d1fGFAVK7lhL">generate_chart</code>；
+    地图 / 平面图 / 电路图 → 拒绝。<br data-page-node-id="B6wOlF49EczKZmTU9wiZmE">
+    <b>主动询问</b>：正文输出架构类图后用 options 卡片询问增强方式，把「可交互版（render_graph）」与
+    「SVG 增强版（draw_svg）」「就这样」一并列为选项；用户选定后再执行，不要自作主张生成。<br data-page-node-id="B6wOlF49EczKZmTU9wiZmE">
+    工具描述里显式写「默认不要调用本工具」，并列出 <b data-page-node-id="euFofa1WfemwsXV4kVGsCq">15 个 kind</b> 及
+    <b data-page-node-id="OI67XdyhwbgsVBJ3HHS6eU">典型问法</b>（见 §4 每张卡片底部的"典型问法"），升级重绘时一次选对。</p>
   </div>
 </section>
 

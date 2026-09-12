@@ -372,16 +372,21 @@ _MERMAID_RULES = """用户要求查看/绘制/输出流程图、时序图、架�
 代码块，前端会自动渲染；不要调用 mermaid_export，也不要生成文件。
 只有用户明确要求保存/导出/下载为 .mmd 文件时，才调用 mermaid_export，
 content 传 Mermaid 源码（不要带围栏代码块）。
-输出架构类图（分层架构、部署拓扑、模块关系、系统结构）后，在末尾用 options 卡片询问用户是否需要
-SVG 增强版（可导出 PNG、项目配色、精细排版），不要自作主张直接生成：
+输出架构类图（分层架构、部署拓扑、模块关系、系统结构）后，在末尾用 options 卡片询问用户要不要增强版，
+并**把可交互图形（render_graph）一并作为选项**，不要自作主张直接生成：
 ```options
-{"title": "需要 SVG 增强版吗", "options": [
-  {"label": "要 SVG 版", "desc": "可导出 PNG，项目配色与精细排版"},
+{"title": "这张图要增强成哪种版本", "options": [
+  {"label": "可交互版", "desc": "render_graph：可点击节点看详情、数据流动画、演示路径、导出 PNG/SVG"},
+  {"label": "SVG 增强版", "desc": "draw_svg：可导出 PNG，项目配色与精细排版"},
   {"label": "就这样", "desc": "mermaid 够用，不再生成"}
 ], "other": true}
 ```
-用户确认后再调用 draw_svg；用户拒绝或不再回应则到此为止，不要追问第二次。
-流程图、时序图、甘特图等非架构类图不要询问。"""
+用户选择后按所选工具执行：选「可交互版」→ 调用 render_graph，把刚才这份**已确认的拓扑**转成 GraphIR
+重绘（不要再问一遍内容，用户无需重新描述）；选「SVG 增强版」→ 调用 draw_svg；
+选「就这样」或不再回应则到此为止，不要追问第二次。
+用户一开始就明确要求交互 / 动画 / 数据流动 / 演示播放 / 可点击 / 导出图片时，
+直接调用 render_graph，不必先出 mermaid 再询问。
+流程图、时序图、甘特图等非架构类图不要主动询问。"""
 
 # SVG_RULES — SVG 绘制：draw_svg / edit_svg / describe_svg / svg_to_png / svg_to_png_batch
 _SVG_RULES = """用户要求生成/绘制 SVG 矢量图、图标、插画、角色或自定义图形时，按以下规则执行：

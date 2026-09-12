@@ -25,7 +25,7 @@ import { toast } from "@/components/ui/Toast";
 import { useTheme } from "@/services/theme";
 import { isTauri, openFileLocation, saveExportFile } from "@/services/tauri";
 import { type GraphIR, KIND_LABELS, type GraphNode, nodeTone } from "./GraphIR";
-import { createGraphRenderer, type GraphRendererApi } from "./GraphRenderer";
+import { CANVAS_MIN_HEIGHT, createGraphRenderer, type GraphRendererApi } from "./GraphRenderer";
 import { branchColor, TONE_LABELS } from "./graphTones";
 import { resolvePreset } from "./presets";
 import "./index.less";
@@ -36,6 +36,12 @@ interface GraphBlockProps {
   /** 新消息 = true（回放式入场）；历史消息 = false（直渲染终态） */
   animate?: boolean;
 }
+
+/**
+ * 渲染完成前的占位高度。真实的画布高度由渲染器的 `measure()` 给出
+ * （区间常量也定义在那里，避免两处各写一份而漂移）。
+ */
+const PLACEHOLDER_HEIGHT = CANVAS_MIN_HEIGHT;
 
 /** base64 载荷（Promise 包装 FileReader，与图表导出同路径）。 */
 function toBase64Payload(dataUrl: string): Promise<string> {
@@ -81,6 +87,8 @@ export function GraphBlock({ ir, workspacePath, animate = false }: GraphBlockPro
   const [playing, setPlaying] = useState(false);
   const [saving, setSaving] = useState<"png" | "svg" | null>(null);
   const [selected, setSelected] = useState<GraphNode | null>(null);
+  // 高度自适应：小图按内容撑高、大图封顶后由渲染器缩放到整图可见
+  const [canvasHeight, setCanvasHeight] = useState<number | null>(null);
 
   const preset = useMemo(() => resolvePreset(ir.kind), [ir.kind]);
   const title = ir.meta?.title || KIND_LABELS[ir.kind];
@@ -107,6 +115,7 @@ export function GraphBlock({ ir, workspacePath, animate = false }: GraphBlockPro
     setError(null);
     setSelected(null);
     setFlowOn(false);
+    setCanvasHeight(null);
 
     void createGraphRenderer({
       container,
@@ -123,6 +132,7 @@ export function GraphBlock({ ir, workspacePath, animate = false }: GraphBlockPro
         }
         api = created;
         setRenderer(created);
+        setCanvasHeight(created.measure().height);
       })
       .catch((err) => {
         console.error("[GraphBlock] 渲染失败:", err);
@@ -135,6 +145,23 @@ export function GraphBlock({ ir, workspacePath, animate = false }: GraphBlockPro
       setRenderer((prev) => (prev === api ? null : prev));
     };
   }, [ir, preset, theme, animate]);
+
+  // 画布高度按内容确定后，让 X6 按新尺寸重排（否则仍按初始 200px 渲染）
+  useEffect(() => {
+    if (!renderer || !canvasHeight) return;
+    renderer.resize();
+  }, [renderer, canvasHeight]);
+
+  // 窗口 / 侧栏变化会改变可用宽度：重算适配缩放与画布高度
+  useEffect(() => {
+    if (!renderer) return;
+    const onWindowResize = () => {
+      renderer.resize();
+      setCanvasHeight(renderer.measure().height);
+    };
+    window.addEventListener("resize", onWindowResize);
+    return () => window.removeEventListener("resize", onWindowResize);
+  }, [renderer]);
 
   const toggleFlow = () => {
     if (!renderer) return;
@@ -304,7 +331,11 @@ export function GraphBlock({ ir, workspacePath, animate = false }: GraphBlockPro
       </div>
 
       <div className="gb-canvas-wrap">
-        <div ref={containerRef} className="gb-canvas" />
+        <div
+          ref={containerRef}
+          className="gb-canvas"
+          style={{ height: canvasHeight ?? PLACEHOLDER_HEIGHT }}
+        />
         {error && (
           <div className="gb-error">
             <AlertTriangle size={14} />

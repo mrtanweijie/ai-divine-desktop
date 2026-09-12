@@ -16,6 +16,12 @@ export interface LayoutResult {
   positions: Record<string, { x: number; y: number }>;
   /** 力导/时序等需要额外几何信息的场景回传（如生命线 extBottom） */
   extras?: { lifelineBottom?: number };
+  /**
+   * 分组框几何（左上角 + 宽高，与 positions 同一坐标系）。
+   * **由布局产出而不是渲染器按成员包围盒反算**——分区域拼接后包围盒会
+   * 横跨多个区域（region 的成员分散在各簇里），反算会得到巨大错位的框。
+   */
+  groupBoxes?: Record<string, { x: number; y: number; w: number; h: number }>;
 }
 
 type SizeOf = (node: GraphNode) => { w: number; h: number };
@@ -212,6 +218,139 @@ function timelineLayout(ir: GraphIR, spec: LayoutSpec, sizeOf: SizeOf): LayoutRe
   return { positions };
 }
 
+/**
+ * 分区域拼接布局（020 §5.7 写明的退路，替代依赖 compound 布局）。
+ *
+ * 为什么需要：dagre 不认识「这几个节点属于同一簇/同一区域」，会把同组成员
+ * 打散到各处，簇框于是被撑成横跨全图的巨框——这正是"图很乱"的主因之一。
+ *
+ * 做法三步：
+ * 1. **簇内**：每组独立跑一次 dagre，得到紧凑的局部布局，归一化到左上角起点；
+ * 2. **簇间**：把每个簇当成一个"超级节点"（尺寸 = 簇框尺寸）再跑一次 dagre，
+ *    跨簇的边作为元图边，从而让区域之间有合理顺序；
+ * 3. **组装**：簇的原点 = 元布局中心 - 簇框一半；节点全局坐标 = 簇原点 + 局部坐标。
+ */
+function clusteredLayout(
+  layoutNs: any,
+  ir: GraphIR,
+  spec: LayoutSpec,
+  sizeOf: SizeOf,
+): LayoutResult {
+  const groups = (ir.groups ?? []).filter((group) => group.type !== "lane");
+  const memberOf = new Map<string, string>();
+  for (const group of groups) {
+    for (const member of group.members) memberOf.set(member, group.id);
+  }
+  const clusters: { id: string; nodes: string[] }[] = groups
+    .map((group) => ({ id: group.id, nodes: [...group.members] }))
+    .filter((cluster) => cluster.nodes.length > 0);
+  const loose = ir.nodes.filter((node) => !memberOf.has(node.id)).map((node) => node.id);
+  if (loose.length) clusters.push({ id: "__loose", nodes: loose });
+  if (clusters.length < 2) return dagreLayout(layoutNs, ir, spec, sizeOf);
+
+  const PAD_X = 16;
+  const PAD_TOP = 28; // 让出簇标题的位置
+  const PAD_BOTTOM = 16;
+
+  const inner: Record<string, Record<string, { x: number; y: number }>> = {};
+  const boxes: Record<string, { w: number; h: number }> = {};
+
+  for (const cluster of clusters) {
+    const ids = new Set(cluster.nodes);
+    const sub: GraphIR = {
+      kind: ir.kind,
+      nodes: ir.nodes.filter((node) => ids.has(node.id)),
+      edges: ir.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)),
+    };
+    // 簇内用 LR：让"层"内部的成员横向排开，簇间再用整体方向纵向堆叠——
+    // 这才是分层架构图的读法（层内并列、层间自上而下）。若簇内也用 TB，
+    // 每层会被拉成一列，整幅图又高又稀疏。
+    // 簇内走**纵向**：每个区域收成一条"窄列"，簇间再横向铺开（见下方 meta 的 LR）——
+    // 这样整幅图接近方形，塞进聊天面板的窄画布时缩放比例才不至于太小。
+    // 若簇内也横排，长链区域（如基础设施 5 节点链）会拉出上千像素宽，只能靠横向滚动。
+    const local = dagreLayout(
+      layoutNs,
+      sub,
+      { ...spec, direction: "TB", rankSep: 40, nodeSep: 24 },
+      sizeOf,
+    );
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const node of sub.nodes) {
+      const point = local.positions[node.id] ?? { x: 0, y: 0 };
+      const size = sizeOf(node);
+      minX = Math.min(minX, point.x - size.w / 2);
+      maxX = Math.max(maxX, point.x + size.w / 2);
+      minY = Math.min(minY, point.y - size.h / 2);
+      maxY = Math.max(maxY, point.y + size.h / 2);
+    }
+    if (!Number.isFinite(minX)) {
+      inner[cluster.id] = {};
+      boxes[cluster.id] = { w: PAD_X * 2, h: PAD_TOP + PAD_BOTTOM };
+      continue;
+    }
+    const shifted: Record<string, { x: number; y: number }> = {};
+    for (const node of sub.nodes) {
+      const point = local.positions[node.id] ?? { x: 0, y: 0 };
+      shifted[node.id] = {
+        x: point.x - minX + PAD_X,
+        y: point.y - minY + PAD_TOP,
+      };
+    }
+    inner[cluster.id] = shifted;
+    boxes[cluster.id] = {
+      w: maxX - minX + PAD_X * 2,
+      h: maxY - minY + PAD_TOP + PAD_BOTTOM,
+    };
+  }
+
+  // 簇间元布局
+  const DagreLayout = layoutNs.DagreLayout ?? layoutNs.default?.DagreLayout;
+  const metaCenters: Record<string, { x: number; y: number }> = {};
+  const clusterOf = (id: string) => memberOf.get(id) ?? "__loose";
+  if (DagreLayout) {
+    const metaNodes = clusters.map((cluster) => ({
+      id: cluster.id,
+      size: [boxes[cluster.id].w, boxes[cluster.id].h],
+    }));
+    const metaEdges = ir.edges
+      .filter((edge) => clusterOf(edge.source) !== clusterOf(edge.target))
+      .map((edge) => ({ source: clusterOf(edge.source), target: clusterOf(edge.target) }));
+    const meta = new DagreLayout({
+      type: "dagre",
+      // 簇间横向铺开：区域左右并排，各自保持在一条窄列里
+      rankdir: "LR",
+      ranksep: 64,
+      nodesep: 32,
+      controlPoints: false,
+    });
+    const result = meta.layout({ nodes: metaNodes, edges: metaEdges } as any) as any;
+    for (const item of result.nodes ?? []) {
+      metaCenters[item.id] = { x: item.x ?? 0, y: item.y ?? 0 };
+    }
+  }
+
+  const positions: Record<string, { x: number; y: number }> = {};
+  const groupBoxes: Record<string, { x: number; y: number; w: number; h: number }> = {};
+  let fallbackX = 0;
+  for (const cluster of clusters) {
+    const box = boxes[cluster.id];
+    const center = metaCenters[cluster.id] ?? { x: fallbackX + box.w / 2, y: box.h / 2 };
+    fallbackX += box.w + 80;
+    const originX = center.x - box.w / 2;
+    const originY = center.y - box.h / 2;
+    groupBoxes[cluster.id] = { x: originX, y: originY, w: box.w, h: box.h };
+    for (const nodeId of cluster.nodes) {
+      const point = inner[cluster.id]?.[nodeId];
+      if (!point) continue;
+      positions[nodeId] = { x: originX + point.x, y: originY + point.y };
+    }
+  }
+  return { positions, groupBoxes };
+}
+
 /** 兜底：网格排布（布局引擎缺失时也要出图，而不是白屏）。 */
 function gridFallback(ir: GraphIR, sizeOf: SizeOf): LayoutResult {
   const positions: Record<string, { x: number; y: number }> = {};
@@ -236,9 +375,31 @@ export function computeLayout(
   sizeOf: SizeOf,
 ): LayoutResult {
   const spec = preset.layout;
+  /**
+   * 是否走分区域拼接。
+   *
+   * 条件只有一个：**存在两个以上互不嵌套的分组**。
+   * - 不按 `preset.groups` 的值区分（cluster / boundary 都同理）——arch 用的是
+   *   `boundary`，早先只认 `cluster`，于是架构图 16 个节点被 dagre 一次性打散，
+   *   分组框只能按成员反算，才有"框又大又空、节点四处散"的现象。
+   * - **嵌套分组（成员互相包含）不聚合**：`region` 覆盖全图、`security-group`
+   *   套在其中，把它们当成并列区域去排布是错的；这类边界交给渲染器按包围盒反算。
+   */
+  const hasClusters = (() => {
+    const groups = (ir.groups ?? []).filter(
+      (group) => group.type !== "lane" && group.members.length > 0,
+    );
+    if (groups.length < 2) return false;
+    const nested = groups.some((a) =>
+      groups.some((b) => a !== b && a.members.some((member) => b.members.includes(member))),
+    );
+    return !nested;
+  })();
   switch (spec.engine) {
     case "dagre":
-      return dagreLayout(layoutNs, ir, spec, sizeOf);
+      return hasClusters
+        ? clusteredLayout(layoutNs, ir, spec, sizeOf)
+        : dagreLayout(layoutNs, ir, spec, sizeOf);
     case "force":
       return forceLayout(layoutNs, ir, spec, sizeOf);
     case "compactBox":
