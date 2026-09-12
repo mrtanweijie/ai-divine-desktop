@@ -1,4 +1,13 @@
-import { ChevronDown, Eye, EyeOff, MoreHorizontal, Plus, Star, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  Eye,
+  EyeOff,
+  MoreHorizontal,
+  Plus,
+  Sparkles,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
@@ -8,7 +17,13 @@ import { Select } from "@/components/ui/Select";
 import { Tag } from "@/components/ui/Tag";
 import { getBalance, type BalanceInfo } from "@/services/api";
 import type { ModelConfig, ToolMode } from "@/types";
-import { PROVIDER_OPTIONS, getEntryProvider, getProviderConfig } from "@/config/providers";
+import {
+  PROVIDER_OPTIONS,
+  fetchProviderConfig,
+  openProviderConfigDir,
+  getEntryProvider,
+  getProviderConfig,
+} from "@/config/providers";
 import "./ModelSection.less";
 
 function toolModeOptions(t: (key: string, fallback: string) => string) {
@@ -52,6 +67,11 @@ export function ModelSection({
   onConfirm,
   onAutoSave,
 }: SettingsModelSectionProps) {
+  // 打开设置时拉取最新提供商目录（Agent 经 manage_model_providers 改动后无需重启）
+  useEffect(() => {
+    void fetchProviderConfig();
+  }, []);
+
   const { t } = useTranslation();
   // 列表默认收起，仅展示模型名；点击卡片展开编辑。只有一个模型时默认展开。
   const [expandedId, setExpandedId] = useState<string | null>(() =>
@@ -174,9 +194,24 @@ export function ModelSection({
 
   return (
     <div className="settings-form">
-      <p className="settings-field-hint-inline settings-models-hint">
-        {t("settings.modelsHint", "可配置多个提供方，对话时在输入框发送按钮左侧快速切换模型")}
-      </p>
+      <div className="settings-models-hint-row">
+        <p className="settings-field-hint-inline settings-models-hint">
+          {t(
+            "settings.modelsHint",
+            "可配置多个提供方，对话时在输入框发送按钮左侧快速切换模型；提供商目录可在配置文件里自定义，直接让 Agent 帮你增改即可",
+          )}
+        </p>
+        <Button
+          variant="icon"
+          onClick={() => {
+            void openProviderConfigDir();
+          }}
+          aria-label={t("settings.openConfigDir", "打开提供商配置文件目录")}
+          title={t("settings.openConfigDir", "打开提供商配置文件目录")}
+        >
+          <Sparkles size={14} />
+        </Button>
+      </div>
       <div className="settings-model-list">
         {models.map((entry) => {
           const expanded = expandedId === entry.id;

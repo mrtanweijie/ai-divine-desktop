@@ -278,7 +278,7 @@
     "modelName": "Model Name",
     "modeLocalDesc": "Smarter, AI understands intent",
     "modeLocalTitle": "Local Model",
-    "modelsHint": "Configure multiple providers; switch models next to the send button in the chat input",
+    "modelsHint": "Configure multiple providers; switch models next to the send button in the chat input. The provider catalog is customizable — edit the config file or just ask the Agent to update it",
     "modelUnnamed": "Unnamed model",
     "noRecommendedModels": "No recommended models. Check hardware config.",
     "provider": "Provider",
@@ -379,7 +379,8 @@
       "scopeProject": "Project",
       "pendingSub": "New memories that clash with existing ones are held here until confirmed",
       "activeSub": "Long-term memories the AI uses; delete or correct anytime"
-    }
+    },
+    "openConfigDir": "Open provider config folder"
   },
   "skills": {
     "bodyTitle": "SKILL.md content",

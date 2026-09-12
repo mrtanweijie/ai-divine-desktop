@@ -271,7 +271,7 @@
     "modelName": "模型名",
     "modeLocalDesc": "更智能，AI 理解意图",
     "modeLocalTitle": "本地模型",
-    "modelsHint": "可配置多个提供方，对话时在输入框发送按钮左侧快速切换模型",
+    "modelsHint": "可配置多个提供方，对话时在输入框发送按钮左侧快速切换模型；提供商目录可在配置文件里自定义，直接让 Agent 帮你增改即可",
     "modelUnnamed": "未命名模型",
     "noRecommendedModels": "暂无推荐模型，请检查硬件配置",
     "provider": "提供方",
@@ -372,7 +372,8 @@
       "scopeProject": "项目",
       "pendingSub": "与已有记忆矛盾的新记忆会挂起在这里，确认后生效",
       "activeSub": "AI 正在使用的长期记忆，可随时删除或纠正"
-    }
+    },
+    "openConfigDir": "打开提供商配置文件目录"
   },
   "skills": {
     "bodyTitle": "SKILL.md 正文",

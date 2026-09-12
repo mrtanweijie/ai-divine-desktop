@@ -1,5 +1,10 @@
 // 提供商统一配置
-// 所有提供商相关的配置都在这里维护，避免重复定义
+// 目录来源：后端 divine-model-provider.json（用户可手动编辑，或让 Agent 通过
+// manage_model_providers 工具更新）；启动时经 /api/model-providers 拉取，
+// 未拉取到（或失败）时回退到内置默认。运行期调用 setProviderList 热替换。
+
+import { request } from "@/services/request";
+import { isTauri, openFolder } from "@/services/tauri";
 
 export interface ProviderConfig {
   value: string;
@@ -10,14 +15,14 @@ export interface ProviderConfig {
   prefix: string[]; // 用于根据模型名判断提供商
 }
 
-// 提供商列表（按顺序显示）
-export const PROVIDER_LIST: ProviderConfig[] = [
+// 内置默认目录（divine-model-provider.json 的初始内容与之相同）
+export const DEFAULT_PROVIDER_LIST: ProviderConfig[] = [
   {
     value: "deepseek",
     label: "DeepSeek",
     base_url: "https://api.deepseek.com",
-    default_model: "deepseek-v4-flash",
-    list: ["deepseek-v4-flash", "deepseek-v4-flash-vision-exp", "deepseek-v4-pro"],
+    default_model: "deepseek-flash",
+    list: ["deepseek-flash", "deepseek-v4-pro"],
     prefix: ["deepseek"],
   },
   {
@@ -102,8 +107,58 @@ export const PROVIDER_LIST: ProviderConfig[] = [
   },
 ];
 
+// 生效目录：初始为内置默认，启动/打开设置时被后端配置覆盖
+export let PROVIDER_LIST: ProviderConfig[] = [...DEFAULT_PROVIDER_LIST];
+
 // 提供商 Map（方便查找）
 export const PROVIDER_MAP = new Map<string, ProviderConfig>(PROVIDER_LIST.map((p) => [p.value, p]));
+
+/** 用后端目录热替换当前生效列表（重建派生的 Map 与 OPTIONS）。 */
+export function setProviderList(list: ProviderConfig[]): void {
+  const seen = new Set<string>();
+  const cleaned = list.filter((entry) => {
+    const value = String(entry?.value || "").trim();
+    if (!value || seen.has(value)) return false;
+    seen.add(value);
+    return true;
+  });
+  if (cleaned.length === 0) return;
+  PROVIDER_LIST = cleaned;
+  PROVIDER_MAP.clear();
+  for (const entry of cleaned) {
+    PROVIDER_MAP.set(entry.value, entry);
+  }
+  PROVIDER_OPTIONS = cleaned.map((p) => ({ value: p.value, label: p.label }));
+}
+
+// 后端返回的配置文件绝对路径（divine-model-provider.json）
+let providerConfigPath = "";
+
+/** 在系统文件管理器中打开提供商配置文件所在目录。
+ *  Tauri 环境走本地命令；浏览器 dev 模式回退后端端点。 */
+export async function openProviderConfigDir(): Promise<void> {
+  if (isTauri() && providerConfigPath) {
+    const directory = providerConfigPath.replace(/[/\\][^/\\]+$/, "");
+    await openFolder(directory);
+    return;
+  }
+  await request("/model-providers/open-dir", { method: "POST" });
+}
+
+/** 从后端拉取提供商目录；失败时保留当前列表（内置默认或上次成功值）。 */
+export async function fetchProviderConfig(): Promise<void> {
+  try {
+    const data = await request<{ providers: ProviderConfig[]; path?: string }>("/model-providers");
+    if (Array.isArray(data?.providers)) {
+      setProviderList(data.providers);
+    }
+    if (data?.path) {
+      providerConfigPath = data.path;
+    }
+  } catch {
+    // 后端不可用/旧版本无此接口：保留内置默认
+  }
+}
 
 // 根据模型名获取提供商 key（仅作回退：当条目未显式保存 vendor 时使用）
 export function getProviderFromModel(model: string): string {
@@ -149,7 +204,6 @@ export function isMultimodalModel(modelName: string): boolean {
     "gpt-4-vision",
     "claude-3",
     "gemini",
-    "deepseek-v4-flash-vision",
     "glm-5v",
     "glm-4.6v",
     "glm-4v",
@@ -159,8 +213,8 @@ export function isMultimodalModel(modelName: string): boolean {
   return multimodalPrefixes.some((prefix) => lower.startsWith(prefix));
 }
 
-// 为 Select 组件生成提供商选项格式
-export const PROVIDER_OPTIONS = PROVIDER_LIST.map((p) => ({
+// 为 Select 组件生成提供商选项格式（随 setProviderList 热替换）
+export let PROVIDER_OPTIONS: { value: string; label: string }[] = PROVIDER_LIST.map((p) => ({
   value: p.value,
   label: p.label,
 }));

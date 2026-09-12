@@ -7,6 +7,7 @@ import { defaultComposerEffort, getSessionEffort } from "@/pages/chat/state/sess
 import { getSessionModelId, resolveModelTargetId } from "@/pages/chat/state/sessionModel";
 import { expandModelId } from "@/config/providers";
 import { getSettings } from "@/services/api";
+import { fetchProviderConfig } from "@/config/providers";
 import type { Project, Session, Settings } from "@/types";
 
 // getSettings 失败（sidecar 尚未就绪等）时的兜底设置：演示模式可交互，
@@ -76,6 +77,7 @@ export function useAppBootstrap(options: UseAppBootstrapOptions): void {
     let cancelled = false;
     const savedSelection = readLastSessionSelection();
 
+    void fetchProviderConfig();
     Promise.all([refreshProjects(), getSettings()])
       .then(async ([projectList, currentSettings]) => {
         if (cancelled) return;

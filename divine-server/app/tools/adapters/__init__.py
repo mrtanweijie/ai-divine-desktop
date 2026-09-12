@@ -43,6 +43,7 @@ from .image_generate import ImageGenerateAdapter  # noqa: F401
 from .image_resize import ImageResizeAdapter  # noqa: F401
 from .mermaid_export import MermaidExportAdapter  # noqa: F401
 from .memory import ForgetMemoryAdapter, RememberAdapter  # noqa: F401
+from .model_providers import ManageModelProvidersAdapter  # noqa: F401
 from .list_definitions import ListDefinitionsAdapter  # noqa: F401
 from .move_file import MoveFileAdapter  # noqa: F401
 from .notes import NotesAdapter  # noqa: F401

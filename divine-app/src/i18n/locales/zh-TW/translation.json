@@ -277,7 +277,7 @@
     "modelName": "模型名",
     "modeLocalDesc": "更智慧，AI 理解意圖",
     "modeLocalTitle": "本機模型",
-    "modelsHint": "可設定多個模型，對話時可在輸入框傳送按鈕左側快速切換",
+    "modelsHint": "可設定多個提供方，對話時可在輸入框傳送按鈕左側快速切換；提供商目錄可在設定檔裡自訂，直接讓 Agent 幫你增改即可",
     "modelUnnamed": "未命名模型",
     "noRecommendedModels": "暫無推薦模型，請檢查硬體配置",
     "provider": "",
@@ -378,7 +378,8 @@
       "scopeProject": "專案",
       "pendingSub": "與已有記憶矛盾的新記憶會擱置在這裡，確認後生效",
       "activeSub": "AI 正在使用的長期記憶，可隨時刪除或糾正"
-    }
+    },
+    "openConfigDir": "開啟提供商設定檔目錄"
   },
   "skills": {
     "bodyTitle": "SKILL.md 內文",

@@ -19,6 +19,7 @@ from .api import (
     local_llm,
     mcp,
     memories,
+    model_providers,
     pdf_themes,
     projects,
     scheduled_tasks,
@@ -167,6 +168,7 @@ app.include_router(files.router, prefix="/api")
 app.include_router(pdf_themes.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(memories.router, prefix="/api")
+app.include_router(model_providers.router, prefix="/api")
 app.include_router(local_llm.router, prefix="/api")
 app.include_router(git.router, prefix="/api")
 app.include_router(mcp.router, prefix="/api")
