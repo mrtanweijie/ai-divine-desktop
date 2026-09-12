@@ -30,6 +30,8 @@
 /* ═══════════════ 设计令牌 ═══════════════ */
 :root {
   --ink: #1B1F27;
+  --cv-hero-2: #6D28D9;
+  --cv-hero-3: #9333EA;
   --indigo: var(--color-primary, #4F46E5);
   --indigo-deep: #3730A3;
   --indigo-soft: #EEF0FE;
@@ -944,7 +946,7 @@ body {
 .cv-logo { font-size: 12px; font-weight: 800; letter-spacing: 0.26em; color: var(--text-primary); }
 .cv-issue { font-size: 11px; color: var(--text-muted); letter-spacing: 0.14em; }
 .cv-main { flex: 1; border-radius: 22px; padding: 42px 38px; color: #fff;
-  background: linear-gradient(135deg, var(--indigo) 0%, #6D28D9 55%, #9333EA 100%);
+  background: linear-gradient(135deg, var(--indigo) 0%, var(--cv-hero-2) 55%, var(--cv-hero-3) 100%);
   position: relative; overflow: hidden;
   display: flex; flex-direction: column; justify-content: center; }
 .cv-main::before { content: ""; position: absolute; right: -40px; top: -40px; width: 190px; height: 190px; border-radius: 50%;
@@ -955,8 +957,9 @@ body {
 .cv-sub { margin-top: 14px; font-size: 14px; line-height: 1.8; color: rgba(255,255,255,0.85); max-width: 88%; position: relative; }
 .cv-tags { margin-top: 24px; display: block; position: relative; }
 .cv-tags .tag { display: inline-block; margin-right: 8px; font-size: 11.5px; font-weight: 600; padding: 5px 13px; border-radius: 999px; background: rgba(255,255,255,0.16); }
-.cv-band { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+.cv-band { display: table; width: 100%; table-layout: fixed; margin-top: 10px; }
 .cv-stat { background: #FFFFFF; border: 1px solid var(--border-card); border-radius: 16px; padding: 15px 17px; }
+.cv-stat { display: table-cell; vertical-align: top; }
 .cv-stat .v { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; color: var(--text-primary); white-space: nowrap; }
 .cv-stat .v em { font-style: normal; font-size: 12.5px; font-weight: 600; color: var(--indigo-deep); margin-left: 3px; }
 .cv-stat .k { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-top: 3px; }
@@ -1075,7 +1078,8 @@ body {
 .day-bar .db-chips .chip { margin: 0 0 0 6px; white-space: nowrap; }
 .info-grid { display: table; width: 100%; table-layout: fixed; border-spacing: 0 10px; margin-bottom: 0; }
 .ig-row { display: table-row; }
-.ig-gap { display: table-cell; width: 12px; }
+.info-grid .card { display: table-cell; vertical-align: top; }
+.ig-gap { display: table-cell; width: 10px; }
 .info-card { display: table-cell; width: auto; vertical-align: top; box-sizing: border-box; margin: 0; }
 .budget-big { display: table-cell; vertical-align: top; margin: 0; box-sizing: border-box; }
 .budget-bars { display: table-cell; vertical-align: top; margin: 0; box-sizing: border-box; }
@@ -1083,6 +1087,7 @@ body {
 .page-title { display: table-cell; vertical-align: bottom; text-align: left; }
 .page-head .meta { display: table-cell; float: none; text-align: right; vertical-align: bottom; padding-top: 0; white-space: nowrap; }
 .chip { white-space: nowrap; }
+.cv-gap { display: table-cell; width: 10px; }
 </style>
 </head>
 <body>
@@ -1117,18 +1122,22 @@ body {
     </div>
   </div>
 
-  <div class="card">
-    <div class="sec-label">节奏说明</div>
-    <p class="body-text">{{整条路线以交通干线串联，先紧后松；每天保留 1 个可删减项，天气不佳时整体平移半天。}}</p>
-    <div class="chip-row"><span class="chip">强度 ★★★☆☆</span> <span class="chip mint">亲子友好</span> <span class="chip plain">需预约 ×{{2}}</span></div>
-  </div>
-
-  <div class="card">
-    <div class="sec-label">住宿建议</div>
-    <ul class="check-list">
-      <li><strong>{{城市A}}：</strong>{{连住两晚，选步行 10 分钟内有地铁站的街区}}</li>
-      <li><strong>{{城市B}}：</strong>{{湖景民宿一晚，旺季提前两周锁定可免费取消档}}</li>
-    </ul>
+  <div class="info-grid">
+    <div class="ig-row">
+      <div class="card">
+        <div class="sec-label">节奏说明</div>
+        <p class="body-text">{{整条路线以交通干线串联，先紧后松；每天保留 1 个可删减项，天气不佳时整体平移半天。}}</p>
+        <div class="chip-row"><span class="chip">强度 ★★★☆☆</span> <span class="chip mint">亲子友好</span> <span class="chip plain">需预约 ×{{2}}</span></div>
+      </div>
+      <div class="ig-gap"></div>
+      <div class="card">
+        <div class="sec-label">住宿建议</div>
+        <ul class="check-list">
+          <li><strong>{{城市A}}：</strong>{{连住两晚，选步行 10 分钟内有地铁站的街区}}</li>
+          <li><strong>{{城市B}}：</strong>{{湖景民宿一晚，旺季提前两周锁定可免费取消档}}</li>
+        </ul>
+      </div>
+    </div>
   </div>
 </div>
 

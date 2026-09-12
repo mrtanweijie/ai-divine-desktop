@@ -593,12 +593,14 @@ def build_cover_html(
             cards.append((transport, "", "Transit"))
         if not cards:
             cards.append(("—", "", "Travel"))
-        data["stat_cards"] = "\n      ".join(
+        stat_cells = [
             '<div class="cv-stat">'
             f'<div class="v">{v}<em>{em}</em></div><div class="k">{k}</div>'
             "</div>"
             for v, em, k in cards[:4]
-        )
+        ]
+        # 卡片之间插透明间隔列（table-layout:fixed 下均分铺满，数量 2-4 自适应）
+        data["stat_cards"] = '<div class="cv-gap"></div>'.join(stat_cells)
     return template.format(**data)
 
 
