@@ -227,9 +227,9 @@ class ChatDeepSeekProvider:
         # `entry` is a resolved model configuration (from the multi-model
         # settings list); when absent, fall back to the legacy top-level fields.
         entry = entry if entry is not None else self.settings
-        model = entry.get("model") or "deepseek-v4-flash"
+        model = entry.get("model") or "deepseek-flash"
         if model in ("", "local", "mock"):
-            model = "deepseek-v4-flash"
+            model = "deepseek-flash"
         # DeepSeek thinking mode ignores sampling params (temperature, top_p,
         # presence/frequency penalty), so only send temperature when thinking
         # is disabled.

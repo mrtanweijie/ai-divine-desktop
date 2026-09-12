@@ -38,7 +38,6 @@ _MULTIMODAL_MODEL_PREFIXES = [
     "gpt-4-vision",
     "claude-3",
     "gemini",
-    "deepseek-v4-flash-vision",
     "glm-5v",
     "glm-4.6v",
     "glm-4v",
@@ -130,7 +129,7 @@ def _find_multimodal_entry(settings: dict) -> dict | None:
 
     Active entry wins first; otherwise the first configured multimodal entry
     (in order). This way, even if the active default model is text-only (e.g.
-    deepseek-v4-flash), a configured vision-capable model (e.g. mimo-*) is used
+    deepseek-flash), a configured vision-capable model (e.g. mimo-*) is used
     instead of falling back to GLM.
     """
     entries = _model_entries(settings)

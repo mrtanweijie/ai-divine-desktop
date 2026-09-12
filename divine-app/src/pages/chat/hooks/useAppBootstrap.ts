@@ -15,7 +15,7 @@ export function fallbackSettings(username: string): Settings {
   return {
     provider: "mock",
     base_url: "",
-    model: "deepseek-v4-flash",
+    model: "deepseek-flash",
     has_api_key: false,
     has_glm_key: false,
     workspace_dir: "",
@@ -30,7 +30,7 @@ export function fallbackSettings(username: string): Settings {
         id: "default",
         name: "DeepSeek V4 Flash",
         provider: "mock",
-        model: "deepseek-v4-flash",
+        model: "deepseek-flash",
         base_url: "",
         has_api_key: false,
         active: true,

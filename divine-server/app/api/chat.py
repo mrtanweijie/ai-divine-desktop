@@ -416,7 +416,7 @@ async def stream_chat(request: StreamChatRequest):
             # 避免"简单任务静默走云端"——起不来才回退云端。
             # 实时信息请求：系统层强制联网（不依赖模型自觉）。
             # 命中新闻/天气/股票等关键词 → 跳过本地路由、注入硬指令，
-            # 禁止"无法提供实时信息"类拒绝（deepseek-v4-flash 常无视提示词）。
+            # 禁止"无法提供实时信息"类拒绝（deepseek-flash 常无视提示词）。
             if _is_realtime_request(model_question):
                 model_question = (
                     "（用户请求实时信息，必须调用 web_search / web_fetch 工具"

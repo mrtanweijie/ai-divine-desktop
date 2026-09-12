@@ -5,7 +5,7 @@ from pathlib import Path
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
 
 # Formats the vision model can analyze: JPEG / PNG / GIF / WebP
-# (deepseek-v4-flash-vision-exp and GLM vision both accept only these).
+# (GLM vision models accept only these).
 VISION_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
 

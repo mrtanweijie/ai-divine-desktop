@@ -10,13 +10,13 @@ from app.config import (
 
 
 def test_fresh_models_defaults():
-    settings = {"provider": "auto", "model": "deepseek-v4-flash"}
+    settings = {"provider": "auto", "model": "deepseek-flash"}
     settings["models"] = normalize_models(None, settings)
     assert len(settings["models"]) == 1
     entry = settings["models"][0]
     assert entry["active"] is True
     assert entry["id"] == "default"
-    assert entry["model"] == "deepseek-v4-flash"
+    assert entry["model"] == "deepseek-flash"
 
 
 def test_legacy_fields_migrate_into_models():
@@ -184,7 +184,7 @@ def test_strip_local_model_entries_removes_virtual_entries():
     from app.api.settings import _strip_local_model_entries
 
     models = [
-        {"id": "m1", "name": "DeepSeek", "model": "deepseek-v4-flash"},
+        {"id": "m1", "name": "DeepSeek", "model": "deepseek-flash"},
         {"id": "local", "name": "Qwen2.5-1.5B-Instruct", "provider": "local"},
         {"id": "m2", "name": "MiMo", "model": "mimo-v2.5-pro"},
         {"id": "local", "name": "Qwen2.5-1.5B-Instruct", "provider": "local"},
@@ -202,10 +202,10 @@ def test_merge_after_strip_does_not_reintroduce_local():
         {"id": "local", "name": "Qwen2.5-1.5B-Instruct", "provider": "local"},
         {"id": "local", "name": "Qwen2.5-1.5B-Instruct", "provider": "local"},
         {"id": "local", "name": "Qwen2.5-1.5B-Instruct", "provider": "local"},
-        {"id": "m1", "name": "DeepSeek", "model": "deepseek-v4-flash"},
+        {"id": "m1", "name": "DeepSeek", "model": "deepseek-flash"},
     ]
     submitted = [
-        {"id": "m1", "name": "DeepSeek", "model": "deepseek-v4-flash", "api_key": ""},
+        {"id": "m1", "name": "DeepSeek", "model": "deepseek-flash", "api_key": ""},
         {"id": "local", "name": "Qwen2.5-1.5B-Instruct", "provider": "local"},
     ]
     merged = merge_model_updates(

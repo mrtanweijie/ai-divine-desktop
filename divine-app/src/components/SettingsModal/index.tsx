@@ -34,7 +34,7 @@ function modelsFromSettings(settings: Settings): ModelConfig[] {
       id: "default",
       name: settings.model || "DeepSeek V4 Flash",
       provider: legacyProvider,
-      model: settings.model || "deepseek-v4-flash",
+      model: settings.model || "deepseek-flash",
       base_url: settings.base_url || "https://api.deepseek.com",
       has_api_key: settings.has_api_key,
       active: true,

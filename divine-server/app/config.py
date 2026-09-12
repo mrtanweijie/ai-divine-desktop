@@ -28,7 +28,7 @@ def workspace_root() -> Path:
     return BACKEND_DIR / "workspace"
 
 
-DEFAULT_MODEL = "deepseek-v4-flash"
+DEFAULT_MODEL = "deepseek-flash"
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 
 # 本地 LLM 默认配置（settings_store 默认值与此处常量同源，禁止散落魔法值）
@@ -95,7 +95,7 @@ def normalize_models(
         ).strip()
         raw_model = str(item.get("model") or "").strip()
         if vendor == "custom":
-            # 自定义提供方：不允许回退到默认模型（否则标题会变成 deepseek-v4-flash）。
+            # 自定义提供方：不允许回退到默认模型（否则标题会变成 deepseek-flash）。
             # model 为空时取自定义模型列表的第一个作为展示模型。
             model = raw_model or next(
                 (s.strip() for s in custom_models.split(",") if s.strip()), ""
@@ -290,7 +290,7 @@ class SettingsStore:
             "glm_model": os.getenv("GLM_MODEL", "glm-4.6v-flash"),
             "base_url": os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
             "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
-            "model": os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
+            "model": os.getenv("DEEPSEEK_MODEL", "deepseek-flash"),
             "username": "用户",
             "think_default": False,
             "reasoning_effort": os.getenv(

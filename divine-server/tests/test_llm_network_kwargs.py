@@ -15,7 +15,7 @@ def _prepare_env(monkeypatch, tmp_path):
 
 def _entry(**overrides):
     entry = {
-        "model": "deepseek-v4-flash",
+        "model": "deepseek-flash",
         "api_key": "sk-test",
         "base_url": "https://api.deepseek.com",
     }

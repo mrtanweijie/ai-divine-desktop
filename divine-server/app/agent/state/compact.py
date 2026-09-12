@@ -23,8 +23,7 @@ logger = logging.getLogger("divine.agent.compact")
 # Default context windows per model; extend as needed.
 _DEFAULT_CONTEXT_WINDOW = 1_000_000
 _MODEL_CONTEXT_WINDOWS: dict[str, int] = {
-    "deepseek-v4-flash": 1_000_000,
-    "deepseek-v4-flash-vision-exp": 1_000_000,
+    "deepseek-flash": 1_000_000,
     "deepseek-v4-pro": 1_000_000,
     "deepseek-v3": 128_000,
     "deepseek-reasoner": 128_000,
@@ -85,7 +84,7 @@ def _resolve_model_entry() -> dict[str, Any]:
     if models and isinstance(models[0], dict):
         return models[0]
     return {
-        "model": settings.get("model") or "deepseek-v4-flash",
+        "model": settings.get("model") or "deepseek-flash",
         "api_key": settings.get("api_key", ""),
     }
 
@@ -111,7 +110,7 @@ def _system_prompt_preview(
 
     settings = settings_store.load()
     provider = settings.get("provider") or "auto"
-    model_name = settings.get("model") or "deepseek-v4-flash"
+    model_name = settings.get("model") or "deepseek-flash"
     if provider == "mock" or (
         provider == "auto" and not settings.get("api_key")
     ):

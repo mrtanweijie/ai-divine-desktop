@@ -25,7 +25,7 @@ class DeepSeekLLM:
         think: bool = False,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
-            "model": self.settings.get("model") or "deepseek-v4-flash",
+            "model": self.settings.get("model") or "deepseek-flash",
             "messages": messages,
             "stream": True,
             # 旅行手册等单次直出整份 HTML 的场景（页序固定、重内容页可达 14+ 页）

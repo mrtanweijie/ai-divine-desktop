@@ -64,7 +64,7 @@ def _resolve_model_entry(
         return models[0]
     return {
         "provider": settings.get("provider", "auto"),
-        "model": settings.get("model") or "deepseek-v4-flash",
+        "model": settings.get("model") or "deepseek-flash",
         "base_url": settings.get("base_url", ""),
         "api_key": settings.get("api_key", ""),
     }

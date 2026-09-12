@@ -56,7 +56,7 @@ def test_chat_deepseek_provider_effort_and_temperature():
 def test_deepseek_llm_build_payload_thinking_toggle():
     llm = DeepSeekLLM()
     llm.settings = {
-        "model": "deepseek-v4-flash",
+        "model": "deepseek-flash",
         "reasoning_effort": "xhigh",
     }
     messages = [{"role": "user", "content": "hi"}]
@@ -124,7 +124,7 @@ def test_legacy_payload_passes_reasoning_content_through():
     """Legacy provider sends history dicts as-is; reasoning_content embedded
     by history_for_model must reach the API unchanged."""
     llm = DeepSeekLLM()
-    llm.settings = {"model": "deepseek-v4-flash", "reasoning_effort": "high"}
+    llm.settings = {"model": "deepseek-flash", "reasoning_effort": "high"}
     messages = [
         {"role": "user", "content": "hi"},
         {
