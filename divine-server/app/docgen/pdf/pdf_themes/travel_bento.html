@@ -982,7 +982,7 @@ body {
 .page-title .lt { color: var(--indigo); }
 .page-head .meta { float: right; padding-top: 8px; font-size: 11.5px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.04em; }
 
-.card { background: var(--bg-page); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 13px 16px; margin-bottom: 10px; box-shadow: var(--shadow-card); }
+.card { background: var(--bg-page); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 13px 16px; margin-bottom: 10px; box-shadow: var(--shadow-card); box-decoration-break: clone; }
 .sec-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.04em; margin-bottom: 8px; }
 .chip-row { margin-top: 8px; }
 .chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 999px; background: var(--indigo-soft); color: var(--indigo-deep); }
@@ -990,6 +990,13 @@ body {
 .chip.plain { background: var(--canvas, #F3F4F6); color: var(--text-secondary); }
 
 .stepper { display: flex; align-items: flex-start; margin: 2px 0 0; }
+/* 长行程（>8 站）由引擎注入 stepper-dense：网格两行均衡排布，隐藏连接线 */
+.stepper-dense { display: grid; grid-template-columns: repeat(var(--dense-cols, 6), 1fr); row-gap: 14px; }
+.stepper-dense .step { flex: none; }
+.stepper-dense .s-line { display: none; }
+.stepper-dense .step .s-dot { width: 26px; height: 26px; font-size: 11px; }
+.stepper-dense .step .s-name { font-size: 11.5px; }
+
 .step { display: flex; flex-direction: column; align-items: center; flex: 0 0 auto; }
 .step .s-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--indigo-soft); color: var(--indigo-deep); font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .step.end .s-dot { background: var(--indigo); color: #fff; }
@@ -997,8 +1004,12 @@ body {
 .step .s-stay { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
 .s-line { flex: 1; height: 2px; border-radius: 2px; background: var(--border-card); margin: 12px 8px 0; }
 
-.row-list { display: flex; flex-direction: column; gap: 6px; }
-.row-item { display: block; position: relative; background: var(--bg-page); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 9px 108px 9px 60px; }
+/* 块布局 + margin 代替 flex gap：WeasyPrint 不拆分 flex 容器，
+   flex 纵列会让整卡跳页留下空壳；块布局可在行间干净分页 */
+.row-list { display: block; }
+.row-list .row-item { margin-bottom: 6px; }
+.row-list .row-item:last-child { margin-bottom: 0; }
+.row-item { display: block; position: relative; break-inside: avoid; background: var(--bg-page); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 9px 108px 9px 60px; }
 .row-item .ri-day { position: absolute; left: 14px; top: 10px; font-size: 13px; font-weight: 800; color: var(--indigo); }
 .row-item .ri-main { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
 .row-item .ri-note { font-size: 11px; color: var(--text-muted); margin-top: 1px; }

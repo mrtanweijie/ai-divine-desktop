@@ -729,6 +729,24 @@ def _prewarm_image_cache(keywords: list[str]) -> None:
         pass
 
 
+def _densify_route_stepper(html_body: str) -> str:
+    """长行程（>8 站）的路线走向 stepper 切两行网格，避免单行溢出裁边。
+
+    站点数由正文统计；列数取 ceil(n/2) 保证两行均衡（12 站 → 6+6）。
+    连接线在换行布局下必然错位，dense 模式直接隐藏（序号即顺序）。
+    """
+    import math
+
+    step_count = len(re.findall(r'class="step[\s"]', html_body))
+    if step_count <= 8:
+        return html_body
+    cols = max(4, math.ceil(step_count / 2))
+    return html_body.replace(
+        'class="stepper"',
+        f'class="stepper stepper-dense" style="--dense-cols: {cols}"',
+    )
+
+
 def _collect_image_keywords(html_body: str) -> list[str]:
     """收集正文里的配图关键词：keyword: 源 + photo-placeholder 的 photo-note。"""
     keywords: list[str] = []
@@ -907,6 +925,7 @@ def build_travel_html_document(
     if theme in TRAVEL_RICH_THEMES:
         if images:
             _prewarm_image_cache(_collect_image_keywords(html_body))
+        html_body = _densify_route_stepper(html_body)
         html_body = _inline_placeholder_images(html_body, auto_fill=images)
     return (
         "<!doctype html><html><head><meta charset=\"utf-8\">"
