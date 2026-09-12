@@ -383,3 +383,46 @@ def test_legacy_backfill_via_source_session(tmp_path, monkeypatch):
     ).fetchone()
     conn.close()
     assert row[0] == pa["id"]
+
+
+# --- 四期：L1 情景记忆跨会话检索（022 §4.3）------------------------------
+
+
+def test_session_summary_cross_session_recall(tmp_path, monkeypatch):
+    """「上次那个方案最后定的什么」：scope=session 跨会话检索摘要。"""
+    db = _init(tmp_path, monkeypatch)
+    pa = _make_project(db, "项目A", str(tmp_path / "a"))
+    s1 = db.create_session(title="会话1", project_id=pa["id"])
+    s2 = db.create_session(title="会话2", project_id=pa["id"])
+    db.save_summary(
+        s1["id"],
+        "最终决定：登录模块采用 OAuth2 + JWT，放弃 session 方案；下周联调。",
+        cutoff_rowid=10,
+    )
+    db.save_summary(
+        s2["id"],
+        "讨论了缓存策略，倾向本地 LRU + TTL 双层。",
+        cutoff_rowid=5,
+    )
+
+    hits = db.recall_memories("登录模块最终用什么方案", scope="session", limit=3)
+    assert hits
+    assert hits[0]["category"] == "session"
+    assert "OAuth2" in hits[0]["content"]
+
+    # 项目作用域：项目 B 检索不到项目 A 的摘要
+    pb = _make_project(db, "项目B", str(tmp_path / "b"))
+    s3 = db.create_session(title="会话3", project_id=pb["id"])
+    db.save_summary(s3["id"], "项目B改用 GraphQL 网关。", cutoff_rowid=3)
+    hits_b = db.recall_memories(
+        "登录模块最终用什么方案", scope="session", limit=5, project_id=pb["id"]
+    )
+    assert all("OAuth2" not in h["content"] for h in hits_b)
+
+
+def test_session_summary_project_id_deduped_on_save(tmp_path, monkeypatch):
+    db = _init(tmp_path, monkeypatch)
+    pa = _make_project(db, "项目A", str(tmp_path / "a"))
+    s1 = db.create_session(title="会话1", project_id=pa["id"])
+    row = db.save_summary(s1["id"], "结论：用 pnpm。", cutoff_rowid=1)
+    assert row["project_id"] == pa["id"]

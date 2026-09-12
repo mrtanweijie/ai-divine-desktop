@@ -95,9 +95,14 @@ def _remember(params: dict) -> None:
 
 
 def _format_hit(hit: dict) -> str:
-    label = {"preference": "偏好", "fact": "事实", "event": "事件"}.get(
-        str(hit.get("category") or ""), "记忆"
-    )
+    label = {
+        "preference": "偏好",
+        "fact": "事实",
+        "event": "事件",
+        "session": "会话结论",
+    }.get(str(hit.get("category") or ""), "记忆")
+    if hit.get("category") == "session":
+        return f"- [{label}] {hit.get('content')}（session: {hit.get('id')}）"
     scope_label = "项目" if hit.get("project_id") else "全局"
     return (
         f"- [{label}/{scope_label}] {hit.get('content')}"

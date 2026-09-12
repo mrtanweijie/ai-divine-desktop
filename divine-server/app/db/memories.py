@@ -539,8 +539,10 @@ def recall_memories(
     （访问续命）。
     """
     if scope == "session":
-        # 四期接入 session_summaries 全文检索
-        return []
+        from .summaries import search_summaries
+
+        hits = search_summaries(query, limit=limit, project_id=project_id)
+        return hits
     if scope == "project":
         hits = search_memories(query, limit=limit, project_id=project_id)
     else:

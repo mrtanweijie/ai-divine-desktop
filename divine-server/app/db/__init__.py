@@ -87,7 +87,12 @@ from .sessions import (
     touch_session,
     update_session,
 )
-from .summaries import delete_summary, get_summary, save_summary
+from .summaries import (
+    delete_summary,
+    get_summary,
+    save_summary,
+    search_summaries,
+)
 from .todos import (
     abort_todos,
     add_todo,

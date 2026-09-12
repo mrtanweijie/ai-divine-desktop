@@ -145,6 +145,7 @@ CREATE TABLE IF NOT EXISTS session_summaries (
     summary TEXT NOT NULL DEFAULT '',
     cutoff_rowid INTEGER NOT NULL DEFAULT 0,
     saved_tokens INTEGER NOT NULL DEFAULT 0,
+    project_id TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -298,6 +299,21 @@ def init_db() -> None:
             "  SELECT s.project_id FROM sessions s"
             "  WHERE s.id = user_memories.source_session_id"
             ") WHERE project_id IS NULL AND source_session_id IS NOT NULL"
+        )
+        summary_columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(session_summaries)")
+        }
+        if "project_id" not in summary_columns:
+            conn.execute(
+                "ALTER TABLE session_summaries ADD COLUMN project_id TEXT"
+            )
+        # 摘要的 project_id 冗余回填（022 §4.3，避免检索时 join）
+        conn.execute(
+            "UPDATE session_summaries SET project_id = ("
+            "  SELECT s.project_id FROM sessions s"
+            "  WHERE s.id = session_summaries.session_id"
+            ") WHERE project_id IS NULL"
         )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_project "
