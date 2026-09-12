@@ -281,13 +281,16 @@ class ThemeManager:
         else:
             css = Path(theme.css_path or "").read_text(encoding="utf-8")
         variables = dict(theme.variables)
-        # 模块标准变量：确保 --primary/--text-main/--bg-surface 等存在（按主题别名映射）
-        variables.update(_module_standard_vars(variables))
         # 语义色 token：主题未定义时按深浅自动注入（模块 callout/trend 使用）
         if "--success" not in variables:
             variables.update(_semantic_colors(theme_id))
         if overrides:
             variables.update(overrides)
+        # 标准别名（--primary/--accent 等）一律按「主题默认 + 覆盖值」重算，
+        # 不能先物化再覆盖：旅行配色管线只带 --color-* 系，若别名已按主题
+        # 默认值物化（如 swiss 的 --accent=#C74722），换色后会原样保留，
+        # 表现为“选了主题色没效果”。
+        variables.update(_module_standard_vars(variables))
         root_vars = "\n".join(f"  {key}: {value};" for key, value in variables.items())
         if variables:
             css += f"\n:root {{\n{root_vars}\n}}\n"
@@ -438,6 +441,8 @@ _MODULE_STANDARD_ALIASES: dict[str, tuple[str, ...]] = {
     "--primary": ("--primary", "--color-primary", "--text", "#2563eb"),
     "--primary-light": ("--primary-light", "--color-accent-light", "#eff6ff"),
     "--accent": ("--accent", "--color-accent", "--text-light", "#0ea5e9"),
+    # swiss 模板直接引用 --accent-light（无回退），缺失时预算条无色
+    "--accent-light": ("--accent-light", "--color-accent-light", "#e0f2fe"),
     "--text-main": ("--text-main", "--text", "#111827"),
     "--text-muted": ("--text-muted", "--text-secondary", "#4b5563"),
     "--text-light": ("--text-light", "#9ca3af"),

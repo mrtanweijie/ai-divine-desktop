@@ -611,3 +611,59 @@ def test_new_travel_theme_default_teal_is_noop():
             "teal", {"--color-primary": "#123456"}, theme=theme
         )
         assert explicit["--color-primary"] == "#123456", theme
+
+
+def _effective_root_vars(theme: str, overrides: dict) -> dict:
+    """提取 load_css 最终注入 :root 块（优先级最高）里的变量值。"""
+    css = load_theme_css(theme, overrides=overrides)
+    roots = re.findall(r":root\s*\{([^}]*)\}", css)
+    assert roots
+    out = {}
+    for m in re.finditer(r"(--[a-z0-9-]+)\s*:\s*([^;]+);", roots[-1]):
+        out[m.group(1)] = m.group(2).strip()
+    return out
+
+
+def test_new_travel_theme_scheme_updates_standard_aliases():
+    """换色后标准别名必须跟随覆盖值（用户报告「选了主题色没效果」的根因）。
+
+    load_css 曾把主题默认 --color-accent 物化为 --accent（swiss 模板
+    直接引用 --accent），overrides 只带 --color-* 系时 --accent 停留
+    默认朱红，表现为选色无效。
+    """
+    for theme in NEW_TRAVEL_THEMES:
+        default_vars = _effective_root_vars(theme, {})
+        recolored = _effective_root_vars(
+            theme, travel_color_overrides("mistblue", theme=theme)
+        )
+        # 主色与强调色都跟随所选配色
+        assert recolored["--color-primary"] != default_vars["--color-primary"], theme
+        assert recolored["--color-accent"] != default_vars["--color-accent"], theme
+        # swiss 直接引用的 --accent 跟随 --color-accent
+        if theme == "travel_swiss":
+            assert recolored["--accent"] == recolored["--color-accent"], theme
+            assert recolored["--accent"] != "#C74722", theme
+            # 模板 var(--accent-light) 无回退定义，必须被别名物化
+            assert "--accent-light" in recolored, theme
+
+
+def test_new_travel_theme_default_preserves_design_palette():
+    """无覆盖时主题默认设计色板保持原样（swiss 仍为近黑 + 朱红）。"""
+    for theme in NEW_TRAVEL_THEMES:
+        vars_ = _effective_root_vars(theme, {})
+        if theme == "travel_swiss":
+            assert vars_["--color-accent"] == "#C74722"
+            assert vars_["--accent"] == "#C74722"
+
+
+def test_new_travel_theme_custom_primary_updates_aliases():
+    """用户显式主色（“其他”输入）时别名同样跟随派生色。"""
+    recolored = _effective_root_vars(
+        "travel_swiss",
+        travel_color_overrides(
+            "teal", {"--color-primary": "#E74C3C"}, theme="travel_swiss"
+        ),
+    )
+    assert recolored["--color-primary"] == "#E74C3C"
+    assert recolored["--accent"] == recolored["--color-accent"]
+    assert recolored["--accent"] != "#C74722"
