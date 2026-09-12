@@ -131,7 +131,8 @@ CREATE TABLE IF NOT EXISTS user_memories (
     source_session_id TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    superseded_at TEXT
+    superseded_at TEXT,
+    superseded_by TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_memories_status ON user_memories(status);
@@ -273,6 +274,11 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE projects ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0"
             )
+        memory_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(user_memories)")
+        }
+        if "superseded_by" not in memory_columns:
+            conn.execute("ALTER TABLE user_memories ADD COLUMN superseded_by TEXT")
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_project "
             "ON sessions(project_id)"

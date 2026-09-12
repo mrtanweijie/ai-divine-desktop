@@ -30,6 +30,7 @@ def _remember(params: dict) -> None:
         _err("记忆内容不能为空")
         return
     category = str(params.get("category") or "preference").strip()
+    supersede_id = str(params.get("supersede_id") or "").strip() or None
     try:
         importance = float(params.get("importance") or 0.5)
         confidence = float(params.get("confidence") or 0.8)
@@ -41,13 +42,25 @@ def _remember(params: dict) -> None:
             category=category,
             importance=importance,
             confidence=confidence,
+            supersede_id=supersede_id,
         )
     except ValueError as exc:
         _err(str(exc))
         return
+    status = str(memory.get("status") or "active")
+    if status == "pending":
+        message = (
+            f"记忆已保存但处于待确认状态（与已有记忆可能矛盾，用户确认后生效）：{content}"
+        )
+    else:
+        message = f"已记住：{content}"
     _ok(
-        f"已记住：{content}",
-        {"id": memory["id"], "category": memory["category"]},
+        message,
+        {
+            "id": memory["id"],
+            "category": memory["category"],
+            "status": status,
+        },
     )
 
 

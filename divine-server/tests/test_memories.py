@@ -51,15 +51,122 @@ def test_memory_search_cjk_and_en(tmp_path, monkeypatch):
     assert hits_kor and "柯基" in hits_kor[0]["content"]
 
 
-def test_memory_supersede_similar(tmp_path, monkeypatch):
+# --- v2 supersede 语义（022 §5.1）---------------------------------------
+
+
+def test_polarity_conflict_parks_new_memory_as_pending(tmp_path, monkeypatch):
+    """存入「喜欢」后再存「不喜欢」：两条均存活，新记忆挂起待确认。"""
+    db = _init(tmp_path, monkeypatch)
+    old = db.save_memory("用户喜欢 Python", "preference")
+    new = db.save_memory("用户不喜欢 Python", "preference")
+
+    assert old["status"] == "active"
+    assert new["status"] == "pending"
+    # pending 不进入读取路径
+    assert [m["id"] for m in db.list_active_memories()] == [old["id"]]
+    hits = db.search_memories("Python")
+    assert [m["id"] for m in hits] == [old["id"]]
+    # 旧记忆未被覆盖，留痕为空
+    assert old["superseded_by"] is None
+
+
+def test_polarity_false_positive_keeps_both_active(tmp_path, monkeypatch):
+    """「不错」等假否定词不应触发 pending 或覆盖。"""
+    db = _init(tmp_path, monkeypatch)
+    a = db.save_memory("用户觉得 Python 不错", "preference")
+    b = db.save_memory("用户觉得 Python 好用", "preference")
+    assert a["status"] == "active"
+    assert b["status"] == "active"
+
+
+def test_near_duplicate_auto_supersedes_with_trace(tmp_path, monkeypatch):
+    """高重复 + 同极性才自动 supersede，且 superseded_by 可追溯。"""
     db = _init(tmp_path, monkeypatch)
     old = db.save_memory("用户喜欢深色主题", "preference")
-    new = db.save_memory("用户喜欢浅色主题", "preference")
+    new = db.save_memory("用户喜欢深色主题呀", "preference")
 
+    assert new["status"] == "active"
     active = db.list_active_memories()
-    assert all(item["id"] != old["id"] for item in active)
-    assert any(item["id"] == new["id"] for item in active)
-    assert db.list_active_memories(category="fact") == []
+    assert [m["id"] for m in active] == [new["id"]]
+    superseded = db.list_memories(status="superseded")
+    row = next(m for m in superseded if m["id"] == old["id"])
+    assert row["superseded_by"] == new["id"]
+
+
+def test_paraphrase_update_via_supersede_id(tmp_path, monkeypatch):
+    """改述式更新走显式 supersede_id，绕过相似度阈值。"""
+    db = _init(tmp_path, monkeypatch)
+    old = db.save_memory("用户喜欢 Python", "preference")
+    new = db.save_memory(
+        "用户现在主用 Go 了", "preference", supersede_id=old["id"]
+    )
+    assert new["status"] == "active"
+    assert [m["id"] for m in db.list_active_memories()] == [new["id"]]
+    superseded = db.list_memories(status="superseded")
+    row = next(m for m in superseded if m["id"] == old["id"])
+    assert row["superseded_by"] == new["id"]
+
+
+def test_supersede_id_requires_existing_active_memory(tmp_path, monkeypatch):
+    db = _init(tmp_path, monkeypatch)
+    try:
+        db.save_memory("随便", "preference", supersede_id="missing")
+        raise AssertionError("should have raised ValueError")
+    except ValueError:
+        pass
+
+    old = db.save_memory("用户喜欢深色主题", "preference")
+    db.forget_memory(old["id"])
+    try:
+        db.save_memory("用户喜欢浅色主题", "preference", supersede_id=old["id"])
+        raise AssertionError("should have raised ValueError")
+    except ValueError:
+        pass
+
+
+def test_short_memory_cannot_swallow_long_subset(tmp_path, monkeypatch):
+    """子集判定的长度/token 护栏：短句不应吞掉长句。"""
+    db = _init(tmp_path, monkeypatch)
+    old = db.save_memory("用户喜欢 Python", "preference")
+    new = db.save_memory(
+        "用户喜欢 Python，也喜欢 Go 和 Rust，最近还在学 Swift", "preference"
+    )
+    assert new["status"] == "active"
+    assert old["status"] == "active"
+    assert len(db.list_active_memories()) == 2
+
+
+def test_pending_confirm_and_reject(tmp_path, monkeypatch):
+    db = _init(tmp_path, monkeypatch)
+    old = db.save_memory("用户喜欢 Python", "preference")
+    new = db.save_memory("用户不喜欢 Python", "preference")
+
+    assert db.confirm_pending_memory(new["id"]) is True
+    assert {m["id"] for m in db.list_active_memories()} == {old["id"], new["id"]}
+    assert db.list_pending_memories() == []
+    # 再次确认是 no-op
+    assert db.confirm_pending_memory(new["id"]) is False
+
+
+def test_pending_reject_soft_deletes(tmp_path, monkeypatch):
+    db = _init(tmp_path, monkeypatch)
+    db.save_memory("用户喜欢 Python", "preference")
+    new = db.save_memory("用户不喜欢 Python", "preference")
+
+    assert db.reject_pending_memory(new["id"]) is True
+    assert db.list_active_memories()
+    assert db.list_pending_memories() == []
+    superseded = db.list_memories(status="superseded")
+    assert any(m["id"] == new["id"] for m in superseded)
+
+
+def test_unrelated_topics_unaffected_by_polarity(tmp_path, monkeypatch):
+    """低相似度时极性不影响各自独立存活。"""
+    db = _init(tmp_path, monkeypatch)
+    a = db.save_memory("用户喜欢 Python", "preference")
+    b = db.save_memory("用户养了一只柯基叫土豆", "fact")
+    assert a["status"] == "active"
+    assert b["status"] == "active"
 
 
 def test_memory_keeps_different_topics(tmp_path, monkeypatch):
