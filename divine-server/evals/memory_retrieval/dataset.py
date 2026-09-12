@@ -1,0 +1,67 @@
+"""记忆检索评测数据集（设计文档 022 §7-7 的量化基线）。
+
+每条用例：query 是真实口吻的提问，expect 是期望被 top-5 命中的记忆内容
+关键词（命中任一子串即算该用例通过）。语料覆盖 preference/fact/event
+三类，并故意放入近似主题（深色主题 ×2、过敏 ×2、猫/狗）考验排序。
+"""
+
+CORPUS: list[dict] = [
+    {"category": "preference", "content": "用户偏好 TypeScript，不喜欢 Python"},
+    {"category": "preference", "content": "用户喜欢深色主题"},
+    {"category": "fact", "content": "用户对花生过敏"},
+    {"category": "fact", "content": "用户养了一只柯基叫土豆"},
+    {"category": "preference", "content": "用户习惯用 pnpm 管理依赖"},
+    {"category": "fact", "content": "用户在上海工作"},
+    {"category": "preference", "content": "用户喜欢简洁的代码风格，讨厌过度封装"},
+    {"category": "event", "content": "用户上周完成了马拉松比赛"},
+    {"category": "preference", "content": "用户喜欢 Vue 3 组合式 API"},
+    {"category": "fact", "content": "用户对海鲜轻度过敏"},
+    {"category": "preference", "content": "用户偏好深色模式的编辑器主题"},
+    {"category": "fact", "content": "用户的生日是 3 月 12 日"},
+    {"category": "preference", "content": "用户不喜欢开长会"},
+    {"category": "fact", "content": "用户负责的项目是电商中台"},
+    {"category": "preference", "content": "用户习惯清晨跑步"},
+    {"category": "fact", "content": "用户用的是 MacBook Pro M3"},
+    {"category": "preference", "content": "用户喜欢简洁排版的设计"},
+    {"category": "fact", "content": "用户对乳糖不耐受"},
+    {"category": "preference", "content": "用户偏好函数式编程风格"},
+    {"category": "event", "content": "用户下个月要去东京旅行"},
+    {"category": "preference", "content": "用户不喜欢递归写法"},
+    {"category": "fact", "content": "用户的时区是 UTC+8"},
+    {"category": "preference", "content": "用户喜欢用 markdown 做笔记"},
+    {"category": "fact", "content": "用户家里有两只猫"},
+    {"category": "preference", "content": "用户偏好 RESTful 接口风格"},
+]
+
+CASES: list[dict] = [
+    {"query": "用户对什么食物过敏", "expect": ["花生过敏"]},
+    {"query": "推荐个编辑器配色给他", "expect": ["深色"]},
+    {"query": "项目依赖用什么包管理器装", "expect": ["pnpm"]},
+    {"query": "用户生日是什么时候", "expect": ["3 月 12 日"]},
+    {"query": "用户喜欢哪个前端框架", "expect": ["Vue 3"]},
+    {"query": "安排会议时要注意什么", "expect": ["不喜欢开长会"]},
+    {"query": "用户有什么运动习惯", "expect": ["跑步", "马拉松"]},
+    {"query": "用户养宠物吗", "expect": ["柯基", "猫"]},
+    {"query": "记笔记用什么格式", "expect": ["markdown"]},
+    {"query": "接口设计用什么风格", "expect": ["RESTful"]},
+    {"query": "用户喜欢什么样的代码风格", "expect": ["简洁的代码风格"]},
+    {"query": "用户在哪个城市工作", "expect": ["上海"]},
+    {"query": "用户的时区是多少", "expect": ["UTC+8"]},
+    {"query": "用户的电脑是什么配置", "expect": ["MacBook"]},
+    {"query": "用户最近有旅行计划吗", "expect": ["东京"]},
+    {"query": "能给他点奶茶吗", "expect": ["乳糖"]},
+    {"query": "写算法可以用递归吗", "expect": ["递归"]},
+    {"query": "用户负责什么项目", "expect": ["电商中台"]},
+    {"query": "用户偏好哪种编程范式", "expect": ["函数式"]},
+    {"query": "做海报排版要注意什么", "expect": ["简洁排版"]},
+    {"query": "界面用浅色还是深色", "expect": ["深色"]},
+    {"query": "订餐时有什么忌口", "expect": ["花生过敏", "海鲜", "乳糖"]},
+    {"query": "用 TypeScript 还是 Python 好", "expect": ["TypeScript"]},
+    {"query": "用户更喜欢跑步还是健身", "expect": ["跑步"]},
+    {"query": "送猫还是狗相关的礼物好", "expect": ["柯基", "猫"]},
+    {"query": "用户近期有什么出行安排", "expect": ["东京"]},
+    {"query": "生日礼物什么时候送合适", "expect": ["3 月 12 日"]},
+    {"query": "用户怎么看待开会", "expect": ["开长会"]},
+    {"query": "装依赖用 npm 还是别的", "expect": ["pnpm"]},
+    {"query": "用户写代码讨厌什么", "expect": ["过度封装", "递归"]},
+]

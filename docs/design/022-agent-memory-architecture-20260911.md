@@ -183,7 +183,8 @@ def _polarity(content: str) -> int:
 
 - **`recall_memories` 单工具多作用域**：参数 `query`（必填）、`scope`（`user` / `project` / `session`，默认 `user`）、`limit`（默认 5）。`scope=session` 时检索 `session_summaries` 全文。单一工具避免 `recall_memories` / `recall_sessions` 双工具稀释模型选择；`_MEMORY_RULES` 中补充"注入内容不足以回答时主动召回"的规则。
 - **注入查询多轮化**：`_memory_context` 取最近 2–3 条 user 消息拼接后检索（`term_frequency` 天然去重，成本可忽略）。
-- **删除侧检索匹配**：`forget_memory` 的 content 改为"原话或大意"语义匹配——复用 `search_memories` 取 top-1，相似度 ≥ 0.3 直接删；命中多条近似候选时返回候选列表（带 id 与内容摘要）让模型向用户确认后再按 id 删。删除一律留痕（`superseded_at` + 后续 `superseded_by`）。
+- **删除侧检索匹配**：`forget_memory` 的 content 改为"原话或大意"语义匹配——复用 `search_memories` 取 top-3；实测标定（见下）后采用「高阈值 + 领先优势」双条件：top-1 余弦 ≥ 0.45 且领先 top-2 ≥ 0.15 才直接删，**其余一律返回候选列表（带 id）让模型向用户确认后按 id 删**。删除一律留痕（`superseded_at` + `superseded_by`）。
+  > 实测依据：词汇余弦对无关记忆也能冲到 0.3+（"用户在东京买房了" vs "用户在上海工作" = 0.34），单守绝对阈值会误删；而口语化指认（"那条柯基的记忆" = 0.30）又够不到自动删除线。错问一次很便宜，错删一条不可逆，所以自动删除线收紧到 0.45 + 领先 0.15，中间地带全部走确认。
 
 ### 5.3 P2 · 无项目作用域
 
@@ -231,7 +232,7 @@ migration 沿用 `migrations.py:223` 既有的「检测列存在性 + `ALTER TAB
 2. 带 `supersede_id` 保存新记忆后，旧记忆变为 `superseded` 且 `superseded_by` 指向新记忆 id，可追溯可恢复；
 3. 注入 block 不超过 2200 字符：超预算时逐条放行直到放不下，单条超长截断该条而非丢弃后续全部；
 4. 注入记忆不足时，模型能通过 `recall_memories` 补充召回；指代性提问（依赖前几轮 user 消息的记忆）召回率不低于末句查询；
-5. 「忘掉那条 Python 的记忆」这类非精确表述能通过检索匹配完成删除，多候选时先确认；
+5. 「忘掉那条 Python 的记忆」这类非精确表述能通过检索匹配完成删除：高置信（top-1 ≥ 0.45 且领先 0.15）直接删，其余先确认；
 6. 项目 A 的约定不出现在项目 B 的记忆注入中；
 7. `evals/memory_retrieval` 上测得注入/召回 top-5 命中率基线并记录在案（作为是否引入 embedding 的量化门槛）；
 8. 每次 supersede（自动或显式）均可通过 `superseded_by` 追溯覆盖者。

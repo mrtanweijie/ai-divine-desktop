@@ -325,6 +325,7 @@ _TOOL_TO_INTENT: dict[str, str] = {
     "install_skill": "skill",
     "remember": "memory",
     "forget_memory": "memory",
+    "recall_memories": "memory",
     # 编码类工具：只要模型开始写代码/查代码，就补注项目工作流，
     # 不再依赖用户消息里的关键词命中（“帮我改下这个函数”也能触发）。
     "edit_files": "project",

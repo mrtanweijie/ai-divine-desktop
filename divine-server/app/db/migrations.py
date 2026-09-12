@@ -132,7 +132,8 @@ CREATE TABLE IF NOT EXISTS user_memories (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     superseded_at TEXT,
-    superseded_by TEXT
+    superseded_by TEXT,
+    last_accessed_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_memories_status ON user_memories(status);
@@ -279,6 +280,10 @@ def init_db() -> None:
         }
         if "superseded_by" not in memory_columns:
             conn.execute("ALTER TABLE user_memories ADD COLUMN superseded_by TEXT")
+        if "last_accessed_at" not in memory_columns:
+            conn.execute(
+                "ALTER TABLE user_memories ADD COLUMN last_accessed_at TEXT"
+            )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_project "
             "ON sessions(project_id)"

@@ -96,23 +96,39 @@ _HISTORY_BACKTRACK_MARGIN = 0.08
 # 无关键词且窗口内已足够贴切（当前话题直接能答）时，跳过全历史检索省成本。
 _HISTORY_WINDOW_SKIP_THRESHOLD = 0.6
 
+# 被动注入的查询源轮数：只取最后一条会被“那还用刚才说的那个方案吗”这类
+# 指代性提问打空，取最近几条拼接后 TF-IDF 天然按词聚合。
+_MEMORY_QUERY_MESSAGES = 3
+
 def _memory_context(messages: list[Any]) -> str | None:
     """Build a compact 'known user info' block from long-term memories.
 
-    The last user message drives similarity search; newest memories rank as
-    tie-breakers. Output is bounded so the system prompt never balloons.
+    The last few user messages drive similarity search (referential
+    questions like “还是刚才那个吗” need earlier turns too); ranking mixes
+    similarity with importance/recency inside db.search_memories. Output is
+    bounded so the system prompt never balloons.
     """
-    last_user_text = ""
+    recent_user_texts: list[str] = []
     for message in reversed(messages):
         if isinstance(message, HumanMessage):
-            last_user_text = _content_text(message.content)
-            break
+            text = _content_text(message.content).strip()
+            if text:
+                recent_user_texts.append(text)
+            if len(recent_user_texts) >= _MEMORY_QUERY_MESSAGES:
+                break
+    query_text = " ".join(reversed(recent_user_texts))
     try:
-        hits = db.search_memories(last_user_text, limit=5)
+        hits = db.search_memories(query_text, limit=5)
     except Exception:  # noqa: BLE001 — memory must never break the agent
         return None
     if not hits:
         return None
+    try:
+        db.touch_memory_access(
+            [str(memory.get("id") or "") for memory in hits]
+        )
+    except Exception:  # noqa: BLE001 — recency refresh is best-effort
+        pass
     lines: list[str] = []
     used = 0
     for memory in hits:
@@ -122,7 +138,7 @@ def _memory_context(messages: list[Any]) -> str | None:
         content = str(memory.get("content") or "").strip()
         if not content:
             continue
-        line = f"- [{label}] {content}"
+        line = f"- [{label}] {content}（id: {memory.get('id')}）"
         if used + len(line) > _MEMORY_BLOCK_CHAR_LIMIT:
             break
         lines.append(line)

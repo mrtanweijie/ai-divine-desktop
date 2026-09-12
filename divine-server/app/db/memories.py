@@ -22,6 +22,7 @@ silently drop a contradicting memory.
 from __future__ import annotations
 
 import math
+from datetime import datetime, timezone
 from typing import Any
 
 from .connection import get_conn, _new_id, _now
@@ -59,6 +60,20 @@ _CONFLICT_JACCARD = 0.5
 # 避免短句吞掉长句。
 _SUBSET_TOKEN_DIFF = 2
 _LENGTH_RATIO_RANGE = (0.6, 1.7)
+
+# 打分权重（022 §4.2）：final = w_sim*sim_norm + 0.15*importance
+#                            + 0.05*confidence + w_recency*recency
+# sim_norm 是候选集内相对值（sim/max_sim），消除 TF-IDF 余弦与 [0,1]
+# 标量之间的量纲差；w_sim = 1 - 0.15 - 0.05 - w_recency 恒闭合。
+_WEIGHT_IMPORTANCE = 0.15
+_WEIGHT_CONFIDENCE = 0.05
+# category → (τ 天, w_recency)：偏好稳定几乎不衰减，事件时效性强。
+_CATEGORY_RECENCY = {
+    "preference": (180.0, 0.05),
+    "fact": (90.0, 0.10),
+    "event": (30.0, 0.20),
+}
+_RECENCY_DEFAULT = (180.0, 0.05)
 
 
 def _polarity(content: str) -> int:
@@ -251,12 +266,38 @@ def reject_pending_memory(memory_id: str) -> bool:
         return cursor.rowcount > 0
 
 
+def _recency(memory: dict[str, Any]) -> float:
+    """exp(-Δt/τ)，Δt 以 last_accessed_at 为基准（访问续命），无则回退
+    updated_at；解析失败按刚访问处理（宁可不惩罚）。"""
+    tau, _ = _CATEGORY_RECENCY.get(
+        str(memory.get("category") or ""), _RECENCY_DEFAULT
+    )
+    base = (
+        memory.get("last_accessed_at")
+        or memory.get("updated_at")
+        or memory.get("created_at")
+    )
+    try:
+        accessed = datetime.fromisoformat(str(base))
+        delta_days = max(
+            0.0, (datetime.now(timezone.utc) - accessed).total_seconds() / 86400
+        )
+    except (TypeError, ValueError):
+        delta_days = 0.0
+    return math.exp(-delta_days / tau)
+
+
 def search_memories(query: str, limit: int = 5) -> list[dict[str, Any]]:
     """Rank active memories against a query with local TF-IDF cosine scoring.
 
     Mirrors ``app.rag_store.search_workspace`` so results are comparable and
     cost zero external calls. Falls back to newest-first when the query has
     no tokenizable content.
+
+    Final ranking mixes the (relative-normalized) cosine with importance,
+    confidence and recency — weights are closed over any w_recency, see the
+    ``_CATEGORY_RECENCY`` table. Callers should :func:`touch_memory_access`
+    the returned ids so hot memories keep their recency.
     """
     memories = list_active_memories(limit=500)
     if not memories:
@@ -282,7 +323,7 @@ def search_memories(query: str, limit: int = 5) -> list[dict[str, Any]]:
         sum(value * value for value in query_vector.values())
     )
 
-    results: list[tuple[float, dict[str, Any]]] = []
+    sims: list[tuple[float, dict[str, Any]]] = []
     for memory in memories:
         tokens = _term_frequency(_tokenize(memory["content"]))
         dot = 0.0
@@ -296,12 +337,47 @@ def search_memories(query: str, limit: int = 5) -> list[dict[str, Any]]:
             continue
         score = dot / (math.sqrt(norm) * query_norm)
         if score > 0:
-            results.append((score, memory))
-    results.sort(key=lambda item: item[0], reverse=True)
+            sims.append((score, memory))
+    if not sims:
+        return []
+
+    max_sim = max(sim for sim, _ in sims) or 1.0
+    scored: list[tuple[float, dict[str, Any], float]] = []
+    for sim, memory in sims:
+        _, w_recency = _CATEGORY_RECENCY.get(
+            str(memory.get("category") or ""), _RECENCY_DEFAULT
+        )
+        w_sim = 1 - _WEIGHT_IMPORTANCE - _WEIGHT_CONFIDENCE - w_recency
+        final = (
+            w_sim * (sim / max_sim)
+            + _WEIGHT_IMPORTANCE * float(memory.get("importance") or 0.5)
+            + _WEIGHT_CONFIDENCE * float(memory.get("confidence") or 0.8)
+            + w_recency * _recency(memory)
+        )
+        scored.append((final, memory, sim))
+    scored.sort(key=lambda item: item[0], reverse=True)
     return [
-        dict(memory, score=round(score, 4))
-        for score, memory in results[: max(1, limit)]
+        dict(memory, score=round(final, 4), sim=round(sim, 4))
+        for final, memory, sim in scored[: max(1, limit)]
     ]
+
+
+def touch_memory_access(memory_ids: list[str]) -> None:
+    """Record that memories were surfaced (injected or recalled).
+
+    Recency is scored against ``last_accessed_at``, so regularly useful
+    memories keep ranking instead of sinking with their write time.
+    """
+    ids = [mid for mid in memory_ids if mid]
+    if not ids:
+        return
+    now = _now()
+    with get_conn() as conn:
+        conn.executemany(
+            "UPDATE user_memories SET last_accessed_at = ? WHERE id = ?",
+            [(now, memory_id) for memory_id in ids],
+        )
+        conn.commit()
 
 
 def forget_memory(memory_id: str) -> bool:
@@ -333,3 +409,78 @@ def forget_memory_by_content(content: str) -> int:
         )
         conn.commit()
         return cursor.rowcount
+
+
+# 模糊删除阈值（按真实语料实测标定，见 022 §5.2）：词汇余弦对无关记忆
+# 也能冲到 0.3+（“用户在东京买房了” vs “用户在上海工作” = 0.34），单靠
+# 绝对阈值会误删；自动删除要求 top1 足够高且显著领先 top2，其余一律
+# 返回候选交由模型向用户确认——错问一次很便宜，错删一条不可逆。
+_FORGET_AUTO_SIM = 0.45
+_FORGET_DOMINANCE_GAP = 0.15
+_FORGET_CANDIDATE_SIM = 0.12
+
+
+def forget_memory_by_query(
+    content: str,
+    auto_score: float = _FORGET_AUTO_SIM,
+    dominance_gap: float = _FORGET_DOMINANCE_GAP,
+    candidate_score: float = _FORGET_CANDIDATE_SIM,
+) -> dict[str, Any]:
+    """Fuzzy delete: exact matches first, then retrieval-based matching.
+
+    用户的口语化指认（"忘掉那条柯基的记忆"）几乎不可能精确命中，复用
+    search_memories 做匹配：唯一高相似且显著领先的候选直接删；其余情况
+    返回候选列表交由模型确认后按 id 删（原则 4：可纠正闭环，宁问勿删）。
+    """
+    content = str(content or "").strip()
+    if not content:
+        return {"exact_removed": 0, "deleted": [], "candidates": []}
+    exact_removed = forget_memory_by_content(content)
+    if exact_removed:
+        return {
+            "exact_removed": exact_removed,
+            "deleted": [],
+            "candidates": [],
+        }
+    hits = search_memories(content, limit=3)
+    if hits:
+        top = hits[0]
+        second_sim = float(hits[1].get("sim") or 0.0) if len(hits) > 1 else 0.0
+        top_sim = float(top.get("sim") or 0.0)
+        if (
+            top_sim >= auto_score
+            and top_sim - second_sim >= dominance_gap
+            and forget_memory(str(top["id"]))
+        ):
+            return {
+                "exact_removed": 0,
+                "deleted": [top],
+                "candidates": [],
+            }
+    candidates = [
+        hit
+        for hit in hits
+        if float(hit.get("sim") or 0.0) >= candidate_score
+    ]
+    return {"exact_removed": 0, "deleted": [], "candidates": candidates}
+
+
+def recall_memories(
+    query: str,
+    scope: str = "user",
+    limit: int = 5,
+    project_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Unified recall entry for the ``recall_memories`` tool.
+
+    scope=project / session 由三期（项目作用域）/ 四期（情景检索）激活，
+    激活前一律回退 user 语义，工具参数先稳定暴露给模型。命中条目会刷新
+    last_accessed_at（访问续命）。
+    """
+    hits = search_memories(query, limit=limit)
+    if hits:
+        now = _now()
+        touch_memory_access([str(hit["id"]) for hit in hits])
+        for hit in hits:
+            hit["last_accessed_at"] = now
+    return hits

@@ -47,12 +47,15 @@ from .memories import (
     confirm_pending_memory,
     forget_memory,
     forget_memory_by_content,
+    forget_memory_by_query,
     list_active_memories,
     list_memories,
     list_pending_memories,
+    recall_memories,
     reject_pending_memory,
     save_memory,
     search_memories,
+    touch_memory_access,
 )
 from .migrations import SCHEMA, init_db
 from .projects import (

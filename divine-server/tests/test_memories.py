@@ -203,3 +203,106 @@ def test_memory_search_empty_query_falls_back(tmp_path, monkeypatch):
     db.save_memory("用户喜欢深色主题", "preference")
     hits = db.search_memories("", limit=5)
     assert len(hits) == 1
+
+
+# --- v2 打分与工具链（022 §4.2 / §5.2）----------------------------------
+
+
+def test_search_returns_normalized_score_and_sim(tmp_path, monkeypatch):
+    db = _init(tmp_path, monkeypatch)
+    db.save_memory("用户对花生过敏", "fact")
+    db.save_memory("用户养了一只柯基叫土豆", "fact")
+    hits = db.search_memories("花生", limit=5)
+    assert hits
+    top = hits[0]
+    assert "花生" in top["content"]
+    # 归一化后 sim_norm = 1.0，sim 保留原始余弦便于调参观测
+    assert top["sim"] > 0
+    assert top["score"] >= top["sim"]
+
+
+def test_access_refresh_keeps_hot_memory_ranking(tmp_path, monkeypatch):
+    """访问续命：被召回的记忆 last_accessed_at 刷新，recency 不衰减。"""
+    from datetime import datetime, timedelta, timezone
+
+    db = _init(tmp_path, monkeypatch)
+    old_topic = db.save_memory("用户喜欢深色主题", "preference")
+    stale = datetime.now(timezone.utc) - timedelta(days=120)
+    db.touch_memory_access([])
+    # 直接把 last_accessed_at 调旧，模拟久未访问
+    import sqlite3
+
+    conn = sqlite3.connect(str(tmp_path / "memories.db"))
+    conn.execute(
+        "UPDATE user_memories SET last_accessed_at = ? WHERE id = ?",
+        (stale.isoformat(timespec="seconds"), old_topic["id"]),
+    )
+    conn.commit()
+    conn.close()
+
+    db.touch_memory_access([old_topic["id"]])
+    row = db.list_active_memories()[0]
+    assert row["last_accessed_at"] is not None
+    assert row["last_accessed_at"] > stale.isoformat(timespec="seconds")
+
+
+def test_recall_memories_tool_entry(tmp_path, monkeypatch):
+    db = _init(tmp_path, monkeypatch)
+    db.save_memory("用户对花生过敏", "fact")
+    db.save_memory("用户不喜欢吃香菜", "preference")
+
+    hits = db.recall_memories("对花生过敏吗", scope="user", limit=5)
+    assert hits
+    assert all(m["status"] == "active" for m in hits)
+    # 召回即续命
+    assert all(m["last_accessed_at"] for m in hits)
+    hits2 = db.recall_memories("香菜", scope="user", limit=5)
+    assert hits2 and "香菜" in hits2[0]["content"]
+
+
+def test_fuzzy_forget_dominant_candidate_auto_deletes(tmp_path, monkeypatch):
+    """模糊删除：top1 相似度足够高且显著领先时直接删。"""
+    db = _init(tmp_path, monkeypatch)
+    db.save_memory("用户养了一只柯基叫土豆", "fact")
+    db.save_memory("用户对花生过敏", "fact")
+
+    result = db.forget_memory_by_query("用户养了一只柯基叫土豆呀")
+    assert len(result["deleted"]) == 1
+    assert "柯基" in result["deleted"][0]["content"]
+    remaining = db.list_active_memories()
+    assert len(remaining) == 1
+    assert "花生" in remaining[0]["content"]
+
+
+def test_fuzzy_forget_uncertain_match_requires_confirmation(tmp_path, monkeypatch):
+    """口语化指认相似度不够高时不自动删，返回候选交由确认。"""
+    db = _init(tmp_path, monkeypatch)
+    db.save_memory("用户养了一只柯基叫土豆", "fact")
+    db.save_memory("用户对花生过敏", "fact")
+
+    result = db.forget_memory_by_query("那条柯基的记忆")
+    assert not result["deleted"]
+    assert len(result["candidates"]) >= 1
+    assert all("柯基" in c["content"] for c in result["candidates"])
+    # 按确认后的 id 删除
+    assert db.forget_memory(result["candidates"][0]["id"]) is True
+
+
+def test_fuzzy_forget_lexical_decoy_never_auto_deletes(tmp_path, monkeypatch):
+    """词汇碰瓷查询（用户在东京买房了 vs 用户在上海工作 sim≈0.34）不得自动删。"""
+    db = _init(tmp_path, monkeypatch)
+    db.save_memory("用户在上海工作", "fact")
+    db.save_memory("用户养了一只柯基叫土豆", "fact")
+
+    result = db.forget_memory_by_query("用户在东京买房了")
+    assert not result["deleted"]
+    assert len(db.list_active_memories()) == 2
+
+
+def test_fuzzy_forget_no_match_is_noop(tmp_path, monkeypatch):
+    db = _init(tmp_path, monkeypatch)
+    db.save_memory("用户养了一只柯基叫土豆", "fact")
+    result = db.forget_memory_by_query("帮我写一个快速排序")
+    assert not result["deleted"]
+    assert not result["candidates"]
+    assert len(db.list_active_memories()) == 1
