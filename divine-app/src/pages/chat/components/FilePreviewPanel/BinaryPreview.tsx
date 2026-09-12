@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { toast } from "@/components/ui/Toast";
 import { copyText } from "@/utils";
-import { fetchPdfPreview, fetchDocumentPreview } from "@/services/api";
+import { fetchPdfPreview, fetchPptxPreview, fetchDocumentPreview } from "@/services/api";
 import { getBinaryPreview } from "@/services/tauri";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
 import { PreviewHeaderActions } from "./PreviewHeaderSlot";
@@ -66,6 +66,10 @@ const DOCUMENT_EXTENSIONS = new Set([
   "rtf",
   "epub",
 ]);
+
+/** 现代幻灯片格式：后端能渲染成页面图片（与 PDF 同一套预览方案）。
+ *  旧版 .ppt / .pptm python-pptx 读不了，仍走 document-preview 文本。 */
+const SLIDE_EXTENSIONS = new Set(["pptx", "ppsx"]);
 
 function getExt(name: string): string {
   const dot = name.lastIndexOf(".");
@@ -140,10 +144,12 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
   const { t } = useTranslation();
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [pdfPages, setPdfPages] = useState<string[] | null>(null);
+  const [slidePages, setSlidePages] = useState<string[] | null>(null);
   const [docContent, setDocContent] = useState<string | null>(null);
   const [error, setError] = useState("");
   const ext = getExt(fileName ?? path);
   const isPdf = ext === "pdf";
+  const isSlides = SLIDE_EXTENSIONS.has(ext);
   const isDocument = DOCUMENT_EXTENSIONS.has(ext);
 
   useEffect(() => {
@@ -151,19 +157,31 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 取消护栏：切换文件时同步清空旧数据，避免闪现上一文件的预览
     setDataUrl(null);
     setPdfPages(null);
+    setSlidePages(null);
     setDocContent(null);
     setError("");
     const load = isPdf
       ? fetchPdfPreview(path).then((result) => {
           if (!disposed) setPdfPages(result.pages);
         })
-      : isDocument
-        ? fetchDocumentPreview(path).then((result) => {
-            if (!disposed) setDocContent(result.content);
-          })
-        : getBinaryPreview(path).then((result) => {
-            if (!disposed) setDataUrl(result.dataUrl);
-          });
+      : isSlides
+        ? // PPT 优先按页渲染成图片；渲染器不可用时降级回文本抽取，预览不至于全空
+          fetchPptxPreview(path)
+            .then((result) => {
+              if (!disposed) setSlidePages(result.pages);
+            })
+            .catch(() =>
+              fetchDocumentPreview(path).then((result) => {
+                if (!disposed) setDocContent(result.content);
+              }),
+            )
+        : isDocument
+          ? fetchDocumentPreview(path).then((result) => {
+              if (!disposed) setDocContent(result.content);
+            })
+          : getBinaryPreview(path).then((result) => {
+              if (!disposed) setDataUrl(result.dataUrl);
+            });
     load.catch((err: unknown) => {
       if (!disposed) {
         setError(err instanceof Error ? err.message : String(err));
@@ -172,7 +190,7 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
     return () => {
       disposed = true;
     };
-  }, [path, isPdf, isDocument]);
+  }, [path, isPdf, isSlides, isDocument]);
 
   if (error) {
     return (
@@ -182,7 +200,9 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
       </div>
     );
   }
-  if (isPdf ? !pdfPages : isDocument ? !docContent : !dataUrl) {
+  if (
+    isPdf ? !pdfPages : isSlides ? !slidePages && !docContent : isDocument ? !docContent : !dataUrl
+  ) {
     return (
       <div className="diff-view-state">
         <LoadingOrb state="searching" size={20} speed={2} />
@@ -195,6 +215,15 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
       <div className="binary-preview pdf-preview">
         {pdfPages.map((page, index) => (
           <img key={index} src={page} alt={`${fileName ?? "PDF"} 第 ${index + 1} 页`} />
+        ))}
+      </div>
+    );
+  }
+  if (slidePages) {
+    return (
+      <div className="binary-preview pdf-preview">
+        {slidePages.map((page, index) => (
+          <img key={index} src={page} alt={`${fileName ?? "PPT"} 第 ${index + 1} 页`} />
         ))}
       </div>
     );

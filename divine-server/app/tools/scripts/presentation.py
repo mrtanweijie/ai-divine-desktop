@@ -27,6 +27,9 @@ def safe_name(name: str, fallback: str) -> str:
 def _is_cover_slide(item: object) -> bool:
     if not isinstance(item, dict):
         return False
+    # 显式声明 layout=cover 也算封面（否则会被当成内容页，再多生成一张自动封面）
+    if str(item.get("layout") or "").strip().lower() == "cover":
+        return True
     return bool(
         item.get("subtitle")
         and not item.get("points")
@@ -179,7 +182,12 @@ def main() -> None:
 
     from app.docgen.ppt.renderer.layouts import add_slide
 
-    cover_items[0]["_pages"] = len(items)
+    total_pages = len(cover_items) + len(items)
+    # 总页数挂到每个 item 上：内容页的页码/进度点也需要（此前只挂封面项，
+    # 导致 pop 风格的内容页页脚拿不到总数而退回标题摘要）
+    for it in cover_items + items:
+        if isinstance(it, dict):
+            it["_pages"] = total_pages
     rendered = 0
     rendered_layouts: list[str] = []
     try:

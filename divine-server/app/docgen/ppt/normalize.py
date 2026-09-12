@@ -198,7 +198,8 @@ def check_empty_pages(items: list[Any], layouts: list[str]) -> list[str]:
         points = slide.get("points")
         if isinstance(points, list):
             volume += sum(len(str(p)) for p in points)
-        for key in ("body", "content", "left", "right"):
+        for key in ("body", "content", "left", "right", "chart", "table"):
+            # chart / table 也算实质内容，否则图表页会被误判为「内容过少」
             value = slide.get(key)
             if isinstance(value, str):
                 volume += len(value.strip())

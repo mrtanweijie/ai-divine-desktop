@@ -77,6 +77,19 @@ PPT_THEMES: dict[str, dict[str, Any]] = {
         "font": "PingFang SC",
         "chart_palette": ["22D3EE", "A78BFA", "34D399", "F472B6", "60A5FA"],
     },
+    # 波普潮流风：暖奶油底 + 高饱和圆斑 + 胶囊标签 + 三色下划条（通用命名，不绑品牌）
+    "pop": {
+        "style": "pop",
+        "cover_bg": "FDF7F2", "content_bg": "FDF7F2", "accent": "FF5C93",
+        "accent2": "2ED9A8", "accent_light": "FFFFFF", "text": "23233A",
+        "muted": "74748C", "cover_text": "23233A", "meta": "A3A3B6",
+        "font": "PingFang SC",
+        # 参考图取色：主粉 / 亮黄 / 薄荷 / 蓝 / 紫 / 橘
+        "pop_colors": ["FF5C93", "FFD24D", "2ED9A8", "5B7CFA", "8A6CF6",
+                       "FFA63D"],
+        "pop_blue": "5B7CFA", "pop_violet": "8A6CF6", "pop_orange": "FFA63D",
+        "chart_palette": ["FF5C93", "FFD24D", "2ED9A8", "5B7CFA", "8A6CF6"],
+    },
     # ---- 经典色彩主题（style 指向最接近的装饰语言）----
     "universal": {
         "style": "clean",
@@ -238,6 +251,21 @@ STYLES: dict[str, dict[str, Any]] = {
         "timeline_track": "muted_mix", "timeline_dot_square": False,
         "toc_rule": "muted_mix", "quote_serif": False, "kicker_mono": True,
     },
+    # 泡泡玛特潮玩风：暖奶油底 + 高饱和圆斑 + 胶囊标签 + 三色渐变下划条
+    "pop": {
+        "topbar": "none", "topbar_h": 0.0,
+        "card_radius": 0.16, "card_border_auto": False, "card_border": None,
+        "card_shadow": False, "card_toprule": None, "card_dot_square": False,
+        "cover": "pop", "section_bg": "content", "cover_centered": False,
+        "bg_decor": "pop_blobs", "heading_rule": "tricolor",
+        "heading_rule_h": 0.035, "heading_rule_w": 1.55,
+        "rule_colors": ["FFD24D", "FF5C93", "2ED9A8"],
+        "footer_page": True, "footer_dots": True,
+        "index_color": "23233A",
+        "corner_mark": False, "serif_heading": False, "index_serif": False,
+        "timeline_track": "accent_light_mix", "timeline_dot_square": False,
+        "toc_rule": "accent_light", "quote_serif": False, "kicker_mono": False,
+    },
 }
 
 
@@ -313,6 +341,54 @@ def gradient(shape: Any, c1: str, c2: str, angle: float = 115.0) -> Any:
     shape.line.fill.background()
     shape.shadow.inherit = False
     return shape
+
+
+def gradient_multi(shape: Any, stops: list[tuple[float, str]],
+                   angle: float = 0.0) -> Any:
+    """多色线性渐变填充（≥2 个色标）。
+
+    stops 为 [(位置 0-1, hex), ...]，需按位置升序。python-pptx 的
+    `fill.gradient()` 只给两个色标，这里直接改写 a:gsLst 的 XML 以支持多色。
+    """
+    if len(stops) < 2:
+        raise ValueError("gradient_multi 至少需要两个色标")
+    fill = shape.fill
+    fill.gradient()  # 建出 a:gradFill（含 a:gsLst + a:lin），再替换色标
+    grad_fill = fill._xPr.find(qn("a:gradFill"))
+    gs_lst = grad_fill.find(qn("a:gsLst"))
+    for gs in list(gs_lst):
+        gs_lst.remove(gs)
+    for pos, color in stops:
+        gs = gs_lst.makeelement(qn("a:gs"),
+                                {"pos": str(int(round(pos * 100000)))})
+        clr = gs.makeelement(qn("a:srgbClr"), {"val": color.upper()})
+        gs.append(clr)
+        gs_lst.append(gs)
+    try:
+        fill.gradient_angle = angle
+    except Exception:  # noqa: BLE001 — 部分渐变类型不支持角度，保持默认
+        pass
+    shape.line.fill.background()
+    shape.shadow.inherit = False
+    return shape
+
+
+def add_pill(slide: Any, x: float, y: float, w: float, h: float,
+             color: str, line: str | None = None) -> Any:
+    """胶囊（全圆角）形状；h 为胶囊厚度，圆角取 0.5 使其成为两端半圆。"""
+    shape = add_rect(slide, x, y, w, h, color, rounded=True, radius=0.5)
+    if line:
+        shape.line.color.rgb = rgb(line)
+        shape.line.width = Pt(1)
+    return shape
+
+
+def add_star4(slide: Any, x: float, y: float, size: float, color: str) -> Any:
+    """四角星点缀（参考图里的 ✦ 装饰）。"""
+    shape = slide.shapes.add_shape(
+        MSO_SHAPE.STAR_4_POINT, Inches(x), Inches(y), Inches(size), Inches(size)
+    )
+    return solid(shape, color)
 
 
 def set_run(run: Any, size: float, color: str, bold: bool = False,

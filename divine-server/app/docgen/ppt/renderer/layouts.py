@@ -12,13 +12,14 @@ import re
 from typing import Any, Callable
 
 from pptx.enum.shapes import MSO_SHAPE
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Inches, Pt
 
 from . import charts, tables
 from .textfit import pick_size, split_title_desc
-from .themes import (add_oval, add_rect, add_textbox, blend, get_ppt_theme,
-                     get_style, gradient, rgb, set_alpha, set_run, solid)
+from .themes import (add_oval, add_pill, add_rect, add_star4, add_textbox,
+                     blend, get_ppt_theme, get_style, gradient, gradient_multi,
+                     rgb, set_alpha, set_run, solid)
 
 MARGIN = 0.7
 CONTENT_W = 13.333 - MARGIN * 2
@@ -69,8 +70,51 @@ def _bg_decor(slide: Any, theme: dict[str, Any], st: dict[str, Any]) -> None:
     elif decor == "blob":
         halo = add_oval(slide, 10.6, -1.4, 3.6, 3.6, theme["accent"])
         set_alpha(halo, 6)
+    elif decor == "pop_blobs":
+        _pop_blobs(slide, theme, cover=False)
     if st.get("corner_mark"):
         add_rect(slide, 12.35, 0.55, 0.22, 0.22, theme["accent"])
+
+
+def _pop_blobs(slide: Any, theme: dict[str, Any], cover: bool = False) -> None:
+    """泡泡玛特风的实心圆斑 + 四角星（封面比内容页更大更饱和）。"""
+    palette = list(theme.get("pop_colors") or [theme["accent"], theme["accent2"]])
+    spots = (
+        # (x, y, 直径, 色号, 透明度)
+        ((-1.25, -1.15, 3.30, 0, 100), (11.25, -1.15, 2.60, 1, 100),
+         (10.55, 4.85, 2.55, 2, 100), (-1.35, 5.35, 2.10, 3, 96),
+         (7.30, 0.95, 1.45, 1, 50))
+        if cover else
+        # 内容页：圆斑避开页脚带（y > 6.9）与进度点，序号区用深色兜底
+        ((-1.30, -1.25, 2.75, 0, 92), (11.90, -1.00, 2.15, 1, 96),
+         (12.15, 4.35, 2.45, 2, 94), (-1.05, 5.30, 1.95, 3, 92))
+    )
+    for x, y, size, ci, alpha in spots:
+        blob = add_oval(slide, x, y, size, size, palette[ci % len(palette)])
+        set_alpha(blob, alpha)
+    if cover:
+        add_star4(slide, 6.55, 0.85, 0.26, palette[3 % len(palette)])
+        add_star4(slide, 9.35, 2.55, 0.30, palette[2 % len(palette)])
+        add_star4(slide, 4.90, 6.38, 0.22, palette[3 % len(palette)])
+
+
+def _pop_giftbox(slide: Any, theme: dict[str, Any], x: float, y: float) -> None:
+    """封面右下的「盲盒礼盒」：黄提手 + 蓝盒盖 + 粉盒身 + 白圆加号。"""
+    palette = list(theme.get("pop_colors") or [theme["accent"]])
+    yellow = palette[1] if len(palette) > 1 else theme["accent"]
+    blue = theme.get("pop_blue") or palette[3 % len(palette)]
+    pink = theme["accent"]
+    add_rect(slide, x + 0.68, y + 0.00, 0.22, 0.66, yellow, rounded=True,
+             radius=0.5)
+    add_rect(slide, x + 0.10, y + 0.42, 1.42, 0.40, blue, rounded=True,
+             radius=0.30)
+    add_rect(slide, x + 0.22, y + 0.74, 1.18, 0.86, pink, rounded=True,
+             radius=0.22)
+    add_oval(slide, x + 0.63, y + 0.92, 0.40, 0.40, "FFFFFF")
+    add_rect(slide, x + 0.740, y + 1.095, 0.18, 0.05, pink, rounded=True,
+             radius=0.5)
+    add_rect(slide, x + 0.805, y + 1.030, 0.05, 0.18, pink, rounded=True,
+             radius=0.5)
 
 
 def _topbar(slide: Any, theme: dict[str, Any], st: dict[str, Any]) -> None:
@@ -97,7 +141,7 @@ def _chrome(slide: Any, theme: dict[str, Any], st: dict[str, Any],
 
     label = add_textbox(slide, MARGIN, 0.5, 8, 0.4)
     p = label.text_frame.paragraphs[0]
-    set_run(p.add_run(), 14, theme["accent"], bold=True,
+    set_run(p.add_run(), 14, st.get("index_color") or theme["accent"], bold=True,
             font=_heading_font(theme, st) if st.get("index_serif") else theme["font"])
     p.runs[0].text = f"{index:02d}"
 
@@ -111,14 +155,44 @@ def _chrome(slide: Any, theme: dict[str, Any], st: dict[str, Any],
         rule_kind = st.get("heading_rule")
         if rule_kind:
             rule_h = float(st.get("heading_rule_h") or 0.02)
-            rule_color = theme["text"] if rule_kind == "text" else \
-                blend(theme["content_bg"], theme["text"], 0.55)
-            add_rect(slide, MARGIN, 1.9, CONTENT_W, rule_h, rule_color)
+            if rule_kind == "tricolor":
+                # 泡泡玛特风：短促的三色渐变胶囊杠，作为标题的版式锚点
+                rule_w = float(st.get("heading_rule_w") or 1.55)
+                colors = list(st.get("rule_colors") or
+                              [theme["accent"], theme["accent2"],
+                               theme.get("pop_blue") or theme["accent"]])
+                span = max(len(colors) - 1, 1)
+                bar = add_rect(slide, MARGIN, 1.9, rule_w, rule_h, colors[0],
+                               rounded=True, radius=0.5)
+                gradient_multi(
+                    bar,
+                    [(i / span, c) for i, c in enumerate(colors)],
+                    angle=0.0,
+                )
+            else:
+                rule_color = theme["text"] if rule_kind == "text" else \
+                    blend(theme["content_bg"], theme["text"], 0.55)
+                add_rect(slide, MARGIN, 1.9, CONTENT_W, rule_h, rule_color)
 
-    _footer(slide, theme, heading)
+    _footer(slide, theme, st, heading, index)
 
 
-def _footer(slide: Any, theme: dict[str, Any], text: str) -> None:
+def _footer(slide: Any, theme: dict[str, Any], st: dict[str, Any], text: str,
+            index: int = 0) -> None:
+    """页脚：默认右侧放标题摘要；pop 风格改为「页码 + 页内进度点」。"""
+    pages = int(st.get("_deck_pages") or 0)
+    if st.get("footer_page") and pages:
+        box = add_textbox(slide, MARGIN, 6.98, CONTENT_W, 0.32)
+        p = box.text_frame.paragraphs[0]
+        p.alignment = PP_ALIGN.RIGHT
+        set_run(p.add_run(), 11,
+                blend(theme["content_bg"], theme["text"], 0.30),
+                bold=True, font=theme["font"], letter_spacing_pt=0.6)
+        p.runs[0].text = f"{index} / {pages}"
+        if st.get("footer_dots"):
+            _progress_dots(slide, theme, st, index, pages)
+        return
+
     if not text:
         return
     box = add_textbox(slide, MARGIN, 6.98, CONTENT_W, 0.32)
@@ -128,6 +202,29 @@ def _footer(slide: Any, theme: dict[str, Any], text: str) -> None:
     set_run(p.add_run(), 10.5, blend(theme["content_bg"], theme["muted"], 0.75),
             font=theme["font"])
     p.runs[0].text = display
+
+
+def _progress_dots(slide: Any, theme: dict[str, Any], st: dict[str, Any],
+                   index: int, pages: int) -> None:
+    """底部居中的页内进度点：当前页为三色渐变胶囊，其余为浅灰胶囊。"""
+    if pages < 2 or pages > 24:
+        return
+    dot_w, gap, active_w, h, y = 0.075, 0.055, 0.24, 0.075, 7.09
+    total = (pages - 1) * (dot_w + gap) + active_w
+    x = (13.333 - total) / 2
+    colors = list(st.get("rule_colors") or [theme["accent"]])
+    idle = blend(theme["content_bg"], theme["text"], 0.14)
+    span = max(len(colors) - 1, 1)
+    for i in range(pages):
+        if i + 1 == index:
+            bar = add_rect(slide, x, y, active_w, h, colors[0], rounded=True,
+                           radius=0.5)
+            gradient_multi(bar, [(j / span, c) for j, c in enumerate(colors)],
+                           angle=0.0)
+            x += active_w + gap
+        else:
+            add_rect(slide, x, y, dot_w, h, idle, rounded=True, radius=0.5)
+            x += dot_w + gap
 
 
 _NUM_RE = re.compile(r"(\d[\d,，.]*\s*(?:万|亿|%|美元|款|城|人|倍|pt)?|\d+%)")
@@ -243,6 +340,12 @@ def _corner_brackets(slide: Any, color: str) -> None:
 def _cover_bg(slide: Any, theme: dict[str, Any], st: dict[str, Any],
               index: int) -> None:
     kind = st.get("cover") or "clean"
+    if kind == "pop":
+        # 泡泡玛特风封面：暖奶油底 + 四角高饱和圆斑 + 盲盒礼盒 + 星形点缀
+        add_rect(slide, 0, 0, 13.333, 7.5, theme["cover_bg"])
+        _pop_blobs(slide, theme, cover=True)
+        _pop_giftbox(slide, theme, 11.06, 5.32)
+        return
     if kind == "gradient_blobs":
         bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0,
                                     Inches(13.333), Inches(7.5))
@@ -324,6 +427,71 @@ def _layout_cover(slide: Any, theme: dict[str, Any], st: dict[str, Any],
     title = str(item.get("heading") or item.get("title") or "未命名演示文稿")
     subtitle = str(item.get("subtitle") or "").strip()
     pages = int(item.get("_pages") or max(index - 1, 0))
+
+    if st.get("cover") == "pop":
+        palette = list(theme.get("pop_colors") or [theme["accent"]])
+
+        # 胶囊 kicker：白底 + 粉点 + 放大字距（参考图左上角标签）
+        kicker_w = 2.72
+        add_pill(slide, 0.95, 1.12, kicker_w, 0.44, "FFFFFF")
+        add_oval(slide, 1.15, 1.265, 0.15, 0.15, theme["accent"])
+        kbox = add_textbox(slide, 1.44, 1.20, kicker_w - 0.60, 0.30)
+        kp = kbox.text_frame.paragraphs[0]
+        set_run(kp.add_run(), 10.5, theme["muted"], bold=True,
+                font=theme["font"], letter_spacing_pt=1.6)
+        kp.runs[0].text = "BRAND · 潮玩商业模式"
+
+        size = pick_size(title, 7.5, 1.5, [56, 50, 44, 38])
+        box = add_textbox(slide, 0.95, 1.86, 7.5, 1.35)
+        p = box.text_frame.paragraphs[0]
+        p.line_spacing = 1.05
+        set_run(p.add_run(), size, theme["cover_text"], bold=True,
+                font=theme["font"])
+        p.runs[0].text = title
+
+        if subtitle:
+            bsize = pick_size(subtitle, 7.5, 0.95, [32, 28, 24, 20])
+            sub = add_textbox(slide, 0.95, 3.16, 7.5, 0.85)
+            sp = sub.text_frame.paragraphs[0]
+            sp.line_spacing = 1.15
+            set_run(sp.add_run(), bsize, theme["accent"], bold=True,
+                    font=theme["font"])
+            sp.runs[0].text = subtitle
+
+        lead = str(item.get("body") or item.get("content") or "").strip()
+        if lead:
+            ld = add_textbox(slide, 0.95, 4.06, 7.5, 0.80)
+            lp = ld.text_frame.paragraphs[0]
+            lp.line_spacing = 1.35
+            set_run(lp.add_run(), 13.5, theme["muted"], font=theme["font"])
+            lp.runs[0].text = lead
+
+        # 彩色胶囊行：沿用 points 数据，一色一胶囊
+        points = item.get("points") or []
+        if isinstance(points, str):
+            points = [points]
+        px = 0.95
+        for i, raw in enumerate(list(points)[:4]):
+            label = split_title_desc(str(raw))[0]
+            if not label:
+                continue
+            w = 0.34 + len(label) * 0.175
+            pill = add_pill(slide, px, 5.10, w, 0.50,
+                            palette[i % len(palette)])
+            ptf = pill.text_frame
+            ptf.vertical_anchor = MSO_ANCHOR.MIDDLE
+            pp = ptf.paragraphs[0]
+            pp.alignment = PP_ALIGN.CENTER
+            set_run(pp.add_run(), 12.5, "FFFFFF", bold=True,
+                    font=theme["font"])
+            pp.runs[0].text = label
+            px += w + 0.16
+
+        meta = add_textbox(slide, 0.95, 6.30, 7.5, 0.40)
+        set_run(meta.text_frame.paragraphs[0].add_run(), 11.5, theme["meta"],
+                font=theme["font"])
+        meta.text_frame.paragraphs[0].runs[0].text = f"AI Divine · {pages} 页"
+        return
 
     if st.get("cover") == "glass_panel":
         size = pick_size(title, 8.0, 1.5, [40, 36, 32])
@@ -1205,6 +1373,9 @@ def add_slide(prs: Any, item: Any, theme_id: str, index: int,
     theme = get_ppt_theme(theme_id)
     st = get_style(theme)
     item = item if isinstance(item, dict) else {"body": str(item)}
+    # 总页数注入装饰语言视图：页脚页码与进度点需要知道 deck 规模
+    st = dict(st)
+    st["_deck_pages"] = int(item.get("_pages") or 0)
     if isinstance(item.get("points"), list):
         item = dict(item)
         item["points"] = _normalize_points(item["points"])

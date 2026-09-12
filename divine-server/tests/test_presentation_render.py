@@ -196,7 +196,7 @@ def test_auto_end_slide(tmp_path):
 
 
 def test_all_design_presets_render(tmp_path):
-    """7 套现代设计预设全版式冒烟：每种风格生成完整 deck 不报错。"""
+    """8 套现代设计预设全版式冒烟：每种风格生成完整 deck 不报错。"""
     import pytest
 
     sample = [
@@ -222,7 +222,7 @@ def test_all_design_presets_render(tmp_path):
         {"layout": "bullets", "heading": "风险与应对", "points": ["多元化布局"]},
     ]
     for theme in ("aurora", "glass", "brutalist", "swiss", "mesh",
-                  "editorial", "darktech"):
+                  "editorial", "darktech", "pop"):
         result = _run({"title": "预设验证", "theme": theme, "slides": sample},
                       tmp_path)
         assert result["success"] is True, f"{theme}: {result}"
@@ -380,3 +380,75 @@ def test_toc_disabled_and_explicit(tmp_path):
                  if any(sh.has_text_frame and sh.text_frame.text.strip() == "目录"
                         for sh in slide.shapes)]
     assert len(toc_pages) == 1 and toc_pages[0] == 2  # 仅封面后一页
+
+
+def test_explicit_cover_layout_not_duplicated(tmp_path):
+    """回归：显式 layout=cover 只算一张封面，不再额外生成自动封面。
+
+    修复前 _is_cover_slide 只认「无 layout 但带 subtitle」的隐式封面，
+    显式声明会被当内容页保留 → 自动封面 + 显式封面并存。
+    """
+    result = _run({
+        "title": "演示标题",
+        "slides": [{"layout": "cover", "heading": "唯一封面", "subtitle": "副标题"},
+                   {"layout": "bullets", "heading": "要点", "points": ["一"]}],
+    }, tmp_path)
+    assert result["success"] is True, result
+    assert result["data"]["slides"] == 3  # 封面 + 内容 + 自动结尾
+
+    prs = Presentation(result["filepath"])
+    covers = [i for i, slide in enumerate(prs.slides, 1)
+              if any(sh.has_text_frame and "唯一封面" in sh.text_frame.text
+                     for sh in slide.shapes)]
+    assert covers == [1], covers
+
+
+def test_pop_style_primitives(tmp_path):
+    """pop 预设（波普潮流风）：三色渐变下划条 / 页脚页码 / 页内进度点 / 封面礼盒。"""
+    from lxml import etree
+
+    result = _run({
+        "title": "潮流玩具", "theme": "pop",
+        "slides": [
+            {"layout": "cover", "heading": "泡泡玛特", "subtitle": "潮玩帝国",
+             "points": ["盲盒经济", "IP 飞轮", "全球化"]},
+            {"layout": "cards", "heading": "公司速览",
+             "points": ["2010|成立", "潮玩|品类"]},
+        ],
+    }, tmp_path)
+    assert result["success"] is True, result
+    assert result["data"]["slides"] == 3
+    assert result["data"]["presets"] >= 17
+    assert "pop" in result["data"]["styles"]
+
+    ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
+    prs = Presentation(result["filepath"])
+    content = prs.slides[1]
+    root = content._element
+
+    # 1) 标题下的三色渐变下划条：单条 gradFill 含 ≥3 个色标
+    multi = [gs for gs in root.findall(".//a:gradFill/a:gsLst", ns)
+             if len(gs) >= 3]
+    assert multi, "pop 风格内容页应有三色渐变下划条"
+
+    # 2) 页脚页码：内容页（第 2 页 / 共 3 页）
+    texts = "\n".join(sh.text_frame.text for sh in content.shapes
+                      if sh.has_text_frame)
+    assert "2 / 3" in texts
+
+    # 3) 页内进度点：3 页 deck 应有 3 个进度点（含当前页的渐变胶囊）
+    #    注：add_shape 产生的自选图形恒带 text_frame，故按几何特征识别
+    dots = [sh for sh in content.shapes
+            if abs(sh.top / 914400 - 7.09) < 0.03
+            and abs(sh.height / 914400 - 0.075) < 0.01]
+    assert len(dots) == 3, f"进度点数量异常: {len(dots)}"
+
+    # 4) 封面装饰：盲盒礼盒的白色加号圆 + 四角星点缀
+    cover = prs.slides[0]
+    cover_xml = cover._element.xml
+    assert "star4" in cover_xml or "star" in cover_xml.lower()
+    whites = [sh for sh in cover.shapes
+              if abs(sh.width / 914400 - 0.40) < 0.01
+              and abs(sh.height / 914400 - 0.40) < 0.01
+              and not sh.text_frame.text.strip()]
+    assert whites, "封面应含礼盒的白色加号圆"

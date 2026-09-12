@@ -265,6 +265,22 @@ export async function fetchPdfPreview(path: string): Promise<PdfPreviewResult> {
   });
 }
 
+export interface PptxPreviewResult {
+  pages: string[];
+  page_count: number;
+  truncated: boolean;
+}
+
+/** Render a local .pptx to slide images via the backend (same approach as the
+ * PDF preview: the webview cannot render slides natively, and the previous
+ * text extraction made decks look like plain transcripts). */
+export async function fetchPptxPreview(path: string): Promise<PptxPreviewResult> {
+  return request<PptxPreviewResult>("/files/pptx-preview", {
+    method: "POST",
+    body: JSON.stringify({ path }),
+  });
+}
+
 export interface DocumentPreviewResult {
   content: string;
   truncated: boolean;

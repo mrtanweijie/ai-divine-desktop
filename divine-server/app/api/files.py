@@ -12,6 +12,11 @@ from ..docgen.pdf.preview import (
     MAX_PDF_PREVIEW_PAGES,
     render_pdf_pages,
 )
+from ..docgen.ppt.pptx_to_png import (
+    MAX_PPTX_PREVIEW_BYTES,
+    MAX_PPTX_PREVIEW_PAGES,
+    render_pptx_pages,
+)
 
 router = APIRouter(prefix="/files", tags=["files"])
 
@@ -70,6 +75,9 @@ def image_file(path: str):
 
 
 class PdfPreviewRequest(BaseModel):
+    path: str
+
+class PptxPreviewRequest(BaseModel):
     path: str
 
 class DocumentPreviewRequest(BaseModel):
@@ -149,6 +157,31 @@ def pdf_preview(request: PdfPreviewRequest):
         "pages": pages,
         "page_count": len(pages),
         "truncated": len(pages) >= MAX_PDF_PREVIEW_PAGES,
+    }
+
+
+_PPTX_PREVIEW_SUFFIXES = {".pptx", ".ppsx"}
+
+
+@router.post("/pptx-preview")
+def pptx_preview(request: PptxPreviewRequest):
+    """把 pptx 渲染成页面图片（对位 /pdf-preview；旧版 .ppt 不支持，走文本预览）。"""
+    path = Path(request.path).expanduser().resolve()
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="文件不存在")
+    if path.suffix.lower() not in _PPTX_PREVIEW_SUFFIXES:
+        raise HTTPException(status_code=400, detail="不是 .pptx / .ppsx 文件")
+    size = path.stat().st_size
+    if size > MAX_PPTX_PREVIEW_BYTES:
+        raise HTTPException(status_code=413, detail="PPT 文件过大，无法预览")
+    try:
+        pages = render_pptx_pages(path)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=422, detail=f"PPT 渲染失败: {exc}") from exc
+    return {
+        "pages": pages,
+        "page_count": len(pages),
+        "truncated": len(pages) >= MAX_PPTX_PREVIEW_PAGES,
     }
 
 

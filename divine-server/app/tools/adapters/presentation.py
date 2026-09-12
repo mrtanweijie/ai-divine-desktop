@@ -21,14 +21,15 @@ from ..registry import register_tool
                 "type": "string",
                 "enum": [
                     "aurora", "glass", "brutalist", "swiss", "mesh",
-                    "editorial", "darktech",
+                    "editorial", "darktech", "pop",
                     "universal", "notion", "linear", "apple", "modern",
                     "academic", "travel", "roadmap", "minimal",
                 ],
                 "description": (
                     "PPT 风格；aurora 极光渐变（现代商务默认）、glass 玻璃拟态、"
                     "brutalist 新粗野撞色、swiss 瑞士极简、mesh 渐变弥散、"
-                    "editorial 杂志衬线、darktech 暗黑科技"
+                    "editorial 杂志衬线、darktech 暗黑科技、"
+                    "pop 波普潮流（暖奶油底 + 高饱和圆斑 + 胶囊标签 + 三色下划条）"
                 ),
             },
             "path": {

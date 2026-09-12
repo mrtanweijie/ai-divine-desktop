@@ -37,6 +37,7 @@
 | 024 | [design-streaming-performance](design/016-streaming-performance-20260904.md) | 2026-09-04 | 未实施（B1–B6 待实施） |
 | 026 | [design-office-edit-closed-loop](design/017-office-edit-closed-loop-20260906.md) | 2026-09-06 | 已实施（期一/二/三） |
 | 031 | [design-svg-architecture-routing](design/021-svg-architecture-routing-20260909.md) | 2026-09-09 | 未实施（方案待审） |
+| 032 | [design-agent-memory-architecture](design/022-agent-memory-architecture-20260911.md) | 2026-09-11 | 未实施（方案待审） |
 
 ### 修复（fix）
 
@@ -65,9 +66,11 @@
 | 003 | [sample-obsidian-style](templates/003-obsidian-style-20260904.html) | 2026-09-04 |
 | 004 | [sample-portfolio-report](templates/004-portfolio-report-20260904.html) | 2026-09-04 |
 | 005 | [sample-mobile-app-ui-spec](templates/005-mobile-app-ui-spec-20260904.html) | 2026-09-04 |
+| 006 | [sample-pop-ppt-style](templates/006-pop-style-20260912.html) | 2026-09-12 |
+| 007 | [sample-pop-pptx](templates/007-pop-pptx-sample-20260912.pptx) ｜ [预览图](templates/007-pop-pptx-sample-20260912-preview.png) | 2026-09-12 |
 
 ## 附属目录
 
-- `templates/`：HTML 视觉样张（独立编号 001–005）
+- `templates/`：HTML / PPT 视觉样张（独立编号 001–007）
 - `assets/`：文档引用的图片资源
 - `pdf-modules/`：PDF 模块 JSON/CSS/HTML 资源（由 docgen 管线引用）
