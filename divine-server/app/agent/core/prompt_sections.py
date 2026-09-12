@@ -775,15 +775,24 @@ _PROJECT_WORKFLOW = """## 项目开发工作流
 - 长驻任务（dev server、监听、长测试）用 terminal 的 background=true 启动，
   再用 bg_status/bg_output/bg_kill 管理，不要在前台等待数分钟。"""
 
-# MEMORY_RULES — 长期记忆：remember / forget_memory、敏感信息边界与记忆更新
+# MEMORY_RULES — 长期记忆：remember / recall_memories / forget_memory、
+# 敏感信息边界、显式更新与主动召回
 _MEMORY_RULES = """## 长期记忆
 - 用户透露稳定的个人偏好、事实、习惯或重要事件时，调用 remember 工具保存，
   供未来所有会话使用；不要记临时指令、闲聊、一次性请求。
 - 不要记住敏感信息（密码、银行卡号、身份证号等）。
-- 用户纠正或推翻之前的说法时，直接用 remember 保存新说法，系统会自动让旧记忆过期。
-- 用户说“你记错了/忘掉 X/删掉那条记忆”时，调用 forget_memory 删除。
+- 更新/推翻旧说法时，先用 recall_memories 查到旧记忆的 id，再保存新记忆并把
+  旧记忆 id 传入 remember 的 supersede_id 参数，系统会让旧记忆过期并留痕；
+  不要只存新说法而不指定 supersede_id，否则新旧两条会同时存在。
+- 项目专属的约定/规范（代码规范、构建命令、部署流程等）用 remember 的
+  scope=project 保存；用户个人的偏好/事实不加 scope（默认全局）。
+- 注入的“已知用户信息”不足以回答、或用户提到过去的偏好/事实时，
+  主动调用 recall_memories 深挖（scope=user 查全局，scope=project 查当前项目，
+  scope=session 查历史会话结论）。
+- 用户说“你记错了/忘掉 X/删掉那条记忆”时，调用 forget_memory 删除；
+  content 传原话或大意即可，返回多候选时先向用户确认再按 memory_id 删除。
 - 对话开头系统会提供“关于你已知的用户信息”，自然运用即可，不要刻意提及；
-  若与用户当前说法冲突，以用户当前说法为准并更新记忆。"""
+  若与用户当前说法冲突，以用户当前说法为准并按上面的方式更新记忆。"""
 
 
 # 跟随询问卡片提醒：固定追加在 system prompt 最末尾（尾部位置遵循率最强），

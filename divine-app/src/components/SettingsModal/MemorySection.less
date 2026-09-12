@@ -1,0 +1,256 @@
+/* MemorySection 专属样式：长期记忆（三个折叠面板：手动导入 / 待确认 / 已记住）
+ * 颜色全部取自全局令牌 var(--status-*)，暗色/亮色主题自动适配。 */
+
+.settings-memory-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.settings-memory-hint {
+  flex: 1;
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.6;
+  line-height: 1.6;
+}
+
+.settings-memory-spin {
+  animation: settings-memory-rotate 0.9s linear infinite;
+}
+
+@keyframes settings-memory-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.settings-memory-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--status-red);
+}
+
+/* 分组间距由 settings-form 的 flex gap（14px）提供，不再额外加 margin */
+
+/* --- 折叠面板：实线容器 + 可点击头部（三个分组共用） --------------------- */
+
+.settings-memory-panel {
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.settings-memory-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.settings-memory-toggle-title {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-memory-toggle-sub {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  opacity: 0.55;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-memory-chevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: transform 0.18s ease;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+.settings-memory-panel-body {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 6px 12px 10px;
+  /* 隐藏滚动条，保留滚动能力 */
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* --- 分组状态点与计数 ----------------------------------------------------- */
+
+.settings-memory-group-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+
+  &.settings-memory-group-dot--import {
+    background: var(--status-violet);
+  }
+
+  &.settings-memory-group-dot--pending {
+    background: var(--status-amber);
+  }
+
+  &.settings-memory-group-dot--active {
+    background: var(--status-green);
+  }
+}
+
+.settings-memory-count {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  background: rgba(127, 127, 127, 0.14);
+  opacity: 0.85;
+}
+
+/* --- 记忆行 ------------------------------------------------------------- */
+
+.settings-memory-row {
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: rgba(127, 127, 127, 0.06);
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba(127, 127, 127, 0.1);
+  }
+}
+
+.settings-memory-row--pending {
+  background: rgba(250, 204, 21, 0.07);
+  border-color: rgba(250, 204, 21, 0.25);
+
+  &:hover {
+    background: rgba(250, 204, 21, 0.11);
+  }
+}
+
+.settings-memory-row-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.settings-memory-row-meta {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  /* 已记住行：时间在上、删除图标在下 */
+  &.settings-memory-row-meta--stack {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+}
+
+/* 删除图标：hover 行时才出现 */
+.settings-memory-delete {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.settings-memory-row:hover .settings-memory-delete {
+  opacity: 1;
+}
+
+.settings-memory-time {
+  font-size: 11px;
+  opacity: 0.55;
+  white-space: nowrap;
+}
+
+.settings-memory-content {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+/* --- 徽章：分类走主题色描边，作用域走中性虚线 --------------------------- */
+
+.settings-memory-badge {
+  flex-shrink: 0;
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid currentColor;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+
+  &.settings-memory-badge--preference {
+    color: var(--status-blue);
+  }
+
+  &.settings-memory-badge--fact {
+    color: var(--status-green);
+  }
+
+  &.settings-memory-badge--event {
+    color: var(--status-orange);
+  }
+
+  &.settings-memory-badge--procedure {
+    color: var(--status-violet);
+  }
+
+  &.settings-memory-badge--project {
+    border-style: dashed;
+    opacity: 0.7;
+  }
+}
+
+.settings-memory-empty-line {
+  margin: 4px 0 6px;
+  font-size: 12px;
+  opacity: 0.5;
+}
+
+/* --- 手动导入表单 --------------------------------------------------------- */
+
+/* 类型选择与导入按钮：右对齐一行（输入框在上方占满宽度）。
+ * Select 触发器默认 min-height 40px，这里压到与 Button--small 同高。 */
+.settings-memory-import-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+
+  .ui-field {
+    gap: 0;
+  }
+
+  .ui-select-trigger {
+    min-height: 28px;
+  }
+}

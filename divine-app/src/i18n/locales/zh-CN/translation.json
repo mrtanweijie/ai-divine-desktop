@@ -90,7 +90,8 @@
     "save": "保存",
     "searchSessions": "搜索会话",
     "truncated": "{{prefix}}\n...[截断，共 {{count}} 字符]",
-    "user": "用户"
+    "user": "用户",
+    "refresh": "刷新"
   },
   "file": {
     "acceptChanges": "接受变更，清除蓝点",
@@ -347,6 +348,30 @@
       "jsonImport": "JSON 导入",
       "emptyTitle": "还没有接入 MCP 服务器",
       "emptyHint": "点击「添加服务器」或「JSON 导入」接入外部工具，接入后 agent 可直接调用"
+    },
+    "sectionMemory": "记忆",
+    "memory": {
+      "hint": "AI 跨会话记住的用户信息。与已有记忆矛盾的新记忆会先挂起，经你确认后生效。",
+      "pendingTitle": "待确认",
+      "pendingEmpty": "没有待确认的记忆",
+      "activeTitle": "已记住",
+      "activeEmpty": "还没有长期记忆",
+      "activeEmptyHint": "对话中让 AI「记住」的信息会出现在这里，可随时删除或纠正",
+      "deleteTitle": "删除这条记忆？",
+      "confirm": "确认记住",
+      "reject": "丢弃",
+      "delete": "删除",
+      "importTitle": "手动导入",
+      "importHint": "适合把稳定的做事方法 / runbook 存为程序记忆，供 AI 按需召回。",
+      "importPlaceholder": "例如：构建命令：pnpm build；测试前先跑迁移脚本",
+      "importAction": "导入",
+      "catPreference": "偏好",
+      "catFact": "事实",
+      "catEvent": "事件",
+      "catProcedure": "做法",
+      "scopeProject": "项目",
+      "pendingSub": "与已有记忆矛盾的新记忆会挂起在这里，确认后生效",
+      "activeSub": "AI 正在使用的长期记忆，可随时删除或纠正"
     }
   },
   "skills": {

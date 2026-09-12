@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AudioWaveform, Blocks, Cpu, Info, Save, Settings2, X } from "lucide-react";
+import { AudioWaveform, Blocks, Brain, Cpu, Info, Save, Settings2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
 import type { ModelConfig, Settings, SettingsSaveBody } from "@/types";
@@ -14,6 +14,7 @@ import { BasicSection } from "./BasicSection";
 import { McpSection } from "./McpSection";
 import { ModelSection } from "./ModelSection";
 import { LocalLLMSection } from "./LocalLLMSection";
+import { MemorySection } from "./MemorySection";
 import "./index.less";
 
 /** Build a UI-ready model list from server settings, tolerating servers that
@@ -49,7 +50,7 @@ interface SettingsModalProps {
   onSilentSave?: (body: SettingsSaveBody) => Promise<void> | void;
   onConfirm?: (title: string, description: string, action: () => void) => void;
   /** 打开时定位到的 tab（默认"通用"） */
-  initialSection?: "basic" | "model" | "mcp" | "local" | "about";
+  initialSection?: "basic" | "model" | "mcp" | "local" | "memory" | "about";
 }
 
 export function SettingsModal({
@@ -74,7 +75,7 @@ export function SettingsModal({
   const [showGlmKey, setShowGlmKey] = useState(false);
   const [version, setVersion] = useState(`v${tauriConfig.version}`);
   const [themePreference, setThemePreferenceState] = useThemePreference();
-  const [section, setSection] = useState<"basic" | "model" | "mcp" | "local" | "about">(
+  const [section, setSection] = useState<"basic" | "model" | "mcp" | "local" | "memory" | "about">(
     initialSection,
   );
   const [localLLMEnabled, setLocalLLMEnabled] = useState(settings.local_llm_enabled ?? false);
@@ -203,7 +204,7 @@ export function SettingsModal({
       }
       footer={
         // 意图 tab 的操作（模式切换/模型启停）即时生效，无需底部保存按钮
-        section !== "about" && section !== "local" && section !== "mcp" ? (
+        section !== "about" && section !== "local" && section !== "mcp" && section !== "memory" ? (
           <>
             <Button variant="secondary" onClick={onClose}>
               {t("common.cancel", "取消")}
@@ -284,6 +285,22 @@ export function SettingsModal({
           </div>
           <div
             role="tab"
+            aria-selected={section === "memory"}
+            tabIndex={0}
+            className={`settings-nav-item${section === "memory" ? " active" : ""}`}
+            onClick={() => setSection("memory")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSection("memory");
+              }
+            }}
+          >
+            <Brain size={15} />
+            <span>{t("settings.sectionMemory", "记忆")}</span>
+          </div>
+          <div
+            role="tab"
             aria-selected={section === "about"}
             tabIndex={0}
             className={`settings-nav-item${section === "about" ? " active" : ""}`}
@@ -347,6 +364,8 @@ export function SettingsModal({
               localLLMMode={localLLMMode}
               onModeChange={setLocalLLMMode}
             />
+          ) : section === "memory" ? (
+            <MemorySection onConfirm={onConfirm} />
           ) : (
             <AboutSection />
           )}

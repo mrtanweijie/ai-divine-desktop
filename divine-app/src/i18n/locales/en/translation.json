@@ -91,7 +91,8 @@
     "searchSessions": "Search sessions",
     "truncated_one": "{{prefix}}\n... [truncated, {{count}} character total]",
     "truncated_other": "{{prefix}}\n... [truncated, {{count}} characters total]",
-    "user": "User"
+    "user": "User",
+    "refresh": "Refresh"
   },
   "file": {
     "acceptChanges": "Accept changes and clear blue dots",
@@ -354,6 +355,30 @@
       "jsonImport": "JSON Import",
       "emptyTitle": "No MCP servers yet",
       "emptyHint": "Use \"Add server\" or \"JSON Import\" to connect external tools; the agent can call them once connected."
+    },
+    "sectionMemory": "Memory",
+    "memory": {
+      "hint": "User information the AI remembers across sessions. New memories that contradict existing ones are held for your confirmation first.",
+      "pendingTitle": "Pending review",
+      "pendingEmpty": "No memories awaiting review",
+      "activeTitle": "Remembered",
+      "activeEmpty": "No long-term memories yet",
+      "activeEmptyHint": "Things you ask the AI to remember in chats appear here; delete or correct them anytime",
+      "deleteTitle": "Delete this memory?",
+      "confirm": "Keep",
+      "reject": "Discard",
+      "delete": "Delete",
+      "importTitle": "Manual import",
+      "importHint": "Best for storing stable procedures / runbooks as procedural memories for on-demand recall.",
+      "importPlaceholder": "e.g. Build command: pnpm build; run migrations before tests",
+      "importAction": "Import",
+      "catPreference": "Preference",
+      "catFact": "Fact",
+      "catEvent": "Event",
+      "catProcedure": "Procedure",
+      "scopeProject": "Project",
+      "pendingSub": "New memories that clash with existing ones are held here until confirmed",
+      "activeSub": "Long-term memories the AI uses; delete or correct anytime"
     }
   },
   "skills": {

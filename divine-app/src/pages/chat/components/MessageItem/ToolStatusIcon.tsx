@@ -80,6 +80,8 @@ export function toolIcon(tool: string) {
     if (tool === "bg_output") return <ScrollText size={16} />;
     return <Activity size={16} />;
   }
+  // remember（存记忆）用包裹图标；forget/recall 等其余记忆工具仍是 Brain
+  if (tool === "remember") return <Package size={16} />;
   if (tool.includes("memory")) return <Brain size={16} />;
   if (tool === "run_subagents") return <GitGraph size={16} />;
   if (tool === "git_status") return <GitBranch size={16} />;
