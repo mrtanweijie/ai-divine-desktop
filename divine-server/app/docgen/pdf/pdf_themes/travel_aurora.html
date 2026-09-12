@@ -1108,13 +1108,25 @@ body {
 .photo-grid.p1 .ph { width: 100%; height: 56mm; }
 .photo-grid.p2 .ph { width: 49%; height: 44mm; margin: 0 1.5% 8px 0; }
 .photo-grid.p2 .ph:nth-child(2n) { margin-right: 0; }
-.photo-grid.p3 .ph { width: 65%; height: 45mm; margin: 0; }
+.photo-grid.p3 .ph { width: 65%; height: 60mm; margin: 0; }
 .photo-grid.p3 .ph-side { display: inline-block; vertical-align: top; width: 33.5%; margin-left: 1.5%; }
-.photo-grid.p3 .ph-side .ph { display: block; width: 100%; height: 21.5mm; min-height: 0; margin: 0 0 2mm; }
+.photo-grid.p3 .ph-side .ph { display: block; width: 100%; height: 29mm; min-height: 0; margin: 0 0 2mm; }
 .photo-grid.p3 .ph-side .ph:last-child { margin-bottom: 0; }
 .photo-grid.p3 .ph:nth-child(3n) { margin-right: 0; }
 .photo-grid.p4 .ph { width: 49%; height: 40mm; margin: 0 1.5% 8px 0; }
 .photo-grid.p4 .ph:nth-child(2n) { margin-right: 0; }
+
+/* 兼容别名：模型偶发把 p1-p4 写成 photos-N 时兜底同款尺寸（勿删，勿改数值） */
+.photo-grid[class*="photos-1"] .ph { width: 100%; height: 56mm; }
+.photo-grid[class*="photos-2"] .ph { width: 49%; height: 44mm; margin: 0 1.5% 8px 0; }
+.photo-grid[class*="photos-2"] .ph:nth-child(2n) { margin-right: 0; }
+.photo-grid[class*="photos-3"] .ph { width: 65%; height: 60mm; margin: 0; }
+.photo-grid[class*="photos-3"] .ph-side { display: inline-block; vertical-align: top; width: 33.5%; margin-left: 1.5%; }
+.photo-grid[class*="photos-3"] .ph-side .ph { display: block; width: 100%; height: 29mm; min-height: 0; margin: 0 0 2mm; }
+.photo-grid[class*="photos-3"] .ph-side .ph:last-child { margin-bottom: 0; }
+.photo-grid[class*="photos-3"] .ph:nth-child(3n) { margin-right: 0; }
+.photo-grid[class*="photos-4"] .ph { width: 49%; height: 40mm; margin: 0 1.5% 8px 0; }
+.photo-grid[class*="photos-4"] .ph:nth-child(2n) { margin-right: 0; }
 </style>
 </head>
 <body>
