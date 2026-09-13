@@ -302,6 +302,19 @@
   transform: translate(-50%, -50%) scale(1.2);
 }
 
+/* 刻度点 hover：隐形热区扩大命中范围（6px 视觉点不易悬停） */
+.model-effort-slider-tick::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+}
+
+/* hover 放大：一次性放大到 1.6 倍（复用已有 transform 过渡），离开回落 */
+.model-effort-slider-tick:hover {
+  transform: translate(-50%, -50%) scale(1.6);
+}
+
 .model-effort-slider-knob {
   position: absolute;
   top: 50%;
