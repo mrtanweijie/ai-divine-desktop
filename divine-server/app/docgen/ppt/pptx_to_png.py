@@ -333,10 +333,61 @@ def _draw_text(base: Image.Image, shape: Any, dpi: float) -> None:
 
 
 def _draw_graphic_frame(base: Image.Image, shape: Any, dpi: float) -> None:
-    """图表 / 表格占位：画框 + 数据摘要 + 数据点色板（验证 palette 传导）。"""
+    """图表画占位框 + 数据摘要；表格直接绘制行内容（预览即所得，避免空框误导）。"""
     x, y, w, h = _rect_px(shape, dpi)
     drawer = ImageDraw.Draw(base)
     drawer.rectangle([x, y, x + w, y + h], outline=(206, 200, 216, 255), width=1)
+    if getattr(shape, "has_table", False):
+        try:
+            tbl = shape.table
+            n_cols = len(tbl.columns)
+            n_rows = max(len(tbl.rows), 1)
+            row_h = max(18 * dpi / BASE_DPI, h / n_rows)
+            col_w = w / n_cols
+            # 先铺单元格底色（含暗色主题深底），按填充亮度自适应文字颜色
+            fills: list[list[tuple[int, int, int] | None]] = []
+            for r_i in range(n_rows):
+                row_fills: list[tuple[int, int, int] | None] = []
+                for c_i in range(n_cols):
+                    rgbv = None
+                    try:
+                        color = str(tbl.cell(r_i, c_i).fill.fore_color.rgb)
+                        rgbv = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+                    except Exception:  # noqa: BLE001 — 无填充跳过
+                        pass
+                    row_fills.append(rgbv)
+                    if rgbv:
+                        drawer.rectangle(
+                            [x + c_i * col_w, y + r_i * row_h,
+                             x + (c_i + 1) * col_w, y + (r_i + 1) * row_h],
+                            fill=rgbv + (255,))
+                fills.append(row_fills)
+            for r_i, _row in enumerate(tbl.rows):
+                cy = y + r_i * row_h
+                if cy > y + h - 4:
+                    break
+                for c_i in range(n_cols):
+                    text = tbl.cell(r_i, c_i).text.replace("\n", " ")[:24]
+                    fill = fills[r_i][c_i] if r_i < len(fills) \
+                        and c_i < len(fills[r_i]) else None
+                    if fill is not None:
+                        # 按填充亮度选字色：暗底白字 / 亮底深字
+                        lum = (0.299 * fill[0] + 0.587 * fill[1]
+                               + 0.114 * fill[2])
+                        t_fill = ((255, 255, 255, 255) if lum < 128
+                                  else (30, 32, 38, 255))
+                    else:
+                        t_fill = ((30, 32, 38, 255) if r_i == 0
+                                  else (70, 74, 82, 255))
+                    cx = x + c_i * col_w + 8 * dpi / BASE_DPI
+                    drawer.text((cx, cy + 6 * dpi / BASE_DPI), text,
+                                font=_font(12 if r_i else 12.5), fill=t_fill)
+                if r_i == 0:
+                    drawer.line([x, cy + row_h, x + w, cy + row_h],
+                                fill=(206, 200, 216, 255), width=1)
+            return
+        except Exception:  # noqa: BLE001 — 摘要失败退回标签
+            pass
     label = "[table]" if getattr(shape, "has_table", False) else "[graphic]"
     swatches: list[str] = []
     if getattr(shape, "has_chart", False):

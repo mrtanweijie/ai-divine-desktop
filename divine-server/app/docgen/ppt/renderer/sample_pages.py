@@ -447,31 +447,55 @@ def _why_rows(slide: Any, theme: dict[str, Any], st: dict[str, Any],
         line = blend(theme["content_bg"], "FFFFFF", 0.14)
     points = _points_of(item, 5) or ["（本页暂无内容）"]
     top = _in(196)
-    bottom = 6.75
+    bottom = 6.82
     row_h = (bottom - top) / len(points)
     for i, raw in enumerate(points):
-        main, note = split_title_desc(raw)
+        if _is_devconf(theme):
+            # 016 P11 三段式：'理由|两句话展开|关键数据胶囊'
+            parts = [p.strip() for p in str(raw).split("|")]
+            main = parts[0]
+            note = parts[1] if len(parts) > 1 else ""
+            pill_text = parts[2] if len(parts) > 2 else ""
+        else:
+            main, note = split_title_desc(raw)
+            pill_text = ""
         y = top + i * row_h
-        n_box = add_textbox(slide, _in(72), y + 0.02, _in(70) + 0.2, 0.62)
+        n_box = add_textbox(slide, _in(72), y + 0.08, _in(70) + 0.2, 0.62)
         np_ = n_box.text_frame.paragraphs[0]
         set_run(np_.add_run(), _pt(34), theme["accent"], bold=False,
                 font=_mono())
         np_.runs[0].text = f"{i + 1:02d}"
-        p_box = add_textbox(slide, _in(72) + _in(70) + 0.28, y + 0.05,
-                            11.89 - _in(70) - 0.3, row_h - 0.14)
+        body_x = _in(72) + _in(70) + 0.28
+        body_w = 11.89 - _in(70) - 0.3
+        # 固定纵向节奏：标题区 0.42 → 说明区 0.55（≤2 行）→ 胶囊 → 底部净空
+        p_box = add_textbox(slide, body_x, y + 0.08, body_w, 0.42)
         pp = p_box.text_frame.paragraphs[0]
         m_run = pp.add_run()
         set_run(m_run, _pt(21), theme["text"], bold=True, font=theme["font"])
         m_run.text = main
         if note:
-            pp.space_after = Pt(3)
-            n_par = p_box.text_frame.add_paragraph()
-            n_par.line_spacing = 1.5
+            n_box = add_textbox(slide, body_x, y + 0.52, body_w, 0.55)
+            n_par = n_box.text_frame.paragraphs[0]
+            n_par.line_spacing = 1.35
             n_run = n_par.add_run()
-            set_run(n_run, _pt(14.5), theme["muted"], font=theme["font"])
+            set_run(n_run, _pt(14), theme["muted"], font=theme["font"])
             n_run.text = note
+        if pill_text:
+            # 016 .w-data：蓝描边 mono 数据胶囊，位于说明下方
+            pill_w = 0.5 + len(pill_text) * 0.095
+            pill = add_pill(slide, body_x, y + 1.14, pill_w, 0.34,
+                            theme["content_bg"])
+            pill.line.color.rgb = rgb(theme["accent"])
+            pill.line.width = Pt(1)
+            ptf = pill.text_frame
+            ptf.vertical_anchor = MSO_ANCHOR.MIDDLE
+            dpp = ptf.paragraphs[0]
+            dpp.alignment = PP_ALIGN.CENTER
+            set_run(dpp.add_run(), _pt(12.5), theme["accent"], font=_mono(),
+                    letter_spacing_pt=0.3)
+            dpp.runs[0].text = pill_text
         if i < len(points) - 1:
-            add_rect(slide, _in(72), y + row_h - 0.06, 11.89, 0.01, line)
+            add_rect(slide, _in(72), y + row_h - 0.03, 11.89, 0.01, line)
 
 
 # ---------------------------------------------------------------- 数据带 / 卡片网格
@@ -488,11 +512,14 @@ def _strip_devconf(slide: Any, theme: dict[str, Any], st: dict[str, Any],
                    item: dict[str, Any], index: int) -> None:
     """016 P3 品牌数据带：2px 近黑顶线 + mono 38px 数值 + 单元分隔线 +
     蓝描边 delta 胶囊 + 可选引用条。"""
-    _head_devconf(slide, theme, st, item, index)
+    _head_devconf(slide, theme, st,
+                  {k: v for k, v in item.items() if k != "subtitle"}, index)
     points = _points_of(item, 4) or ["--|待补充"]
     n = len(points)
     strip_top = _in(212)
-    strip_bottom = 6.6
+    # 底线贴内容（数值+标签 ≈1.45in），竖线随之收缩——原型 .strip 是自适应表格，
+    # 固定撑到底会产生超长竖线与大片空块
+    strip_bottom = strip_top + 1.45
     add_rect(slide, _in(72), strip_top, 11.89, _in(2), theme["text"])
     add_rect(slide, _in(72), strip_bottom, 11.89, 0.01,
              blend("FFFFFF", theme["text"], 0.12))
@@ -511,10 +538,13 @@ def _strip_devconf(slide: Any, theme: dict[str, Any], st: dict[str, Any],
         v_box = add_textbox(slide, pad_x, strip_top + _in(22), cell_w - _in(28),
                             0.72)
         vp = v_box.text_frame.paragraphs[0]
-        digits, unit = value, ""
-        for j, ch in enumerate(value):
+        # 占位符 {{}} 会破坏数字切分：先剥花括号再找数字前缀，
+        # 保证数值永远以 38px 粗体渲染（016 .kv 大+粗）
+        clean = value.replace("{{", "").replace("}}", "")
+        digits, unit = clean, ""
+        for j, ch in enumerate(clean):
             if not ch.isdigit() and ch not in ".,+%":
-                digits, unit = value[:j], value[j:]
+                digits, unit = clean[:j], clean[j:]
                 break
         if digits:
             d_run = vp.add_run()
@@ -555,6 +585,133 @@ def _strip_devconf(slide: Any, theme: dict[str, Any], st: dict[str, Any],
         set_run(qp.add_run(), _pt(17), blend("FFFFFF", theme["text"], 0.72),
                 font=theme["font"])
         qp.runs[0].text = sub
+
+
+def _overview_devconf(slide: Any, theme: dict[str, Any], st: dict[str, Any],
+                      item: dict[str, Any], index: int,
+                      resolve_media: Callable[[str], Any] | None = None) -> None:
+    """016 P4 产品全景：head + 通栏架构图占位框（可放真实架构图）+ 底部聚焦 cap 行。"""
+    _head_devconf(slide, theme, st, item, index)
+    frame_top = _in(196)
+    frame_h = 7.5 - 1.35 - frame_top  # bottom:130px
+    image = item.get("image")
+    if resolve_media is not None and isinstance(image, dict):
+        # 有真实架构图：图片直接铺满占位框
+        from .layouts import _media_block
+        add_rect(slide, _in(72), frame_top, 11.89, frame_h, "FAFBFC")
+        _media_block(slide, theme, {}, image, _in(72) + 0.1, frame_top + 0.1,
+                     11.89 - 0.2, frame_h - 0.2, resolve_media)
+    else:
+        frame = add_rect(slide, _in(72), frame_top, 11.89, frame_h,
+                         blend("FFFFFF", theme["text"], 0.02))
+        frame.line.color.rgb = rgb(blend("FFFFFF", theme["text"], 0.14))
+        frame.line.width = Pt(1)
+        ptf = frame.text_frame
+        ptf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        fp = ptf.paragraphs[0]
+        fp.alignment = PP_ALIGN.CENTER
+        set_run(fp.add_run(), _pt(13.5), theme["muted"], font=_mono(),
+                letter_spacing_pt=_pt(13.5 * 0.2))
+        fp.runs[0].text = str(item.get("body") or "").strip() \
+            or "产品架构图 / 模块全景图位（建议：分层模块图，宽 1136mm）"
+    points = _points_of(item, 1)
+    if points:
+        main, note = split_title_desc(points[0])
+        cap = add_textbox(slide, _in(72), 6.42, 11.89, 0.4)
+        cp = cap.text_frame.paragraphs[0]
+        m_run = cp.add_run()
+        set_run(m_run, _pt(14), theme["text"], bold=True, font=theme["font"])
+        m_run.text = main
+        if note:
+            n_run = cp.add_run()
+            set_run(n_run, _pt(14), theme["muted"], font=theme["font"])
+            n_run.text = f"　{note}"
+
+
+def _metrics_devconf(slide: Any, theme: dict[str, Any], st: dict[str, Any],
+                     item: dict[str, Any], index: int) -> None:
+    """016 P9 增长指标：KPI 三栏（数据带同款顶线组件）+ a/b/c 增长引擎列表。
+    points 前 3 条为 '数值|标签|涨跌' KPI，其余为 '引擎名|描述' 增长引擎。"""
+    _head_devconf(slide, theme, st, item, index)
+    points = _points_of(item, 8)
+    kpis = points[:3] or ["--|待补充"]
+    engines = points[3:6]
+
+    # ── KPI 三栏：2px 近黑顶线 + 单元分隔线 + mono 数值 + 蓝色涨跌行 ──
+    strip_top = _in(196)
+    strip_bottom = _in(420)
+    add_rect(slide, _in(72), strip_top, 11.89, _in(2), theme["text"])
+    add_rect(slide, _in(72), strip_bottom, 11.89, 0.01,
+             blend("FFFFFF", theme["text"], 0.12))
+    cell_w = 11.89 / len(kpis)
+    for i, raw in enumerate(kpis):
+        parts = [part.strip() for part in raw.split("|")]
+        value = parts[0] or "--"
+        label = parts[1] if len(parts) > 1 else ""
+        delta = parts[2] if len(parts) > 2 else ""
+        x = _in(72) + i * cell_w
+        if i:
+            add_rect(slide, x, strip_top + 0.2, 0.01,
+                     strip_bottom - strip_top - 0.4,
+                     blend("FFFFFF", theme["text"], 0.1))
+        pad_x = x + (0.02 if i == 0 else _in(20))
+        digits, unit = value, ""
+        for j, ch in enumerate(value):
+            if not ch.isdigit() and ch not in ".,+%":
+                digits, unit = value[:j], value[j:]
+                break
+        v_box = add_textbox(slide, pad_x, strip_top + _in(24), cell_w - _in(28), 0.66)
+        vp = v_box.text_frame.paragraphs[0]
+        if digits:
+            d_run = vp.add_run()
+            set_run(d_run, _pt(34), theme["text"], bold=True, font=_mono(),
+                    letter_spacing_pt=-0.2)
+            d_run.text = digits
+        if unit:
+            u_run = vp.add_run()
+            set_run(u_run, _pt(14), theme["muted"], bold=True, font=theme["font"])
+            u_run.text = unit
+        if delta:
+            kd = add_textbox(slide, pad_x, strip_top + _in(24) + 0.6,
+                             cell_w - _in(28), 0.32)
+            kp = kd.text_frame.paragraphs[0]
+            set_run(kp.add_run(), _pt(13), theme["accent"], font=_mono(),
+                    letter_spacing_pt=0.4)
+            kp.runs[0].text = f"▲ {delta}" if delta and not delta.startswith(("▲", "+")) else delta
+        if label:
+            l_box = add_textbox(slide, pad_x, strip_top + _in(24) + 0.94,
+                                cell_w - _in(28), 0.35)
+            lp = l_box.text_frame.paragraphs[0]
+            set_run(lp.add_run(), _pt(13.5), theme["muted"], font=theme["font"])
+            lp.runs[0].text = label
+
+    # ── a/b/c 增长引擎列表：mono 小写字母编号 + 粗体前缀 + 灰色说明 ──
+    if not engines:
+        return
+    line = blend("FFFFFF", theme["text"], 0.12)
+    list_top = _in(452)
+    row_h = (6.82 - list_top) / max(len(engines), 1)
+    for i, raw in enumerate(engines):
+        main, note = split_title_desc(raw)
+        y = list_top + i * row_h
+        # 行内容垂直居中于行高内，与上下发丝线各留净空
+        n_box = add_textbox(slide, _in(72), y + row_h / 2 - 0.18, 0.45, 0.35)
+        np_ = n_box.text_frame.paragraphs[0]
+        set_run(np_.add_run(), _pt(13), theme["muted"], font=_mono())
+        np_.runs[0].text = f"{chr(ord('a') + i)}."
+        t_box = add_textbox(slide, _in(72) + 0.55, y + row_h / 2 - 0.22,
+                            11.3, row_h - 0.24)
+        tp = t_box.text_frame.paragraphs[0]
+        tp.line_spacing = 1.3
+        m_run = tp.add_run()
+        set_run(m_run, _pt(15), theme["text"], bold=True, font=theme["font"])
+        m_run.text = main
+        if note:
+            n_run = tp.add_run()
+            set_run(n_run, _pt(14), theme["muted"], font=theme["font"])
+            n_run.text = f"　{note}"
+        if i < len(engines) - 1:
+            add_rect(slide, _in(72), y + row_h - 0.02, 11.89, 0.01, line)
 
 
 def _strip_keynote(slide: Any, theme: dict[str, Any], st: dict[str, Any],
@@ -716,16 +873,26 @@ def _two_col(slide: Any, theme: dict[str, Any], st: dict[str, Any],
 def _deep_dive(slide: Any, theme: dict[str, Any], st: dict[str, Any],
                item: dict[str, Any], index: int,
                resolve_media: Callable[[str], Any] | None) -> None:
-    """016 P6/P7 深潜页：左 56% 截图框 + 右侧 mono 编号 + 标题 + 字母要点。"""
-    _head_devconf(slide, theme, st, item, index)
+    """016 P6/P7 深潜页：56% 截图框 + 编号 + 标题 + 字母要点。
+    image_side=left（默认，016 P6 图左文右）/ right（016 P7 镜像：图右文左）。"""
+    # 原型 P6/P7 的 head 只有 kicker：标题/描述属于下方文案区，不重复渲染
+    _head_devconf(slide, theme, st, {"kicker": item.get("kicker") or ""}, index)
     top = _in(196)
     bottom = 6.75
     shot_w = 11.89 * 0.56
-    frame = add_rect(slide, _in(72), top, shot_w, bottom - top, "FAFBFC",
+    side = str(item.get("image_side") or item.get("side") or "left").strip().lower()
+    if side == "right":
+        shot_x = _in(72) + 11.89 - shot_w
+        copy_x = _in(72)
+    else:
+        shot_x = _in(72)
+        copy_x = _in(72) + shot_w + _in(44)
+    copy_w = 11.89 - shot_w - _in(44)
+    frame = add_rect(slide, shot_x, top, shot_w, bottom - top, "FAFBFC",
                      rounded=True, radius=0.06)
     frame.line.color.rgb = rgb(blend("FFFFFF", theme["text"], 0.1))
     frame.line.width = Pt(1)
-    hint = add_textbox(slide, _in(72), top + (bottom - top) / 2 - 0.15,
+    hint = add_textbox(slide, shot_x, top + (bottom - top) / 2 - 0.15,
                        shot_w, 0.3)
     hint.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
     set_run(hint.text_frame.paragraphs[0].add_run(), _pt(13),
@@ -735,11 +902,10 @@ def _deep_dive(slide: Any, theme: dict[str, Any], st: dict[str, Any],
     image = item.get("image")
     if resolve_media is not None and isinstance(image, dict):
         from .layouts import _media_block
-        _media_block(slide, theme, {}, image, _in(72) + 0.15, top + 0.15,
+        _media_block(slide, theme, {}, image, shot_x + 0.15, top + 0.15,
                      shot_w - 0.3, bottom - top - 0.3, resolve_media)
-    copy_x = _in(72) + shot_w + _in(44)
-    copy_w = 11.89 - shot_w - _in(44)
-    name = str(item.get("kicker") or "").strip()
+    feat = str(item.get("feature") or "").strip()
+    name = f"FEATURE {max(index - 5, 1):02d}" + (f" · {feat}" if feat else "")
     cy = top + 0.15
     if name:
         n_box = add_textbox(slide, copy_x, cy, copy_w, 0.3)
@@ -850,45 +1016,84 @@ def _compare(slide: Any, theme: dict[str, Any], st: dict[str, Any],
 
 def _table(slide: Any, theme: dict[str, Any], st: dict[str, Any],
            item: dict[str, Any], index: int) -> None:
-    """016 P10 竞品对比：无 accent 色块表头，mono 灰色大写标签。
-    自带实现，不依赖通用 tables.py（保持模板隔离）。"""
-    _head_devconf(slide, theme, st, item, index)
+    """016 P10 竞品对比表：第 2 列（本品）表头蓝底反白 + 本品行浅灰底加粗；
+    ✓ 蓝色 mono / ✕ 浅灰；顶/底 2px 近黑粗线。自带实现，不依赖通用 tables.py。"""
+    head_item = {k: v for k, v in item.items() if k != "subtitle"}
+    _head_devconf(slide, theme, st, head_item, index)
     spec = item.get("table") if isinstance(item.get("table"), dict) else {}
     columns = [str(c) for c in (spec.get("columns") or [])][:6]
     rows = [[str(cell) for cell in row] for row in (spec.get("rows") or [])][:8]
     rows = [row[:len(columns)] + [""] * (len(columns) - len(row))
             for row in rows]
+    us_col = 1 if len(columns) >= 2 else -1  # 本品列固定第 2 列
+    tbl_h = 0.52 + 0.44 * len(rows)
     frame = slide.shapes.add_table(len(rows) + 1, len(columns),
                                    Inches(_in(72)), Inches(_in(230)),
-                                   Inches(11.89), Inches(4.0))
+                                   Inches(11.89), Inches(tbl_h))
     table = frame.table
     table.first_row = False
     table.horz_banding = False
-    header_color = blend(theme["text"], "000000", 0.35)
+    us_body_fill = blend("FFFFFF", theme["text"], 0.04)  # ≈ #F4F5F6
     for c, label in enumerate(columns):
         cell = table.cell(0, c)
         cell.fill.solid()
-        cell.fill.fore_color.rgb = rgb(theme["content_bg"])
         cell.vertical_anchor = MSO_ANCHOR.MIDDLE
         p = cell.text_frame.paragraphs[0]
         run = p.add_run()
-        set_run(run, _pt(12.5), header_color, bold=True, font=_mono(),
-                letter_spacing_pt=1.0)
+        if c == us_col:
+            # 016 th.us：本品列表头蓝底反白
+            cell.fill.fore_color.rgb = rgb(theme["accent"])
+            set_run(run, _pt(12.5), "FFFFFF", bold=True, font=_mono(),
+                    letter_spacing_pt=1.0)
+        else:
+            cell.fill.fore_color.rgb = rgb(theme["content_bg"])
+            set_run(run, _pt(12.5),
+                    theme["text"] if c == 0
+                    else blend(theme["text"], "FFFFFF", 0.35),
+                    bold=True, font=_mono(), letter_spacing_pt=1.0)
         run.text = label.upper()
     for r, row in enumerate(rows, start=1):
         for c, value in enumerate(row):
             cell = table.cell(r, c)
             cell.fill.solid()
-            cell.fill.fore_color.rgb = rgb(theme["content_bg"])
             cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+            cell.fill.fore_color.rgb = rgb(
+                us_body_fill if c == us_col else theme["content_bg"])
             p = cell.text_frame.paragraphs[0]
-            run = p.add_run()
-            bold = c == 1 and len(columns) >= 2
-            set_run(run, _pt(13.5),
-                    theme["text"] if bold
-                    else blend(theme["text"], "FFFFFF", 0.25),
-                    bold=bold, font=theme["font"])
-            run.text = value
+            if value.startswith(("✓", "✕")):
+                # 016 .yes/.no：符号 mono 粗体（✓ 主题蓝 / ✕ 浅灰）+ 后续说明
+                symbol, rest = value[0], value[1:].strip()
+                s_run = p.add_run()
+                set_run(s_run, _pt(13.5),
+                        theme["accent"] if symbol == "✓"
+                        else blend(theme["text"], "FFFFFF", 0.45),
+                        bold=True, font=_mono())
+                s_run.text = f"{symbol} "
+                if rest:
+                    r_run = p.add_run()
+                    set_run(r_run, _pt(13),
+                            theme["text"] if c == us_col
+                            else blend(theme["text"], "FFFFFF", 0.25),
+                            bold=(c == us_col), font=theme["font"])
+                    r_run.text = rest
+            else:
+                run = p.add_run()
+                bold = c == us_col
+                set_run(run, _pt(13.5),
+                        theme["text"] if c in (0, us_col)
+                        else blend(theme["text"], "FFFFFF", 0.25),
+                        bold=bold, font=theme["font"])
+                run.text = value
+    # 顶/底 2px 近黑粗线（原型 thead 上下边）
+    add_rect(slide, _in(72), _in(230) - 0.03, 11.89, _in(2), theme["text"])
+    add_rect(slide, _in(72), _in(230) + tbl_h + 0.01, 11.89, _in(2), theme["text"])
+    # 底部注记行（016 .vs-note）
+    note = str(item.get("subtitle") or "").strip()
+    if note:
+        n_box = add_textbox(slide, _in(72), _in(230) + tbl_h + 0.18, 11.89, 0.35)
+        np_ = n_box.text_frame.paragraphs[0]
+        set_run(np_.add_run(), _pt(12.5), theme["muted"], font=theme["font"])
+        np_.runs[0].text = note
 
 
 def _chart(slide: Any, theme: dict[str, Any], st: dict[str, Any],
@@ -907,6 +1112,397 @@ def _chart(slide: Any, theme: dict[str, Any], st: dict[str, Any],
 
 
 # ---------------------------------------------------------------- 结尾
+
+def _growth_devconf(slide: Any, theme: dict[str, Any], st: dict[str, Any],
+                    item: dict[str, Any], index: int) -> None:
+    """016 P8 用户增长：左侧 88px 大数字 + delta 胶囊，右侧圆角图表框
+    （有 chart 数据画柱状，否则图表/截图占位提示）。"""
+    _head_devconf(slide, theme, st, item, index)
+    top = _in(186)
+    # ── 左：大数字块（36% 宽）──
+    big_w = 11.89 * 0.36
+    points = _points_of(item, 1) or ["--|待补充"]
+    parts = [p.strip() for p in points[0].split("|")]
+    value = parts[0] or "--"
+    label = parts[1] if len(parts) > 1 else ""
+    delta = parts[2] if len(parts) > 2 else ""
+    clean = value.replace("{{", "").replace("}}", "")
+    digits, unit = clean, ""
+    for j, ch in enumerate(clean):
+        if not ch.isdigit() and ch not in ".,+%":
+            digits, unit = clean[:j], clean[j:]
+            break
+    v_box = add_textbox(slide, _in(72), top, big_w, 1.35)
+    vp = v_box.text_frame.paragraphs[0]
+    if digits:
+        d_run = vp.add_run()
+        set_run(d_run, _pt(72), theme["text"], bold=True, font=_mono(),
+                letter_spacing_pt=-0.6)
+        d_run.text = digits
+    if unit:
+        u_run = vp.add_run()
+        set_run(u_run, _pt(28), theme["muted"], bold=False, font=theme["font"])
+        u_run.text = unit
+    if not digits:
+        set_run(vp.add_run(), _pt(48), theme["text"], bold=True, font=_mono())
+        vp.runs[0].text = clean
+    cy = top + 1.42
+    if label:
+        k_box = add_textbox(slide, _in(72), cy, big_w, 0.4)
+        kp = k_box.text_frame.paragraphs[0]
+        set_run(kp.add_run(), _pt(15), theme["muted"], font=theme["font"])
+        kp.runs[0].text = label
+        cy += 0.5
+    if delta:
+        pill_w = 0.5 + len(delta) * 0.095
+        pill = add_pill(slide, _in(72), cy + 0.05, pill_w, 0.4,
+                        theme["content_bg"])
+        pill.line.color.rgb = rgb(theme["accent"])
+        pill.line.width = Pt(1)
+        ptf = pill.text_frame
+        ptf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        pp = ptf.paragraphs[0]
+        pp.alignment = PP_ALIGN.CENTER
+        set_run(pp.add_run(), _pt(13.5), theme["accent"], font=_mono(),
+                letter_spacing_pt=0.4)
+        pp.runs[0].text = delta
+    # ── 右：图表框（left:44% → 右边距）──
+    chart_x = 0.44 * 13.333
+    chart_w = 13.333 - 1.0 - chart_x
+    chart_top = top
+    chart_h = 7.5 - 1.25 - chart_top
+    frame = add_rect(slide, chart_x, chart_top, chart_w, chart_h,
+                     blend("FFFFFF", theme["text"], 0.02),
+                     rounded=True, radius=0.05)
+    frame.line.color.rgb = rgb(blend("FFFFFF", theme["text"], 0.12))
+    frame.line.width = Pt(1)
+    title = str(item.get("chart_title") or item.get("subtitle") or "").strip()
+    chart = item.get("chart") if isinstance(item.get("chart"), dict) else None
+    pad = _in(26)
+    ty = chart_top + pad
+    if title:
+        t_box = add_textbox(slide, chart_x + pad, ty, chart_w - 2 * pad, 0.32)
+        tp = t_box.text_frame.paragraphs[0]
+        set_run(tp.add_run(), _pt(14), theme["text"], bold=True,
+                font=theme["font"])
+        tp.runs[0].text = title
+        ty += 0.34
+        unit = str((item.get("chart") or {}).get("unit")
+                   or "单位：{{万}} · {{截至本季度}}")
+        u_box = add_textbox(slide, chart_x + pad, ty, chart_w - 2 * pad, 0.26)
+        up = u_box.text_frame.paragraphs[0]
+        set_run(up.add_run(), _pt(11.5), theme["muted"], font=_mono())
+        up.runs[0].text = unit
+        ty += 0.34
+    cats: list[str] = []
+    values: list[float] = []
+    if chart:
+        cats = [str(c) for c in (chart.get("categories") or [])][:8]
+        series = chart.get("series") or []
+        if series and isinstance(series[0], dict):
+            values = [float(v) for v in (series[0].get("values") or [])][:8]
+    if values and cats:
+        # 柱状：底部对齐，最后一根高亮主题蓝
+        area_top = ty + 0.15
+        area_h = chart_top + chart_h - pad - 0.5 - area_top
+        step = (chart_w - 2 * pad) / len(values)
+        bar_w = 0.33
+        vmax = max(values) or 1
+        base_y = area_top + area_h
+        for i, val in enumerate(values):
+            bx = chart_x + pad + i * step + (step - bar_w) / 2
+            bh = max(0.12, area_h * (val / vmax))
+            color = theme["accent"] if i == len(values) - 1 \
+                else blend("FFFFFF", theme["accent"], 0.35)
+            add_rect(slide, bx, base_y - bh, bar_w, bh, color)
+            cv = add_textbox(slide, chart_x + pad + i * step, base_y - bh - 0.28,
+                             step, 0.24)
+            cvp = cv.text_frame.paragraphs[0]
+            cvp.alignment = PP_ALIGN.CENTER
+            set_run(cvp.add_run(), _pt(10.5), theme["muted"], font=_mono())
+            cvp.runs[0].text = str(int(val)) if float(val).is_integer() else str(val)
+            ax = add_textbox(slide, chart_x + pad + i * step, base_y + 0.08,
+                             step, 0.24)
+            axp = ax.text_frame.paragraphs[0]
+            axp.alignment = PP_ALIGN.CENTER
+            set_run(axp.add_run(), _pt(10.5), theme["muted"], font=_mono())
+            axp.runs[0].text = cats[i] if i < len(cats) else ""
+        add_rect(slide, chart_x + pad, base_y, chart_w - 2 * pad, 0.01,
+                 blend("FFFFFF", theme["text"], 0.2))
+    else:
+        ptf = frame.text_frame
+        ptf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        fp = ptf.paragraphs[0]
+        fp.alignment = PP_ALIGN.CENTER
+        set_run(fp.add_run(), _pt(13.5), theme["muted"], font=_mono(),
+                letter_spacing_pt=_pt(13.5 * 0.16))
+        fp.runs[0].text = "{{季度增长柱状图 / 数据截图占位}}"
+
+
+
+def _reveal_keynote(slide: Any, theme: dict[str, Any], st: dict[str, Any],
+                    item: dict[str, Any], index: int,
+                    resolve_media: Callable[[str], Any] | None = None) -> None:
+    """015 P3 产品亮相：左上蓝点标签 + 居中产品图占位框 + 左下粗细混排产品名。"""
+    _foot_keynote(slide, theme, st, index)
+    add_oval(slide, _in(96), _in(72) + 0.07, 0.09, 0.09, theme["accent"])
+    tag = add_textbox(slide, _in(96) + 0.2, _in(72) - 0.02, 8.5, 0.3)
+    tp = tag.text_frame.paragraphs[0]
+    set_run(tp.add_run(), _pt(13), theme["muted"], font=_mono(),
+            letter_spacing_pt=_pt(13 * 0.2))
+    tp.runs[0].text = str(item.get("kicker") or "NEW · 全新登场")
+    # 居中产品框（620×300px）
+    fw, fh = 6.46, 3.13
+    fx, fy = (13.333 - fw) / 2, _in(150)
+    card = add_rect(slide, fx, fy, fw, fh,
+                    blend(theme["cover_bg"], "FFFFFF", 0.03),
+                    rounded=True, radius=0.14)
+    card.line.color.rgb = rgb(blend(theme["cover_bg"], "FFFFFF", 0.12))
+    card.line.width = Pt(1)
+    image = item.get("image")
+    if resolve_media is not None and isinstance(image, dict):
+        from .layouts import _media_block
+        _media_block(slide, theme, {}, image, fx + 0.12, fy + 0.12,
+                     fw - 0.24, fh - 0.24, resolve_media)
+    else:
+        ptf = card.text_frame
+        ptf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        fp = ptf.paragraphs[0]
+        fp.alignment = PP_ALIGN.CENTER
+        set_run(fp.add_run(), _pt(13), blend(theme["cover_bg"], theme["text"], 0.35),
+                font=_mono(), letter_spacing_pt=_pt(13 * 0.3))
+        fp.runs[0].text = str(item.get("body") or "").strip() or "PRODUCT RENDER / 产品渲染图"
+    # 左下名称块：kicker + 粗细混排 h2（heading 用 | 分隔 细|粗）+ slogan
+    nx = _in(96)
+    ky = 4.92
+    kick = str(item.get("feature") or item.get("kicker") or "").strip()
+    if kick:
+        k_box = add_textbox(slide, nx, ky, 10.0, 0.3)
+        kp = k_box.text_frame.paragraphs[0]
+        set_run(kp.add_run(), _pt(13.5), theme["muted"], font=_mono(),
+                letter_spacing_pt=_pt(13.5 * 0.32))
+        kp.runs[0].text = kick.upper()
+    heading = str(item.get("heading") or item.get("title") or "")
+    h_box = add_textbox(slide, nx, ky + 0.38, 11.4, 0.95)
+    hp = h_box.text_frame.paragraphs[0]
+    if "|" in heading:
+        thin, bold = (seg.strip() for seg in heading.split("|", 1))
+    else:
+        thin, bold = "", heading
+    if thin:
+        t_run = hp.add_run()
+        set_run(t_run, _pt(46), theme["text"], bold=False, font=theme["font"])
+        t_run.text = thin + " "
+    b_run = hp.add_run()
+    set_run(b_run, _pt(46), theme["text"], bold=True, font=theme["font"])
+    b_run.text = bold
+    slogan = str(item.get("subtitle") or "").strip()
+    if slogan:
+        s_box = add_textbox(slide, nx, ky + 1.38, 10.5, 0.4)
+        sp = s_box.text_frame.paragraphs[0]
+        set_run(sp.add_run(), _pt(12.75), theme["muted"], font=theme["font"])
+        sp.runs[0].text = slogan
+
+
+def _compare_keynote(slide: Any, theme: dict[str, Any], st: dict[str, Any],
+                     item: dict[str, Any], index: int) -> None:
+    """015 P6 对比：暗色表格——mono 大写表头（本品列 ink 粗）、行发丝线、
+    本品列粗体、其余 muted；底部 faint 注记。"""
+    _head_keynote(slide, theme, st, item, index)
+    spec = item.get("table") if isinstance(item.get("table"), dict) else {}
+    columns = [str(c) for c in (spec.get("columns") or [])][:5]
+    rows = [[str(cell) for cell in row] for row in (spec.get("rows") or [])][:8]
+    rows = [row[:len(columns)] + [""] * (len(columns) - len(row))
+            for row in rows]
+    us_col = 1 if len(columns) >= 2 else -1
+    tbl_h = 0.46 + 0.4 * len(rows)
+    frame = slide.shapes.add_table(len(rows) + 1, len(columns),
+                                   Inches(_in(96)), Inches(_in(212)),
+                                   Inches(13.333 - 2 * _in(96)), Inches(tbl_h))
+    table = frame.table
+    table.first_row = False
+    table.horz_banding = False
+    dark = theme["cover_bg"]
+    for c, label in enumerate(columns):
+        cell = table.cell(0, c)
+        cell.fill.solid()
+        cell.fill.fore_color.rgb = rgb(dark)
+        cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p = cell.text_frame.paragraphs[0]
+        run = p.add_run()
+        set_run(run, _pt(11), theme["text"] if c == us_col
+                else theme["muted"], bold=(c == us_col), font=_mono(),
+                letter_spacing_pt=_pt(11 * 0.18))
+        run.text = label.upper()
+    for r, row in enumerate(rows, start=1):
+        for c, value in enumerate(row):
+            cell = table.cell(r, c)
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = rgb(dark)
+            cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+            p = cell.text_frame.paragraphs[0]
+            run = p.add_run()
+            if c == us_col:
+                set_run(run, _pt(12.5), theme["text"], bold=True,
+                        font=theme["font"])
+            elif c == 0:
+                set_run(run, _pt(11), theme["muted"], font=theme["font"])
+            else:
+                set_run(run, _pt(12), theme["muted"], font=theme["font"])
+            run.text = value
+    note = str(item.get("subtitle") or "").strip()
+    if note:
+        n_box = add_textbox(slide, _in(96), _in(212) + tbl_h + 0.2, 10.67, 0.32)
+        np_ = n_box.text_frame.paragraphs[0]
+        set_run(np_.add_run(), _pt(12), blend(dark, theme["text"], 0.4),
+                font=theme["font"])
+        np_.runs[0].text = note
+
+
+def _ecosystem_keynote(slide: Any, theme: dict[str, Any], st: dict[str, Any],
+                       item: dict[str, Any], index: int) -> None:
+    """015 P7 生态：mono 眉题 + 大标题 + 副文 + 底部三张深灰卡
+    （e-no 编号 + 粗标题 + 灰描述）。"""
+    _head_keynote(slide, theme, st, item, index)
+    sub = str(item.get("subtitle") or "").strip()
+    if sub:
+        s_box = add_textbox(slide, _in(96), _in(70) + 1.05, 7.6, 0.6)
+        sp = s_box.text_frame.paragraphs[0]
+        sp.line_spacing = 1.5
+        set_run(sp.add_run(), _pt(12), theme["muted"], font=theme["font"])
+        sp.runs[0].text = sub
+    points = _points_of(item, 3) or ["{{设备联动}}|{{一句话描述}}"]
+    gap = _in(22)
+    card_w = (13.333 - 2 * _in(96) - gap * (len(points) - 1)) / len(points)
+    card_h = 1.9
+    cards_y = 7.5 - 1.33 - card_h
+    line = blend(theme["cover_bg"], "FFFFFF", 0.12)
+    for i, raw in enumerate(points):
+        parts = [seg.strip() for seg in raw.split("|")]
+        title = parts[0] or "{{名称}}"
+        desc = parts[1] if len(parts) > 1 else ""
+        dev = parts[2] if len(parts) > 2 else ""
+        x = _in(96) + i * (card_w + gap)
+        card = add_rect(slide, x, cards_y, card_w, card_h,
+                        blend(theme["cover_bg"], "FFFFFF", 0.06),
+                        rounded=True, radius=0.12)
+        card.line.color.rgb = rgb(line)
+        card.line.width = Pt(1)
+        e_box = add_textbox(slide, x + _in(24), cards_y + _in(24),
+                            card_w - _in(40), 0.26)
+        ep = e_box.text_frame.paragraphs[0]
+        set_run(ep.add_run(), _pt(11), blend(theme["cover_bg"], theme["text"], 0.4),
+                font=_mono(), letter_spacing_pt=_pt(11 * 0.22))
+        ep.runs[0].text = f"{i + 1:02d}" + (f" · {dev}" if dev else "")
+        h_box = add_textbox(slide, x + _in(24), cards_y + _in(24) + 0.36,
+                            card_w - _in(40), 0.4)
+        hp = h_box.text_frame.paragraphs[0]
+        set_run(hp.add_run(), _pt(14.25), theme["text"], bold=True,
+                font=theme["font"])
+        hp.runs[0].text = title
+        if desc:
+            d_box = add_textbox(slide, x + _in(24), cards_y + _in(24) + 0.82,
+                                card_w - _in(40), 0.75)
+            dp = d_box.text_frame.paragraphs[0]
+            dp.line_spacing = 1.45
+            set_run(dp.add_run(), _pt(10), theme["muted"], font=theme["font"])
+            dp.runs[0].text = desc
+
+
+def _pricing_keynote(slide: Any, theme: dict[str, Any], st: dict[str, Any],
+                     item: dict[str, Any], index: int) -> None:
+    """015 P8 价格·发售：居中眉题 + 大标题 + 三张价格卡（推荐卡蓝描边）
+    + 底部发售行。points 每条 '档位|名称|配置|价格'。"""
+    _foot_keynote(slide, theme, st, index)
+    kick = str(item.get("kicker") or "Pricing · 价格与发售")
+    k_box = add_textbox(slide, 1.67, 0.7, 10.0, 0.3)
+    kp = k_box.text_frame.paragraphs[0]
+    kp.alignment = PP_ALIGN.CENTER
+    set_run(kp.add_run(), _pt(13), theme["muted"], font=_mono(),
+            letter_spacing_pt=_pt(13 * 0.24))
+    kp.runs[0].text = kick.upper()
+    heading = str(item.get("heading") or item.get("title") or "")
+    h_box = add_textbox(slide, 1.67, 1.06, 10.0, 0.75)
+    hp = h_box.text_frame.paragraphs[0]
+    hp.alignment = PP_ALIGN.CENTER
+    if "|" in heading:
+        pre, accent_word = (seg.strip() for seg in heading.split("|", 1))
+    else:
+        pre, accent_word = heading, ""
+    if pre:
+        p_run = hp.add_run()
+        set_run(p_run, _pt(36), theme["text"], bold=True, font=theme["font"])
+        p_run.text = pre
+    if accent_word:
+        a_run = hp.add_run()
+        set_run(a_run, _pt(36), theme["accent"], bold=True, font=theme["font"])
+        a_run.text = accent_word
+    points = _points_of(item, 3)
+    if len(points) < 3:
+        points = points + ["{{档位}}|{{版本名}}|{{配置}}|¥{{价格}}"] * (3 - len(points))
+    gap = _in(22)
+    card_w = (13.333 - 2 * 1.1 - gap * 2) / 3
+    cards_y = _in(236)
+    card_h = 2.95
+    for i, raw in enumerate(points):
+        parts = [seg.strip() for seg in raw.split("|")]
+        tag = parts[0] if parts else ""
+        name = parts[1] if len(parts) > 1 else ""
+        desc = parts[2] if len(parts) > 2 else ""
+        price = parts[3] if len(parts) > 3 else ""
+        reco = i == 1
+        x = 1.1 + i * (card_w + gap)
+        card = add_rect(slide, x, cards_y, card_w, card_h,
+                        blend(theme["cover_bg"], "FFFFFF", 0.05),
+                        rounded=True, radius=0.14)
+        card.line.color.rgb = rgb(theme["accent"] if reco
+                                  else blend(theme["cover_bg"], "FFFFFF", 0.12))
+        card.line.width = Pt(1.5 if reco else 1)
+        cx = x + card_w / 2 - card_w / 2 + _in(28)
+        cw = card_w - _in(56)
+        cxc = x + _in(28)
+        t_box = add_textbox(slide, cxc, cards_y + _in(28), cw, 0.26)
+        tp = t_box.text_frame.paragraphs[0]
+        tp.alignment = PP_ALIGN.CENTER
+        set_run(tp.add_run(), _pt(11.5), theme["accent"] if reco
+                else theme["muted"], font=_mono(),
+                letter_spacing_pt=_pt(11.5 * 0.24))
+        tp.runs[0].text = tag.upper()
+        n_box = add_textbox(slide, cxc, cards_y + _in(28) + 0.38, cw, 0.36)
+        np_ = n_box.text_frame.paragraphs[0]
+        np_.alignment = PP_ALIGN.CENTER
+        set_run(np_.add_run(), _pt(14.25), theme["text"], bold=True,
+                font=theme["font"])
+        np_.runs[0].text = name
+        if desc:
+            d_box = add_textbox(slide, cxc, cards_y + _in(28) + 0.76, cw, 0.3)
+            dp = d_box.text_frame.paragraphs[0]
+            dp.alignment = PP_ALIGN.CENTER
+            set_run(dp.add_run(), _pt(9.5), theme["muted"], font=theme["font"])
+            dp.runs[0].text = desc
+        pr_box = add_textbox(slide, cxc, cards_y + _in(28) + 1.3, cw, 0.85)
+        prp = pr_box.text_frame.paragraphs[0]
+        prp.alignment = PP_ALIGN.CENTER
+        if price:
+            currency = price[0] if price[0] in "¥$" else ""
+            amount = price[len(currency):]
+            if currency:
+                c_run = prp.add_run()
+                set_run(c_run, _pt(18), theme["muted"], bold=False,
+                        font=theme["font"])
+                c_run.text = currency
+            a_run = prp.add_run()
+            set_run(a_run, _pt(39), theme["text"], bold=True, font=theme["font"],
+                    letter_spacing_pt=-0.2)
+            a_run.text = amount
+    sale = str(item.get("subtitle") or "").strip()
+    if sale:
+        s_box = add_textbox(slide, 1.67, 6.55, 10.0, 0.35)
+        sp = s_box.text_frame.paragraphs[0]
+        sp.alignment = PP_ALIGN.CENTER
+        set_run(sp.add_run(), _pt(10.5), theme["muted"], font=theme["font"])
+        sp.runs[0].text = sale
+
 
 def _end(slide: Any, theme: dict[str, Any], st: dict[str, Any],
          item: dict[str, Any], index: int) -> None:
@@ -1011,6 +1607,12 @@ _LAYOUT_PAGE = {
     "cards": "_cards",
     "columns": "_cards",
     "kpi": "_kpi",
+    "kpi_rows": "_metrics",
+    "overview": "_overview",
+    "growth": "_growth",
+    "reveal": "_reveal",
+    "ecosystem": "_ecosystem",
+    "pricing": "_pricing",
     "two_col": "_two_col",
     "compare": "_compare",
     "quote": "_quote",
@@ -1028,6 +1630,9 @@ def render_slide(prs: Any, item: Any, theme: dict[str, Any], index: int,
           "_brand": str(item.get("_brand") or "")}
     sample = theme.get("sample")
     slide = prs.slides.add_slide(prs.slide_layouts[6])
+    if sample == "keynote":
+        # 015 纯黑舞台：所有 keynote 页先铺底色（封面/宣言/结尾自绘全幅底也不冲突）
+        add_rect(slide, 0, 0, 13.333, 7.5, theme["cover_bg"])
     layout = str(item.get("layout") or "").strip().lower()
     if layout not in _LAYOUT_PAGE:
         from .layouts import guess_layout
@@ -1052,14 +1657,48 @@ def render_slide(prs: Any, item: Any, theme: dict[str, Any], index: int,
         _cards(slide, theme, st, item, index)
     elif layout == "kpi":
         _kpi(slide, theme, st, item, index)
+    elif layout == "kpi_rows":
+        if sample == "devconf":
+            _metrics_devconf(slide, theme, st, item, index)
+        else:
+            _kpi(slide, theme, st, item, index)
+    elif layout == "overview":
+        if sample == "devconf":
+            _overview_devconf(slide, theme, st, item, index, resolve_media)
+        else:
+            _two_col(slide, theme, st, item, index, None)
+    elif layout == "growth":
+        if sample == "devconf":
+            _growth_devconf(slide, theme, st, item, index)
+        else:
+            _kpi(slide, theme, st, item, index)
     elif layout == "two_col":
         _two_col(slide, theme, st, item, index, resolve_media)
-    elif layout == "compare":
-        _compare(slide, theme, st, item, index)
+    elif layout in ("compare", "table"):
+        if sample == "keynote":
+            # 015 P6：暗色表格（本品列粗体），不走 devconf 白底表
+            _compare_keynote(slide, theme, st, item, index)
+        elif layout == "table":
+            _table(slide, theme, st, item, index)
+        else:
+            _compare(slide, theme, st, item, index)
     elif layout == "quote":
         _quote(slide, theme, st, item, index)
-    elif layout == "table":
-        _table(slide, theme, st, item, index)
+    elif layout == "reveal":
+        if sample == "keynote":
+            _reveal_keynote(slide, theme, st, item, index, resolve_media)
+        else:
+            _quote(slide, theme, st, item, index)
+    elif layout == "ecosystem":
+        if sample == "keynote":
+            _ecosystem_keynote(slide, theme, st, item, index)
+        else:
+            _cards(slide, theme, st, item, index)
+    elif layout == "pricing":
+        if sample == "keynote":
+            _pricing_keynote(slide, theme, st, item, index)
+        else:
+            _end(slide, theme, st, item, index)
     elif layout == "chart":
         _chart(slide, theme, st, item, index)
     else:  # end

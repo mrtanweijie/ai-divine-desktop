@@ -69,25 +69,33 @@ _FULL_DECK = [
 
 
 def test_sample_themes_skip_section_and_toc(tmp_path):
-    """样张节奏：首个 section 保留为深色使命宣言页（015/016 P2）；
-    多余 section 与 toc 页跳过（含显式 toc=true）。"""
+    """devconf：固定 12 页配方装配（槽位匹配 + 缺失补占位页，006 pop 同款）；
+    keynote：首个 section 保留为使命宣言页，多余 section/toc 跳过。"""
     for theme in ("devconf", "keynote"):
         result = _run({"title": "样张主题", "theme": theme, "toc": True,
                        "slides": _FULL_DECK}, tmp_path)
         assert result["success"] is True, result
         data = result["data"]
-        # 14 页输入 - toc = 13 页（首个 section 保留；不含自动补齐项）
-        assert data["slides"] == 13, theme
-        assert not any("章节页" in w for w in data["warnings"]), theme
         assert any("目录页" in w for w in data["warnings"]), theme
-        # 首个 section = 深色使命宣言页且被保留（签名按主题：devconf 页脚
-        # BRAND MANIFESTO；keynote 断言其标题文本仍存在于页序中）
         prs = Presentation(result["filepath"])
         all_txt = "\n".join(sh.text_frame.text for s in prs.slides
                             for sh in s.shapes if sh.has_text_frame)
-        assert "应被跳过的章节页" in all_txt, theme
         if theme == "devconf":
-            assert "BRAND MANIFESTO" in all_txt, theme
+            # 配方装配：≥12 页核心结构；缺失槽位有占位页提示；核心槽位在页序中
+            assert data["slides"] >= 12, theme
+            assert any("占位页" in w for w in data["warnings"]), theme
+            for token in ("用数字认识我们", "六大亮点", "增长的背后是留存",
+                          "竞品对比", "BRAND MANIFESTO"):
+                assert token in all_txt, (theme, token)
+            # 大纲里的 section 被配方收编为使命宣言页
+            assert "应被跳过的章节页" in all_txt, theme
+        else:
+            # keynote：同样配方装配（8 页核心 + 追加内容），缺失槽位有占位提示
+            assert data["slides"] >= 8, theme
+            assert any("占位页" in w for w in data["warnings"]), theme
+            assert "应被跳过的章节页" in all_txt, theme
+            for token in ("六大亮点", "用数字认识我们", "现在就开始创造"):
+                assert token in all_txt, (theme, token)
 
 
 def test_devconf_sample_pages_fidelity(tmp_path):
@@ -113,14 +121,22 @@ def test_devconf_sample_pages_fidelity(tmp_path):
     assert "FEATURE 01" in joined and "FEATURE 06" in joined
     # 数据带（016 P3）：数值 + delta 胶囊
     assert "120" in joined and "+38%" in joined
-    # 表格：mono 大写表头（016 P10）
+    # 表格：compare 条目已转为 016 式对比表（mono 大写表头，3 列）
     tables = [sh.table for slide in prs.slides for sh in slide.shapes
               if sh.has_table]
     assert tables
     header = [tables[0].cell(0, c).text
               for c in range(len(tables[0].columns))]
-    # 表头内容完整、无 accent 色块（表头填充=纸白底色）
-    assert header == ["能力", "我们"]
+    # 表头内容完整；本品列（第 2 列）表头蓝底反白（016 .vs th.us）
+    assert header == ["能力维度", "AI DIVINE", "云端助手"]
+    from pptx.dml.color import RGBColor
+    us_header = tables[0].cell(0, 1)
+    assert us_header.fill.fore_color.rgb == RGBColor(0x2F, 0x7B, 0xF7)
+    # 本品行浅灰底（016 td.us ≈ #F4F5F6 系）
+    assert tables[0].cell(1, 1).fill.fore_color.rgb != RGBColor(0xFF, 0xFF, 0xFF)
+    # 首数据行：能力 + ✓ 我方 + ✕ 对方（016 P10 语义）
+    assert tables[0].cell(1, 1).text.startswith("✓")
+    assert tables[0].cell(1, 2).text.startswith("✕")
     assert str(tables[0].cell(0, 0).fill.fore_color.rgb) == "FFFFFF"
 
 
@@ -136,10 +152,15 @@ def test_keynote_sample_pages_fidelity(tmp_path):
                          if sh.has_text_frame)
 
     assert "AI Divine" in texts(prs.slides[0])  # 品牌行（原样大小写）
-    # mono 页码 + 进度点页脚（015 签名）
-    assert "02 / 13" in texts(prs.slides[1])
-    # 编号行（015 大字排版承载要点/里程碑）
-    assert "01" in texts(prs.slides[1])
+    # 固定配方装配：P2 = 愿景宣言占位页（Part 01 签名），缺失槽位有占位提示
+    data = result["data"]
+    assert data["slides"] >= 8, data
+    assert any("占位页" in w for w in data["warnings"]), data
+    assert "Part 01" in texts(prs.slides[1])
+    # 核心槽位在页序中：特性三卡 / 数据带 / 对比 / 价格收尾
+    joined = "\n".join(texts(s) for s in prs.slides)
+    for token in ("六大亮点", "用数字认识我们", "现在就开始创造"):
+        assert token in joined, token
 
 
 def test_theme_colors_override_sample_themes(tmp_path):

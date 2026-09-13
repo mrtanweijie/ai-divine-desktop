@@ -60,16 +60,26 @@ from ..registry import register_tool
                 "description": (
                     "幻灯片列表；结尾页通常无需传入（自动补齐）。"
                     "内容密度：每页要点 ≤5 条、每条 ≤2 行。"
-                    "keynote/devconf 主题有标准页面配方，按序组织："
+                    "keynote（015 发布会）标准 8 页配方：①cover（brand/event/kicker/date/place）②section 愿景宣言 ③reveal 产品亮相（heading 用 '细体部分|粗体部分'，feature=定位语）④cards 特性三卡 ⑤kpi 性能数据 ⑥table/compare 对比 ⑦bullets 生态三卡（heading 含 '生态'）⑧pricing 价格三卡（points 每条 '档位|名称|配置|价格'，第 2 张自动蓝描边推荐）。"
+                    "devconf（016 开发者大会）有标准页面配方，按序组织："
                     "①cover 封面（必须带 brand/event/kicker/date/place）；"
                     "②section 品牌使命宣言（整页深色反转，写 mission 一句话 + points 关键词 2-3 个）；"
-                    "③kpi 品牌数据带（用户/活跃/增长/评分 4 项，'数值|标签|涨跌' 格式）；"
-                    "④产品全景或核心能力（bullets/cards）；"
+                    "③kpi 品牌数据带（用户/活跃/增长/评分 4 项，'数值|标签' 格式，"
+                    "subtitle 传一句话品牌背书长句）；"
+                    "④overview 产品全景页（heading 含 '全景/架构/一张图看懂'，image=架构图 URL 时自动铺满占位框，body 可放架构图说明文字，"
+                    "points 1 条 '本次大会聚焦：|模块说明' 作为底部聚焦行）；"
+                    "普通 bullets 主题页不属于标准页序，会追加在收尾之前；"
                     "⑤cards 亮点功能总览（6 个，'功能名|一句话价值' + 关键参数）；"
-                    "⑥two_col 亮点深潜 1-2 页（heading=核心主张，points=3 条 '要点|补充'）；"
-                    "⑦kpi 用户增长（注册/活跃等 + 涨跌）；"
-                    "⑧compare 与竞品/上代对比（left=本品，right=对照）；"
-                    "⑨bullets 三个选择理由；⑩quote 金句收束。"
+                    "⑥two_col 亮点深潜 1-2 页（heading=核心主张，points=3 条 '要点|补充'，image=产品截图 URL；image_side 控制图左/图右——第 1 页默认图左，第 2 页默认图右镜像）；"
+                    "⑦growth 用户增长页（左大数字：points 首条 '大数值|标签|涨跌'；右侧图表框：可选 chart={type:column, categories:[季], series:[{name, values}]} 画柱状，不传则图表/截图占位，chart_title 传图表标题）；"
+                    "⑦.5 kpi_rows 增长指标页（heading=增长的背后是留存：points 前 3 条为 "
+                    "'数值|标签|涨跌' KPI 如 '62%|次月留存率|+9pp YoY'，后 3 条为 '引擎名|描述' 增长引擎）；"
+                    "⑧table 与竞品/上代对比（016 为 4 列对比表：columns=['能力维度',"
+                    "'{{本品}}','{{竞品A}}','{{竞品B}}']，rows 每行['能力','✓ 我方优势','✕ 对方短板']；"
+                    "给 compare 也可以，会自动转成对比表；第 2 列固定为本品（表头自动蓝底反白）；"
+                    "subtitle 传对比口径注记）；"
+                    "⑨bullets 三个选择理由。"
+                    "kicker 只写纯文案（如 'Highlights'），渲染器自动加页序号前缀。"
                     "结尾页自动补齐为 CTA 版式（brand + heading 行动号召 + subtitle 官网/渠道 + body 联系方式）"
                 ),
                 "items": {
@@ -79,14 +89,17 @@ from ..registry import register_tool
                             "type": "string",
                             "enum": [
                                 "bullets", "cards", "timeline", "columns",
-                                "two_col", "compare", "kpi", "quote",
-                                "table", "chart", "toc", "section",
+                                "two_col", "compare", "kpi", "kpi_rows", "overview", "growth",
+                                "reveal", "ecosystem", "pricing", "growth", "overview",
+                                "quote", "table", "chart", "toc", "section",
                                 "cover", "end", "default",
                             ],
                             "description": (
                                 "版式：bullets 要点页（默认）；cards 卡片；"
                                 "timeline 时间轴；columns 分栏；two_col 图文两栏；"
                                 "compare 左右对比（需 left/right）；kpi 大数字；"
+                                "kpi_rows 指标+列表组合页（devconf 增长指标页：points 前 3 条为 "
+                                "'数值|标签|涨跌' KPI，其余为 '引擎名|描述' 增长引擎）；"
                                 "quote 金句；table 表格（需 table）；chart 图表（需 chart）；"
                                 "toc 目录；section 章节过渡页（keynote/devconf 下=整页深色品牌使命宣言：heading 写 mission 一句话、points 传 2-3 个品牌关键词）；cover 封面；end 结尾页。"
                                 "keynote/devconf 主题建议第 2 页放一个 section 品牌使命页"
