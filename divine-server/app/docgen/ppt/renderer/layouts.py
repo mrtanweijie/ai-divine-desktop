@@ -1368,9 +1368,18 @@ def guess_layout(item: Any) -> str:
 
 
 def add_slide(prs: Any, item: Any, theme_id: str, index: int,
-              resolve_media: Callable[[str], Any] | None = None) -> str:
-    """渲染一页内容版式，返回实际使用的 layout 名。"""
-    theme = get_ppt_theme(theme_id)
+              resolve_media: Callable[[str], Any] | None = None,
+              theme: dict[str, Any] | None = None) -> str:
+    """渲染一页内容版式，返回实际使用的 layout 名。
+
+    theme 传入带 "sample" 标记的主题对象时（keynote/devconf），整页交给
+    专属样张渲染器实现，通用版式完全不参与，保证模板之间互不污染。
+    """
+    theme = theme or get_ppt_theme(theme_id)
+    if theme.get("sample"):
+        from . import sample_pages
+        return sample_pages.render_slide(prs, item, theme, index,
+                                         resolve_media)
     st = get_style(theme)
     item = item if isinstance(item, dict) else {"body": str(item)}
     # 总页数注入装饰语言视图：页脚页码与进度点需要知道 deck 规模

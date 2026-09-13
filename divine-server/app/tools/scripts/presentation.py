@@ -95,6 +95,17 @@ def main() -> None:
     title = str(params.get("title") or "未命名演示文稿")
     theme_id = str(params.get("theme") or params.get("style") or "universal").strip()
     get_ppt_theme(theme_id)  # 未知主题回退默认，不报错
+    # 主题色覆盖：theme_colors 只需 {"--color-primary": "<颜色>"}，
+    # 支持颜色名/色值（与 PDF 工具约定一致）；对所有主题生效
+    theme_colors = params.get("theme_colors") or {}
+    primary = ""
+    if isinstance(theme_colors, dict):
+        primary = str(theme_colors.get("--color-primary")
+                      or theme_colors.get("--primary") or "").strip()
+    ppt_theme = None
+    if primary:
+        from app.docgen.ppt.renderer.themes import apply_primary_color
+        ppt_theme = apply_primary_color(dict(get_ppt_theme(theme_id)), primary)
     raw_path = str(params.get("path") or "").strip()
 
     # 归一化层（docs/fix/001-ppt-empty-slides-20260906.md §4.1）：items/quote/bullets 等别名键
@@ -124,6 +135,7 @@ def main() -> None:
     from pptx import Presentation
 
     from app.docgen.ppt.renderer import SLIDE_H, SLIDE_W
+    from app.docgen.ppt.renderer.layouts import guess_layout
 
     prs = Presentation()
     prs.slide_width = SLIDE_W
@@ -135,6 +147,8 @@ def main() -> None:
         cover = dict(items[0])
         cover["layout"] = "cover"
         cover.setdefault("heading", title)
+        # 封面元信息兜底：LLM 漏传 brand/event/kicker 时至少保证品牌行不空
+        cover.setdefault("brand", title)
         cover_items = [cover]
         items = items[1:]
     else:
@@ -148,12 +162,64 @@ def main() -> None:
     if items and last_layout != "end":
         items = items + [{"layout": "end", "heading": "谢谢观看"}]
 
+    # 015/016 样张没有章节分隔页与目录页：样张主题下跳过 section/toc 页
+    #（不渲染、不占页码），默认也不插目录（显式 toc=true 亦忽略并提示）
+    sample_mode = (ppt_theme or get_ppt_theme(theme_id)).get("sample") or ""
+    suppress_toc = False
+    if sample_mode in ("devconf", "keynote"):
+        def _is_section(it: Any) -> bool:
+            if not isinstance(it, dict):
+                return False
+            layout_key = str(it.get("layout") or "").strip().lower()
+            if not layout_key:
+                try:
+                    layout_key = guess_layout(it)
+                except Exception:
+                    layout_key = ""
+            return layout_key == "section"
+
+        def _is_toc_page(it: Any) -> bool:
+            if not isinstance(it, dict):
+                return False
+            return (str(it.get("layout") or "").strip().lower() == "toc"
+                    or "目录" in str(it.get("heading") or ""))
+
+        # 样张节奏：首个 section 页 = 深色品牌使命宣言页（015 P2 / 016 P2），保留；
+        # 其后的 section 页属于多余的分隔页，跳过
+        kept_items: list[Any] = []
+        seen_section = False
+        skipped_sections = 0
+        for it in items:
+            if _is_section(it):
+                if not seen_section:
+                    kept_items.append(it)
+                    seen_section = True
+                else:
+                    skipped_sections += 1
+            else:
+                kept_items.append(it)
+        if skipped_sections:
+            warnings.append(
+                f"已跳过 {skipped_sections} 个多余章节页"
+                f"（{sample_mode} 主题仅保留首屏使命宣言页）"
+            )
+        items = kept_items
+        skipped_toc = [it for it in items if _is_toc_page(it)]
+        if skipped_toc:
+            items = [it for it in items if not _is_toc_page(it)]
+            warnings.append(
+                f"已跳过 {len(skipped_toc)} 个目录页（{sample_mode} 主题无目录页）"
+            )
+        suppress_toc = True
+
     # 目录页兜底：未显式给出且内容量足够时，按章节页自动生成（含页码）
     def _is_toc(it: dict) -> bool:
         return (str(it.get("layout") or "").strip().lower() == "toc"
                 or "目录" in str(it.get("heading") or ""))
 
     want_toc = params.get("toc")
+    if suppress_toc:
+        want_toc = False  # 样张主题无目录页：显式 toc=true 也忽略
     has_toc = any(isinstance(it, dict) and _is_toc(it) for it in items)
     sections = [(i, str(it.get("heading") or it.get("title") or "").strip())
                 for i, it in enumerate(items)
@@ -185,15 +251,20 @@ def main() -> None:
     total_pages = len(cover_items) + len(items)
     # 总页数挂到每个 item 上：内容页的页码/进度点也需要（此前只挂封面项，
     # 导致 pop 风格的内容页页脚拿不到总数而退回标题摘要）
+    deck_brand = ""
+    if cover_items and isinstance(cover_items[0], dict):
+        deck_brand = str(cover_items[0].get("brand") or "")
     for it in cover_items + items:
         if isinstance(it, dict):
             it["_pages"] = total_pages
+            it["_brand"] = deck_brand
     rendered = 0
     rendered_layouts: list[str] = []
     try:
         for item in cover_items + items:
             rendered_layouts.append(
-                add_slide(prs, item, theme_id, rendered + 1, resolve_media=resolve_media)
+                add_slide(prs, item, theme_id, rendered + 1,
+                          resolve_media=resolve_media, theme=ppt_theme)
             )
             rendered += 1
     except ValueError as exc:

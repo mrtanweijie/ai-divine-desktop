@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="ZK9ryQ9oAzwdFCuzCQvUV8">
+<head data-page-node-id="I2wKfc10uHDPvzy6RDRlFO">
+<meta charset="UTF-8" data-page-node-id="G8L3o54yApsUp49rocPDTp">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="SlYn8ZGQEIgGXVSbZy6FeO">
+<title>{{产品名称}} · {{开发者大会名称}} | 产品功能介绍与推广 PPT 模板（HTML 样张 016）</title>
+<style>
+/* ==========================================================================
+   016 · 「开发者大会 · 产品推广」HTML 幻灯片样张
+   设计空间：1280 × 720（16:9），幻灯片垂直堆叠预览
+   风格基因：纸白 + 近黑 + 发丝线的现代专业风（Vercel/Linear 谱系）；
+             等宽字体用于眉题/编号/数据（开发者气质）；纯黑白单色阶，无彩色无渐变
+   节奏设计：P2 品牌使命用整页深色反转，形成黑白呼吸感；其余页浅色
+   渲染兼容：python-pptx 原语全部可用（纯色/细线/文本/表格），无渐变无阴影依赖
+   占位符：{{双花括号}}；嵌套内容直接写明文
+   页面映射：P1 封面 ｜ P2 品牌使命（深色）｜ P3 品牌数据 ｜ P4 产品全景
+            ｜ P5 功能总览 ｜ P6 亮点深潜 A ｜ P7 亮点深潜 B ｜ P8 用户增长
+            ｜ P9 增长指标 ｜ P10 竞品对比 ｜ P11 为什么选择我们 ｜ P12 结尾 CTA
+   ========================================================================== */
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root{
+  --font: "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",
+          -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono","SF Mono",Menlo,Consolas,"Courier New",monospace;
+
+  /* —— 浅色纸面 —— */
+  --paper:  #FFFFFF;
+  --canvas: #EDEEF0;
+
+  /* —— 黑白单色阶 —— */
+  --ink:   #16181D;
+  --ink-2: #454B52;
+  --muted: #7E858D;
+  --faint: #B4B9BF;
+
+  /* —— 深色反转页（品牌使命）—— */
+  --dark-bg:  #0E1116;
+  --dark-ink: #F2F3F5;
+  --dark-mut: #8A9199;
+
+  /* —— 产品主题蓝（点缀用）—— */
+  --blue:      #2F7BF7;
+  --blue-soft: #EDF3FE;
+
+  /* —— 线 —— */
+  --line:      #E6E8EB;
+  --line-dark: #16181D;
+}
+
+body{
+  font-family: var(--font);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  padding: 48px 0;
+}
+
+.slide{
+  width: 1280px; height: 720px;
+  margin: 0 auto 40px;
+  background: var(--paper);
+  color: var(--ink);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,.18);
+}
+.slide.dark{ background: var(--dark-bg); color: var(--dark-ink); }
+
+/* —— 通用页脚：左产品名 · 中大会名 · 右页码（等宽）—— */
+.foot{
+  position: absolute; left: 72px; right: 72px; bottom: 30px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; color: var(--faint);
+}
+.foot > .mono:first-child{ color: var(--ink); font-weight: 700; letter-spacing: 0.14em; }
+.foot > .mono:first-child::before{ content:""; display:inline-block; width:8px; height:8px; border-radius:2px; background:var(--blue); margin-right:9px; }
+.foot .mono{ font-family: var(--mono); letter-spacing: 0.1em; }
+
+/* —— 通用：等宽眉题 —— */
+.kicker{
+  font-family: var(--mono);
+  font-size: 13.5px; font-weight: 500; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--muted);
+}
+.kicker b{ color: var(--blue); font-weight: 700; }
+.slide.dark .kicker b{ color: #7DB0FF; }
+
+/* —— 通用：章节头 —— */
+.head{ position: absolute; top: 64px; left: 72px; right: 72px; }
+.head h2{ font-size: 40px; font-weight: 800; letter-spacing: 0.01em; margin-top: 10px; }
+.head .sub{ font-size: 15px; color: var(--muted); margin-top: 8px; }
+
+/* ══════════ P1 封面 ══════════ */
+.s1-top{ position:absolute; top:52px; left:0; right:0; display:flex; justify-content:space-between; padding:0 72px; }
+.s1-brand{ font-size:15px; font-weight:800; letter-spacing:0.26em; }
+.s1-conf{ font-family:var(--mono); font-size:13.5px; color:var(--muted); letter-spacing:0.16em; }
+.s1-main{ position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; padding:0 96px; }
+.s1-kicker{ margin-bottom:22px; }
+.s1-title{ font-size:88px; font-weight:800; line-height:1.1; letter-spacing:0.005em; }
+.s1-title .thin{ font-weight:300; color:var(--muted); }
+.s1-sub{ margin-top:22px; font-size:19px; color:var(--ink-2); letter-spacing:0.06em; }
+.s1-meta{ position:absolute; bottom:88px; left:96px; right:96px; display:flex; gap:40px; font-family:var(--mono); font-size:13.5px; color:var(--muted); letter-spacing:0.08em; }
+.s1-meta span::before{ content:"/ "; color:var(--faint); }
+.s1-line{ position:absolute; left:96px; right:96px; bottom:70px; height:1px; background:var(--line); }
+
+/* ══════════ P2 品牌使命（深色反转）═════════ */
+.s2-head{ position:absolute; top:64px; left:72px; }
+.s2-head .kicker b{ color:var(--dark-ink); }
+.s2-main{ position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; padding:0 130px; }
+.s2-line{ font-size:58px; font-weight:800; line-height:1.42; }
+.s2-line .dim{ color:var(--dark-mut); font-weight:300; }
+.s2-keys{ display:flex; gap:14px; margin-top:44px; }
+.s2-keys .k{
+  font-family:var(--mono); font-size:14.5px; color:var(--dark-ink);
+  border:1px solid rgba(242,243,245,0.28); border-radius:999px; padding:9px 24px;
+}
+.s2-keys .k:first-child{ border-color:#7DB0FF; color:#7DB0FF; }
+.s2-dark-foot{ position:absolute; left:72px; right:72px; bottom:30px; display:flex; justify-content:space-between; font-size:13px; color:var(--dark-mut); }
+.s2-dark-foot .mono{ font-family:var(--mono); letter-spacing:0.1em; }
+
+/* ══════════ P3 品牌数据带 ══════════ */
+.strip{ position:absolute; left:72px; width:1136px; top:212px; display:table; table-layout:fixed; border-top:2px solid var(--line-dark); border-bottom:1px solid var(--line); }
+.strip .kc{ display:table-cell; vertical-align:top; padding:22px 20px; border-right:1px solid var(--line); }
+.strip .kc:first-child{ padding-left:2px; }
+.strip .kc:last-child{ border-right:none; }
+.strip .kv{ font-family:var(--mono); font-size:38px; font-weight:700; letter-spacing:-0.01em; font-variant-numeric:tabular-nums; }
+.strip .kv em{ font-style:normal; font-size:15px; font-weight:500; color:var(--muted); margin-left:3px; }
+.strip .kk{ font-size:13.5px; color:var(--muted); margin-top:6px; }
+.s3-quote{ position:absolute; left:72px; right:72px; top:470px; border-top:1px solid var(--line); padding-top:22px; font-size:17px; color:var(--ink-2); line-height:1.9; text-align:justify; }
+.s3-quote b{ color:var(--blue); }
+
+/* ══════════ P4 产品全景 ══════════ */
+.arch{ position:absolute; left:72px; right:72px; top:196px; bottom:130px; border:1px solid var(--line); border-radius:16px; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:13.5px; color:var(--faint); letter-spacing:0.2em; }
+.s4-cap{ position:absolute; left:72px; bottom:88px; font-size:14px; color:var(--muted); }
+.s4-cap b{ color:var(--ink); }
+
+/* ══════════ P5 功能总览（六宫格）═════════ */
+.s5-grid{ position:absolute; left:72px; right:72px; top:196px; display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+.fcard{ border:1px solid var(--line); border-radius:14px; padding:24px 26px; }
+.fcard .f-no{ font-family:var(--mono); font-size:12.5px; color:var(--faint); letter-spacing:0.18em; margin-bottom:14px; }
+.fcard h3{ font-size:19.5px; font-weight:800; margin-bottom:7px; }
+.fcard p{ font-size:13.5px; color:var(--muted); line-height:1.65; }
+.fcard .f-tag{ display:inline-block; margin-top:12px; font-family:var(--mono); font-size:11.5px; color:var(--blue); background:var(--blue-soft); border:none; border-radius:999px; padding:3px 12px; }
+
+/* ══════════ P6/P7 亮点深潜 ══════════ */
+.duo{ position:absolute; left:72px; width:1136px; top:196px; bottom:120px; display:table; table-layout:fixed; border-spacing:0; margin-bottom:14px; }
+.duo .shot{ display:table-cell; width:56%; vertical-align:middle; text-align:center; border:1px solid var(--line); border-radius:14px; background:#FAFBFC; }
+.duo .shot .frame{ display:inline-block; font-family:var(--mono); font-size:13px; color:var(--faint); letter-spacing:0.18em; padding:0 20px; }
+.duo .copy{ display:table-cell; vertical-align:top; padding-left:44px; }
+.duo .copy .d-no{ font-family:var(--mono); font-size:13px; color:var(--blue); letter-spacing:0.18em; margin-bottom:10px; }
+.duo .copy h3{ font-size:30px; font-weight:800; line-height:1.3; margin-bottom:12px; }
+.duo .copy .desc{ font-size:14.5px; color:var(--ink-2); line-height:1.85; text-align:justify; margin-bottom:20px; }
+.duo .pt{ display:table; width:100%; padding:11px 0; border-top:1px solid var(--line); }
+.duo .pt .p-no, .duo .pt .p-tx{ display:table-cell; vertical-align:top; }
+.duo .pt .p-no{ width:36px; font-family:var(--mono); font-size:12.5px; color:var(--blue); padding-top:2px; }
+.duo .pt .p-tx{ font-size:14.5px; color:var(--ink); line-height:1.6; }
+.duo .pt .p-tx small{ display:block; font-size:12.5px; color:var(--muted); margin-top:2px; }
+.s7-flip .shot{ display:table-cell; width:56%; vertical-align:top; }
+.s7-flip .copy{ display:table-cell; vertical-align:top; padding-right:44px; padding-left:0; }
+
+/* ══════════ P8 用户增长（大数字 + 柱状）═════════ */
+.s8-big{ position:absolute; left:72px; top:186px; width:36%; }
+.s8-big .v{ font-family:var(--mono); font-size:88px; font-weight:700; letter-spacing:-0.02em; line-height:1; }
+.s8-big .v em{ font-style:normal; font-size:30px; font-weight:500; color:var(--muted); margin-left:4px; }
+.s8-big .k{ font-size:15px; color:var(--muted); margin-top:10px; }
+.s8-big .delta{ display:inline-block; margin-top:18px; font-family:var(--mono); font-size:13.5px; color:var(--blue); border:1px solid var(--blue); border-radius:999px; padding:5px 16px; }
+.s8-chart{ position:absolute; left:44%; right:72px; top:186px; bottom:120px; border:1px solid var(--line); border-radius:14px; padding:26px 30px; }
+.s8-chart .c-title{ font-size:14px; font-weight:700; margin-bottom:2px; }
+.s8-chart .c-unit{ font-family:var(--mono); font-size:11.5px; color:var(--faint); margin-bottom:16px; }
+.c-row{ display:flex; align-items:stretch; gap:10px; height:210px; border-bottom:1px solid var(--line-dark); padding:0 6px; }
+.c-col{ flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:6px; }
+.c-col .bar{ width:32px; background:#C9D8F5; border-radius:3px 3px 0 0; }
+.c-col.hl .bar{ background:var(--blue); }
+.c-col .cv{ font-family:var(--mono); font-size:10.5px; color:var(--muted); }
+.c-axis{ display:flex; gap:10px; padding:6px 6px 0; }
+.c-axis span{ flex:1; text-align:center; font-family:var(--mono); font-size:10.5px; color:var(--faint); }
+
+/* ══════════ P9 增长指标（KPI 三栏）═════════ */
+.kpi-row{ position:absolute; left:72px; width:1136px; top:196px; display:table; table-layout:fixed; border-top:2px solid var(--line-dark); border-bottom:1px solid var(--line); }
+.kpi-row .kc{ display:table-cell; vertical-align:top; padding:22px 20px; border-right:1px solid var(--line); }
+.kpi-row .kc:last-child{ border-right:none; }
+.kpi-row .kv{ font-family:var(--mono); font-size:40px; font-weight:700; font-variant-numeric:tabular-nums; }
+.kpi-row .kv em{ font-style:normal; font-size:15px; font-weight:500; color:var(--muted); margin-left:3px; }
+.kpi-row .kd{ font-family:var(--mono); font-size:13px; color:var(--blue); margin-top:8px; }
+.kpi-row .kk{ font-size:13.5px; color:var(--muted); margin-top:6px; }
+.s9-list{ position:absolute; left:72px; right:72px; top:452px; }
+.s9-item{ display:table; width:100%; padding:13px 0; border-bottom:1px solid var(--line); }
+.s9-item:last-child{ border-bottom:none; }
+.s9-item .n, .s9-item .t{ display:table-cell; vertical-align:top; }
+.s9-item .n{ width:44px; font-family:var(--mono); font-size:13px; color:var(--faint); padding-top:2px; }
+.s9-item .t{ font-size:15px; color:var(--ink-2); line-height:1.7; }
+.s9-item .t b{ color:var(--ink); }
+
+/* ══════════ P10 竞品对比 ══════════ */
+.vs{ position:absolute; left:72px; right:72px; top:196px; }
+.vs table{ width:100%; border-collapse:collapse; font-size:14px; }
+.vs thead tr{ border-top:2px solid var(--line-dark); border-bottom:1px solid var(--line-dark); }
+.vs th{ text-align:left; padding:12px 14px; font-weight:700; }
+.vs th.us{ background:var(--blue); color:#FFFFFF; }
+.vs th.dim2{ color:var(--muted); font-weight:600; }
+.vs td{ padding:11.5px 14px; border-bottom:1px solid var(--line); color:var(--ink-2); }
+.vs td.us{ background:#F4F5F6; color:var(--ink); font-weight:700; }
+.vs td.c-dim{ color:var(--muted); }
+.vs .yes{ font-family:var(--mono); font-weight:700; color:var(--blue); }
+.vs .no{ font-family:var(--mono); color:var(--faint); }
+.vs tr:last-child td{ border-bottom:2px solid var(--line-dark); }
+.vs-note{ position:absolute; left:72px; bottom:96px; font-size:12.5px; color:var(--faint); }
+
+/* ══════════ P11 为什么选择我们 ══════════ */
+.why{ position:absolute; left:72px; right:72px; top:196px; }
+.why-item{ display:table; width:100%; padding:20px 0; border-bottom:1px solid var(--line); }
+.why-item:last-child{ border-bottom:none; }
+.why-item .w-no, .why-item .w-bd{ display:table-cell; vertical-align:top; }
+.why-item .w-no{ width:70px; font-family:var(--mono); font-size:34px; font-weight:300; color:var(--blue); line-height:1.1; }
+.why-item h3{ font-size:21px; font-weight:800; margin-bottom:6px; }
+.why-item p{ font-size:14.5px; color:var(--ink-2); line-height:1.8; text-align:justify; }
+.why-item .w-data{ display:inline-block; margin-top:10px; font-family:var(--mono); font-size:12.5px; color:var(--blue); border:1px solid var(--blue); border-radius:999px; padding:4px 14px; }
+
+/* ══════════ P12 结尾 CTA ══════════ */
+.s12-main{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.s12-logo{ font-size:30px; font-weight:800; letter-spacing:0.2em; margin-bottom:30px; }
+.s12-title{ font-size:62px; font-weight:800; line-height:1.25; }
+.s12-sub{ margin-top:20px; font-size:17px; color:var(--muted); letter-spacing:0.08em; }
+.s12-cta{ display:flex; gap:16px; margin-top:44px; }
+.s12-cta .btn{ font-family:var(--mono); font-size:14.5px; border-radius:999px; padding:12px 34px; }
+.s12-cta .btn.primary{ background:var(--blue); color:#FFFFFF; }
+.s12-cta .btn.ghost{ border:1px solid var(--line-dark); color:var(--ink); }
+.s12-qr{ margin-top:42px; font-family:var(--mono); font-size:12.5px; color:var(--faint); letter-spacing:0.14em; }
+</style>
+</head>
+<body data-page-node-id="elW273fdECEtpm59Lx0HnP">
+
+<!-- ══════════ P1 / 封面 ══════════ -->
+<div class="slide" data-page-node-id="eO3YIEImZ6fyM0Tr1nqtjP">
+  <div class="s1-top" data-page-node-id="32BzBQ9tLXJhqIKS3bwrmj">
+    <div class="s1-brand" data-page-node-id="mO9p7vOlwyGyXD51KEF9Fk">{{产品 LOGO · 名称}}</div>
+    <div class="s1-conf" data-page-node-id="O88hCp26Gsc1wUsG9FeMw9">{{DEVCONF 2026 · TRACK A}}</div>
+  </div>
+  <div class="s1-main" data-page-node-id="ZucR9B79P8ZpAktjAnY901">
+    <div class="s1-kicker kicker" data-page-node-id="dgxqlTT1mfv2qqBEdA2vQF"><b data-page-node-id="nqv64u0euf87sSmJ1mA7a0">{{WorkBuddy}}</b> · Product Keynote</div>
+    <h1 class="s1-title" data-page-node-id="S2Y75MZwWdR13CgZgDvh7T">{{产品名称}}<br data-page-node-id="fvpUUQeGAtTTTOkebnXDBH"><span class="thin" data-page-node-id="Im15BLtyrFtaX5sflj2FrA">{{一句话产品定位}}</span></h1>
+    <div class="s1-sub" data-page-node-id="dGbZHBGAroZ9sdCpVOmMEs">{{面向 {{目标人群}} 的 {{核心价值}}，本次大会发布 {{版本/大版本}} 与 {{重点能力}}。}}</div>
+  </div>
+  <div class="s1-meta" data-page-node-id="NzCOu1EdxdmZ6riCHZsnxP"><span data-page-node-id="HNQOnCvAlAiVsax8eyjt7g">{{2026.09.28}}</span><span data-page-node-id="MqDaWypnj4uTfHiycyjseA">{{会场 / 直播间}}</span><span data-page-node-id="HbtimCSfpfeRmtuF9FOVuD">{{speaker 姓名}}</span></div>
+  <div class="s1-line" data-page-node-id="6sf4EKp9Jo4aFlGtGp6PfH"></div>
+</div>
+
+<!-- ══════════ P2 / 品牌使命（深色反转）═════════ -->
+<div class="slide dark" data-page-node-id="70AjFTxGDqOQzmD4Deucck">
+  <div class="s2-head" data-page-node-id="F1FnvKzbPOW8a3SqemJ9sE"><div class="kicker" data-page-node-id="AsPS9QGK0Ngg3XIZPmf9Os"><b data-page-node-id="EUE0y2X13DbP5iDmq86vRZ">01</b> · Brand</div></div>
+  <div class="s2-main" data-page-node-id="Nx4HPvm5CKRlY6yid0Ce1D">
+    <div class="s2-line" data-page-node-id="PMakjaSeLabahwEzmLi1eB">{{我们相信，好的工具应该<span class="dim" data-page-node-id="anZgilbBW3aZRNZ8tCShGL">像空气一样</span>——}}<br data-page-node-id="JDWrpUppWXInyqS8ZopcQm">{{品牌使命的一句话表达}}。</div>
+    <div class="s2-keys" data-page-node-id="7PZ9cPgWNGbQB3qZqgTuB4">
+      <span class="k" data-page-node-id="wRX0SqeCNI105vhKXTMQiD">{{关键词一 · 简单}}</span>
+      <span class="k" data-page-node-id="sL1hEHANjgjtlXN2m03v3N">{{关键词二 · 可靠}}</span>
+      <span class="k" data-page-node-id="6Og2PEqptkgngubPUdlHms">{{关键词三 · 开放}}</span>
+    </div>
+  </div>
+  <div class="s2-dark-foot" data-page-node-id="3n8seYIWFUERB8S6Ql6Bbd"><span data-page-node-id="B7cRJfOg1763ZGJ0dE2jrK">{{产品名称}}</span><span class="mono" data-page-node-id="sE6tzp9oKmi0r46DNHeK1i">{{BRAND MANIFESTO}}</span></div>
+</div>
+
+<!-- ══════════ P3 / 品牌数据带 ══════════ -->
+<div class="slide" data-page-node-id="d0U7Pknk492Fzf5HN6SXxe">
+  <div class="head" data-page-node-id="cUmRGHMUsDKakY5zAUlPGM">
+    <div class="kicker" data-page-node-id="j30pFs6svlGUY9PLh1JH0w"><b data-page-node-id="VzmNvo6dbf2ekDFbEsV3Fc">01</b> · Brand by Numbers</div>
+    <h2 data-page-node-id="pmBILntK7pWduKduwP5LdV">{{用数字认识我们}}</h2>
+  </div>
+  <div class="strip" data-page-node-id="L5NTu3WfI3lnfRprZVzI6l">
+    <div class="kc" data-page-node-id="33UaS9e6AFU5dFSpEebgIx"><div class="kv" data-page-node-id="UqYHdK9wqMWvuGPKk1ZH8w">{{120}}<em data-page-node-id="ePzSZ35kiWE5MzTHYU2kPw">万+</em></div><div class="kk" data-page-node-id="4Yc5cZZjqDTGC1sEkT06lk">{{注册用户（截至 {{2026.09}}）}}</div></div>
+    <div class="kc" data-page-node-id="AFSqUm15wS8oVUjpPWkoHj"><div class="kv" data-page-node-id="A68RWO6IEtHKAdCSAy8IcV">{{40}}<em data-page-node-id="4MVkpemBIBr64rJw0EhNXH">万</em></div><div class="kk" data-page-node-id="yuiRxlLfz0gDcLsSXWaqoK">{{月活跃用户}}</div></div>
+    <div class="kc" data-page-node-id="XIbdcqJmqZyRS1DzVGbtAm"><div class="kv" data-page-node-id="Jpcy6ejJWNjfqtyvAeyTBe">{{18}}<em data-page-node-id="x4fL5ylYAYfeayDo1TbJaQ">个月</em></div><div class="kk" data-page-node-id="0BSoArgzcMwiJuw4HDLwiD">{{连续保持 {{xx%}} 月复合增长}}</div></div>
+    <div class="kc" data-page-node-id="UYU8GFzqP6RJDYcz5QmcqN"><div class="kv" data-page-node-id="Jd5lbZePuD6hMdlGU7j3XL">{{4.9}}</div><div class="kk" data-page-node-id="Pt2chcf7NfjpF88fdAGM5j">{{应用商店评分（{{N}} 条评价）}}</div></div>
+  </div>
+  <div class="s3-quote" data-page-node-id="7M8Rr4IrqEWbIokNiH0eFP"><b data-page-node-id="G8NcRRUV5rV7VpcPtZ7bCU">一句话品牌背书：</b>成立于 {{年份}}，由 {{背景}} 团队打造；{{产品}} 以 {{核心理念}} 服务 {{目标人群}}，覆盖 {{典型场景}}，被 {{标杆客户/社区}} 广泛使用与推荐。</div>
+  <div class="foot" data-page-node-id="guKH4zDIXBCEQsyXUCN9hQ"><span class="mono" data-page-node-id="OO2Mm5zUok1DnU1hnN1lkP">{{WORKBUDDY}}</span><span data-page-node-id="6yMh99ekZkAiOMp2RDrpKz">{{开发者大会 2026}}</span><span class="mono" data-page-node-id="Dmp7m7RC5FgXQp2Jhp5K6O">03 / 12</span></div>
+</div>
+
+<!-- ══════════ P4 / 产品全景 ══════════ -->
+<div class="slide" data-page-node-id="zxfcm9c7sh8FXO6YPQRe6o">
+  <div class="head" data-page-node-id="WnwWZCTHH2kytfGisFSWGY">
+    <div class="kicker" data-page-node-id="2LANE3VAXUMrifI4da1fwa"><b data-page-node-id="W0KCieoGSDVkVqmj1CvX2b">02</b> · Product Overview</div>
+    <h2 data-page-node-id="qIYbRCSjP95yGLeCQbS56R">{{一张图看懂产品全景}}</h2>
+    <div class="sub" data-page-node-id="ZhZ9rCf9dNAX1euDJaaCv0">{{「{{产品定位一句话}}」——{{N}} 大模块，{{N}} 项核心能力。}}</div>
+  </div>
+  <div class="arch" data-page-node-id="2pJSnbXoHGF2RBLcgzHqEa">{{产品架构图 / 模块全景图位（建议：分层模块图，宽 1136mm）}}</div>
+  <div class="s4-cap" data-page-node-id="zD7WwV8YJpBHoWk9jVgyJh"><b data-page-node-id="fZzgUEHaFgELatuHY7RBcU">本次大会聚焦：</b>{{模块 A}} 与 {{模块 B}} 两大方向的 {{N}} 项新能力。</div>
+  <div class="foot" data-page-node-id="Hm2eNLWb0cxQn8PaVFIpFB"><span class="mono" data-page-node-id="LqIKNUulfHSvn4N6KABU4X">{{WORKBUDDY}}</span><span data-page-node-id="WhALEog6BJ6BdSZUxb6SIU">{{开发者大会 2026}}</span><span class="mono" data-page-node-id="tex81kjmFmlUNXnkeX1qzx">04 / 12</span></div>
+</div>
+
+<!-- ══════════ P5 / 功能总览（六宫格）═════════ -->
+<div class="slide" data-page-node-id="c0phyRa3XT2k9GdGF8CmAb">
+  <div class="head" data-page-node-id="CVzsjWIchXFlOzxF8M0zI0">
+    <div class="kicker" data-page-node-id="SZukGffbYpXhePU0vjovLm"><b data-page-node-id="eYUnHhzRrhvJqLETD7s5O3">03</b> · Highlights</div>
+    <h2 data-page-node-id="pXB2a41iA7QR1RRJUm0Upi">{{六大亮点功能}}</h2>
+  </div>
+  <div class="s5-grid" data-page-node-id="n4CvLpLswTidCtiAMHA6dX">
+    <div class="fcard" data-page-node-id="7uL1YXBLzcU4bCNR7nFxFP"><div class="f-no" data-page-node-id="OwKDoeHELWkkhjOndFbthT">FEATURE 01</div><h3 data-page-node-id="zmrwcuMWYxJuRt4ry9tSPT">{{功能名一}}</h3><p data-page-node-id="11mCK8rACcTvImyF6e0dnE">{{一句话价值描述，说清解决什么问题。}}</p><span class="f-tag" data-page-node-id="o1jMyozaj8ZFkVa2tPADAW">{{NEW}}</span></div>
+    <div class="fcard" data-page-node-id="hcVxEuZaCtp4trimMGLTBz"><div class="f-no" data-page-node-id="5aHrYUoqFWoXE2b12RXxZd">FEATURE 02</div><h3 data-page-node-id="rA4mxNGbRagYfaMPP7SQVR">{{功能名二}}</h3><p data-page-node-id="f0VzkmsDtWDf18VepD4Dry">{{一句话价值描述。}}</p><span class="f-tag" data-page-node-id="0VbUwLA2oxSVrgtFMuTI5W">{{GA}}</span></div>
+    <div class="fcard" data-page-node-id="dzhQfGvL66LIA74Etmevmq"><div class="f-no" data-page-node-id="eNeHYWV6nve9dYQzv6kyFU">FEATURE 03</div><h3 data-page-node-id="i2wdmQdrHVNWZYGIzLoJtC">{{功能名三}}</h3><p data-page-node-id="GJXWVNu2LYTZFLG6RmnN7G">{{一句话价值描述。}}</p><span class="f-tag" data-page-node-id="A8mHa7SCsBBMjnAjiQBcfs">{{NEW}}</span></div>
+    <div class="fcard" data-page-node-id="hY94JWrMcd9gH7L5BIBCgo"><div class="f-no" data-page-node-id="NcSEgP3zqQ9FE44yxtStHj">FEATURE 04</div><h3 data-page-node-id="b5N0RR56Gnsq9LUZp1zLE9">{{功能名四}}</h3><p data-page-node-id="ElrRj4DyNifVHcbuCNIObB">{{一句话价值描述。}}</p><span class="f-tag" data-page-node-id="pDsK04xNbNCHPHt8dIOFB6">{{BETA}}</span></div>
+    <div class="fcard" data-page-node-id="6tsGOEuoRMbWIaYLPEtCld"><div class="f-no" data-page-node-id="H8bXvWgGI4R1m5WadVwNG2">FEATURE 05</div><h3 data-page-node-id="zkqQj9MudTsE9DrDErobbN">{{功能名五}}</h3><p data-page-node-id="H2M3tiDa1W0rBFR7A8jI2k">{{一句话价值描述。}}</p><span class="f-tag" data-page-node-id="bP1wq6BCByRzHTMYaklJOQ">{{GA}}</span></div>
+    <div class="fcard" data-page-node-id="AwZSTmIHjzohmkoeZNOXDH"><div class="f-no" data-page-node-id="4MTDEKVxy2d2xvn5gBWAnE">FEATURE 06</div><h3 data-page-node-id="3CPVMftyKGumfbEKPgQU5P">{{功能名六}}</h3><p data-page-node-id="q8rnq2QZztcngYEDFGm7k1">{{一句话价值描述。}}</p><span class="f-tag" data-page-node-id="1SBFw4BxDWRa3dGQ2ngAcJ">{{SOON}}</span></div>
+  </div>
+  <div class="foot" data-page-node-id="dz9puIMFWGZd8zzF6R8scs"><span class="mono" data-page-node-id="NaEc5G0m9ugQo9wNUZBToY">{{WORKBUDDY}}</span><span data-page-node-id="wvS0Ez9KTKaoBcId77fYCO">{{开发者大会 2026}}</span><span class="mono" data-page-node-id="r60igVwE04uK28S7vPTuL6">05 / 12</span></div>
+</div>
+
+<!-- ══════════ P6 / 亮点深潜 A ══════════ -->
+<div class="slide" data-page-node-id="VyDlCqLIO5WIrZ2c7zBg9W">
+  <div class="head" data-page-node-id="rZe0DeuSj1j2EQdmE7zrKU">
+    <div class="kicker" data-page-node-id="ElueNMAsnYhGCVNmTgsG3X"><b data-page-node-id="vCPa3JBQq2oCO6gUwLxcat">03.1</b> · Deep Dive</div>
+  </div>
+  <div class="duo" data-page-node-id="TglH96Al9SbpRKK6mmqibF">
+    <div class="shot" data-page-node-id="D2GqReYwGFpQDIrFf1b3Tx"><div class="frame" data-page-node-id="RntSrqchRLArl7LEPOArqi">{{功能演示截图 / 动图占位}}</div></div>
+    <div class="copy" data-page-node-id="ynhJ5oe5RA0EdTWxbipTOO">
+      <div class="d-no" data-page-node-id="IAkRp5jzHLVhZQBQFFYgzJ">FEATURE 01 · {{功能名}}</div>
+      <h3 data-page-node-id="1VZPbFv6d7HJWZi4KBKXt2">{{让 {{某件事}} 从 {{旧方式}} 变成 {{新方式}}}}</h3>
+      <div class="desc" data-page-node-id="dKvwz8OuGFfcsQdyAnXQpl">{{两句话展开：这个功能解决什么痛点、核心机制是什么、上线后的效果数据。}}</div>
+      <div class="pt" data-page-node-id="PT2Oj9YT7iaUW2VwxIkbJc"><div class="p-no" data-page-node-id="CenNDE9szCyaBAEq2qIjlC">a.</div><div class="p-tx" data-page-node-id="LAdfLizdgiwJ3LalDiWYSh">{{要点一：能力描述}}<small data-page-node-id="4gleGtiUklqHOzHOXduKfz">{{补充细节 / 数据支撑}}</small></div></div>
+      <div class="pt" data-page-node-id="0CyEb74vNbC7iMHMqGjVgH"><div class="p-no" data-page-node-id="8gk1MPdZ0Gw8wheExnB4Cs">b.</div><div class="p-tx" data-page-node-id="NinoPU9YG8j0IGNXQjSwAd">{{要点二：能力描述}}<small data-page-node-id="SZse0sYHuOioXwEDMvYiHU">{{补充细节}}</small></div></div>
+      <div class="pt" data-page-node-id="dmZckUXtqq6Mb4I0aZ1qWe"><div class="p-no" data-page-node-id="CXHwXVq5I9EuC51OwPzJAv">c.</div><div class="p-tx" data-page-node-id="jsJ9JI14I0WMHNWNUJVLqE">{{要点三：能力描述}}<small data-page-node-id="YZdQr5j8Lw85OF9ysuKGP6">{{补充细节}}</small></div></div>
+    </div>
+  </div>
+  <div class="foot" data-page-node-id="P38wc72e0CWIfsjxFTEB1U"><span class="mono" data-page-node-id="kkdBbZbp0yvmEjMJNCYmcH">{{WORKBUDDY}}</span><span data-page-node-id="e91nAnGiPk6j5yQ0LDVClY">{{开发者大会 2026}}</span><span class="mono" data-page-node-id="0OFipf6txzHOkBNkJCQjzI">06 / 12</span></div>
+</div>
+
+<!-- ══════════ P7 / 亮点深潜 B（镜像布局）═════════ -->
+<div class="slide" data-page-node-id="mJjsKbDppH8zLF6LHVFIG0">
+  <div class="head" data-page-node-id="8rjpdFOG4w5eJiJf9GCgCe">
+    <div class="kicker" data-page-node-id="pvEfTcubjgyMu9U26CM4vl"><b data-page-node-id="ahwOe0Ss7VzGF3mtCccYgG">03.2</b> · Deep Dive</div>
+  </div>
+  <div class="duo s7-flip" data-page-node-id="aawHZrTv0U8aAwOzBzGgHg">
+    <div class="copy" data-page-node-id="DD81LUGAlPGoMe5SJNcA45">
+      <div class="d-no" data-page-node-id="xaf5sKV2bY5agUWvvONh7C">FEATURE 02 · {{功能名}}</div>
+      <h3 data-page-node-id="Eqg1BYnmE1d4FFRcIC0fEg">{{面向开发者的 {{核心能力}}}}</h3>
+      <div class="desc" data-page-node-id="Iku2ts9xCYh0Fjaxn679ij">{{两句话展开：面向开发者的独特价值，{{技术栈/生态}} 集成方式。}}</div>
+      <div class="pt" data-page-node-id="Kg0Yig4OpdOWtsSn2RR3OX"><div class="p-no" data-page-node-id="x4xU81vtoaRcgNFWTkvWa8">a.</div><div class="p-tx" data-page-node-id="0awugBbv17aLeDOYqdhpko">{{要点一：API / SDK 能力}}<small data-page-node-id="LcliWTmGM4QiHUrqAdhyZR">{{示例：{{一行代码接入}}}}</small></div></div>
+      <div class="pt" data-page-node-id="FTBqE7eC2WsHifelT8FCtB"><div class="p-no" data-page-node-id="MV4FsVMo2T0OSzXnHA0C2c">b.</div><div class="p-tx" data-page-node-id="Mv7P2iKJ7JwPn2z1sPaNu8">{{要点二：扩展机制}}<small data-page-node-id="DNA43QrO9SZKYlBEtOyu5B">{{插件 / 自定义}}</small></div></div>
+      <div class="pt" data-page-node-id="6uTnscHHRAvLVyDRhH5OTF"><div class="p-no" data-page-node-id="0gQTscj8yezdf7gR8MQMj4">c.</div><div class="p-tx" data-page-node-id="9eWGkFneEu1eFCuLAGArTo">{{要点三：可观测与安全}}<small data-page-node-id="TUal11l2FFH3c1zB4VxtLC">{{日志 / 权限 / 合规}}</small></div></div>
+    </div>
+    <div class="shot" data-page-node-id="eIJ8QbdBWIY3jESbwfoDA9"><div class="frame" data-page-node-id="1iawf0LFp3iOTimAIlMEOc">{{功能演示截图 / 代码片段占位}}</div></div>
+  </div>
+  <div class="foot" data-page-node-id="Vzn5aWqVbP0ViB4CTlIkLF"><span class="mono" data-page-node-id="Q4XtUfigfInphwWNAQI7lE">{{WORKBUDDY}}</span><span data-page-node-id="IOTUwCEpYGjQ7yZjRERcwi">{{开发者大会 2026}}</span><span class="mono" data-page-node-id="nNM1UbTpv0kMD3HRaWc1iz">07 / 12</span></div>
+</div>
+
+<!-- ══════════ P8 / 用户增长（大数字 + 柱状）═════════ -->
+<div class="slide" data-page-node-id="RJKg4CSW12annJcgiHR9ck">
+  <div class="head" data-page-node-id="RRqzdQCxlAGiWk44T0tgty">
+    <div class="kicker" data-page-node-id="Aq1pKflZJFBaRT91DQsCQ8"><b data-page-node-id="Lg0sGn2ZUcwqxsylbcHYYx">04</b> · Growth</div>
+    <h2 data-page-node-id="iPbSSZ6AUTpZvUOsfrp0eg">{{用户增长}}</h2>
+  </div>
+  <div class="s8-big" data-page-node-id="pXoNC0d1Glq3ftQom5mAXr">
+    <div class="v" data-page-node-id="ih4QOoWZFs7xq34LKgKlNr">{{120}}<em data-page-node-id="TdYT4eGCC2FRhkkEep7DSa">万</em></div>
+    <div class="k" data-page-node-id="47Aic2d7lmZ0O4X6ru1WKm">{{累计注册用户}}</div>
+    <span class="delta" data-page-node-id="Dh9hDivDwyCy73KGABXQCp">YoY +{{180%}}</span>
+  </div>
+  <div class="s8-chart" data-page-node-id="uORnWzgdBVSibvaopTkWfb">
+    <div class="c-title" data-page-node-id="X9Vh96jTEcVepHUcIDAK8K">{{季度注册用户趋势}}</div>
+    <div class="c-unit" data-page-node-id="wzH9NlxUAVASrq5KVwYyRo">单位：万 · {{截至 2026-Q3}}</div>
+    <div class="c-row" data-page-node-id="kPB7DYXozW58CZ5cXDvjIr">
+      <div class="c-col" data-page-node-id="ggFKOjf2g3N8opOdWIsdhn"><span class="cv" data-page-node-id="K7O6HDXBj3caYsAbZHcDmH">{{18}}</span><div class="bar" style="height: 15%;" data-page-node-id="BFXOhNmaMM6ipOkgLcjBPm"></div></div>
+      <div class="c-col" data-page-node-id="KSGE79OyJdWOpz0VD6nHBr"><span class="cv" data-page-node-id="XSRrfjMnLbwM8iRomJDsoT">{{26}}</span><div class="bar" style="height: 22%;" data-page-node-id="IzfGeB1K8pfXGjxMnkdfN2"></div></div>
+      <div class="c-col" data-page-node-id="OOmDDyuMwtg6TnUAuuqOQH"><span class="cv" data-page-node-id="Z8kKwLPoaKRJak7y4nYglE">{{38}}</span><div class="bar" style="height: 31%;" data-page-node-id="awY4QJ94oV2oMdadevm3kF"></div></div>
+      <div class="c-col" data-page-node-id="noGDJvPQkJDrIknumujRK3"><span class="cv" data-page-node-id="7ByH8S5kHfyAHyDalQ3Afp">{{57}}</span><div class="bar" style="height: 47%;" data-page-node-id="MZ45L3Bc2ETjeRsFsFkrRX"></div></div>
+      <div class="c-col" data-page-node-id="CGEdBlh7nlt0zAkyA223Kn"><span class="cv" data-page-node-id="shUhkVe4sqQlguM7juNY2h">{{83}}</span><div class="bar" style="height: 69%;" data-page-node-id="ehSdE5HFGMtXDiNCuXnTo1"></div></div>
+      <div class="c-col hl" data-page-node-id="QxwoAJw45Cz7WWE5DbT7Tb"><span class="cv" data-page-node-id="ROs7cvZBLB1zXIeSChzYLL">{{120}}</span><div class="bar" style="height: 100%;" data-page-node-id="A45wYByyFuCuSRKThORLiZ"></div></div>
+    </div>
+    <div class="c-axis" data-page-node-id="1D08GnGWm0A6MrYigsr9bz"><span data-page-node-id="3ozxn7Kz6WdOUBmPRNlt9b">24Q2</span><span data-page-node-id="JxMhCwBERLXgRec5GCDvPR">24Q4</span><span data-page-node-id="KRWmeOX3MaQRoT76InDsVG">25Q2</span><span data-page-node-id="xx6zjIcqScv2pSXVDAY6mc">25Q4</span><span data-page-node-id="a74Bny1IFLgOU2zAYBmcnB">26Q2</span><span data-page-node-id="WpugUX8CdWF7DADTxujifo">26Q3</span></div>
+  </div>
+  <div class="foot" data-page-node-id="fcTd2dG0HMlVlHt3EKn7cS"><span class="mono" data-page-node-id="CPnLRFtV5N55tCHGlpmxdG">{{WORKBUDDY}}</span><span data-page-node-id="KHBQnY1WKlw3efqmGBSQoj">{{开发者大会 2026}}</span><span class="mono" data-page-node-id="aXE5sURgQwce3HHCAtSO0E">08 / 12</span></div>
+</div>
+
+<!-- ══════════ P9 / 增长指标 ══════════ -->
+<div class="slide" data-page-node-id="bCvsTTMKe5TN88kt6C7oOk">
+  <div class="head" data-page-node-id="T317QORSeLiakZyhDeFEzR">
+    <div class="kicker" data-page-node-id="vfyaBve8CmfobqCsIqytOP"><b data-page-node-id="sQEHlaFXEKLSmPEW6Vd2Ep">04.1</b> · Growth Metrics</div>
+    <h2 data-page-node-id="ni6mXtMTJzlhZkPvwsk6bA">{{增长的背后是留存}}</h2>
+  </div>
+  <div class="kpi-row" data-page-node-id="nM46IThCG3WY43aol9eEJz">
+    <div class="kc" data-page-node-id="ArfavMW6Wt74kliCC0Ncpr"><div class="kv" data-page-node-id="94ziCDPuS319yQqHCTJ2To">{{62}}<em data-page-node-id="7xmy0vLkAs8mNzHwuzqWVI">%</em></div><div class="kd" data-page-node-id="qGafD8g0VmGmNpODLVZFUM">▲ {{+9pp}} YoY</div><div class="kk" data-page-node-id="Z0JxhrArHHnkUPPaz9FAFf">{{次月留存率}}</div></div>
+    <div class="kc" data-page-node-id="kqEVIcaU2mIm4MiRl8MDBT"><div class="kv" data-page-node-id="t1QCssaW78ppBdK5dtmwDL">{{71}}<em data-page-node-id="g2AOhd2LQUKv9H8FcrdTmh">%</em></div><div class="kd" data-page-node-id="LDVhpYCgb198KrurUYTTpv">▲ {{+6pp}} YoY</div><div class="kk" data-page-node-id="mxKWidetpeUy6kkkcw8D6y">{{周活跃占比（WAU/MAU）}}</div></div>
+    <div class="kc" data-page-node-id="DtWAU3ioIjki69RkvGU5hj"><div class="kv" data-page-node-id="Hno4L6qFva2FIHgSt2uqbz">{{4.9}}</div><div class="kd" data-page-node-id="lfR27QQYxuNA24h9YX5014">{{NPS {{72}}}}</div><div class="kk" data-page-node-id="Br8NSAZld644lJhwEdfIsJ">{{用户满意度评分}}</div></div>
+  </div>
+  <div class="s9-list" data-page-node-id="SH16BmZ4RlISBtt1G7lJE9">
+    <div class="s9-item" data-page-node-id="WB10BWWLCgeFVdQHLi1VCc"><div class="n" data-page-node-id="uqwOLWidNcR2a7lEPzZCF4">a.</div><div class="t" data-page-node-id="2cf6J5O4OurZlLjMbfVaKm"><b data-page-node-id="U3NTsOGEH7tEoZ2SbATXj7">{{增长引擎一：}}</b>{{描述驱动力，如口碑推荐占比 {{xx%}}。}}</div></div>
+    <div class="s9-item" data-page-node-id="dDc9NJlFFh5e8MBimvIUn0"><div class="n" data-page-node-id="6ovjZo15Mn2MG6Lg1GDWLz">b.</div><div class="t" data-page-node-id="gSTjutNw8qI502euUMVIwg"><b data-page-node-id="hFGbqXzTrUI1kJyQQVsJYw">{{增长引擎二：}}</b>{{描述驱动力，如 {{生态集成}} 带来的自然流量。}}</div></div>
+    <div class="s9-item" data-page-node-id="zF1dF7RefULYQvsTE6ggqY"><div class="n" data-page-node-id="Q4fJKsCjgUXMUC1nFAKtfu">c.</div><div class="t" data-page-node-id="bZfm5XTxRzZoR64c6LSCtn"><b data-page-node-id="m4ojB3TL2T9NkRM3VUPHs8">{{增长引擎三：}}</b>{{描述驱动力，如 {{开发者社区}} 的 {{N}} 个第三方扩展。}}</div></div>
+  </div>
+  <div class="foot" data-page-node-id="JWQWL9VZnX6FSgHGfLLhEt"><span class="mono" data-page-node-id="mwP6RJJYpiFH8br1HyTTao">{{WORKBUDDY}}</span><span data-page-node-id="ynB7fSnMpxiFnHFBgBz4R3">{{开发者大会 2026}}</span><span class="mono" data-page-node-id="fOhFnVlY34IzPZFqNRzlKx">09 / 12</span></div>
+</div>
+
+<!-- ══════════ P10 / 竞品对比 ══════════ -->
+<div class="slide" data-page-node-id="BwEgQmErMwAupAz5ICAb6Q">
+  <div class="head" data-page-node-id="IdFq84yvZw3bQWESNj4yEF">
+    <div class="kicker" data-page-node-id="whKaYPqmvYuSvywsFntQvA"><b data-page-node-id="GPZCKBLHTWwcikVn0kCdk6">05</b> · Why Us</div>
+    <h2 data-page-node-id="TdBq3ZEEML1YnATgNILzYa">{{与主流方案对比}}</h2>
+  </div>
+  <div class="vs" data-page-node-id="uGvutx66D7odKJiYXWvsY8">
+    <table data-page-node-id="8xrwHsNAMrjjk2k7AVQv8w">
+      <thead data-page-node-id="EJa9G5khcnsZJH5onH29Zb"><tr data-page-node-id="fIGc5oQ7JDzKJDIgMdVo5n"><th style="width:26%;" data-page-node-id="5USxIouSaFpsqpKPcRQnAh">能力维度</th><th class="us" style="width:28%;" data-page-node-id="aoUkfnaQliJgIQ49WT2NFT">{{产品名称}}</th><th class="dim2" style="width:23%;" data-page-node-id="T9kXE21vQCuU08kA0DMKOa">{{竞品 A}}</th><th class="dim2" style="width:23%;" data-page-node-id="hVQ9OXjjt7L5HuXfpXHkgV">{{竞品 B}}</th></tr></thead>
+      <tbody data-page-node-id="Dtbj1G8R34yeoBvrOpTCQF">
+        <tr data-page-node-id="OJFSj7oCGzN1piasjy6ztF"><td data-page-node-id="AwROBB2T7a3PPvFz5423Nc">{{核心能力}}</td><td class="us" data-page-node-id="lWZEALENtLxptE2LkaENPq">{{一句话优势描述}}</td><td class="c-dim" data-page-node-id="llRJbAXhl3E2YvgGgTJGG4">{{描述}}</td><td class="c-dim" data-page-node-id="aBELDKP4yxyFR47zpfWD65">{{描述}}</td></tr>
+        <tr data-page-node-id="17Dy9roRRAYKEs8PNPe8hq"><td data-page-node-id="gDOAUt067JgMDcaE7fNnq1">{{开放性 / 扩展}}</td><td class="us" data-page-node-id="DSkxFdWC0JiSwNVgbpBOBT"><span class="yes" data-page-node-id="c6Y8dFGm4QimK2c8PxY0HG">✓</span>　{{开放生态 + 插件体系}}</td><td class="c-dim" data-page-node-id="oiUM42XeVHwgErDpJz8Pqx"><span class="no" data-page-node-id="MDXgSP91pXDqhxXnESeOXx">✕</span>　{{封闭}}</td><td class="c-dim" data-page-node-id="437nTSCNJYmviz85qgG3gr"><span class="yes" data-page-node-id="ZbOOR8b7ZfGGaLfiH2joZa">✓</span>　{{部分开放}}</td></tr>
+        <tr data-page-node-id="1O7F1uwA9btluAykHeAevs"><td data-page-node-id="nNcR7dYUWWKk4ae58zbmCk">{{本地化 / 隐私}}</td><td class="us" data-page-node-id="G1wbAuIgKSLzf3l4TOhGJ6"><span class="yes" data-page-node-id="7hyKYgLAdraLqEd2oJkuRg">✓</span>　{{本地优先}}</td><td class="c-dim" data-page-node-id="iNdEg8bnqk1XtGtBg8qE9k"><span class="no" data-page-node-id="maQ0dk0zklEb5BQ9JNAsIU">✕</span>　{{仅云端}}</td><td class="c-dim" data-page-node-id="ClXRNK3tkX5CiCHsgD0fYi"><span class="no" data-page-node-id="0pgdhFYrGc36p9aajudmdg">✕</span>　{{仅云端}}</td></tr>
+        <tr data-page-node-id="dD0NoDADfIBdyqZkNiridF"><td data-page-node-id="3xVEIgzhLmA6na1VqyCkVO">{{价格}}</td><td class="us" data-page-node-id="JuEtVZKr3JYG0AKmtzv8Pz">{{免费档 + 透明定价}}</td><td class="c-dim" data-page-node-id="z3wMEbRZNeuqEdl3U9EHKp">{{定价描述}}</td><td class="c-dim" data-page-node-id="sVVRg5iWESQHZH9uIriMiL">{{定价描述}}</td></tr>
+        <tr data-page-node-id="QRqaiwb26HCxhln2TkhQ1A"><td data-page-node-id="HzJ9LKT8Eu4HGxnA0cqiuM">{{开发者体验}}</td><td class="us" data-page-node-id="yWFBjUrgw8M7QBabheUL0q"><span class="yes" data-page-node-id="FG7S0wOI38hdQQ9y6k7JuB">✓</span>　{{CLI + API + 文档}}</td><td class="c-dim" data-page-node-id="CAQ7ThL5zJ9vvUEdbMWAiG">{{描述}}</td><td class="c-dim" data-page-node-id="iA9AQ8JzuXO91b0vfJDPxf">{{描述}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="vs-note" data-page-node-id="uOr3QWj1Cr7oQBZOv87KHK">注：{{对比基于 {{公开资料}}，截至 {{2026.09}}；各产品能力以官方最新发布为准。}}</div>
+  <div class="foot" data-page-node-id="6XRk9F0oQfnw6pp53nnETY"><span class="mono" data-page-node-id="qiuu7ZxCGXbKmqvBgzG1Bb">{{WORKBUDDY}}</span><span data-page-node-id="7yNkhHyhiUt0G75i4s3SsI">{{开发者大会 2026}}</span><span class="mono" data-page-node-id="iO0TbORmA7UFeXlli50uMk">10 / 12</span></div>
+</div>
+
+<!-- ══════════ P11 / 为什么选择我们 ══════════ -->
+<div class="slide" data-page-node-id="sybi8kGF7RfVhihGTZnLc9">
+  <div class="head" data-page-node-id="PobKhgdAqJEu1GnO0j1vqL">
+    <div class="kicker" data-page-node-id="k7eTZ86h9n1XEdMp6A6d3l"><b data-page-node-id="xOG7L599DAfsNHp04y73DF">05.1</b> · Why Us</div>
+    <h2 data-page-node-id="Tqc2GuH8te91aO8Sb4B8fK">{{三个选择 {{产品}} 的理由}}</h2>
+  </div>
+  <div class="why" data-page-node-id="4aaT6NmCwucNe0DwaUFOFX">
+    <div class="why-item" data-page-node-id="0BM4OjOlYDcW2TCvhjKfhN">
+      <div class="w-no" data-page-node-id="QmWb1ktVKl3DlvvYH9vTyd">01</div>
+      <div class="w-bd" data-page-node-id="BnD9RHNWyRhDSjgCzghdxA">
+        <h3 data-page-node-id="Hx3XcONvtA5CmTI4JocaKr">{{理由一：{{极致的 {{某某}} 体验}}}}</h3>
+        <p data-page-node-id="4y0Dc90sBjQUokg1BNbeO8">{{两句话展开：差异化的产品决策 + 用户可感知的结果。}}</p>
+        <span class="w-data" data-page-node-id="7R7FGX4bxCwAMbHLblLyBo">{{关键数据 / 口径}}</span>
+      </div>
+    </div>
+    <div class="why-item" data-page-node-id="ebToDHAYL5DcbZdaonbppt">
+      <div class="w-no" data-page-node-id="2GvXY6r86LksFfDED5bv2h">02</div>
+      <div class="w-bd" data-page-node-id="sLnzwFKoEy95qEmv31VGFD">
+        <h3 data-page-node-id="4bTwlCphwy7WKLHmALBwJr">{{理由二：{{为开发者而建}}}}</h3>
+        <p data-page-node-id="8HEEIsWXXjGWFAAVNrmyvW">{{两句话展开：{{API / 生态 / 文档}} 的投入与社区反馈。}}</p>
+        <span class="w-data" data-page-node-id="nzRhhXRngtSE2yCpm5KG3s">{{GitHub {{N}}k Stars · {{N}} 个插件}}</span>
+      </div>
+    </div>
+    <div class="why-item" data-page-node-id="FTdfxRYm2G7C4KwuKykSzu">
+      <div class="w-no" data-page-node-id="vaYZzhvdoSVZfrLVuAStYo">03</div>
+      <div class="w-bd" data-page-node-id="FLKdb2oW8LZAUJp23dXJ0g">
+        <h3 data-page-node-id="SDLM6J60wFpm3Ztjz4ZBPq">{{理由三：{{数据归属与隐私}}}}</h3>
+        <p data-page-node-id="bl3h0SX3eDD8rxSrr77H2J">{{两句话展开：{{本地优先 / 加密 / 合规}} 承诺。}}</p>
+        <span class="w-data" data-page-node-id="53izdgLKbY35ZAOkYYKhU6">{{SOC 2 · {{本地模式}}}}</span>
+      </div>
+    </div>
+  </div>
+  <div class="foot" data-page-node-id="oIntk3sHkP1PGNNn8BBFf8"><span class="mono" data-page-node-id="kzmVoNQe5ElL7sQjffmAmN">{{WORKBUDDY}}</span><span data-page-node-id="BGdZk02TSNDg5aK8QxtnVz">{{开发者大会 2026}}</span><span class="mono" data-page-node-id="5KMfNTbeBPMEhltnVXm6EU">11 / 12</span></div>
+</div>
+
+<!-- ══════════ P12 / 结尾 CTA ══════════ -->
+<div class="slide" data-page-node-id="Osg9UGxCpEl0xbcnUUfn7v">
+  <div class="s12-main" data-page-node-id="0zHMZ7ZwgVxFyOZ3Eg6Ake">
+    <div class="s12-logo" data-page-node-id="wsKtkMtBEHhQ86eobKmtYy">{{产品 LOGO}}</div>
+    <div class="s12-title" data-page-node-id="IxOlpazOA570tZATOMD1la">{{现在就开始<br data-page-node-id="pa2vGiRfQgBiW3glIQypxR">用 {{产品名称}} 创造}}</div>
+    <div class="s12-sub" data-page-node-id="XzHjH21mmQ6K5iy8lCVpiF">{{官网地址}}　·　本次大会专属福利：{{优惠码 / 试用权益}}</div>
+    <div class="s12-cta" data-page-node-id="D7HG6H530EAWl8sG0RCmWn">
+      <span class="btn primary" data-page-node-id="XljijWjnp2ekMZb6t3BLrp">{{立即体验}}</span>
+      <span class="btn ghost" data-page-node-id="5rYj6DyQSsB6ELHXi5U0hz">View Docs · {{docs 地址}}</span>
+    </div>
+    <div class="s12-qr" data-page-node-id="syojO4V6ipyI4y70IfBLJz">{{二维码占位 · 扫码领取开发者礼包}}</div>
+  </div>
+  <div class="foot" data-page-node-id="fOurqPlGAvVfPtoHvsl0kv"><span class="mono" data-page-node-id="rdM4cVH6tbWjLd5s75NqH6">{{WORKBUDDY}}</span><span data-page-node-id="qSpRe0uaMTucc8kosLHmQi">{{开发者大会 2026}}</span><span class="mono" data-page-node-id="BnXR1A31FIA7E80wFgjfIB">12 / 12</span></div>
+</div>
+
+</body>
+</html>

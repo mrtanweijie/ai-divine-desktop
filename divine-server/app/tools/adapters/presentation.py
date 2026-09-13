@@ -21,7 +21,7 @@ from ..registry import register_tool
                 "type": "string",
                 "enum": [
                     "aurora", "glass", "brutalist", "swiss", "mesh",
-                    "editorial", "darktech", "pop",
+                    "editorial", "darktech", "pop", "keynote", "devconf",
                     "universal", "notion", "linear", "apple", "modern",
                     "academic", "travel", "roadmap", "minimal",
                 ],
@@ -29,7 +29,19 @@ from ..registry import register_tool
                     "PPT 风格；aurora 极光渐变（现代商务默认）、glass 玻璃拟态、"
                     "brutalist 新粗野撞色、swiss 瑞士极简、mesh 渐变弥散、"
                     "editorial 杂志衬线、darktech 暗黑科技、"
-                    "pop 波普潮流（暖奶油底 + 高饱和圆斑 + 胶囊标签 + 三色下划条）"
+                    "pop 波普潮流（暖奶油底 + 高饱和圆斑 + 胶囊标签 + 三色下划条）、"
+                    "keynote 发布会 Keynote（纯黑舞台 + 单一蓝强调 + 深灰圆角卡，"
+                    "适合产品发布会/新品宣讲）、"
+                    "devconf 开发者大会（纸白 + 近黑 + 发丝线 + 等宽字体，"
+                    "适合技术宣讲/产品功能介绍）"
+                ),
+            },
+            "theme_colors": {
+                "type": "object",
+                "description": (
+                    "可选，主题色覆盖（所有主题生效）。只需传 {\"--color-primary\": "
+                    "\"<颜色>\"}（颜色名或色值，如 红色/#E74C3C），"
+                    "亮度按背景自动校正；强调色、图表主色、封面点缀随之替换"
                 ),
             },
             "path": {
@@ -47,7 +59,18 @@ from ..registry import register_tool
                 "type": "array",
                 "description": (
                     "幻灯片列表；结尾页通常无需传入（自动补齐）。"
-                    "内容密度：每页要点 ≤5 条、每条 ≤2 行"
+                    "内容密度：每页要点 ≤5 条、每条 ≤2 行。"
+                    "keynote/devconf 主题有标准页面配方，按序组织："
+                    "①cover 封面（必须带 brand/event/kicker/date/place）；"
+                    "②section 品牌使命宣言（整页深色反转，写 mission 一句话 + points 关键词 2-3 个）；"
+                    "③kpi 品牌数据带（用户/活跃/增长/评分 4 项，'数值|标签|涨跌' 格式）；"
+                    "④产品全景或核心能力（bullets/cards）；"
+                    "⑤cards 亮点功能总览（6 个，'功能名|一句话价值' + 关键参数）；"
+                    "⑥two_col 亮点深潜 1-2 页（heading=核心主张，points=3 条 '要点|补充'）；"
+                    "⑦kpi 用户增长（注册/活跃等 + 涨跌）；"
+                    "⑧compare 与竞品/上代对比（left=本品，right=对照）；"
+                    "⑨bullets 三个选择理由；⑩quote 金句收束。"
+                    "结尾页自动补齐为 CTA 版式（brand + heading 行动号召 + subtitle 官网/渠道 + body 联系方式）"
                 ),
                 "items": {
                     "type": "object",
@@ -65,7 +88,9 @@ from ..registry import register_tool
                                 "timeline 时间轴；columns 分栏；two_col 图文两栏；"
                                 "compare 左右对比（需 left/right）；kpi 大数字；"
                                 "quote 金句；table 表格（需 table）；chart 图表（需 chart）；"
-                                "toc 目录；section 章节过渡页；cover 封面；end 结尾页。"
+                                "toc 目录；section 章节过渡页（keynote/devconf 下=整页深色品牌使命宣言：heading 写 mission 一句话、points 传 2-3 个品牌关键词）；cover 封面；end 结尾页。"
+                                "keynote/devconf 主题建议第 2 页放一个 section 品牌使命页"
+                                "（渲染为整页深色反转宣言，黑白呼吸节奏）。"
                                 "不传时按标题与要点数自动推断"
                             ),
                         },
@@ -116,6 +141,26 @@ from ..registry import register_tool
                         "quote": {
                             "type": "string",
                             "description": "(layout=quote) 金句正文（与 heading 二选一）",
+                        },
+                        "brand": {
+                            "type": "string",
+                            "description": "(layout=cover) 品牌名；keynote/devconf 封面品牌行",
+                        },
+                        "event": {
+                            "type": "string",
+                            "description": "(layout=cover) 活动/大会名，如 'DEVCONF 2026 · TRACK A'",
+                        },
+                        "kicker": {
+                            "type": "string",
+                            "description": "(layout=cover/内容页) 等宽眉题，如 'Product Keynote'/'Highlights'",
+                        },
+                        "date": {
+                            "type": "string",
+                            "description": "(layout=cover) 日期，如 '2026.09.28'",
+                        },
+                        "place": {
+                            "type": "string",
+                            "description": "(layout=cover) 地点/直播间",
                         },
                         "note": {
                             "type": "string",

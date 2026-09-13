@@ -27,6 +27,8 @@ _STANDARD_KEYS = {
     "points", "chart", "table", "image", "left", "right", "toc", "note",
     "quote", "items", "events", "cards", "milestones", "steps", "bullets",
     "list", "cols", "_pages",
+    # 封面元信息（keynote/devconf 样张主题使用）
+    "brand", "event", "kicker", "date", "place", "speaker",
 }
 
 # 内容版式（空页检测范围；cover/section/end/toc 天然少字不参与）

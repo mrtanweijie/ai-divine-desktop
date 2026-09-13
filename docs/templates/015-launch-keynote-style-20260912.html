@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="rH0ulDCAGwxWHefD7f9phk">
+<head data-page-node-id="F29FECpyjua6VlurUZB67W">
+<meta charset="UTF-8" data-page-node-id="jEBS57n7RTHO8zymj3Zvim">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="X4bfNC7ZzWJNxvkuTf8xCr">
+<title>{{产品名称}} 发布会 | 深色蓝强调 Keynote（HTML 样张 015 · v3）</title>
+<style>
+/* ==========================================================================
+   015 · 「发布会 Keynote」HTML 幻灯片样张（v3，按用户参考图重做）
+   设计源：用户提供的 6 张参考截图（星澜 STELLAR 发布会）
+   设计空间：1280 × 720（16:9），幻灯片垂直堆叠预览
+   风格基因：纯黑舞台 + iOS 蓝单强调色（#2F7BF7）+ 粗细混排大标题
+             + 深灰圆角卡（微光边）+ 蓝色圆点小标 + 等宽英文眉题 + 进度点页脚
+   构图基因：封面左下对齐；数据页三列贴底；价格页居中三卡（推荐卡蓝描边）
+   渲染兼容：python-pptx 管线原语可用（纯色/细线/圆角矩形/文本），蓝色仅单色
+   占位符：{{双花括号}}；嵌套内容直接写明文
+   页面映射：P1 封面 ｜ P2 愿景宣言 ｜ P3 产品亮相 ｜ P4 特性三卡
+            ｜ P5 性能数据 ｜ P6 对比 ｜ P7 生态 ｜ P8 价格·发售
+   ========================================================================== */
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root{
+  --font: "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",
+          -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
+
+  /* —— 舞台 —— */
+  --stage: #050506;
+  --canvas: #17171B;
+
+  /* —— 文字阶梯 —— */
+  --ink:    #F5F5F7;
+  --ink-2:  #C8C9CE;
+  --muted:  #7A7D85;
+  --faint:  #56585F;
+
+  /* —— 品牌蓝（唯一强调色）—— */
+  --blue:      #2F7BF7;
+  --blue-soft: rgba(47,123,247,0.14);
+
+  /* —— 深灰卡 —— */
+  --card:      linear-gradient(180deg,#15151A 0%,#0E0E12 100%);
+  --card-line: rgba(255,255,255,0.09);
+}
+
+body{ font-family:var(--font); background:var(--canvas); -webkit-font-smoothing:antialiased; padding:48px 0; }
+
+.slide{
+  width:1280px; height:720px; margin:0 auto 40px;
+  background:var(--stage); color:var(--ink);
+  position:relative; overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,.55);
+}
+
+/* —— 通用页脚：左翻页提示 · 中进度点 · 右页码 —— */
+.foot{ position:absolute; left:64px; right:64px; bottom:28px; display:flex; align-items:center; }
+.navbtns{ display:flex; gap:6px; align-items:center; }
+.navbtns i{
+  width:22px; height:18px; border:1px solid rgba(255,255,255,0.16); border-radius:5px;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-style:normal; font-size:9px; color:var(--muted); font-family:var(--mono);
+}
+.nav-tip{ margin-left:10px; font-size:11px; color:var(--faint); letter-spacing:0.06em; }
+.dots{ position:absolute; left:50%; transform:translateX(-50%); display:flex; gap:9px; align-items:center; }
+.dots i{ width:6px; height:6px; border-radius:999px; background:rgba(255,255,255,0.22); }
+.dots i.on{ width:20px; background:var(--blue); }
+.pageno{ margin-left:auto; font-family:var(--mono); font-size:12.5px; color:var(--ink-2); letter-spacing:0.1em; }
+
+/* —— 通用：蓝点小标 / 等宽眉题 —— */
+.dot-label{ display:inline-flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink-2); letter-spacing:0.14em; }
+.dot-label::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--blue); }
+.mono-kicker{
+  font-family:var(--mono); font-size:13px; font-weight:500;
+  letter-spacing:0.32em; text-transform:uppercase; color:var(--muted);
+}
+
+/* —— 通用：标题内蓝词 / 灰词 —— */
+.b{ color:var(--blue); }
+.dim{ color:var(--muted); font-weight:300; }
+.thin{ font-weight:300; }
+
+/* ══════════ P1 封面（左下构图）══════════ */
+.s1-event{ position:absolute; top:278px; right:96px; display:flex; align-items:center; gap:9px;
+  font-family:var(--mono); font-size:13px; letter-spacing:0.26em; color:var(--ink-2); }
+.s1-event::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--blue); }
+.s1-block{ position:absolute; left:96px; top:262px; }
+.s1-brandrow{ display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+.s1-logo{ width:38px; height:38px; border-radius:10px; background:var(--blue);
+  display:flex; align-items:center; justify-content:center; }
+.s1-logo svg{ width:18px; height:18px; }
+.s1-brandname{ font-size:16px; font-weight:700; letter-spacing:0.06em; }
+.s1-subbrand{ font-size:12.5px; color:var(--muted); letter-spacing:0.1em; }
+.s1-title{ margin-top:34px; font-size:78px; font-weight:700; line-height:1.16; letter-spacing:0.01em; }
+.s1-title .b{ font-weight:500; }
+.s1-slogan{ margin-top:22px; font-size:19px; color:var(--muted); letter-spacing:0.05em; }
+.s1-date{ margin-top:10px; font-family:var(--mono); font-size:14px; color:var(--ink-2); letter-spacing:0.08em; }
+.s1-place{ position:absolute; right:96px; bottom:88px; font-size:13px; color:var(--muted); letter-spacing:0.1em; }
+
+/* ══════════ P2 愿景宣言 ══════════ */
+.s2-main{ position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; padding:0 150px 40px; }
+.s2-line{ font-size:64px; font-weight:800; line-height:1.36; letter-spacing:0.01em; }
+.s2-line .dim{ font-weight:300; }
+.s2-desc{ margin-top:30px; max-width:640px; font-size:16.5px; color:var(--muted); line-height:2.0; text-align:justify; }
+
+/* ══════════ P3 产品亮相 ══════════ */
+.s3-tag{ position:absolute; top:64px; left:96px; }
+.s3-shot{ position:absolute; left:0; right:0; top:150px; display:flex; justify-content:center; }
+.s3-product{
+  width:620px; height:300px; border-radius:26px;
+  background: radial-gradient(ellipse 70% 90% at 50% 20%, #1A1B22 0%, #0C0C10 70%);
+  border:1px solid var(--card-line);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--mono); font-size:13px; color:var(--faint); letter-spacing:0.3em;
+}
+.s3-name{ position:absolute; left:96px; bottom:120px; }
+.s3-kicker{ margin-bottom:16px; font-family:var(--mono); font-size:13.5px; letter-spacing:0.32em; color:var(--muted); text-transform:uppercase; }
+.s3-name h2{ font-size:62px; font-weight:700; letter-spacing:0.01em; line-height:1.1; }
+.s3-name h2 .thin{ font-weight:250; }
+.s3-name p{ margin-top:12px; font-size:17px; color:var(--muted); }
+
+/* ══════════ P4 特性三卡 ══════════ */
+.s4-head{ position:absolute; top:70px; left:96px; }
+.s4-head .mono-kicker{ margin-bottom:14px; }
+.s4-head h2{ font-size:46px; font-weight:800; }
+.s4-head .sub{ margin-top:12px; font-size:16px; color:var(--muted); max-width:60%; line-height:1.8; }
+.s4-cards{ position:absolute; left:96px; right:96px; bottom:96px; display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
+.tcard{
+  background:var(--card); border:1px solid var(--card-line); border-radius:20px;
+  padding:26px 28px 30px;
+}
+.tcard .ic{
+  width:44px; height:44px; border-radius:12px; background:var(--blue);
+  display:flex; align-items:center; justify-content:center; margin-bottom:22px;
+}
+.tcard .ic svg{ width:20px; height:20px; }
+.tcard .big{ font-size:44px; font-weight:300; line-height:1.1; }
+.tcard .big b{ font-weight:700; }
+.tcard .big small{ font-size:17px; font-weight:600; margin-left:4px; }
+.tcard h3{ font-size:16px; font-weight:700; margin:12px 0 8px; }
+.tcard p{ font-size:13.5px; color:var(--muted); line-height:1.75; text-align:justify; }
+
+/* ══════════ P5 性能数据（三列贴底）══════════ */
+.s5-head{ position:absolute; top:70px; left:96px; }
+.s5-head .mono-kicker{ margin-bottom:14px; }
+.s5-head h2{ font-size:46px; font-weight:800; }
+.s5-head .sub{ margin-top:12px; font-size:16px; color:var(--muted); max-width:58%; line-height:1.8; }
+.s5-stats{ position:absolute; left:96px; right:96px; bottom:96px; border-top:1px solid rgba(255,255,255,0.14);
+  display:grid; grid-template-columns:repeat(3,1fr); gap:40px; padding-top:26px; }
+.stat .v{ font-size:64px; font-weight:250; line-height:1; letter-spacing:-0.01em; }
+.stat .v b{ font-weight:700; }
+.stat .v small{ font-size:22px; font-weight:400; color:var(--ink-2); margin-left:5px; }
+.stat h3{ font-size:16px; font-weight:700; margin:12px 0 7px; }
+.stat p{ font-size:13.5px; color:var(--muted); line-height:1.75; }
+
+/* ══════════ P6 对比 ══════════ */
+.s6-head{ position:absolute; top:70px; left:96px; }
+.s6-head .mono-kicker{ margin-bottom:14px; }
+.s6-head h2{ font-size:46px; font-weight:800; }
+.s6-tbl{ position:absolute; left:96px; right:96px; top:212px; }
+.s6-tbl table{ width:100%; border-collapse:collapse; font-size:15px; }
+.s6-tbl thead tr{ border-bottom:1px solid rgba(255,255,255,0.2); }
+.s6-tbl th{ text-align:left; padding:12px 10px; font-family:var(--mono); font-size:12px; font-weight:500;
+  letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); }
+.s6-tbl th.us{ color:var(--ink); }
+.s6-tbl td{ padding:15px 10px; border-bottom:1px solid rgba(255,255,255,0.09); color:var(--ink-2); }
+.s6-tbl td.us{ color:var(--ink); font-weight:700; }
+.s6-tbl td.dim2{ color:var(--muted); }
+.s6-tbl td.c1{ color:var(--muted); font-size:13.5px; }
+.s6-tbl tr:last-child td{ border-bottom:none; }
+.s6-note{ position:absolute; left:96px; bottom:96px; font-size:12px; color:var(--faint); }
+
+/* ══════════ P7 生态 ══════════ */
+.s7-head{ position:absolute; top:70px; left:96px; }
+.s7-head .mono-kicker{ margin-bottom:14px; }
+.s7-head h2{ font-size:46px; font-weight:800; }
+.s7-head .sub{ margin-top:12px; font-size:16px; color:var(--muted); max-width:58%; line-height:1.8; }
+.s7-cards{ position:absolute; left:96px; right:96px; bottom:96px; display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
+.ecard{ background:var(--card); border:1px solid var(--card-line); border-radius:20px; padding:24px 28px 28px; }
+.ecard .e-no{ font-family:var(--mono); font-size:12px; color:var(--faint); letter-spacing:0.22em; margin-bottom:16px; }
+.ecard h3{ font-size:19px; font-weight:700; margin-bottom:8px; }
+.ecard p{ font-size:13.5px; color:var(--muted); line-height:1.75; }
+
+/* ══════════ P8 价格·发售（居中三卡）══════════ */
+.s8-head{ position:absolute; top:70px; left:0; right:0; text-align:center; }
+.s8-head .mono-kicker{ margin-bottom:16px; }
+.s8-head h2{ font-size:48px; font-weight:800; }
+.s8-cards{ position:absolute; left:110px; right:110px; top:236px; display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
+.pcard{
+  background:var(--card); border:1px solid var(--card-line); border-radius:22px;
+  padding:30px 30px 34px; text-align:center;
+}
+.pcard.reco{ border:1.5px solid var(--blue); position:relative; }
+.pcard .p-tag{ font-family:var(--mono); font-size:11.5px; letter-spacing:0.24em; color:var(--blue); text-transform:uppercase; }
+.pcard .p-tag.dim2{ color:var(--muted); }
+.pcard h3{ font-size:19px; font-weight:700; margin-top:12px; }
+.pcard .p-desc{ font-size:12.5px; color:var(--muted); margin-top:5px; }
+.pcard .p-price{ margin-top:24px; font-size:52px; font-weight:700; letter-spacing:-0.01em; }
+.pcard .p-price small{ font-size:24px; font-weight:500; color:var(--muted); }
+.s8-sale{ position:absolute; left:0; right:0; bottom:104px; text-align:center; font-size:14px; color:var(--muted); }
+.s8-sale b{ color:var(--ink); font-weight:700; }
+</style>
+</head>
+<body data-page-node-id="yrI1lNOqCCJyOk5wqNUbTr">
+
+<!-- ══════════ P1 / 封面（左下构图）══════════ -->
+<div class="slide" data-page-node-id="QGHwAoHY63oGNHJ8T1RZB7">
+  <div class="s1-event" data-page-node-id="mtCNvjcZGzktvusV19lBoH">{{EVENT 2026}}</div>
+  <div class="s1-block" data-page-node-id="4MPY6XdcygdSWoe6tIS2Fm">
+    <div class="s1-brandrow" data-page-node-id="G4jaunANYZzYUkZc5CVyLo">
+      <div class="s1-logo" data-page-node-id="3xx7qSqS6pryIRvSHjXIBV">
+        <svg viewBox="0 0 20 20" fill="none" data-page-node-id="cXNTBQIzz8oxZECK10cYH4"><path d="M10 2 L12.5 8.5 L19 10 L12.5 11.5 L10 18 L7.5 11.5 L1 10 L7.5 8.5 Z" fill="#FFFFFF" data-page-node-id="5hNOGr7LOkOMWR8Ylcsriv"/></svg>
+      </div>
+      <div data-page-node-id="tpCVIAfFXO6BYNxprMQN5p">
+        <div class="s1-brandname" data-page-node-id="f7gndGfIFLv9yaUMus8Ns4">{{品牌英文名}}</div>
+        <div class="s1-subbrand" data-page-node-id="ZGSHF9vwyRsbHyVpHGpHR4">{{春季新品发布会}}</div>
+      </div>
+    </div>
+    <h1 class="s1-title" data-page-node-id="hTky9qd5WH8RoZk6utMbY0">{{重新定义}}<br data-page-node-id="cV0lk8BWyO3q4WsCzS25Px">{{掌上}} <span class="b" data-page-node-id="VBJEyvwgilu1g2gKDXOscN">AI</span></h1>
+    <div class="s1-slogan" data-page-node-id="MIihbkzaaSzwnFJ6ZzkcTb">把旗舰影像与端侧 AI，装进你的口袋。</div>
+    <div class="s1-date" data-page-node-id="aideiYLATBANqJW8nyzbyi">2026 年 4 月 18 日 · 19:30</div>
+  </div>
+  <div class="s1-place" data-page-node-id="hcL7G1oFGkD99HtAyTORqh">线上同步直播 · {{发布会场地}}</div>
+  <div class="foot" data-page-node-id="vxrTlC0r6YPgyHl9PE6vGa">
+    <div class="navbtns" data-page-node-id="BxnxEoxeEgj5NuCcfly6Ow"><i data-page-node-id="ZlMqeDzRVzKVXTnuUxFyHa">←</i><i data-page-node-id="AbjlOAdv2lkr3oNWWvqb7T">→</i><span class="nav-tip" data-page-node-id="XAoEi9GvRMxQu38W8sxXB5">或空格翻页 · 点击两侧切换</span></div>
+    <div class="dots" data-page-node-id="FbnGz8BJm6U7SPHTGDNKHl"><i class="on" data-page-node-id="Few4Exz2vwX5gxsxz7Xd6t"></i><i data-page-node-id="26Z6sbt8SeiXFELdGBQ1dU"></i><i data-page-node-id="yIgJBSEWF1tsGjlkwfqWZc"></i><i data-page-node-id="hKPhLKEYkzvinG8gZNq6ng"></i><i data-page-node-id="hf7V2jUBYo5tCFiHQvfkB5"></i><i data-page-node-id="hVGshy59kyRDS14VGS6VAo"></i><i data-page-node-id="esu4vl1QAX9MyXMrKHto0c"></i><i data-page-node-id="T9gle13vRGM0ouImQDQhE2"></i></div>
+    <div class="pageno" data-page-node-id="KzTCA2hJq6WwTrIWyAryl2">01 / 08</div>
+  </div>
+</div>
+
+<!-- ══════════ P2 / 愿景宣言 ══════════ -->
+<div class="slide" data-page-node-id="v9nm7c3UOorPyVEhEnDgrs">
+  <div class="s2-main" data-page-node-id="I98mjpu6d2dndYpNB5JM83">
+    <div class="mono-kicker" style="margin-bottom:26px;" data-page-node-id="jtxGAHAAErIias75JNN5i6">Our Vision · 愿景</div>
+    <div class="s2-line" data-page-node-id="JL616NsFpLKzlAep7fnknS">{{真正的智能，}}<br data-page-node-id="9foO9CsaqCAQxFBmnbeVwp">{{应该<span class="b" data-page-node-id="5gtMUJEsRhBWwsDJgUdQpo">懂你</span>，<span class="dim" data-page-node-id="eJUpDphqHwrqssojZadFG2">而不是打扰你。</span>}}</div>
+    <div class="s2-desc" data-page-node-id="d49fEUI9xu4J2H8pA4w7QO">{{过去十年，我们把算力装进了口袋。今天，我们让它学会安静地理解你——你的日程、你的创作、你想说的下一句话。这一次，AI 不在云端，而在你身边。}}</div>
+  </div>
+  <div class="foot" data-page-node-id="zC6oVSp0ujVXPSiDDEnxnF">
+    <div class="navbtns" data-page-node-id="XohxIXzDHQVoxLKrgvke0X"><i data-page-node-id="Za7Bfvyd9tPJFs7twP88Us">←</i><i data-page-node-id="IGEsAKhJ926z7nFqo0UljA">→</i><span class="nav-tip" data-page-node-id="j49mIfl4TKWtXjVVbQZQeA">或空格翻页 · 点击两侧切换</span></div>
+    <div class="dots" data-page-node-id="HaQNxTq0KPDMeelCvyjFWn"><i data-page-node-id="j9xRFaDGzFGBgFhc8sJStt"></i><i class="on" data-page-node-id="sCVGW5E9aRmuiGjyoRI0M5"></i><i data-page-node-id="QCbFP0gvOgCHyTxBg24AIb"></i><i data-page-node-id="UJY6j5FnsPvyqpWFYVbtDZ"></i><i data-page-node-id="2B0LfFiN3mN2Kry4oMr7Ym"></i><i data-page-node-id="uwvB2WJIB3xNO4iBFbUZVG"></i><i data-page-node-id="1kpil32fhhDP71bFPCGefe"></i><i data-page-node-id="ic7iaKGU5nvQ9d8ByvyD0F"></i></div>
+    <div class="pageno" data-page-node-id="geFGupVX4BzRDT4Zsl4Qh2">02 / 08</div>
+  </div>
+</div>
+
+<!-- ══════════ P3 / 产品亮相 ══════════ -->
+<div class="slide" data-page-node-id="PORJhBD0uViWxJx6Af4Hur">
+  <div class="s3-tag" data-page-node-id="PBQo2Pejsr22Z0ofgvoEg4"><span class="dot-label" data-page-node-id="4SqoIVx0vljBElQg0yx8OK">{{第二主角}} · 全新登场</span></div>
+  <div class="s3-shot" data-page-node-id="chLckzkQKs10daYtwxHb7T"><div class="s3-product" data-page-node-id="uct9SjzVP0fm9BztGwfnOh">{{产品渲染图 / 实拍图}}</div></div>
+  <div class="s3-name" data-page-node-id="PZ6318sRMOwWAqdyjHgQyt">
+    <div class="s3-kicker" data-page-node-id="gMeUr0GqYpiKFZwQtMBuvE">AI 全面屏旗舰</div>
+    <h2 data-page-node-id="bagaaM867y3a7EMpO27pH6"><span class="thin" data-page-node-id="hUguGuNqd2RhyYDyAW9hD8">{{品牌英文名}}</span> <b data-page-node-id="oqgKzHHz7v96GWx7dkVCuc">{{产品系列名}}</b></h2>
+    <p data-page-node-id="N23R9EXCYAkvZv9zSSHOF5">把旗舰影像与端侧大模型，装进 7.9 毫米的机身。</p>
+  </div>
+  <div class="foot" data-page-node-id="wQ2rrHgHOB7fMwVdu8CVdC">
+    <div class="navbtns" data-page-node-id="AoWCtNRiyxLW0P0tFRyKHF"><i data-page-node-id="TOs2b2Yw0f3N27OrGNsK6Z">←</i><i data-page-node-id="dT6eX1lJVDGuC5cTlSrwph">→</i><span class="nav-tip" data-page-node-id="TII4zxnEIDEqFsyP5W7F8O">或空格翻页 · 点击两侧切换</span></div>
+    <div class="dots" data-page-node-id="fM1cmaTBgaPtHPVnXAJTJ0"><i data-page-node-id="NKtcymDawFy0EjIQi1RbnZ"></i><i data-page-node-id="zxFitWBDYx3eKBf505t4jK"></i><i class="on" data-page-node-id="xcCCm6g6crHxbGztGuKWsn"></i><i data-page-node-id="BHhNEEk6fKPLYTPGh1hq9J"></i><i data-page-node-id="X7mxKj2xghwmEaewZpe5oi"></i><i data-page-node-id="z3oHkAR5bl0Xv6ob2BvH5L"></i><i data-page-node-id="2kmom09eWnwT64zzPLupe1"></i><i data-page-node-id="AJQqzuaDiz1wgmi0Iq63Dy"></i></div>
+    <div class="pageno" data-page-node-id="7LcGlo7uyuHQEtybhF71x0">03 / 08</div>
+  </div>
+</div>
+
+<!-- ══════════ P4 / 特性三卡 ══════════ -->
+<div class="slide" data-page-node-id="Of1c0ZJF2SaBUOWzDS1cf3">
+  <div class="s4-head" data-page-node-id="y9WvEFZVFj473ubIN9eHFK">
+    <div class="mono-kicker" data-page-node-id="Mtq01wZg64CE3iECK7980v">{{产品名}} · 三大核心</div>
+    <h2 data-page-node-id="use582d35YftekSdmm3L1K">一部手机，<span class="b" data-page-node-id="WGC65N8aZzsVrVdi4B7sxu">三种从容</span>。</h2>
+    <div class="sub" data-page-node-id="3ecGDKFdxr2nAPOiMkhsws">{{从清晨第一缕光，到深夜最后一帧画面——{{产品}} 全程在线，却从不喧哗。}}</div>
+  </div>
+  <div class="s4-cards" data-page-node-id="1O3ah1bbARw9SLVfGTeq4N">
+    <div class="tcard" data-page-node-id="kcgMvT9rbTR0jV1vZ6WoLg">
+      <div class="ic" data-page-node-id="nMM8ma81aIdubKH2q13MWE"><svg viewBox="0 0 20 20" fill="none" data-page-node-id="BwvBQiduGcnDMQFylX56Ar"><rect x="2" y="5.5" width="16" height="11.5" rx="2.5" stroke="#FFFFFF" stroke-width="1.8" data-page-node-id="FcbWZb2TpgRebnHrCCXJQd"/><path d="M6.5 5.5 L8 3.2 H12 L13.5 5.5" stroke="#FFFFFF" stroke-width="1.8" stroke-linejoin="round" data-page-node-id="TMRayHlCDpGMYCH13SCdGa"/><circle cx="10" cy="11" r="3.2" stroke="#FFFFFF" stroke-width="1.8" data-page-node-id="L4OnTBRDfzfuBxOF6w4WAX"/><circle cx="15.2" cy="7.8" r="0.9" fill="#FFFFFF" data-page-node-id="HuOtFNbZlgKlSgdgE9bBbu"/></svg></div>
+      <div class="big" data-page-node-id="1pQQ9CWs4tB7tuRnPVUd4h"><b data-page-node-id="2IrFHwUrKyGFThQbQ3x9N9">2 亿</b><small data-page-node-id="nvwKZtGnuR9VjKqDJaCDq0">像素</small></div>
+      <h3 data-page-node-id="4IRvTspMotSoHq0M77HOhc">全焦段影像系统</h3>
+      <p data-page-node-id="0q47Meda7Fyd3mNHcczax5">1 英寸大底主摄 + 潜望长焦，夜景人像与 10 倍远摄同为旗舰水准。</p>
+    </div>
+    <div class="tcard" data-page-node-id="THgtLGyUx7ABEBLUOFwr4c">
+      <div class="ic" data-page-node-id="olqkw4NWRlJsjBzfRXB0bK"><svg viewBox="0 0 20 20" fill="none" data-page-node-id="DOcTblzpVvdjyDNiYQnj5S"><circle cx="10" cy="10" r="3.2" stroke="#FFFFFF" stroke-width="1.8" data-page-node-id="8Js0nALffGi2nghts4ahbj"/><path d="M10 2v2.4M10 15.6V18M2 10h2.4M15.6 10H18M4.3 4.3l1.7 1.7M14 14l1.7 1.7M15.7 4.3L14 6M6 14l-1.7 1.7" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" data-page-node-id="pZ3fDe2NpXS73qzQ1cbckt"/></svg></div>
+      <div class="big" data-page-node-id="wkTUho0CakI7rpSuomVeA6">端侧 <b class="b" data-page-node-id="UBSuS8sFRcpgYB7XtIf2Cs">AI</b></div>
+      <h3 data-page-node-id="CjbSJx9e7VT4h3VFakuMBS">本地大模型助手</h3>
+      <p data-page-node-id="PNTJ1hHO5PB6hgUAXX3KsH">离线运行轻量大模型，即问即答，通话摘要与日程理解不经云端。</p>
+    </div>
+    <div class="tcard" data-page-node-id="kyl8kXjhyDJPvriZQvqPPS">
+      <div class="ic" data-page-node-id="1D30qVzzNnqZjlfOBZoSMX"><svg viewBox="0 0 20 20" fill="none" data-page-node-id="zRKGeAOrRgQayCZTGdbgOe"><rect x="2" y="6.5" width="13" height="7" rx="2" stroke="#FFFFFF" stroke-width="1.8" data-page-node-id="OWYjyLFvZoOH2g7q71qTRN"/><path d="M17 9v2" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" data-page-node-id="O6ab8D083flkRCB0Gzi1Cj"/><rect x="4.5" y="9" width="5" height="2.6" rx="1" fill="#FFFFFF" data-page-node-id="VwftGlSEXgvEFDNOUf3taa"/></svg></div>
+      <div class="big" data-page-node-id="BppBt68LxSvfxEcDEPxEiG"><b data-page-node-id="8iC3WcefHmMUElGWw92SZ4">2</b> 天</div>
+      <h3 data-page-node-id="Y9HsnCw0DNCAkTBzsH5p60">超长续航</h3>
+      <p data-page-node-id="KcdQybfwkghHMLzthReEJP">5000mAh 硅碳电池 + 100W 快充，11 分钟即可回血一半。</p>
+    </div>
+  </div>
+  <div class="foot" data-page-node-id="3HOIx5wc7YyImpJ3lxFSgb">
+    <div class="navbtns" data-page-node-id="Hcd0WDfXGc4FQuxSvtlnKE"><i data-page-node-id="2IEOKjn3DWSV2CyDyryTDl">←</i><i data-page-node-id="JGNHGQ424TMFcdJraYyCtR">→</i><span class="nav-tip" data-page-node-id="AXSzOV0tdjzFnqjFrPugMH">或空格翻页 · 点击两侧切换</span></div>
+    <div class="dots" data-page-node-id="dpT4mcSOK8qVDdJdogBfNw"><i data-page-node-id="ac1eZHIWVJCIO1Gya9Bq6S"></i><i data-page-node-id="Jna8EGqvtKHQZtPeU3gxs6"></i><i data-page-node-id="2RJm3iMnwZRwpgz1sqkxAt"></i><i class="on" data-page-node-id="ve0XwKHCwG0N51C1m1ZGf3"></i><i data-page-node-id="NugfbfaBgijmekgBwfW3Zp"></i><i data-page-node-id="qy46mjLsq10RjzqYr1lWc8"></i><i data-page-node-id="NWWCi86jHZSV1W8FPm3uXF"></i><i data-page-node-id="JxzCexwZnQbA2T1rIZvoWo"></i></div>
+    <div class="pageno" data-page-node-id="GMM2YIqsHcrdJp5Cc0CXOZ">04 / 08</div>
+  </div>
+</div>
+
+<!-- ══════════ P5 / 性能数据（三列贴底）══════════ -->
+<div class="slide" data-page-node-id="dT7upOc3NZZ06hC53cNcAg">
+  <div class="s5-head" data-page-node-id="bBAP9VEg2RwivC86KVqVwb">
+    <div class="mono-kicker" data-page-node-id="BKYllRPVuQPGhwExy7eFaC">{{产品名}} · 影像革命</div>
+    <h2 data-page-node-id="DMAmft0AMS7zFSiJ5gbWHx">拍得清楚，<span class="b" data-page-node-id="bCORDAY3nX1TUmAyWzD1xf">跑得飞快</span>。</h2>
+    <div class="sub" data-page-node-id="fTiACqZHRpUBtbDHhmWL1P">{{计算摄影、旗舰芯片与百瓦快充——一部手机，三种硬实力。}}</div>
+  </div>
+  <div class="s5-stats" data-page-node-id="5IC2LufIXCz7FMt6sqZUsJ">
+    <div class="stat" data-page-node-id="x9KlDARzPD1zvvsfDbE3fB">
+      <div class="v" data-page-node-id="oOVRQYb7WUSkNAI68v0O0D"><b data-page-node-id="Gcdv257bu9WbuECzoYKpFK">1 亿</b><small data-page-node-id="rhm7zHEWXzd9ZcxMx6MVCc">像素</small></div>
+      <h3 data-page-node-id="dKh3FcGZztC33mqqXGQy5m">旗舰影像系统</h3>
+      <p data-page-node-id="byYq9hNUsnVeX9LWytWA9Z">1 英寸大底主摄，夜景人像与 10 倍长焦同样清晰。</p>
+    </div>
+    <div class="stat" data-page-node-id="7l3CKGesp6PwUeV0agJbce">
+      <div class="v" data-page-node-id="UWLZlod079PEMfjgWGK9io"><b data-page-node-id="BB4NGBJeCJrTshjDEGyThI">100</b><small data-page-node-id="engJj7IEDR6f87PNQ9QktR">W</small></div>
+      <h3 data-page-node-id="3mwDySpUyf8WuNBG8ENZsG">有线秒充</h3>
+      <p data-page-node-id="NyTkhP3wEEcgdtdMNifBgb">11 分钟充至 50%，一杯咖啡的时间满血出发。</p>
+    </div>
+    <div class="stat" data-page-node-id="LBBT0kEG24vHlS6h6GRWaC">
+      <div class="v" data-page-node-id="TtRJhoiqwoGC89dQKhx5OX"><b data-page-node-id="LiFA25kCMBXBGF4ePyN0KC">288</b><small data-page-node-id="FRUk5oDxwd7ELcCbYtoGdK">万分</small></div>
+      <h3 data-page-node-id="HAZStOj1CFHIoAxCfFlau8">新一代 {{X 芯片}} 跑分</h3>
+      <p data-page-node-id="IGDMIjmfy9TMqCcle80oBC">多核性能较上代提升 40%，重载场景依然冷静。</p>
+    </div>
+  </div>
+  <div class="foot" data-page-node-id="GRi3RDdJAHQOkHgxfEnwXe">
+    <div class="navbtns" data-page-node-id="EmZzBOd3CTuCAoT2F0xled"><i data-page-node-id="NMnnlZpBrNdbdgXsqCFHEA">←</i><i data-page-node-id="WHhI157qYuyVKVpK89AVRx">→</i><span class="nav-tip" data-page-node-id="4EGHlI4h8OBC9Du7jGELAC">或空格翻页 · 点击两侧切换</span></div>
+    <div class="dots" data-page-node-id="sBJEzjiV7kMZC2K9j8AWCK"><i data-page-node-id="bTO36TBzBM51BM5xN5guHx"></i><i data-page-node-id="SqBXatUeC5Ebsic6LCUJtl"></i><i data-page-node-id="hTAxwFMFnGPuLAy36AxvlH"></i><i data-page-node-id="fsqY6vVFnhHlaOJ0IUyQvH"></i><i class="on" data-page-node-id="pMeFDZ84jFZv1BBs1egbf7"></i><i data-page-node-id="facwCZD0w0eNTldoTkGwiA"></i><i data-page-node-id="xJPDoNgGaC9n5lMdxJmnWj"></i><i data-page-node-id="0Vt31OhNh1t4vVm4iHO2uh"></i></div>
+    <div class="pageno" data-page-node-id="rTLebpjtzjihMElmYVPv0O">05 / 08</div>
+  </div>
+</div>
+
+<!-- ══════════ P6 / 对比 ══════════ -->
+<div class="slide" data-page-node-id="0eDo2mPyFvDOEOKOl87Mty">
+  <div class="s6-head" data-page-node-id="d1GFHJl2y1B13pByrKzIXg">
+    <div class="mono-kicker" data-page-node-id="vR1OZr5CCsBQt4OhO7dJIt">Compare · 全维度升级</div>
+    <h2 data-page-node-id="fF1Dzv8sA9gOfa429Upt4I">{{每一代，都更懂你}}</h2>
+  </div>
+  <div class="s6-tbl" data-page-node-id="4cqM84qdzYnfHBVthJlu4o">
+    <table data-page-node-id="tnQqViZG8zLaBMEnm6Bzyp">
+      <thead data-page-node-id="Oj6fkzsz3BIn1zKccu9djw"><tr data-page-node-id="DJDz2zWbGL00IDTanbzQEM"><th style="width:24%;" data-page-node-id="AYycYHKMOGVjEHrTX99O7H">维度</th><th class="us" style="width:30%;" data-page-node-id="RadCFPdLiZsAIO6FZwY0Ai">{{产品名称}} {{新版本}}</th><th style="width:23%;" data-page-node-id="ZGBi8oNAEJvfIjvXkowcRJ">{{上代产品}}</th><th style="width:23%;" data-page-node-id="EHBqOVYtO4OAPaubMEtHQY">{{竞品代表}}</th></tr></thead>
+      <tbody data-page-node-id="yIByoZ4SkGvwCj8QZlgJHw">
+        <tr data-page-node-id="yKvVBa0m2LCwXYwBOw7YxT"><td class="c1" data-page-node-id="ZTplVPiDCe6AKX6Fjkn1P0">{{核心芯片}}</td><td class="us" data-page-node-id="FthJAEV8BhMlM5qzZ4kLYh">{{新一代 X3 芯片}}</td><td class="dim2" data-page-node-id="S8pBL0iA7QDfcuR6cKYiej">{{上代 X2}}</td><td class="dim2" data-page-node-id="VJ56TbeidCJDjKQozoAP88">{{竞品芯片}}</td></tr>
+        <tr data-page-node-id="qC9ytWk7tHagLVovvXrJ5N"><td class="c1" data-page-node-id="gKHyPFdXMgMOJYv6qkH7sH">{{屏幕}}</td><td class="us" data-page-node-id="SbjktE6862M48tSUqPA7cL">6.9″ 2K LTPO 120Hz</td><td class="dim2" data-page-node-id="5flFH49KWG1qqBEnSLtHbu">6.7″ 1.5K</td><td class="dim2" data-page-node-id="a8fjTdbDY5KzLf1ndIQjgc">6.8″ 2K</td></tr>
+        <tr data-page-node-id="hYgLIcBTdOE3RB6Qg7amaG"><td class="c1" data-page-node-id="QATD8ShgMlgkXOCHbG4IVX">{{影像}}</td><td class="us" data-page-node-id="vTS0gHBwBY8bSzSFcRexwC">2 亿像素三摄</td><td class="dim2" data-page-node-id="qVQ1qOAHmBHL8VRe8HoFcF">5000 万双摄</td><td class="dim2" data-page-node-id="x3vttotaJESjCZfFfiGbDZ">5000 万三摄</td></tr>
+        <tr data-page-node-id="sPOQ6SUC4EEh9Ee51g7vxH"><td class="c1" data-page-node-id="bu1BspXSZljCORVtCAblHL">{{续航}}</td><td class="us" data-page-node-id="Z2Dg94caCKpi41cuSSjijx">2 天 · 100W 秒充</td><td class="dim2" data-page-node-id="uhb9YP4mWdQuxTlsHPyahA">1.5 天 · 66W</td><td class="dim2" data-page-node-id="wVF5fmIWKeq9Za8ixnunfk">1 天 · 45W</td></tr>
+        <tr data-page-node-id="dYlRYhP65fXGYBPAzcSGve"><td class="c1" data-page-node-id="r8JwJMQPltL3ctXoYHXhFk">{{智能助手}}</td><td class="us" data-page-node-id="GustaPsix7Guh1c2Y93Zkv">端侧大模型 · 离线可用</td><td class="dim2" data-page-node-id="ysVNOXlQQW5jmpyPSaCVxP">规则助手</td><td class="dim2" data-page-node-id="diCQ7jKN3ZNfujoEEvE5q7">需联网</td></tr>
+        <tr data-page-node-id="NtHDEZQOeBXym0gQPl3plv"><td class="c1" data-page-node-id="TkItjYWKs147xgBNcLPYl8">{{生态互联}}</td><td class="us" data-page-node-id="mtALFdAYnRhHAmUJzBA0xz">{{跨设备无缝接力}}</td><td class="dim2" data-page-node-id="YGOycHAlR8uWFycyKydsJ6">{{单设备}}</td><td class="dim2" data-page-node-id="ZLoq6T1DRIL8OhfJ5cgoaF">{{部分支持}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="s6-note" data-page-node-id="upSQx5qsHFDo3tms4rghvC">注：{{数据来自实验室测试，实际表现因使用环境而异。}}</div>
+  <div class="foot" data-page-node-id="Y246KsYlb5d3VSxSPiA4gI">
+    <div class="navbtns" data-page-node-id="mXsQEM44TmAz4kHP3vK5mH"><i data-page-node-id="rn6O8Cpfy8LQRaY7Q7JjBS">←</i><i data-page-node-id="tUsNpUr63RYsDLcjBU8jS8">→</i><span class="nav-tip" data-page-node-id="o4WAfY2rISCEEYNutHgdeQ">或空格翻页 · 点击两侧切换</span></div>
+    <div class="dots" data-page-node-id="Oz51Y1B4friP1CbjcUOLrZ"><i data-page-node-id="uIRJ7maHBrTCmHL71xW9r7"></i><i data-page-node-id="HBydI839OsFrEWHgeh6n8e"></i><i data-page-node-id="4GfBuDDpnFS55tOIWJkTsA"></i><i data-page-node-id="FpJgFdVqa8rNiyv30ANoTh"></i><i data-page-node-id="oYZSwVA6jbCxRbEXF33ycx"></i><i class="on" data-page-node-id="x4Bu4bMtzVFFrzXZctq3Xa"></i><i data-page-node-id="wGDzAfkKWFlDhMdv8fyWTI"></i><i data-page-node-id="hT0vjxQBepAUphwRSxEDuG"></i></div>
+    <div class="pageno" data-page-node-id="pDtnS1O2P5F6HToRIpC1fV">06 / 08</div>
+  </div>
+</div>
+
+<!-- ══════════ P7 / 生态 ══════════ -->
+<div class="slide" data-page-node-id="s7XmNXQCTp0NtVvSPSLfpo">
+  <div class="s7-head" data-page-node-id="CxakCtCTLkSFU6ZcieS8ZJ">
+    <div class="mono-kicker" data-page-node-id="V98az951CwOFzSBucADQpG">Ecosystem · 生态协同</div>
+    <h2 data-page-node-id="SRZxj7aLqyVjQYdRcSuQbp">不止是一台 {{产品}}</h2>
+    <div class="sub" data-page-node-id="zcG5SfLXLXJ3O90bDfBzmW">{{与 {{全家桶}} 的每一次相遇，都恰到好处。}}</div>
+  </div>
+  <div class="s7-cards" data-page-node-id="SkSwzsGX4b7JWtTuq4Pt3V">
+    <div class="ecard" data-page-node-id="Ixl1Flp4keeYu60OmR1jsD"><div class="e-no" data-page-node-id="nCBD0wZqJ8bUh6YyX9He0S">01 · {{手表}}</div><h3 data-page-node-id="sHeTHkiEfn1tP9sjfo5tti">{{手表联动}}</h3><p data-page-node-id="6YYLlXbaH5WzD8axGB5sDF">{{抬腕即答，数据互通，健康与日程一屏掌握。}}</p></div>
+    <div class="ecard" data-page-node-id="PWRHPO2N0Ax8lxhqccMlD0"><div class="e-no" data-page-node-id="qDOjb9KME2XVcMBVgKpI0c">02 · {{耳机}}</div><h3 data-page-node-id="13ECrzDLYYJPHYw2WhhViv">{{耳机接力}}</h3><p data-page-node-id="a9FQ4pxLJrwhVGPDNq9aWb">{{靠近自动连接，跨设备无缝切换音频。}}</p></div>
+    <div class="ecard" data-page-node-id="800EBYu99mTat9lq7LsD3h"><div class="e-no" data-page-node-id="9dTOCsKFplKXgrGLgnzV5P">03 · {{云端}}</div><h3 data-page-node-id="jaG8iCHzShLEewunGWAQe2">{{云同步}}</h3><p data-page-node-id="ov64CHCsn9ObR7L7WVNP7w">{{端到端加密，多端实时同步不丢一步。}}</p></div>
+  </div>
+  <div class="foot" data-page-node-id="0YilTbTEbpRFVBbES5EhZs">
+    <div class="navbtns" data-page-node-id="rx4a2Zneza7VB2WtkTMN1V"><i data-page-node-id="QPZ9urkYgL1o0BLNTAkdpu">←</i><i data-page-node-id="bkP4hS0FyBnzrVuStFh38J">→</i><span class="nav-tip" data-page-node-id="IoDVJzh2KJrAkCiNEg4Wr0">或空格翻页 · 点击两侧切换</span></div>
+    <div class="dots" data-page-node-id="qCboBM75QgvHdFGn0o0CUV"><i data-page-node-id="GTUukEgJprDhwAnXMYjzte"></i><i data-page-node-id="WoUvLGtyvfEbXbnh1YhmkY"></i><i data-page-node-id="Q07sIdgAeXT1FUM9G3FobC"></i><i data-page-node-id="rfXGgSCALdV0L9r3MHIBMb"></i><i data-page-node-id="OTBf4g3DWQeGat2V0XpGqN"></i><i data-page-node-id="IBww56nfiei4rn0AODrEoH"></i><i class="on" data-page-node-id="ROAL62wuP7d3X9W0IoI8dw"></i><i data-page-node-id="Xy4BHY0mJsrcxHlAp4KvCX"></i></div>
+    <div class="pageno" data-page-node-id="DkP2JMRWdjCBHgevRFcBAf">07 / 08</div>
+  </div>
+</div>
+
+<!-- ══════════ P8 / 价格·发售（居中三卡）══════════ -->
+<div class="slide" data-page-node-id="gc447XOrrV2XN67RmBg55l">
+  <div class="s8-head" data-page-node-id="WHkvJtO67QsizgTj8yOMi2">
+    <div class="mono-kicker" data-page-node-id="Qy80A4z96fowV8INlSdA2B">Pricing · 价格与发售</div>
+    <h2 data-page-node-id="rfDvnGXLGZ8Be2U0xOhCs8">现在，<span class="b" data-page-node-id="joDkFeLSJCYNP9CKSslUmO">触手可及</span>。</h2>
+  </div>
+  <div class="s8-cards" data-page-node-id="0vSEC1fkk4yMPtsSDgUP4E">
+    <div class="pcard" data-page-node-id="XR8fygpsMqpsB5IAzh0w3T">
+      <div class="p-tag dim2" data-page-node-id="zHeZOU31TbZN8ec5d90wFV">Phone</div>
+      <h3 data-page-node-id="H16q9OMbIzRP6p0G9CfG35">{{产品名称 标准版}}</h3>
+      <div class="p-desc" data-page-node-id="AIG5yNbpvhqGrtJ1cY6M8A">{{钛金标准版 · 12+256}}</div>
+      <div class="p-price" data-page-node-id="YECvuWF6BU5c9ZrMhWzDe5"><small data-page-node-id="4xxFE1IIJ6UYmNI9uaV6p2">¥</small>3,999</div>
+    </div>
+    <div class="pcard reco" data-page-node-id="NF3l2EHE88Exg4ppRHkRWu">
+      <div class="p-tag" data-page-node-id="7hNkhNEDPIw9vyBT9LMjrJ">Pro · 推荐</div>
+      <h3 data-page-node-id="4XrDf8NBri8fWJMQP9fH3H">{{产品名称}} Pro</h3>
+      <div class="p-desc" data-page-node-id="XbV8pmUhhEumCHPZYGjFMe">{{16+512 · 首发赠一年延保}}</div>
+      <div class="p-price" data-page-node-id="OzCV5ltuuBILrkQG8GO6ma"><small data-page-node-id="AFvgmYzNadz4EGKQ5FbzwC">¥</small>4,999</div>
+    </div>
+    <div class="pcard" data-page-node-id="jeKQjmkuUdupB8SFRoD7VB">
+      <div class="p-tag dim2" data-page-node-id="dPvPVWOqcCzOViQUrdNxpO">Pro Max</div>
+      <h3 data-page-node-id="UpFhwUubRj9Ug90To47A27">{{产品名称}} Pro Max</h3>
+      <div class="p-desc" data-page-node-id="GK4J1zQpV6f1ShLoBvOyGF">{{16+1T 旗舰存储}}</div>
+      <div class="p-price" data-page-node-id="Np6B0SRIsDxsagbOFdQDdO"><small data-page-node-id="gwXKmMPPSeQAI0l17eDdjg">¥</small>5,999</div>
+    </div>
+  </div>
+  <div class="s8-sale" data-page-node-id="tObfII9Q1mdslpHxS22DCZ">预售开启 <b data-page-node-id="bQ4mlndsDtTX1otj9qxdvf">4 月 18 日 20:00</b>　　首发发货 <b data-page-node-id="p7qZCpC8hblRVxrxDlwTjS">4 月 26 日</b>　　预购赠 <b data-page-node-id="bWmmEG9yBQmMMJzeXgUrZJ">一年延保</b></div>
+  <div class="foot" data-page-node-id="e2MFU6ZAxUJfiXNERBLUo4">
+    <div class="navbtns" data-page-node-id="6DvenRvndERHDDNqWZjTaz"><i data-page-node-id="5E5RYU16aqQv15uiRH4Hh4">←</i><i data-page-node-id="NMiUMc8yPwDrdpyDEJMC2Z">→</i><span class="nav-tip" data-page-node-id="PWWOKZRpFQRHuUVEtjPDXj">或空格翻页 · 点击两侧切换</span></div>
+    <div class="dots" data-page-node-id="W308AlmAfRur3bqkS8tuMk"><i data-page-node-id="DmKgl2NuB2YPNPivxCCG1m"></i><i data-page-node-id="mliXzLaEHOdgybzC6P7NNY"></i><i data-page-node-id="zoxOaqXUDGIuOiCjEdP47e"></i><i data-page-node-id="xo614eEZaG5rYcDDo4hjL5"></i><i data-page-node-id="pH3emAbMkqB0Qd1V6nHNfI"></i><i data-page-node-id="h9WxLgxZUHO6gKf1FTosiP"></i><i data-page-node-id="NTemuyfA9j5dRqybz5CsPl"></i><i class="on" data-page-node-id="FwcHzhVdqgD9tAD7Q7lqwW"></i></div>
+    <div class="pageno" data-page-node-id="tEaaOwBrG8TSaA42CmeUyi">08 / 08</div>
+  </div>
+</div>
+
+</body>
+</html>

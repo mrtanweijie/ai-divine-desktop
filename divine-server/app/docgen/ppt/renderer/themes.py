@@ -90,6 +90,30 @@ PPT_THEMES: dict[str, dict[str, Any]] = {
         "pop_blue": "5B7CFA", "pop_violet": "8A6CF6", "pop_orange": "FFA63D",
         "chart_palette": ["FF5C93", "FFD24D", "2ED9A8", "5B7CFA", "8A6CF6"],
     },
+    # 发布会 Keynote（015 样张）：纯黑舞台 + 单一强调色 + 深灰圆角卡 +
+    # 等宽眉题 + 进度点页脚。整页构图由 sample_pages 专属渲染器实现，
+    # 不走通用版式（sample 标记即隔离边界）。
+    "keynote": {
+        "sample": "keynote",
+        "cover_bg": "050506", "content_bg": "050506", "accent": "2F7BF7",
+        "accent_light": "17171B", "text": "F5F5F7",
+        "muted": "8A8D95", "cover_text": "F5F5F7", "meta": "7A7D85",
+        "font": "PingFang SC",
+        "chart_palette": ["2F7BF7", "6AA5FF", "C8C9CE", "8E9299", "56585F"],
+    },
+    # 开发者大会产品推广（016 样张）：纸白 + 近黑 + 发丝线 + 等宽字体，
+    # 深色反转宣言页。同上，整页由专属渲染器实现。
+    "devconf": {
+        "sample": "devconf",
+        # 016 样张封面是纸白 + 近黑标题（深色反转只在 P2 使命页）
+        "cover_bg": "FFFFFF", "content_bg": "FFFFFF", "accent": "2F7BF7",
+        "accent_light": "EDF3FE", "text": "16181D",
+        "muted": "7E858D", "cover_text": "16181D", "meta": "8A9199",
+        # 深色使命宣言页（016 P2）专用反转色
+        "dark_bg": "0E1116", "dark_text": "F2F3F5",
+        "font": "PingFang SC",
+        "chart_palette": ["2F7BF7", "6AA5FF", "C8C9CE", "8E9299", "56585F"],
+    },
     # ---- 经典色彩主题（style 指向最接近的装饰语言）----
     "universal": {
         "style": "clean",
@@ -271,6 +295,40 @@ STYLES: dict[str, dict[str, Any]] = {
 
 def get_ppt_theme(theme_id: str | None) -> dict[str, Any]:
     return PPT_THEMES.get((theme_id or "").strip(), PPT_THEMES[DEFAULT_THEME])
+
+
+def apply_primary_color(theme: dict[str, Any], primary: str) -> dict[str, Any]:
+    """把用户指定主色应用到主题（原地修改并返回副本）。
+
+    颜色支持 #hex / rgb() / 颜色名（复用 PDF 主题色解析器）。
+    亮度按内容底色自动校正：浅底压深保证可读，深底（keynote 舞台）提亮
+    保证醒目；accent 与图表调色板主色同步替换。无法解析时原样返回。
+    """
+    from ...pdf.theme_colors import _resolve_color
+
+    rgb_tuple = _resolve_color(primary)
+    if not rgb_tuple:
+        return theme
+    import colorsys
+
+    r, g, b = (channel / 255.0 for channel in rgb_tuple)
+    hue, lightness, saturation = colorsys.rgb_to_hls(r, g, b)
+    if is_light(theme.get("content_bg", "FFFFFF")):
+        lightness = min(max(lightness, 0.32), 0.52)
+    else:
+        lightness = min(max(lightness, 0.52), 0.72)
+        saturation = min(max(saturation, 0.55), 0.95)
+    accent = "%02X%02X%02X" % tuple(
+        round(channel * 255)
+        for channel in colorsys.hls_to_rgb(hue, lightness, saturation)
+    )
+    theme = dict(theme)
+    theme["accent"] = accent
+    palette = list(theme.get("chart_palette") or [])
+    if palette:
+        palette[0] = accent
+        theme["chart_palette"] = palette
+    return theme
 
 
 def get_style(theme: dict[str, Any]) -> dict[str, Any]:

@@ -37,7 +37,8 @@
 | 024 | [design-streaming-performance](design/016-streaming-performance-20260904.md) | 2026-09-04 | 未实施（B1–B6 待实施） |
 | 026 | [design-office-edit-closed-loop](design/017-office-edit-closed-loop-20260906.md) | 2026-09-06 | 已实施（期一/二/三） |
 | 031 | [design-svg-architecture-routing](design/021-svg-architecture-routing-20260909.md) | 2026-09-09 | 未实施（方案待审） |
-| 032 | [design-agent-memory-architecture](design/022-agent-memory-architecture-20260911.md) | 2026-09-11 | 未实施（方案待审） |
+| 032 | [design-agent-memory-architecture](design/022-agent-memory-architecture-20260911.md) | 2026-09-11 | 已实施（一至五期，2026-09-12） |
+| 035 | [design-pdf-page-template-styles](design/023-pdf-page-template-styles-20260913.md) | 2026-09-13 | **已实施（论文/报告四套页式模板接入 PDF 工具）** |
 
 ### 修复（fix）
 
@@ -55,7 +56,9 @@
 | 013 | [review-optimization-feasibility](review/003-optimization-feasibility-20260830.md) | 2026-08-30 | 已归档（仅分析未实施） |
 | 017 | [review-project-health](review/004-project-health-20260901.md) | 2026-09-01 | 已归档（历史复盘，由 025 修订） |
 | 020 | [review-ui-design-audit](review/005-ui-design-audit-20260903.md) | 2026-09-03 | 已实施 |
-| 025 | [review-capabilities-recheck](review/006-capabilities-recheck-20260905.md) | 2026-09-05 | **现行有效（最新复盘）** |
+| 025 | [review-capabilities-recheck](review/006-capabilities-recheck-20260905.md) | 2026-09-05 | **现行有效（最新能力复盘）** |
+| 033 | [review-architecture-analysis](review/007-architecture-analysis-20260912.md) | 2026-09-12 | 已归档（架构与功能分析） |
+| 034 | [review-pdf-template-ui-audit](review/008-pdf-template-ui-audit-20260913.md) | 2026-09-13 | **已实施（011–014 模板 UI 优化）** |
 
 ### 样张（sample），独立编号
 
@@ -71,12 +74,25 @@
 | 008 | [sample-travel-swiss](templates/008-travel-template-swiss-20260912.html) ｜ [预览 PDF](templates/008-travel-swiss-preview.pdf) | 2026-09-12 |
 | 009 | [sample-travel-bento](templates/009-travel-template-bento-20260912.html) ｜ [预览 PDF](templates/009-travel-bento-preview.pdf) | 2026-09-12 |
 | 010 | [sample-travel-aurora](templates/010-travel-template-aurora-20260912.html) ｜ [预览 PDF](templates/010-travel-aurora-preview.pdf) | 2026-09-12 |
-| 008 | [sample-travel-template-swiss](templates/008-travel-template-swiss-20260912.html) | 2026-09-12 |
-| 009 | [sample-travel-template-bento](templates/009-travel-template-bento-20260912.html) | 2026-09-12 |
-| 010 | [sample-travel-template-aurora](templates/010-travel-template-aurora-20260912.html) | 2026-09-12 |
+| 011 | [sample-academic-report](templates/011-academic-report-template-20260912.html) ｜ [预览 PDF](templates/011-academic-report-preview.pdf) | 2026-09-12 |
+| 012 | [sample-thesis-paper](templates/012-thesis-paper-template-20260912.html) ｜ [预览 PDF](templates/012-thesis-paper-preview.pdf) | 2026-09-12 |
+| 013 | [sample-data-analysis-report](templates/013-data-analysis-report-template-20260912.html) ｜ [预览 PDF](templates/013-data-analysis-report-preview.pdf) | 2026-09-12 |
+| 014 | [sample-research-report](templates/014-research-report-template-20260912.html) ｜ [预览 PDF](templates/014-research-report-preview.pdf) | 2026-09-12 |
+| 015 | [sample-launch-keynote](templates/015-launch-keynote-style-20260912.html) | 2026-09-12 |
+| 016 | [sample-product-devconf](templates/016-product-intro-devconf-style-20260912.html) | 2026-09-12 |
 
 ## 附属目录
 
-- `templates/`：HTML / PPT 视觉样张（独立编号 001–010，含预览 PDF）
+- `templates/`：HTML / PPT 视觉样张（独立编号 001–016，含预览 PDF）
+  - 011–014 四套（学术报告 / 论文投稿 / 数据分析报告 / 研究报告）已作为**页式模板**接入 PDF 工具，
+    运行时副本在 `divine-server/app/docgen/pdf/pdf_themes/{academic_report,thesis_paper,data_report,research_report}.html`，
+    详见 [design 023](design/023-pdf-page-template-styles-20260913.md)。改样张后需同步复制到 `pdf_themes/`，
+    由 `divine-server/tests/test_pdf_page_templates.py::test_doc_sample_matches_runtime_copy` 强制校验两者一致。
+  - 015–016 是 PPT 主题（keynote / devconf）的视觉样张，主题已实现在
+    `divine-server/app/docgen/ppt/renderer/themes.py`，**样张不参与运行时渲染**；
+    其占位符采用「整句包裹 + 内层插槽」的嵌套写法，与 011–014 的扁平约定不同——
+    这是历史写法（当前括号平衡），若日后接入会做占位符替换的管线，须先扁平化。
+  - 占位符卫生由 `tests/test_pdf_page_templates.py` 强制校验：括号平衡 + 无四重括号（011–016），
+    且 011–014 禁止嵌套（`test_sample_placeholders_balanced` / `test_pdf_sample_placeholders_are_flat`）。
 - `assets/`：文档引用的图片资源
 - `pdf-modules/`：PDF 模块 JSON/CSS/HTML 资源（由 docgen 管线引用）
