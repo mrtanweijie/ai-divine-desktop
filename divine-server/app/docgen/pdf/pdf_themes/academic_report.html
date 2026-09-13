@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="7FfsxfrdYfRaH3My3ILySL">
+<head data-page-node-id="AVXSUMQlZieAZPjk0N5CB2">
+<meta charset="UTF-8" data-page-node-id="DRhzd0VYgVUVnETq7vPVvR">
+<title>{{报告标题}} - 学术报告模板 · 学院蓝（Academic）</title>
+<!--
+  ═══════════════════════════════════════════════════════════════
+  学术报告模板 · Academic 学院蓝（academic）
+  ═══════════════════════════════════════════════════════════════
+
+  【设计语言】
+  1. 经典学院气质：纸白 #FCFCFA + 学院深蓝 #1F3A5F + 铜蓝强调 #3E6B9E
+  2. 衬线标题（Noto Serif SC）× 无衬线正文，章节编号 1 / 1.1 层级严格
+  3. 封面：顶部机构信息（无底色块，纸面白底 + 下缘发丝线）+ 居中衬线大标题 + 信息表（作者/院系/导师/日期）
+  4. 摘要框浅蓝底 + 左粗边框；关键词胶囊；目录 leader 点线
+  5. 图表按学术规范编号（图 1-1 / 表 2-1），参考文献悬挂缩进
+  6. 无编号章节（摘要/目录/参考文献）统一用 § 引导，正文用阿拉伯数字
+
+  【渲染兼容】WeasyPrint 安全：纯色填充，无渐变/conic/mask/backdrop-filter；
+              封面与页脚一律用块级 + absolute 定位，**不使用 flexbox**（WeasyPrint 的 flex 会拉伸子项高度）
+  【占位符】{{双花括号}} 由 Agent 填充；示例内容仅示意结构。
+            **扁平书写，禁止嵌套**：不要写 {{外层 {{内层}} 外层}}，直接并列写 {{甲}} 与 {{乙}}
+  【页面映射】P1 封面 ｜ P2 摘要·关键词·目录 ｜ P3 正文章节（含图/表）｜ P4 结论·参考文献
+-->
+<style>
+@page { size: A4; margin: 0 0 16mm; background: #FCFCFA;
+  @bottom-center { content: "学术报告 · {{报告标题}}　|　第 " counter(page) " 页"; vertical-align: middle; height: 16mm; padding: 0 18mm; font-family: "PingFang SC", "Noto Sans SC", sans-serif; font-size: 9.5px; color: #949CA8; letter-spacing: 0.08em; } }
+@page coverpg { margin: 0 0 18mm; background: #FCFCFA;
+  @bottom-center { content: none; } }
+:root {
+  /* 主题主色：由管线按 theme_colors / color_scheme 注入同名变量覆盖。
+     语义别名（--navy/--blue/--blue-soft）挂到主色上，改主色即整套联动；
+     正文墨色 --ink 不挂主色，避免改主色把正文染成彩色。 */
+  --primary: #1F3A5F;
+  --primary-dark: #16293F;
+  --primary-light: #E8EEF5;
+  --accent: #3E6B9E;
+  --paper: #FCFCFA;
+  --ink: #1C2430;
+  --ink-60: #55606E;
+  --ink-40: #949CA8;
+  --navy: var(--primary);
+  --navy-deep: var(--primary-dark);
+  --blue: var(--accent);
+  --blue-soft: var(--primary-light);
+  --gold: #B98A2F;
+  --hairline: #D9DDE2;
+  --font-serif: "Noto Serif SC", "Songti SC", "SimSun", Georgia, serif;
+  --font-sans: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-sans); color: var(--ink); font-size: 14px; line-height: 1.85; background: var(--paper); -webkit-font-smoothing: antialiased; }
+
+/* ── 页面容器：A4 竖版 ── */
+.page { padding: 16mm 18mm 0; }
+.page + .page { page-break-before: always; }
+/* ── 章节标题：衬线 + 编号 ── */
+.sec-h1 { font-family: var(--font-serif); font-size: 24px; font-weight: 700; color: var(--navy); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid var(--navy); }
+.sec-h1.tight { margin-top: 18px; }
+.sec-h1 .no { color: var(--gold); margin-right: 10px; }
+.sec-h2 { font-family: var(--font-serif); font-size: 17px; font-weight: 700; color: var(--navy); margin: 22px 0 8px; }
+.sec-h2 .no { color: var(--blue); margin-right: 8px; }
+.body-text { text-indent: 2em; text-align: justify; margin-bottom: 10px; }
+.body-text.no-indent { text-indent: 0; }
+
+/* ═══════════ P1 封面 ═══════════ */
+/* 块级布局（不用 flex）。margin 负值把封面拉到纸张原点，height 补足被抵消的 padding-top，
+   使 border box 精确覆盖 0–279mm（297mm 页高 − 18mm 下边距） */
+.cover { display: block; position: relative; page: coverpg; height: 295mm; margin: -16mm -18mm 0; }
+/* 顶部机构信息：无底色块，纸面白底 + 下缘发丝线，靠字距与字号拉开层级。
+   注意 margin 与 padding 的分工：cover 是通版满幅，靠 margin 把文字与发丝线一起收进 18mm 正文边距，
+   避免出现「文字内缩、横线通版」的错位。 */
+.inst-band { background: transparent; color: var(--navy); margin: 0 18mm; padding: 13mm 0 9mm; border-bottom: 1px solid var(--hairline); }
+.inst-band .inst { font-family: var(--font-serif); font-size: 15px; letter-spacing: 0.42em; color: var(--navy); }
+.inst-band .dept { font-size: 11px; letter-spacing: 0.24em; color: var(--ink-60); margin-top: 5px; }
+.inst-band .doc-type { font-size: 10.5px; letter-spacing: 0.3em; color: var(--gold); margin-top: 12px; font-weight: 700; }
+/* 标题块在「页眉发丝线 → 页脚」之间垂直居中 */
+.cover-main { padding: 74mm 24mm 0; }
+.cover-title { font-family: var(--font-serif); font-size: 36px; font-weight: 700; line-height: 1.32; color: var(--navy); text-align: center; }
+.cover-title-rule { width: 64px; height: 3px; background: var(--gold); margin: 14px auto; }
+.cover-sub { font-family: var(--font-serif); font-size: 16px; color: var(--ink-60); text-align: center; letter-spacing: 0.12em; }
+.info-table { width: 76%; margin: 9mm auto 0; border-top: 2px solid var(--navy); border-bottom: 1px solid var(--hairline); }
+.info-row { display: table; width: 100%; }
+.info-row .k, .info-row .v { display: table-cell; padding: 6px 6px; border-bottom: 1px solid var(--hairline); font-size: 13px; }
+.info-row .k { width: 34%; color: var(--ink-60); letter-spacing: 0.2em; }
+.info-row .v { color: var(--ink); font-weight: 600; }
+.cover-foot { position: absolute; left: 0; right: 0; bottom: 5mm; text-align: center; font-size: 11px; color: var(--ink-40); letter-spacing: 0.22em; }
+
+/* ═══════════ P2 摘要·目录 ═══════════ */
+.abstract-box { background: var(--blue-soft); border-left: 4px solid var(--navy); padding: 16px 20px; margin-bottom: 18px; }
+.abstract-box .label { font-size: 12px; font-weight: 700; letter-spacing: 0.3em; color: var(--navy); margin-bottom: 8px; }
+.abstract-box p { text-indent: 2em; font-size: 13.5px; text-align: justify; }
+.kw-row { font-size: 13px; margin-bottom: 26px; }
+.kw-row .kw-label { font-weight: 700; color: var(--navy); margin-right: 8px; }
+.kw-tag { display: inline-block; font-size: 11.5px; padding: 3px 12px; border: 1px solid var(--blue); color: var(--blue); border-radius: 999px; margin-right: 6px; }
+/* 目录：只保留 leader 点线，不再叠加行分隔线（两者同色同类会糊成双点线噪声） */
+.toc-item { display: table; width: 100%; font-size: 13.5px; padding: 8px 0; }
+.toc-item .t, .toc-item .leader, .toc-item .p { display: table-cell; vertical-align: bottom; }
+.toc-item .t { color: var(--ink); font-weight: 600; white-space: nowrap; padding-right: 12px; }
+.toc-item .leader { width: 99%; border-bottom: 1px dotted #A8AFB8; }
+.toc-item .p { color: var(--navy); font-weight: 700; white-space: nowrap; padding-left: 12px; }
+.toc-item.lv2 { padding-left: 26px; }
+.toc-item.lv2 .t { font-weight: 400; color: var(--ink-60); }
+
+/* ═══════════ 图表：学术编号规范 ═══════════ */
+.fig-block { margin: 16px 0 20px; }
+.fig-placeholder { min-height: 42mm; border: 1px solid var(--hairline); background: var(--blue-soft); display: flex; align-items: center; justify-content: center; color: var(--ink-40); font-size: 12px; letter-spacing: 0.14em; }
+.fig-caption { text-align: center; font-size: 12px; color: var(--ink-60); margin-top: 8px; }
+.fig-caption .fg-no { font-weight: 700; color: var(--navy); margin-right: 6px; }
+
+.three-line-table { width: 100%; border-collapse: collapse; margin: 16px 0 6px; font-size: 12.5px; }
+.three-line-table thead tr { border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.three-line-table th { text-align: left; padding: 8px 10px; font-weight: 700; color: var(--ink); }
+.three-line-table tbody tr:last-child { border-bottom: 2px solid var(--ink); }
+.three-line-table td { padding: 7px 10px; border-bottom: 1px solid var(--hairline); }
+.three-line-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tb-caption { text-align: center; font-size: 12px; color: var(--ink-60); margin-bottom: 4px; }
+.tb-caption .tb-no { font-weight: 700; color: var(--navy); margin-right: 6px; }
+
+/* ═══════════ P4 结论·参考文献 ═══════════ */
+.concl-item { display: table; width: 100%; margin-bottom: 8px; }
+.concl-item .no, .concl-item .txt { display: table-cell; vertical-align: top; }
+.concl-item .no { width: 34px; font-family: var(--font-serif); font-size: 22px; font-weight: 700; color: var(--gold); }
+.ref-list { margin-top: 10px; }
+.ref-item { font-size: 12.5px; color: var(--ink-60); padding-left: 30px; text-indent: -30px; margin-bottom: 6px; }
+.ref-item .ref-no { font-weight: 700; color: var(--navy); }
+</style>
+</head>
+<body data-page-node-id="S1cCWX45uZIUQMgwPcTIuE">
+
+<!-- ════════ P1 / 封面 ════════ -->
+<div class="page cover" data-page-node-id="DHSfytqeTWVbs3jxhG6OVy">
+  <div class="inst-band" data-page-node-id="D75GLocG3SDuwGt4n4BARp">
+    <div class="inst" data-page-node-id="sRB23IpHuNnmxRXSlN07Na">{{大学 / 研究机构名称}}</div>
+    <div class="dept" data-page-node-id="kaBjGnR4MHeW8MfZURtYlj">{{学院 · 系 / 研究中心}}</div>
+    <div class="doc-type" data-page-node-id="ZhKi4sUcsz8Kny8u8xIcGB">ACADEMIC REPORT · 学术报告</div>
+  </div>
+  <div class="cover-main" data-page-node-id="HBCzAqPzUg7nKKl0nbtVmg">
+    <h1 class="cover-title" data-page-node-id="cxnL1aiCzR3J9RfmPDDj61">{{基于深度学习的图像识别方法研究}}</h1>
+    <div class="cover-title-rule" data-page-node-id="UGoG1ytbC3aJPwt1mGIDTz"></div>
+    <div class="cover-sub" data-page-node-id="GlSJekmHU5ci6FCGQBMAdo">{{——以卷积神经网络的轻量化改进为例}}</div>
+    <div class="info-table" data-page-node-id="DwkwFH7jsOvfGTVpzKzELF">
+      <div class="info-row" data-page-node-id="sjRlP6FNYELoQE4P7TO0nt"><div class="k" data-page-node-id="SOAvHXt0k8eub0TMiPYnG3">报 告 作 者</div><div class="v" data-page-node-id="TnngbJVUIGIH6PCvnuYSGF">{{作者姓名}}　（学号：{{2023XXXXXX}}）</div></div>
+      <div class="info-row" data-page-node-id="Nja4NmGbwGNLN1ox16O0b1"><div class="k" data-page-node-id="CcLnLLY32WelrdN7DCACv6">指 导 教 师</div><div class="v" data-page-node-id="hBWnQoNNFVqwj6FxkPFYLC">{{导师姓名}}　{{职称}}</div></div>
+      <div class="info-row" data-page-node-id="LEdu9HLkLoyqKlWYGjeoyd"><div class="k" data-page-node-id="NGbO48xKnMsdLDLlKkuaZR">所 在 院 系</div><div class="v" data-page-node-id="FNnHBuRuvJvAUUhrJWQ3bS">{{计算机科学与技术学院}}</div></div>
+      <div class="info-row" data-page-node-id="8eNixQr4GC9hLZL2OHORaR"><div class="k" data-page-node-id="3HdeHR5TuBYtGARnrfUIjB">完 成 日 期</div><div class="v" data-page-node-id="JSLMTKxL0edPIa7pxiCOZX">{{2026 年 9 月}}</div></div>
+    </div>
+  </div>
+  <div class="cover-foot" data-page-node-id="gqY2BDDxGzXy8CpqHEElp3">{{课程编号 XXXX}} · {{2026 秋季学期}}</div>
+</div>
+
+<!-- ════════ P2 / 摘要·关键词·目录 ════════ -->
+<div class="page" data-page-node-id="h5VOeShFucSw4Si7cDCEMa">
+  <h2 class="sec-h1" data-page-node-id="OPkRHw8iBSmTxk5JrH3EuC"><span class="no" data-page-node-id="v59i1RHHBgg6RCFLHEsAH4">§</span>摘　要</h2>
+  <div class="abstract-box" data-page-node-id="irOKnBjm1wcxBvhhHrPZny">
+    <div class="label" data-page-node-id="3rpRqufXtDlcV2bYsp7LFn">ABSTRACT</div>
+    <p data-page-node-id="wQiAXFdbbXUm9wvWsS74Dc">针对 {{研究领域}} 中存在的 {{核心问题}}，本文提出了一种基于 {{核心方法}} 的改进方案。该方法通过 {{技术手段一}} 与 {{技术手段二}} 的结合，在保持 {{关键约束}} 的前提下显著提升了 {{核心指标}}。实验结果表明，所提方法在 {{基准数据集}} 上取得了 {{准确率 98.2%}} 的性能，相较基线方法提升 {{X.X}} 个百分点，验证了方案的有效性与泛化能力。</p>
+  </div>
+  <div class="kw-row" data-page-node-id="DaDtX8tc66SjC8RNSCGckf"><span class="kw-label" data-page-node-id="YnSCvQjlvBJ5yAXtKwB8PU">关键词：</span><span class="kw-tag" data-page-node-id="K9ouCgBdFJhnCdfJJBzDcN">{{深度学习}}</span><span class="kw-tag" data-page-node-id="jSFqo0W7tfhLX6v07YHak3">{{图像识别}}</span><span class="kw-tag" data-page-node-id="eUwzbhebCo9e5ioE3mjynd">{{模型轻量化}}</span><span class="kw-tag" data-page-node-id="VlJ5EcZGxZwZLXBNyiuyf4">{{注意力机制}}</span></div>
+
+  <h2 class="sec-h1" data-page-node-id="xOGd5hg3fc1ooNVZmxUXga"><span class="no" data-page-node-id="K47SoKraYnfT3bXsJn4UXC">§</span>目　录</h2>
+  <div class="toc-item" data-page-node-id="qR0oBo5I8l7zaODf0NoINE"><div class="t" data-page-node-id="s9KGfygdY32CSy57DcCx0G">1　绪论</div><div class="leader" data-page-node-id="l7qM3XeiEIysnazY8wvRNS"></div><div class="p" data-page-node-id="DmQpfNh1lYNZDEHAwtCWc0">03</div></div>
+  <div class="toc-item lv2" data-page-node-id="ydc6SePy4Qd5v5IHxyjnHI"><div class="t" data-page-node-id="5Ox3bXlCzVkGlJqMdAfNo2">1.1　研究背景与意义</div><div class="leader" data-page-node-id="CYcugtxzrGEYq9Tpj7P3vc"></div><div class="p" data-page-node-id="PqQWQS4eyblbxzvCRg1zhz">03</div></div>
+  <div class="toc-item lv2" data-page-node-id="FBjTPNqmsDB2KmBOxLltMO"><div class="t" data-page-node-id="8DvkI9asCTajz55ENqQWvH">1.2　国内外研究现状</div><div class="leader" data-page-node-id="mKhbSPr2rt2UWdXWIkCAyI"></div><div class="p" data-page-node-id="TBfz9NqAGA0QyeIQJAYQMK">03</div></div>
+  <div class="toc-item" data-page-node-id="3Q1NwH3NIO95lkQYQCnQJP"><div class="t" data-page-node-id="wNxhcjIWODrbqx1okDMk3q">2　相关理论与方法</div><div class="leader" data-page-node-id="4F4riNH7fiO7vXvP2lB4EG"></div><div class="p" data-page-node-id="JodB8jzGuZYKJEDeiIgE9v">03</div></div>
+  <div class="toc-item lv2" data-page-node-id="CCJJmByFUFyoH2HnqAal5l"><div class="t" data-page-node-id="95Cpl3SfSSiBaclZvBOvtG">2.1　{{核心理论概述}}</div><div class="leader" data-page-node-id="zWo1zacEgyam7PYjJ4DO5p"></div><div class="p" data-page-node-id="dBZ98k1fJSnrNtJZ1RVFNY">03</div></div>
+  <div class="toc-item" data-page-node-id="e4tBv7JzFILCEVumemhtvJ"><div class="t" data-page-node-id="3o9HeL2PqEbEJgR9A667Mz">3　实验设计与结果分析</div><div class="leader" data-page-node-id="JfmAsjGv5qnNXz1C25rO6r"></div><div class="p" data-page-node-id="dLdV34ApvbLy48L6nSTbVx">04</div></div>
+  <div class="toc-item" data-page-node-id="i4p9Rwjvk82QW3lXflyV2R"><div class="t" data-page-node-id="43UhnYgrVNsoWGFyBUAUtE">4　结论与展望</div><div class="leader" data-page-node-id="HadCX8SSMVbK12gkZfGqut"></div><div class="p" data-page-node-id="ipZWkC9MCpb6uN0gqA46tf">04</div></div>
+  <div class="toc-item" data-page-node-id="Ua2SFszJOFRps6J6X7EdFB"><div class="t" data-page-node-id="L6M44Vt89VrBojCnja4VRn">参考文献</div><div class="leader" data-page-node-id="1pLy8WwuFHWiVz9E6AiKSn"></div><div class="p" data-page-node-id="sGe04su4dTb1qhjQCQSHfN">04</div></div>
+</div>
+
+<!-- ════════ P3 / 正文章节（含图/表） ════════ -->
+<div class="page" data-page-node-id="e27Bvca8QZddPIXb0BdlHK">
+  <h2 class="sec-h1" data-page-node-id="rar5O5HhC0xj7iSc69pvqs"><span class="no" data-page-node-id="otX9WcJz1iFQWvymW9gwva">1</span>绪论</h2>
+  <h3 class="sec-h2" data-page-node-id="G95qwIPSIpAGCNdkNrnHu2"><span class="no" data-page-node-id="nv6nmNCsAiTM7EdBz5jnnH">1.1</span>研究背景与意义</h3>
+  <p class="body-text" data-page-node-id="F6XDl2XQukYFAbjsIcVaQW">随着 {{技术趋势}} 的快速发展，{{研究对象}} 在 {{应用领域}} 中的作用日益凸显。然而现有方法在 {{具体瓶颈}} 方面仍存在明显不足，主要表现为 {{问题一}} 与 {{问题二}}。因此，研究 {{研究主题}} 具有重要的理论价值与工程意义。</p>
+  <h3 class="sec-h2" data-page-node-id="PrFGwysEK2HVDHGoYKF9MC"><span class="no" data-page-node-id="cO2yYu97ro8rkMTZ1h4PWr">1.2</span>国内外研究现状</h3>
+  <p class="body-text" data-page-node-id="YEIgI61LdTY96Hi2aOeSlg">文献 [1] 提出了 {{方法 A}}，但其 {{局限}}；文献 [2] 从 {{角度 B}} 出发改进了 {{指标}}，然而 {{仍存在的问题}}。综上，如何在 {{约束条件}} 下实现 {{研究目标}}，仍是当前研究的焦点。</p>
+
+  <h2 class="sec-h1" data-page-node-id="tHnBvF0C8L611kuYUJfJt5"><span class="no" data-page-node-id="MmADBdPlLSruxOP0brJv9z">2</span>相关理论与方法</h2>
+  <h3 class="sec-h2" data-page-node-id="9gCjL9OiJqg5UtKvSJYoUO"><span class="no" data-page-node-id="QQA0ZqeNPBpl5b27NEMlDr">2.1</span>{{核心理论概述}}</h3>
+  <p class="body-text" data-page-node-id="Xar09SfuNLDLZwF8hlgqqn">本节介绍 {{理论框架}} 的基本原理。给定输入 {{X}}，模型的目标函数可表述为 {{公式描述}}，其核心思想是通过 {{机制}} 对 {{对象}} 进行建模。整体方法框架如图 2-1 所示。</p>
+  <div class="fig-block" data-page-node-id="lHtqPdjPk0tyUNPsTU9PUm">
+    <div class="fig-placeholder" data-page-node-id="TcKJ8Tipy2XYgwSo25bI2H">【 方法框架示意图位 · 建议宽度 150mm 】</div>
+    <div class="fig-caption" data-page-node-id="pfH4FhjqtcXrrtQQAZdtPS"><span class="fg-no" data-page-node-id="Zrrko25EICqHe3jsv1iohI">图 2-1</span>{{所提方法的整体框架}}</div>
+  </div>
+
+</div>
+
+<!-- ════════ P4 / 结论·参考文献 ════════ -->
+<div class="page" data-page-node-id="G7sVywRhQoQFFK2Pgugzg9">
+  <h2 class="sec-h1" data-page-node-id="WBEHRBPEM9OZtaPHoPgt7P"><span class="no" data-page-node-id="RPlw8y8MTKT1I6EsjiUYGs">3</span>实验设计与结果分析</h2>
+  <p class="body-text no-indent" data-page-node-id="VLcP5imExTl76tDY4Y4ENx">实验在 {{数据集名称}} 上进行，评价采用 {{指标 1}}、{{指标 2}} 与 {{指标 3}}。各方法对比如表 3-1 所示。</p>
+  <div class="tb-caption" data-page-node-id="vXsPx41vN4s9UL9VFXvn5Y"><span class="tb-no" data-page-node-id="S6Yx1QmNLtdqSrLXucEKKb">表 3-1</span>{{不同方法在基准数据集上的性能对比}}</div>
+  <table class="three-line-table" data-page-node-id="X1EjjvvcAbu1nfDYoq26uk">
+    <thead data-page-node-id="G45CkwbEIGRb3PCRdCBBl9"><tr data-page-node-id="nSsma9k6jbEjMjr8kcWpGp"><th data-page-node-id="Y7r5rVjlYw3eSlFDf1aD8F">方法</th><th class="num" data-page-node-id="RovZBgq9fevIEu1dxL9p2S">参数量 (M)</th><th class="num" data-page-node-id="8NpTAACq7tkQ5Evk0mU94Y">{{指标 1}} (%)</th><th class="num" data-page-node-id="NkQFIk7UVuBoRIXrwljKXt">{{指标 2}} (%)</th><th class="num" data-page-node-id="ej4BxzquTW2ZyGptzxKDPe">推理时延 (ms)</th></tr></thead>
+    <tbody data-page-node-id="TDLjl05c4CoMfTIRSOd4n7">
+      <tr data-page-node-id="pbGd3SQsPTpgY8HjQQVmXd"><td data-page-node-id="SkFFtX83aGCrn2wcT6BH0c">{{基线方法 A}}</td><td class="num" data-page-node-id="2WOhYad6tDWdWfbdJjduN6">{{25.6}}</td><td class="num" data-page-node-id="ZjlDBkBENed9NZuTPzyJu3">{{92.1}}</td><td class="num" data-page-node-id="TgMN1CGw3lVHIXIos2pLEk">{{88.4}}</td><td class="num" data-page-node-id="iUinHACesnjPGwWzoZwS1U">{{34.2}}</td></tr>
+      <tr data-page-node-id="q1LoZTAjEBii5dzHx0urZL"><td data-page-node-id="rZJvEI1BPkZ9K3GApjPNb5">{{对比方法 B}}</td><td class="num" data-page-node-id="NrBruab05Pv84PDr964H9e">{{18.3}}</td><td class="num" data-page-node-id="eUVFOXSH6iwwta1Umk9iYb">{{93.5}}</td><td class="num" data-page-node-id="cAxEwjqU2Y7CdErWIw2sHy">{{89.7}}</td><td class="num" data-page-node-id="pJUEdeboapuaOuHyESFupQ">{{28.6}}</td></tr>
+      <tr data-page-node-id="F7c3rveveATVGc6EmNloTN"><td data-page-node-id="gNK78zcwPAEqizGtgBrPcH"><strong data-page-node-id="2zn2B8aYGSxQJqL1OarZ7K">本文方法</strong></td><td class="num" data-page-node-id="EE2EQiBNa9XQLwDBFrAFvz"><strong data-page-node-id="4NyBgaDU9fCUYooBuwW9Oo">{{12.4}}</strong></td><td class="num" data-page-node-id="QfMnMbaXhTT4z2L06Fjjmo"><strong data-page-node-id="buyqXFc7ZhxShvT8OFjELS">{{98.2}}</strong></td><td class="num" data-page-node-id="nOmDBo6m9WBenZh3Arxgi1"><strong data-page-node-id="3ys5RRhSTDEhXsYINbUL21">{{94.1}}</strong></td><td class="num" data-page-node-id="9fKuD6IXWLZRYW4eRdezb0"><strong data-page-node-id="VLBk2zrENGY6vyCfZcaU7A">{{16.8}}</strong></td></tr>
+    </tbody>
+  </table>
+  <p class="body-text" data-page-node-id="zpKFdlwraSUlGnm8uUZYnt">由表 3-1 可见，本文方法在参数量减少 {{X%}} 的情况下，{{指标 1}} 提升了 {{X.X}} 个百分点，充分验证了 {{核心设计}} 的有效性。消融实验进一步表明，{{模块一}} 贡献了主要增益。</p>
+  <h2 class="sec-h1" data-page-node-id="fD1ccmFZhD30ldIQ064nPy"><span class="no" data-page-node-id="SQBln8v4EXqh6NQOY3UpvF">4</span>结论与展望</h2>
+  <div class="concl-item" data-page-node-id="2HK0dWPXzj8T9SjvELgGHm"><div class="no" data-page-node-id="2YXODLMJXLCzDWVOsBcX3U">①</div><div class="txt" data-page-node-id="tYsEGFCXfRjHK4CSasrsJD">提出了 {{核心方法}}，通过 {{技术手段}} 解决了 {{核心问题}}，在 {{基准数据集}} 上取得 {{关键结果}}。</div></div>
+  <div class="concl-item" data-page-node-id="VmkIoNMvdcKaqNqldDuHnR"><div class="no" data-page-node-id="Y4jJRQXjVVNqs4FvjG5xN7">②</div><div class="txt" data-page-node-id="oehYMPWYCyVnME6XqDAu66">验证了 {{核心设计}} 在 {{约束条件}} 下的有效性，相较基线方法 {{量化结论}}。</div></div>
+  <div class="concl-item" data-page-node-id="rmnFkws97ODG7ysFPMlHjD"><div class="no" data-page-node-id="eJwp48DIkun5FXSCZKD4qf">③</div><div class="txt" data-page-node-id="Zfo7QCubkTvQzNnFY9pn35">未来将围绕 {{方向一}} 与 {{方向二}} 继续深化，并推广至 {{新场景}}。</div></div>
+
+  <h2 class="sec-h1" data-page-node-id="EiSieJK5kHJ0TgbC8OsWpV"><span class="no" data-page-node-id="bcELcvYL8nPgUfPEU1WX5h">§</span>参考文献</h2>
+  <div class="ref-list" data-page-node-id="FDRxYIHvI5MBDH4j6eHB8X">
+    <div class="ref-item" data-page-node-id="wCaIa7MvPIEcqWcFeGvQy8"><span class="ref-no" data-page-node-id="XVt6RXppkPQ64XGCGuczAH">[1]</span> {{作者 A, 作者 B. 论文标题[J]. 期刊名称, 2025, 18(3): 45-58.}}</div>
+    <div class="ref-item" data-page-node-id="Xh8QR2h4sFeDtxZFRe8ZPd"><span class="ref-no" data-page-node-id="CZ8wgR1djTDfbf0Kf94Aej">[2]</span> {{作者 C, 等. 论文标题[C]// 会议名称. 2024: 112-121.}}</div>
+    <div class="ref-item" data-page-node-id="vFkXG3IEPKLmFN1Oj5RuR1"><span class="ref-no" data-page-node-id="gwULm6dAiMb36VgCBM7lsx">[3]</span> {{作者 D. 专著名称[M]. 出版地: 出版社, 2023.}}</div>
+    <div class="ref-item" data-page-node-id="0cJh5NN9d5k1jlt00A499E"><span class="ref-no" data-page-node-id="hYSAdEGAGyFjJB5Dz5Nyz0">[4]</span> {{作者 E, 作者 F. 论文标题[J]. 期刊名称, 2026, 21(1): 1-14.}}</div>
+  </div>
+</div>
+
+</body>
+</html>

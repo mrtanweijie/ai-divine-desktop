@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="UGW8TGgIWpQoPQTqGBO6X0">
+<head data-page-node-id="5FkaXiTRf1vl0PSeeijNne">
+<meta charset="UTF-8" data-page-node-id="YAdgNVMYek670H7Jb6jiYe">
+<title>{{论文标题}} - 论文模板 · 期刊极简黑白（Thesis）</title>
+<!--
+  ═══════════════════════════════════════════════════════════════
+  论文模板 · Thesis 期刊极简黑白（paper）
+  ═══════════════════════════════════════════════════════════════
+
+  【设计语言】
+  1. 期刊排印风：纯白 + 近黑 #1A1A1A，唯一的「颜色」是字号与字重的对比
+  2. 标题页即正文首页（期刊惯例）：中图分类号 → 大标题 → 作者 → 摘要 → 正文
+  3. 正文宋体，标题黑体；章节严格编号 1 / 1.1；公式居中带右侧编号
+  4. 三线表 + 细线图框（图题表题居中，图在下、表在上）；表注置于表格之外，不参与三线表横线
+  5. 参考文献悬挂缩进 [n]，致谢与参考文献同为无编号一级标题
+  6. 跨页续排的子章节用 .sec-cont 眉题标注父章节，避免页面以孤立子标题开头
+
+  【渲染兼容】WeasyPrint 安全：无任何渐变/阴影/圆角依赖；
+              页脚左右盒只在内侧留白（padding 单向），避免双向 padding 挤压导致文字折行
+  【占位符】{{双花括号}} 由 Agent 填充；示例内容仅示意结构。
+            **扁平书写，禁止嵌套**：不要写 {{外层 {{内层}} 外层}}，直接并列写 {{甲}} 与 {{乙}}
+  【页面映射】P1 标题+摘要+绪论 ｜ P2 方法与实验（公式/图/表）｜ P3 结论·致谢·参考文献
+-->
+<style>
+:root {
+  /* 主题主色：由管线按 theme_colors / color_scheme 注入同名变量覆盖。
+     本模板是「纯黑白，靠字号字重对比」的期刊排印风，故主色只作用于
+     标题与表格线，正文墨色 --ink 固定不挂主色。 */
+  --primary: #1A1A1A;
+  --primary-dark: #000000;
+  --primary-light: #F7F7F5;
+  --accent: #4A4A4A;
+  --ink: #1A1A1A;
+  --ink-70: #4A4A4A;
+  --ink-45: #8C8C8C;
+  --hairline: #C8C8C8;
+  --paper: #FFFFFF;
+  --font-hei: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --font-song: "Noto Serif SC", "Songti SC", "SimSun", Georgia, serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-song); color: var(--ink); font-size: 14px; line-height: 1.9; background: #fff; -webkit-font-smoothing: antialiased; }
+
+@page { size: A4; margin: 0 0 16mm; background: #FFFFFF;
+  @bottom-left { content: "{{期刊名 / 学报名称}} · {{卷期号}}"; vertical-align: middle; height: 16mm; padding: 0 0 0 20mm; font-family: "PingFang SC", "Noto Sans SC", sans-serif; font-size: 9.5px; color: #8C8C8C; }
+  @bottom-right { content: "第 " counter(page) " 页（共 " counter(pages) " 页）"; vertical-align: middle; height: 16mm; padding: 0 20mm 0 0; font-family: "PingFang SC", "Noto Sans SC", sans-serif; font-size: 9.5px; color: #8C8C8C; } }
+.page { padding: 18mm 20mm 0; }
+.page + .page { page-break-before: always; }
+/* ── 章节标题：黑体编号 ── */
+.sec-h1 { font-family: var(--font-hei); font-size: 16.5px; font-weight: 700; color: var(--primary); margin: 16px 0 8px; letter-spacing: 0.02em; }
+.sec-h2 { font-family: var(--font-hei); font-size: 13.5px; font-weight: 700; color: var(--primary); margin: 16px 0 6px; }
+.sec-cont { font-family: var(--font-hei); font-size: 11px; color: var(--ink-45); letter-spacing: 0.14em; padding-bottom: 6px; border-bottom: 1px solid var(--hairline); margin-bottom: 14px; }
+.body-text { text-indent: 2em; text-align: justify; margin-bottom: 8px; }
+.body-text.no-indent { text-indent: 0; }
+
+/* ═══════════ P1 标题区（期刊式） ═══════════ */
+.cls-row { font-family: var(--font-hei); font-size: 11px; color: var(--ink-70); display: table; width: 100%; margin-bottom: 18px; }
+.cls-row .c1 { display: table-cell; }
+.cls-row .c2 { display: table-cell; text-align: right; }
+.paper-title { font-family: var(--font-hei); font-size: 26px; font-weight: 800; text-align: center; line-height: 1.4; margin: 6px 0 14px; }
+.paper-title-en { font-family: Georgia, "Times New Roman", serif; font-size: 13px; color: var(--ink-70); text-align: center; font-style: italic; margin-bottom: 16px; }
+.author-row { text-align: center; font-family: var(--font-hei); font-size: 13.5px; font-weight: 600; }
+.affil-row { text-align: center; font-size: 11.5px; color: var(--ink-70); margin: 4px 0 18px; }
+
+.abstract { background: var(--primary-light); padding: 14px 18px; margin-bottom: 20px; }
+.abstract .ab-t { font-family: var(--font-hei); font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
+.abstract p { font-size: 12.5px; line-height: 1.8; text-indent: 2em; text-align: justify; }
+.kw-line { font-family: var(--font-hei); font-size: 12px; margin-top: 8px; }
+.kw-line b { font-weight: 700; }
+
+/* ═══════════ 公式 ═══════════ */
+.eq-row { display: table; width: 100%; margin: 8px 0; }
+.eq-row .eq { display: table-cell; text-align: center; font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 15px; }
+.eq-row .eq-no { display: table-cell; width: 44px; text-align: right; vertical-align: middle; font-family: Georgia, serif; font-size: 13px; color: var(--ink-70); }
+
+/* ═══════════ 图表：三线表 + 细线图框 ═══════════ */
+.tb-title { font-family: var(--font-hei); font-size: 12px; font-weight: 700; text-align: center; margin: 14px 0 6px; }
+.table3 { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.table3 thead tr { border-top: 1.5px solid var(--primary); border-bottom: 0.75px solid var(--primary); }
+.table3 tbody tr:last-child { border-bottom: 1.5px solid var(--primary); }
+.table3 th { font-family: var(--font-hei); font-weight: 700; padding: 7px 10px; text-align: left; }
+.table3 td { padding: 6px 10px; border-bottom: 0.5px solid #E4E4E4; }
+.table3 td.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* 表注放在 <table> 之外：若留在 tbody 内，tr:last-child 的收尾粗线会落到注释下方，破坏三线表 */
+.tbl-note { font-size: 10.5px; color: var(--ink-45); margin-top: 6px; line-height: 1.6; }
+
+.fig-frame { border: 0.75px solid var(--hairline); min-height: 38mm; display: flex; align-items: center; justify-content: center; color: var(--ink-45); font-family: var(--font-hei); font-size: 11.5px; letter-spacing: 0.14em; margin-top: 12px; }
+.fig-title { font-family: var(--font-hei); font-size: 12px; font-weight: 700; text-align: center; margin: 8px 0 4px; }
+
+/* ═══════════ P3 结论·致谢·参考文献 ═══════════ */
+.ref-list { margin-top: 8px; border-top: 1.5px solid var(--primary); padding-top: 12px; }
+.ref-item { font-size: 12px; color: var(--ink-70); padding-left: 28px; text-indent: -28px; margin-bottom: 5px; line-height: 1.7; }
+.ref-item .no { font-family: var(--font-hei); font-weight: 700; color: var(--ink); }
+</style>
+</head>
+<body data-page-node-id="n4tds4jZoWUnQJQB5ivtBq">
+
+<!-- ════════ P1 / 标题·摘要·绪论 ════════ -->
+<div class="page" data-page-node-id="78PEUAm1pYvFgCo1SeGacv">
+  <div class="cls-row" data-page-node-id="48FZ1EXT3dZq8pGSMlrPv9"><div class="c1" data-page-node-id="AOdNWZYZh96wGVeNT0Oxho">中图分类号：{{TP391.4}}　　文献标志码：{{A}}</div><div class="c2" data-page-node-id="C37Uz2GFeJ4T8SMRTeq85C">收稿日期：{{2026-09-01}}</div></div>
+  <h1 class="paper-title" data-page-node-id="NHyyXnQSTU511FMQ14Q7LM">面向{{应用场景}}的{{核心方法}}研究</h1>
+  <div class="paper-title-en" data-page-node-id="ykqNi5fiexQH0aXJoq5B7a">Research on {{Core Method}} for {{Application Scenario}}</div>
+  <div class="author-row" data-page-node-id="uELWOb6cGOirjHdS4vrmOS">{{第一作者}}¹，{{第二作者}}²</div>
+  <div class="affil-row" data-page-node-id="Ehx1kuPGCz8qQsxIXxw3yp">（1. {{单位一，城市 邮编}}；2. {{单位二，城市 邮编}}）</div>
+
+  <div class="abstract" data-page-node-id="WTxPh8m8cF4YksI6PcccNw">
+    <div class="ab-t" data-page-node-id="pfCOQksDyPCJBfkJWAgNQP">摘　要</div>
+    <p data-page-node-id="dKl8qTP3g1HPS5iexq398m">针对 {{应用场景}} 中存在的 {{核心问题}}，提出一种 {{核心方法}}。首先，{{方法步骤一}}；其次，{{方法步骤二}}；最后，构建 {{评价体系}} 进行验证。实验结果表明，所提方法在 {{数据集}} 上的 {{核心指标}} 达到 {{98.2%}}，较主流方法提升 {{X.X%}}，且在 {{泛化场景}} 下保持稳定，为 {{应用价值}} 提供了有效支撑。</p>
+    <div class="kw-line" data-page-node-id="brgCSj6oN61BhUU5GHKaNJ"><b data-page-node-id="lJVqzXyYlw5KGCsNhhuNRr">关键词：</b>{{关键词一}}；{{关键词二}}；{{关键词三}}；{{关键词四}}</div>
+  </div>
+
+  <h2 class="sec-h1" data-page-node-id="HICWUVizRtD7btiQk3RHql">0　引言</h2>
+  <p class="body-text" data-page-node-id="TygaIDym2hSHPMIm7YE36o">{{研究对象}} 是 {{领域}} 中的关键问题。随着 {{技术背景}} 的发展，其重要性不断提升。然而，现有方法普遍面临 {{瓶颈一}} 与 {{瓶颈二}} 的挑战，难以满足 {{实际需求}} 的要求。</p>
+  <p class="body-text" data-page-node-id="QOFjL3Hma98AzsCXGurprF">针对上述问题，本文的主要工作包括：（1）{{贡献一}}；（2）{{贡献二}}；（3）{{贡献三}}。本文其余部分安排如下：第 1 节介绍相关理论，第 2 节详述所提方法，第 3 节给出实验结果与分析，第 4 节总结全文。</p>
+</div>
+
+<!-- ════════ P2 / 方法与实验 ════════ -->
+<div class="page" data-page-node-id="3GpuIx53xmyYW75SaL1Fpx">
+  <h2 class="sec-h1" data-page-node-id="hzweZynR3Eu4AgYMLLlhFm">1　相关理论与问题定义</h2>
+  <p class="body-text" data-page-node-id="02ryhl62RvEJIxHxDe9W8m">给定输入 {{X}} ∈ ℝᵐˣⁿ，{{研究对象}} 的目标是最小化 {{损失函数}}，同时满足 {{约束条件}}。形式化定义如下：</p>
+  <div class="eq-row" data-page-node-id="4XRBCoFTcqyjhj8fUqDezE"><div class="eq" data-page-node-id="mksRyydaeefq466coB1NN9">min<sub data-page-node-id="PPSAFDPeuYdBFGTtW0Gf3w">θ</sub>　L(θ) = {{1/N}} ∑ ℓ( f(x<sub data-page-node-id="EX0uTCBkxkMPP9Jmz5Jjva">i</sub>; θ), y<sub data-page-node-id="gYMyKgOwBPBqYLjeISjyl6">i</sub> ) + λ‖θ‖²</div><div class="eq-no" data-page-node-id="boSoYgOO7fvbL7wcwrOCo4">(1)</div></div>
+  <p class="body-text" data-page-node-id="YB5KArHfBHEoM6NdCsmQvV">式中：{{θ}} 为 {{参数说明}}；{{λ}} 为正则化系数；{{N}} 为样本数量。{{对各项物理意义与求解思路的简要说明。}}</p>
+
+  <h2 class="sec-h1" data-page-node-id="TO6MWiwb4HOfMgfUtcjHDG">2　所提方法</h2>
+  <p class="body-text" data-page-node-id="YVbSqinYAXAamSTlpg8QRJ">所提方法整体框架如图 1 所示，包含 {{模块 A}}、{{模块 B}} 与 {{模块 C}} 三个部分。{{对方法流程的连贯叙述。}}</p>
+  <div class="fig-frame" data-page-node-id="trvtZlFVowp2yE0OwCd4n2">【 图 1 方法整体框架图位 · 宽 150mm 】</div>
+  <div class="fig-title" data-page-node-id="xGmPrs1zNtcMkHhvDx3Ofb">图 1　{{所提方法的整体框架}}</div>
+
+  <h2 class="sec-h1" data-page-node-id="DNRVKOELcRqwE1Hys3oHBB">3　实验与结果分析</h2>
+  <h3 class="sec-h2" data-page-node-id="T1bxoHHwsNNjYub5wH3tXX">3.1　实验设置与对比结果</h3>
+  <p class="body-text no-indent" data-page-node-id="H3qUPz510ZfQiFE5fSFNY7">实验环境：{{CPU/GPU 型号}}；对比方法：{{方法 A}}、{{方法 B}}；评价指标：{{指标 1}}、{{指标 2}}。结果如表 1 所示。</p>
+  <div class="tb-title" data-page-node-id="kNGkNhE6hNH0SBVRJUjCax">表 1　{{各方法性能对比}}</div>
+  <table class="table3" data-page-node-id="Twc7JiUuUnOha6lOfe4MRC">
+    <thead data-page-node-id="xJGEFZADKbx3uBV2PgpI0X"><tr data-page-node-id="p4E8jBPVJir1cswyHsbAiT"><th data-page-node-id="dcxbClZkDiMpmAGI5JRYdq">方法</th><th class="num" data-page-node-id="GNW3ZPjDRXqgRo6YCDMNqc">{{指标 1}}/%</th><th class="num" data-page-node-id="QYwIKHQATJhZbCPBC6wt13">{{指标 2}}/%</th><th class="num" data-page-node-id="2ZEwRr0Rciee2LQ8m9RTGj">参数量/M</th></tr></thead>
+    <tbody data-page-node-id="84yuHYazj417rR9YBWjO9R">
+      <tr data-page-node-id="YFZD0IedMtOyx3zSp8cDQU"><td data-page-node-id="EsSEAhHeD2dcuj0ZyOtf5G">{{方法 A}}</td><td class="num" data-page-node-id="0eWZgrFiMFhw1Vp0SI1UNH">{{91.3}}</td><td class="num" data-page-node-id="I5WnqiKeXU0CBnZjUDzrCe">{{86.7}}</td><td class="num" data-page-node-id="5x3LBIgOxawGpx6cyco4HA">{{25.6}}</td></tr>
+      <tr data-page-node-id="pMPisQkAbPMdy1vDbL5ZAt"><td data-page-node-id="zAHGvW4mRgUDHyeXflk0Hs">{{方法 B}}</td><td class="num" data-page-node-id="uVpVuFZL5CS8eDmkxVZpSz">{{93.5}}</td><td class="num" data-page-node-id="ghxTABfiE92fCZnk3XnM87">{{89.7}}</td><td class="num" data-page-node-id="kqsHjPVGNnQDYe2LnEgrGU">{{18.3}}</td></tr>
+      <tr data-page-node-id="fdCC8h8PnL511JWuplrJj4"><td data-page-node-id="BUiGEWfnzfI6ZCH0BAJML2"><strong data-page-node-id="YBI9De7in6EKPOpBPQCZVA">本文方法</strong></td><td class="num" data-page-node-id="EOML7SIVCkTmKbCma9t0Lv"><strong data-page-node-id="DSCIXiyDC2paRMstJLwjIN">{{98.2}}</strong></td><td class="num" data-page-node-id="UFBCk26Tj4AepdOVoNvLjn"><strong data-page-node-id="fdylmnZwwGtZ8AQ1W9Xbnz">{{94.1}}</strong></td><td class="num" data-page-node-id="p8T5OLgeRmBlVko3AoxSM7"><strong data-page-node-id="Xhx7LES0ZcKITHADhkZoc2">{{12.4}}</strong></td></tr>
+    </tbody>
+  </table>
+  <div class="tbl-note" data-page-node-id="elVGGIylikQFs4QJRbDmPJ">注：结果为 5 次独立实验的均值；加粗表示最优。</div>
+  <p class="body-text" data-page-node-id="jHpWKSvmC99l13GnQpUD43">由表 1 可知，{{对结果的解读与机理分析}}。消融实验（表 2）进一步表明 {{各模块贡献}}。</p>
+
+</div>
+
+<!-- ════════ P3 / 结论·致谢·参考文献 ════════ -->
+<div class="page" data-page-node-id="d3A95SFeCBZGRAiPBc2I5I">
+  <div class="sec-cont" data-page-node-id="79t3MI8vQJ7kiR5r3OzGU5">3　实验与结果分析（续）</div>
+  <h2 class="sec-h1" data-page-node-id="zYSl4fqikeFTjntEHLiI2E">3.2　消融实验</h2>
+  <div class="tb-title" data-page-node-id="a3CEyLuvlSZzrq6YxgSttu">表 2　{{消融实验结果}}</div>
+  <table class="table3" data-page-node-id="gNkav0QIwryYjTRcZF9vXt">
+    <thead data-page-node-id="V8LRPbaBwTVkDnMHdzr3On"><tr data-page-node-id="vuayZgcHdghtEmtQgorXE0"><th data-page-node-id="SN4Q3wPGqWlDaUGDiKTd5U">配置</th><th class="num" data-page-node-id="YEa6ONzZqKLPubewYBBF8I">{{指标 1}}/%</th><th class="num" data-page-node-id="0foFVqVmIzOqgVlp7XcXRz">Δ/%</th><th data-page-node-id="8n3zGc7fPadDEnyTgvo1Ts">结论</th></tr></thead>
+    <tbody data-page-node-id="jnCb0ZDFBF1CSUlV2ljWvA">
+      <tr data-page-node-id="LjXs89e9xH2EsM3dhZZbcp"><td data-page-node-id="iudFV3V2j1rtiZBksPCPwd">完整模型</td><td class="num" data-page-node-id="ljVPAuEwTDd0wcIrApJZR3">{{98.2}}</td><td class="num" data-page-node-id="J8RL3DiUL6e3kBlnyMSxP0">—</td><td data-page-node-id="lxqMwx1F15ivx5iesOyuXE">{{基准}}</td></tr>
+      <tr data-page-node-id="1tz9G14qiFHqbDswUDsrIJ"><td data-page-node-id="EaGB3otJOqF867ANRPMsvB">w/o {{模块 A}}</td><td class="num" data-page-node-id="J75USVDJqreJ9riycj3Cab">{{95.1}}</td><td class="num" data-page-node-id="TazcYiudTx0e8XlbgNmNFc">-3.1</td><td data-page-node-id="5cz5tDXgXLCVrUSYe7ulZE">{{模块 A 作用显著}}</td></tr>
+      <tr data-page-node-id="DNmAMugWfZuXV2Fy8RPAKc"><td data-page-node-id="3CZak3XmaxjasRElw14khD">w/o {{模块 B}}</td><td class="num" data-page-node-id="XwuFg8gorZKWdECvoFf41p">{{96.4}}</td><td class="num" data-page-node-id="HYacsedDQktw1BUff0nI9N">-1.8</td><td data-page-node-id="Dt0ICdSKi8gaLPtYmi6EuX">{{模块 B 提供辅助增益}}</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sec-h1" data-page-node-id="oUsOtZmoFpI7kmICrGYkQ3">4　结论</h2>
+  <p class="body-text" data-page-node-id="So407cHrcC5N8W8G1Ow51e">本文针对 {{核心问题}} 提出了 {{核心方法}}：（1）{{结论要点一}}；（2）{{结论要点二}}；（3）{{结论要点三}}。实验验证了方法的有效性，{{量化总结}}。未来将围绕 {{展望方向}} 继续深入研究。</p>
+
+  <h2 class="sec-h1" data-page-node-id="e1K7Nlsof78Ot4JKqAMULJ">致谢</h2>
+  <p class="body-text" data-page-node-id="cE7wIKkM50sZHy2EBYC7B5">感谢 {{基金名称}}（编号：{{XXXXXX}}）的资助，以及 {{实验室/同事}} 在实验与写作中的帮助。</p>
+
+  <h2 class="sec-h1" data-page-node-id="wfeYZJS8vM7pwir8josuK8">参考文献</h2>
+  <div class="ref-list" data-page-node-id="Ecag82ohiRCeGumOYcICG9">
+    <div class="ref-item" data-page-node-id="SuziR46G5BUIMolSafesW4"><span class="no" data-page-node-id="owVlXzGEus0M9holJ3sEFo">[1]</span> {{作者. 论文题名[J]. 刊名, 2025, 18(3): 45-58.}}</div>
+    <div class="ref-item" data-page-node-id="C49UN5BqyiOeaQehfkGD1H"><span class="no" data-page-node-id="1sX73Pv2SO3otgOxYSetda">[2]</span> {{AUTHOR A, AUTHOR B. Paper title[C]//Proc of Conf. 2024: 112-121.}}</div>
+    <div class="ref-item" data-page-node-id="mHC867v9JYsNeZ7IofHqlB"><span class="no" data-page-node-id="JUwcbVT19ebeaaN0Nxh8qA">[3]</span> {{作者. 书名[M]. 城市: 出版社, 2023: 88-102.}}</div>
+    <div class="ref-item" data-page-node-id="eeQcXllBwV9cDnYjKPoDu7"><span class="no" data-page-node-id="iuvAVC4WTjS99jb3OzWaeo">[4]</span> {{作者. 电子资源题名[EB/OL]. (2026-01-15)[2026-09-01]. https://example.com.}}</div>
+    <div class="ref-item" data-page-node-id="IYfX9CByOA1O9xqajAJe8y"><span class="no" data-page-node-id="72YkYpEIBayldpW5hYFOuv">[5]</span> {{作者, 作者. 学位论文题名[D]. 城市: 授予单位, 2022.}}</div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -40,5 +40,6 @@ bin/
 *test.mjs
 
 .workbuddy/*
+.workbuddy-ai/*
 .claude/*
 .qoder/*

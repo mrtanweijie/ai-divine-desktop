@@ -219,7 +219,84 @@ THEMES: dict[str, dict[str, Any]] = {
             "--border": "#eeeeee",
         },
     },
+    # ── 论文/报告四套：页式 HTML 模板（与 travel_* 同管线，CSS 从模板 <style> 提取） ──
+    # 三者与 travel 的区别：own_cover=True 表示模板自带封面页，系统不再另造封面；
+    # 模板自带页眉页脚，故 document 组装时不注入 <div class="header">。
+    "academic_report": {
+        "file": "academic_report.html",
+        "display_name": "学术报告",
+        "description": "学院蓝 + 衬线标题 + 图表学术编号，适合课程报告、课题结题、学术汇报",
+        "html_template": True,
+        "own_cover": True,
+        "variables": {
+            "--primary": "#1F3A5F",
+            "--primary-dark": "#16293F",
+            "--primary-light": "#E8EEF5",
+            "--accent": "#3E6B9E",
+            "--paper": "#FCFCFA",
+        },
+    },
+    "thesis_paper": {
+        "file": "thesis_paper.html",
+        "display_name": "论文投稿",
+        "description": "期刊极简黑白 + 三线表 + 公式编号，适合学位论文、期刊投稿、会议论文",
+        "html_template": True,
+        "own_cover": True,
+        "variables": {
+            "--primary": "#1A1A1A",
+            "--primary-dark": "#000000",
+            "--primary-light": "#F7F7F5",
+            "--accent": "#4A4A4A",
+            "--paper": "#FFFFFF",
+        },
+    },
+    "data_report": {
+        "file": "data_report.html",
+        "display_name": "数据分析报告",
+        "description": "券商研报风：KPI 指标带 + 条形图 + 洞察编号段，适合经营分析、季度复盘",
+        "html_template": True,
+        "own_cover": True,
+        "variables": {
+            "--primary": "#14497B",
+            "--primary-dark": "#0C2E50",
+            "--primary-light": "#EDF3FA",
+            "--accent": "#0C2E50",
+            "--paper": "#FFFFFF",
+        },
+    },
+    "research_report": {
+        "file": "research_report.html",
+        "display_name": "研究报告",
+        "description": "咨询白皮书风：墨绿单强调 + 关键发现编号 + 建议矩阵，适合行业研究、战略分析",
+        "html_template": True,
+        "own_cover": True,
+        "variables": {
+            "--primary": "#1E5145",
+            "--primary-dark": "#143830",
+            "--primary-light": "#EAF1EE",
+            "--primary-faint": "#F4F8F6",
+            "--accent": "#143830",
+            "--paper": "#FDFCFA",
+        },
+    },
 }
+
+# 页式 HTML 模板主题（CSS 内嵌在模板 <style> 中，自带封面与页眉页脚）
+HTML_TEMPLATE_THEMES: frozenset[str] = frozenset(
+    theme_id
+    for theme_id, info in THEMES.items()
+    if info.get("html_template") or str(info.get("file", "")).endswith(".html")
+)
+
+
+def is_html_template_theme(theme_id: str) -> bool:
+    """该主题是否为页式 HTML 模板（travel_* 与论文/报告四套）。"""
+    return theme_id in HTML_TEMPLATE_THEMES
+
+
+def theme_owns_cover(theme_id: str) -> bool:
+    """模板自带封面页时返回 True，调用方不再另造封面。"""
+    return bool((THEMES.get(theme_id) or {}).get("own_cover"))
 
 
 @dataclass
@@ -276,8 +353,8 @@ class ThemeManager:
             return cached
 
         theme = self.get_theme(theme_id)
-        if theme_id.startswith("travel"):
-            css = self._travel_css(theme_id)
+        if is_html_template_theme(theme_id):
+            css = self._html_template_css(theme_id)
         else:
             css = Path(theme.css_path or "").read_text(encoding="utf-8")
         variables = dict(theme.variables)
@@ -303,7 +380,8 @@ class ThemeManager:
         self._cache[cache_key] = css
         return css
 
-    def _travel_css(self, theme_id: str = "travel") -> str:
+    def _html_template_css(self, theme_id: str = "travel") -> str:
+        """从页式 HTML 模板的 <style> 块提取 CSS（travel_* 与论文/报告四套共用）。"""
         filename = THEMES.get(theme_id, {}).get("file") or "travel_template.html"
         template_path = self.themes_dir / filename
         template = template_path.read_text(encoding="utf-8")
@@ -314,6 +392,9 @@ class ThemeManager:
         )
         css = match.group(1) if match else template
         return css
+
+    # 兼容旧名（存量调用方/测试引用 _travel_css）
+    _travel_css = _html_template_css
 
 
 _TRAVEL_SKELETON_CACHE: dict[str, str] = {}
@@ -425,6 +506,84 @@ def travel_template_skeleton(theme: str = "travel") -> str:
     return result
 
 
+_HTML_SKELETON_CACHE: dict[str, str] = {}
+
+
+def html_template_skeleton(theme: str) -> str:
+    """页式 HTML 模板的结构骨架（供 LLM 生成内容时对照）。
+
+    - travel 系列沿用旅行专用筛选（每种页面留一个代表例）；
+    - 论文/报告四套页面少且各不重复，保留全部页面片段。
+    """
+    cached = _HTML_SKELETON_CACHE.get(theme)
+    if cached:
+        return cached
+    result = (
+        travel_template_skeleton(theme)
+        if theme.startswith("travel")
+        else _page_template_skeleton(theme)
+    )
+    _HTML_SKELETON_CACHE[theme] = result
+    return result
+
+
+def _page_template_skeleton(theme: str) -> str:
+    """论文/报告模板骨架：头部【设计语言】注释 + 全部 <div class="page"> 片段。
+
+    只做「去样式、去注释」两件事，占位符 {{...}} 原样保留——LLM 需要看到
+    每个位置的语义，才能填出与版式匹配的内容。
+    """
+    filename = (THEMES.get(theme) or {}).get("file")
+    if not filename:
+        return ""
+    path = Path(__file__).resolve().parent / "pdf_themes" / filename
+    template = path.read_text(encoding="utf-8")
+
+    first_comment_match = re.search(r"<!--(.*?)-->", template, re.DOTALL)
+    first_comment = (
+        first_comment_match.group(1).strip() if first_comment_match else ""
+    )
+
+    pages = html_template_pages(theme)
+    header_lines = [
+        "以下是模板 %s 的页面结构骨架。" % filename,
+        "其中 {{双花括号}} 是内容占位符：输出时必须替换为实际内容，不要保留 {{ }}。",
+        "每个 <div class=\"page\"> 对应 PDF 的一页，页面顺序必须与骨架一致。",
+    ]
+    parts = ["\n".join(header_lines)]
+    if first_comment:
+        parts.append(first_comment)
+    parts.extend(pages)
+    return "\n\n".join(parts)
+
+
+def html_template_pages(theme: str) -> list[str]:
+    """返回页式模板的全部 `<div class="page">` 片段（已去样式与注释）。
+
+    页边界判定必须排除 `<div class="page-head">`（研报模板的页眉条）
+    与 `<div class="page-footer">`，同时保留 `<div class="page cover">`。
+    """
+    filename = (THEMES.get(theme) or {}).get("file")
+    if not filename:
+        return []
+    path = Path(__file__).resolve().parent / "pdf_themes" / filename
+    template = path.read_text(encoding="utf-8")
+    no_style = re.sub(
+        r"<style[^>]*>.*?</style>", "", template, flags=re.IGNORECASE | re.DOTALL
+    )
+    no_comments = re.sub(r"<!--.*?-->", "", no_style, flags=re.DOTALL)
+    body_match = re.search(
+        r"<body[^>]*>(.*?)</body>", no_comments, re.IGNORECASE | re.DOTALL
+    )
+    body = body_match.group(1) if body_match else no_comments
+    page_open = re.compile(r'<div class="page(?:"|\s)')
+    return [
+        re.sub(r"\n{3,}", "\n\n", chunk.strip())
+        for chunk in re.split(r'(?=<div class="page(?:"|\s))', body)
+        if page_open.match(chunk.lstrip())
+    ]
+
+
 _default_manager: ThemeManager | None = None
 
 
@@ -484,7 +643,8 @@ def load_theme_css(
     paper_size: str = "A4",
 ) -> str:
     css = get_theme_manager().load_css(theme_id, overrides, paper_size)
-    if "travel" not in theme_id:
+    # 页式 HTML 模板（travel_* / 论文报告四套）自带完整样式，不叠加布局模块样式
+    if not is_html_template_theme(theme_id):
         css += _modules_css()
     return css
 

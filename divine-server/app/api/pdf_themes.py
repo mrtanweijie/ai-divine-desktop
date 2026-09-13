@@ -5,8 +5,11 @@ from pydantic import BaseModel
 
 from ..docgen.pdf.theme_manager import (
     build_cover_html,
+    build_html_template_document,
+    html_template_pages,
     list_available_themes,
     load_theme_css,
+    theme_owns_cover,
 )
 
 router = APIRouter(prefix="/pdf", tags=["pdf"])
@@ -46,6 +49,17 @@ def preview_css(req: PreviewCssRequest):
 @router.post("/render-preview")
 def render_preview(req: RenderPreviewRequest):
     try:
+        # 页式模板（论文/报告四套）自带封面与固定页结构，
+        # markdown + 通用封面拼出来会散架；直接渲染模板自身的页片段。
+        if theme_owns_cover(req.theme_id):
+            pages = "\n".join(html_template_pages(req.theme_id))
+            if pages:
+                return {
+                    "html": build_html_template_document(
+                        pages, "主题效果预览", theme=req.theme_id
+                    ),
+                    "theme": req.theme_id,
+                }
         css = load_theme_css(req.theme_id)
         content = req.sample_content.strip() or _default_sample()
         import markdown as markdown_lib

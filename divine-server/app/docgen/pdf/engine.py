@@ -12,14 +12,22 @@ from ...llm import DeepSeekLLM, MockLLM
 from .renderer import render_html_to_pdf, render_markdown_to_pdf
 from .renderer.qa import inspect_pdf, render_with_qa
 from .theme_manager import (
+    THEMES,
+    derive_bar_ramp,
+    derive_faint_tint,
     derive_universal_palette,
+    theme_owns_cover,
     travel_color_overrides,
     universal_color_overrides,
 )
 from .base import PDFIntent
-from .content import ensure_travel_budget_page, generate_content
+from .content import (
+    ensure_page_template_pages,
+    ensure_travel_budget_page,
+    generate_content,
+)
 from .design_enforcer import enforce_design
-from .design_rules import resolve_design
+from .design_rules import PAGE_TEMPLATE_THEMES, resolve_design
 from .illustration import inline_markdown_images
 from .intent import _clean_title, parse_intent
 from .recipes import detect_recipe, get_recipe
@@ -173,6 +181,10 @@ class PDFTool:
         resume_layout: str | None = None,
     ) -> dict[str, Any]:
         recipe_name = kind or detect_recipe(prompt)
+        # theme 显式指向论文/报告四套之一时等价于选该配方
+        # （这四套是「一个主题对应一个模板」，选主题即选模板）
+        if theme in PAGE_TEMPLATE_THEMES:
+            recipe_name = theme
         recipe = get_recipe(recipe_name)
         llm = llm or build_llm()
 
@@ -225,10 +237,12 @@ class PDFTool:
             if route:
                 intent.meta["route"] = route
                 intent.meta["destination"] = route[0]
-            if recipe_name == "travel":
+            if recipe.content_format == "html":
+                # 页式模板（travel + 论文/报告四套）：传入的 Markdown 只作素材，
+                # 必须按模板骨架重组为 HTML body，否则会被当成 HTML 原样渲染成散架单页
                 source = markdown
                 meta = dict(intent.meta)
-                if theme.startswith("travel"):
+                if recipe_name == "travel" and theme.startswith("travel"):
                     meta["theme"] = theme
                 intent = PDFIntent(
                     title=intent.title,
@@ -261,6 +275,10 @@ class PDFTool:
         # 预算页 QA：页序固定且预算页排最后，单次生成被 max_tokens 截断时整页丢失
         if recipe_name == "travel":
             markdown = await ensure_travel_budget_page(markdown, intent, recipe, llm)
+        # 页式模板 QA：单次生成被截断导致末尾整页丢失时，接着已有页续写缺失页
+        #（travel 没有 expected_pages，此处为 no-op）
+        if recipe.content_format == "html":
+            markdown = await ensure_page_template_pages(markdown, intent, recipe, llm)
 
         # 设计决策层：显式参数 > prompt 风格词 > DesignSpec（LLM 设计师）
         # > 场景分类 > 配方默认。
@@ -338,31 +356,60 @@ class PDFTool:
         if recipe_name == "travel" or final_theme.startswith("travel"):
             cover = True
             toc = False
-        # 非旅行配方开启配图时：远程图/keyword 图下载内嵌，失败降级占位块
-        #（travel 的配图在 render_html_to_pdf 内部处理）
-        if images and recipe_name != "travel":
+        # 页式 HTML 模板配方（travel + 论文/报告四套）统一走 render_html_to_pdf。
+        # 论文/报告四套模板自带封面页与页眉页脚，故 cover 置 False，也不注入 .header。
+        is_html_recipe = recipe.content_format == "html"
+        if is_html_recipe:
+            cover = not theme_owns_cover(final_theme)
+            toc = False
+        # 非页式配方开启配图时：远程图/keyword 图下载内嵌，失败降级占位块
+        #（页式模板的配图在 render_html_to_pdf 内部处理）
+        if images and not is_html_recipe:
             markdown = inline_markdown_images(markdown)
-        if recipe_name == "travel" and final_theme.startswith("travel"):
-            # 主色优先级：theme_colors 显式值 > DesignSpec 主色 > color_scheme 预设
-            travel_custom = color_overrides
-            if not travel_custom and design.primary_color:
-                travel_custom = {"--color-primary": design.primary_color}
-            overrides = travel_color_overrides(
-                final_color, travel_custom, theme=final_theme
-            )
+        if is_html_recipe:
+            if recipe_name == "travel":
+                # 主色优先级：theme_colors 显式值 > DesignSpec 主色 > color_scheme 预设
+                travel_custom = color_overrides
+                if not travel_custom and design.primary_color:
+                    travel_custom = {"--color-primary": design.primary_color}
+                overrides = travel_color_overrides(
+                    final_color, travel_custom, theme=final_theme
+                )
+            else:
+                # 论文/报告四套：通用配色覆盖，只传 --primary 即派生整套配套色
+                overrides = universal_color_overrides(color_overrides)
+                if design.primary_color:
+                    derived = derive_universal_palette(design.primary_color)
+                    if derived:
+                        overrides = {**derived, **overrides}
+                # data_report 的条形图 4 级色阶需跟随主色：CSS 无法从 --primary 派生
+                # 同色阶，在 Python 侧按 HLS 亮度阶梯算好后注入（显式 --bar-N 优先）
+                if final_theme == "data_report":
+                    # 只在主色被覆盖时派生；无覆盖时保留模板里的字面量色板，
+                    # 避免派生色与原始设计的饱和度差异改动默认观感。
+                    primary = overrides.get("--primary")
+                    ramp = derive_bar_ramp(primary) if primary else {}
+                    if ramp:
+                        overrides = {**ramp, **overrides}
+                # research_report 的二级浅色（引用块底色）同样需跟随主色
+                if final_theme == "research_report":
+                    primary = overrides.get("--primary")
+                    faint = derive_faint_tint(primary) if primary else {}
+                    if faint:
+                        overrides = {**faint, **overrides}
             meta = render_html_to_pdf(
                 markdown,
                 output,
                 title=intent.title,
                 paper_size=paper_size,
-                cover=True,
+                cover=cover,
                 cover_data=intent.meta,
                 base_dir=base_dir,
                 theme=final_theme,
                 overrides=overrides,
                 images=images,
             )
-            # travel 固定页式排版：质检只上报（空白页/越界），不自动修复
+            # 页式固定排版：质检只上报（空白页/越界），不自动修复
             meta["qa"] = inspect_pdf(output)
         else:
             # 合并链：DesignSpec 派生色 → theme_colors 显式值（后者优先）

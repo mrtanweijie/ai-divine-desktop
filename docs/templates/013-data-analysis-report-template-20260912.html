@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="gsvFk5wlAO1Skgc4hwSYGF">
+<head data-page-node-id="EJ2otJna2ETU8DbML5jld2">
+<meta charset="UTF-8" data-page-node-id="aAZ7llS2cZa11tAMcR7TeQ">
+<title>{{报告标题}} - 数据分析报告模板 · 研报风（Data Report）</title>
+<!--
+  ═══════════════════════════════════════════════════════════════
+  数据分析报告模板 · Data Report 券商研报风（data_report）
+  ═══════════════════════════════════════════════════════════════
+
+  【设计语言】
+  1. 研报/年报气质：纯纸白 + 近黑 #17202A + 藏蓝 #14497B 单强调色，无卡片、无圆角、无阴影
+  2. 结构全靠「线」：章节双细线、表格顶底粗线、KPI 竖细线分栏、图表基线
+  3. 章节编号「01/02/03」+ 中文标题 + 英文眉题；正文两端对齐，数字 tabular-nums
+  4. KPI 呈现为年报式关键指标带（四栏竖线分隔），涨跌用 ▲▼ 与红绿小字
+  5. 图表为纯 CSS 条形（带基线与刻度线）；洞察用编号段落式，不用彩色卡片
+
+  【渲染兼容】WeasyPrint 安全：无 calc/conic/mask/backdrop-filter，等高分栏走 table-cell；
+              封面 KPI 带用 absolute 锚底（不用 flex）；
+              收底带 width 需减去左右 padding（display:table 不吃 box-sizing，width 是内容宽度）
+  【刻度轴】.chart-axis 的 4 个刻度必须与条形比例尺对齐：首格左对齐、中间格左对齐、末格右对齐
+  【占位符】{{双花括号}} 由 Agent 填充；示例数据仅示意结构。
+            **扁平书写，禁止嵌套**：不要写 {{外层 {{内层}} 外层}}，直接并列写 {{甲}} 与 {{乙}}
+  【页面映射】P1 封面 ｜ P2 核心指标概览 ｜ P3 明细数据与归因 ｜ P4 结论与建议
+-->
+<style>
+@page { size: A4; margin: 0 0 16mm; background: #FFFFFF;
+  @bottom-left { content: "{{报告标题}} · 数据分析"; vertical-align: middle; height: 16mm; padding: 0 18mm; font-family: "PingFang SC", "Noto Sans SC", sans-serif; font-size: 9.5px; color: #848D99; }
+  @bottom-right { content: "第 " counter(page) " 页 / 共 " counter(pages) " 页"; vertical-align: middle; height: 16mm; padding: 0 18mm; font-family: "PingFang SC", "Noto Sans SC", sans-serif; font-size: 9.5px; color: #848D99; } }
+@page coverpg { margin: 0 0 20mm; background: #FFFFFF;
+  @bottom-left { content: none; } @bottom-right { content: none; }
+  @bottom-center { content: element(cvband); vertical-align: bottom; height: 20mm; padding: 0; margin: 0; } }
+:root {
+  /* 主题主色：由管线按 theme_colors / color_scheme 注入同名变量覆盖。
+     语义别名（--blue/--blue-deep）挂到主色上，改主色即章节头、KPI 强调、
+     条形图首条联动；正文墨色与涨跌语义色不挂主色。 */
+  --primary: #14497B;
+  --primary-dark: #0C2E50;
+  --primary-light: #EDF3FA;
+  --accent: #0C2E50;
+  --paper: #FFFFFF;
+  --ink: #17202A;
+  --ink-70: #454F5B;
+  --ink-45: #848D99;
+  --blue: var(--primary);
+  --blue-deep: var(--primary-dark);
+  /* 条形图 4 级色阶：默认取原设计色板，由管线按主色派生覆盖（见 theme_colors.derive_bar_ramp）。
+     CSS 无法从 --primary 派生同色阶，故此处给字面量兜底值，换主色时由 Python 侧重算注入。 */
+  --bar-1: var(--primary);
+  --bar-2: #3D74A8;
+  --bar-3: #6D9CC7;
+  --bar-4: #A8C3DC;
+  --up: #2F9E6E;
+  --down: #C2454E;
+  --rule: #C9CFD6;
+  --rule-dark: #17202A;
+  --font-sans: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-sans); color: var(--ink); font-size: 13.5px; line-height: 1.8; background: #fff; -webkit-font-smoothing: antialiased; }
+
+.page { padding: 16mm 18mm 0; }
+.page + .page { page-break-before: always; }
+/* ── 章节头：编号 + 标题 + 双线 ── */
+.sec-head { margin-bottom: 12px; padding-top: 10px; border-top: 3px solid var(--blue); position: relative; }
+/* ::after 与 3px 主线之间留 3px 空隙，否则两条线贴合成一条粗线，「双细线」不成立 */
+.sec-head::after { content: ""; position: absolute; top: 6px; left: 0; right: 0; height: 1px; background: var(--rule); }
+.sec-head .sec-no { font-size: 26px; font-weight: 800; color: var(--blue); letter-spacing: 0.02em; line-height: 1; }
+.sec-head .sec-title { font-size: 19px; font-weight: 800; letter-spacing: 0.01em; margin-top: 4px; }
+.sec-head .sec-en { font-size: 10px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ink-45); margin-top: 2px; }
+.sec-h2 { font-size: 14.5px; font-weight: 800; margin: 13px 0 6px; padding-left: 10px; border-left: 3px solid var(--blue); line-height: 1.4; }
+.body-text { text-align: justify; color: var(--ink-70); margin-bottom: 8px; }
+
+/* ── KPI 数值通用（年报关键指标带） ── */
+.kv { font-size: 21px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; white-space: nowrap; }
+.kv em { font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-45); margin-left: 2px; }
+.kk { font-size: 11px; color: var(--ink-45); margin-top: 2px; }
+.kd { font-size: 11px; font-weight: 700; margin-top: 4px; white-space: nowrap; }
+.kd.up { color: var(--up); }
+.kd.down { color: var(--down); }
+
+/* ═══════════ P1 封面 ═══════════ */
+/* 块级布局（不用 flex）。margin-top 负值把封面拉到纸张原点，height 补足被抵消的 padding-top，
+   使 border box 精确覆盖 0–277mm（297mm 页高 − 20mm 下边距） */
+.cover { display: block; position: relative; page: coverpg; height: 293mm; margin-top: -16mm; }
+.cover-top { display: table; width: 100%; padding-bottom: 10px; border-bottom: 3px solid var(--blue); }
+.cover-top .brand { display: table-cell; font-size: 12px; font-weight: 800; letter-spacing: 0.24em; }
+.cover-top .issue { display: table-cell; text-align: right; font-size: 10.5px; color: var(--ink-45); letter-spacing: 0.18em; text-transform: uppercase; }
+/* 内容块在「页眉下沿(≈9mm) → KPI 带上沿(≈239mm)」之间垂直居中，使上下留白对称 */
+.cover-main { padding: 83mm 0 0; }
+.cover-type { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.3em; color: var(--blue); border: 1px solid var(--blue); padding: 4px 14px; }
+.cover-title { font-size: 34px; font-weight: 900; line-height: 1.3; letter-spacing: 0.01em; margin-top: 22px; }
+.cover-sub { font-size: 13.5px; color: var(--ink-70); margin-top: 12px; }
+.cover-abstract { margin-top: 24px; padding: 14px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-size: 12.5px; color: var(--ink-70); line-height: 1.9; text-align: justify; }
+.cover-abstract b { color: var(--blue); }
+/* KPI 指标带锚定封面下部。
+   注意两点：
+   1) absolute 的包含块是 .cover 的 padding edge（= 整个 border box），故需显式回到 18mm 正文边距；
+   2) **不要**在 absolute 元素上直接写 `display: table` + `left/right` —— WeasyPrint 不会用 left/right
+      推导 table 宽度，会退化成按内容收缩（实测只剩 353pt/493pt，且四栏宽 81.8/103.1/84.5/83.7pt 不等）。
+      正确做法：外层普通块负责定位与定宽，内层 table 用 width:100% 吃满。 */
+.kpi-anchor { position: absolute; left: 18mm; right: 18mm; bottom: 18mm; }
+.kpi-strip { display: table; width: 100%; table-layout: fixed; border-top: 2px solid var(--rule-dark); }
+.kpi-strip .kc { display: table-cell; vertical-align: top; padding: 12px 14px 4px; border-right: 1px solid var(--rule); }
+.kpi-strip .kc:first-child { padding-left: 2px; }
+.kpi-strip .kc:last-child { border-right: none; }
+/* 收底带：display:table 不适用 box-sizing，width 是内容宽度，故写 174mm = 210mm − 18mm×2，
+   使 border box 正好 210mm 满幅；若写 210mm 会左右各溢出 18mm，文字被裁 */
+.cover-band { position: running(cvband); display: table; width: 174mm; background: var(--blue-deep); color: #FFFFFF; padding: 12px 18mm; }
+.cover-band .b { display: table-cell; vertical-align: middle; font-size: 11px; letter-spacing: 0.05em; white-space: nowrap; }
+.cover-band .b b { font-weight: 700; margin-right: 6px; color: #BFD4E8; }
+.cover-band .sep { display: table-cell; width: 1px; background: rgba(255,255,255,0.28); }
+.cover-band .pad { display: table-cell; width: 14px; }
+
+/* ═══════════ P2 KPI 指标带 ═══════════ */
+.ov-strip { display: table; width: 100%; table-layout: fixed; border-top: 2px solid var(--rule-dark); border-bottom: 1px solid var(--rule); margin-bottom: 16px; }
+.ov-strip .kc { display: table-cell; vertical-align: top; padding: 10px 14px; border-right: 1px solid var(--rule); }
+.ov-strip .kc:first-child { padding-left: 2px; }
+.ov-strip .kc:last-child { border-right: none; }
+
+/* ── 条形图：基线 + 刻度 ── */
+.chart-block { margin-top: 6px; }
+.chart-unit { font-size: 10.5px; color: var(--ink-45); margin-bottom: 8px; }
+.chart-plot { position: relative; border-left: 2px solid var(--rule-dark); border-bottom: 1px solid var(--rule-dark); padding: 4px 0 4px 10px; }
+.chart-row { margin-bottom: 7px; }
+.chart-row:last-child { margin-bottom: 0; }
+.chart-row .cr-top { display: table; width: 100%; font-size: 11.5px; margin-bottom: 3px; }
+.chart-row .cr-top .l { display: table-cell; font-weight: 600; }
+.chart-row .cr-top .v { display: table-cell; text-align: right; color: var(--ink-70); font-variant-numeric: tabular-nums; }
+.chart-bar { height: 12px; background: var(--bar-1); }
+.chart-bar.c2 { background: var(--bar-2); }
+.chart-bar.c3 { background: var(--bar-3); }
+.chart-bar.c4 { background: var(--bar-4); }
+/* 刻度轴对齐契约：4 格必须等宽（table-layout:fixed），且第 1/2/3 格左对齐、第 4 格右对齐，
+   这样刻度左边缘正好落在 0% / 25% / 50% / 100% 的比例尺位置。
+   若用 text-align:center，刻度会被推到 37.5% / 62.5%，与条长不符。 */
+.chart-axis { display: table; width: 100%; table-layout: fixed; font-size: 9.5px; color: var(--ink-45); margin-top: 4px; padding-left: 10px; }
+.chart-axis span { display: table-cell; }
+.chart-note { font-size: 10.5px; color: var(--ink-45); margin-top: 6px; border-top: 1px dashed var(--rule); padding-top: 6px; }
+
+/* ── 财务式数据表：顶底粗线 + 表头细线 ── */
+.fin-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+.fin-table thead tr { border-top: 2px solid var(--rule-dark); border-bottom: 1px solid var(--rule-dark); }
+.fin-table th { font-weight: 700; text-align: left; padding: 8px 10px; white-space: nowrap; }
+.fin-table td { padding: 7px 10px; border-bottom: 0.5px solid var(--rule); font-variant-numeric: tabular-nums; }
+.fin-table td.num, .fin-table th.num { text-align: right; }
+.fin-table tbody tr:last-child { border-bottom: 2px solid var(--rule-dark); }
+.fin-table tr.total td { font-weight: 800; border-top: 1px solid var(--rule-dark); border-bottom: 2px solid var(--rule-dark); }
+.fin-table .neg { color: var(--down); font-weight: 700; }
+.fin-table .pos { color: var(--up); }
+.tbl-note { font-size: 10.5px; color: var(--ink-45); margin-top: 6px; }
+
+/* ── 洞察：编号段落式 ── */
+.insight-item { display: table; width: 100%; margin-bottom: 12px; }
+.insight-item .i-no, .insight-item .i-body { display: table-cell; vertical-align: top; }
+/* 64px + nowrap：「洞察 N」在 15px/800 下约需 33pt，46px 仅余 1.2pt 余量，
+   数字字形略宽（2/3/4）即折行，导致编号与正文错位 */
+.insight-item .i-no { width: 64px; font-size: 15px; font-weight: 800; color: var(--blue); letter-spacing: 0.06em; white-space: nowrap; }
+.insight-item .i-body { border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
+.insight-item:last-child .i-body { border-bottom: none; }
+.insight-item .i-title { font-size: 13.5px; font-weight: 800; margin-bottom: 2px; }
+.insight-item p { font-size: 12.5px; color: var(--ink-70); text-align: justify; }
+
+/* ── 结论与建议 ── */
+.concl-item { display: table; width: 100%; margin-bottom: 10px; }
+.concl-item .c-no, .concl-item .c-txt { display: table-cell; vertical-align: top; }
+.concl-item .c-no { width: 34px; font-size: 14px; font-weight: 800; color: var(--blue); }
+.concl-item .c-txt { font-size: 13px; text-align: justify; color: var(--ink); border-bottom: 1px solid var(--rule); padding-bottom: 8px; }
+.concl-item:last-child .c-txt { border-bottom: none; }
+.note-line { font-size: 11px; color: var(--ink-45); padding: 3px 0; }
+</style>
+</head>
+<body data-page-node-id="XxjNOfLKs0zGinQVDV9tD8">
+
+<!-- ════════ P1 / 封面 ════════ -->
+<div class="page cover" data-page-node-id="B12PhNXBEyrD84VdZvy8fi">
+  <div class="cover-top" data-page-node-id="5N7OL7UiO9i9St1tzR0MvQ">
+    <div class="brand" data-page-node-id="YrnBEaO9qdqMV6QNYlMMom">{{数据团队 / 部门名称}}</div>
+    <div class="issue" data-page-node-id="LnvkFwPnCJpmuGiAp6d99g">Data Analysis Report · {{2026-Q3}}</div>
+  </div>
+  <div class="cover-main" data-page-node-id="DcIru2a3kJ6bVKvLCXN14I">
+    <span class="cover-type" data-page-node-id="qrsZ9TIPYtk1xo8RAx6aHD">{{业务线}} · 季度经营分析</span>
+    <h1 class="cover-title" data-page-node-id="LWU8NvsdOAStrluDND3QJA">{{业务主题}}经营数据分析报告</h1>
+    <p class="cover-sub" data-page-node-id="bZcDKzl8N4E41dXlpcWCnz">分析区间 {{2026.07 – 2026.09}} ｜ 覆盖 {{N}} 项核心指标与 {{N}} 个业务区域</p>
+    <div class="cover-abstract" data-page-node-id="HeNT3XwfIzUo7D2ER8HcV7"><b data-page-node-id="sfXPpvBsPCE2vjEMzbmBRW">摘要</b>　本报告围绕 {{业务主题}} 的经营目标完成度展开：核心指标 {{GMV 同比 +8.2%}}，增长动能由 {{动能 A}} 切换至 {{动能 B}}；同时 {{毛利率承压}} 与 {{区域分化}} 构成本季度两大结构性问题。报告依次给出指标概览、明细归因与下季度行动建议。</div>
+  </div>
+  <div class="kpi-anchor" data-page-node-id="wAcQW5XPEy6A2L2SrjbxBN">
+    <div class="kpi-strip" data-page-node-id="SbhaLalV94xadajUOta7ny">
+      <div class="kc" data-page-node-id="P87CWRuPl8ay49hN5lHswd"><div class="kv" data-page-node-id="YoY55EmRYqJqEWZp9tqaJ1">{{1,284}}<em data-page-node-id="jn2BRJoyKgmFMRQ6toyuLB">万</em></div><div class="kk" data-page-node-id="vEcJG5n5oFgs7jgtsIhWl6">月活跃用户</div><div class="kd up" data-page-node-id="2jSA0n7xS6z0m1A7ORt8eR">▲ 同比 +12.6%</div></div>
+      <div class="kc" data-page-node-id="Ta5HmV634SQKxOV0bshbee"><div class="kv" data-page-node-id="wWe6YV2CwV6yyPTmXdXN9m">{{¥3,460}}<em data-page-node-id="rEaDL0JBvyJTTyWEPf5F2R">万</em></div><div class="kk" data-page-node-id="99IBIPyxjaMJso8QDpbfOv">季度营收 GMV</div><div class="kd up" data-page-node-id="nPjUWyFOUQw4HTsegp3HpW">▲ 环比 +8.2%</div></div>
+      <div class="kc" data-page-node-id="85feeIGqUFC2sRlzBL2FcG"><div class="kv" data-page-node-id="e7CY550ilFkuMUN6bVhe79">{{38.5}}<em data-page-node-id="MWCzooqvkJdibOGwsQDl8N">%</em></div><div class="kk" data-page-node-id="aaMz7ixH2XuqeFe9CqHiUZ">毛利率</div><div class="kd down" data-page-node-id="pmCgwE4pPOW9GQeQCtYeIj">▼ 同比 -1.4pp</div></div>
+      <div class="kc" data-page-node-id="8Hff6UIzlJcaZFepvA9HhG"><div class="kv" data-page-node-id="CVDkate8KmVAoCpfjYp9sc">{{92.4}}<em data-page-node-id="iUOzDHSe1OqHOxryxg09Xu">%</em></div><div class="kk" data-page-node-id="86V8wpWPQaZ1FCKoz4IcXl">次月留存率</div><div class="kd up" data-page-node-id="GSiJUSUMJVjKiWIzaHj3Wr">▲ 环比 +0.8pp</div></div>
+    </div>
+  </div>
+  <div class="cover-band" data-page-node-id="7uP3mbgYRjaadYEfljJjgQ">
+    <div class="b" data-page-node-id="EH2hJohCMxkqmXaHD4N9Ux"><b data-page-node-id="0Fh29zz02AtQ5GC0fGSlu7">分析周期</b>{{2026.07.01 – 09.30}}</div>
+    <div class="sep" data-page-node-id="4pmyd64HasKaLHS1jxzhBe"></div><div class="pad" data-page-node-id="GbCrGEGyz4tdlnuIzutKuL"></div>
+    <div class="b" data-page-node-id="oWFMIPQKPcERM5IYdPuJGs"><b data-page-node-id="WWxHnQrbkBzwn8tIJTloGE">数据来源</b>{{数仓 dwd 层 · 4 张核心表}}</div>
+    <div class="sep" data-page-node-id="xdT3bFtwFBwiqOnuRSCfEC"></div><div class="pad" data-page-node-id="m4QcEH3myaX8hRuK0atNS9"></div>
+    <div class="b" data-page-node-id="RxYCLh310owPTkmCGPWzgX"><b data-page-node-id="N25sWaOZWUFF6YDwm8S7pm">出品</b>{{数据分析组}}</div>
+  </div>
+</div>
+
+<!-- ════════ P2 / 核心指标概览 ════════ -->
+<div class="page" data-page-node-id="3BJFErpih0T51CimIhVeB7">
+  <div class="sec-head" data-page-node-id="7ycy5ftj54ik0vinpDVItE">
+    <div class="sec-no" data-page-node-id="6A8vau63mSqNDRVl6JqeVD">01</div>
+    <div class="sec-title" data-page-node-id="FboZDvMPDIuHf2Feh6jj76">核心指标概览</div>
+    <div class="sec-en" data-page-node-id="RWOQatyQEp49GkSyKmcdTQ">Key Metrics Overview</div>
+  </div>
+
+  <div class="ov-strip" data-page-node-id="MpA7P6ULM5p1fWF4pYbFaq">
+    <div class="kc" data-page-node-id="z7RzgZHBAahGVgNwGNo9gc"><div class="kv" data-page-node-id="zw6cYyhmVPHKsyNWqGNGcu">{{1,284}}<em data-page-node-id="AzOqHInqpbOunPYKEXpkpx">万</em></div><div class="kk" data-page-node-id="exL4WTvFeixYF7IkVgJhpM">月活 MAU</div><div class="kd up" data-page-node-id="h7sUsW82TvHQQ8lzoZ0ZHH">▲ 同比 +12.6%</div></div>
+    <div class="kc" data-page-node-id="4CwW9KeVyll0Jwm2HTe4R1"><div class="kv" data-page-node-id="8oOIev4suSpvnl0zUJAPZ1">{{¥3,460}}<em data-page-node-id="MGUAE9kE0UhXtxLWImZ75x">万</em></div><div class="kk" data-page-node-id="v3qmBpl1cj6W0VSfb3kv4q">季度 GMV</div><div class="kd up" data-page-node-id="7wkXLpbTiErKuqdyh7YxRw">▲ 环比 +8.2%</div></div>
+    <div class="kc" data-page-node-id="kusKKAt8KMoEkmlGe2MXPb"><div class="kv" data-page-node-id="AVJxOh9VfPQMcgxICP162V">{{38.5}}<em data-page-node-id="i1BqeCCyfMo1AD7jpBYbci">%</em></div><div class="kk" data-page-node-id="yH93gFoPFzB7ccFVss6eFu">毛利率</div><div class="kd down" data-page-node-id="5aWldR4LBzMOXgI8qQrr5k">▼ 同比 -1.4pp</div></div>
+    <div class="kc" data-page-node-id="7zJjj1cpQEpNCsPfz0j5WH"><div class="kv" data-page-node-id="9SDUlCG4BgEIzz9wmNgDCN">{{92.4}}<em data-page-node-id="Hgh71snlXHEyGlHhqVLpkw">%</em></div><div class="kk" data-page-node-id="9axjlhfBqeieXVXX1d8ivY">次月留存</div><div class="kd up" data-page-node-id="sxiYDxM2xVfc45MsPa880q">▲ 环比 +0.8pp</div></div>
+  </div>
+
+  <p class="body-text" data-page-node-id="Eh9oMYeeADlT7vqrr1C9Kh">本季度经营总体稳健：收入端 {{GMV}} 同比 +{{8.2%}}，主要由 {{渠道 A}} 放量贡献；利润端 {{毛利率}} 回落 {{1.4pp}}，主因 {{成本项}} 价格上行；用户端 {{MAU}} 与留存均改善。</p>
+
+  <h2 class="sec-h2" data-page-node-id="Gcrmh3gSZtALYUXuNXuQUU">分渠道营收结构</h2>
+  <div class="chart-block" data-page-node-id="nMCu0OaIPOFxx7txJX33N7">
+    <div class="chart-unit" data-page-node-id="BTkRS4GKPwVdFRR931HRgb">单位：万元 · 占比为季度 GMV 口径</div>
+    <div class="chart-plot" data-page-node-id="qvKDM17Eq5Te7mc6W6EZsu">
+      <div class="chart-row" data-page-node-id="Zs2z2K9zeHlBrlCIYLwq78"><div class="cr-top" data-page-node-id="qDk0bYoE45y7CVSIzsPEUK"><span class="l" data-page-node-id="vbUDxQ5TQKUGr3eRW4raLa">{{渠道 A}}</span><span class="v" data-page-node-id="J8eyB3MPeM2CmpWRjFxq4W">{{1,420 · 41%}}</span></div><div class="chart-bar" style="width: 82%;" data-page-node-id="nHwsnlIgp6ywRnKwwBsPLN"></div></div>
+      <div class="chart-row" data-page-node-id="J9IiELxA3kuaxGKN8gCzUc"><div class="cr-top" data-page-node-id="9dZwVSE6GbLXyK5vobwWX7"><span class="l" data-page-node-id="bmDpBeGSxqlRwBZuQ1aheA">{{渠道 B}}</span><span class="v" data-page-node-id="Ha4Rtuihu3BHYa8RCk5l1E">{{970 · 28%}}</span></div><div class="chart-bar c2" style="width: 56%;" data-page-node-id="mJKhQaBM0kJ2k7t2Vui30z"></div></div>
+      <div class="chart-row" data-page-node-id="9bkChcfgl7AKYZJxSDxYS6"><div class="cr-top" data-page-node-id="doF2TFiSHeG5i3LGqKQ4Xb"><span class="l" data-page-node-id="BvaVRURxrA0h7xwTdqbn3k">{{渠道 C}}</span><span class="v" data-page-node-id="Z2LBL8sx50cayNEND5JdXs">{{690 · 20%}}</span></div><div class="chart-bar c3" style="width: 40%;" data-page-node-id="XmlFRSMHL8dvWoNABfChQN"></div></div>
+      <div class="chart-row" data-page-node-id="nmjQQQ6ZgboWOqdpAM2Ehc"><div class="cr-top" data-page-node-id="QRmi7BrZJJjNfgXZspFbEj"><span class="l" data-page-node-id="lC75ofJbBKQ8Z5GF4PZH5l">{{其他}}</span><span class="v" data-page-node-id="HtVQasH6IrVNNUQCfx15EM">{{380 · 11%}}</span></div><div class="chart-bar c4" style="width: 22%;" data-page-node-id="KoLSUiAmR2dqEpQVFYEulv"></div></div>
+    </div>
+    <div class="chart-axis" data-page-node-id="KzC9gNaJWql0v4JEyqpEjk"><span data-page-node-id="riotp08LRQXLXYhdWyt0T5">0</span><span style="text-align: left;" data-page-node-id="0B34pMj7PNwooqShgVSR0L">875（25%）</span><span style="text-align: left;" data-page-node-id="6fvbr7RMxwf0TtJRU9dIQF">1,750（50%）</span><span style="text-align: right;" data-page-node-id="rmRJMHMsJQ6eAWMAGXXxRl">3,500（100%）</span></div>
+    <div class="chart-note" data-page-node-id="bPCd98Rp2pgtmpu9YN608E">注：条长按 GMV 占比映射；渠道 A 环比 +{{x%}}，为整体增长第一动力。</div>
+  </div>
+
+  <h2 class="sec-h2" data-page-node-id="ni3PBWyJmarYGorSAZBnUY">费用与成本结构</h2>
+  <div class="chart-block" data-page-node-id="zMGGoXJwPuKQchrmrT8UHf">
+    <div class="chart-unit" data-page-node-id="ttOxn77d4mxcZJkfF0ZHbe">占营收比重 · 同比变化</div>
+    <div class="chart-plot" data-page-node-id="iZoJkLji25EFhiHfspsCMC">
+      <div class="chart-row" data-page-node-id="hBwHsNBFwKbBO7hdADctrR"><div class="cr-top" data-page-node-id="YkcmC3rhDDzKlOu2lve4Qo"><span class="l" data-page-node-id="lmfGiVT9eHthbWrh89lxTD">{{履约成本}}</span><span class="v" data-page-node-id="CoAiG9mA8vBx2QIhcCf6A9">{{31.2% · +1.6pp}}</span></div><div class="chart-bar" style="width: 62%;" data-page-node-id="96Y27ZRXGXU0jkoy5HsQa8"></div></div>
+      <div class="chart-row" data-page-node-id="vNft1dgBrpUaHHYXQwahbQ"><div class="cr-top" data-page-node-id="IXgGcZSvrvEtCar6vdRQLJ"><span class="l" data-page-node-id="yfRM0F2GyDBOCzeBIKafc9">{{获客费用}}</span><span class="v" data-page-node-id="KAWrRtBYeUOFm86YLthG8j">{{18.4% · +0.9pp}}</span></div><div class="chart-bar c2" style="width: 37%;" data-page-node-id="8jtJSHSySMFaDhHBgHU3Ph"></div></div>
+      <div class="chart-row" data-page-node-id="0UFqIAgNMqjtFYgFzNagwJ"><div class="cr-top" data-page-node-id="upp6CGXT4NREY6mvgUQaEK"><span class="l" data-page-node-id="WVEvfEQJHJOZpsvOGUWKU1">{{平台摊薄}}</span><span class="v" data-page-node-id="zBp2gPcfBkFQMKrsU0G6qv">{{12.1% · -0.4pp}}</span></div><div class="chart-bar c3" style="width: 24%;" data-page-node-id="4AdM1rTtgs2YcTJb8pAn49"></div></div>
+    </div>
+    <div class="chart-axis" data-page-node-id="1M6Xp3ASEKvovdtRC9TZO4"><span data-page-node-id="BKV0g1LMDsq2mRoortoYX1">0</span><span style="text-align: center;" data-page-node-id="NZwlqbRoeiUayOJkXtXEFH">25%</span><span style="text-align: right;" data-page-node-id="CgEER8zKC8jAl30LGtAtRP">50%</span></div>
+    <div class="chart-note" data-page-node-id="9mpF09dp9uJpFAp9VQvZne">注：{{履约成本}} 上涨为毛利率承压主因，归因详见 02 节。</div>
+  </div>
+</div>
+
+<!-- ════════ P3 / 明细数据与归因 ════════ -->
+<div class="page" data-page-node-id="KB8F4vvWhgFWM6xkFkbm1i">
+  <div class="sec-head" data-page-node-id="WgG6wxZZwiy7WZUZwNJe9E">
+    <div class="sec-no" data-page-node-id="i3rAOEFdxF6NV8282sQ0MX">02</div>
+    <div class="sec-title" data-page-node-id="rHk44zb2Shtdd4CweF6P8h">明细数据与关键洞察</div>
+    <div class="sec-en" data-page-node-id="yeGB3UKrHG36kD1nS1owMM">Detail &amp; Insights</div>
+  </div>
+
+  <h2 class="sec-h2" data-page-node-id="jICBSWfUIVm1qQiGsbOrVf">分区域经营明细</h2>
+  <table class="fin-table" data-page-node-id="xLjFB0ey2EG1BGWe95mGNn">
+    <thead data-page-node-id="xke86t5kf4rVSnKpNP5DBU"><tr data-page-node-id="Wc6huBm8inCJgDeKZryUFS"><th data-page-node-id="b3ADF7ucqQP1gJqPaAlkh1">{{区域}}</th><th class="num" data-page-node-id="RPsV8dvwhyGmLueFZ5PMG0">GMV（万元）</th><th class="num" data-page-node-id="j1X0lHBKljRp5pv16ESxns">环比</th><th class="num" data-page-node-id="A50ARpurvFTUyT98VYFfPO">毛利率</th><th class="num" data-page-node-id="HpPpmWD5LLxttM7BykA6xP">客单价（元）</th><th class="num" data-page-node-id="AE8P4L8XZxGXAGtFmRAIpc">目标达成</th></tr></thead>
+    <tbody data-page-node-id="yqWNA8mVyzh5HyO2c8xrL2">
+      <tr data-page-node-id="ZeYk5bSvkYi6xQaFJaVCdf"><td data-page-node-id="5v4veTDx6gf0A0mG08fD5S">{{华东}}</td><td class="num" data-page-node-id="wx7oXOvJEfNzzffiAx1l1F">{{1,182}}</td><td class="num pos" data-page-node-id="IjWiT0U5Ki8ZlIBin4dBa6">+9.8%</td><td class="num" data-page-node-id="8qE183dVxZFzZ9dgWvGoQj">{{41.2%}}</td><td class="num" data-page-node-id="XjruKBh2DwHg7A2fPps1wD">{{286}}</td><td class="num" data-page-node-id="c0LDqZ31aB6VzG5g8Ln0tU">{{102%}}</td></tr>
+      <tr data-page-node-id="XivWvHEDNRLajcmkYIWl0c"><td data-page-node-id="np0y5CqwhsJWdoSuEZFULS">{{华南}}</td><td class="num" data-page-node-id="xrf1KywRU6mcbbREkvoJvt">{{864}}</td><td class="num pos" data-page-node-id="Vu5lrpV0fyuq3wtgUsDPaA">+11.2%</td><td class="num" data-page-node-id="9yAyYSbNA4blAhYHsi8yEY">{{37.8%}}</td><td class="num" data-page-node-id="gSE7Q5HT61If1tu79mQB0m">{{241}}</td><td class="num" data-page-node-id="jgPCwgD0OmDCm1RnpSBfBq">{{98%}}</td></tr>
+      <tr data-page-node-id="pEAnpLo3lvOLgwq6y5zwD4"><td data-page-node-id="7mj9YV4Xb8kY3XfOpYy9LS">{{华北}}</td><td class="num" data-page-node-id="LkCmu8uBXQfNi3fAoKGCXV">{{612}}</td><td class="num pos" data-page-node-id="rzMxl3g1YierCU450J74KU">+2.1%</td><td class="num" data-page-node-id="PuN6BhwJxyDEERLNcXk6Tg">{{36.5%}}</td><td class="num" data-page-node-id="EYwgLq7iqYln5JPd2U2A25">{{233}}</td><td class="num" data-page-node-id="Ml4FbC3brCKBsoOQrl0yEj">{{95%}}</td></tr>
+      <tr data-page-node-id="uMaqxQYVVrCj7aCnpHpJLN"><td data-page-node-id="9Gnin49zSHX5wjQVnktNFu">{{西南}}</td><td class="num" data-page-node-id="vdiAM4WzToo3WfgVaEMCno">{{458}}</td><td class="num neg" data-page-node-id="lJJDICegDF9nkYxOtKlE20">-3.4%</td><td class="num" data-page-node-id="B8ZJWeS1dsUFxDJfR6wEGG">{{33.9%}}</td><td class="num" data-page-node-id="NJ3E8AJ0BHHHDGAOGOzrbs">{{198}}</td><td class="num" data-page-node-id="P0aAXMNuPfdVKdVKRiJWM5">{{88%}}</td></tr>
+      <tr class="total" data-page-node-id="cnHWN0czRSRMvvCHhN7Dng"><td data-page-node-id="HSAF3DW3pKdt1sPsYFOLtM">合计 / 加权</td><td class="num" data-page-node-id="F36HoXtSOAAyDaKXstsqxq">{{3,460}}</td><td class="num" data-page-node-id="d0iIXlwpI0ggoWX4xuoHRf">+8.2%</td><td class="num" data-page-node-id="9EtVyRo2AJKFF8TeHG333X">{{38.5%}}</td><td class="num" data-page-node-id="FkU7jQBC1qLIKossW4uNuy">{{249}}</td><td class="num" data-page-node-id="CqH2EB3gq4gslUY75DA4Wz">{{97%}}</td></tr>
+    </tbody>
+  </table>
+  <div class="tbl-note" data-page-node-id="bCk4HjSb67KNEvGLTRCGBF">注：达成率 = 实际 GMV / 季度目标；绿色为正增长，红色为负增长。数据截至 {{2026-09-30}}。</div>
+
+  <h2 class="sec-h2" style="margin-top: 20px;" data-page-node-id="VGE9xMfFK00B3bxjGKiCGp">关键洞察</h2>
+  <div class="insight-item" data-page-node-id="CK0lH2vLsJvKfJZq7veAiJ">
+    <div class="i-no" data-page-node-id="HkfE9qxHpp5WjudRzZhSEp">洞察 1</div>
+    <div class="i-body" data-page-node-id="iX2Yph4AARf71lTgJjwGXn">
+      <div class="i-title" data-page-node-id="7Q9urGE2e8EXunX6JfPDWy">{{渠道 A 是增长主引擎，且质量健康}}</div>
+      <p data-page-node-id="Ulxi8kGo6C0S2GxchQA5e2">渠道 A 环比增长 {{x%}}，贡献整体增量的 {{x%}}；其 {{用户画像}} 与 {{核心品类}} 高度匹配，退货率低于均值 {{x.xpp}}，具备继续追加投入的基础。</p>
+    </div>
+  </div>
+  <div class="insight-item" data-page-node-id="POCYp7mLJ4XJZNZbLAyrXP">
+    <div class="i-no" data-page-node-id="ZJmqDF721Ba2RwScEAp0N3">洞察 2</div>
+    <div class="i-body" data-page-node-id="l9C2HCqtMSuntoIpsBuxBN">
+      <div class="i-title" data-page-node-id="HT2iqWiBkVqb9FlpXGiJxa">毛利率承压源于 {{成本项}} 单价上行</div>
+      <p data-page-node-id="C5RylzxfbTLCQgMUqi1FJX">{{成本项}} 占营收比重同比 +{{1.6pp}}，为毛利率下滑的 {{x%}} 解释项；按当前价格趋势，若不干预下季度毛利率预计再降 {{x.xpp}}。</p>
+    </div>
+  </div>
+  <div class="insight-item" data-page-node-id="FkREpZJ2OCF7O9T2Eaf3Lk">
+    <div class="i-no" data-page-node-id="2LbceoXBbjBdVH8DfnJnj7">洞察 3</div>
+    <div class="i-body" data-page-node-id="HcbbBJMvVdWjrJHmpT2q1X">
+      <div class="i-title" data-page-node-id="kr4wd0PfjPnSIwfXwlArsB">{{西南区域连续两季下滑，需专项诊断}}</div>
+      <p data-page-node-id="UNVCWr9o4m7rv7aobTglIy">GMV 环比 -3.4%、达成率 {{88%}}；流失集中于 {{客群}}，初步归因 {{竞品动作 / 渠道收缩}}，建议 {{周期}} 内完成专项归因。</p>
+    </div>
+  </div>
+  <div class="insight-item" data-page-node-id="nws5poHT8HdwuZo5pMXZMC">
+    <div class="i-no" data-page-node-id="JrIoTDv9cQm5pTPnKm9VFN">洞察 4</div>
+    <div class="i-body" data-page-node-id="N07lpA6R669hjTE0TrbSC6">
+      <div class="i-title" data-page-node-id="bKhmA0XNIJLqoRr8bot0eI">{{功能}} 对留存的提升具备统计显著性</div>
+      <p data-page-node-id="nwNo8oJ0gyS4W1gB28yXZu">{{功能}} 上线后新客次月留存 +{{x.xpp}}（p&lt;0.05）；实验组 {{北极星行为}} 渗透率提升 {{x%}}，建议全量推广并纳入新客引导链路。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ P4 / 结论与建议 ════════ -->
+<div class="page" data-page-node-id="ax0uOzVSamxt3CkF2Il6HQ">
+  <div class="sec-head" data-page-node-id="ygSxmj3DWSKQzh4ipvGFe6">
+    <div class="sec-no" data-page-node-id="MoZEWviBUSi9mNoZEwOuaa">03</div>
+    <div class="sec-title" data-page-node-id="3nT4xZrjYAHKubGWtlPTLw">结论与行动建议</div>
+    <div class="sec-en" data-page-node-id="JM5lfzXoNX04yuNjBwGvKY">Conclusion &amp; Actions</div>
+  </div>
+
+  <h2 class="sec-h2" data-page-node-id="XpmjC91LC8C9CvrOi7PXbv">核心结论</h2>
+  <div class="concl-item" data-page-node-id="BHYcPpUOmaO54igtynTGjk"><div class="c-no" data-page-node-id="SGHz4EUmgA0IwKFkMcFrIm">①</div><div class="c-txt" data-page-node-id="By64PRAEQUpJB02o3HFvOp">整体经营稳健：GMV 同比 +8.2%，增长动能由 {{动能 A}} 切换至 {{动能 B}}，收入结构更趋健康。</div></div>
+  <div class="concl-item" data-page-node-id="z5dyNvQ4byKTgpQZL389QI"><div class="c-no" data-page-node-id="rnjzoWRDYTodv1vqo8Zfug">②</div><div class="c-txt" data-page-node-id="urvhGftYuYmTttm9FRiSfX">结构性机会明确：{{渠道/品类}} 高速增长但渗透率仅 {{x%}}，仍有 {{量化空间}} 可释放。</div></div>
+  <div class="concl-item" data-page-node-id="gjpBfeXsDFKMdDhVUgNItL"><div class="c-no" data-page-node-id="7bcNaN5VH1aV9MAIstvyyJ">③</div><div class="c-txt" data-page-node-id="81hcv2oYHt2I9vPnqyTOaE">主要风险集中于成本端：{{成本项}} 涨价若延续，下季度毛利率预计再降 {{x.xpp}}，需提前对冲。</div></div>
+
+  <h2 class="sec-h2" style="margin-top: 16px;" data-page-node-id="vVKwkrklY26GfEMLvCLyCk">行动建议</h2>
+  <table class="fin-table" data-page-node-id="cx3oRcQu5Ial4H6ejLt6Of">
+    <thead data-page-node-id="84MiNeSONgaCKllVTtdj8d"><tr data-page-node-id="vWhl1xtEL0AAqSXuC3gRtF"><th style="width: 34%;" data-page-node-id="ilSnkCfyLXBuYZ7IXWCgSB">建议事项</th><th style="width: 18%;" data-page-node-id="NV3T43e0HR27Abl86PBNSd">责任方</th><th style="width: 28%;" data-page-node-id="l0LtZUMgsWSOeW52U8Qhww">预期收益</th><th style="width: 20%;" data-page-node-id="rHvGBsS4FNzr2rCCbgQHzK">优先级 / 时限</th></tr></thead>
+    <tbody data-page-node-id="w8hIsV9EQL34osNv7CELMx">
+      <tr data-page-node-id="A7rCPK5IRyehHzHZ7CEZxy"><td data-page-node-id="IEqpBDK59KHr298KZ0g5Sv">{{追加渠道 A 投入并复制打法至渠道 C}}</td><td data-page-node-id="ErVpyGA3uRr5OXcMNFgGPF">{{市场部}}</td><td class="num" data-page-node-id="4I4MwcYaYV3vL1aqMH9AHr">{{GMV +x%}}</td><td data-page-node-id="M887WBKwG4tk9ba6MSrHyd">P0 · {{10 月内}}</td></tr>
+      <tr data-page-node-id="DpfFikq4P9teeMPLvystox"><td data-page-node-id="aTMGTxqRXW0Gc7AZtoIwsB">{{成本项}} 集采锁价与替代方案试点</td><td data-page-node-id="zNMUl6CJDVfxVyYViarIve">{{供应链}}</td><td class="num" data-page-node-id="pfgs0DKes7aoNVkd84i9aU">{{毛利率 +x.xpp}}</td><td data-page-node-id="vsmxAgqFpzeipTlvJRA7tz">P0 · {{Q4 内}}</td></tr>
+      <tr data-page-node-id="nhRiFwLDBh3mVwn9SVIb4u"><td data-page-node-id="vXsEVNTKFuyY2oLJhBJJKT">{{西南区域经营专项诊断}}</td><td data-page-node-id="PpGPUotSqrKIvICb0oKhoo">{{区域运营}}</td><td class="num" data-page-node-id="hrq3pmCPtIUwNdgxy9SNMM">{{止跌回稳}}</td><td data-page-node-id="fgqLxMzxUPGHfFZ0c0FKfY">P1 · {{11 月底}}</td></tr>
+      <tr data-page-node-id="WDwPyJmbpLICDgGzQhZdLn"><td data-page-node-id="3S1BdJ5RhE2wTLgPA9f7F2">{{功能}} 全量推广并纳入新客链路</td><td data-page-node-id="bcbzx42UBRxnkQt2ma1rVc">{{产品部}}</td><td class="num" data-page-node-id="BhAXVxFljjy3q22lOo7q7x">{{留存 +x.xpp}}</td><td data-page-node-id="SIQiBhjHsCcMm1LSEpLdHw">P1 · {{Q4 内}}</td></tr>
+    </tbody>
+  </table>
+  <div class="tbl-note" data-page-node-id="EILcINIpCIqGFtXj4VGFJi">注：P0 = 立即启动；P1 = {{周期}}内启动。预期收益为区间中值口径。</div>
+
+  <h2 class="sec-h2" style="margin-top: 18px;" data-page-node-id="ab0l3IYiwqnwKmn1XxVn3m">口径与附注</h2>
+  <div class="note-line" data-page-node-id="Mxcpkgf32JnTu71gcqpfBC">· GMV 统计口径：含退款前成交金额，不含运费与补贴；数据截至 {{2026-09-30}}。</div>
+  <div class="note-line" data-page-node-id="ocxRrDSC7ipdsbftRPN4ln">· 同比 = 与上年同期对比；环比 = 与上一季度对比；pp = 百分点。</div>
+  <div class="note-line" data-page-node-id="t7F1hHOSqN1Yg82mmtVTRc">· 本报告数据来自 {{数仓表}}，经 {{校验规则}} 校验，抽样准确率 {{xx%}}；未经许可请勿外传。</div>
+</div>
+
+</body>
+</html>

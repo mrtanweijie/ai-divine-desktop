@@ -19,6 +19,9 @@ _RAW_SVG_RE = re.compile(
 
 # 章节数超过该阈值时改用大纲→分章两段式生成（≤3 单次直出，控制成本与延迟）
 _SECTIONED_THRESHOLD = 3
+# 页式模板的页片段起始标签（<div class="page"> / <div class="page cover">）；
+# 需排除 <div class="page-head">（研报模板的页眉条）
+_PAGE_DIV_RE = re.compile(r'<div class="page(?:"|\s)')
 # 分章生成并发数：默认串行；可用环境变量 PDF_CONTENT_CONCURRENCY 调整
 _CONCURRENCY = max(1, int(os.environ.get("PDF_CONTENT_CONCURRENCY") or "1"))
 # 生成后自检的占位词：出现即视为该节未完成
@@ -327,6 +330,73 @@ async def ensure_travel_budget_page(
     return markdown.rstrip() + "\n" + patch
 
 
+def _missing_pages_patch_prompt(
+    intent: PDFIntent,
+    recipe: PDFRecipe,
+    have: int,
+    missing: int,
+) -> str:
+    plan = getattr(recipe, "page_plan", "") or ""
+    lines = [
+        f"上一次输出被长度限制截断：模板共需 {have + missing} 页，你只输出了 {have} 页。",
+        f"现在**只补缺失的后 {missing} 页**（第 {have + 1}–{have + missing} 页）：",
+        "不要重复已完成的页、不要输出封面、不要输出解释文字，也不要包 ```html 围栏；",
+        "每个页面一个 `<div class=\"page\">`，结构与 CSS 类名必须和模板骨架一致。",
+    ]
+    if plan:
+        lines.append("\n模板页面顺序（据此定位缺失页）：\n" + plan)
+    lines.append(f"\n文档主题：{intent.topic}\n标题：{intent.title}")
+    return "\n".join(lines)
+
+
+async def ensure_page_template_pages(
+    markdown: str, intent: PDFIntent, recipe: PDFRecipe, llm: Any
+) -> str:
+    """页式模板 QA：页片段数不足时续写缺失页（宁缺勿错，失败不打断主流程）。
+
+    触发场景：单次生成被 max_tokens 截断，末页（或末尾几页）整页丢失。
+    与 generate_content 的「完全无页片段」兜底分工不同——那里是整个跑偏，
+    这里是跑对了但没跑完，需要**接着已有的页往下补**，而不是整份重来。
+
+    travel 系列没有 expected_pages（页数是天数相关的），此处为 no-op。
+    """
+    expected = getattr(recipe, "expected_pages", 0) or 0
+    if not expected or not markdown:
+        return markdown
+    # 先丢掉未闭合的残页，否则补页会嵌进残页内部
+    complete = _drop_incomplete_tail(markdown)
+    have = len(_PAGE_DIV_RE.findall(complete))
+    missing = expected - have
+    if missing <= 0:
+        return complete or markdown
+    try:
+        patch = await _llm_text(
+            llm,
+            [
+                {"role": "system", "content": _system_prompt(intent, recipe)},
+                {
+                    "role": "user",
+                    "content": _missing_pages_patch_prompt(
+                        intent, recipe, have, missing
+                    ),
+                },
+            ],
+        )
+    except Exception:
+        return complete
+    patch = _strip_non_icon_svg(patch or "").strip()
+    # 基本校验：补出来的页片段数必须正好等于缺失数，且不含封面页，否则放弃拼接
+    if len(_PAGE_DIV_RE.findall(patch)) != missing or 'class="page cover"' in patch:
+        if isinstance(intent.meta, dict):
+            intent.meta.setdefault("content_qa", {})["page_repair"] = "rejected"
+        return complete
+    if isinstance(intent.meta, dict):
+        qa = intent.meta.setdefault("content_qa", {})
+        qa["page_repair"] = f"{have}+{missing}"
+        qa["page_fragments"] = expected
+    return complete.rstrip() + "\n" + patch
+
+
 async def _generate_single_shot(
     intent: PDFIntent,
     recipe: PDFRecipe,
@@ -356,10 +426,19 @@ async def generate_content(
     llm: Any,
 ) -> str:
     if recipe.content_format == "html":
-        markdown = await _generate_single_shot(intent, recipe, llm)
-        if not markdown:
+        markdown = _strip_non_icon_svg(await _generate_single_shot(intent, recipe, llm))
+        # 页式模板要求输出是 `<div class="page">` 片段序列。模型跑偏（或演示模式返回
+        # 通用文本）时输出不含任何页片段，直接渲染会得到结构散架的单页 PDF，
+        # 这里兜底为模板自带内容。
+        if not _PAGE_DIV_RE.search(markdown or ""):
+            if isinstance(intent.meta, dict):
+                intent.meta.setdefault("content_qa", {})["page_fragments"] = 0
             return recipe.fallback_content(intent)
-        return _strip_non_icon_svg(markdown)
+        if isinstance(intent.meta, dict):
+            qa = intent.meta.setdefault("content_qa", {})
+            qa["page_fragments"] = len(_PAGE_DIV_RE.findall(markdown))
+            qa["expected_page_fragments"] = getattr(recipe, "expected_pages", 0) or 0
+        return markdown
 
     sections = _usable_sections(intent)
     if recipe.sectioned_content and len(sections) > _SECTIONED_THRESHOLD:

@@ -8,7 +8,7 @@ from __future__ import annotations
 import html as html_lib
 import re
 from typing import Any
-from .theme_registry import get_theme_manager, load_theme_css
+from .theme_registry import get_theme_manager, load_theme_css, theme_owns_cover
 
 # 结构化旅行主题（复用 travel_mag 封面 DOM 与数据机制：cover-hero/cover-band/
 # cover-body/stat-row + watermark/stat_pills/tag 胶囊），视觉差异由各主题 CSS 决定。
@@ -904,7 +904,7 @@ def _inline_placeholder_images(html_body: str, auto_fill: bool = True) -> str:
     return _PLACEHOLDER_RE.sub(_fill_placeholder, html_body)
 
 
-def build_travel_html_document(
+def build_html_template_document(
     html_body: str,
     title: str,
     subtitle: str = "AI Divine 生成文档",
@@ -914,10 +914,19 @@ def build_travel_html_document(
     theme: str = "travel",
     images: bool = False,
 ) -> str:
+    """把 LLM 产出的 HTML body 组装成完整文档（页式模板通用）。
+
+    两类主题行为不同：
+    - travel_*（own_cover=False）：系统按 cover_data 另造封面，并注入 .header
+      running 元素（模板 CSS 自己决定显示或隐藏）；
+    - 论文/报告四套（own_cover=True）：模板自带封面页与页眉页脚，
+      既不再造封面，也不注入 .header（否则会在封面后多出一个标题条）。
+    """
     css = load_theme_css(theme, overrides=overrides)
+    own_cover = theme_owns_cover(theme)
     cover_html = (
         build_cover_html(theme, html_lib.escape(title), subtitle, cover_data)
-        if include_cover
+        if include_cover and not own_cover
         else ""
     )
     # 图片占位/配图仅结构化旅行主题使用（travel_mag/swiss/bento/aurora）：
@@ -927,12 +936,21 @@ def build_travel_html_document(
             _prewarm_image_cache(_collect_image_keywords(html_body))
         html_body = _densify_route_stepper(html_body)
         html_body = _inline_placeholder_images(html_body, auto_fill=images)
+    header_html = (
+        ""
+        if own_cover
+        else (
+            '<div class="header">'
+            f'<span class="doc-title">{html_lib.escape(title)}</span>'
+            "</div>"
+        )
+    )
     return (
         "<!doctype html><html><head><meta charset=\"utf-8\">"
         f"<style>{css}</style></head><body>"
-        f"{cover_html}"
-        "<div class=\"header\">"
-        f"<span class=\"doc-title\">{html_lib.escape(title)}</span>"
-        "</div>"
-        f"{html_body}</body></html>"
+        f"{cover_html}{header_html}{html_body}</body></html>"
     )
+
+
+# 兼容旧名（存量调用方/测试引用 build_travel_html_document）
+build_travel_html_document = build_html_template_document

@@ -1,9 +1,54 @@
 from __future__ import annotations
 
 import html as html_lib
+import re
 
 from .base import MODULE_GUIDE, PDFIntent, PDFRecipe
 from .travel_html import closing_pages_html
+
+
+# ---------------------------------------------------------------------------
+# 页式模板提示词的公共片段
+#
+# 抽取原则：只收敛**逐字相同**的部分（角色句、骨架块、输出规则分隔线），
+# 各配方的规则正文保持独立——travel 的提示词是长期调过的，
+# 不为省几行重复去改动它的措辞。改动后须用
+# 「travel 提示词前后快照比对」验证为逐字一致。
+# ---------------------------------------------------------------------------
+
+def _load_skeleton(
+    theme: str, fallback_name: str | None = None
+) -> tuple[str, str]:
+    """取模板骨架与其文件名，返回 (skeleton, skeleton_name)。"""
+    from .theme_manager import html_template_skeleton
+    from .theme_registry import THEMES
+
+    skeleton = html_template_skeleton(theme)
+    name = THEMES.get(theme, {}).get("file") or fallback_name or theme
+    return skeleton, name
+
+
+def _skeleton_prompt(
+    role: str, desc: str, skeleton: str, skeleton_name: str
+) -> str:
+    """页式模板提示词开头：角色句 + 骨架块 + 输出规则分隔线。
+
+    role 例：「旅行手册作者」「数据分析报告撰稿人」
+    desc 例：「现代风格旅行攻略」「完整旅行攻略」「」（四套论文/报告不填）
+    desc 为空时只保留一个空格，避免拼出「PDF 的 完整旅行攻略」这类多余空格
+    （travel 提示词的措辞是长期调过的，改提示词必须走前后快照比对）。
+    """
+    # 「的」后直接接修饰语，修饰语与 HTML 之间留一个空格；desc 为空时退化为一个空格
+    spacer = f"{desc} " if desc else " "
+    return (
+        "你是资深"
+        + role
+        + "。严格按下述【模板骨架】的页面结构与 CSS 类名，"
+        f"输出一份可直接打印为 PDF 的{spacer}HTML body。\n"
+        f"══════════════ 模板骨架（{skeleton_name}） ══════════════\n"
+        + skeleton
+        + "\n══════════════ 输出规则 ══════════════\n"
+    )
 
 
 class ReportRecipe(PDFRecipe):
@@ -155,14 +200,13 @@ class TravelRecipe(PDFRecipe):
     )
 
     def content_system_prompt(self, intent: PDFIntent) -> str:
-        from .theme_manager import travel_template_skeleton
-        from .theme_registry import THEMES
-
         meta = intent.meta or {}
         theme = str(meta.get("theme") or "travel")
-        skeleton = travel_template_skeleton(theme)
-        skeleton_name = THEMES.get(theme, {}).get("file") or (
-            "travel_optimized.html" if theme == "travel_mag" else "travel_template.html"
+        skeleton, skeleton_name = _load_skeleton(
+            theme,
+            "travel_optimized.html"
+            if theme == "travel_mag"
+            else "travel_template.html",
         )
         # 结构化旅行主题（mag/swiss/bento/aurora）共用 day-cards + photo-placeholder
         # + layers/todo-list 富内容契约；经典 travel 用 day-section 紧凑契约
@@ -170,12 +214,10 @@ class TravelRecipe(PDFRecipe):
         modern_theme = theme in ("travel_swiss", "travel_bento", "travel_aurora")
         if modern_theme:
             return (
-                "你是资深旅行手册作者。严格按下述【模板骨架】的页面结构与 CSS 类名，"
-                "输出一份可直接打印为 PDF 的现代风格旅行攻略 HTML body。\n"
-                f"══════════════ 模板骨架（{skeleton_name}） ══════════════\n"
-                + skeleton
-                + "\n══════════════ 输出规则 ══════════════\n"
-                "1. 只输出 HTML body：以 `<div class=\"page\">` 开头的一串页面片段，"
+                _skeleton_prompt(
+                    "旅行手册作者", "现代风格旅行攻略", skeleton, skeleton_name
+                )
+                + "1. 只输出 HTML body：以 `<div class=\"page\">` 开头的一串页面片段，"
                 "不要输出 ```html 围栏，不要包含 <html>、<head>、<style>、<body>、"
                 "<div class=\"page-footer\">，也不要输出解释文字。\n"
                 "2. 封面由系统自动生成（标题、导语、标签、行程数据卡来自元信息），"
@@ -219,12 +261,10 @@ class TravelRecipe(PDFRecipe):
                 f"风格：{meta.get('style', '现代旅行')}"
             )
         return (
-            "你是资深旅行手册作者。严格按下述【模板骨架】的页面结构与 CSS 类名，"
-            "输出一份可直接打印为 PDF 的完整旅行攻略 HTML body。\n"
-            f"══════════════ 模板骨架（{skeleton_name}） ══════════════\n"
-            + skeleton
-            + "\n══════════════ 输出规则 ══════════════\n"
-            "1. 只输出 HTML body：以 `<div class=\"page\">` 开头的一串页面片段，"
+            _skeleton_prompt(
+                "旅行手册作者", "完整旅行攻略", skeleton, skeleton_name
+            )
+            + "1. 只输出 HTML body：以 `<div class=\"page\">` 开头的一串页面片段，"
             "不要输出 ```html 围栏，不要包含 <html>、<head>、<style>、<body>、"
             "<div class=\"page-footer\">，也不要输出解释文字。\n"
             "2. 封面由系统自动生成（国家×国家、标题、主题标签、日期、路线概述来自元信息），"
@@ -438,6 +478,255 @@ class TravelRecipe(PDFRecipe):
         return "\n".join(pages).strip()
 
 
+class PageTemplateRecipe(PDFRecipe):
+    """页式 HTML 模板配方基类（论文/报告四套）。
+
+    与 TravelRecipe 同一管线：LLM 按模板骨架输出 HTML body，模板自带封面页
+    与页眉页脚（theme_registry 的 own_cover 标记），系统不再另造封面。
+
+    子类只需给出 html_theme 与两段提示词增量：
+    - page_plan：固定页面顺序与每页必出要素（防漏页、防改序）
+    - extra_rules：该模板特有的排版契约（图表编号、公式编号、刻度对齐等）
+    """
+
+    content_format = "html"
+    html_theme = ""
+    color_scheme = "blue"
+    illustration_plan = {
+        "mermaid": False,
+        "svg": False,
+        "icons_only": True,
+        "chart": False,
+        "ai_image": False,
+    }
+    page_plan = ""
+    extra_rules = ""
+
+    @property
+    def expected_pages(self) -> int:
+        """模板的固定页数（取自 pdf_themes 模板的页片段数）。"""
+        from .theme_manager import html_template_pages
+
+        return len(html_template_pages(self.html_theme))
+
+    def content_system_prompt(self, intent: PDFIntent) -> str:
+        skeleton, skeleton_name = _load_skeleton(self.html_theme)
+        return (
+            _skeleton_prompt(
+                f"{self.display_name}撰稿人", "", skeleton, skeleton_name
+            )
+            + "1. 只输出 HTML body：以 `<div class=\"page\">` 开头的一串页面片段。"
+            "不要输出 ```html 围栏，不要包含 <html>、<head>、<style>、<body>，"
+            "也不要输出任何解释文字。\n"
+            "2. 页面顺序与页数必须与骨架完全一致，一页都不能少、不能合并、不能加页；"
+            "封面页也要输出（骨架里第一段 `<div class=\"page cover\">`）。\n"
+            "3. 骨架里所有 {{占位符}} 必须替换为真实内容，输出中不得残留 {{ 或 }}。\n"
+            "4. 只使用骨架中出现过的 CSS 类名与标签嵌套，不要自创类名、不要改动 class 名、"
+            "不要给元素加行内 style（骨架里已有的 width 百分比除外）。\n"
+            "5. 数据必须自洽：表内合计 = 各行之和，百分比与绝对量对得上，"
+            "正文引用的数字与表格一致。\n"
+            "6. 不得编造无依据的精确数据：公开可查的注明来源；无来源时用行业合理区间并"
+            "标注「行业估算」；严禁输出「待补充」「XX」等占位词。\n"
+            + (self.page_plan + "\n" if self.page_plan else "")
+            + (self.extra_rules + "\n" if self.extra_rules else "")
+            + f"\n文档主题：{intent.topic}\n标题：{intent.title}"
+        )
+
+    def fallback_content(self, intent: PDFIntent) -> str:
+        """无 LLM 时的降级内容：取模板自身的页片段，把 {{占位符}} 去掉花括号当示例文案。
+
+        只取 `<div class="page">` 片段，不取头部注释——注释是给人看的设计说明，
+        当正文输出会变成可见文字。
+        """
+        from .theme_manager import html_template_pages
+
+        pages = html_template_pages(self.html_theme)
+        body = "\n".join(pages)
+        return re.sub(r"\{\{(.*?)\}\}", r"\1", body, flags=re.DOTALL).strip()
+
+
+class AcademicReportRecipe(PageTemplateRecipe):
+    name = "academic_report"
+    display_name = "学术报告"
+    html_theme = "academic_report"
+    css_template = "academic_report"
+    color_scheme = "blue"
+    intent_json_hint = (
+        '{"title": "报告标题", "topic": "研究主题", '
+        '"institution": "大学/研究机构名称", "department": "学院·系/研究中心", '
+        '"author": "作者姓名", "student_id": "学号", "advisor": "导师姓名", "degree": "职称", '
+        '"date": "2026 年 9 月", "course_no": "课程编号", "term": "2026 秋季学期", '
+        '"keywords": ["关键词一", "关键词二", "关键词三"], '
+        '"sections": [{"title": "1 绪论", "key_points": ["研究背景", "国内外现状"]}]}'
+    )
+    page_plan = (
+        "【页面顺序（4 页，不可增减）】\n"
+        "P1 封面：机构名 / 院系 / 报告类型 / 标题 / 副标题 / 作者信息表（作者·学号、导师、院系、日期）/ 页脚课程编号。\n"
+        "P2 摘要·关键词·目录：摘要框（一段 150-220 字，含研究问题、方法、核心指标结果）、"
+        "4 个关键词胶囊、目录（一级 + 二级条目，页码按正文实际页序填 03/03/04/04）。\n"
+        "P3 正文前半：`1 绪论`（含 1.1 研究背景与意义、1.2 国内外研究现状）、"
+        "`2 相关理论与方法`（含 2.1 小节），并输出 `图 2-1` 的图位块。\n"
+        "P4 正文后半：`3 实验设计与结果分析`（含表 3-1 三线表）、`4 结论与展望`（①②③ 三条）、"
+        "`参考文献`（4 条，[1]-[4] 格式）。\n"
+        "P2 目录里的条目必须与 P3/P4 实际出现的章节标题逐字一致。"
+    )
+    extra_rules = (
+        "【本模板排版契约】\n"
+        "- 章节标题用 `<h2 class=\"sec-h1\"><span class=\"no\">编号</span>标题</h2>`；"
+        "二级用 `<h3 class=\"sec-h2\"><span class=\"no\">1.1</span>标题</h3>`；"
+        "无编号章节（摘要/目录/参考文献）的 `<span class=\"no\">` 填 `§`。\n"
+        "- 正文段落必须用 `<p class=\"body-text\">`，首段不要额外加缩进类。\n"
+        "- 图用 `<div class=\"fig-block\">`：内层 `<div class=\"fig-placeholder\">` 写图位说明，"
+        "下方 `<div class=\"fig-caption\"><span class=\"fg-no\">图 2-1</span>图题</div>`；**图题在图下方**。\n"
+        "- 表用 `<div class=\"tb-caption\"><span class=\"tb-no\">表 3-1</span>表题</div>` 放在 `<table class=\"three-line-table\">` **之前**；"
+        "数值列 `<th>`/`<td>` 加 `class=\"num\"` 右对齐；最优行用 `<strong>` 加粗。\n"
+        "- 结论三条用 `<div class=\"concl-item\"><div class=\"no\">①</div><div class=\"txt\">…</div></div>`。\n"
+        "- 参考文献用 `<div class=\"ref-item\"><span class=\"ref-no\">[1]</span> 条目</div>`，按 GB/T 7714 格式。"
+    )
+
+
+class ThesisPaperRecipe(PageTemplateRecipe):
+    name = "thesis_paper"
+    display_name = "论文投稿"
+    html_theme = "thesis_paper"
+    css_template = "thesis_paper"
+    color_scheme = "monochrome"
+    intent_json_hint = (
+        '{"title": "论文标题", "title_en": "English Title", "topic": "研究主题", '
+        '"clc": "中图分类号", "doc_code": "文献标志码", "received": "收稿日期", '
+        '"authors": ["第一作者", "第二作者"], "affiliations": ["单位一，城市 邮编"], '
+        '"journal": "期刊名/学报名称", "issue": "卷期号", '
+        '"keywords": ["关键词一", "关键词二"], '
+        '"sections": [{"title": "1 相关理论与问题定义", "key_points": ["形式化定义", "公式"]}]}'
+    )
+    page_plan = (
+        "【页面顺序（3 页，不可增减）】\n"
+        "P1 标题区 + 摘要 + 引言：中图分类号行 → 中文大标题 → 英文标题 → 作者与单位 → "
+        "摘要块（摘要正文 + 关键词行）→ `0 引言`（两段）。\n"
+        "P2 方法与实验：`1 相关理论与问题定义`（含一条居中公式与式中说明）、"
+        "`2 所提方法`（含 `图 1` 图位）、`3 实验与结果分析`（含 `3.1 实验设置与对比结果` 与 `表 1` 三线表 + 表注）。\n"
+        "P3 消融与结论：以续排眉题 `<div class=\"sec-cont\">3　实验与结果分析（续）</div>` 开头 → "
+        "`3.2 消融实验`（含 `表 2`）→ `4 结论` → `致谢` → `参考文献`（5 条，[1]-[5]）。\n"
+        "P2 必须出现 `3.1`，P3 才接 `3.2`，编号不能跳号。"
+    )
+    extra_rules = (
+        "【本模板排版契约】\n"
+        "- 章节标题用 `<h2 class=\"sec-h1\">3　实验与结果分析</h2>`（编号与标题之间用全角空格）；"
+        "二级用 `<h3 class=\"sec-h2\">3.1　实验设置与对比结果</h3>`。\n"
+        "- 正文段落必须用 `<p class=\"body-text\">`；紧跟表格的说明段加 `no-indent` 类。\n"
+        "- 公式用 `<div class=\"eq-row\"><div class=\"eq\">公式</div><div class=\"eq-no\">(1)</div></div>`，"
+        "编号按出现顺序 (1)(2)…；上下标用 `<sub>`。\n"
+        "- 三线表：`<div class=\"tb-title\">表 1　表题</div>` 在 `<table class=\"table3\">` 之前；"
+        "**表注必须写成 `<div class=\"tbl-note\">注：…</div>` 放在 `</table>` 之后**，"
+        "绝不能作为 `<tr>` 放进表格内（会让三线表收尾粗线错位）。\n"
+        "- 图用 `<div class=\"fig-frame\">图位说明</div>` + `<div class=\"fig-title\">图 1　图题</div>`（图题在图下方）。\n"
+        "- 参考文献用 `<div class=\"ref-item\"><span class=\"no\">[1]</span> 条目</div>`。"
+    )
+
+
+class DataReportRecipe(PageTemplateRecipe):
+    name = "data_report"
+    display_name = "数据分析报告"
+    html_theme = "data_report"
+    css_template = "data_report"
+    color_scheme = "blue"
+    intent_json_hint = (
+        '{"title": "报告标题", "topic": "分析对象与期间", '
+        '"org": "数据团队/部门名称", "quarter": "2026-Q3", "business": "业务线", '
+        '"period": "2026.07 – 2026.09", "kpis": ['
+        '{"value": "1,284", "unit": "万", "label": "月活跃用户", "delta": "▲ 同比 +12.6%", "trend": "up"}], '
+        '"regions": ["华东", "华南", "华北", "西南"], '
+        '"sections": [{"title": "核心指标概览", "key_points": ["分渠道营收", "费用结构"]}]}'
+    )
+    page_plan = (
+        "【页面顺序（4 页，不可增减）】\n"
+        "P1 封面：机构名 + 报告类型 + 业务线标签 + 大标题 + 分析区间 + 摘要块 + "
+        "**四栏 KPI 指标带**（数值/单位/指标名/涨跌）+ 底部深色收底带（分析周期、数据来源、出品）。\n"
+        "P2 核心指标概览：章节头 `01` → 四栏 KPI 带 → 概述段 → "
+        "`分渠道营收结构`（4 条条形图 + 刻度轴 + 图注）→ `费用与成本结构`（3 条条形图 + 刻度轴 + 图注）。\n"
+        "P3 明细数据与关键洞察：章节头 `02` → `分区域经营明细` 表（4 个区域 + 1 行合计）+ 表注 → "
+        "`关键洞察` 4 条（洞察 1…洞察 4）。\n"
+        "P4 结论与行动建议：章节头 `03` → `核心结论` ①②③ → `行动建议` 表（4 行）→ 表注 → "
+        "`口径与附注` 3 条。"
+    )
+    extra_rules = (
+        "【本模板排版契约（图表刻度对齐是关键）】\n"
+        "- 章节头用骨架里的 `<div class=\"sec-head\">` 三行结构（sec-no / sec-title / sec-en），"
+        "编号依次 `01` `02` `03`。\n"
+        "- KPI 一栏 = `<div class=\"kc\"><div class=\"kv\">数值<em>单位</em></div>"
+        "<div class=\"kk\">指标名</div><div class=\"kd up|down\">▲/▼ 变化</div></div>`；"
+        "涨用 `kd up` + `▲`，跌用 `kd down` + `▼`。封面与 P2 各出现一次，两处数值必须一致。\n"
+        "- **条形图刻度必须与条长对齐**：`.chart-plot` 内容宽度代表 100%，"
+        "所以 `style=\"width: N%\"` 的 N 就是该项占最大值的比例；"
+        "`.chart-axis` 的 4 个 `<span>` 必须等分且依次为 `0`（左对齐）、"
+        "`<span style=\"text-align: left;\">25% 刻度值</span>`、"
+        "`<span style=\"text-align: left;\">50% 刻度值</span>`、"
+        "`<span style=\"text-align: right;\">100% 刻度值</span>`；"
+        "**中间两格必须用 `text-align: left`，写成 center 会让刻度右偏到 37.5%/62.5%**。\n"
+        "- 条形图每条：`<div class=\"chart-row\"><div class=\"cr-top\"><span class=\"l\">名称</span>"
+        "<span class=\"v\">数值 · 占比</span></div><div class=\"chart-bar\" style=\"width: N%;\"></div></div>`；"
+        "第 2/3/4 条的 `chart-bar` 依次加 `c2`/`c3`/`c4` 类。\n"
+        "- 数据表用 `<table class=\"fin-table\">`；数值单元格加 `class=\"num\"`；"
+        "合计行 `<tr class=\"total\">`；正增长 `class=\"num pos\"`、负增长 `class=\"num neg\"`。"
+        "「优先级 / 时限」这类文本列**不要**加 `num`（表头是左对齐的）。\n"
+        "- 表注统一用 `<div class=\"tbl-note\">注：…</div>` 放在表格之后。\n"
+        "- 洞察用 `<div class=\"insight-item\"><div class=\"i-no\">洞察 1</div>"
+        "<div class=\"i-body\"><div class=\"i-title\">标题</div><p>正文</p></div></div>`，编号固定「洞察 1..4」。"
+    )
+
+
+class ResearchReportRecipe(PageTemplateRecipe):
+    name = "research_report"
+    display_name = "研究报告"
+    html_theme = "research_report"
+    css_template = "research_report"
+    color_scheme = "green"
+    intent_json_hint = (
+        '{"title": "报告标题", "topic": "研究主题与行业", '
+        '"org": "研究机构/咨询团队", "ref_no": "RR-2026-041", '
+        '"publish_date": "2026 年 9 月", "research_period": "2024.01 – 2026.09", '
+        '"owner": "姓名 · 职务", "confidential": "内部资料 · 请勿外传", '
+        '"agenda": ["执行摘要与关键发现", "市场格局", "战略路径与行动建议"], '
+        '"sections": [{"title": "市场格局", "key_points": ["供给端", "需求端", "政策"]}]}'
+    )
+    page_plan = (
+        "【页面顺序（4 页，不可增减）】\n"
+        "P1 封面：机构名 + REF 编号 + 报告类型 + 衬线大标题 + 副标题 + 摘要段 + "
+        "**底部目录**（3 条 agenda）+ 深色收底带（发布日期、研究周期、项目负责人、密级）。\n"
+        "P2 执行摘要·关键发现：页眉条（`Executive Summary · 执行摘要` + 报告标题）→ `Section 01` + `执行摘要` 标题 → "
+        "引用块（一句话核心判断）→ `关键发现` 3 条（01/02/03，每条含标题、正文、一个数据胶囊）。\n"
+        "P3 深度分析：页眉条（`Analysis · 深度分析`）→ `Section 02` + 章节标题 + 章节导语 → "
+        "两个 `duo` 双栏面板组（供给端/需求端、市场规模测算/政策与监管变量）→ 图表框 + 图题。\n"
+        "P4 战略建议·风险·尾注：页眉条（`Strategy · 战略建议`）→ `Section 03` + 章节标题 + 章节导语 → "
+        "建议矩阵表（3 行，含优先级胶囊）→ `风险提示` 表（3 行）→ 尾注段。"
+    )
+    extra_rules = (
+        "【本模板排版契约】\n"
+        "- 每页（P2-P4）第一行必须是页眉条 `<div class=\"page-head\">"
+        "<span class=\"ph-l\">英文眉题 · 中文眉题</span><span class=\"ph-r\">报告标题</span></div>`；"
+        "P1 封面不要页眉条。\n"
+        "- 章节眉题用 `<div class=\"sec-kicker\">Section 0N</div>`，编号 01/02/03。\n"
+        "- 关键发现用 `<div class=\"finding\"><div class=\"f-no\">01</div><div class=\"f-body\">"
+        "<div class=\"f-title\">标题</div><p>正文</p><span class=\"f-data\">指标 · 数值</span></div></div>`。\n"
+        "- 双栏面板用 `<div class=\"duo\"><div class=\"panel\">…</div><div class=\"duo-gap\"></div>"
+        "<div class=\"panel\">…</div></div>`；面板内小标题 `p-title`，要点列表 `ul.p-list` 下每项一个 `<li>`。\n"
+        "- 建议矩阵 `<table class=\"matrix\">`：列宽用骨架里的 `style=\"width: …%\"` 原样保留；"
+        "优先级胶囊 `<span class=\"badge p0\">P0 · 立即启动</span>`（P1 用 `p1`、P2 用 `p2`）。\n"
+        "- 风险表 `<table class=\"risk-table\">`，风险项单元格加 `class=\"rk\"`。\n"
+        "- 尾注用 `<div class=\"endnote\">尾注：…</div>`。"
+    )
+
+
+PAGE_TEMPLATE_RECIPES: frozenset[str] = frozenset(
+    {
+        "academic_report",
+        "thesis_paper",
+        "data_report",
+        "research_report",
+    }
+)
+
+
 class RoadmapRecipe(PDFRecipe):
     name = "roadmap"
     display_name = "学习路线"
@@ -626,6 +915,10 @@ RECIPE_REGISTRY: dict[str, type[PDFRecipe]] = {
         ReportRecipe,
         BusinessAnalysisRecipe,
         TravelRecipe,
+        AcademicReportRecipe,
+        ThesisPaperRecipe,
+        DataReportRecipe,
+        ResearchReportRecipe,
         RoadmapRecipe,
         BookRecipe,
         SlideRecipe,
@@ -657,6 +950,39 @@ def detect_recipe(user_input: str) -> str:
         for word in ("学习路线", "路线图", "学习路径", "从入门到", "roadmap")
     ):
         return "roadmap"
+    # 论文/报告四套：比 business/report 更具体的词先判，避免被宽泛词吸走
+    if any(
+        word in text
+        for word in (
+            "论文", "学位论文", "期刊论文", "学术论文", "毕业论文", "投稿",
+            "会议论文", "thesis", "paper",
+        )
+    ):
+        return "thesis_paper"
+    if any(
+        word in text
+        for word in (
+            "学术报告", "课程报告", "结课报告", "开题", "课题", "学术汇报",
+            "文献综述", "实验报告",
+        )
+    ):
+        return "academic_report"
+    if any(
+        word in text
+        for word in (
+            "数据分析", "数据报告", "经营数据", "指标分析", "经营复盘",
+            "数据复盘", "经营分析报告", "季度经营", "经营数据分析",
+        )
+    ):
+        return "data_report"
+    if any(
+        word in text
+        for word in (
+            "研究报告", "行业研究", "白皮书", "咨询报告", "战略研究",
+            "深度研究", "市场研究", "research report",
+        )
+    ):
+        return "research_report"
     if any(
         word in text
         for word in (

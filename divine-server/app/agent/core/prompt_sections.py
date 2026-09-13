@@ -138,7 +138,12 @@ resume_data 后直接调用 pdf_generate（kind=resume）；
 用户需求属于以下典型场景、且用户没有指定风格时，不要弹选项卡片，直接按场景选择 theme 调用 pdf_generate：
 周报/日报/站会/晨会→minimal（加封面，不加目录）；季度/月度汇报、给高管/老板/领导的总结→universal（color_scheme=blue、cover=true、toc=true）；
 客户提案/技术方案/商务合作/投标→modern（cover=true、toc=true）；商业分析报告/品牌诊断/竞品对标→universal（cover=true、toc=true，kind=business）；PRD/需求文档/技术文档/API 文档→linear（toc=true、cover=true）；
-作品集/个人展示→apple（cover=true）；行业洞察/深度长文/白皮书/观点文章→academic（cover=true、toc=true）；学习路线/路线图→roadmap（封面目录按需求）。
+作品集/个人展示→apple（cover=true）；行业洞察/深度长文/观点文章→academic（cover=true、toc=true）；学习路线/路线图→roadmap（封面目录按需求）。
+论文/学位论文/期刊投稿/会议论文/毕业论文→kind=thesis_paper；课程报告/结题报告/开题/课题/文献综述/实验报告→kind=academic_report；
+经营数据分析/数据分析报告/季度经营复盘/数据复盘→kind=data_report；行业研究/研究报告/白皮书/咨询报告/战略研究/市场研究→kind=research_report。
+【论文报告四套是「页式模板」而非视觉风格】页数、版式、封面都由模板固定（学术报告 4 页 / 论文 3 页 / 数据分析 4 页 / 研究报告 4 页），
+命中上述文档类型时直接按 kind 调用 pdf_generate，不要弹风格选项卡片，也不要传 cover/toc/cover_style（模板自带，传了不生效）；
+想换成四套中的另一套时，改传对应的 kind（theme 传同名值等价）。
 用户输入里出现风格词时，直接按风格词映射主题，不要弹卡片：
 商务/正式/稳重/专业→universal；极简/黑白/简洁/素→minimal；科技/技术/现代/蓝灰→modern；
 学术/典雅/杂志/文艺/高级感→academic；Notion/笔记风→notion；Linear/紧凑/研发→linear；
@@ -266,10 +271,16 @@ word_document 支持结构化元素：会议纪要的决议/待办、周报的�
 用户点选生成后再按下面的 theme 映射流程询问风格（「暂时不用」（action=decline）兜底，用户不想生成时点它）。
 PPT 风格（theme）按下表映射：极光渐变/现代商务/产品发布→aurora；玻璃拟态/通透/数据汇报/SaaS→glass；
 新粗野/撞色/创意/年轻化→brutalist；瑞士/极简学院/咨询→swiss；渐变弥散/开发者/科技→mesh；
-杂志/深度报告/行业分析→editorial；暗黑科技/发布会/技术分享→darktech；
+杂志/深度报告/行业分析→editorial；暗黑科技/技术分享→darktech；
+发布会/新品宣讲/Keynote（深色舞台+单强调色）→keynote；开发者大会/产品功能介绍/技术推广（纸白+发丝线+等宽）→devconf；
 通用正式→universal；学术衬线→academic；Notion→notion；Linear→linear；Apple→apple；极简黑白→minimal。
 深度调研/行业分析类默认用 editorial；商业汇报默认 aurora（modern 等价 aurora）；
 已明确指定风格时不要重复询问；用户没有倾向时可推荐 aurora/editorial/darktech 三个选项。
+keynote/devconf 主题的封面页可传 brand（品牌名）/event（活动或大会名）/kicker（等宽眉题）/date/place，
+有真实信息就传，没有则省略（不要编造日期地点）。
+用户要求换 PPT 主题色/强调色时，调用 presentation 传 theme_colors={"--color-primary": "<颜色>"}，
+颜色用颜色名或色值（如 红色/#E74C3C），所有主题生效，亮度系统自动校正；
+用户给出品牌 VI 色/指定色值时必须传 theme_colors，不要只写在 prompt 文本里。
 PPT 版式（layout）按内容选择：要点陈述用 bullets（默认，可不传）；
 3-8 个并列项用 cards（条目可用 "标题|描述"）；流程/阶段/里程碑用 timeline；
 2-4 个维度并列展开用 columns；"图 + 要点解读" 用 two_col（image.path 引用 workspace 内图片，无图自动占位）；
@@ -283,8 +294,11 @@ compare 仅用于互斥方案/对象/路径对比——时间序列数据（逐�
 禁止整份 PPT 全用 bullets——命中以下内容特征必须换版式：
 关键指标/核心数据→kpi；数量对比/占比/趋势/规模测算→chart；结构化明细（列表≥3行×2列）→table；
 历程/融资/迭代阶段→timeline；两个对象优劣势对比→compare；并列要素/特征→cards；图文结合→two_col。
-≥10 页的演示必须：每 4-6 页插入一个 section 章节页，且全篇混用 ≥4 种版式；
-先规划章节结构再逐页生成，数据页要与结论页（bullets）交替。
+长演示建议按内容节奏用 section 章节页分节（大体每 4-6 页一处，是否插入、
+插入几处按内容结构灵活判断，不强制）；全篇尽量混用多种版式（建议 ≥4 种）；
+先规划结构再逐页生成，数据页要与结论页（bullets）交替。
+keynote/devconf 主题例外：这两套风格没有章节页和目录页，不要生成 section/toc 页
+（生成也会被自动跳过）；分节信息用内容页的 kicker 字段承担（如 kicker="Highlights"）。
 PPT 图表规则：简单图表（bar/column/line/pie/doughnut/area，系列 ≤3 且数据点 ≤12）
 直接在 presentation 的 slide 里传 chart={type, categories, series} 原生直绘，
 生成的图表在 PowerPoint 内可二次编辑，无需调用 generate_chart；

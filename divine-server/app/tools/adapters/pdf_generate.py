@@ -8,7 +8,10 @@ from ..registry import register_tool
 
 @register_tool(
     "pdf_generate",
-    "统一 PDF 生成入口：按需求选择 Report/Business/Travel/Roadmap/Book/Slide 配方并渲染。"
+    "统一 PDF 生成入口：按需求选择 Report/Business/Travel/论文报告四套/Roadmap/Book/Slide 配方并渲染。"
+    "论文报告四套为页式模板（自带封面与页眉页脚，页数与版式固定）："
+    "academic_report 学术报告（课程报告/课题结题）、thesis_paper 论文投稿（学位论文/期刊会议）、"
+    "data_report 数据分析报告（经营分析/季度复盘）、research_report 研究报告（行业研究/白皮书）；"
     "商业分析报告（kind=business）围绕价值主张、数字化成本结构、私域联名增长策略、"
     "品牌竞争壁垒四大维度推导，自动整理行业对标表格与品牌经营核心数据；"
     "简历场景用 resume_data 传结构化 JSON；prompt 传需求；本工具只输出 PDF，"
@@ -28,18 +31,47 @@ from ..registry import register_tool
             },
             "kind": {
                 "type": "string",
-                "enum": ["report", "business", "travel", "roadmap", "book", "slide", "resume"],
-                "description": "文档配方；business 为商业分析报告（价值主张/数字化成本结构/私域联名增长策略/品牌竞争壁垒四大维度）；不传时自动识别",
+                "enum": [
+                    "report",
+                    "business",
+                    "travel",
+                    "academic_report",
+                    "thesis_paper",
+                    "data_report",
+                    "research_report",
+                    "roadmap",
+                    "book",
+                    "slide",
+                    "resume",
+                ],
+                "description": (
+                    "文档配方；不传时自动识别。"
+                    "business=商业分析报告（价值主张/数字化成本结构/私域联名增长策略/品牌竞争壁垒四大维度）；"
+                    "academic_report=学术报告（4 页：封面/摘要目录/正文图表/结论参考文献）；"
+                    "thesis_paper=论文投稿（3 页：标题摘要引言/方法实验公式/结论致谢参考文献）；"
+                    "data_report=数据分析报告（4 页：封面 KPI 带/指标概览条形图/明细洞察/结论建议）；"
+                    "research_report=研究报告（4 页：封面目录/执行摘要关键发现/深度分析/战略建议风险）"
+                ),
             },
             "style": {
                 "type": "string",
                 "enum": ["modern", "academic", "corporate", "minimal", "playful"],
-                "description": "排版风格",
+                "description": "排版风格（仅 markdown 类配方生效；论文报告四套由 kind 决定版式）",
             },
             "theme": {
                 "type": "string",
-                "enum": ["universal", "resume", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "kami", "kami_white", "modern", "academic", "travel", "travel_mag", "travel_swiss", "travel_bento", "travel_aurora", "roadmap", "notion", "linear", "apple", "tpl_professional", "tpl_modern", "tpl_minimal", "tpl_academic", "tpl_executive", "tpl_creative", "tpl_product", "tpl_data", "tpl_freshgrad", "tpl_lateral", "tpl_compact", "tpl_global"],
-                "description": "简历/PDF 主题 ID（简历为统一模板库 19 套，与 html_resume 同一套）；简历场景推荐 tpl_* 12 套精品模板，creative/minimal/boss_zhipin/finance/linkedin/kami/kami_white 为经典风格；不传时系统按 prompt 场景自动选择（旅行手册四套：travel_mag 杂志版 / travel_swiss 瑞士网格极简 / travel_bento 便当卡片 / travel_aurora 暗夜极光）",
+                "enum": ["universal", "resume", "creative", "minimal", "boss_zhipin", "finance", "linkedin", "kami", "kami_white", "modern", "academic", "travel", "travel_mag", "travel_swiss", "travel_bento", "travel_aurora", "roadmap", "notion", "linear", "apple", "academic_report", "thesis_paper", "data_report", "research_report", "tpl_professional", "tpl_modern", "tpl_minimal", "tpl_academic", "tpl_executive", "tpl_creative", "tpl_product", "tpl_data", "tpl_freshgrad", "tpl_lateral", "tpl_compact", "tpl_global"],
+                "description": (
+                    "简历/PDF 主题 ID（简历为统一模板库 19 套，与 html_resume 同一套）；"
+                    "简历场景推荐 tpl_* 12 套精品模板，"
+                    "creative/minimal/boss_zhipin/finance/linkedin/kami/kami_white 为经典风格；"
+                    "不传时系统按 prompt 场景自动选择。"
+                    "旅行手册四套：travel_mag 杂志版 / travel_swiss 瑞士网格极简 / "
+                    "travel_bento 便当卡片 / travel_aurora 暗夜极光。"
+                    "论文报告四套（academic_report/thesis_paper/data_report/research_report）"
+                    "与 kind 一一对应，传 theme 等价于传同名 kind；这四套的 CSS 与页结构强耦合，"
+                    "只在对应配方下生效，不会套用到 markdown 类配方上"
+                ),
             },
             "resume_layout": {
                 "type": "string",
@@ -74,7 +106,7 @@ from ..registry import register_tool
             },
             "cover": {
                 "type": "boolean",
-                "description": "是否生成封面页；未传时系统按场景自动决定（季度汇报/客户提案/行业洞察/作品集默认生成，周报/PRD 默认不生成）；travel 主题固定生成封面",
+                "description": "是否生成封面页；未传时系统按场景自动决定（季度汇报/客户提案/行业洞察/作品集默认生成，周报/PRD 默认不生成）；travel 主题固定生成封面；论文报告四套自带封面页，该参数不生效",
             },
             "cover_style": {
                 "type": "string",
@@ -83,7 +115,7 @@ from ..registry import register_tool
             },
             "toc": {
                 "type": "boolean",
-                "description": "是否生成目录；未传时系统按场景自动决定（季度汇报/客户提案/行业洞察/PRD 默认生成）；travel 主题固定不生成",
+                "description": "是否生成目录；未传时系统按场景自动决定（季度汇报/客户提案/行业洞察/PRD 默认生成）；travel 主题固定不生成；论文报告四套的目录是模板固定页，该参数不生效",
             },
             "images": {
                 "type": "boolean",

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>{{报告标题}} - 专业研究报告模板 · 咨询白皮书风（Research Report）</title>
+<!--
+  ═══════════════════════════════════════════════════════════════
+  专业研究报告模板 · Research Report 咨询白皮书风（research_report）
+  ═══════════════════════════════════════════════════════════════
+
+  【设计语言】
+  1. 顶级咨询白皮书气质：暖白纸面 #FDFCFA + 近黑 #1A222A + 墨绿 #1E5145 单强调色
+     —— 无渐变、无金色装饰、无阴影；专业感来自排版层级与细线秩序
+  2. 封面：大留白 + 衬线大标题 + 发丝线目录；底部墨绿实色收底带（白字元信息）
+  3. 章节：绿色小方块 + 编号眉题 + 发丝线；关键发现用细体大号数字（非彩色大数字）
+  4. 引用块：墨绿左线 + 极浅绿底；矩阵表表头墨绿反白；风险表走划线表格式
+  5. 全文数字 tabular-nums，正文两端对齐
+
+  【渲染兼容】WeasyPrint 安全：纯色/无渐变、无 calc/conic/mask/backdrop-filter；
+              封面收底带 position:absolute 锚底；封面目录用 absolute 锚底（不用 flex）；
+              收底带 width 需减去左右 padding（display:table 不吃 box-sizing，width 是内容宽度）
+  【占位符】{{双花括号}} 由 Agent 填充；示例内容仅示意结构。
+            **扁平书写，禁止嵌套**：不要写 {{外层 {{内层}} 外层}}，直接并列写 {{甲}} 与 {{乙}}
+  【页面映射】P1 封面 ｜ P2 执行摘要·关键发现 ｜ P3 深度分析 ｜ P4 建议·风险·尾注
+-->
+<style>
+@page { size: A4; margin: 0 0 16mm; background: #FDFCFA;
+  @bottom-left { content: "{{机构名称}} · 研究报告"; vertical-align: middle; height: 16mm; padding: 0 18mm; font-family: "PingFang SC", "Noto Sans SC", sans-serif; font-size: 9.5px; color: #8B939D; letter-spacing: 0.06em; }
+  @bottom-right { content: "第 " counter(page) " 页 / 共 " counter(pages) " 页"; vertical-align: middle; height: 16mm; padding: 0 18mm; font-family: "PingFang SC", "Noto Sans SC", sans-serif; font-size: 9.5px; color: #8B939D; } }
+@page coverpg { margin: 0 0 22mm; background: #FDFCFA;
+  @bottom-left { content: none; } @bottom-right { content: none; }
+  @bottom-center { content: element(cvband); vertical-align: bottom; height: 22mm; padding: 0; margin: 0; } }
+:root {
+  /* 主题主色：由管线按 theme_colors / color_scheme 注入同名变量覆盖。
+     语义别名（--green/--green-deep/--green-soft/--green-faint）挂到主色上，
+     改主色即章节眉题、面板顶线、矩阵表头、引用块底色整套联动；
+     正文墨色不挂主色。 */
+  --primary: #1E5145;
+  --primary-dark: #143830;
+  --primary-light: #EAF1EE;
+  /* 二级浅色（引用块底色）：比 --primary-light 再淡一档，由管线按主色派生覆盖
+     （见 theme_colors.derive_faint_tint）。CSS 无法从 --primary-light 再派生，故给字面量兜底。 */
+  --primary-faint: #F4F8F6;
+  --accent: #143830;
+  --paper: #FDFCFA;
+  --ink: #1A222A;
+  --ink-70: #4A545E;
+  --ink-45: #8B939D;
+  --green: var(--primary);
+  --green-deep: var(--primary-dark);
+  --green-soft: var(--primary-light);
+  --green-faint: var(--primary-faint);
+  --rule: #D8D5CC;
+  --rule-dark: #1A222A;
+  --font-serif: "Noto Serif SC", "Songti SC", "SimSun", Georgia, serif;
+  --font-sans: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-sans); color: var(--ink); font-size: 13.5px; line-height: 1.8; background: var(--paper); -webkit-font-smoothing: antialiased; }
+
+.page { padding: 16mm 18mm 0; }
+.page + .page { page-break-before: always; }
+
+/* ── 页眉页脚 ── */
+.page-head { display: table; width: 100%; padding-bottom: 8px; border-bottom: 1px solid var(--rule); margin-bottom: 18px; }
+.page-head .ph-l { display: table-cell; font-size: 10px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-70); }
+.page-head .ph-l::before { content: ""; display: inline-block; width: 8px; height: 8px; background: var(--green); margin-right: 9px; }
+.page-head .ph-r { display: table-cell; text-align: right; font-size: 10px; color: var(--ink-45); letter-spacing: 0.14em; text-transform: uppercase; }
+/* ── 章节标题 ── */
+.sec-kicker { font-size: 10.5px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase; color: var(--green); margin-bottom: 6px; }
+.sec-h1 { font-family: var(--font-serif); font-size: 24px; font-weight: 700; color: var(--ink); line-height: 1.3; margin-bottom: 6px; }
+.sec-sub { font-size: 12.5px; color: var(--ink-70); margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+.sec-h2 { font-family: var(--font-serif); font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 18px 0 8px; }
+
+/* ═══════════ P1 封面（白底 + 墨绿收底带） ═══════════ */
+/* 块级布局（不用 flex）。margin-top 负值把封面拉到纸张原点，height 补足被抵消的 padding-top，
+   使 border box 精确覆盖 0–275mm（297mm 页高 − 22mm 下边距） */
+.cover { position: relative; page: coverpg; height: 291mm; margin-top: -16mm; }
+.cover-top { display: table; width: 100%; padding-bottom: 12px; border-bottom: 2px solid var(--rule-dark); }
+.cover-top .c-brand { display: table-cell; font-size: 11.5px; font-weight: 800; letter-spacing: 0.26em; }
+.cover-top .c-code { display: table-cell; text-align: right; font-size: 10px; letter-spacing: 0.16em; color: var(--ink-45); }
+.cover-main { padding: 76mm 0 0; }
+.cover-type { font-size: 11px; font-weight: 700; letter-spacing: 0.34em; color: var(--green); text-transform: uppercase; }
+/* 30px 而非 34px：正文栏宽约 493pt，34px 时每行仅容 ~19 字，
+   20 字级标题会折出孤字行；30px 可容 ~21 字，避免孤字 */
+.cover-title { font-family: var(--font-serif); font-size: 30px; font-weight: 700; line-height: 1.38; margin-top: 16px; max-width: 100%; }
+.cover-sub { font-family: var(--font-serif); font-size: 14.5px; color: var(--ink-70); margin-top: 12px; }
+.cover-rule { width: 56px; height: 3px; background: var(--green); margin: 18px 0; }
+.cover-summary { font-size: 12.5px; line-height: 1.95; color: var(--ink-70); max-width: 92%; text-align: justify; }
+/* 封面目录锚定封面下部（absolute，不用 flex）。
+   absolute 的包含块是 .cover 的 padding edge（= 整个 border box），故需显式回到 18mm 正文边距 */
+.cover-agenda { position: absolute; left: 18mm; right: 18mm; bottom: 20mm; border-top: 1px solid var(--rule); }
+.cover-agenda .ag-row { display: table; width: 100%; border-bottom: 1px solid var(--rule); }
+.cover-agenda .ag-no, .cover-agenda .ag-t { display: table-cell; vertical-align: middle; padding: 8px 2px; font-size: 12px; }
+.cover-agenda .ag-no { width: 52px; font-family: var(--font-serif); font-weight: 700; color: var(--green); }
+.cover-agenda .ag-t { color: var(--ink-70); letter-spacing: 0.02em; }
+/* 收底带：display:table 不适用 box-sizing，width 是内容宽度，故写 174mm = 210mm − 18mm×2，
+   使 border box 正好 210mm 满幅；若写 210mm 会左右各溢出 18mm，文字被裁 */
+.cover-band { position: running(cvband); display: table; width: 174mm; background: var(--green-deep); color: #FFFFFF; padding: 13px 18mm; }
+.cover-band .b { display: table-cell; vertical-align: middle; font-size: 11px; letter-spacing: 0.05em; white-space: nowrap; }
+.cover-band .b b { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #9DC3B5; margin-bottom: 2px; }
+.cover-band .sep { display: table-cell; width: 1px; background: rgba(255,255,255,0.22); }
+.cover-band .pad { display: table-cell; width: 18px; }
+
+/* ═══════════ P2 执行摘要：关键发现 ═══════════ */
+.pull-quote { border-left: 3px solid var(--green); background: var(--green-faint); padding: 13px 18px; margin: 0 0 14px; font-family: var(--font-serif); font-size: 14px; color: var(--ink); line-height: 1.8; }
+.finding { display: table; width: 100%; border-bottom: 1px solid var(--rule); padding: 11px 0; }
+.finding:last-child { border-bottom: none; }
+.finding .f-no, .finding .f-body { display: table-cell; vertical-align: top; }
+.finding .f-no { width: 56px; font-family: var(--font-serif); font-size: 30px; font-weight: 400; color: var(--green); line-height: 1.1; }
+.finding .f-body { padding-right: 4px; }
+.finding .f-title { font-size: 14px; font-weight: 800; margin-bottom: 3px; }
+.finding p { font-size: 12.5px; color: var(--ink-70); text-align: justify; }
+.finding .f-data { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--green); background: var(--green-soft); padding: 2px 10px; border-radius: 999px; margin-top: 6px; }
+
+/* ═══════════ P3 深度分析 ═══════════ */
+.duo { display: table; width: 100%; table-layout: fixed; border-spacing: 0; margin-bottom: 14px; }
+.duo-gap { display: table-cell; width: 12px; }
+.panel { display: table-cell; vertical-align: top; width: auto; background: #FFFFFF; border: 1px solid var(--rule); border-top: 2px solid var(--green); padding: 13px 16px; }
+.panel .p-title { font-family: var(--font-serif); font-size: 13.5px; font-weight: 700; margin-bottom: 7px; }
+.panel p { font-size: 12.3px; color: var(--ink-70); }
+.panel .p-list { margin-top: 6px; }
+.panel .p-list li { list-style: none; font-size: 12.3px; color: var(--ink-70); padding: 5px 0 5px 14px; position: relative; border-bottom: 1px dashed var(--rule); text-align: justify; }
+.panel .p-list li:last-child { border-bottom: none; }
+.panel .p-list li::before { content: ""; position: absolute; left: 0; top: 12px; width: 5px; height: 5px; background: var(--green); }
+
+.chart-frame { border: 1px solid var(--rule); background: #FFFFFF; min-height: 44mm; display: flex; align-items: center; justify-content: center; color: var(--ink-45); font-size: 11.5px; letter-spacing: 0.14em; margin-top: 12px; }
+.chart-caption { text-align: center; font-size: 11px; color: var(--ink-45); margin-top: 7px; }
+.chart-caption b { color: var(--ink); }
+
+/* ═══════════ P4 建议矩阵 · 风险 · 尾注 ═══════════ */
+/* 列宽 26/32/24/18：「潜在影响」若只给 20%，「（量化）」会在字间断行 */
+.matrix { width: 100%; border-collapse: collapse; font-size: 12.3px; margin-top: 10px; }
+.matrix th { background: var(--green); color: #FFFFFF; text-align: left; padding: 9px 12px; font-weight: 700; letter-spacing: 0.04em; }
+.matrix td { padding: 9px 12px; border-bottom: 1px solid var(--rule); background: var(--paper); vertical-align: top; text-align: justify; }
+.matrix tr:last-child td { border-bottom: 2px solid var(--rule-dark); }
+.matrix td.impact { font-weight: 700; }
+.badge { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+.badge.p0 { background: var(--green); color: #FFFFFF; }
+.badge.p1 { background: var(--green-soft); color: var(--green-deep); }
+.badge.p2 { background: #EEF0F0; color: var(--ink-70); }
+
+.risk-table { width: 100%; border-collapse: collapse; font-size: 12.3px; margin-top: 10px; }
+.risk-table thead tr { border-top: 2px solid var(--rule-dark); border-bottom: 1px solid var(--rule-dark); }
+.risk-table th { text-align: left; padding: 7px 10px; font-weight: 700; }
+.risk-table td { padding: 7px 10px; border-bottom: 0.5px solid var(--rule); vertical-align: top; text-align: justify; color: var(--ink-70); }
+.risk-table td.rk { width: 120px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.risk-table tbody tr:last-child td { border-bottom: 2px solid var(--rule-dark); }
+
+.endnote { margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 10.5px; color: var(--ink-45); }
+</style>
+</head>
+<body>
+
+<!-- ════════ P1 / 封面 ════════ -->
+<div class="page cover">
+  <div class="cover-top">
+    <div class="c-brand">{{研究机构 / 咨询团队}}</div>
+    <div class="c-code">REF {{RR-2026-041}}</div>
+  </div>
+  <div class="cover-main">
+    <div class="cover-type">Research Report · 行业研究报告</div>
+    <h1 class="cover-title">{{行业名称}}发展趋势与战略路径研究报告</h1>
+    <div class="cover-sub">——基于 {{数据来源}} 的 {{N}} 年纵向追踪与 {{方法}} 建模</div>
+    <div class="cover-rule"></div>
+    <p class="cover-summary">本报告系统梳理 {{研究对象}} 的发展脉络与竞争格局，围绕 {{核心议题}} 展开定量与定性相结合的分析，识别 {{N}} 项结构性变化，并提出面向 {{目标周期}} 的三条战略路径与配套行动建议，供 {{决策场景}} 参考。</p>
+    <div class="cover-agenda">
+      <div class="ag-row"><div class="ag-no">01</div><div class="ag-t">执行摘要与关键发现</div></div>
+      <div class="ag-row"><div class="ag-no">02</div><div class="ag-t">市场格局：三力交织下的结构性变化</div></div>
+      <div class="ag-row"><div class="ag-no">03</div><div class="ag-t">战略路径与行动建议</div></div>
+    </div>
+  </div>
+  <div class="cover-band">
+    <div class="b"><b>发布日期</b>{{2026 年 9 月}}</div>
+    <div class="sep"></div><div class="pad"></div>
+    <div class="b"><b>研究周期</b>{{2024.01 – 2026.09}}</div>
+    <div class="sep"></div><div class="pad"></div>
+    <div class="b"><b>项目负责人</b>{{姓名 · 职务}}</div>
+    <div class="sep"></div><div class="pad"></div>
+    <div class="b"><b>密级</b>{{内部资料 · 请勿外传}}</div>
+  </div>
+</div>
+
+<!-- ════════ P2 / 执行摘要·关键发现 ════════ -->
+<div class="page">
+  <div class="page-head"><span class="ph-l">Executive Summary · 执行摘要</span><span class="ph-r">{{报告标题}}</span></div>
+
+  <div class="sec-kicker">Section 01</div>
+  <h2 class="sec-h1">执行摘要</h2>
+  <div class="pull-quote">一句话核心判断：{{行业}} 正处于 {{阶段判断}} 的转折点，{{核心变量}} 将在未来 {{N}} 年内重塑竞争格局，先行者可获得 {{优势类型}} 的结构性红利。</div>
+
+  <div class="finding">
+    <div class="f-no">01</div>
+    <div class="f-body">
+      <div class="f-title">{{市场规模持续扩张，但增速换挡}}</div>
+      <p>2025 年市场规模达 {{X,XXX 亿元}}，同比增长 {{x.x%}}；增速较前三年回落 {{x.xpp}}，行业由 {{驱动因素}} 转向 {{新驱动因素}} 驱动，增长逻辑从 {{旧范式}} 切换至 {{新范式}}。</p>
+      <span class="f-data">CAGR {{xx.x%}}（2024–2026E）</span>
+    </div>
+  </div>
+  <div class="finding">
+    <div class="f-no">02</div>
+    <div class="f-body">
+      <div class="f-title">竞争格局重塑：{{阵营}} 崛起</div>
+      <p>CR5 由 {{xx%}} 升至 {{xx%}}；{{玩家类型}} 市占率提升 {{x.xpp}}，其 {{关键打法}} 是份额转移的核心动因，尾部玩家加速出清。</p>
+      <span class="f-data">CR5 = {{xx%}}（+{{x.xpp}}）</span>
+    </div>
+  </div>
+  <div class="finding">
+    <div class="f-no">03</div>
+    <div class="f-body">
+      <div class="f-title">{{技术变量}} 进入规模化临界点</div>
+      <p>{{技术}} 渗透率突破 {{xx%}} 临界值，单位成本三年下降 {{xx%}}；参照 {{可比行业}} 的扩散曲线，预计 {{年份}} 在 {{场景}} 实现规模化商用。</p>
+      <span class="f-data">渗透率 {{xx%}} · 成本 -{{xx%}}</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ P3 / 深度分析 ════════ -->
+<div class="page">
+  <div class="page-head"><span class="ph-l">Analysis · 深度分析</span><span class="ph-r">{{报告标题}}</span></div>
+
+  <div class="sec-kicker">Section 02</div>
+  <h2 class="sec-h1">市场格局：三力交织下的结构性变化</h2>
+  <div class="sec-sub">供给、需求与政策三重力量交汇，驱动 {{行业}} 从 {{旧范式}} 向 {{新范式}} 迁移。本章依次展开三条主线的证据与推论。</div>
+
+  <div class="duo">
+    <div class="panel">
+      <div class="p-title">供给端</div>
+      <p>{{产能与要素变化的核心叙述。}}</p>
+      <ul class="p-list">
+        <li>{{供给侧变化一及其量化证据}}</li>
+        <li>{{供给侧变化二及其量化证据}}</li>
+        <li>{{供给侧变化三及其量化证据}}</li>
+      </ul>
+    </div>
+    <div class="duo-gap"></div>
+    <div class="panel">
+      <div class="p-title">需求端</div>
+      <p>{{需求结构与偏好迁移的核心叙述。}}</p>
+      <ul class="p-list">
+        <li>{{需求侧变化一及其量化证据}}</li>
+        <li>{{需求侧变化二及其量化证据}}</li>
+        <li>{{需求侧变化三及其量化证据}}</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="duo">
+    <div class="panel">
+      <div class="p-title">市场规模测算</div>
+      <p>测算口径与方法说明：基于 {{自上而下 / 自下而上}} 交叉验证，关键假设为 {{假设项}}。</p>
+    </div>
+    <div class="duo-gap"></div>
+    <div class="panel">
+      <div class="p-title">政策与监管变量</div>
+      <p>关键政策条款及其影响方向、生效时点的判断，以及 {{合规变量}} 的情景假设。</p>
+    </div>
+  </div>
+
+  <div class="chart-frame">【 市场规模与竞争格局图位 · 建议双联图 150mm 】</div>
+  <div class="chart-caption"><b>图 1</b>　{{市场规模（2021–2026E）与主要玩家份额变化}}</div>
+</div>
+
+<!-- ════════ P4 / 建议·风险·尾注 ════════ -->
+<div class="page">
+  <div class="page-head"><span class="ph-l">Strategy · 战略建议</span><span class="ph-r">{{报告标题}}</span></div>
+
+  <div class="sec-kicker">Section 03</div>
+  <h2 class="sec-h1">战略路径与行动建议</h2>
+  <div class="sec-sub">面向 {{目标周期}} 的三条路径按「优先级 × 潜在影响 × 资源投入」排序如下。</div>
+
+  <table class="matrix">
+    <thead><tr><th style="width: 26%;">行动建议</th><th style="width: 32%;">核心举措</th><th style="width: 24%;">潜在影响</th><th style="width: 18%;">优先级</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="impact">路径一：{{核心主张}}</td>
+        <td>围绕 {{抓手}} 展开：{{举措 1}}、{{举措 2}}。</td>
+        <td>{{影响描述（量化）}}</td>
+        <td><span class="badge p0">P0 · 立即启动</span></td>
+      </tr>
+      <tr>
+        <td class="impact">路径二：{{核心主张}}</td>
+        <td>围绕 {{抓手}} 展开：{{举措 1}}、{{举措 2}}。</td>
+        <td>{{影响描述（量化）}}</td>
+        <td><span class="badge p1">P1 · {{周期}}内</span></td>
+      </tr>
+      <tr>
+        <td class="impact">路径三：{{核心主张}}</td>
+        <td>围绕 {{抓手}} 展开：{{举措 1}}、{{举措 2}}。</td>
+        <td>{{影响描述（量化）}}</td>
+        <td><span class="badge p2">P2 · 中长期</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 class="sec-h2" style="margin-top: 16px;">风险提示</h2>
+  <table class="risk-table">
+    <thead><tr><th style="width: 120px;">风险项</th><th>描述与应对</th></tr></thead>
+    <tbody>
+      <tr><td class="rk">{{政策不确定性}}</td><td>{{风险描述、触发条件与影响量级；对应的监测指标与预案方向。}}</td></tr>
+      <tr><td class="rk">{{技术替代风险}}</td><td>{{风险描述、触发条件与影响量级；对应的监测指标与预案方向。}}</td></tr>
+      <tr><td class="rk">{{数据与口径风险}}</td><td>{{样本偏差、口径差异的说明，以及敏感性分析结论。}}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="endnote">
+    尾注：本报告基于 {{公开数据 / 访谈 / 专有数据库}} 撰写，观点仅供 {{内部决策}} 参考；引用请注明出处「{{机构名称}}《{{报告标题}}》(RR-2026-041)」。未经许可请勿转发或用于商业用途。
+  </div>
+</div>
+
+</body>
+</html>

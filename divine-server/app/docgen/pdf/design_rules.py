@@ -32,8 +32,47 @@ KNOWN_THEMES: frozenset[str] = frozenset(
         "travel_aurora",
         "roadmap",
         "minimal",
+        # 论文/报告四套（页式 HTML 模板）
+        "academic_report",
+        "thesis_paper",
+        "data_report",
+        "research_report",
     }
 )
+
+# 独立主题体系的配方：不走场景分类与风格词决策，主题只由显式参数或配方默认决定
+# （旅行手册、论文/报告四套都是「一个配方对一个模板」，场景词会误伤它们）
+INDEPENDENT_THEME_RECIPES: frozenset[str] = frozenset(
+    {
+        "travel",
+        "academic_report",
+        "thesis_paper",
+        "data_report",
+        "research_report",
+    }
+)
+
+# 论文/报告四套的页式模板主题。它们的 CSS 只适配各自模板的页结构
+# （.sec-h1 / .three-line-table / .fin-table / .insight-item 等），
+# 因此禁止在 markdown 渲染路径上被选中，否则版式会散架。
+PAGE_TEMPLATE_THEMES: frozenset[str] = frozenset(
+    {"academic_report", "thesis_paper", "data_report", "research_report"}
+)
+
+
+def resolve_family_theme(theme: str | None, recipe_theme: str) -> str:
+    """独立主题体系内的显式 theme 校验，只接受同族主题，否则回退配方默认。
+
+    - 旅行配方：接受 travel* 主题（四套风格共用同一页结构，可互换）；
+    - 论文/报告配方：一个配方严格对应一个模板，theme 一律以配方为准
+      （想在四套间切换请改用 kind，engine 会把 theme 等价转成 kind）。
+    防止把 travel 的 CSS 套到论文模板上（或反之）导致版式崩坏。
+    """
+    if not theme:
+        return recipe_theme
+    if recipe_theme.startswith("travel"):
+        return theme if theme.startswith("travel") else recipe_theme
+    return recipe_theme
 
 KNOWN_COLOR_SCHEMES: frozenset[str] = frozenset(
     {
@@ -351,9 +390,20 @@ def parse_cover_style(text: str) -> str | None:
 # 仅接受合法值；非法字段忽略后走场景/配方默认
 # ---------------------------------------------------------------------------
 
-# DesignSpec 的 base_theme 不允许跨到旅行/简历的独立主题体系
+# DesignSpec 的 base_theme 不允许跨到旅行/简历/论文报告模板的独立主题体系
 _SPEC_THEME_BLOCKLIST = frozenset(
-    {"travel", "travel_mag", "travel_swiss", "travel_bento", "travel_aurora", "resume"}
+    {
+        "travel",
+        "travel_mag",
+        "travel_swiss",
+        "travel_bento",
+        "travel_aurora",
+        "resume",
+        "academic_report",
+        "thesis_paper",
+        "data_report",
+        "research_report",
+    }
 )
 _KNOWN_COVER_STYLES = frozenset(style for style, _ in COVER_STYLE_ALIASES)
 
@@ -454,16 +504,17 @@ def resolve_design(
     """
     spec = _extract_design_spec(design_spec)
 
-    if recipe_name == "travel":
+    if recipe_name in INDEPENDENT_THEME_RECIPES:
+        family_theme = resolve_family_theme(theme, recipe_theme)
         return DesignDecision(
-            theme=theme or recipe_theme,
+            theme=family_theme,
             style=style or "",
             color_scheme=color_scheme or recipe_color,
             cover=bool(cover) if cover is not None else False,
             toc=bool(toc) if toc is not None else False,
             scene=None,
             primary_color=spec.get("primary_color"),
-            theme_source="explicit" if theme else "recipe",
+            theme_source="explicit" if family_theme != recipe_theme else "recipe",
             color_source="explicit" if color_scheme else "recipe",
             cover_source="explicit" if cover is not None else "recipe",
             toc_source="explicit" if toc is not None else "recipe",
@@ -492,6 +543,11 @@ def resolve_design(
     elif scene:
         resolved_theme, theme_source = SCENES[scene]["theme"], "scene"
     else:
+        resolved_theme, theme_source = recipe_theme, "recipe"
+
+    # 页式模板主题与页结构强耦合，markdown 路径用不了；此处兜底回退配方默认，
+    # 真正的入口是 kind=academic_report/thesis_paper/data_report/research_report。
+    if resolved_theme in PAGE_TEMPLATE_THEMES:
         resolved_theme, theme_source = recipe_theme, "recipe"
 
     # ---- color_scheme（DesignSpec 提供主色时记录到 primary_color，渲染层派生）----

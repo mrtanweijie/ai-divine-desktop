@@ -109,9 +109,9 @@ def render_html_to_pdf(
         raise RuntimeError("HTML 转 PDF 需要 WeasyPrint，当前环境不可用")
     from weasyprint import HTML
 
-    from ..theme_manager import build_travel_html_document
+    from ..theme_manager import build_html_template_document
 
-    document = build_travel_html_document(
+    document = build_html_template_document(
         html_body,
         title,
         cover_data=cover_data,

@@ -32,7 +32,12 @@ from ..registry import register_tool
             "theme": {
                 "type": "string",
                 "enum": ["universal", "resume", "modern", "academic", "travel", "roadmap", "minimal", "notion", "linear", "apple"],
-                "description": "主题 ID，优先于 style",
+                "description": (
+                    "主题 ID，优先于 style。"
+                    "本工具只渲染 Markdown，因此不含页式模板主题；"
+                    "论文/报告四套（academic_report/thesis_paper/data_report/research_report）"
+                    "是页结构固定的模板，请改用 pdf_generate 并传对应 kind"
+                ),
             },
             "color_scheme": {
                 "type": "string",

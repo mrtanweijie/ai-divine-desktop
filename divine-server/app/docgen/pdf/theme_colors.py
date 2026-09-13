@@ -507,6 +507,49 @@ _UNIVERSAL_COLOR_KEY_ALIASES: dict[str, str] = {
     "--bg-highlight": "--bg-soft",
 }
 
+# data_report 条形图的 4 级色阶相对主色的亮度增量。
+# 取自原设计色板 #14497B / #3D74A8 / #6D9CC7 / #A8C3DC 的 HLS 亮度差，
+# 保证不换色时派生结果与原写死色几乎一致（肉眼不可分辨）。
+_BAR_RAMP_DELTAS: tuple[float, ...] = (0.0, 0.17, 0.32, 0.48)
+
+# research_report 二级浅色的目标亮度（原设计 --green-faint #F4F8F6 的 HLS 亮度）
+_FAINT_LIGHTNESS = 0.965
+
+
+def derive_bar_ramp(primary: str) -> dict[str, str]:
+    """从主色派生数据分析报告条形图的 4 级色阶（--bar-1 … --bar-4）。
+
+    data_report 模板的 `.chart-bar.c2/.c3/.c4` 原本是写死的蓝色，换主色后会出现
+    「首条跟随主色、后三条仍是蓝」的撞色。CSS 侧无法从 --primary 派生同色阶
+    （color-mix 在 WeasyPrint 66 的支持不确定），因此在 Python 侧按 HLS 亮度
+    阶梯算好后注入 :root。
+    """
+    rgb = _resolve_color(primary)
+    if not rgb:
+        return {}
+    return {
+        f"--bar-{index}": _rgb_to_hex(_shift_lightness(rgb, delta))
+        for index, delta in enumerate(_BAR_RAMP_DELTAS, start=1)
+    }
+
+
+def derive_faint_tint(primary: str) -> dict[str, str]:
+    """派生比 --primary-light 更淡的二级浅色（--primary-faint）。
+
+    research_report 原设计有两个层次的浅色底：`--green-soft`（#EAF1EE，L≈0.93，徽章/数据胶囊）
+    与 `--green-faint`（#F4F8F6，L≈0.97，引用块底色）。CSS 无法从 --primary-light 再派生一档，
+    故在 Python 侧按同一色相再提一档亮度；饱和度沿用 derive_universal_palette 的钳制规则。
+    """
+    rgb = _resolve_color(primary)
+    if not rgb:
+        return {}
+    r, g, b = (channel / 255.0 for channel in rgb)
+    hue, _lightness, saturation = colorsys.rgb_to_hls(r, g, b)
+    faint = colorsys.hls_to_rgb(
+        hue, _FAINT_LIGHTNESS, min(max(saturation, 0.20), 0.85)
+    )
+    return {"--primary-faint": _rgb_to_hex(round(c * 255) for c in faint)}
+
 
 def universal_color_overrides(
     custom: dict[str, str] | None,
