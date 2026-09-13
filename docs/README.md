@@ -39,6 +39,8 @@
 | 031 | [design-svg-architecture-routing](design/021-svg-architecture-routing-20260909.md) | 2026-09-09 | 未实施（方案待审） |
 | 032 | [design-agent-memory-architecture](design/022-agent-memory-architecture-20260911.md) | 2026-09-11 | 已实施（一至五期，2026-09-12） |
 | 035 | [design-pdf-page-template-styles](design/023-pdf-page-template-styles-20260913.md) | 2026-09-13 | **已实施（论文/报告四套页式模板接入 PDF 工具）** |
+| 036 | [design-model-effort-slider](design/024-model-effort-slider-20260913.md) | 2026-09-13 | **P1 已实施（滑块直选单面板）** |
+| 037 | [design-chat-mention-files](design/025-chat-mention-files-20260913.md) | 2026-09-13 | 未实施（方案待审） |
 
 ### 修复（fix）
 

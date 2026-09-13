@@ -1,5 +1,11 @@
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { ModelConfig } from "@/types";
@@ -15,9 +21,18 @@ interface ModelEffortControlProps {
   onEffortChange: (value: string) => void;
 }
 
-type MenuLevel = "main" | "models" | "efforts";
+type MenuLevel = "main" | "models";
 
 const EFFORT_ITEMS = ["off", "low", "high", "max"] as const;
+const KNOB_SIZE = 28;
+
+// 档位在轨道上的水平位置：两端内缩，刻度/knob 不超出胶囊
+const sliderPos = (ratio: number): string =>
+  `calc(${KNOB_SIZE / 2}px + ${(ratio * 100).toFixed(2)}% - ${(ratio * KNOB_SIZE).toFixed(2)}px)`;
+
+// 填充宽度：从槽最左铺到 knob 中心（覆盖槽左圆头），knob 半径处由 knob 自身覆盖
+const sliderFillWidth = (ratio: number): string =>
+  `calc(${KNOB_SIZE / 2}px + ${(ratio * 100).toFixed(2)}% - ${(ratio * KNOB_SIZE).toFixed(2)}px)`;
 
 // 获取提供商标签
 function getProviderLabel(providerKey: string): string {
@@ -51,14 +66,81 @@ export function ModelEffortControl({
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<MenuLevel>("main");
   const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
+  const [dragging, setDragging] = useState(false);
+  const draggingRef = useRef(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   const currentModel =
     models.find((m) => m.id === modelId) ?? models.find((m) => m.active) ?? models[0] ?? null;
   const currentModelName =
     currentModel?.name || currentModel?.model || t("chat.switchModel", "切换模型");
+
+  // 吸附式离散滑块：值域只有 4 个档位，任何落点都吸附到最近刻度
+  const effortIndex = Math.max(0, EFFORT_ITEMS.indexOf(effort as (typeof EFFORT_ITEMS)[number]));
+
+  const setEffortFromClientX = (clientX: number) => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return;
+    // 行程两端内缩 knob 半径，保证刻度与 knob 恒在胶囊轨道内
+    const inset = KNOB_SIZE / 2;
+    const ratio = Math.min(
+      1,
+      Math.max(0, (clientX - rect.left - inset) / (rect.width - inset * 2)),
+    );
+    const nearest = Math.round(ratio * (EFFORT_ITEMS.length - 1));
+    const key = EFFORT_ITEMS[nearest];
+    if (key !== effort) onEffortChange(key);
+  };
+
+  const onTrackPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    // 拖拽期间挂 window 级监听：不依赖指针捕获与组件重渲染时序，
+    // 移出轨道/面板范围也能持续吸附更新
+    draggingRef.current = true;
+    setDragging(true);
+    setEffortFromClientX(e.clientX);
+  };
+  const endDrag = () => {
+    draggingRef.current = false;
+    setDragging(false);
+  };
+
+  // 拖拽中：window 级 pointermove/pointerup，替代元素级捕获
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: PointerEvent) => setEffortFromClientX(e.clientX);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", endDrag);
+      window.removeEventListener("pointercancel", endDrag);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragging, effort]);
+
+  const onSliderKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+    const idx = effortIndex;
+    let next: (typeof EFFORT_ITEMS)[number] | null = null;
+    if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+      next = EFFORT_ITEMS[Math.max(0, idx - 1)];
+    } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+      next = EFFORT_ITEMS[Math.min(EFFORT_ITEMS.length - 1, idx + 1)];
+    } else if (e.key === "Home") {
+      next = EFFORT_ITEMS[0];
+    } else if (e.key === "End") {
+      next = EFFORT_ITEMS[EFFORT_ITEMS.length - 1];
+    }
+    if (next && next !== effort) {
+      e.preventDefault();
+      onEffortChange(next);
+    }
+  };
 
   useEffect(() => {
     if (!open || !triggerRef.current) return;
@@ -107,11 +189,6 @@ export function ModelEffortControl({
     setOpen(false);
   };
 
-  const selectEffort = (key: string) => {
-    onEffortChange(key);
-    setOpen(false);
-  };
-
   return (
     <div className="model-effort-control" ref={wrapperRef}>
       <div
@@ -137,46 +214,80 @@ export function ModelEffortControl({
         createPortal(
           <div ref={panelRef} className="model-effort-panel" style={panelStyle}>
             {level === "main" ? (
-              <ul className="model-effort-menu" role="menu">
-                <li
-                  role="menuitem"
-                  tabIndex={0}
-                  className="model-effort-menu-item"
+              <div className="model-effort-main">
+                <div
+                  className="model-effort-context"
+                  role="button"
+                  tabIndex={disabled ? -1 : 0}
                   onClick={() => setLevel("models")}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") setLevel("models");
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setLevel("models");
+                    }
                   }}
+                  title={t("chat.switchModel", "切换模型")}
                 >
-                  <span className="model-effort-menu-left">
-                    <span className="model-effort-menu-label">{t("settings.model", "模型")}</span>
+                  <span className="model-effort-context-effort">
+                    {effortLabels[effort] ?? "关闭"}
+                    <ChevronRight size={13} />
                   </span>
-                  <span className="model-effort-menu-right">
-                    <span className="model-effort-menu-value">{currentModelName}</span>
-                    <ChevronRight size={12} />
-                  </span>
-                </li>
-                <li
-                  role="menuitem"
-                  tabIndex={0}
-                  className="model-effort-menu-item"
-                  onClick={() => setLevel("efforts")}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") setLevel("efforts");
-                  }}
-                >
-                  <span className="model-effort-menu-left">
-                    <span className="model-effort-menu-label">
-                      {t("chat.thinkEffort", "深度思考")}
-                    </span>
-                  </span>
-                  <span className="model-effort-menu-right">
-                    <span className="model-effort-menu-value">
-                      {effortLabels[effort] ?? "关闭"}
-                    </span>
-                    <ChevronRight size={12} />
-                  </span>
-                </li>
-              </ul>
+                  <span className="model-effort-context-model">{currentModelName}</span>
+                </div>
+
+                <div className="model-effort-slider-block">
+                  <div
+                    ref={trackRef}
+                    className={`model-effort-slider${dragging ? " dragging" : ""}`}
+                    role="slider"
+                    tabIndex={disabled ? -1 : 0}
+                    aria-label={t("chat.thinkEffort", "深度思考")}
+                    aria-valuemin={0}
+                    aria-valuemax={EFFORT_ITEMS.length - 1}
+                    aria-valuenow={effortIndex}
+                    aria-valuetext={effortLabels[effort] ?? "关闭"}
+                    onPointerDown={onTrackPointerDown}
+                    onKeyDown={onSliderKeyDown}
+                  >
+                    {/* 关闭档（index 0）无填充：14px 圆角小条会从圆形 knob 边缘露出 */}
+                    {effortIndex > 0 && (
+                      <div
+                        className="model-effort-slider-fill"
+                        style={{
+                          width: sliderFillWidth(effortIndex / (EFFORT_ITEMS.length - 1)),
+                        }}
+                      />
+                    )}
+                    {EFFORT_ITEMS.map((key, i) => (
+                      <span
+                        key={key}
+                        className={`model-effort-slider-tick${i <= effortIndex ? " filled" : ""}${
+                          i === effortIndex ? " active" : ""
+                        }`}
+                        style={{
+                          left: sliderPos(i / (EFFORT_ITEMS.length - 1)),
+                        }}
+                      />
+                    ))}
+                    <span
+                      className="model-effort-slider-knob"
+                      style={{
+                        left: sliderPos(effortIndex / (EFFORT_ITEMS.length - 1)),
+                      }}
+                    />
+                  </div>
+                  <div className="model-effort-slider-scale">
+                    {EFFORT_ITEMS.map((key) => (
+                      <span key={key} className={key === effort ? "active" : ""}>
+                        {effortLabels[key]}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="model-effort-slider-desc">
+                    {effortDescriptions[effort] ?? effortDescriptions.high}
+                  </div>
+                </div>
+              </div>
             ) : (
               <>
                 <div
@@ -189,69 +300,49 @@ export function ModelEffortControl({
                   }}
                 >
                   <ChevronLeft size={14} />
-                  <span>
-                    {level === "models"
-                      ? t("settings.model", "模型")
-                      : t("chat.thinkEffort", "深度思考")}
-                  </span>
+                  <span>{t("settings.model", "模型")}</span>
                 </div>
                 <ul className="model-effort-menu" role="menu">
-                  {level === "models"
-                    ? (() => {
-                        const grouped = groupModelsByProvider(models);
-                        const items: React.ReactNode[] = [];
+                  {(() => {
+                    const grouped = groupModelsByProvider(models);
+                    const items: React.ReactNode[] = [];
 
-                        grouped.forEach((groupModels, providerKey) => {
-                          const providerLabel =
-                            providerKey === "custom"
-                              ? t("settings.custom", "自定义")
-                              : getProviderLabel(providerKey);
+                    grouped.forEach((groupModels, providerKey) => {
+                      const providerLabel =
+                        providerKey === "custom"
+                          ? t("settings.custom", "自定义")
+                          : getProviderLabel(providerKey);
 
-                          // 添加分组标题
-                          items.push(
-                            <li key={`header-${providerKey}`} className="model-effort-menu-header">
-                              <span>{providerLabel}</span>
-                            </li>,
-                          );
+                      // 添加分组标题
+                      items.push(
+                        <li key={`header-${providerKey}`} className="model-effort-menu-header">
+                          <span>{providerLabel}</span>
+                        </li>,
+                      );
 
-                          // 添加该分组下的模型
-                          groupModels.forEach((entry) => {
-                            items.push(
-                              <li
-                                key={entry.id}
-                                role="menuitem"
-                                tabIndex={0}
-                                className={`model-effort-menu-item${
-                                  entry.id === modelId ? " selected" : ""
-                                }`}
-                                onClick={() => selectModel(entry.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") selectModel(entry.id);
-                                }}
-                              >
-                                <span>{entry.name || entry.model}</span>
-                              </li>,
-                            );
-                          });
-                        });
+                      // 添加该分组下的模型
+                      groupModels.forEach((entry) => {
+                        items.push(
+                          <li
+                            key={entry.id}
+                            role="menuitem"
+                            tabIndex={0}
+                            className={`model-effort-menu-item${
+                              entry.id === modelId ? " selected" : ""
+                            }`}
+                            onClick={() => selectModel(entry.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") selectModel(entry.id);
+                            }}
+                          >
+                            <span>{entry.name || entry.model}</span>
+                          </li>,
+                        );
+                      });
+                    });
 
-                        return items;
-                      })()
-                    : EFFORT_ITEMS.map((key) => (
-                        <li
-                          key={key}
-                          role="menuitem"
-                          tabIndex={0}
-                          className={`model-effort-menu-item${key === effort ? " selected" : ""}`}
-                          onClick={() => selectEffort(key)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") selectEffort(key);
-                          }}
-                        >
-                          <span>{effortLabels[key]}</span>
-                          <small>{effortDescriptions[key]}</small>
-                        </li>
-                      ))}
+                    return items;
+                  })()}
                 </ul>
               </>
             )}

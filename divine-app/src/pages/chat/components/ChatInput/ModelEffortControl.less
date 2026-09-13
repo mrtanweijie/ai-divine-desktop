@@ -41,7 +41,7 @@
   z-index: 200;
   width: 260px;
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface-2);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
@@ -59,7 +59,7 @@
   padding: 12px;
   border: 0;
   border-bottom: 1px solid var(--color-border);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: transparent;
   color: var(--color-text-secondary);
   font-size: 12px;
@@ -110,7 +110,7 @@
   gap: 8px;
   min-height: 38px;
   padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--color-text);
   font-size: 13px;
@@ -162,4 +162,198 @@
   flex-shrink: 1;
   color: var(--color-text-secondary);
   font-size: 12px;
+}
+
+/* ── 主面板：深度思考滑块直选（单面板版式） ── */
+
+.model-effort-main {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px 12px;
+}
+
+.model-effort-context {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  align-self: center;
+  max-width: 100%;
+  padding: 8px 16px;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  user-select: none;
+}
+
+.model-effort-context:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="light"] .model-effort-context:hover {
+  background: #eef1f4;
+}
+
+.model-effort-context-effort {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--color-accent);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.model-effort-context-effort svg {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.model-effort-context-model {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.model-effort-slider-block {
+  margin-top: 14px;
+}
+
+/* 吸附式离散滑块：轨道 + 填充 + 4 刻度 + knob，落点恒吸附档位 */
+.model-effort-slider {
+  position: relative;
+  height: 24px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.model-effort-slider:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+.model-effort-slider::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 24px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-50%);
+}
+
+:root[data-theme="light"] .model-effort-slider::before {
+  background: #e3e7ec;
+}
+
+.model-effort-slider-fill {
+  position: absolute;
+  top: 50%;
+  /* 填充从槽最左铺起（与槽同形状），盖住左圆头；宽度由内联样式计算 */
+  left: 0;
+  height: 24px;
+  border-radius: 12px;
+  /* 黑白主题 accent 即纯白，填充降透明度避免长条高亮刺眼 */
+  background: rgba(255, 255, 255, 0.55);
+  transform: translateY(-50%);
+  transition: width 0.12s ease-out;
+}
+
+:root[data-theme="light"] .model-effort-slider-fill {
+  background: rgba(17, 24, 39, 0.45);
+}
+
+.model-effort-slider.dragging .model-effort-slider-fill,
+.model-effort-slider.dragging .model-effort-slider-knob {
+  transition: none;
+}
+
+.model-effort-slider-tick {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  /* 深色轨道段：浅色点 */
+  background: rgba(255, 255, 255, 0.4);
+  transform: translate(-50%, -50%);
+  transition: background 0.12s ease-out, transform 0.12s ease-out;
+}
+
+:root[data-theme="light"] .model-effort-slider-tick {
+  background: rgba(22, 24, 29, 0.28);
+}
+
+/* 已填充段（浅色底）：深色点，保证在柔白填充上可辨 */
+.model-effort-slider-tick.filled {
+  background: rgba(17, 24, 29, 0.5);
+}
+
+:root[data-theme="light"] .model-effort-slider-tick.filled {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.model-effort-slider-tick.active {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.model-effort-slider-knob {
+  position: absolute;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ffffff;
+  /* 亮色面板上白 knob 需要描边才有边界感（否则像悬在轨道外） */
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -50%);
+  transition: left 0.12s ease-out;
+  pointer-events: none;
+}
+
+.model-effort-slider.dragging .model-effort-slider-knob {
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="light"] .model-effort-slider-knob {
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.3);
+}
+
+.model-effort-slider-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.model-effort-slider-scale span {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.model-effort-slider-scale span.active {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* 刻度名与刻度点对齐：首尾项贴边 */
+.model-effort-slider-scale span:first-child {
+  transform: translateX(-2px);
+}
+
+.model-effort-slider-scale span:last-child {
+  transform: translateX(2px);
+}
+
+.model-effort-slider-desc {
+  margin-top: 10px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
 }
