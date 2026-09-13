@@ -606,7 +606,7 @@ export function isRichShape(shape: string): boolean {
  * 配色逻辑只有这一处：body 描边 / tint 填充 / 文字色。
  */
 export function nodeAttrs(
-  node: GraphNode,
+  _node: GraphNode,
   shape: string,
   theme: GraphTheme,
   themeName: "dark" | "light",

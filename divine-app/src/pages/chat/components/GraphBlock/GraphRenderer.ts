@@ -76,7 +76,7 @@ export interface GraphRendererApi {
 const DEMO_STEP_MS = 600;
 
 /** 节点的实际尺寸（含 concept 圆按度定尺寸的近似：按 label 长度微调）。 */
-function nodeSize(node: GraphNode, shape: string): { w: number; h: number } {
+function nodeSize(_node: GraphNode, shape: string): { w: number; h: number } {
   const [w, h] = SHAPE_SIZES[shape] ?? [136, 46];
   return { w, h };
 }
