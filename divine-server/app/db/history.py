@@ -353,49 +353,86 @@ def load_session(session_id: str) -> dict[str, Any]:
         "todos": list_todos(session_id),
     }
 
+
+# 尾窗对齐的最大回看条数：tool 密集会话里一个 turn 可能跨几十条消息
+# （实测 659 条消息 / 29 个 user turn，其中 362 条 tool），窗口起点经常落在 turn 中间。
+# 对齐时最多向前多看这么多条，放不下就保留未裁剪窗口——见 load_session_page。
+MAX_PAGE_LOOKBACK = 200
+
+_MESSAGE_PAGE_SELECT = (
+    "SELECT m.*, m.rowid, u.input_tokens AS usage_input, "
+    "u.output_tokens AS usage_output, u.total_tokens AS usage_total, "
+    "u.source AS usage_source, u.created_at AS usage_created_at, "
+    "u.duration_ms AS usage_duration_ms "
+    "FROM messages m "
+    "LEFT JOIN token_usage u ON u.message_id = m.id "
+)
+
+
+def _page_rows(
+    conn: Any,
+    where: str,
+    params: tuple[Any, ...],
+    *,
+    limit: int | None = None,
+    ascending: bool = False,
+) -> list[Any]:
+    """按 rowid 取消息行（含 token_usage 左连）。`limit=None` 表示不限条数。"""
+    sql = f"{_MESSAGE_PAGE_SELECT}WHERE {where} ORDER BY m.rowid {'ASC' if ascending else 'DESC'}"
+    if limit is not None:
+        sql += " LIMIT ?"
+        params = (*params, limit)
+    return list(conn.execute(sql, params).fetchall())
+
+
 def load_session_page(
     session_id: str,
     before_id: str | None = None,
     limit: int = 100,
 ) -> dict[str, Any]:
-    """Cursor-paginated message view for long conversation history."""
+    """Cursor-paginated message view for long conversation history.
+
+    页面起点对齐到 turn 边界（user 消息），这样前端顶部不会出现半截 turn。
+    对齐方式是把窗口**向前扩**到最近的更老 user 消息，而不是把窗口**裁**到只剩
+    末尾那条 user——后者在 tool 密集会话里会把整页裁成 1 条（回归见
+    tests/test_history_window.py::test_session_page_keeps_tool_heavy_tail）。
+    """
     limit = max(1, min(int(limit or 100), 200))
     with get_conn() as conn:
         if before_id:
-            rows = conn.execute(
-                "SELECT m.*, m.rowid, u.input_tokens AS usage_input, "
-                "u.output_tokens AS usage_output, u.total_tokens AS usage_total, "
-                "u.source AS usage_source, u.created_at AS usage_created_at, "
-                "u.duration_ms AS usage_duration_ms "
-                "FROM messages m "
-                "LEFT JOIN token_usage u ON u.message_id = m.id "
-                "WHERE m.session_id = ? AND m.rowid < "
-                "(SELECT rowid FROM messages WHERE id = ?) "
-                "ORDER BY m.rowid DESC LIMIT ?",
-                (session_id, before_id, limit),
-            ).fetchall()
+            where = (
+                "m.session_id = ? AND m.rowid < "
+                "(SELECT rowid FROM messages WHERE id = ?)"
+            )
+            params: tuple[Any, ...] = (session_id, before_id)
         else:
-            rows = conn.execute(
-                "SELECT m.*, m.rowid, u.input_tokens AS usage_input, "
-                "u.output_tokens AS usage_output, u.total_tokens AS usage_total, "
-                "u.source AS usage_source, u.created_at AS usage_created_at, "
-                "u.duration_ms AS usage_duration_ms "
-                "FROM messages m "
-                "LEFT JOIN token_usage u ON u.message_id = m.id "
-                "WHERE m.session_id = ? "
-                "ORDER BY m.rowid DESC LIMIT ?",
-                (session_id, limit),
-            ).fetchall()
-        page = list(rows)[::-1]
-        while page and page[0]["role"] != "user":
-            page.pop(0)
+            where = "m.session_id = ?"
+            params = (session_id,)
+
+        page = _page_rows(conn, where, params, limit=limit)[::-1]
+        if page and page[0]["role"] != "user":
+            boundary = conn.execute(
+                "SELECT rowid FROM messages "
+                "WHERE session_id = ? AND role = 'user' AND rowid < ? "
+                "ORDER BY rowid DESC LIMIT 1",
+                (session_id, page[0]["rowid"]),
+            ).fetchone()
+            if boundary and page[0]["rowid"] - boundary[0] <= MAX_PAGE_LOOKBACK:
+                head = _page_rows(
+                    conn,
+                    "m.session_id = ? AND m.rowid >= ? AND m.rowid < ?",
+                    (session_id, boundary[0], page[0]["rowid"]),
+                    ascending=True,
+                )
+                page = head + page
+            # 更老的 user 超出回看上限（或压根没有）→ 保留未裁剪窗口：
+            # 顶部半截 turn 只是观感问题，裁成 1 条等于"历史不见了"。
         has_more = False
         if page:
-            oldest_rowid = page[0]["rowid"]
             count = conn.execute(
                 "SELECT COUNT(*) FROM messages "
                 "WHERE session_id = ? AND rowid < ?",
-                (session_id, oldest_rowid),
+                (session_id, page[0]["rowid"]),
             ).fetchone()[0]
             has_more = count > 0
         messages = []

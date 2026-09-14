@@ -270,3 +270,94 @@ def test_complete_tool_group_kept(monkeypatch, tmp_path):
         "两个 tool 响应都应保留"
     )
     assert result[-1]["role"] == "assistant"
+
+
+# --- 前端分页（load_session_page）：尾部窗口必须对齐 turn 边界且不能裁塌 ---
+
+
+def _tool_heavy_session(db, rounds: int = 3, tools_per_round: int = 45):
+    """构造 tool 密集会话：一个 turn 跨几十条消息。
+
+    对齐生产数据形态：真实会话 659 条消息里 362 条 tool、只有 29 个 user turn，
+    于是一个 80 条的尾部窗口里可能只剩末尾一条 user。
+    """
+    session = db.create_session("分页测试")
+    for i in range(rounds):
+        db.add_message(session["id"], "user", f"第 {i} 轮问题")
+        for t in range(tools_per_round):
+            assistant = db.add_message(session["id"], "assistant", "")
+            db.add_message_part(
+                assistant["id"],
+                "tool_calls",
+                json.dumps([{"id": f"c-{i}-{t}", "name": "read_file", "args": {}}]),
+                order=0,
+            )
+            db.add_message(
+                session["id"],
+                "tool",
+                json.dumps({"tool_call_id": f"c-{i}-{t}", "output": "ok"}),
+            )
+        db.add_message(session["id"], "assistant", f"第 {i} 轮回答")
+    db.add_message(session["id"], "user", "最后一轮问题")
+    return session
+
+
+def test_session_page_keeps_tool_heavy_tail(monkeypatch, tmp_path):
+    """回归：窗口里只有末尾一条 user 时，旧实现把整页裁成 1 条（表现为「历史不见了」）。"""
+    db = _setup_db(monkeypatch, tmp_path)
+    session = _tool_heavy_session(db)
+
+    page = db.load_session_page(session["id"], None, 80)
+    messages = page["messages"]
+
+    assert len(messages) > 1, f"页面被裁塌成 {len(messages)} 条"
+    assert messages[0]["role"] == "user", "页面起点应对齐到 turn 边界"
+    assert messages[-1]["role"] == "user"
+    assert page["has_more"] is True
+
+
+def test_session_page_covers_requested_window(monkeypatch, tmp_path):
+    """对齐到 turn 边界后，页面不应少于请求的条数（否则又要靠翻页拼回来）。"""
+    db = _setup_db(monkeypatch, tmp_path)
+    session = _tool_heavy_session(db, rounds=2, tools_per_round=50)
+
+    for limit in (30, 80):
+        page = db.load_session_page(session["id"], None, limit)
+        assert len(page["messages"]) >= limit, f"limit={limit} 只返回 {len(page['messages'])} 条"
+        assert page["messages"][0]["role"] == "user"
+
+
+def test_session_page_second_page_starts_at_boundary(monkeypatch, tmp_path):
+    """游标翻页同样要对齐：上一页页首就是下一页的 before 游标。"""
+    db = _setup_db(monkeypatch, tmp_path)
+    session = _tool_heavy_session(db, rounds=4, tools_per_round=30)
+
+    first = db.load_session_page(session["id"], None, 50)
+    second = db.load_session_page(session["id"], first["messages"][0]["id"], 50)
+
+    assert len(second["messages"]) > 1
+    assert second["messages"][0]["role"] == "user"
+    # 两页不重叠
+    first_ids = {m["id"] for m in first["messages"]}
+    assert not first_ids & {m["id"] for m in second["messages"]}
+
+
+def test_session_page_gives_up_alignment_beyond_lookback(monkeypatch, tmp_path):
+    """更老的 user 超出回看上限时保留未裁剪窗口——顶部半截可以接受，裁塌不行。"""
+    from app.db.history import MAX_PAGE_LOOKBACK
+
+    db = _setup_db(monkeypatch, tmp_path)
+    session = db.create_session("超远对齐")
+    db.add_message(session["id"], "user", "很老的问题")
+    for t in range(MAX_PAGE_LOOKBACK + 20):
+        db.add_message(
+            session["id"], "tool", json.dumps({"tool_call_id": f"c{t}", "output": "ok"})
+        )
+    db.add_message(session["id"], "assistant", "收尾")
+
+    page = db.load_session_page(session["id"], None, 10)
+    messages = page["messages"]
+
+    assert len(messages) == 10, "超上限时应原样返回窗口，而不是继续裁剪"
+    assert messages[0]["role"] != "user", "此场景下顶部半截是可接受的兜底"
+

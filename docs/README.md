@@ -49,6 +49,7 @@
 | 027 | [fix-ppt-empty-slides](fix/001-ppt-empty-slides-20260906.md) | 2026-09-06 | 已实施 |
 | 028 | [fix-pdf-module-style](fix/002-pdf-module-style-20260906.md) | 2026-09-06 | 已实施 |
 | 038 | [fix-mention-skill-false-positive](fix/003-mention-skill-false-positive-20260914.md) | 2026-09-14 | 已实施（技能集合校验 / 胶囊去前缀 / 浮层单标题 / 文件图标按后缀） |
+| 039 | [fix-session-page-collapse](fix/004-session-page-collapse-20260914.md) | 2026-09-14 | 已实施（待重建 sidecar 后在 app 内确认） |
 
 ### 复盘（review）
 
