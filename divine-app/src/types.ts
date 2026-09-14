@@ -233,6 +233,8 @@ export interface ChatMessage {
   preprocess_pending?: boolean;
   streaming?: boolean;
   error?: string;
+  /** 本轮 `/技能` 引用中未被真正使用的技能名（后端 done 事件回传，仅作提示） */
+  unused_mentions?: string[];
   /** 选项卡片的已选状态（选择后置灰持久化） */
   choice_state?: Record<string, unknown>;
   /** 消息来源：normal=云端/local=本地模型/local_fallback=本地拒答转云端 */
@@ -253,6 +255,41 @@ export interface ChatFile {
   size?: number;
   content?: string;
   path?: string;
+}
+
+/** `@文件` / `/技能` 两种引用类型。 */
+export type MentionKind = "file" | "skill";
+
+/** 发送时提交的结构化引用（后端只信这个数组，不从消息正文反向抽取）。 */
+export interface MentionRef {
+  type: MentionKind;
+  /** 文件为工作区相对路径 */
+  path?: string;
+  /** 技能为名称 */
+  name?: string;
+}
+
+/** 技能分类：knowledge=知识技能（方法论/SOP），executable/mcp=能力技能（可执行）。 */
+export type SkillCandidateType = "knowledge" | "executable" | "mcp";
+
+/** 技能来源：项目级 / 用户级 / 内置。 */
+export type SkillCandidateSource = "project" | "user" | "builtin";
+
+/** `@` / `/` 候选条目（GET /api/workspace/mentions 的 items 元素）。 */
+export interface MentionCandidate {
+  kind: MentionKind;
+  /** 插入文本：文件为工作区相对路径，技能为技能名 */
+  path: string;
+  type?: "file" | "dir" | SkillCandidateType;
+  size?: number;
+  mtime?: number;
+  /** 技能候选：名称（与 path 同值，保留独立字段以便后续消歧串处理） */
+  name?: string;
+  /** 技能候选：来源 */
+  source?: SkillCandidateSource;
+  /** 技能候选：描述（弹层内截断展示） */
+  description?: string;
+  version?: string;
 }
 
 /** 本地预整理标记（message part type="preprocess"）。

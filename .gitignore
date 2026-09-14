@@ -23,6 +23,7 @@ divine-server/dist/
 divine-server/.vscode/
 divine-server/.pyinstaller-cache/
 divine-server/.pytest_tmp*
+divine-server/.pytest-tmp*
 
 __pycache__/
 .pytest_cache

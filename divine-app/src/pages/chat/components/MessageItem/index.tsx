@@ -7,12 +7,12 @@ import {
   ChevronDown,
   Copy,
   Eye,
-  FileText,
   Minus,
   Sparkles,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
+import { FileTypeIcon } from "@/components/FileTypeIcon";
 import { DivineAvatar } from "@/components/DivineAvatar";
 import { toast } from "@/components/ui/Toast";
 import { Flex } from "@/components/ui/Flex";
@@ -22,6 +22,7 @@ import type { ChatMessage, PreviewFile, TodoItem } from "@/types";
 import { copyText, formatDuration, formatSize, formatTime, formatTokens } from "@/utils";
 import { parseSupplement } from "@/pages/chat/chatUtils";
 import { ToolStatusCard } from "./ToolStatusCard";
+import { UserMentionText } from "./UserMentionText";
 import { SubAgentPanel } from "./SubAgentPanel";
 import { TracePanel } from "./TracePanel";
 import { groupToolCards } from "./MessageHelpers";
@@ -33,6 +34,8 @@ interface MessageItemProps {
   sessionId?: string | null;
   username: string;
   workspacePath?: string | null;
+  /** 当前会话可用技能名集合：`/xxx` 只有命中集合才渲染成技能胶囊（未就绪时传 undefined） */
+  knownSkills?: ReadonlySet<string>;
   onPreviewFile?: (file: PreviewFile) => void;
   onUserInteract?: () => void;
   /** 本地模型回答上的【重答】：用云端重答同一条问题 */
@@ -53,6 +56,7 @@ export const MessageItem = memo(function MessageItem({
   sessionId,
   username,
   workspacePath,
+  knownSkills,
   onPreviewFile,
   onUserInteract,
   onRetryCloud,
@@ -132,7 +136,14 @@ export const MessageItem = memo(function MessageItem({
               {t("chat.supplementBadge", "补充")}
             </div>
           )}
-          <div className="user-text">{supplementText ?? message.content}</div>
+          <div className="user-text">
+            <UserMentionText
+              text={supplementText ?? message.content}
+              workspacePath={workspacePath}
+              knownSkills={knownSkills}
+              onPreviewFile={onPreviewFile}
+            />
+          </div>
           {message.preprocess?.organized && (
             <div className="user-preprocess">
               <span className="user-preprocess-badge">
@@ -186,7 +197,7 @@ export const MessageItem = memo(function MessageItem({
                       : undefined
                   }
                 >
-                  <FileText size={13} />
+                  <FileTypeIcon name={file.name} size={13} />
                   <span>{file.name}</span>
                   {file.size != null && (
                     <span className="user-file-size">{formatSize(file.size)}</span>
@@ -257,6 +268,17 @@ export const MessageItem = memo(function MessageItem({
             <div className="message-error">
               <AlertCircle size={15} />
               <span>{message.error}</span>
+            </div>
+          )}
+          {!message.error && !!message.unused_mentions?.length && (
+            <div className="message-mention-hint">
+              <Sparkles size={15} />
+              <span>
+                {t("message.unusedMentions", {
+                  names: message.unused_mentions.join("、"),
+                  defaultValue: "本轮没有真正用到这些技能：{{names}}。可以再让它执行一次。",
+                })}
+              </span>
             </div>
           )}
         </div>

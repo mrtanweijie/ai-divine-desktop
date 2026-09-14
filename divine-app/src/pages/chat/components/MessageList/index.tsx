@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { ArrowDown } from "lucide-react";
 import { MessageItem } from "@/pages/chat/components/MessageItem";
+import { useSessionSkillNames } from "@/pages/chat/hooks/useSessionSkillNames";
 import type { ChatMessage, PreviewFile } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -45,6 +46,8 @@ export function MessageList({
   onLoadOlder,
 }: MessageTimelineProps) {
   const { t } = useTranslation();
+  // 当前会话的技能名集合：气泡里 `/xxx` 是否渲染成技能胶囊由它裁定（见 useSessionSkillNames）
+  const skillNames = useSessionSkillNames(sessionId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const previousSessionId = useRef<string | null | undefined>(undefined);
   const lastUserMessageId = useRef<string | null>(null);
@@ -264,6 +267,7 @@ export function MessageList({
                     sessionId={sessionId}
                     username={username}
                     workspacePath={workspacePath}
+                    knownSkills={skillNames}
                     onPreviewFile={onPreviewFile}
                     onRetryCloud={onRetryCloud}
                     onUserInteract={handleUserInteract}

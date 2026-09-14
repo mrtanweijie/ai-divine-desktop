@@ -27,6 +27,7 @@ from .api import (
     settings,
     skills,
     terminal,
+    workspace_files,
 )
 from .config import cors_origins, ensure_directories, settings_store
 from .scheduler import scheduler
@@ -174,6 +175,7 @@ app.include_router(git.router, prefix="/api")
 app.include_router(mcp.router, prefix="/api")
 app.include_router(skills.router)
 app.include_router(terminal.router)
+app.include_router(workspace_files.router, prefix="/api")
 
 
 @app.get("/api/health")

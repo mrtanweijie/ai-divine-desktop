@@ -25,6 +25,7 @@ from .core import (
     _content_text,
     _interrupt_sse,
     _resolve_tool_mode,
+    _skill_tool_name,
     _stream_agent_run,
     canonical_path,
     estimate_tokens,
@@ -330,6 +331,46 @@ async def _persist_partial_generation(
             db.add_message_part, saved["id"], "think", think, order=0
         )
 
+
+def _unused_mention_skills(
+    messages: list[Any], mentioned: frozenset[str]
+) -> list[str]:
+    """校验本轮 `/技能` 引用是否真的生效（方案 025 §3.3）。
+
+    技能引用是用户与 agent 之间的契约：本轮至少应产生一次
+    `load_skill(技能名)` 或该能力技能对应的工具调用；否则把技能名回传给
+    前端提示“技能未被使用”——不然“选错了”用户无从察觉。
+    """
+    if not mentioned:
+        return []
+    called: set[str] = set()
+    loaded: set[str] = set()
+    for message in messages:
+        for call in getattr(message, "tool_calls", None) or ():
+            if isinstance(call, dict):
+                name = str(call.get("name") or "")
+                args = call.get("args") or {}
+            else:
+                name = str(getattr(call, "name", "") or "")
+                args = getattr(call, "args", None) or {}
+            if not name:
+                continue
+            called.add(name)
+            if name == "load_skill" and isinstance(args, dict):
+                loaded.add(str(args.get("name") or ""))
+        # 部分 provider 只在 ToolMessage 上回写工具名，兜底再收一遍
+        if getattr(message, "type", "") == "tool":
+            tool_name = str(getattr(message, "name", "") or "")
+            if tool_name:
+                called.add(tool_name)
+    unused: list[str] = []
+    for skill_name in mentioned:
+        if skill_name in loaded or _skill_tool_name(skill_name) in called:
+            continue
+        unused.append(skill_name)
+    return unused
+
+
 async def run_agent(
     session_id: str,
     history: list[dict[str, Any]],
@@ -345,6 +386,7 @@ async def run_agent(
     tool_mode: str | None = None,
     output_hint: str | None = None,
     ui_theme: str | None = None,
+    mention_skills: list[str] | None = None,
 ) -> AsyncIterator[str]:
     """Stream one agent turn as SSE strings, handling interrupts and persistence."""
     import time as _time
@@ -369,6 +411,7 @@ async def run_agent(
         model_id=model_id,
         cancel_event=cancel_event,
         tool_mode=resolved_tool_mode,
+        mention_skills=frozenset(mention_skills or []),
     )
     plan_mode = (session or {}).get("plan_mode") or "ask"
     if plan_mode == "direct":
@@ -925,6 +968,9 @@ async def run_agent(
             "messageKey": "tool.answerDone",
             "messageParams": {},
             "content": final_content,
+            "unused_mentions": _unused_mention_skills(
+                messages, ctx.mention_skills
+            ),
         },
     )
     logger.info(

@@ -28,6 +28,13 @@ from ..state import _plan_progress
 
 logger = logging.getLogger("divine.agent.prompts")
 
+# 输入框引用约定（方案 025 §4）：常驻注入，让 agent 正确理解 `@文件` / `/技能`
+# 两类 token 的语义差异（@ 是作用对象，/ 是做事方法）。
+MENTION_CONVENTIONS = """输入框引用约定：
+- `@路径`：用户显式引用的当前工作区相对文件，可直接用 read_file 读取，不要猜测其内容；
+- `/技能名`：用户显式指定的本轮做事方法，其技能正文或工具已在用户消息开头给出，
+  请直接按它执行（executable 技能必须真正调用对应工具），不要重复 load_skill。"""
+
 # ReAct 文本工具调用模式提示词。定义在 core（prompts）而非 react：prompts
 # 是 core 层、react 属于 tools 子包，若常量留在 react，core → tools 与
 # tools → core 会构成包级循环导入（消除 prompts↔react 惰性环）。
@@ -508,6 +515,9 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
         skill_catalog = _skill_catalog_prompt()
         if skill_catalog:
             parts.append(skill_catalog)
+        # 输入框引用约定（方案 025 §4）：@ 是相对路径可直接读；
+        # 被 / 指定的技能正文/工具已随用户消息注入，不要再重复 load_skill。
+        parts.append(MENTION_CONVENTIONS)
         if conditional_sections:
             parts.append(
                 conditional_sections.replace("create_plan", "write_todos")

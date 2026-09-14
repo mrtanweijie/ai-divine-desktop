@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # DeepSeek thinking-mode effort vocabulary (see
 # https://api-docs.deepseek.com/zh-cn/guides/thinking_mode).
@@ -14,6 +14,25 @@ class Attachment(BaseModel):
     content: str = ""
     file_path: str | None = None
     size: int | None = None
+
+
+class MentionRef(BaseModel):
+    """消息里的 `@文件` / `/技能` 引用（结构化）。
+
+    后端只信这个数组，不从消息正文反向抽取；旧客户端可能直接传路径
+    字符串列表，由 before 校验器归一为 `type="file"`。
+    """
+
+    type: Literal["file", "skill"] = "file"
+    path: str | None = None
+    name: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_legacy_string(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return {"type": "file", "path": value}
+        return value
 
 
 class StreamChatRequest(BaseModel):
@@ -28,6 +47,8 @@ class StreamChatRequest(BaseModel):
     # 用于让 SVG/图表等定色产物匹配当前外观；缺省或非法值服务端回落 "dark"。
     ui_theme: str | None = None
     attachments: list[Attachment] = []
+    # 输入框里 `@文件` / `/技能` 的显式引用（结构化传参，非正文解析）
+    mentions: list[MentionRef] = []
     model_id: str | None = None
     # Per-request tool-calling override ("native" / "react"); only for
     # debugging/A-B comparison. Absent means the model entry decides.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -32,7 +33,9 @@ from ..schemas import (
     StreamChatRequest,
 )
 from ..sse import error_event, sse_event
+from .mention_skills import resolve_skill_mentions
 from .terminal import resolve_terminal_answer
+from .workspace_files import ensure_within
 
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger("divine.chat")
@@ -94,6 +97,101 @@ def _extract_file_url_attachments(
         )
         cleaned = cleaned.replace(url, "")
     return cleaned.strip(), attachments
+
+
+# 单条消息注入的引用文件数量上限：超出的只列前 N 个（省 token）
+MAX_MENTION_FILES = 12
+
+
+def _iter_mentions(mentions: Iterable[object] | None) -> list[tuple[str, str]]:
+    """归一化 mentions：兼容旧格式（路径字符串）与结构化对象 / dict。"""
+    items: list[tuple[str, str]] = []
+    for raw in mentions or ():
+        if isinstance(raw, str):
+            if raw.strip():
+                items.append(("file", raw.strip()))
+            continue
+        if isinstance(raw, dict):
+            kind = str(raw.get("type") or "file")
+            value = raw.get("path") if kind == "file" else raw.get("name")
+        else:
+            kind = str(getattr(raw, "type", None) or "file")
+            value = (
+                getattr(raw, "path", None)
+                if kind == "file"
+                else getattr(raw, "name", None)
+            )
+        if value and str(value).strip():
+            items.append((kind, str(value).strip()))
+    return items
+
+
+def _format_size(size: int) -> str:
+    """把字节数格式化为便于阅读的短字符串。"""
+    if size < 1024:
+        return f"{size} B"
+    if size < 1024 * 1024:
+        return f"{size / 1024:.1f} KB"
+    return f"{size / (1024 * 1024):.1f} MB"
+
+
+def _build_mention_context(
+    mentions: Iterable[object] | None,
+    workspace: Path | None,
+) -> tuple[str, list[str]]:
+    """把消息里的 `@文件` 引用渲染成注入模型的元数据段。
+
+    只注入相对路径与体积，不内联内容（内容由 agent 自己 read_file）；
+    越界、不存在、已失效的引用直接剔除，既不计入段落也不加入预授权路径。
+
+    返回 (注入段落, 有效文件绝对路径列表)；无有效引用时段落为空字符串。
+    技能引用（`/技能`）的注入策略见 P1b，本阶段先跳过。
+    """
+    files: list[tuple[str, int | None, bool]] = []
+    valid_paths: list[str] = []
+    invalid: list[str] = []
+    seen: set[str] = set()
+
+    for kind, value in _iter_mentions(mentions):
+        if kind != "file":
+            continue
+        if value in seen:
+            continue
+        seen.add(value)
+        resolved = ensure_within(workspace, value) if workspace else None
+        if resolved is None or not resolved.exists():
+            invalid.append(value)
+            continue
+        try:
+            size: int | None = int(resolved.stat().st_size)
+        except OSError:
+            size = None
+        files.append((value, size, resolved.is_dir()))
+        valid_paths.append(str(resolved))
+
+    if invalid:
+        logger.warning(
+            "剔除 %d 个失效的 @ 引用（不存在或越界）: %s", len(invalid), invalid
+        )
+    if not files:
+        return "", valid_paths
+
+    lines = [
+        "（用户通过 @ 显式引用了以下工作区文件，路径为工作区相对路径，"
+        "可直接用 read_file 读取，不要猜测其内容："
+    ]
+    for rel_path, size, is_dir in files[:MAX_MENTION_FILES]:
+        if is_dir:
+            lines.append(f"- {rel_path}/（目录）")
+        elif size is None:
+            lines.append(f"- {rel_path}")
+        else:
+            lines.append(f"- {rel_path}（{_format_size(size)}）")
+    omitted = len(files) - MAX_MENTION_FILES
+    if omitted > 0:
+        lines.append(f"- 其余 {omitted} 个引用已省略")
+    lines.append("）")
+    return "\n".join(lines), valid_paths
 
 
 @router.post("/stream_chat")
@@ -201,6 +299,20 @@ async def stream_chat(request: StreamChatRequest):
     workspace = Path(
         await asyncio.to_thread(db.session_workspace, session_id)
         or workspace_dir()
+    )
+    # @ 引用（P1a：文件元数据段）
+    mention_block, mention_files = _build_mention_context(
+        request.mentions, workspace
+    )
+    # / 技能引用（P1b）：强注入——knowledge 注入 SKILL.md 正文，
+    # executable 注入工具名 + 参数契约；失效技能剔除，超预算降级为硬指令
+    skill_injection = resolve_skill_mentions(
+        [
+            value
+            for kind, value in _iter_mentions(request.mentions)
+            if kind == "skill"
+        ],
+        workspace,
     )
     # 本地预整理：长文本先由本地模型整理成结构化版本，原文转存附件
     # （见 docs/design/005-preprocess-20260829.md；失败/不可用一律原样上云）
@@ -364,16 +476,20 @@ async def stream_chat(request: StreamChatRequest):
     if original_attachment is not None:
         approved_paths.append(str(original_attachment))
     approved_paths.extend(preprocess_originals)
+    # @ 引用的文件同样预授权：agent 可直接 read_file，无需外部文件确认
+    approved_paths.extend(mention_files)
     # 本地整理被触发但失败 → 询问用户是否仍走云端（避免静默烧 token）
     preprocess_attempted_fail = (
         attempted_question and not organized
     ) or attachment_attempted_fail
     logger.info(
-        "chat request session=%s question_len=%d attachments=%d think=%s "
-        "effort=%s history=%d model_id=%s tool_mode=%s",
+        "chat request session=%s question_len=%d attachments=%d mentions=%d "
+        "skills=%s think=%s effort=%s history=%d model_id=%s tool_mode=%s",
         session_id,
         len(question),
         len(request.attachments),
+        len(request.mentions),
+        skill_injection.names,
         request.think,
         request.reasoning_effort,
         len(history),
@@ -427,7 +543,8 @@ async def stream_chat(request: StreamChatRequest):
             else:
                 # 带附件时不做本地能力路由（task=None → 走云端 agent）
                 task = None
-                if not request.attachments:
+                # @ 引用涉及文件读取，与附件同款：跳过本地能力路由，交云端 agent
+                if not request.attachments and not mention_files:
                     # 用原始文本检测本地任务（扩展后文本可能超长导致误判），
                     # 但传给模型的仍是扩展后文本（含上下文补全）。
                     task = _detect_local_task(
@@ -528,6 +645,15 @@ async def stream_chat(request: StreamChatRequest):
                             # 本地拒答 → 不落库、不提示，继续往下走云端模型回答；
                             # 挂"转云端"标记，云端回答落库时记 source='local_fallback'
                             db.mark_fallback_pending(session_id)
+
+            # 引用上下文前置到本轮问题（历史与数据库仍存原文）：
+            # 顺序固定为「先技能（决定方法），后文件（决定材料）」
+            mention_prefix = "\n".join(
+                part for part in (skill_injection.block, mention_block) if part
+            )
+            if mention_prefix:
+                model_question = f"{mention_prefix}\n{model_question}"
+                model_history = _replace_last_user(history, model_question)
 
             # 本地整理被触发但失败 → 询问用户是否走云端（复用终端审批机制：
             # create_terminal_decision + POST /api/terminal/decide，前端零改动提交）
@@ -632,6 +758,7 @@ async def stream_chat(request: StreamChatRequest):
                 approved_paths=approved_paths,
                 tool_mode=request.tool_mode,
                 ui_theme=ui_theme,
+                mention_skills=skill_injection.names,
             ):
                 yield event
             # 兜底清理：云端没产出 assistant 消息时，转云端标记不泄漏到下一轮

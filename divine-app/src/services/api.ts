@@ -5,6 +5,8 @@ import type {
   CompactResult,
   ContextUsage,
   McpServerStatus,
+  MentionCandidate,
+  MentionKind,
   Message,
   Project,
   Session,
@@ -244,6 +246,37 @@ export function getWorkspace(): Promise<{
   categories: WorkspaceCategory[];
 }> {
   return request("/files");
+}
+
+export function listMentionCandidates(params: {
+  q?: string;
+  sessionId?: string | null;
+  kinds?: MentionKind[];
+  limit?: number;
+  signal?: AbortSignal;
+}): Promise<{ workspace: string | null; items: MentionCandidate[]; truncated: boolean }> {
+  const search = new URLSearchParams();
+  if (params.q) search.set("q", params.q);
+  if (params.sessionId) search.set("session_id", params.sessionId);
+  if (params.kinds?.length) search.set("kinds", params.kinds.join(","));
+  if (params.limit) search.set("limit", String(params.limit));
+  const query = search.toString();
+  return request(`/workspace/mentions${query ? `?${query}` : ""}`, {
+    signal: params.signal,
+  });
+}
+
+/**
+ * 会话可见的**全部**技能名（无候选上限）。
+ *
+ * 消息气泡用它判断正文里的 `/xxx` 是不是真技能：候选接口按上限截断，只能保证"弹层
+ * 可见的前 N 条"，拿它做全集会把超出上限的真技能误降级成普通文本。
+ */
+export function listSkillNames(
+  sessionId?: string | null,
+): Promise<{ workspace: string | null; names: string[] }> {
+  const query = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : "";
+  return request(`/workspace/skill-names${query}`);
 }
 
 export function downloadUrl(url: string): string {

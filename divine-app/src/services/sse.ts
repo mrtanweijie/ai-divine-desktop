@@ -18,7 +18,7 @@ export interface SSEHandlers {
   subagent?: (data: SubAgentSSEData) => void;
   scheduled_tasks_changed?: (data: { tasks: Record<string, unknown>[] }) => void;
   calendar_events_changed?: (data: { events: Record<string, unknown>[] }) => void;
-  done?: (data: { message: string }) => void;
+  done?: (data: { message: string; unused_mentions?: string[] }) => void;
   error?: (data: {
     code: string;
     message: string;

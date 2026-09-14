@@ -29,12 +29,28 @@ import type {
   ApprovalMode,
   ChatFile,
   ChatMessage,
+  MentionRef,
   Project,
   Session,
   SubAgentItem,
   TodoItem,
   ToolEvent,
 } from "@/types";
+
+// `/技能` 未被真正使用的提示要挂在**本轮回复**上（方案 025 §3.3 校验闭环）：
+// done 后会话会从服务端整段恢复，消息 id 换成服务端 id，所以统一按
+// “最后一条 assistant 消息”回填，避免提示落空。
+function attachUnusedMentions(messages: ChatMessage[], unused: string[]): ChatMessage[] {
+  if (!unused.length) return messages;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === "assistant") {
+      const next = [...messages];
+      next[index] = { ...next[index], unused_mentions: unused };
+      return next;
+    }
+  }
+  return messages;
+}
 
 interface UseChatStreamOptions {
   selectedId: string | null;
@@ -236,8 +252,9 @@ export function useChatStream(options: UseChatStreamOptions) {
         calendar_events_changed: () => {
           emitEventsChanged();
         },
-        done: async () => {
+        done: async (payload: { message: string; unused_mentions?: string[] }) => {
           buffer.flush();
+          const unusedMentions = payload.unused_mentions ?? [];
           setSessionMessages(sessionId, (prev) =>
             prev.map((message) =>
               message.id === assistantId
@@ -246,6 +263,7 @@ export function useChatStream(options: UseChatStreamOptions) {
                     streaming: false,
                     thinking: false,
                     preprocess_pending: false,
+                    unused_mentions: unusedMentions,
                   }
                 : message,
             ),
@@ -257,7 +275,9 @@ export function useChatStream(options: UseChatStreamOptions) {
               data.tool_runs ?? [],
               data.todos,
             );
-            setSessionMessages(sessionId, (prev) => mergeLocalTools(prev, restored));
+            setSessionMessages(sessionId, (prev) =>
+              attachUnusedMentions(mergeLocalTools(prev, restored), unusedMentions),
+            );
             setHasMoreOlder(false);
             setOldestMessageId(null);
           }
@@ -322,7 +342,7 @@ export function useChatStream(options: UseChatStreamOptions) {
   );
 
   const sendMessage = useCallback(
-    async (question: string, files: ChatFile[], effort: string) => {
+    async (question: string, files: ChatFile[], mentions: MentionRef[], effort: string) => {
       // "off" disables deep thinking; any other value enables it at that
       // reasoning effort level.
       const think = effort !== "off";
@@ -399,6 +419,8 @@ export function useChatStream(options: UseChatStreamOptions) {
               size: file.size,
               ...(file.path ? { file_path: file.path } : { content: file.content ?? "" }),
             })),
+            // `@文件` / `/技能` 的结构化引用：后端只信这里，不从正文反向解析
+            ...(mentions.length > 0 ? { mentions } : {}),
           }),
         });
         await consumeSSE(response, handlers);

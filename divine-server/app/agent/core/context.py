@@ -82,3 +82,6 @@ class AgentRunContext:
     # 当前 run 的模型调用轮次（TurnCounterMiddleware 维护）。
     # tool 事件携带它，前端据此把工具调用按轮次分组展示。
     turn_index: int = 0
+    # 本轮被用户用 `/技能` 显式指定的技能名（顺序无关）：既用于结束时校验
+    # “技能是否真的被使用”（unused_mentions），也用于把能力技能透传给子 agent。
+    mention_skills: frozenset[str] = frozenset()

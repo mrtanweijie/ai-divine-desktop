@@ -1,22 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Braces,
-  ChevronRight,
-  Database,
-  FileArchive,
-  FileCode,
-  FileCog,
-  FileImage,
-  FileKey,
-  FileMusic,
-  FileSpreadsheet,
-  FileTerminal,
-  FileText,
-  FileVideoCamera,
-  Folder,
-  FolderOpen,
-  Presentation,
-} from "lucide-react";
+import { ChevronRight, Folder, FolderOpen } from "lucide-react";
+import { FileTypeIcon } from "@/components/FileTypeIcon";
 import { getDirChildren, getFileTree, isTauri, listenWorkspaceChanges } from "@/services/tauri";
 import { useTranslation } from "react-i18next";
 import type { WorkspaceFileNode } from "@/types";
@@ -45,84 +29,6 @@ interface TreeNodeProps {
   onSelectFile: (relPath: string) => void;
   depth: number;
   expandTo?: string | null;
-}
-
-function fileIcon(name: string) {
-  const lower = name.toLowerCase();
-  const ext = lower.split(".").pop() ?? "";
-
-  if (
-    name === "Dockerfile" ||
-    name === "Makefile" ||
-    lower === "dockerfile" ||
-    lower === "makefile"
-  ) {
-    return <FileCog size={14} />;
-  }
-  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "avif"].includes(ext)) {
-    return <FileImage size={14} />;
-  }
-  if (["zip", "tar", "gz", "7z", "rar", "xz", "bz2"].includes(ext)) {
-    return <FileArchive size={14} />;
-  }
-  if (["mp3", "wav", "flac", "aac", "ogg", "m4a"].includes(ext)) {
-    return <FileMusic size={14} />;
-  }
-  if (["mp4", "mov", "avi", "mkv", "webm", "flv"].includes(ext)) {
-    return <FileVideoCamera size={14} />;
-  }
-  if (["xlsx", "xls", "csv", "tsv"].includes(ext)) {
-    return <FileSpreadsheet size={14} />;
-  }
-  if (["ppt", "pptx", "key"].includes(ext)) {
-    return <Presentation size={14} />;
-  }
-  if (["db", "sqlite", "sqlite3", "sql"].includes(ext)) {
-    return <Database size={14} />;
-  }
-  if (["sh", "bash", "zsh", "ps1", "bat", "cmd"].includes(ext)) {
-    return <FileTerminal size={14} />;
-  }
-  if (["env", "secret", "pem", "crt", "key"].includes(ext)) {
-    return <FileKey size={14} />;
-  }
-  if (["json", "yaml", "yml", "toml", "ini"].includes(ext)) {
-    return <Braces size={14} />;
-  }
-  if (
-    [
-      "ts",
-      "tsx",
-      "js",
-      "jsx",
-      "py",
-      "rs",
-      "go",
-      "java",
-      "c",
-      "h",
-      "cpp",
-      "hpp",
-      "cs",
-      "rb",
-      "php",
-      "swift",
-      "kt",
-      "lua",
-      "r",
-      "vue",
-      "svelte",
-    ].includes(ext)
-  ) {
-    return <FileCode size={14} />;
-  }
-  if (["html", "htm", "xml", "css", "scss", "less"].includes(ext)) {
-    return <FileCode size={14} />;
-  }
-  if (["md", "markdown", "txt", "rtf", "log"].includes(ext)) {
-    return <FileText size={14} />;
-  }
-  return <FileText size={14} />;
 }
 
 function TreeNode({
@@ -226,7 +132,7 @@ function TreeNode({
             <Folder size={14} className="file-tree-folder-icon" />
           )
         ) : (
-          fileIcon(node.name)
+          <FileTypeIcon name={node.name} />
         )}
         <span className="file-tree-name">{node.name}</span>
         {loading && <span className="file-tree-loading" />}

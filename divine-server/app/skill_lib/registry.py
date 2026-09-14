@@ -21,6 +21,26 @@ class SkillRegistry:
         project_root: Path | None = None,
         project_roots: list[Path] | None = None,
     ) -> list[dict[str, Any]]:
+        """扫描技能并**写入单例状态**，供 agent 每轮调用。"""
+        self._skills = self.scan(project_root, project_roots)
+        logger.info(
+            "skills refreshed count=%d project_root=%s",
+            len(self._skills),
+            project_root,
+        )
+        return self.list()
+
+    def scan(
+        self,
+        project_root: Path | None = None,
+        project_roots: list[Path] | None = None,
+    ) -> dict[str, SkillMeta]:
+        """扫描技能目录并返回结果，**不修改单例状态**。
+
+        候选接口（`GET /api/workspace/mentions`）可能属于与 agent 当前运行会话
+        不同的 workspace；若复用 `refresh()`，两边会互相覆盖 `_skills`——
+        这正是「前端能选、agent 用不了」（见 025 方案 3.1 ①）的根因之一。
+        """
         roots: list[tuple[Path, str]] = []
         seen_projects: set[Path] = set()
         for root in project_roots or []:
@@ -47,13 +67,7 @@ class SkillRegistry:
                 meta = _parse_skill(skill_dir, source)
                 if meta is not None:
                     skills[meta.name] = meta
-        self._skills = skills
-        logger.info(
-            "skills refreshed count=%d project_root=%s",
-            len(skills),
-            project_root,
-        )
-        return self.list()
+        return skills
 
     def list(self) -> list[dict[str, Any]]:
         return [meta.as_dict() for meta in self._skills.values()]

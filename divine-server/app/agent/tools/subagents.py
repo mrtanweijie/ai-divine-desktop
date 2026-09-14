@@ -47,8 +47,9 @@ from ...skills import skill_registry
 from ...tools.registry import registry
 from ..core import AgentRunContext, canonical_path
 from ..core import _build_llm
-from ..state import _extract_final_content
 from ..core import _make_args_model
+from ..core import _run_skill_script, _skill_args_model, _skill_tool_name
+from ..state import _extract_final_content
 
 logger = logging.getLogger("divine.agent.subagents")
 
@@ -567,6 +568,42 @@ def _build_subagent_tools(
             )
         )
         break
+    # 本轮被 `/` 指定的能力技能强制透传（方案 025 §3.4）：子 agent 默认只暴露
+    # 只读工具，若本轮引用了 executable 技能而不放行，技能在委派场景会静默失效。
+    for skill in skill_registry.executable_skills():
+        if skill.name not in ctx.mention_skills or skill.script_path is None:
+            continue
+        tool_name = _skill_tool_name(skill.name)
+        if any(tool.name == tool_name for tool in tools):
+            continue
+
+        async def call_skill(
+            params: dict[str, Any] | None = None,
+            args: list[str] | None = None,
+            timeout: int | None = None,
+            _skill: Any = skill,
+        ) -> Any:
+            return await asyncio.to_thread(
+                _run_skill_script,
+                _skill.script_path,
+                _skill.dir,
+                _skill.script_mode,
+                params,
+                args,
+                timeout,
+            )
+
+        tools.append(
+            StructuredTool.from_function(
+                coroutine=call_skill,
+                name=tool_name,
+                description=(
+                    f"[本轮 / 指定] 执行能力型技能 {skill.name}的执行脚本。"
+                    f"{skill.description}"
+                ),
+                args_schema=_skill_args_model(skill.name, skill.script_mode),
+            )
+        )
     return tools
 
 
@@ -586,6 +623,7 @@ async def _run_subagent(
         effort=ctx.effort,
         model_id=ctx.model_id,
         cancel_event=ctx.cancel_event,
+        mention_skills=ctx.mention_skills,
     )
     lock = asyncio.Lock()
     changes: list[dict[str, Any]] = []

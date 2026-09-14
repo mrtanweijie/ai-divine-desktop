@@ -656,7 +656,8 @@ export default function ChatPage() {
     (text: string) => {
       if (!selectedId) return;
       void sendSupplement(selectedId, text).then((ok) => {
-        if (!ok) void sendMessage(text, [], composerEffort);
+        // 降级发送不携带引用：插话是纯文本通道
+        if (!ok) void sendMessage(text, [], [], composerEffort);
       });
     },
     [selectedId, sendSupplement, sendMessage, composerEffort],
@@ -674,7 +675,7 @@ export default function ChatPage() {
   const chatStreamValue = useMemo(
     () => ({
       sendMessage: (question: string, files: ChatFile[] = [], effort?: string) => {
-        void sendMessage(question, files, effort ?? composerEffort);
+        void sendMessage(question, files, [], effort ?? composerEffort);
       },
       effort: composerEffort,
     }),
@@ -886,7 +887,9 @@ export default function ChatPage() {
                   </div>
                 ) : undefined
               }
-              onSend={(question, files) => void sendMessage(question, files, composerEffort)}
+              onSend={(question, files, mentions) =>
+                void sendMessage(question, files, mentions, composerEffort)
+              }
               onStop={handleStopStreaming}
               onPreviewFile={handlePreviewFile}
             />

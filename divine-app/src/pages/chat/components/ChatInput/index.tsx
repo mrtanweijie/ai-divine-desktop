@@ -1,4 +1,4 @@
-import { ArrowUp, ChevronDown, FileText, Plus, ShieldCheck, Square, X } from "lucide-react";
+import { ArrowUp, ChevronDown, Plus, ShieldCheck, Square, X } from "lucide-react";
 import {
   forwardRef,
   useEffect,
@@ -13,15 +13,52 @@ import { useTranslation } from "react-i18next";
 import { isComposingEvent } from "@/config/keymap";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
+import { FileTypeIcon } from "@/components/FileTypeIcon";
 import { Flex } from "@/components/ui/Flex";
 import { TextArea } from "@/components/ui/TextArea";
-import type { ApprovalMode, ChatFile, ModelConfig, PreviewFile } from "@/types";
+import type {
+  ApprovalMode,
+  ChatFile,
+  MentionCandidate,
+  MentionKind,
+  MentionRef,
+  ModelConfig,
+  PreviewFile,
+} from "@/types";
 import { isTauri, savePasteFile, savePasteImage, savePasteText } from "@/services/tauri";
+import { listMentionCandidates } from "@/services/api";
 import { formatSize } from "@/utils";
+import { MentionPopup } from "../MentionPopup";
 import { ModelEffortControl } from "./ModelEffortControl";
 import { ContextRingButton } from "./ContextRingButton";
 
 import "./index.less";
+
+/** 已插入输入框的引用：token 文本与提交值分离，发送时按 token 是否仍在正文里判定存活。 */
+interface MentionToken {
+  kind: MentionKind;
+  /** 输入框中的字面文本，如 `@src/a.tsx` 或 `@"my docs/a.md"` */
+  text: string;
+  /** 提交值：文件为工作区相对路径，技能为名称 */
+  value: string;
+}
+
+/** `@` / `/` 候选浮层状态。 */
+interface MentionCandidateState {
+  kind: MentionKind;
+  query: string;
+  /** token 起点（`@` / `/` 的下标） */
+  start: number;
+  /** 触发时的光标位置 */
+  end: number;
+  items: MentionCandidate[];
+  activeIndex: number;
+  loading: boolean;
+}
+
+const MENTION_DEBOUNCE_MS = 300;
+const MENTION_LIMIT = 8;
+
 const PASTE_AS_FILE_CHAR_THRESHOLD = 2000;
 const PASTE_AS_FILE_LINE_THRESHOLD = 500;
 
@@ -41,7 +78,7 @@ interface ComposerProps {
   streaming?: boolean;
   /** 流式执行中用户主动补充信息（steering）；纯文本，附件不参与 */
   onSupplement?: (text: string) => void;
-  onSend: (question: string, files: ChatFile[]) => void;
+  onSend: (question: string, files: ChatFile[], mentions: MentionRef[]) => void;
   onStop?: () => void;
   onPreviewFile?: (file: PreviewFile) => void;
   onValueChange?: (hasValue: boolean) => void;
@@ -91,6 +128,11 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(function
   };
   const [value, setValue] = useState("");
   const [attached, setAttached] = useState<ChatFile[]>([]);
+  const [mentions, setMentions] = useState<MentionToken[]>([]);
+  const [candidate, setCandidate] = useState<MentionCandidateState | null>(null);
+  const composingRef = useRef(false);
+  const mentionTimerRef = useRef<number | null>(null);
+  const mentionAbortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const localRef = useRef<HTMLTextAreaElement>(
     null,
@@ -140,6 +182,95 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(function
     textareaRef.current?.focus();
   }, [onPrefillConsumed, onValueChange, prefill, textareaRef]);
 
+  const closeCandidate = () => {
+    if (mentionTimerRef.current !== null) {
+      window.clearTimeout(mentionTimerRef.current);
+      mentionTimerRef.current = null;
+    }
+    mentionAbortRef.current?.abort();
+    mentionAbortRef.current = null;
+    setCandidate(null);
+  };
+
+  useEffect(() => {
+    // 会话切换后工作区可能已变，旧候选与旧 token 一并作废
+    setMentions([]);
+    setCandidate(null);
+    if (mentionTimerRef.current !== null) {
+      window.clearTimeout(mentionTimerRef.current);
+      mentionTimerRef.current = null;
+    }
+    mentionAbortRef.current?.abort();
+    mentionAbortRef.current = null;
+  }, [sessionId]);
+
+  const loadCandidates = (kind: MentionKind, query: string, start: number) => {
+    if (mentionTimerRef.current !== null) window.clearTimeout(mentionTimerRef.current);
+    mentionTimerRef.current = window.setTimeout(() => {
+      mentionTimerRef.current = null;
+      mentionAbortRef.current?.abort();
+      const controller = new AbortController();
+      mentionAbortRef.current = controller;
+      void listMentionCandidates({
+        q: query,
+        sessionId,
+        kinds: [kind],
+        limit: MENTION_LIMIT,
+        signal: controller.signal,
+      })
+        .then((data) => {
+          setCandidate((prev) =>
+            prev && prev.start === start
+              ? { ...prev, items: data.items, loading: false, activeIndex: 0 }
+              : prev,
+          );
+        })
+        .catch(() => {
+          setCandidate((prev) =>
+            prev && prev.start === start ? { ...prev, items: [], loading: false } : prev,
+          );
+        });
+    }, MENTION_DEBOUNCE_MS);
+  };
+
+  const mentionText = (kind: MentionKind, target: string) => {
+    if (kind === "skill") return `/${target}`;
+    // 含空格的路径用引号包裹，避免插入后又被空白切成两个 token
+    return /\s/.test(target) ? `@"${target}"` : `@${target}`;
+  };
+
+  const applyMention = (item: MentionCandidate) => {
+    if (!candidate) return;
+    const token: MentionToken = {
+      kind: candidate.kind,
+      text: mentionText(candidate.kind, item.path),
+      value: item.path,
+    };
+    const next = `${value.slice(0, candidate.start)}${token.text} ${value.slice(candidate.end)}`;
+    const caret = candidate.start + token.text.length + 1;
+    setValue(next);
+    onValueChange?.(next.trim().length > 0);
+    setMentions((prev) => [...prev.filter((entry) => entry.text !== token.text), token]);
+    closeCandidate();
+    window.requestAnimationFrame(() => {
+      const element = textareaRef.current;
+      if (!element) return;
+      element.focus();
+      element.setSelectionRange(caret, caret);
+    });
+  };
+
+  /** 发送前按「token 文本仍在正文里」判定存活，失效项剔除；顺序为先技能后文件。 */
+  const liveMentions = (text: string): MentionRef[] =>
+    mentions
+      .filter((token) => text.includes(token.text))
+      .map((token) =>
+        token.kind === "skill"
+          ? { type: "skill" as const, name: token.value }
+          : { type: "file" as const, path: token.value },
+      )
+      .sort((a, b) => (a.type === b.type ? 0 : a.type === "skill" ? -1 : 1));
+
   const send = () => {
     const question = value.trim();
     if (!question && attached.length === 0) return;
@@ -151,9 +282,11 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(function
       return;
     }
     if (disabled) return;
-    onSend(question, attached);
+    onSend(question, attached, liveMentions(value));
     setValue("");
     setAttached([]);
+    setMentions([]);
+    closeCandidate();
   };
 
   const attachmentKey = (file: ChatFile) =>
@@ -282,6 +415,18 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(function
     <div className="composer-wrap">
       {projectPicker}
       <Flex direction="column" className="composer">
+        {candidate && (
+          <MentionPopup
+            kind={candidate.kind}
+            items={candidate.items}
+            activeIndex={candidate.activeIndex}
+            loading={candidate.loading}
+            onHover={(index) =>
+              setCandidate((prev) => (prev ? { ...prev, activeIndex: index } : prev))
+            }
+            onSelect={applyMention}
+          />
+        )}
         <TextArea
           ref={setRefs}
           value={value}
@@ -291,11 +436,57 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(function
             const next = event.target.value;
             setValue(next);
             onValueChange?.(next.trim().length > 0);
+            // 输入法合成期间不弹候选，避免中文选词时浮层乱跳
+            if (composingRef.current) return;
+            const caret = event.target.selectionStart ?? next.length;
+            const trigger = detectMentionTrigger(next, caret);
+            if (!trigger) {
+              closeCandidate();
+              return;
+            }
+            setCandidate({ ...trigger, items: [], activeIndex: 0, loading: true });
+            loadCandidates(trigger.kind, trigger.query, trigger.start);
+          }}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onCompositionEnd={() => {
+            composingRef.current = false;
           }}
           onPaste={(event) => void handlePaste(event)}
           onKeyDown={(event) => {
             // 输入法合成态（中文选词确认的回车）不发送，避免误发消息
             if (isComposingEvent(event.nativeEvent)) return;
+            // 候选浮层打开时接管导航键：Enter/Tab 变为“确认引用”
+            if (candidate && candidate.items.length > 0) {
+              const total = candidate.items.length;
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setCandidate({
+                  ...candidate,
+                  activeIndex: (candidate.activeIndex + 1) % total,
+                });
+                return;
+              }
+              if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setCandidate({
+                  ...candidate,
+                  activeIndex: (candidate.activeIndex - 1 + total) % total,
+                });
+                return;
+              }
+              if ((event.key === "Enter" || event.key === "Tab") && !event.shiftKey) {
+                event.preventDefault();
+                applyMention(candidate.items[candidate.activeIndex]);
+                return;
+              }
+            }
+            if (event.key === "Escape" && candidate) {
+              event.preventDefault();
+              closeCandidate();
+              return;
+            }
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
               send();
@@ -307,7 +498,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(function
           <Flex direction="column" gap={6} className="attachment-chips">
             {attached.map((file) => (
               <Flex key={attachmentKey(file)} align="center" gap={6} className="attachment-chip">
-                <FileText size={13} />
+                <FileTypeIcon name={file.name} size={13} />
                 <span
                   className={
                     file.path && onPreviewFile
@@ -468,6 +659,29 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ComposerProps>(function
     </div>
   );
 });
+
+/**
+ * 光标前是否是 `@` / `/` 触发点：前缀必须是行首或空白（设计 §1.3），
+ * 因此 `https://x` 里的 `/` 不会误触发。含空格路径用 `@"..."` 形式。
+ */
+function detectMentionTrigger(
+  text: string,
+  caret: number,
+): { kind: MentionKind; query: string; start: number; end: number } | null {
+  const before = text.slice(0, caret);
+  const quoted = /(^|\s)@"([^"\n]*)$/.exec(before);
+  if (quoted) {
+    return { kind: "file", query: quoted[2], start: caret - quoted[2].length - 2, end: caret };
+  }
+  const plain = /(^|\s)([@/])([^\s@/\n]*)$/.exec(before);
+  if (!plain) return null;
+  return {
+    kind: plain[2] === "/" ? "skill" : "file",
+    query: plain[3],
+    start: caret - plain[3].length - 1,
+    end: caret,
+  };
+}
 
 /** Persist a pasted clipboard image locally and return its saved location. */
 async function savePastedImage(blob: Blob): Promise<{ name: string; path: string; size: number }> {

@@ -99,6 +99,48 @@
 .user-text {
   white-space: pre-wrap;
 }
+/* 气泡内引用：@路径=链接样式，/技能=等宽胶囊（仅展示，不影响复制与落库的原文） */
+.user-mention {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 2px;
+  padding: 4px 8px;
+  line-height: 1.5;
+  /* 基线对齐：胶囊首子元素是图标（原子元素，基线=其下边缘），实测胶囊中心正好落在
+     同行文字的 em 中心上（差 0px）。原为 `vertical-align: -2px` 的魔法值，胶囊加边框后
+     整体偏低 2px——不要改回固定 px，改动图标尺寸后需重新实测（见 docs/fix/003 §11）。 */
+  vertical-align: baseline;
+}
+/* 文件引用：与技能胶囊同一形态（圆角描边胶囊），只靠强调色 + 无底色区分
+   （气泡本身已有底色，再叠一层填充会脏——2026-09-14 评审） */
+.user-mention-file {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+}
+.user-mention-file--link {
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+/* hover 只让图标与文字变色（图标走 currentColor）：胶囊形态下再画下划线会和描边打架 */
+.user-mention-file--link:hover {
+  color: var(--color-accent-hover);
+}
+.user-mention-file--link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.user-mention-skill {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+}
 .user-supplement-badge {
   /* .user-content 是 inline-block：fit-content + margin-left:auto 右对齐 */
   display: flex;
@@ -1436,6 +1478,23 @@
   font-size: 13px;
 }
 .message-error svg {
+  flex: none;
+}
+
+/* `/技能` 引用本轮未被真正执行时的软提示（方案 025 §3.3 校验闭环）。 */
+.message-mention-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(230, 162, 60, 0.28);
+  border-radius: var(--radius-sm);
+  background: rgba(230, 162, 60, 0.08);
+  color: var(--color-warning, #d99a2b);
+  font-size: 13px;
+}
+.message-mention-hint svg {
   flex: none;
 }
 

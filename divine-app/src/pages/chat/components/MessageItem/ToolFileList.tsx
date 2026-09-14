@@ -3,12 +3,12 @@ import { memo } from "react";
 import { Eye, FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
+import { FileTypeIcon } from "@/components/FileTypeIcon";
 import { downloadUrl } from "@/services/api";
 import { isTauri, openFileLocation } from "@/services/tauri";
 import { toWorkspaceRelative } from "@/services/workspace";
 import type { PreviewFile, ToolEvent } from "@/types";
 import { formatSize } from "@/utils";
-import { fileIcon } from "./MessageHelpers";
 
 export const ToolFileList = memo(function ToolFileList({
   tool,
@@ -49,7 +49,7 @@ export const ToolFileList = memo(function ToolFileList({
                 }
               }}
             >
-              {fileIcon(file)}
+              <FileTypeIcon name={file.path || file.name} />
               <span className="file-name">{file.name}</span>
               {file.size != null && <span className="file-size">{formatSize(file.size)}</span>}
               {/* 图表 SVG 统一落在 <workspace>/charts/，逐行重复全路径是纯噪音 */}

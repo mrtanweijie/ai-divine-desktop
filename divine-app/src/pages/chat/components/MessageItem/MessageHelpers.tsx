@@ -2,7 +2,6 @@
 import type { ReactNode } from "react";
 import {
   BarChart3,
-  BookMarked,
   ChartBar,
   ChartCandlestick,
   ChartLine,
@@ -10,14 +9,8 @@ import {
   ChartPie,
   ChartScatter,
   Donut,
-  FileCode,
-  FileSpreadsheet,
-  FileStack,
-  FileText,
   Funnel,
   Gauge,
-  Image,
-  Presentation,
   Radar,
 } from "lucide-react";
 import i18next from "@/i18n";
@@ -365,58 +358,6 @@ export function toolFiles(tool: ToolEvent): ToolFileLink[] {
 export function toolCommands(tool: ToolEvent): string[] {
   if (tool.commands?.length) return tool.commands;
   return tool.command ? [tool.command] : [];
-}
-
-export function fileIcon(file: ToolFileLink): ReactNode {
-  const source = file.path || file.name || "";
-  const ext = source.includes(".") ? (source.split(".").pop()?.toLowerCase() ?? "") : "";
-  if (
-    [
-      "rs",
-      "py",
-      "ts",
-      "tsx",
-      "js",
-      "jsx",
-      "go",
-      "java",
-      "c",
-      "h",
-      "cpp",
-      "rb",
-      "sh",
-      "toml",
-      "yaml",
-      "yml",
-      "json",
-      "css",
-      "scss",
-      "html",
-      "vue",
-      "svelte",
-    ].includes(ext)
-  ) {
-    return <FileCode size={14} />;
-  }
-  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"].includes(ext)) {
-    return <Image size={14} />;
-  }
-  if (["xlsx", "xls", "csv", "numbers"].includes(ext)) {
-    return <FileSpreadsheet size={14} />;
-  }
-  if (["pptx", "ppt", "key"].includes(ext)) {
-    return <Presentation size={14} />;
-  }
-  if (["docx", "doc", "pages"].includes(ext)) {
-    return <BookMarked size={14} />;
-  }
-  if (["pdf"].includes(ext)) {
-    return <FileStack size={14} />;
-  }
-  if (["md", "markdown", "txt", "rst"].includes(ext)) {
-    return <FileText size={14} />;
-  }
-  return <FileText size={14} />;
 }
 
 export async function openToolUrl(url: string): Promise<void> {
