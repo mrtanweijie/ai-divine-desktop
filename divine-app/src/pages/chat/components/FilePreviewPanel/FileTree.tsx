@@ -8,6 +8,16 @@ import type { WorkspaceFileNode } from "@/types";
 const treeCache = new Map<string, WorkspaceFileNode[]>();
 const dirCache = new Map<string, WorkspaceFileNode[]>();
 
+/**
+ * 工作区变更的合并窗口。
+ *
+ * 一轮代码任务会连续写/改多个文件，`workspace:changed` 会密集触发。
+ * 此前每次变更都立刻 `treeCache.delete()` + `dirCache.clear()` + 重载整棵树，
+ * 一次任务能触发十余轮全量刷新——而每次刷新在 Tauri 侧都要遍历目录。
+ * 用 200ms 窗口把一串变更收敛成一次刷新。
+ */
+const WORKSPACE_RELOAD_DEBOUNCE_MS = 200;
+
 function normalizePath(value: string): string {
   return value.replace(/\\/g, "/").replace(/\/+$/, "");
 }
@@ -189,6 +199,8 @@ export function FileTree({
     };
     load();
     let unlisten: (() => void) | undefined;
+    // 变更合并窗口（见 WORKSPACE_RELOAD_DEBOUNCE_MS 说明）
+    let reloadTimer: number | undefined;
     void listenWorkspaceChanges((payload) => {
       const changed = normalizePath(payload.path);
       // 忽略 git 元数据与系统文件：hover GitInfoCard 时服务端跑 git status
@@ -199,15 +211,21 @@ export function FileTree({
       if (changed.endsWith(".DS_Store")) return;
       const root = normalizePath(repoPath);
       if (changed !== root && !changed.startsWith(`${root}/`)) return;
-      treeCache.delete(repoPath);
-      dirCache.clear();
-      load();
+      if (reloadTimer !== undefined) window.clearTimeout(reloadTimer);
+      reloadTimer = window.setTimeout(() => {
+        reloadTimer = undefined;
+        if (!active) return;
+        treeCache.delete(repoPath);
+        dirCache.clear();
+        load();
+      }, WORKSPACE_RELOAD_DEBOUNCE_MS);
     }).then((stop) => {
       if (active) unlisten = stop;
       else stop();
     });
     return () => {
       active = false;
+      if (reloadTimer !== undefined) window.clearTimeout(reloadTimer);
       unlisten?.();
     };
   }, [repoPath]);

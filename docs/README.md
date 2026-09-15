@@ -50,6 +50,7 @@
 | 028 | [fix-pdf-module-style](fix/002-pdf-module-style-20260906.md) | 2026-09-06 | 已实施 |
 | 038 | [fix-mention-skill-false-positive](fix/003-mention-skill-false-positive-20260914.md) | 2026-09-14 | 已实施（技能集合校验 / 胶囊去前缀 / 浮层单标题 / 文件图标按后缀） |
 | 039 | [fix-session-page-collapse](fix/004-session-page-collapse-20260914.md) | 2026-09-14 | 已实施（待重建 sidecar 后在 app 内确认） |
+| 040 | [fix-tool-card-stuck-loading](fix/005-tool-card-stuck-loading-20260915.md) | 2026-09-15 | **已实施（工具卡状态收敛 + abort 结算；16 项断言通过）** |
 
 ### 复盘（review）
 
@@ -63,6 +64,7 @@
 | 025 | [review-capabilities-recheck](review/006-capabilities-recheck-20260905.md) | 2026-09-05 | **现行有效（最新能力复盘）** |
 | 033 | [review-architecture-analysis](review/007-architecture-analysis-20260912.md) | 2026-09-12 | 已归档（架构与功能分析） |
 | 034 | [review-pdf-template-ui-audit](review/008-pdf-template-ui-audit-20260913.md) | 2026-09-13 | **已实施（011–014 模板 UI 优化）** |
+| 036 | [review-app-freeze-diagnosis](review/009-app-freeze-diagnosis-20260915.md) | 2026-09-15 | **已实施（Tauri 同步命令 + 逐条目 git 子进程 → 批量 + 异步 + 防抖，实测 23.2×）** |
 
 ### 样张（sample），独立编号
 

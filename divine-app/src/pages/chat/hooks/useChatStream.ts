@@ -21,6 +21,7 @@ import {
   changedFilePathsFromResult,
   changedFileRel,
   mergeLocalTools,
+  settleInFlightTools,
   SUPPLEMENT_PREFIX,
   upsertSubAgent,
   upsertTool,
@@ -428,11 +429,18 @@ export function useChatStream(options: UseChatStreamOptions) {
         // 中断/网络错误时先把缓冲区里的增量落上屏，避免丢尾字
         buffer.flush();
         if (controller.signal.aborted) {
-          // 主动点击停止：中止连接，不显示错误，只结束流式态
+          // 主动点击停止：中止连接，不显示错误，只结束流式态。
+          // 在跑的工具必须一并结算：连接已断，它们收不到后续 done 事件，
+          // 不结算就会永久停在 loading（状态对齐刷新后的结果）。
           setSessionMessages(sessionId, (prev) =>
             prev.map((item) =>
               item.id === assistantMessage.id
-                ? { ...item, streaming: false, thinking: false }
+                ? {
+                    ...item,
+                    streaming: false,
+                    thinking: false,
+                    tools: settleInFlightTools(item.tools),
+                  }
                 : item,
             ),
           );

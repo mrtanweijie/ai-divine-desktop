@@ -148,12 +148,75 @@ export function upsertSubAgent(items: SubAgentItem[], next: SubAgentItem): SubAg
   return updated;
 }
 
+/** 仍在「进行中」的状态：这些状态在 ToolStatusCard 上显示 loading 图标 */
+export const UNSETTLED_TOOL_STATUSES: ReadonlySet<ToolEvent["status"]> = new Set([
+  "preparing",
+  "running",
+  "confirm",
+]);
+
+/**
+ * 把仍在进行中的工具卡结算为 error。
+ *
+ * 用于「用户主动停止」：SSE 连接已被 abort，在跑的工具收不到后续 done 事件，
+ * 不结算就会永久停在 loading（一直持续到刷新）。状态对齐「刷新后」的结果——
+ * 服务端把非 done 的 run 一律映射为 error（见 services/api.ts）。
+ * 无进行中条目时原样返回，避免无谓的重渲染。
+ */
+export function settleInFlightTools(tools: ToolEvent[]): ToolEvent[] {
+  if (!tools.some((tool) => UNSETTLED_TOOL_STATUSES.has(tool.status))) return tools;
+  return tools.map((tool) =>
+    UNSETTLED_TOOL_STATUSES.has(tool.status) ? { ...tool, status: "error" } : tool,
+  );
+}
+
+/**
+ * 把「本地仍显示进行中」的工具卡按服务端的权威状态收敛。
+ *
+ * 为什么需要：本地 tools 是 SSE 事件逐条攒出来的，而服务端恢复出的状态**只会是
+ * done / error**（见 services/api.ts 的 messagesToChatMessages）。此前 mergeLocalTools
+ * 无条件优先本地，于是**任何一条 done 事件丢失**（断流重连、竞态、标签页休眠）都会让
+ * 卡片永久停在 loading，一直持续到下次刷新——刷新后反而正常，因为那时走的是服务端状态。
+ *
+ * 匹配键用**工具名**而不是 call_id：两侧的 call_id 不是同一个标识
+ * （服务端是 tool_run 行 id，本地是 LLM 的 tool_call_id）。
+ * 同名多次调用时**按出现顺序一一对齐**——已结算的本地条目也要占掉一个服务端名额，
+ * 否则后面未结算的那个会错位拿到别人的状态。
+ */
+function settleToolStatuses(
+  localTools: ToolEvent[] | undefined,
+  serverTools: ToolEvent[],
+): ToolEvent[] {
+  if (!localTools?.length) return serverTools;
+  const serverByName = new Map<string, ToolEvent[]>();
+  for (const tool of serverTools) {
+    const list = serverByName.get(tool.tool);
+    if (list) list.push(tool);
+    else serverByName.set(tool.tool, [tool]);
+  }
+  if (serverByName.size === 0) return localTools;
+  // 每个工具名各自的消费游标：本地每条（无论是否已结算）都占一个服务端名额
+  const cursor = new Map<string, number>();
+  return localTools.map((tool) => {
+    const group = serverByName.get(tool.tool);
+    if (!group?.length) return tool;
+    const index = cursor.get(tool.tool) ?? 0;
+    cursor.set(tool.tool, index + 1);
+    const counterpart = group[index];
+    if (!counterpart) return tool;
+    // 只在「本地未结算 + 服务端已结算」时收敛
+    if (!UNSETTLED_TOOL_STATUSES.has(tool.status)) return tool;
+    if (UNSETTLED_TOOL_STATUSES.has(counterpart.status)) return tool;
+    return { ...tool, status: counterpart.status };
+  });
+}
+
 export function mergeLocalTools(local: ChatMessage[], restored: ChatMessage[]) {
   // Keep live tool/file state after a completed stream replaces local messages.
   if (local.length !== restored.length) return restored;
   return restored.map((message, index) => ({
     ...message,
-    tools: local[index]?.tools?.length ? local[index].tools : message.tools,
+    tools: settleToolStatuses(local[index]?.tools, message.tools),
     files: local[index]?.files?.length ? local[index].files : message.files,
   }));
 }

@@ -3,12 +3,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from langchain_community.document_loaders import (
-    CSVLoader,
-    PyPDFLoader,
-    TextLoader,
-)
-
 logger = logging.getLogger("divine.document_reader")
 
 # Formats anydoc converts to GitHub-Flavored Markdown (tables/headings/lists
@@ -57,18 +51,22 @@ def _read_anydoc(path: Path) -> str:
 
 def _read_file_text_legacy(path: Path) -> str:
     ext = path.suffix.lower()
-    if ext == ".csv":
-        loader = CSVLoader(str(path))
-    elif ext in (".xlsx", ".xlsm"):
+    if ext in (".xlsx", ".xlsm"):
         return _read_excel(path)
-    elif ext == ".docx":
+    if ext == ".docx":
         return _read_docx(path)
-    elif ext in (".pptx", ".pptm"):
+    if ext in (".pptx", ".pptm"):
         return _read_pptx(path)
-    elif ext == ".pdf":
-        loader = PyPDFLoader(str(path))
-    else:
-        loader = TextLoader(str(path), encoding="utf-8")
+    # 纯文本类（.txt/.md/代码文件…）直接读。
+    # 原先走 TextLoader，但它只是一层薄封装（读文件 + 包成 Document），
+    # 而 `import langchain_community.document_loaders` 实测要 ~3s —— 每个
+    # 读文件类工具（read_file 等）启动时都要白付这笔开销。
+    if ext not in (".csv", ".pdf"):
+        return path.read_text(encoding="utf-8")
+    # csv / pdf 仍需 langchain loader：延迟导入，让不碰这两种格式的调用完全不加载它
+    from langchain_community.document_loaders import CSVLoader, PyPDFLoader
+
+    loader = CSVLoader(str(path)) if ext == ".csv" else PyPDFLoader(str(path))
     docs = loader.load()
     return "\n\n".join(doc.page_content for doc in docs)
 
