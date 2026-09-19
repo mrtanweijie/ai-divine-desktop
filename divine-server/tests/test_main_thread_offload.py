@@ -503,3 +503,67 @@ def test_expected_blocking_calls_stay_offloaded(name: str):
         f"{name} 缺少 to_thread 卸载：{sorted(missing)}；"
         "事件循环被同步调用冻住会让在途 SSE 流静默挂死"
     )
+
+
+# --------------------------------------- C. 端到端：真实 ASGI 栈上的可用性探针
+
+
+def test_health_stays_responsive_while_manager_stop_runs(tmp_path, monkeypatch):
+    """§7.1 端到端：阻塞操作进行中，`GET /api/health` 仍要 ≤几百 ms。
+
+    前面几节的 tick 测试是在「裸协程」上量的；这一条走**完整 ASGI 栈**
+    （TestClient + 真实路由 + 中间件），更贴近用户体感：事件循环被冻住时，
+    在途 SSE 流会静默挂死，`/api/health` 也会一起超时。
+
+    `manager.stop()` 内部固定等 `_free_orphan_port(wait_s=3.0)`，这里用
+    一个睡 2s 的桩代替，不真起/杀进程。
+    """
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("DIVINE_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("DIVINE_WORKSPACE_DIR", str(tmp_path / "ws"))
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "probe.db"))
+    from app import db
+
+    db.init_db()
+
+    class _SlowManager:
+        def stop(self) -> None:
+            time.sleep(2.0)
+
+    from app.api import local_llm as api
+
+    monkeypatch.setattr(api, "settings_store", _StubSettings())
+    monkeypatch.setattr("app.agent.core.get_manager", lambda: _SlowManager())
+
+    from app.main import app
+
+    with TestClient(app) as test_client:
+        latencies: list[float] = []
+        finished = threading.Event()
+
+        def _stop() -> None:
+            try:
+                test_client.post("/api/local_llm/stop")
+            finally:
+                finished.set()
+
+        worker = threading.Thread(target=_stop, daemon=True)
+        worker.start()
+        # 一直采到 stop 结束**且**至少 3 个样本：冻住时第一次探测就要 2s，
+        # 若只采到一次就退出，下面会退化成「样本太少」这种看不出原因的报错。
+        while not finished.is_set() or len(latencies) < 3:
+            if len(latencies) >= 200:
+                break
+            started = time.perf_counter()
+            test_client.get("/api/health")
+            latencies.append(time.perf_counter() - started)
+            time.sleep(0.02)
+        worker.join(timeout=15)
+
+    assert latencies, "一次探测都没做成"
+    worst = max(latencies)
+    assert worst < 1.0, (
+        f"/api/health 最差 {worst:.2f}s——事件循环被 manager.stop 冻住了；"
+        f"全部样本 {[round(v, 3) for v in latencies]}"
+    )

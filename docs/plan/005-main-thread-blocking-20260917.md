@@ -495,7 +495,7 @@ C1 独立是 §八 的明确要求；C2/C3 另立一个提交，是因为它们�
 
 ### 10.3 验证证据
 
-**新增回归测试** `divine-server/tests/test_main_thread_offload.py`（13 个用例）：
+**新增回归测试** `divine-server/tests/test_main_thread_offload.py`（14 个用例）：
 
 - §五并发锁：并发探针验证 `start`/`stop`/`uninstall_model` 互斥（`max_active == 1`）；
   「`start` 内部调 `stop`」路径验证可重入（普通 `Lock` 会在 10s 后判失败）；
@@ -503,12 +503,16 @@ C1 独立是 §八 的明确要求；C2/C3 另立一个提交，是因为它们�
 - 事件循环可用性：用「阻塞期间循环还能跑多少个 10ms tick」当指标——被冻住时
   tick 停在 0~1，卸载后接近 `block_s / 0.01`。覆盖 `local_llm.stop` / `local_llm.status` /
   `sessions.compact_session`（db 与 breakdown **分别单独量**）。
+- 端到端探针（§7.1 的方法，落到测试里）：起真实 ASGI 栈（`TestClient` + 真实路由），
+  一边 `POST /api/local_llm/stop` 一边循环打 `GET /api/health`。冻住时第一条探测就要 2s
+  （实测样本 `[2.032, 0.002, 0.002]`），卸载后全程毫秒级。
 - 静态兜底：AST 解析收集各文件 `asyncio.to_thread(X, ...)` 的目标名，防止卸载点被改回裸调用。
 
-**变异验证（7/7 全部被捕获，确认测试非空转）**：去掉 `@_serialized`、`RLock`→`Lock`、
+**变异验证（8/8 全部被捕获，确认测试非空转）**：去掉 `@_serialized`、`RLock`→`Lock`、
 给 `install_model` 加锁、`/stop` 改回裸调用、轮询上限改回 40s、
 `chat.py` 的 `_start_local_model` 与 `execution.py` 的 `syntax_check_paths` 改回裸调用——
-每一处都让对应用例失败。
+每一处都让对应用例失败。端到端探针单独验过：把 `/stop` 改回裸调用后它报
+「`/api/health` 最差 2.03s——事件循环被 `manager.stop` 冻住了」。
 
 **前端**（C1–C3）：项目无 vitest/jest，采用「拷贝真实源码 + 只改模块说明符 + 打桩运行时依赖 +
 Node 22 原生 TS 擦除」的对拍方式：
