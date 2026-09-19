@@ -23,7 +23,8 @@
   display: inline-block;
   width: 32px;
   height: 18px;
-  border-radius: var(--radius-md);
+  /* 胶囊状：16px 会被浏览器收敛到 9px（= 18/2），得到标准药丸形 */
+  border-radius: 16px;
   background: var(--color-switch-off);
   transition: background 150ms ease;
 }
