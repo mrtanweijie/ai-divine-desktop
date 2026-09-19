@@ -62,3 +62,13 @@
   padding: 2px 10px 10px;
   box-sizing: border-box;
 }
+
+/* 隐藏内部滚动条（保留滚动能力）：滚动区最高 200px，默认滚动条会截断内容观感 */
+.collapsible-body {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE / 旧 Edge */
+}
+
+.collapsible-body::-webkit-scrollbar {
+  display: none; /* Chrome / Safari / 新版 Edge */
+}

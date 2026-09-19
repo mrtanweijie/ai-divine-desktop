@@ -353,7 +353,15 @@ class WeComChannel:
 
 ## 5. 前端改造
 
-### 5.1 任务类型 Tab（TaskModal 重做）
+### 5.1 任务类型 Tab（TaskModal 重做）—— ⚠️ 已被取代
+
+> **本节是初版设想，实施时已被推翻，最终形态见 [§15.2](#152-表单最终形态用户逐轮收敛后的结果)。**
+>
+> 用户评审后认为「六选一的下拉太复杂，不都一样吗」，要求砍掉。最终改为**没有类型下拉**，
+> 由填写内容推导（`webhook` / `agent` / `reminder` 三种），
+> 「来源列表」「执行前先问我」「允许完全访问」三个入口也一并移除。
+
+初版设想（未采用）如下：
 
 把现在 hidden 的 `Auto` / `快速` 升级成**任务类型 Tab**：
 
@@ -739,6 +747,12 @@ class WeComChannel:
   `true`（定时任务无人值守，沿用 session 的 `ask` 模式会让 Agent 在首个工具调用处卡死）。
 - 折叠用 `div + role="button"`，**不用原生 button**（项目约定）；样式对齐设置弹窗
   「模型配置 → 自定义设置」。
+- **右上角关闭按钮由 `ui/Modal` 统一内置**（`showClose` 默认 `true`，`ConfirmDialog` 传 `false`）。
+  原先 TaskModal / SettingsModal / SkillDetailModal 各自手写 `headerAction`，图标尺寸（`X 15` / `X 16`）与
+  组件（`IconButton` / `Button`）都不一致；现在三处都删掉自带实现，改由 Modal 渲染同一个 `Button variant="icon"
+  size="small"` + `X size={16}`，文案统一取 `common.close`。
+- 浅色主题下 `.channel-card` 不叠灰底（`:root[data-theme="light"]` 覆盖为 `transparent`），靠边框区分。
+- 折叠展开区（最高 200px）**隐藏内部滚动条但保留滚动**（`scrollbar-width: none` + `::-webkit-scrollbar`）。
 
 ### 15.3 未做
 

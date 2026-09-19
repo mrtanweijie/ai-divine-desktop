@@ -30,3 +30,8 @@
   flex: 1;
   min-width: 0;
 }
+
+/* 浅色主题：卡片不再叠一层灰底，靠边框区分即可（避免浅底下显得脏） */
+:root[data-theme="light"] .channel-card {
+  background: transparent;
+}
