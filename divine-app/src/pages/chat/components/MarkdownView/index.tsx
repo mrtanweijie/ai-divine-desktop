@@ -15,10 +15,39 @@ import { isTauri, openFileLocation, openFolder, openUrl } from "@/services/tauri
 import { copyText } from "@/utils";
 import { API_BASE } from "@/services/request";
 import { HighlightedCode } from "./HighlightedCode";
+import { EMPTY_FENCE_SCAN, scanFences, unclosedFenceStart, type FenceScanState } from "./fenceScan";
 import { languageLabel } from "./language";
 import { MermaidBlock } from "./MermaidBlock";
 import { WebPreviewBlock } from "./WebPreviewBlock";
-import { ChoiceBlock, parseOptionsBlock } from "@/pages/chat/components/ChoiceBlock";
+import {
+  ChoiceBlock,
+  parseOptionsBlock,
+  type ChoiceBlockData,
+} from "@/pages/chat/components/ChoiceBlock";
+
+/**
+ * parseOptionsBlock 结果缓存。
+ *
+ * 代码块渲染器每次 react-markdown 重渲染都会执行（流式每 chunk 一次），
+ * 而 ```options 块的内容在流式期间几乎每帧都在变——对同一份 code 反复跑
+ * 「JSON.parse + 逐字符修复」是纯浪费。结果只取决于 code 串，缓存即可。
+ * Map 保插入序做 FIFO 淘汰，避免长会话里无限增长。
+ */
+const optionsBlockCache = new Map<string, ChoiceBlockData | null>();
+const OPTIONS_CACHE_MAX = 40;
+
+function parseOptionsBlockCached(code: string): ChoiceBlockData | null {
+  if (optionsBlockCache.has(code)) {
+    return optionsBlockCache.get(code) ?? null;
+  }
+  const data = parseOptionsBlock(code);
+  if (optionsBlockCache.size >= OPTIONS_CACHE_MAX) {
+    const oldest = optionsBlockCache.keys().next().value;
+    if (oldest !== undefined) optionsBlockCache.delete(oldest);
+  }
+  optionsBlockCache.set(code, data);
+  return data;
+}
 
 /**
  * 把 Markdown 图片的 src 解析为可渲染的 URL：
@@ -107,16 +136,29 @@ export const MarkdownView = memo(function MarkdownView({
     () => buildComponents(streaming, messageId, choiceState, t),
     [streaming, messageId, choiceState, t],
   );
-  // linkifyFilePaths 对全文跑掩码→linkify→还原 3 遍正则，结果仅依赖
-  // content，缓存后流式 chunk 到达时不再对历史消息重复计算。
-  const linkified = useMemo(() => linkifyFilePaths(content), [content]);
+  // linkifyFilePaths 对全文跑掩码→linkify→还原 3 遍正则，而流式每帧 content
+  // 都在变 → 原先等于每帧全文重算。改为：流式期间不整段 linkify，冻结前缀交给
+  // StableMarkdown 自己 linkify（它的 content 值不变，memo 后只算一次），活动
+  // 尾块留到流结束后统一 linkify。代价是流式期间尾块里的路径暂为纯文本、流结束
+  // 后变可点击；已冻结的前缀不受影响。
+  const linkified = useMemo(
+    () => (streaming ? content : linkifyFilePaths(content)),
+    [content, streaming],
+  );
   // 已闭合块冻结（流式渲染优化）：流式期间若存在未闭合代码围栏，把内容
   // 拆成「冻结前缀 + 活动围栏块」——前缀引用不变，memo 后每帧只重解析
   // 围栏内的活动块（长代码块流式的 O(n²) 重解析大头）。非流式与无未闭合
   // 围栏时保持整段渲染，完成态与历史消息不受影响。
-  const splitIndex = streaming ? findUnclosedFenceIndex(linkified) : -1;
-  const stablePart = splitIndex > 0 ? linkified.slice(0, splitIndex) : null;
-  const tailPart = splitIndex > 0 ? linkified.slice(splitIndex) : null;
+  // 围栏扫描是增量的（scanFences 只扫新增行），不再每帧 split 全文。
+  // 状态用 useState 而非 useRef：渲染期间读写 ref 会被 react-hooks/refs 拦下，
+  // 而「渲染期间派生状态」正是 React 官方推荐写法——值没变时 nextFenceScan
+  // 就是同一个对象引用，setState 不会触发额外渲染。
+  const [fenceScan, setFenceScan] = useState<FenceScanState>(EMPTY_FENCE_SCAN);
+  const nextFenceScan = streaming ? scanFences(fenceScan, content) : fenceScan;
+  if (nextFenceScan !== fenceScan) setFenceScan(nextFenceScan);
+  const splitIndex = streaming ? unclosedFenceStart(nextFenceScan, content) : -1;
+  const stablePart = splitIndex > 0 ? content.slice(0, splitIndex) : null;
+  const tailPart = splitIndex > 0 ? content.slice(splitIndex) : null;
   return (
     <div className={`markdown-body ${streaming ? "streaming" : ""}`}>
       {stablePart !== null ? (
@@ -146,30 +188,6 @@ export const MarkdownView = memo(function MarkdownView({
     </div>
   );
 });
-
-/**
- * 找最后一个未闭合代码围栏（``` / ~~~）的起始偏移；无未闭合围栏返回 -1。
- * 按行扫描（仅识别 ≤3 空格缩进的顶层围栏），行偏移用累计长度计算。
- */
-function findUnclosedFenceIndex(content: string): number {
-  const fenceRe = /^ {0,3}(```|~~~)/;
-  let open = false;
-  let fenceStart = -1;
-  let offset = 0;
-  for (const line of content.split("\n")) {
-    if (fenceRe.test(line)) {
-      if (open) {
-        open = false;
-        fenceStart = -1;
-      } else {
-        open = true;
-        fenceStart = offset;
-      }
-    }
-    offset += line.length + 1;
-  }
-  return open ? fenceStart : -1;
-}
 
 /** 冻结前缀渲染器：content 引用不变时 memo 直接跳过整段重解析。 */
 const StableMarkdown = memo(function StableMarkdown({
@@ -262,7 +280,7 @@ function buildComponents(
       // options 块一旦闭合（JSON 可解析）就立即渲染成卡片，不必等整条消息流结束；
       // 未闭合（流式中途）时隐藏，避免闪出源码文本
       if (language === "options") {
-        const data = parseOptionsBlock(code);
+        const data = parseOptionsBlockCached(code);
         if (data) {
           return <ChoiceBlock data={data} messageId={messageId} persistedChoice={choiceState} />;
         }
@@ -304,7 +322,7 @@ function buildComponents(
       const text = extractText(children).trim();
       // 检测裸 JSON（LLM 未用 ```options 包裹的情况）：以 { 开头、含 "options" 数组
       if (text.startsWith("{") && text.includes('"options"')) {
-        const data = parseOptionsBlock(text);
+        const data = parseOptionsBlockCached(text);
         if (data) {
           return <ChoiceBlock data={data} messageId={messageId} persistedChoice={choiceState} />;
         }

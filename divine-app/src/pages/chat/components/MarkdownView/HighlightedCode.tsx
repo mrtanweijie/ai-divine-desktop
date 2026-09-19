@@ -99,6 +99,24 @@ function createStreamHandle(
   };
 }
 
+/**
+ * 超过该行数就不做整段高亮。
+ *
+ * 非流式路径走的是 `highlighter.codeToTokens(code, …)`，**同步**执行：
+ * 2000+ 行实测 200~800ms，期间主线程完全卡住（滚动、输入、切换会话都无响应）。
+ * 超阈值时降级为纯文本渲染——没有语法着色，但内容完整、可选中复制。
+ */
+const MAX_HIGHLIGHT_LINES = 500;
+
+/** 统计行数，不建行数组（split 会为长代码分配上千个字符串）。 */
+function lineCount(text: string): number {
+  let count = 1;
+  for (let i = 0; i < text.length; i += 1) {
+    if (text.charCodeAt(i) === 10) count += 1;
+  }
+  return count;
+}
+
 export function HighlightedCode({ code, language, streaming }: HighlightedCodeProps) {
   const lang = normalizeLanguage(language);
   const theme = useTheme();
@@ -190,6 +208,9 @@ export function HighlightedCode({ code, language, streaming }: HighlightedCodePr
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 取消护栏：整段重高亮前清空旧 token
     setTokens([]);
+    // 超长代码降级为纯文本：codeToTokens 是同步的，会卡住主线程数百毫秒。
+    // 注意这里也要清空旧 token（上面已清），否则会渲染上一段代码的高亮。
+    if (lineCount(code) > MAX_HIGHLIGHT_LINES) return;
     void import("./shiki")
       .then(({ getHighlighter, highlightTheme }) => {
         return getHighlighter().then((highlighter) => ({

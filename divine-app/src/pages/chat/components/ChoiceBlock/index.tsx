@@ -26,6 +26,24 @@ export interface ChoiceBlockData {
   multiple?: boolean;
 }
 
+const WHITESPACE_RE = /\s/;
+/**
+ * 字符串结束符后面应跟的字符形态：`,:]` / `}:]`。
+ *
+ * 等价于原代码的 `/^[,}]:]/` 作用在 `raw.slice(i+1).trimStart()` 上——
+ * 那个正则的字符类其实只有 `,` 和 `}`，后面的 `]` 是类外的字面量，
+ * 所以只认这两种三字符序列。看着像笔误（本意应是 `^[,}\]:]`），但本函数
+ * 是 JSON.parse 失败后的兜底修复路径，改动它会改变「哪些畸形 JSON 能被
+ * 修复成卡片」，属于用户可见行为变更，故此处只做性能优化、语义保持原样。
+ */
+function isStringTerminator(
+  next: string | undefined,
+  after: string | undefined,
+  after2: string | undefined,
+) {
+  return (next === "," || next === "}") && after === ":" && after2 === "]";
+}
+
 /**
  * 修复 LLM 生成的 JSON 中未转义的内部引号。
  * 逐字符扫描，区分 JSON 字符串边界和字符串内的裸引号。
@@ -44,9 +62,12 @@ function sanitizeJsonQuotes(raw: string): string {
       }
       if (ch === '"') {
         // 判断这个 " 是否是字符串结束符：
-        // 如果后面跟 , } ] : 或空白+这些字符，视为正常结束
-        const rest = raw.slice(i + 1).trimStart();
-        if (!rest || /^[,}]:]/.test(rest)) {
+        // 如果后面（跳过空白）跟 , } ] : 这类字符，视为正常结束。
+        // 用游标跳过空白，不要 raw.slice(i + 1) —— 那会在每个引号处复制
+        // 一份剩余全文，长 desc 里引号一多就是 O(n²)。
+        let j = i + 1;
+        while (j < raw.length && WHITESPACE_RE.test(raw[j])) j += 1;
+        if (raw[j] === undefined || isStringTerminator(raw[j], raw[j + 1], raw[j + 2])) {
           inString = false;
           out.push(ch);
         } else {
