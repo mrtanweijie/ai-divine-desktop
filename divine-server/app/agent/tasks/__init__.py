@@ -46,5 +46,11 @@ async def run_task(task: dict[str, Any]) -> None:
     await handler(task)
 
 
-# 副作用导入：让 reminder / agent / monitor 三个原有 handler 自动注册到 HANDLERS
+# 副作用导入：让各 handler 自动注册到 HANDLERS
 from . import builtins  # noqa: E402, F401
+from . import webhook  # noqa: E402, F401
+from . import digest  # noqa: E402, F401
+from . import interactive  # noqa: E402, F401
+from .channels import register_builtin_channels  # noqa: E402
+
+register_builtin_channels()

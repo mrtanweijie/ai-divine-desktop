@@ -316,3 +316,93 @@
     animation: none;
   }
 }
+
+/* 交互任务的询问卡片（design 027 §3.4） */
+.task-row-decision {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+}
+
+.task-row-decision-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--color-text);
+}
+
+/* design 027 §5.4：任务类型徽标 + 最近一次执行状态 + 投递结果 */
+
+.task-type-badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.task-type-badge.webhook,
+.task-type-badge.digest {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+.task-type-badge.interactive {
+  border-color: rgba(244, 123, 110, 0.5);
+  color: var(--color-text);
+}
+
+.task-row-run {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.run-status {
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+}
+
+.run-status.succeeded {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}
+
+.run-status.failed {
+  background: rgba(244, 123, 110, 0.12);
+  color: var(--color-danger);
+}
+
+.run-status.skipped,
+.run-status.muted {
+  color: var(--color-text-muted);
+}
+
+.delivery-chip {
+  padding: 0 5px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+}
+
+.delivery-chip.ok {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+.delivery-chip.fail {
+  border-color: rgba(244, 123, 110, 0.5);
+  color: var(--color-danger);
+}

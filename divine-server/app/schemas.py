@@ -205,6 +205,7 @@ class ScheduledTaskCreate(BaseModel):
     allow_full_access: bool = False
     delivery: dict[str, Any] | None = None
     interactive: dict[str, Any] | None = None
+    digest: dict[str, Any] | None = None
 
 
 class ScheduledTaskUpdate(BaseModel):
@@ -231,6 +232,14 @@ class ScheduledTaskUpdate(BaseModel):
     allow_full_access: bool | None = None
     delivery: dict[str, Any] | None = None
     interactive: dict[str, Any] | None = None
+    digest: dict[str, Any] | None = None
+
+
+class ScheduledTaskDecide(BaseModel):
+    """定时任务交互决策（design 027 §3.4）。"""
+
+    ticket: str = Field(min_length=1)
+    decision: Literal["approve", "reject"]
 
 
 class CalendarEventCreate(BaseModel):

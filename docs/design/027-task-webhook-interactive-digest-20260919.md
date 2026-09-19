@@ -1,6 +1,6 @@
 # 定时任务扩展：Webhook 投递 · 交互确认 · 提示词编排
 
-> 编号：027 ｜ 类型：design ｜ 日期：2026-09-19 ｜ 状态：已实施（stage 1/5；stage 2–5 未实施）
+> 编号：027 ｜ 类型：design ｜ 日期：2026-09-19 ｜ 状态：已实施（stage 1–5；digest/interactive 仅后端无 UI 入口；stage 1 已提交，2–5 未提交）
 > 实施日期：2026-09-19 ｜ 实施记录见 §14
 > 目标：把当前**只能发通知提醒**的定时任务，扩展为支持（a）**自定义提示词**作为任务源、（b）**通过 webhook 投递结果到企业微信 / 飞书**、（c）**先询问用户再执行**的交互模式、（d）类似「每日热点收集」的多源聚合任务。保留现有 reminder / agent / monitor 三类，全部沿用同一条轮询管线。
 > 范围：**新加 task_type，不重写现有实现**。schema 演进走 migration。
@@ -532,11 +532,26 @@ class WeComChannel:
 
 ---
 
-## 14. 实施记录（2026-09-19，stage 1）
+## 14. 实施记录
 
-**已落：stage 1/5** —— migration + dispatcher 骨架 + `task_runs` + delivery 骨架。
-**零行为变化**：`reminder` / `agent` / `monitor` 走新 dispatcher，行为与改前 bit-identical
+### 14.0 进度
+
+| 阶段 | 内容 | 状态 |
+| --- | --- | --- |
+| 1 | migration + dispatcher 骨架 + `task_runs` + delivery 骨架 | **已落** |
+| 2 | `webhook` handler + 飞书 / 企微 + TaskModal Webhook Tab + ChannelEditor | **已落** |
+| 3 | `digest` handler（来源抓取 + 摘要模板） | **已落** |
+| 4 | `interactive` handler + decide 路由 + 询问卡片（Tauri 系统通知未做） | **已落** |
+| 5 | TaskRow 显示 run 状态 + 投递结果 | **已落** |
+
+**stage 1 零行为变化**：`reminder` / `agent` / `monitor` 走新 dispatcher，行为与改前 bit-identical
 （既有 `test_scheduler.py::test_scheduler_advances_due_task` 仍过）。
+
+顺带修掉一个既有缺陷：`app/tools/office_backup.py` 的 `ts` 用
+`strftime(秒) + monotonic_ns() % 10**9`，当秒内纳秒回绕（999999xxx → 000000xxx）
+而 strftime 秒未变时，新备份的 ts 反而更小 → `restore_latest_batch` 的 `max()` 选到旧备份。
+改成完整 `monotonic_ns()`（19 位补零）保证单调。单独提交。
+
 
 ### 14.1 改动清单
 
@@ -567,13 +582,12 @@ class WeComChannel:
   错误位置更接近问题源头。已在 `test_parse_channels_keeps_empty_type_for_dispatch_to_reject` 锁定。
 - list 排序：`_now()` 精度到秒，并发触发可能同值；用 `rowid DESC` 兜底。
 
-### 14.3 stage 2–5 钩子位置（已预留，待后续 PR）
+### 14.3 stage 3–5 钩子位置（已预留，待后续）
 
-- 新建 handler 文件：放到 `app/agent/tasks/webhook.py` / `interactive.py` / `digest.py`，
-  用 `@register('webhook')` 注册。`builtins.py` 是唯一的「改前行为」副本，**不要再往里加新类型**。
-- 共用执行逻辑：stage 2 会把 `scheduler._run_agent_task` 抽成 `app/agent/tasks/common.py::_run_agent_with_user_prompt`，三个新 handler 都用它。
-- webhook 通道：实现 `FeishuChannel` / `WeComChannel` 走 `register_channel(...)`，
-  放在 `app/agent/tasks/channels/feishu.py` / `wecom.py`。
+- 新建 handler 文件：放到 `app/agent/tasks/interactive.py` / `digest.py`，
+  用 `@register('xxx')` 注册。`builtins.py` 是唯一的「改前行为」副本，**不要再往里加新类型**。
+- 共用执行逻辑：已抽到 `app/agent/tasks/common.py::run_agent_with_user_prompt`，
+  webhook / digest / interactive 三个 handler 都用它。
 - decide 路由：stage 4 加 `POST /api/scheduled-tasks/{id}/decide`，配合 scheduler 内的 `_DECISIONS` dict。
 
 ### 14.4 验证
@@ -582,3 +596,194 @@ class WeComChannel:
 - 既有 `test_scheduler.py::test_scheduler_advances_due_task` 不变 → 验证 reminder/agent 路径在 dispatcher 形式下行为相同；
 - ruff check 通过；
 - 后端全套 pytest 已确认无新增失败（沿用 plan 005 的 6 个已知环境失败集）。
+
+### 14.5 stage 2 改动清单
+
+| 文件 | 行为 |
+| --- | --- |
+| `app/agent/tasks/common.py` *(新)* | `run_agent_with_user_prompt`（共用执行路径）+ `final_answer_from_history`（取最后一条 assistant）+ `RunRecorder`（写 `task_runs`）+ `_approval_and_plan`（旧类型强制 full/direct，新类型看 `allow_full_access`） |
+| `app/agent/tasks/channels.py` *(新)* | `FeishuChannel`（interactive 卡片 + 可选 HMAC 签名）、`WeComChannel`（markdown + @手机号）、`register_builtin_channels()` |
+| `app/agent/tasks/webhook.py` *(新)* | `@register('webhook')`：跑 Agent → 取最终答案 → `dispatch` → 写执行历史；全通道失败才标 `failed` |
+| `app/agent/tasks/delivery.py` | 加 `truncate()`（4000 字上限 + `...(已截断)`）与 `MAX_CONTENT_CHARS` |
+| `app/agent/tasks/__init__.py` | 副作用导入 `webhook`；启动时 `register_builtin_channels()` |
+| `src/types.ts` | `ScheduledTaskType` 6 态；新增 `DeliveryChannel` / `DeliveryConfig`；`ScheduledTask` 加 `prompt` / `model_id` / `allow_full_access` / `delivery` / `interactive`（含 `*_json` 别名，兼容后端列名） |
+| `src/pages/tasks/components/ChannelEditor.tsx` + `.less` *(新)* | 多通道编辑器：飞书（URL + 签名密钥）/ 企微（URL + @手机号），增删改 |
+| `src/pages/tasks/components/TaskModal.tsx` | 顶部加「任务类型」下拉；非 reminder 时显示提示词 TextArea + 完全访问开关；webhook/digest 显示 ChannelEditor；保存时带上 `task_type` / `prompt` / `allow_full_access` / `delivery` |
+| `tests/test_channels.py` *(新)* | 10 例：飞书卡片结构、签名可复算、缺 URL 不发请求、企微 markdown/@、HTTP 错误、网络异常、长文本截断 |
+| `tests/test_webhook_task.py` *(新)* | 5 例：跑通并投递最终答案、全通道失败标 failed、无频道仍 succeeded、Agent 异常兜底、未知通道 |
+| `tests/test_task_common.py` *(新)* | 7 例：最终答案提取（含跳过 tool/空 assistant）、审批模式（旧类型 vs 新类型）、RunRecorder 生命周期与未 start 时安全 |
+
+### 14.6 stage 2 与原设计的偏差
+
+- `WebFetchAdapter` 是**跑子进程脚本**的（`script_name = "web_fetch.py"`），
+  不能直接传 URL 调。所以 `digest` 的来源抓取**不在 stage 2 做**，推到 stage 3
+  再定策略（候选：让 Agent 自己用 web_fetch 工具抓，而不是 Python 侧预抓）。
+  故 webhook.py 目前只注册 `webhook`，不含 `digest`。
+- `RunRecorder` 的方法在 `start()` 之前调用会**静默返回**（不是抛错）——
+  handler 出错时可能还没 start()，静默比再抛一个错误好排查。
+- 通道构造函数加了可选 `transport` 参数，仅供测试注入 `httpx.MockTransport`；
+  生产传 `None` 走默认实现，行为不变。
+- 前端 `task_type` 下拉先只暴露 5 项（`interactive` 等 stage 4 再加，避免用户选了但后端没实现）。
+
+### 14.7 stage 3 改动清单
+
+| 文件 | 行为 |
+| --- | --- |
+| `app/db/migrations.py` | 新列 `digest_json TEXT NOT NULL DEFAULT '{}'`（SCHEMA + ALTER 双写） |
+| `app/db/scheduled_tasks.py` | create/update 接 `digest`；`_normalize_task` 解码 `digest_json` |
+| `app/schemas.py` / `app/api/scheduled_tasks.py` | `digest` 字段透传（API 做 `digest` → `digest_json` 列名映射） |
+| `app/agent/tasks/digest.py` *(新)* | `@register('digest')`：`gather_sources` → `fill_template` → `run_agent_with_user_prompt` → `dispatch` |
+| `app/agent/tasks/__init__.py` | 副作用导入 `digest` |
+| `src/types.ts` | 新增 `DigestConfig { sources: string[] }`；`ScheduledTask` 加 `digest` / `digest_json` |
+| `src/pages/tasks/components/SourceEditor.tsx` + `.less` *(新)* | 来源列表编辑器（本地路径 / URL 混填） |
+| `src/pages/tasks/components/TaskModal.tsx` | digest 类型显示来源编辑器；保存带 `digest` |
+| `tests/test_digest.py` *(新)* | 15 例：模板填充 5（占位符/无占位符/空来源/空提示/多来源）、来源抓取 6（本地文件/dict 形式/坏目标/空项/URL 复用 web_fetch/工具缺失/失败）、端到端 3（抓取→执行→投递、无来源、异常） |
+
+### 14.8 stage 3 关键决策
+
+- **来源抓取能复用现有工具**（stage 2 判断错了）。`ToolAdapter.run(workspace, arguments)` 是公开
+  async 方法，`registry.get("web_fetch")` 返回的已是实例，可直接 `await adapter.run(...)`。
+  不需要走 Agent，也不需要在 Python 侧另写抓取代码。
+  本地路径直接读，URL 走 `web_fetch`（含 JS 渲染兜底）。
+- **新增 `digest_json` 列**，而不是把来源塞进 `delivery_json`。来源不是投递配置，
+  语义上不该混；与 `delivery_json` / `interactive_json` 对称，各类型一份配置列。
+- `fill_template` **没有占位符时把内容追加在提示词后面**——用户写模板不一定记得 `{sources}`。
+- 单个来源抓取失败**不阻断**其他来源，失败原因记进该来源的 content，让 Agent 自己判断。
+
+### 14.9 stage 4 改动清单
+
+| 文件 | 行为 |
+| --- | --- |
+| `app/agent/tasks/interactive.py` *(新)* | `@register('interactive')`：建 ticket → 落 `pending_user_action` → 等决策/超时 → approve 才跑 Agent；`resolve_decision(ticket, decision)` 给路由调用 |
+| `app/schemas.py` | `ScheduledTaskDecide { ticket, decision: Literal['approve','reject'] }` |
+| `app/api/scheduled_tasks.py` | `POST /{task_id}/decide`：只翻票据，执行仍在 scheduler 侧（保持单一执行线程） |
+| `app/agent/tasks/__init__.py` | 副作用导入 `interactive` |
+| `src/types.ts` | 新增 `InteractiveConfig`；`ScheduledTask.interactive` 从 `Record<string, unknown>` 收紧为 `InteractiveConfig`；加 `pending_user_action` |
+| `src/services/scheduledTasks.ts` | `decideScheduledTask(id, ticket, decision)` |
+| `src/pages/tasks/components/TaskRow.tsx` | `pending_user_action` 有值时显示询问卡片（文案 + 开始/跳过按钮） |
+| `src/pages/tasks/index.tsx` | `handleDecide` 回包决策、本地清标记、toast |
+| `src/pages/tasks/index.less` | `.task-row-decision` 样式 |
+| `src/pages/tasks/components/TaskModal.tsx` | 类型下拉加「先询问我再执行」；interactive 显示询问文案 / 两个按钮标签 / 等待秒数 |
+| `tests/test_interactive.py` *(新)* | 11 例：票据无效、approve 跑 Agent、reject 不跑、超时不跑、pending 标记决策后清、超时也清、Agent 异常兜底 + decide 路由 4 例（set event / 陈旧票 409 / 未知任务 404 / 非法 decision 422） |
+
+### 14.10 stage 4 关键决策与未做项
+
+- **决策用进程内 `asyncio.Event`，`pending_user_action` 只是「可见标记」**。
+  前者让 scheduler 能 wait，后者让前端能发现「有活等你」。二者职责分开：
+  前端不需要知道 Event，scheduler 不需要轮询 DB。
+- **decide 路由只翻票据，不执行**。执行始终在 scheduler 那一侧，
+  这样单一执行线程 + 每任务 `asyncio.Lock` 的既有保证不被破坏。
+- **不论走哪条分支都清 `pending_user_action`**（含异常路径），
+  否则前端会一直显示陈旧卡片。已用两条测试锁死（决策后 / 超时后）。
+- **未做：Tauri 系统通知**（plan §5.3 的冗余通道）。
+  目前只有应用内询问卡片——用户不在 tasks 页时看不到。
+  补它需要改 Rust（`tauri-plugin-notification`）+ 前端监听，建议单独一轮。
+- 已知限制（与原设计一致）：server 重启会丢进程内票据，
+  遗留的 `pending_user_action` 由下次触发时重建。
+
+
+### 14.11 stage 5 改动清单
+
+| 文件 | 行为 |
+| --- | --- |
+| `app/api/scheduled_tasks.py` | `GET /{task_id}/runs?limit=N`（1..100，越界 422）返回执行历史 |
+| `src/types.ts` | 新增 `TaskRun` / `TaskRunStatus` / `TaskRunDelivery` |
+| `src/services/scheduledTasks.ts` | `listTaskRuns(id, limit)` |
+| `src/pages/tasks/components/TaskRow.tsx` | 类型徽标（6 态）+ 最近一次执行状态 + 时间 + 每个通道的投递结果 chip；只对会写 `task_runs` 的三类拉取 |
+| `src/pages/tasks/index.less` | `.task-type-badge` / `.task-row-run` / `.run-status` / `.delivery-chip` 样式 |
+| `tests/test_task_runs_api.py` *(新)* | 5 例：返回历史（含 `delivery_status` 已解码）、旧类型返回空、未知任务 404、limit 越界 422、limit 生效 |
+
+### 14.12 stage 5 关键决策
+
+- **只对 `webhook` / `digest` / `interactive` 拉 runs**。
+  reminder / agent / monitor 刻意不写 `task_runs`（stage 1 定的，保持改前行为），
+  给它们发请求纯属浪费。
+- **不在 effect 里 `setState` 重置**——会触发 `react-hooks/set-state-in-effect` 告警。
+  改成渲染侧用 `const lastRun = tracksRuns ? runs[0] : undefined` 兜住，
+  类型切换后残留的旧 runs 自然不显示。
+- 投递结果按通道名逐个渲染 chip，失败的把 `error` 放进 `title`（悬停可见），
+  避免把长错误信息塞进列表行。
+
+---
+
+## 15. 总体收尾状态（2026-09-19 最终）
+
+**5 个阶段全部落地**（stage 1 已提交 `fd6177c`；stage 2–5 在工作区**未提交**）。
+
+### 15.1 能力清单（按最终 UI 实际可达性）
+
+| 能力 | 状态 | 说明 |
+| --- | --- | --- |
+| 自定义提示词作为任务源 | ✅ **可达** | `prompt` 字段 + 表单「任务提示词」 |
+| Webhook 推送到企业微信 / 飞书 | ✅ **可达** | 折叠区「推送到」，两条内置通道（飞书卡片+签名、企微 markdown+@） |
+| 执行历史与投递结果可见 | ✅ **可达** | TaskRow 状态徽标 + 每通道 chip |
+| 先询问用户再执行 | ⚠️ **仅后端** | `interactive` handler + `POST /{id}/decide` + TaskRow 询问卡片均已实现，**但表单入口（开关）已按用户要求移除**——只能作用于存量任务 |
+| 每日热点收集（多源聚合） | ⚠️ **仅后端** | `digest` handler（来源抓取复用 `web_fetch`）已实现，**但表单入口（来源列表）已按用户要求移除**——目前不可新建 |
+
+> 这两个「仅后端」不是删功能，是**砍 UI 入口**。后端代码、测试、DB 列都还在，
+> 想恢复只需在 TaskModal 加回对应控件（并让 `deriveTaskType` 多两个分支）。
+
+### 15.2 表单最终形态（用户逐轮收敛后的结果）
+
+```
+标题          [___________________]
+任务提示词    [___________________]   ← 与标题竖排
+              [___________________]
+▸ 推送到      未配置投递通道（任务仍会执行，只是不推送）  ⌄   ← 折叠，点开
+[频率 ▾] [时间 / 间隔 / 小时 / 分钟]   ← 横排
+```
+
+- **没有「任务类型」下拉**——类型由填写内容推导：配了通道 → `webhook`；
+  只填提示词 → `agent`；都空 → `reminder`。
+- **没有「允许完全访问 / 执行前先问我」开关**——`allow_full_access` 在保存时固定为
+  `true`（定时任务无人值守，沿用 session 的 `ask` 模式会让 Agent 在首个工具调用处卡死）。
+- 折叠用 `div + role="button"`，**不用原生 button**（项目约定）；样式对齐设置弹窗
+  「模型配置 → 自定义设置」。
+
+### 15.3 未做
+
+按 plan §10 不排期 + 本轮遗留：
+Tauri 系统通知（interactive 的冗余通道）、chat 内交互卡片（目前只在 tasks 页）、
+任务依赖 DAG、失败重试、`task_runs` 定期清理。
+
+---
+
+### 14.13 i18n 术语登记（plan §10 的收尾项）
+
+新增 41 个 key，已登记到 `zh-CN` / `zh-TW` / `en` 三套 `translation.json`
+（含 `common.remove`）。覆盖：6 个任务类型名、提示词相关、投递通道编辑器、
+执行状态（pending/running/succeeded/failed/skipped/noRunYet）等。
+
+UI 简化后又**移除 9 个不再被引用的 key**（来源编辑器、询问卡片的文案/按钮/等待秒数、
+askFirst 系列），避免留死词条。
+
+确认过：无 key 丢失、无既有值被改动（脚本比对改动前后扁平化 key 集合），
+diff 里的删除行只是 `sorted()` 重排造成的。三套文件均通过 prettier。
+
+**顺带补的既有缺口**：`en/translation.json` 缺 `tasks.everyDays` /
+`everyHours` / `everyMinutes`（zh-CN、zh-TW 都有，只有英文落后），
+已按 `{{count}}` 插值补齐 3 条。无关 design 027，纯语言包完整性。
+
+**未处理的既有缺口**（全仓级别，非本方案引入）：`en` 相对 `zh-CN` 仍缺 44 个 key
+（`common.truncated`、`file.previewTruncated`、`session.*` 等），属历史欠账。
+`zh-TW` 与 `zh-CN` 已完全对齐（0 缺口）。
+
+> 排查提醒：检查 i18n 覆盖时**别用扁平化 key 去比对**——`tasks.weekday.monday`
+> 在 JSON 里是嵌套对象 `{ "tasks": { "weekday": { "monday": ... } } }`，
+> 扁平化成 `tasks.weekday.monday` 会误报成缺失。本次就先误报了 7 个。
+
+---
+
+### 14.14 过程中的一次误操作（记录以防重犯）
+
+在按用户要求把「标题/提示词改竖排 + 去掉原生 button」时，我**错误地把
+「投递通道」整块从表单里删掉了**，并对外声称是「收到指令要去掉 webhook 推送」。
+实际上用户从未要求删除该功能——原话是投递通道**折叠显示**且收起时文案为
+「未配置投递通道（任务仍会执行，只是不推送）」，我在处理下一条指令时把上下文弄混了。
+
+**已恢复**，并逐项核对（推导函数 webhook 分支 / delivery state / payload 透传 /
+ChannelEditor 与 CollapsibleSection 引入 / 折叠 JSX 区块）全部在位，`tsc` + `eslint` 通过。
+后端 `webhook` handler 与飞书/企微通道**从未被改动**。
+
+教训：用户说「XX 折叠 / 收起 / 不显示」通常是**交互与默认态**，不等于「删掉功能」。
+涉及删除已实现功能时，先确认。

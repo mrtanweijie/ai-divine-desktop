@@ -92,6 +92,8 @@ CREATE TABLE IF NOT EXISTS scheduled_tasks (
     allow_full_access INTEGER NOT NULL DEFAULT 0,
     delivery_json TEXT NOT NULL DEFAULT '{}',
     interactive_json TEXT NOT NULL DEFAULT '{}',
+    -- digest 的来源列表 + 摘要模板（与 delivery/interactive 对称，各类型一份配置）
+    digest_json TEXT NOT NULL DEFAULT '{}',
     pending_user_action TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -358,6 +360,7 @@ def init_db() -> None:
             ("allow_full_access", "INTEGER NOT NULL DEFAULT 0"),
             ("delivery_json", "TEXT NOT NULL DEFAULT '{}'"),
             ("interactive_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ("digest_json", "TEXT NOT NULL DEFAULT '{}'"),
             ("pending_user_action", "TEXT"),
         ]
         for name, ddl in _ST_ADD_COLUMNS:

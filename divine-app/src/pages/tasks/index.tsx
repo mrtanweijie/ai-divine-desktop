@@ -9,6 +9,7 @@ import { toast } from "@/components/ui/Toast";
 import {
   createCalendarEvent,
   createScheduledTask,
+  decideScheduledTask,
   deleteScheduledTask,
   ensureNotificationPermission,
   isNotificationGranted,
@@ -198,6 +199,31 @@ export function ScheduledTasksPage({ onOpenSidebar }: { onOpenSidebar: () => voi
     [t, tasks],
   );
 
+  /** 交互任务的用户决策（design 027 §3.4）：回包票据，执行仍在 scheduler 侧。 */
+  const handleDecide = useCallback(
+    async (task: ScheduledTask, decision: "approve" | "reject") => {
+      const ticket = task.pending_user_action;
+      if (!ticket) return;
+      setActionError(null);
+      try {
+        await decideScheduledTask(task.id, ticket, decision);
+        setTasks((prev) =>
+          prev.map((item) => (item.id === task.id ? { ...item, pending_user_action: null } : item)),
+        );
+        toast.success(
+          decision === "approve"
+            ? t("tasks.decisionApproved", "已开始执行")
+            : t("tasks.decisionRejected", "已跳过本次"),
+        );
+      } catch (error) {
+        setActionError(
+          error instanceof Error ? error.message : t("tasks.decideFailed", "决策提交失败，请重试"),
+        );
+      }
+    },
+    [t],
+  );
+
   const handleWriteCalendar = useCallback(
     async (task: ScheduledTask) => {
       if (!task.next_run_at) return;
@@ -327,6 +353,7 @@ export function ScheduledTasksPage({ onOpenSidebar }: { onOpenSidebar: () => voi
                   onEdit={(item) => setTaskModal({ mode: "edit", task: item })}
                   onDelete={setDeleteTask}
                   onToggle={(item) => void handleToggleTask(item)}
+                  onDecide={(item, decision) => void handleDecide(item, decision)}
                 />
               ))}
             </div>

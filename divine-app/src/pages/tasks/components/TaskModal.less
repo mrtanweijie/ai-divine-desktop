@@ -37,3 +37,16 @@
   background: var(--color-accent-soft);
   color: var(--color-text);
 }
+
+/* 频率与时间参数横排：频率定宽，时间字段平分剩余空间 */
+.task-frequency-row > * {
+  min-width: 0;
+}
+
+.task-frequency-row > :first-child {
+  flex: 0 0 30%;
+}
+
+.task-frequency-row > :not(:first-child) {
+  flex: 1 1 90px;
+}

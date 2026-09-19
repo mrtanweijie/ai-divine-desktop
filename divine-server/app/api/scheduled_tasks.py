@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from .. import db
 from ..schedule_utils import compute_next_run
-from ..schemas import ScheduledTaskCreate, ScheduledTaskUpdate
+from ..schemas import ScheduledTaskCreate, ScheduledTaskDecide, ScheduledTaskUpdate
 
 router = APIRouter(prefix="/scheduled-tasks", tags=["scheduled-tasks"])
 logger = logging.getLogger("divine.scheduled-tasks")
@@ -41,6 +41,7 @@ def create_scheduled_task(body: ScheduledTaskCreate):
         allow_full_access=body.allow_full_access,
         delivery=body.delivery,
         interactive=body.interactive,
+        digest=body.digest,
     )
     logger.info(
         "scheduled task created id=%s title=%s frequency=%s",
@@ -63,6 +64,8 @@ def update_scheduled_task(task_id: str, body: ScheduledTaskUpdate):
         fields["delivery_json"] = fields.pop("delivery")
     if "interactive" in fields:
         fields["interactive_json"] = fields.pop("interactive")
+    if "digest" in fields:
+        fields["digest_json"] = fields.pop("digest")
     if "session_id" in fields and fields["session_id"]:
         if db.get_session(fields["session_id"]) is None:
             raise HTTPException(status_code=404, detail="会话不存在")
@@ -97,3 +100,39 @@ def delete_scheduled_task(task_id: str):
             db.delete_calendar_event(event["id"])
     db.delete_scheduled_task(task_id)
     logger.info("scheduled task deleted id=%s", task_id)
+
+
+@router.get("/{task_id}/runs")
+def list_task_runs(task_id: str, limit: int = 5):
+    """执行历史（design 027 §2.2）。
+
+    只有 webhook / digest / interactive 会写 `task_runs`——reminder /
+    agent / monitor 刻意不写（保持改前行为，历史从 `last_run_at` 推断）。
+    """
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=422, detail="limit 需在 1..100")
+    task = db.get_scheduled_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="定时任务不存在")
+    return {"runs": db.list_runs_for_task(task_id, limit=limit)}
+
+
+@router.post("/{task_id}/decide")
+def decide_scheduled_task(task_id: str, body: ScheduledTaskDecide):
+    """交互任务的用户决策回包（design 027 §3.4）。
+
+    只翻票据状态，真正的执行在 scheduler 那一侧——保持单一执行线程。
+    """
+    from ..agent.tasks.interactive import resolve_decision
+
+    task = db.get_scheduled_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="定时任务不存在")
+    if not resolve_decision(body.ticket, body.decision):
+        raise HTTPException(status_code=409, detail="票据无效或已过期")
+    logger.info(
+        "scheduled task decided id=%s decision=%s",
+        task_id,
+        body.decision,
+    )
+    return {"ok": True, "decision": body.decision}

@@ -11,7 +11,7 @@ import {
 import { request } from "@/services/request";
 import { isMacosDesktop, isTauri } from "@/services/tauri";
 import { storageGetRaw, storageSet, storageSetRaw } from "@/services/storage";
-import type { CalendarEvent, ScheduledTask } from "@/types";
+import type { CalendarEvent, ScheduledTask, TaskRun } from "@/types";
 import i18next from "@/i18n";
 
 type Listener = () => void;
@@ -42,12 +42,27 @@ export function listScheduledTasks(): Promise<{ tasks: ScheduledTask[] }> {
   return request("/scheduled-tasks");
 }
 
+export function listTaskRuns(id: string, limit = 5): Promise<{ runs: TaskRun[] }> {
+  return request(`/scheduled-tasks/${id}/runs?limit=${limit}`);
+}
+
 export function createScheduledTask(
   body: Partial<ScheduledTask> & { title: string },
 ): Promise<ScheduledTask> {
   return request("/scheduled-tasks", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export function decideScheduledTask(
+  id: string,
+  ticket: string,
+  decision: "approve" | "reject",
+): Promise<{ ok: boolean; decision: string }> {
+  return request(`/scheduled-tasks/${id}/decide`, {
+    method: "POST",
+    body: JSON.stringify({ ticket, decision }),
   });
 }
 

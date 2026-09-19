@@ -12,6 +12,18 @@ from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger("divine.tasks.delivery")
 
+# 飞书 / 企微 单条消息都有长度上限（企微 markdown 4096 字节）。
+# 统一按字符数截断，尾部加标记，避免长摘要被整条拒收。
+MAX_CONTENT_CHARS = 4000
+_TRUNCATED_SUFFIX = "\n\n...(已截断)"
+
+
+def truncate(content: str, max_chars: int = MAX_CONTENT_CHARS) -> str:
+    if len(content) <= max_chars:
+        return content
+    keep = max_chars - len(_TRUNCATED_SUFFIX)
+    return content[: max(keep, 0)] + _TRUNCATED_SUFFIX
+
 
 @dataclass
 class DeliveryPayload:

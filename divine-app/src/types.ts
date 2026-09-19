@@ -462,12 +462,66 @@ export interface LocalLLMStatus {
   llama_server_installed: boolean;
 }
 
+/** 任务类型：reminder/agent/monitor 为原有，webhook/interactive/digest 见 design 027。 */
+export type ScheduledTaskType =
+  "reminder" | "agent" | "monitor" | "webhook" | "interactive" | "digest";
+
+/** 一条投递通道配置（飞书 / 企业微信 群机器人）。 */
+export interface DeliveryChannel {
+  type: "feishu" | "wecom";
+  webhook_url: string;
+  /** 飞书自定义机器人签名密钥，可选 */
+  sign_secret?: string;
+  /** 企业微信 @ 的手机号，可选 */
+  at_mobiles?: string[];
+}
+
+export interface DeliveryConfig {
+  channels: DeliveryChannel[];
+}
+
+/** 一次执行的结果（design 027 §2.2）。只有新三类任务会写。 */
+export type TaskRunStatus = "pending" | "running" | "succeeded" | "failed" | "skipped";
+
+export interface TaskRunDelivery {
+  ok: boolean;
+  status_code?: number | null;
+  error?: string | null;
+}
+
+export interface TaskRun {
+  id: string;
+  task_id: string;
+  started_at: string;
+  finished_at: string | null;
+  status: TaskRunStatus;
+  output: string;
+  error: string;
+  /** channel 名 → 投递结果，例如 { feishu: { ok: true } } */
+  delivery_status: Record<string, TaskRunDelivery>;
+}
+
+/** 交互任务配置（design 027 §3.4）：询问卡片文案与过期时间。 */
+export interface InteractiveConfig {
+  notification_title?: string;
+  notification_body?: string;
+  action_label?: string;
+  reject_label?: string;
+  /** 等待用户决策的秒数，默认 600 */
+  expire_seconds?: number;
+}
+
+/** 每日摘要配置：来源列表。摘要 prompt 模板复用 `ScheduledTask.prompt`。 */
+export interface DigestConfig {
+  sources: string[];
+}
+
 export interface ScheduledTask {
   id: string;
   session_id: string | null;
   title: string;
   description: string;
-  task_type: "reminder" | "agent" | "monitor";
+  task_type: ScheduledTaskType;
   frequency: "once" | "interval" | "daily" | "weekly" | "monthly";
   interval_minutes: number | null;
   run_at: string | null;
@@ -481,6 +535,21 @@ export interface ScheduledTask {
   calendar_synced: number;
   created_at: string;
   updated_at: string;
+  // --- design 027：执行内容 / 投递 / 交互 ---
+  /** 任务提示词；webhook/interactive/digest 用它作为 Agent 输入 */
+  prompt?: string;
+  model_id?: string | null;
+  allow_full_access?: boolean;
+  /** 后端列名 delivery_json，API 层用 delivery 收发 */
+  delivery?: DeliveryConfig;
+  delivery_json?: DeliveryConfig;
+  interactive?: InteractiveConfig;
+  interactive_json?: InteractiveConfig;
+  /** 后端列名 digest_json，API 层用 digest 收发 */
+  digest?: DigestConfig;
+  digest_json?: DigestConfig;
+  /** 有值 = 该任务正在等用户决策（票据） */
+  pending_user_action?: string | null;
 }
 
 export interface CalendarEvent {
