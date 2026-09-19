@@ -14,6 +14,7 @@
 | 001 | [plan-project-blueprint](plan/001-project-blueprint-20260807.md) | 2026-08-07 | 已归档（开发依据基线） |
 | 008 | [plan-code-support-roadmap](plan/002-code-support-roadmap-20260830.md) | 2026-08-30 | 已全部实施（P0–P4） |
 | 014 | [plan-five-optimizations](plan/003-five-optimizations-20260830.md) | 2026-08-30 | 未实施 |
+| 041 | [plan-main-thread-blocking](plan/005-main-thread-blocking-20260917.md) | 2026-09-17 | **待实施（方案待审）** |
 
 ### 设计（design）
 
