@@ -365,6 +365,135 @@ function trimToolResult<T>(result: T): T {
   return copy as T;
 }
 
+/** tool_run.output 的解析结果。ok=false 即 JSON.parse 失败（与原 try/catch 等价）。 */
+interface ParsedToolOutput {
+  raw: string;
+  ok: boolean;
+  value: unknown;
+}
+
+/**
+ * run.id → 已解析的 output。
+ *
+ * tool_run 落库后 output 不再变化，故按 id 缓存是安全的；仍存 raw 做校验，
+ * raw 变了就重新解析。loadSession 与 loadChangedFiles 各自 getSession 一次，
+ * 这份缓存把同一条 output 的 JSON.parse 从两次降到一次。
+ */
+const toolOutputCache = new Map<string, ParsedToolOutput>();
+/** 缓存字节上限：防止超长工具结果（read_file 动辄数 MB）把内存吃满 */
+const TOOL_OUTPUT_CACHE_BYTES = 32 * 1024 * 1024;
+let toolOutputCacheBytes = 0;
+
+function parseToolOutput(run: ToolRun): ParsedToolOutput | undefined {
+  const raw = run.output;
+  if (!raw) return undefined;
+  const hit = toolOutputCache.get(run.id);
+  if (hit && hit.raw === raw) return hit;
+
+  let ok = true;
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    ok = false;
+    value = undefined;
+  }
+  const entry: ParsedToolOutput = { raw, ok, value };
+
+  // 单条就超预算的结果不进缓存（否则一次就顶满），按次解析即可
+  if (raw.length > TOOL_OUTPUT_CACHE_BYTES) return entry;
+
+  if (hit) {
+    toolOutputCache.delete(run.id);
+    toolOutputCacheBytes -= hit.raw.length;
+  }
+  while (toolOutputCacheBytes + raw.length > TOOL_OUTPUT_CACHE_BYTES) {
+    const oldest = toolOutputCache.keys().next().value;
+    if (oldest === undefined) break;
+    toolOutputCacheBytes -= toolOutputCache.get(oldest)?.raw.length ?? 0;
+    toolOutputCache.delete(oldest);
+  }
+  toolOutputCache.set(run.id, entry);
+  toolOutputCacheBytes += raw.length;
+  return entry;
+}
+
+/** 供 useSessionLoader.loadChangedFiles 复用同一条 output 的解析结果。 */
+export function parseToolRunOutput(run: ToolRun): { ok: boolean; value: unknown } | undefined {
+  const parsed = parseToolOutput(run);
+  return parsed ? { ok: parsed.ok, value: parsed.value } : undefined;
+}
+
+/** 单条 tool_run 的预解析结果：时间戳 / result / command / 原下标。 */
+interface PreparedRun {
+  run: ToolRun;
+  /** started_at 的毫秒值（预解析，避免内层循环反复 new Date） */
+  startedMs: number;
+  /** 截断后的 result，直接挂到 ToolEvent 上 */
+  result: unknown;
+  command: string | undefined;
+  /** toolRuns 里的原始下标，用于还原顺序 */
+  index: number;
+}
+
+function toToolEvent({ run, result, command }: PreparedRun): ToolEvent {
+  const shaped = result as
+    | {
+        message?: string;
+        messageKey?: string;
+        messageParams?: Record<string, unknown>;
+      }
+    | undefined;
+  return {
+    tool: run.tool_name,
+    call_id: run.id,
+    status: run.status === "done" ? "done" : "error",
+    message: shaped?.message ?? run.status,
+    messageKey: shaped?.messageKey,
+    messageParams: shaped?.messageParams,
+    command,
+    result: result as ToolEvent["result"],
+    turn: run.turn ?? undefined,
+    run_id: run.id,
+    started_at: run.started_at,
+    duration_ms: run.duration_ms ?? undefined,
+  } satisfies ToolEvent;
+}
+
+/**
+ * 预解析一遍 toolRuns，并按 started_at 建升序下标表。
+ *
+ * 原先「时间戳 + JSON.parse + JSON.parse(input)」都写在 messages.forEach 里，
+ * 同一条 run 会按它落入的窗口数被反复计算。这里每条只算一次。
+ */
+function prepareRuns(toolRuns: ToolRun[]): {
+  prepared: PreparedRun[];
+  byStart: number[];
+} {
+  const prepared: PreparedRun[] = toolRuns.map((run, index) => {
+    const parsed = parseToolOutput(run);
+    let command: string | undefined;
+    if (run.input) {
+      try {
+        command = (JSON.parse(run.input) as { command?: string } | null)?.command;
+      } catch {
+        command = undefined;
+      }
+    }
+    return {
+      run,
+      startedMs: new Date(run.started_at).getTime(),
+      result: parsed?.ok ? trimToolResult(parsed.value) : undefined,
+      command,
+      index,
+    };
+  });
+  const byStart = prepared
+    .map((item) => item.index)
+    .sort((a, b) => prepared[a].startedMs - prepared[b].startedMs);
+  return { prepared, byStart };
+}
+
 /** 解析本地预整理标记部件（type="preprocess"）。 */
 function parsePreprocessPart(parts: Message["parts"]): ChatPreprocess | undefined {
   const part = parts.find((p) => p.type === "preprocess");
@@ -388,6 +517,22 @@ export function messagesToChatMessages(
     (last, message, index) => (message.role === "assistant" ? index : last),
     -1,
   );
+  // 预解析（见 prepareRuns / parseToolOutput 的说明）：每条 run 只算一次，
+  // 消息时间戳也只算一次，避免在窗口归属里反复 new Date() / JSON.parse()。
+  const { prepared, byStart } = prepareRuns(toolRuns);
+  const runAt = (offset: number) => prepared[byStart[offset]];
+  const messageMs = messages.map((m) => new Date(m.created_at).getTime());
+  /** byStart 里第一个 startedMs >= target 的偏移 */
+  const lowerBound = (target: number) => {
+    let lo = 0;
+    let hi = byStart.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (runAt(mid).startedMs < target) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
   messages.forEach((message, index) => {
     if (
       message.role === "tool" ||
@@ -402,49 +547,23 @@ export function messagesToChatMessages(
     }
     const tools: ToolEvent[] = [];
     if (message.role === "assistant" && currentUserIndex !== -1) {
-      const user = messages[currentUserIndex];
       // 归属窗口右边界用本条消息自身的创建时间：答案消息在整轮跑完后才落库，
       // 本轮的 web_search/fetch 等工具运行必然早于它。不能再用"下一条消息"
       // 做右边界——重答会在回答后追加相邻 assistant 消息（中间没有用户消息），
       // 导致同一次工具运行同时落进两条消息的窗口，工具卡片重复展示。
-      const start = new Date(user.created_at).getTime();
-      const end = new Date(message.created_at).getTime();
-      tools.push(
-        ...toolRuns
-          .filter((run) => {
-            const started = new Date(run.started_at).getTime();
-            return started >= start && started <= end;
-          })
-          .map((run) => {
-            let result;
-            try {
-              result = run.output ? trimToolResult(JSON.parse(run.output)) : undefined;
-            } catch {
-              result = undefined;
-            }
-            let command: string | undefined;
-            try {
-              const input = run.input ? JSON.parse(run.input) : undefined;
-              command = input?.command;
-            } catch {
-              command = undefined;
-            }
-            return {
-              tool: run.tool_name,
-              call_id: run.id,
-              status: run.status === "done" ? "done" : "error",
-              message: result?.message ?? run.status,
-              messageKey: result?.messageKey,
-              messageParams: result?.messageParams,
-              command,
-              result,
-              turn: run.turn ?? undefined,
-              run_id: run.id,
-              started_at: run.started_at,
-              duration_ms: run.duration_ms ?? undefined,
-            } satisfies ToolEvent;
-          }),
-      );
+      const start = messageMs[currentUserIndex];
+      const end = messageMs[index];
+      // byStart 按 startedMs 升序：二分到第一个 >= start 的位置后顺序扫到 > end，
+      // 命中集合与原先的 filter(started >= start && started <= end) 完全一致。
+      const hits: number[] = [];
+      for (let offset = lowerBound(start); offset < byStart.length; offset += 1) {
+        const item = runAt(offset);
+        if (item.startedMs > end) break;
+        hits.push(item.index);
+      }
+      // 还原 toolRuns 的原始顺序（原先 filter 保序，UI 工具卡顺序依赖它）
+      hits.sort((a, b) => a - b);
+      tools.push(...hits.map((runIndex) => toToolEvent(prepared[runIndex])));
     }
     chatMessages.push({
       id: message.id,

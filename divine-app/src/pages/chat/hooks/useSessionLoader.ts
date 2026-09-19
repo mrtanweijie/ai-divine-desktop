@@ -1,7 +1,12 @@
 // Session loading / pagination / changed-file tracking logic extracted
 // from pages/chat/index.tsx to keep ChatPage focused on composition.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getSession, listSessions, messagesToChatMessages } from "@/services/api";
+import {
+  getSession,
+  listSessions,
+  messagesToChatMessages,
+  parseToolRunOutput,
+} from "@/services/api";
 import { storageGetRaw } from "@/services/storage";
 import { changedFilePathsFromResult, changedFileRel } from "@/pages/chat/chatUtils";
 import type { ApprovalMode, ChatMessage, Project, Session } from "@/types";
@@ -153,15 +158,14 @@ export function useSessionLoader({
       const changedFiles = new Set<string>();
       if (projectPath) {
         for (const run of data.tool_runs ?? []) {
-          if (run.status !== "done" || !run.output) continue;
-          try {
-            const result = JSON.parse(run.output) as unknown;
-            for (const filePath of changedFilePathsFromResult(result)) {
-              const rel = changedFileRel(projectPath, filePath);
-              if (rel) changedFiles.add(rel);
-            }
-          } catch {
-            // malformed tool output is not a file marker
+          if (run.status !== "done") continue;
+          // 复用 messagesToChatMessages 已解析过的同一份 output（按 run.id 缓存），
+          // 避免把每条 run.output 再 JSON.parse 一遍
+          const parsed = parseToolRunOutput(run);
+          if (!parsed?.ok) continue;
+          for (const filePath of changedFilePathsFromResult(parsed.value)) {
+            const rel = changedFileRel(projectPath, filePath);
+            if (rel) changedFiles.add(rel);
           }
         }
       }
