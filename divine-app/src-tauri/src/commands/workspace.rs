@@ -626,12 +626,21 @@ pub async fn save_export_file(
 mod tests {
     use super::*;
 
+    /// 同步驱动 async 命令。
+    ///
+    /// `get_file_diff` 是 `pub async fn`（内部 `spawn_blocking`），测试是普通
+    /// `#[test]`，直接调用只会拿到一个未 await 的 Future——原先这里对 Future
+    /// 调 `.expect()`，导致**整个 test target 编译不过**，6 个用例一直没跑过。
+    /// 用 `block_on` 驱动；它按需惰性初始化全局 runtime，不需要起 Tauri app。
+    fn diff_of(repo_path: String, rel_path: String) -> Result<FileDiff, String> {
+        tauri::async_runtime::block_on(get_file_diff(repo_path, rel_path))
+    }
+
     #[test]
     fn reads_build_rs_content() {
         let root = std::env::current_dir().expect("current dir");
-        let diff =
-            get_file_diff(root.to_string_lossy().into_owned(), "build.rs".to_string())
-                .expect("diff command");
+        let diff = diff_of(root.to_string_lossy().into_owned(), "build.rs".to_string())
+            .expect("diff command");
         assert!(!diff.is_binary);
         assert!(diff.new_content.contains("fn main"));
         let json = serde_json::to_value(&diff).expect("serialize diff");
@@ -650,11 +659,8 @@ mod tests {
         std::fs::create_dir_all(&dir).expect("create temp dir");
         let file = dir.join("sample.bin");
         std::fs::write(&file, [0u8, 1, 2, 3]).expect("write binary file");
-        let diff = get_file_diff(
-            dir.to_string_lossy().into_owned(),
-            "sample.bin".to_string(),
-        )
-        .expect("diff command");
+        let diff = diff_of(dir.to_string_lossy().into_owned(), "sample.bin".to_string())
+            .expect("diff command");
         assert!(diff.is_binary);
         assert!(diff.new_content.is_empty());
         let _ = std::fs::remove_dir_all(&dir);
@@ -692,11 +698,8 @@ mod tests {
             content.push_str(&format!("line-{index}\n"));
         }
         std::fs::write(&file, &content).expect("write temp file");
-        let diff = get_file_diff(
-            dir.to_string_lossy().into_owned(),
-            "many-lines.txt".to_string(),
-        )
-        .expect("diff command");
+        let diff = diff_of(dir.to_string_lossy().into_owned(), "many-lines.txt".to_string())
+            .expect("diff command");
         assert!(diff.content_truncated);
         assert_eq!(
             diff.new_content.lines().count(),
@@ -726,11 +729,8 @@ mod tests {
             meta.len() < MAX_PREVIEW_BYTES,
             "simulated file must stay under the byte cap to exercise line capping"
         );
-        let diff = get_file_diff(
-            dir.to_string_lossy().into_owned(),
-            "清单.txt".to_string(),
-        )
-        .expect("diff command");
+        let diff = diff_of(dir.to_string_lossy().into_owned(), "清单.txt".to_string())
+            .expect("diff command");
         assert!(diff.content_truncated);
         assert_eq!(
             diff.new_content.lines().count(),
@@ -749,11 +749,8 @@ mod tests {
         std::fs::create_dir_all(&dir).expect("create temp dir");
         let file = dir.join("few.txt");
         std::fs::write(&file, "a\nb\nc\n").expect("write temp file");
-        let diff = get_file_diff(
-            dir.to_string_lossy().into_owned(),
-            "few.txt".to_string(),
-        )
-        .expect("diff command");
+        let diff = diff_of(dir.to_string_lossy().into_owned(), "few.txt".to_string())
+            .expect("diff command");
         assert!(!diff.content_truncated);
         assert_eq!(diff.new_content.lines().count(), 3);
         let _ = std::fs::remove_dir_all(&dir);
@@ -791,7 +788,7 @@ mod tests {
         );
 
         std::fs::write(&file, "line one\nline two\n").expect("update file");
-        let diff = get_file_diff(
+        let diff = diff_of(
             project.to_string_lossy().into_owned(),
             "nested/note.txt".to_string(),
         )
