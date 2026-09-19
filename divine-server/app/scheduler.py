@@ -94,13 +94,20 @@ class Scheduler:
             # reminder / agent / monitor 走 builtins.py 默认实现，行为不变。
             from .agent import tasks as task_dispatcher
 
+            ok = True
+            error = ""
             try:
                 await task_dispatcher.run_task(task)
-            except Exception:
+            except Exception as exc:
+                ok = False
+                error = repr(exc)
                 logger.exception(
                     "scheduled task handler failed task_id=%s",
                     task["id"],
                 )
+            # 跑完立刻通知前端（用户此时往往在做别的事）
+            fresh = await asyncio.to_thread(db.get_scheduled_task, task["id"]) or task
+            self._notify_finished(fresh, ok, error)
             try:
                 await self._advance(task)
             except Exception:
@@ -108,6 +115,31 @@ class Scheduler:
                     "scheduled task bookkeeping failed task_id=%s",
                     task["id"],
                 )
+
+    def _notify_finished(
+        self, task: dict[str, Any], ok: bool, error: str
+    ) -> None:
+        """广播「这个任务跑完了」，前端据此弹系统通知。
+
+        ``reminder`` 跳过：它有自己的提醒通道（前端按 ``next_run_at`` 提前弹），
+        再发一条就重复打扰了。其余类型（agent / monitor / webhook / digest /
+        interactive）跑完时用户通常不在这个会话里，需要一条"跑完了"的提示。
+        """
+        if task.get("task_type") == "reminder":
+            return
+        from . import events
+
+        events.broadcast(
+            "task_finished",
+            {
+                "task_id": task["id"],
+                "title": task.get("title") or "定时任务",
+                "task_type": task.get("task_type"),
+                "session_id": task.get("session_id"),
+                "ok": ok,
+                "error": error,
+            },
+        )
 
     def _mark_reminder_due(self, task: dict[str, Any]) -> None:
         logger.info(
@@ -139,7 +171,7 @@ class Scheduler:
     async def _run_agent_task(self, task: dict[str, Any]) -> None:
         """Run one real Agent turn for scheduled agent/monitor tasks."""
         # 延迟导入：避免 scheduler ←→ agent.tasks 的模块级循环依赖
-        from .agent.tasks.common import ensure_task_session
+        from .agent.tasks.common import ensure_task_session, notify_session_messages
 
         session_id = await asyncio.to_thread(ensure_task_session, task)
         if not session_id:
@@ -163,6 +195,7 @@ class Scheduler:
                 "user",
                 task.get("description") or task.get("title") or "定时任务",
             )
+            notify_session_messages(session_id)
             history = await asyncio.to_thread(
                 db.history_for_model, session_id, limit=20
             )
@@ -181,6 +214,8 @@ class Scheduler:
             await asyncio.to_thread(
                 db.update_session, session_id, plan_mode=previous_plan_mode
             )
+            # 无论成功还是抛异常都再通知一次（run_agent 失败时用户也能看到 user 消息）
+            notify_session_messages(session_id)
 
 
 scheduler = Scheduler()

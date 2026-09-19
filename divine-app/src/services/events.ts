@@ -6,11 +6,17 @@
 
 import { API_BASE } from "@/services/request";
 
-export type AppEventName = "ready" | "sessions_changed";
+export type AppEventName =
+  "ready" | "sessions_changed" | "session_messages_changed" | "task_finished";
 
 type AppEventListener = (data: Record<string, unknown>) => void;
 
-const EVENT_NAMES: AppEventName[] = ["ready", "sessions_changed"];
+const EVENT_NAMES: AppEventName[] = [
+  "ready",
+  "sessions_changed",
+  "session_messages_changed",
+  "task_finished",
+];
 
 const listeners = new Map<AppEventName, Set<AppEventListener>>();
 let source: EventSource | null = null;

@@ -231,6 +231,41 @@ export async function notifyDueReminders(tasks: ScheduledTask[]): Promise<number
   return shown;
 }
 
+/**
+ * 非 reminder 类任务（agent / monitor / webhook / digest / interactive）
+ * 执行完成后提示用户。
+ *
+ * `notifyDueReminders` 只覆盖 reminder（按 next_run_at 提前提醒）；这些任务
+ * 跑完时用户往往在做别的事，需要一条「跑完了」的通知，否则只能自己想起来去看。
+ */
+export async function notifyTaskFinished(
+  taskId: string,
+  title: string,
+  ok: boolean,
+): Promise<void> {
+  if (!isTauri()) return;
+  const nativeAvailable = isMacosDesktop() && nativePermissionCache === true;
+  if (!nativeAvailable && webNotificationPermission() !== "granted") return;
+
+  const notificationTitle = ok
+    ? i18next.t("tasks.finishedTitle", "定时任务已完成：{{title}}", { title })
+    : i18next.t("tasks.failedTitle", "定时任务执行失败：{{title}}", { title });
+  const body = ok
+    ? i18next.t("tasks.finishedBody", "点开查看执行结果")
+    : i18next.t("tasks.failedBody", "点开查看错误详情");
+
+  const nativeShown = await showNativeNotification(notificationTitle, body);
+  if (nativeShown) return;
+  try {
+    new window.Notification(notificationTitle, {
+      body,
+      tag: `divine-task-done-${taskId}`,
+    });
+  } catch (error) {
+    console.warn("[notifications] failed to show task-finished notification", error);
+  }
+}
+
 function pluginWeekday(day: number): number {
   // 本地 0=周一 ... 6=周日，插件 1=周日 ... 7=周六
   return day === 6 ? 1 : day + 2;

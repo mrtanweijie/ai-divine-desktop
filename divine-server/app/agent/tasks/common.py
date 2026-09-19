@@ -21,6 +21,15 @@ logger = logging.getLogger("divine.tasks.common")
 _LEGACY_FORCED_TYPES = ("agent", "monitor")
 
 
+def notify_session_messages(session_id: str) -> None:
+    """通知前端：这个会话有新消息了。
+
+    后台任务往会话里写消息时前端毫不知情（对话回合内的 SSE 只覆盖前台回合），
+    所以这里补一条广播；前端若正打开这个会话就重载消息。
+    """
+    events.broadcast("session_messages_changed", {"session_id": session_id})
+
+
 def ensure_task_session(task: dict[str, Any]) -> str | None:
     """取任务绑定的会话；没有就建一个**专属会话**并写回任务。
 
@@ -102,6 +111,7 @@ async def run_agent_with_user_prompt(
     await asyncio.to_thread(db.update_session, session_id, plan_mode=plan_mode)
     try:
         await asyncio.to_thread(db.add_message, session_id, "user", user_message)
+        notify_session_messages(session_id)
         history = await asyncio.to_thread(
             db.history_for_model, session_id, limit=20
         )
@@ -123,6 +133,8 @@ async def run_agent_with_user_prompt(
         await asyncio.to_thread(
             db.update_session, session_id, plan_mode=previous_plan_mode
         )
+        # 无论成功还是抛异常都再通知一次：让用户至少看到 user 消息/失败状态
+        notify_session_messages(session_id)
 
 
 def final_answer_from_history(history: list[dict[str, Any]]) -> str:

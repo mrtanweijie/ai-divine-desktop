@@ -552,7 +552,11 @@
     "weekdayRequired": "請至少選擇一天",
     "weekly": "每週",
     "workday": "工作日",
-    "writeCalendar": "寫入行程"
+    "writeCalendar": "寫入行程",
+    "finishedTitle": "定時任務已完成：{{title}}",
+    "finishedBody": "點開查看執行結果",
+    "failedTitle": "定時任務執行失敗：{{title}}",
+    "failedBody": "點開查看錯誤詳情"
   },
   "time": {
     "earlier": "更早",

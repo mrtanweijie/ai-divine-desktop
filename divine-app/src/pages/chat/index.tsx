@@ -28,6 +28,7 @@ import { SessionList } from "@/pages/chat/components/SessionList";
 import { SettingsModal } from "@/components/SettingsModal";
 import { isMacosDesktop } from "@/services/tauri";
 import { subscribeAppEvent } from "@/services/events";
+import { notifyTaskFinished } from "@/services/scheduledTasks";
 import type { ApprovalMode, ChatFile, ChatMessage, Project, SettingsSaveBody } from "@/types";
 import { useConfigState } from "@/pages/chat/state/configStore";
 import { useFullscreen } from "@/pages/chat/state/fullscreenStore";
@@ -233,6 +234,7 @@ export default function ChatPage() {
   const {
     refreshSessions,
     loadSession,
+    reloadSessionMessages,
     loadOlderMessages,
     loadChangedFiles,
     hasMoreOlder,
@@ -597,6 +599,27 @@ export default function ChatPage() {
       void refreshSessions().catch(() => undefined);
     });
   }, [refreshSessions]);
+
+  // 后台任务往**当前打开的**会话里写了消息 → 立刻重载消息。
+  // 不做这件事的话，定时任务跑完必须手动刷新页面才看得到内容。
+  useEffect(() => {
+    return subscribeAppEvent("session_messages_changed", (data) => {
+      const changed = typeof data.session_id === "string" ? data.session_id : null;
+      if (!changed || changed !== selectedId) return;
+      void reloadSessionMessages(changed).catch(() => undefined);
+    });
+  }, [reloadSessionMessages, selectedId]);
+
+  // 定时任务（非 reminder 类）跑完 → 弹系统通知提示用户。
+  // reminder 有自己的提醒通道，后端不会再为它发这个事件。
+  useEffect(() => {
+    return subscribeAppEvent("task_finished", (data) => {
+      const taskId = typeof data.task_id === "string" ? data.task_id : "";
+      const title = typeof data.title === "string" ? data.title : "";
+      if (!taskId || !title) return;
+      void notifyTaskFinished(taskId, title, data.ok !== false).catch(() => undefined);
+    });
+  }, []);
 
   const handleModelChange = useCallback(
     (modelId: string) => {

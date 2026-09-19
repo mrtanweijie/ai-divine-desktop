@@ -182,9 +182,28 @@ export function useSessionLoader({
     void loadChangedFiles(selectedId);
   }, [loadChangedFiles, selectedId, workspacePanelOpen]);
 
+  /**
+   * 强制从服务端重载某会话的消息，**绕过本地缓存**。
+   *
+   * 用于「后台往会话里写了新消息」的场景（定时任务跑完一轮）：前端只收到
+   * 「消息变了」的通知，需要整段替换才能看到新内容。
+   * 不能直接复用 `loadSession`——它在有缓存时只合并 choice_state、不替换消息。
+   */
+  const reloadSessionMessages = useCallback(
+    async (sessionId: string) => {
+      const data = await getSession(sessionId, { limit: 80 });
+      setSessionMessages(
+        sessionId,
+        messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos),
+      );
+    },
+    [setSessionMessages],
+  );
+
   return {
     refreshSessions,
     loadSession,
+    reloadSessionMessages,
     loadOlderMessages,
     loadChangedFiles,
     hasMoreOlder,

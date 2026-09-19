@@ -540,7 +540,11 @@
     "weekdayRequired": "请至少选择一天",
     "weekly": "每周",
     "workday": "工作日",
-    "writeCalendar": "写入日程"
+    "writeCalendar": "写入日程",
+    "finishedTitle": "定时任务已完成：{{title}}",
+    "finishedBody": "点开查看执行结果",
+    "failedTitle": "定时任务执行失败：{{title}}",
+    "failedBody": "点开查看错误详情"
   },
   "time": {
     "earlier": "更早",

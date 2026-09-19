@@ -14,6 +14,7 @@ import asyncio
 import json
 
 import httpx
+import pytest
 
 from app import events
 
@@ -128,12 +129,31 @@ def test_ensure_task_session_reuses_existing(monkeypatch, tmp_path):
 
 
 # --------------------------------------------------------------------------
-# 3. API 创建任务时自动建专属会话
+# 3. 建任务**不**建会话；会话留到第一次执行时才建
 # --------------------------------------------------------------------------
 
 
-def test_api_creates_dedicated_session_for_agent_task(monkeypatch, tmp_path):
+def test_api_does_not_create_session_at_task_creation(monkeypatch, tmp_path):
+    """建任务时不该建专属会话——否则建几个任务就堆几个空对话。"""
     db = _init_env(monkeypatch, tmp_path)
+    from app.api.scheduled_tasks import create_scheduled_task
+    from app.schemas import ScheduledTaskCreate
+
+    before = len(db.list_sessions())
+    task = create_scheduled_task(
+        ScheduledTaskCreate(
+            title="每日简报", task_type="agent", prompt="总结今天的邮件"
+        )
+    )
+
+    assert task["session_id"] is None, "建任务时不该就绑上会话"
+    assert len(db.list_sessions()) == before, "建任务不该多出会话"
+
+
+def test_execution_creates_session_and_writes_back(monkeypatch, tmp_path):
+    """第一次执行时才建会话，并写回任务供后续复用。"""
+    db = _init_env(monkeypatch, tmp_path)
+    from app.agent.tasks.common import ensure_task_session
     from app.api.scheduled_tasks import create_scheduled_task
     from app.schemas import ScheduledTaskCreate
 
@@ -142,43 +162,32 @@ def test_api_creates_dedicated_session_for_agent_task(monkeypatch, tmp_path):
             title="每日简报", task_type="agent", prompt="总结今天的邮件"
         )
     )
+    assert task["session_id"] is None
 
-    assert task["session_id"], "agent 任务必须自动带上会话"
-    session = db.get_session(task["session_id"])
+    session_id = ensure_task_session(task)  # ← 模拟「到点执行」
+    assert session_id
+    session = db.get_session(session_id)
     assert session is not None
     assert "每日简报" in session["title"]
+    assert db.get_scheduled_task(task["id"])["session_id"] == session_id
 
 
-def test_api_does_not_create_session_for_reminder(monkeypatch, tmp_path):
+def test_api_keeps_explicit_session_id(monkeypatch, tmp_path):
+    """调用方显式给了 session_id 时原样保留（agent 工具那条路）。"""
     db = _init_env(monkeypatch, tmp_path)
     from app.api.scheduled_tasks import create_scheduled_task
     from app.schemas import ScheduledTaskCreate
 
+    project = db.create_project("p", str(tmp_path / "ws"))
+    session = db.create_session("已有会话", project["id"])
     task = create_scheduled_task(
-        ScheduledTaskCreate(title="喝水提醒", task_type="reminder")
+        ScheduledTaskCreate(title="t", task_type="agent", session_id=session["id"])
     )
 
-    assert task["session_id"] is None, "reminder 只提醒、不跑 Agent，不该建会话"
-    assert db.list_sessions() == []
+    assert task["session_id"] == session["id"]
+    assert len(db.list_sessions()) == 1, "显式给了会话就不该再建"
 
 
-def test_api_broadcasts_sessions_changed(monkeypatch, tmp_path):
-    _init_env(monkeypatch, tmp_path)
-    from app.api.scheduled_tasks import create_scheduled_task
-    from app.schemas import ScheduledTaskCreate
-
-    seen: list[dict] = []
-    monkeypatch.setattr(
-        events, "broadcast", lambda name, data=None: seen.append({"name": name, **(data or {})})
-    )
-
-    create_scheduled_task(ScheduledTaskCreate(title="周报", task_type="agent"))
-
-    assert seen and seen[0]["name"] == "sessions_changed"
-    assert seen[0]["reason"] == "task_created"
-
-
-# --------------------------------------------------------------------------
 # 4. webhook 空内容不投递
 # --------------------------------------------------------------------------
 
@@ -235,9 +244,9 @@ def test_webhook_skips_delivery_when_agent_outputs_nothing(monkeypatch, tmp_path
 
 
 def test_task_session_uses_first_project_not_earliest(monkeypatch, tmp_path):
+    """执行时懒创建出来的会话，也要落在「列表第一个」项目下。"""
     db = _init_env(monkeypatch, tmp_path)
-    from app.api.scheduled_tasks import create_scheduled_task
-    from app.schemas import ScheduledTaskCreate
+    from app.agent.tasks.common import ensure_task_session
 
     earliest = db.create_project("最早建的", str(tmp_path / "old"))
     listed_first = db.create_project("列表第一个", str(tmp_path / "first"))
@@ -246,8 +255,8 @@ def test_task_session_uses_first_project_not_earliest(monkeypatch, tmp_path):
     # 排序不确定，直接依赖真实排序会让这条测试变脆。
     monkeypatch.setattr(db, "first_project", lambda: listed_first)
 
-    task = create_scheduled_task(ScheduledTaskCreate(title="日报", task_type="agent"))
-    session = db.get_session(task["session_id"])
+    task = db.create_scheduled_task(title="日报", task_type="agent")
+    session = db.get_session(ensure_task_session(task))
 
     assert session["project_id"] == listed_first["id"]
     assert session["project_id"] != earliest["id"], "不该落到最早创建的项目"
@@ -344,3 +353,185 @@ def test_events_generator_forwards_broadcast(monkeypatch, tmp_path):
             await generator.aclose()
 
     asyncio.run(scenario())
+
+
+# --------------------------------------------------------------------------
+# 7. session_messages_changed：后台写入消息后通知前端
+# --------------------------------------------------------------------------
+
+
+def test_notify_session_messages_broadcasts(monkeypatch, tmp_path):
+    _init_env(monkeypatch, tmp_path)
+    from app.agent.tasks.common import notify_session_messages
+
+    seen: list[tuple] = []
+    monkeypatch.setattr(
+        events, "broadcast", lambda name, data=None: seen.append((name, data))
+    )
+
+    notify_session_messages("sess-1")
+
+    assert seen == [("session_messages_changed", {"session_id": "sess-1"})]
+
+
+def test_run_agent_with_user_prompt_notifies_before_and_after(monkeypatch, tmp_path):
+    """写入 user 消息后、以及跑完（含失败）后，都要通知前端重载消息。"""
+    db = _init_env(monkeypatch, tmp_path)
+    from app.agent.tasks import common
+
+    project = db.create_project("p", str(tmp_path / "ws"))
+    session = db.create_session("s", project["id"])
+    task = db.create_scheduled_task(
+        title="t", session_id=session["id"], task_type="webhook", prompt="做事"
+    )
+
+    seen: list[tuple] = []
+    monkeypatch.setattr(
+        events, "broadcast", lambda name, data=None: seen.append((name, data))
+    )
+
+    async def fake_run_agent(*_args, **_kwargs):
+        yield "event: message\ndata: {}\n\n"
+
+    monkeypatch.setattr("app.agent.run_agent", fake_run_agent, raising=False)
+
+    asyncio.run(common.run_agent_with_user_prompt(task))
+
+    hits = [d for n, d in seen if n == "session_messages_changed"]
+    assert hits, "写入消息后必须通知"
+    assert all(d["session_id"] == session["id"] for d in hits)
+    assert len(hits) >= 2, "user 消息写入后 + 跑完后各通知一次"
+
+
+def test_run_agent_with_user_prompt_notifies_even_when_agent_fails(
+    monkeypatch, tmp_path
+):
+    """run_agent 抛异常时也要通知，否则用户连 user 消息都看不到。"""
+    db = _init_env(monkeypatch, tmp_path)
+    from app.agent.tasks import common
+
+    project = db.create_project("p", str(tmp_path / "ws"))
+    session = db.create_session("s", project["id"])
+    task = db.create_scheduled_task(
+        title="t", session_id=session["id"], task_type="webhook", prompt="做事"
+    )
+
+    seen: list[tuple] = []
+    monkeypatch.setattr(
+        events, "broadcast", lambda name, data=None: seen.append((name, data))
+    )
+
+    async def boom(*_args, **_kwargs):
+        raise RuntimeError("zlib error 模拟")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr("app.agent.run_agent", boom, raising=False)
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(common.run_agent_with_user_prompt(task))
+
+    assert [n for n, _ in seen].count("session_messages_changed") >= 1
+
+
+# --------------------------------------------------------------------------
+# 8. task_finished：任务跑完后通知前端弹提示
+# --------------------------------------------------------------------------
+
+
+def test_notify_finished_broadcasts_for_agent_task(monkeypatch, tmp_path):
+    _init_env(monkeypatch, tmp_path)
+    from app.scheduler import scheduler
+
+    seen: list[tuple] = []
+    monkeypatch.setattr(
+        events, "broadcast", lambda name, data=None: seen.append((name, data))
+    )
+
+    scheduler._notify_finished(
+        {
+            "id": "t1",
+            "title": "每日简报",
+            "task_type": "agent",
+            "session_id": "s1",
+        },
+        True,
+        "",
+    )
+
+    assert len(seen) == 1
+    name, data = seen[0]
+    assert name == "task_finished"
+    assert data["task_id"] == "t1"
+    assert data["title"] == "每日简报"
+    assert data["task_type"] == "agent"
+    assert data["session_id"] == "s1"
+    assert data["ok"] is True
+    assert data["error"] == ""
+
+
+def test_notify_finished_skips_reminder(monkeypatch, tmp_path):
+    """reminder 有自己的提醒通道，不该再发一条重复通知。"""
+    _init_env(monkeypatch, tmp_path)
+    from app.scheduler import scheduler
+
+    seen: list[tuple] = []
+    monkeypatch.setattr(
+        events, "broadcast", lambda name, data=None: seen.append((name, data))
+    )
+
+    scheduler._notify_finished(
+        {"id": "t1", "title": "喝水", "task_type": "reminder"}, True, ""
+    )
+
+    assert seen == []
+
+
+def test_run_due_broadcasts_task_finished_with_failure(monkeypatch, tmp_path):
+    """handler 抛异常时也要通知，且 ok=False、带上错误信息。"""
+    db = _init_env(monkeypatch, tmp_path)
+    from app.agent import tasks as dispatcher
+    from app.scheduler import scheduler
+
+    task = db.create_scheduled_task(title="每日简报", task_type="agent")
+
+    seen: list[tuple] = []
+    monkeypatch.setattr(
+        events, "broadcast", lambda name, data=None: seen.append((name, data))
+    )
+
+    async def boom(_task):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(dispatcher, "run_task", boom)
+
+    asyncio.run(scheduler._run_due(task, asyncio.Lock()))
+
+    hits = [d for n, d in seen if n == "task_finished"]
+    assert len(hits) == 1
+    assert hits[0]["ok"] is False
+    assert "boom" in hits[0]["error"]
+
+
+def test_run_due_broadcasts_task_finished_on_success(monkeypatch, tmp_path):
+    db = _init_env(monkeypatch, tmp_path)
+    from app.agent import tasks as dispatcher
+    from app.scheduler import scheduler
+
+    task = db.create_scheduled_task(title="周报", task_type="webhook")
+
+    seen: list[tuple] = []
+    monkeypatch.setattr(
+        events, "broadcast", lambda name, data=None: seen.append((name, data))
+    )
+
+    async def fine(_task):
+        return None
+
+    monkeypatch.setattr(dispatcher, "run_task", fine)
+
+    asyncio.run(scheduler._run_due(task, asyncio.Lock()))
+
+    hits = [d for n, d in seen if n == "task_finished"]
+    assert len(hits) == 1
+    assert hits[0]["ok"] is True
+    assert hits[0]["title"] == "周报"

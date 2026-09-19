@@ -840,13 +840,12 @@ ChannelEditor 与 CollapsibleSection 引入 / 折叠 JSX 区块）全部在位�
 
 ### 16.2 修复：每个任务一个专属会话
 
-- **创建任务时**（`api/scheduled_tasks.py::create_scheduled_task`）：
-  `agent` / `monitor` / `webhook` / `digest` / `interactive` 五类若未带 `session_id`，
-  自动 `db.create_session(title="定时任务 · {title}")` 并写进任务。
-  `reminder` 不建（只提醒、不跑 Agent）。
-- **编辑任务时**：类型从 reminder 改成上述五类、且任务还没有会话 → 同样补建。
-- **执行时兜底**（`agent/tasks/common.py::ensure_task_session`）：
-  会话为空（老任务、或会话被删）→ 懒创建并**写回任务**。
+- **建任务 / 编辑任务时都不建会话**：`session_id` 保持为空（除非调用方显式给，
+  例如 agent 工具那条路）。理由：建几个任务就立刻多几个**空对话**，侧栏会被占着，
+  而任务可能很久才跑一次、甚至建完就删。
+- **第一次真的执行时才建**（`agent/tasks/common.py::ensure_task_session`）：
+  会话为空（新任务、老任务、或会话被删）→ 懒创建「定时任务 · {title}」并
+  **写回任务**，后续执行复用同一个。
   写回是关键：否则每次执行都会新建会话，侧栏会被刷屏。
 - **归属项目**：取 `db.first_project()` —— 即 `list_projects()` 的**首项**，
   顺序与前端侧栏完全一致（`pinned DESC → sort_order ASC → updated_at DESC`）。
@@ -883,3 +882,49 @@ ChannelEditor 与 CollapsibleSection 引入 / 折叠 JSX 区块）全部在位�
 `tests/test_task_session_and_events.py`（10 例）：SSE 报文格式、广播 / 退订 / 队列满淘汰、
 `ensure_task_session` 创建与写回、API 建会话（agent 建 / reminder 不建 / 广播触发）、
 webhook 空内容不投递。
+
+### 16.6 补：`session_messages_changed`（后台写入消息后前端要能看见）
+
+**问题**：`sessions_changed` 只刷新**侧栏会话列表**，不刷新**当前打开会话的消息**。
+定时任务把消息写进 DB 了，但前端毫不知情 —— 用户必须手动刷新页面才看得到内容。
+更根本的原因是：任务执行时 `async for _event in run_agent(...): pass` 把 Agent 的
+**事件流整个丢掉了**（chat 端点是 `yield event` 转发给前端的）。
+
+**做法**（选了「重载消息」这一档，不做逐字流式）：
+
+- 后端 `common.py::notify_session_messages(session_id)` → 广播
+  `session_messages_changed {session_id}`。
+- 广播点：`run_agent_with_user_prompt` 与 `scheduler._run_agent_task` 里，
+  **写入 user 消息后**通知一次，**`finally` 里再通知一次**（`run_agent` 抛异常时
+  用户至少能看到 user 消息，而不是什么都没有）。
+- 前端 `services/events.ts` 增加该事件类型；`pages/chat/index.tsx` 订阅后
+  **仅当 `session_id === selectedId`** 时调用 `reloadSessionMessages()`。
+- `useSessionLoader` 新增 `reloadSessionMessages(sessionId)`：绕过本地缓存、
+  整段从服务端替换消息。**不能复用 `loadSession`** —— 它在有缓存时只合并
+  `choice_state`、不替换消息，新消息永远显示不出来。
+
+**未做**：把 Agent 的事件流转发到前端做**逐字流式**。需要把 `useChatStream` 的
+`handlers` 重构成可复用，且高频 token 过广播队列（容量 100）有丢包风险。
+
+### 16.7 补：`task_finished`（任务跑完弹通知）
+
+**问题**：`notifyDueReminders` **只处理 `task_type === "reminder"`**（前端每 10s 轮询
+tasks、按 `next_run_at` 提前弹）。agent / monitor / webhook / digest / interactive
+跑完时**没有任何提示** —— 用户只能自己想起来去看。
+
+**做法**：
+
+- 后端 `scheduler._run_due`：handler 跑完（含抛异常）后调 `_notify_finished()`，
+  广播 `task_finished {task_id, title, task_type, session_id, ok, error}`。
+  - `ok` 由「handler 是否抛异常」决定，`error` 带 `repr(exc)`。
+  - `session_id` 用**重新读库**的 task（懒创建的会话 id 只在库里，本地 task dict 是旧的）。
+  - **`reminder` 直接跳过**：它有自己的提醒通道，再发一条就是重复打扰。
+- 前端 `services/scheduledTasks.ts::notifyTaskFinished(taskId, title, ok)`：
+  复用既有的 `showNativeNotification`（macOS 原生）+ `window.Notification` 兜底，
+  以及同一套权限判定（`nativePermissionCache` / `webNotificationPermission`）。
+- 前端 `pages/chat/index.tsx` 订阅 `task_finished` → 调 `notifyTaskFinished`。
+- i18n：`tasks.finishedTitle` / `finishedBody` / `failedTitle` / `failedBody`
+  已登记到 zh-CN / zh-TW / en 三套 `translation.json`。
+
+**注意**：`notifyTaskFinished` 与 `notifyDueReminders` 一样带 `if (!isTauri()) return`，
+即**浏览器 dev 环境不弹**，只有 Tauri 桌面端才弹。

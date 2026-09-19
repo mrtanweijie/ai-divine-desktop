@@ -556,7 +556,11 @@
     "weekdayRequired": "Select at least one day",
     "weekly": "Weekly",
     "workday": "Workdays",
-    "writeCalendar": "Write to calendar"
+    "writeCalendar": "Write to calendar",
+    "finishedTitle": "Scheduled task finished: {{title}}",
+    "finishedBody": "Open to view the result",
+    "failedTitle": "Scheduled task failed: {{title}}",
+    "failedBody": "Open to view the error"
   },
   "time": {
     "earlier": "Earlier",
