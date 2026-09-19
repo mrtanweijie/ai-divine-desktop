@@ -397,13 +397,18 @@ async def stream_chat(request: StreamChatRequest):
                 except OSError:
                     meta["size"] = None
             if not is_image_path(attachment.file_path):
+                # 解析必须 to_thread 卸载：PDF/Word/Excel 走 anydoc 原生解析，
+                # 几十 MB 的文档是同步重活，直接在事件循环里跑会冻结整个后端。
                 try:
-                    meta["content"] = read_file_text(
-                        Path(attachment.file_path)
-                    )[:12000]
+                    text = await asyncio.to_thread(
+                        read_file_text, Path(attachment.file_path)
+                    )
+                    meta["content"] = text[:12000]
                 except Exception as exc:  # noqa: BLE001
                     meta["error"] = str(exc)
-                    text = _read_text_fallback(Path(attachment.file_path))
+                    text = await asyncio.to_thread(
+                        _read_text_fallback, Path(attachment.file_path)
+                    )
                     if text:
                         meta["content"] = text[:12000]
         elif attachment.content:
@@ -528,8 +533,10 @@ async def stream_chat(request: StreamChatRequest):
 
             # 本地能力路由：简单任务（翻译/闲聊/提取/改写/计算）本地模型直答，
             # 省 token。带附件时跳过（涉及文件的复杂任务交给预处理+云端）。
-            # 模型没在跑时自动拉起（复用预整理 _start_local_model，最长 ~40s），
+            # 模型没在跑时自动拉起（复用预整理 _start_local_model，最长 ~20s），
             # 避免"简单任务静默走云端"——起不来才回退云端。
+            # 必须 to_thread 卸载：该函数内部有 subprocess.run 与最长 20s 的
+            # 轮询，直接调用会冻结事件循环，令所有进行中的 SSE 流静默卡死。
             # 实时信息请求：系统层强制联网（不依赖模型自觉）。
             # 命中新闻/天气/股票等关键词 → 跳过本地路由、注入硬指令，
             # 禁止"无法提供实时信息"类拒绝（deepseek-flash 常无视提示词）。
@@ -556,7 +563,7 @@ async def stream_chat(request: StreamChatRequest):
 
                     manager = get_manager()
                     if not await asyncio.to_thread(manager.is_ready):
-                        _start_local_model(manager)
+                        await asyncio.to_thread(_start_local_model, manager)
                     if await asyncio.to_thread(manager.is_ready):
                         if task == "qa":
                             # 知识问答：护栏式本地答（不确定/拒答/空 → 回退云端）
@@ -828,7 +835,8 @@ async def retry_cloud(request: RetryCloudRequest):
 
     settings = settings_store.load()
     context_limit = int(settings.get("context_limit") or 20)
-    history = db.history_for_model(
+    history = await asyncio.to_thread(
+        db.history_for_model,
         request.session_id,
         limit=context_limit,
         until_message_id=messages[question_index]["id"],
@@ -841,7 +849,8 @@ async def retry_cloud(request: RetryCloudRequest):
     )
     ui_theme = normalize_ui_theme(request.ui_theme)
     workspace = Path(
-        db.session_workspace(request.session_id) or workspace_dir()
+        await asyncio.to_thread(db.session_workspace, request.session_id)
+        or workspace_dir()
     )
 
     async def generate():
@@ -872,7 +881,7 @@ async def retry_cloud(request: RetryCloudRequest):
         finally:
             discard_injections(request.session_id)
             _CANCEL_EVENTS.pop(request.session_id, None)
-            db.touch_session(request.session_id)
+            await asyncio.to_thread(db.touch_session, request.session_id)
 
     return StreamingResponse(
         generate(),
@@ -898,7 +907,7 @@ async def answer_question(request: ChatAnswer) -> dict[str, object]:
     asyncio.Event 生命周期，按 session 单槽位——orchestrator 逐 item
     串行 await，同刻仅一个未决）。call_id 由前端配对展示，不参与寻址。
     """
-    if db.get_session(request.session_id) is None:
+    if await asyncio.to_thread(db.get_session, request.session_id) is None:
         raise HTTPException(status_code=404, detail="会话不存在")
     if not resolve_terminal_answer(request.session_id, request.answer):
         raise HTTPException(status_code=409, detail="no_pending_ask")
@@ -919,7 +928,7 @@ async def inject_message(session_id: str, request: InjectRequest) -> object:
         raise HTTPException(status_code=400, detail="内容不能为空")
     if len(content) > MAX_CONTENT_LENGTH:
         raise HTTPException(status_code=400, detail="内容过长")
-    if db.get_session(session_id) is None:
+    if await asyncio.to_thread(db.get_session, session_id) is None:
         raise HTTPException(status_code=404, detail="会话不存在")
     if _CANCEL_EVENTS.get(session_id) is None:
         raise HTTPException(status_code=409, detail="no_active_stream")
@@ -932,7 +941,7 @@ async def inject_message(session_id: str, request: InjectRequest) -> object:
     if not enqueue_injection(session_id, content):
         # 理论不可达（pending_count 已挡），双保险避免消息丢失
         raise HTTPException(status_code=429, detail="待处理补充过多")
-    db.touch_session(session_id)
+    await asyncio.to_thread(db.touch_session, session_id)
     return {"ok": True}
 
 # --- 本地聊天子系统（已拆分至 chat_local.py，此处 re-export 兼容既有引用） ---

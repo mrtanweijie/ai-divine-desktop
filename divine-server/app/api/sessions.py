@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from datetime import datetime
@@ -155,7 +156,9 @@ def session_context_usage(session_id: str):
 @router.post("/{session_id}/compact")
 async def compact_session(session_id: str):
     """Manually compact the session's early conversation into a summary."""
-    session = db.get_session(session_id)
+    # 本文件只有这一个 async 路由（其余是同步 def，FastAPI 会自动放进
+    # 线程池，不需要也不应该改成 async）。所以只有这里要显式卸载。
+    session = await asyncio.to_thread(db.get_session, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
     from ..agent.state import compact_session as run_compact
@@ -168,7 +171,10 @@ async def compact_session(session_id: str):
             "ok": True,
             "compacted": False,
             "message": "会话内容还不多，暂无需压缩",
-            "usage": build_context_breakdown(session_id),
+            # CPU 型（全量 token 估算），搬进线程池后不占事件循环
+            "usage": await asyncio.to_thread(
+                build_context_breakdown, session_id
+            ),
         }
     logger.info(
         "session manually compacted id=%s saved_tokens=%s",
@@ -182,7 +188,8 @@ async def compact_session(session_id: str):
         "compacted": True,
         "summary": saved.get("summary", ""),
         "savedTokens": int(saved.get("saved_tokens") or 0),
-        "usage": build_context_breakdown(session_id),
+        # CPU 型（全量 token 估算），搬进线程池后不占事件循环
+        "usage": await asyncio.to_thread(build_context_breakdown, session_id),
     }
 
 

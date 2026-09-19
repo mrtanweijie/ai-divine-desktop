@@ -1043,6 +1043,10 @@ async def _handle_adapter_call(
 
         # 编辑后自动语法检查（P3-3a）：把语法错误回灌给模型立即修复，
         # 不让坏改动悄悄落盘等用户运行时才发现。
+        # 必须 to_thread 卸载：syntax_check_paths 内部是 py_compile 子进程
+        # （timeout=20s），且它挂在 edit_files / write_file / edit_lines /
+        # apply_patch 成功后的必经路径上，一次代码任务触发数十次。
+        # edited_paths() 只是纯路径计算，保持同步。
         if name in _EDIT_TOOLS and output.get("success"):
             try:
                 from ...tools.syntax_check import (
@@ -1050,8 +1054,9 @@ async def _handle_adapter_call(
                     syntax_check_paths,
                 )
 
-                problems = syntax_check_paths(
-                    edited_paths(name, arguments, ctx.workspace)
+                problems = await asyncio.to_thread(
+                    syntax_check_paths,
+                    edited_paths(name, arguments, ctx.workspace),
                 )
             except Exception:  # noqa: BLE001 — 检查失败不影响工具结果
                 problems = []

@@ -249,12 +249,16 @@ def maybe_preprocess(
 
 
 def _start_local_model(manager) -> bool:
-    """预整理需要本地模型但 llama-server 没在跑时，自动拉起（冷启动 10-40s）。
+    """预整理需要本地模型但 llama-server 没在跑时，自动拉起（冷启动 10-20s）。
 
     选模型顺序：设置里的 local_llm_model → 已装模型里优先 1.5B → 第一个已装模型。
     返回是否就绪；无模型/启动失败/超时返回 False（调用方降级云端）。
     注：App 的 sidecar 重启会杀掉孤儿 llama-server（_free_orphan_port），
     模型"起得来留不住"，自动拉起是让预整理不依赖模型常驻的关键。
+
+    **调用方必须用 asyncio.to_thread 卸载**（本函数内部有 subprocess.run 与
+    最长 20s 的轮询，直接在事件循环里跑会冻结整个后端）。函数本身是同步的，
+    不做任何 await。
     """
     try:
         status = manager.get_status()
@@ -293,7 +297,9 @@ def _start_local_model(manager) -> bool:
 
         logger.info("本地预整理自动拉起模型: %s (%s)", model_id, path)
         ok, err = manager.start(model_id, path, wait_s=10.0)
-        deadline = time.time() + 40.0
+        # 轮询上限 20s：manager.start 内部已经等了 wait_s=10s，
+        # 再叠 40s 会让最坏路径到 50s（事件循环冻结时间过长）。
+        deadline = time.time() + 20.0
         while time.time() < deadline:
             if manager.is_ready():
                 logger.info("本地模型自动拉起成功: %s", model_id)
@@ -303,7 +309,7 @@ def _start_local_model(manager) -> bool:
                 logger.warning("本地模型启动失败，降级云端: %s", err)
                 return False
             time.sleep(2)
-        logger.warning("本地模型自动拉起超时（40s），降级云端")
+        logger.warning("本地模型自动拉起超时（20s），降级云端")
         return False
     except Exception as e:  # noqa: BLE001
         logger.warning("本地模型自动拉起异常，降级云端: %s", e)

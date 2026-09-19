@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
@@ -122,6 +123,21 @@ _INTENT_ALIASES = {
 _manager: LocalLLMManager | None = None
 
 
+def _serialized(method: Callable) -> Callable:
+    """把「整个启停操作」串行化，见 ``LocalLLMManager._op_lock`` 的说明。
+
+    用装饰器而非在方法体内加 ``with``：``start`` / ``stop`` 体量都不小，
+    整体缩进会淹没真正的改动，diff 不可读。
+    """
+
+    @functools.wraps(method)
+    def wrapper(self, *args: Any, **kwargs: Any) -> Any:
+        with self._op_lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
+
 class LocalLLMManager:
     """llama-server 进程管理 + 意图分类。"""
 
@@ -135,6 +151,18 @@ class LocalLLMManager:
         self.last_error: str | None = None  # 最近一次启动失败的原因
         self._pending_model_id: str | None = None
         self._lock = threading.Lock()
+        # 粗粒度「操作锁」：串行化 start / stop / uninstall 的**整个操作**。
+        #
+        # 与 _lock 的分工：_lock 是细粒度的，只护 self.process 句柄的读写；
+        # 这里护的是「检查状态 → 释放孤儿端口 → spawn」这一整段。
+        #
+        # 为什么需要它：这些调用原先由事件循环**天然串行化**，搬到线程池
+        # （asyncio.to_thread）后可以并发执行——两个 start 会各自
+        # _free_orphan_port 后各 spawn 一个 llama-server，导致端口冲突、
+        # self.process 句柄互相覆盖；stop 与 start 并发则会杀掉刚拉起的进程。
+        #
+        # 必须是 RLock：start() 内部会调用 stop()。
+        self._op_lock = threading.RLock()
         self._classifier_cache: dict[str, Any] = {}
         self._download_progress: dict[str, dict[str, Any]] = {}
 
@@ -310,6 +338,7 @@ class LocalLLMManager:
             time.sleep(0.2)
         logger.warning("端口 %d 在 %ss 内未释放", self.port, wait_s)
 
+    @_serialized
     def start(
         self,
         model_id: str,
@@ -443,6 +472,7 @@ class LocalLLMManager:
         if should_stop:
             self.stop()
 
+    @_serialized
     def stop(self) -> None:
         """停止 llama-server 子进程（含未托管的孤儿进程）。"""
         with self._lock:
@@ -808,8 +838,14 @@ class LocalLLMManager:
         self._download_progress.pop(model_id, None)
         return result is not None
 
+    @_serialized
     def uninstall_model(self, model_id: str) -> bool:
-        """卸载模型（删除文件）。"""
+        """卸载模型（删除文件）。
+
+        与 start / stop 共用操作锁：避免「正在拉起的模型被并发删掉」。
+        ``install_model`` **有意不加锁**——它是分钟级网络下载，持锁会把
+        ``stop_model`` 一起卡住，而它与进程句柄无关。
+        """
         return delete_model(model_id, self.models_dir)
 
     def install_custom_model(

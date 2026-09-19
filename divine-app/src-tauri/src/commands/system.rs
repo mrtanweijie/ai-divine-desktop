@@ -108,7 +108,7 @@ fn run_osascript(script: &str) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn add_calendar_event(
+pub async fn add_calendar_event(
     title: String,
     start_at: String,
     end_at: Option<String>,
@@ -132,7 +132,12 @@ const event = app.Event({{summary: '{title}', description: '{notes}', startDate:
 cal.events.push(event);
 event.uid();"#
     );
-    let uid = run_osascript(&script)?;
+    // osascript 会阻塞到进程退出：首次调用还要拉起 Calendar.app 并等 TCC
+    // 授权弹窗（用户不点就一直等）。同步命令跑在主线程，会把整个窗口冻住。
+    // 脚本已在上面构造好，这里只 move 一个 String 进闭包。
+    let uid = tauri::async_runtime::spawn_blocking(move || run_osascript(&script))
+        .await
+        .map_err(|err| format!("日历命令执行失败: {err}"))??;
     if uid.is_empty() {
         Ok(title)
     } else {
@@ -141,7 +146,7 @@ event.uid();"#
 }
 
 #[tauri::command]
-pub fn remove_calendar_event(title: String, start_at: String) -> Result<String, String> {
+pub async fn remove_calendar_event(title: String, start_at: String) -> Result<String, String> {
     let title = js_escape(&title);
     let start = js_escape(&start_at);
     let script = format!(
@@ -160,7 +165,11 @@ for (const cal of app.calendars()) {{
 }}
 removed;"#
     );
-    let removed = run_osascript(&script)?;
+    // 同 add_calendar_event：JXA 是双重遍历所有日历的所有事件，事件量大时
+    // 是 O(全部事件)，且同样要等 TCC 授权，必须移出主线程。
+    let removed = tauri::async_runtime::spawn_blocking(move || run_osascript(&script))
+        .await
+        .map_err(|err| format!("日历命令执行失败: {err}"))??;
     Ok(removed)
 }
 

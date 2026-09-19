@@ -60,7 +60,9 @@ async def get_status():
         from ..agent.core import get_manager
 
         manager = get_manager()
-        return manager.get_status()
+        # 阻塞调用放入线程池：get_status 内含 detect_hardware 的多个
+        # subprocess.run（各 timeout=5）与模型目录遍历。
+        return await asyncio.to_thread(manager.get_status)
     except Exception as e:
         raise HTTPException(500, f"获取状态失败: {e}")
 
@@ -71,7 +73,8 @@ async def get_hardware():
     try:
         from ..agent.core import detect_hardware
 
-        hw = detect_hardware()
+        # 阻塞调用放入线程池：detect_hardware 内部是多个 subprocess.run
+        hw = await asyncio.to_thread(detect_hardware)
         return {
             "ram_total_gb": hw.ram_total_gb,
             "ram_available_gb": hw.ram_available_gb,
@@ -93,7 +96,8 @@ async def get_recommended():
     try:
         from ..agent.core import detect_hardware, get_recommended_models
 
-        hardware = detect_hardware()
+        # 阻塞调用放入线程池：detect_hardware 内部是多个 subprocess.run
+        hardware = await asyncio.to_thread(detect_hardware)
         models = get_recommended_models(hardware)
         return {
             "models": [
@@ -145,7 +149,9 @@ async def start_model(req: StartRequest):
                 detail="llama-server 未安装。请先安装：brew install llama.cpp",
             )
 
-        status = manager.get_status()
+        # 阻塞调用放入线程池：get_status 内含 detect_hardware 的多个
+        # subprocess.run（各 timeout=5）。
+        status = await asyncio.to_thread(manager.get_status)
 
         # 查找已安装模型
         model = next(
@@ -194,7 +200,8 @@ async def stop_model():
         from ..agent.core import get_manager
 
         manager = get_manager()
-        manager.stop()
+        # 阻塞调用放入线程池：stop 内部 _free_orphan_port(wait_s=3.0) 固定 ≥3s
+        await asyncio.to_thread(manager.stop)
     except Exception:
         pass
 
@@ -215,7 +222,8 @@ async def install_model(req: InstallRequest):
         manager = get_manager()
 
         # 检查是否已安装
-        status = manager.get_status()
+        # 阻塞调用放入线程池：get_status 内含多个 subprocess.run
+        status = await asyncio.to_thread(manager.get_status)
         if any(m["id"] == req.model_id for m in status["installed_models"]):
             return {"ok": True, "message": "模型已安装"}
 
@@ -241,7 +249,8 @@ async def uninstall_model(req: UninstallRequest):
         from ..agent.core import get_manager
 
         manager = get_manager()
-        ok = manager.uninstall_model(req.model_id)
+        # 阻塞调用放入线程池：删除模型文件（与 start/stop 共用操作锁串行化）
+        ok = await asyncio.to_thread(manager.uninstall_model, req.model_id)
         if not ok:
             raise HTTPException(404, "模型不存在")
 

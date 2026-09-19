@@ -1,7 +1,7 @@
 # 主线程阻塞点隔离方案（全栈）
 
-> 编号：005 ｜ 类型：plan ｜ 日期：2026-09-17 ｜ 状态：待实施（方案待审）
-> 版本：v1.0
+> 编号：005 ｜ 类型：plan ｜ 日期：2026-09-17 ｜ 状态：已实施（2026-09-19）
+> 版本：v1.0（实施记录见 [§十](#十实施记录2026-09-19)）
 > 性质：方案（未实施代码）；每项含现状证据、改动设计、风险、验证方式
 > 前序：[review/009-app-freeze-diagnosis-20260915](../review/009-app-freeze-diagnosis-20260915.md)
 > 上一轮已修复「文件树刷新路径」；本方案处理**剩余**未隔离的阻塞点
@@ -460,3 +460,70 @@ cd divine-server && python -m pytest --basetemp=/tmp/pt -p no:cacheprovider
 
 唯一需要额外设计的是 **§五的并发串行化**（B1/B3 的 `manager` 有状态单例），
 以及 **C1 的工具归属语义回归**。这两点是本方案真正的风险所在，其余为机械改动。
+
+---
+
+## 十、实施记录（2026-09-19）
+
+**11 项全部落地**（B1–B5、A1–A3、C1–C3），按 §八 拆成三个提交：
+
+| 提交 | 内容 | 说明 |
+| --- | --- | --- |
+| ① `fix(perf): 隔离后端与 Tauri 主线程的同步阻塞点` | 阶段一+二：后端 B1/B2/B3 + Tauri A1/A2/A3 + B4 + B5 + 新增回归测试 | 全部是「补上漏掉的隔离」，语义零变化 |
+| ② `perf(chat): 会话重建由 O(N×M) 改为预解析 + 二分窗口` | C1 | 含唯一的用户可见语义风险，独立提交便于回溯 |
+| ③ `perf(chat): 流式渲染消除重复扫描与重复解析` | C2 / C3 | 渲染行为需目视确认，同样独立 |
+
+C1 独立是 §八 的明确要求；C2/C3 另立一个提交，是因为它们改动的是**渲染路径**
+（流式期间的围栏切分与文件路径 linkify），与 C1 的数据层重构不是一回事，
+混在一起会让「C1 出问题」时的回滚粒度变粗。
+
+### 10.1 与方案原文的三处偏差（均已按实际代码为准实施）
+
+| # | 方案原文 | 实际情况 | 处理 |
+| --- | --- | --- | --- |
+| 1 | §一：「`app/api/*.py` **全部是 `async def`**（26 处，0 处同步 `def`）」，据此推出「FastAPI 不会把任何路由自动放进线程池」 | 实测 **104 处同步 `def` + 21 处 `async def`**。FastAPI/Starlette 会自动把同步 `def` 路由放进线程池 | 结论方向不变（async 路由里的裸调仍然阻塞事件循环），但**范围大幅收窄**：`sessions.py` 11 个路由里只有 `compact_session` 是 async，**只有它需要改**。其余 10 个若改成 `async def` 而不补 `to_thread`，等于**把阻塞搬到事件循环上**——是新增缺陷，故不动 |
+| 2 | §五：加一把**模块级** `threading.Lock`（如 `_manager_lock`） | `LocalLLMManager` 已有细粒度 `self._lock`（只护 `self.process` 句柄，且注释明确「不能在持有 `_lock` 时调 `stop()`」）；全仓 `grep _manager_lock` 零命中 | 改为在类内新增**粗粒度 `self._op_lock = threading.RLock()`**，用 `@_serialized` 装饰器套在 `start` / `stop` / `uninstall_model` 上。**必须是 `RLock`**：`start()` 内部会调 `stop()`，普通 `Lock` 直接死锁 |
+| 3 | §四 C2：`sanitizeJsonQuotes` 的 `raw.slice(i + 1)` 是 **O(n²)** | V8 的 `String.prototype.slice` 返回 **SlicedString（O(1) 视图，不复制）**，实测 2KB→140KB 只放大 1.0–1.4×，非二次 | 改动照做（少一次分配、意图更清楚），但按**微优化**对待；因它是行为敏感代码，另做了 40,009 例逐字节等价对拍 |
+
+### 10.2 方案未写、实施时新增的两项设计
+
+1. **`install_model` 有意不加锁**。它是分钟级网络下载，与进程句柄无关；持锁会把
+   `stop_model` 一起卡住。已在方法 docstring 与测试里双向锁定（加锁/不加锁都会红）。
+2. **B1 的轮询上限 40s → 20s**。`manager.start` 内部已等 `wait_s=10s`，再叠 40s
+   会让最坏路径到 50s，期间线程池工作线程一直被占。改后最坏 30s，
+   `tests/test_main_thread_offload.py::test_start_local_model_polling_cap_is_20s` 锁定该数值。
+
+### 10.3 验证证据
+
+**新增回归测试** `divine-server/tests/test_main_thread_offload.py`（13 个用例）：
+
+- §五并发锁：并发探针验证 `start`/`stop`/`uninstall_model` 互斥（`max_active == 1`）；
+  「`start` 内部调 `stop`」路径验证可重入（普通 `Lock` 会在 10s 后判失败）；
+  `install_model` 不持锁（下载中 `stop()` 必须能立刻返回）。
+- 事件循环可用性：用「阻塞期间循环还能跑多少个 10ms tick」当指标——被冻住时
+  tick 停在 0~1，卸载后接近 `block_s / 0.01`。覆盖 `local_llm.stop` / `local_llm.status` /
+  `sessions.compact_session`（db 与 breakdown **分别单独量**）。
+- 静态兜底：AST 解析收集各文件 `asyncio.to_thread(X, ...)` 的目标名，防止卸载点被改回裸调用。
+
+**变异验证（7/7 全部被捕获，确认测试非空转）**：去掉 `@_serialized`、`RLock`→`Lock`、
+给 `install_model` 加锁、`/stop` 改回裸调用、轮询上限改回 40s、
+`chat.py` 的 `_start_local_model` 与 `execution.py` 的 `syntax_check_paths` 改回裸调用——
+每一处都让对应用例失败。
+
+**前端**（C1–C3）：项目无 vitest/jest，采用「拷贝真实源码 + 只改模块说明符 + 打桩运行时依赖 +
+Node 22 原生 TS 擦除」的对拍方式：
+
+| 项 | 结果 |
+| --- | --- |
+| C1 工具归属等价性 | 随机对拍 4000 例 + 闭区间边界 + 重答窗口 + 空输入 + 缓存失效，**全部一致**；顺序还原（`hits.sort`）单独覆盖 |
+| C1 性能 | 80 消息 / 1200 `tool_runs` / 每条 4038B：**5.4ms → 0.8ms（6.4×）** |
+| C2 围栏扫描 | 增量 vs 全量对拍 **78,712 次全部一致**（该对拍在实施中抓出过一个「末尾半行被重复计数」的真实 bug）；200 帧 9.0ms → 6.3ms |
+| C2 `sanitizeJsonQuotes` | 40,009 例全部一致 |
+| C3 `HighlightedCode` | 超 500 行降级纯文本 |
+
+`tsc -b`、`eslint`（6 个改动文件）、`cargo check`（3 个 Rust 文件）、`ruff check` 均通过。
+
+**回归**：后端全套 **6 failed / 1398 passed / 3 skipped**。这 6 个失败**全部为既有环境问题**，
+已在 HEAD 干净树上复现同一组失败：3 个是 `test_llm_thinking.py` 缺 `OPENAI_API_KEY`，
+3 个是 `test_react.py` 的 `workspace.mkdir(exist_ok=True)` 被 IDE 的 Python 文件操作
+shim（`sitecustomize.py` 的 host-op broker）以 `EEXIST` 拒绝。**本方案未新增任何失败**。
