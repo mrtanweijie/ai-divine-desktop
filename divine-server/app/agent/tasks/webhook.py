@@ -29,6 +29,12 @@ async def run_webhook_task(task: dict[str, Any]) -> None:
         final = final_answer_from_history(history)
         recorder.set_output(final)
 
+        # Agent 没产出内容（例如会话不可用）时**绝不投递**：否则会往飞书/企微
+        # 发一条空消息，通道返回 200 还会被记成 succeeded，执行历史里完全看不出问题。
+        if not final.strip():
+            recorder.skip("Agent 未产出内容，已跳过投递")
+            return
+
         channels = parse_channels(task.get("delivery_json"))
         results = await dispatch(
             DeliveryPayload(
