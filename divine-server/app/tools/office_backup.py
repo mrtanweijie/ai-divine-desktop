@@ -87,7 +87,12 @@ def backup_file(session_id: str, source: Path) -> Path | None:
         if not source.is_file():
             return None
         root = _session_dir(session_id)
-        ts = time.strftime("%Y%m%d_%H%M%S") + f"_{time.monotonic_ns() % 10**9:09d}"
+        # ts 必须**严格递增**：restore_latest_batch 用 max() 挑最新一批。
+        # 原写法是 strftime(秒) + monotonic_ns() % 10**9（秒内纳秒），
+        # 当秒内纳秒回绕（999999xxx → 000000xxx）而 strftime 秒未变时，
+        # 后生成的 ts 反而更小 → max() 挑到旧备份，恢复成错误版本。
+        # 用完整 monotonic_ns()（19 位补零）保证单调。
+        ts = time.strftime("%Y%m%d_%H%M%S") + f"_{time.monotonic_ns():019d}"
         root.mkdir(parents=True, exist_ok=True)
         backup = root / f"{ts}.bak"
         shutil.copy2(source, backup)
