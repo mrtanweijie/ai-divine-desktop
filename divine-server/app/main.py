@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import db
+from . import db, events
 from .api import (
     calendar_events,
     chat,
@@ -29,6 +29,8 @@ from .api import (
     terminal,
     workspace_files,
 )
+# 别名导入：避免与顶层 app.events（广播工具）重名
+from .api import events as events_api
 from .config import cors_origins, ensure_directories, settings_store
 from .scheduler import scheduler
 from .tools.registry import registry
@@ -41,6 +43,8 @@ async def lifespan(_: FastAPI):
     logger.info("=== 侧边端启动 ===")
     ensure_directories()
     db.init_db()
+    # 全局事件广播要记住主事件循环，才能在 worker 线程里安全投递（见 events.py）
+    events.bind_loop(asyncio.get_running_loop())
     # 启动时清理过期工具运行记录（tool_runs 防膨胀 retention）
     try:
         from .db.tool_runs import prune_tool_runs
@@ -176,6 +180,7 @@ app.include_router(mcp.router, prefix="/api")
 app.include_router(skills.router)
 app.include_router(terminal.router)
 app.include_router(workspace_files.router, prefix="/api")
+app.include_router(events_api.router, prefix="/api")
 
 
 @app.get("/api/health")

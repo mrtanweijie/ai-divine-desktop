@@ -138,10 +138,13 @@ class Scheduler:
 
     async def _run_agent_task(self, task: dict[str, Any]) -> None:
         """Run one real Agent turn for scheduled agent/monitor tasks."""
-        session_id = task.get("session_id")
+        # 延迟导入：避免 scheduler ←→ agent.tasks 的模块级循环依赖
+        from .agent.tasks.common import ensure_task_session
+
+        session_id = await asyncio.to_thread(ensure_task_session, task)
         if not session_id:
             logger.warning(
-                "scheduled task has no session_id task_id=%s", task["id"]
+                "scheduled task session unavailable task_id=%s", task["id"]
             )
             return
         session = await asyncio.to_thread(db.get_session, session_id)

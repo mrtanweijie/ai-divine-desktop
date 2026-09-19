@@ -63,6 +63,7 @@ from .projects import (
     create_project,
     default_project,
     delete_project,
+    first_project,
     get_project,
     list_projects,
     pin_project,

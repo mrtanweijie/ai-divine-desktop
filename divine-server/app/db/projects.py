@@ -33,12 +33,24 @@ def default_project() -> dict[str, Any]:
     workspace.mkdir(parents=True, exist_ok=True)
     return create_project("默认项目", str(workspace))
 
+
+def first_project() -> dict[str, Any] | None:
+    """项目列表里的第一个项目（顺序与前端侧栏一致：pinned → sort_order → updated_at）。
+
+    给「自动创建的定时任务会话」选归属项目用。注意**不能**用 ``default_project()``
+    ——它取的是 ``created_at ASC`` 最早创建的那个，在侧栏里可能排在底部、根本看不到。
+    """
+    projects = list_projects()
+    return projects[0] if projects else None
+
+
 def get_project(project_id: str) -> dict[str, Any] | None:
     with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM projects WHERE id = ?", (project_id,)
         ).fetchone()
     return dict(row) if row else None
+
 
 def list_projects() -> list[dict[str, Any]]:
     with get_conn() as conn:

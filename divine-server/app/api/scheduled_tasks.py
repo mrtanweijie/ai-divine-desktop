@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from .. import db
+from .. import db, events
 from ..schedule_utils import compute_next_run
 from ..schemas import ScheduledTaskCreate, ScheduledTaskDecide, ScheduledTaskUpdate
 
@@ -17,15 +17,49 @@ def list_scheduled_tasks():
     return {"tasks": db.list_scheduled_tasks()}
 
 
+# 需要真跑 Agent 的类型：它们必须有会话承载执行结果。
+# reminder 只提醒、不跑 Agent，不需要会话。
+_AGENT_TASK_TYPES = frozenset({"agent", "monitor", "webhook", "digest", "interactive"})
+
+
+def _task_session_title(title: str) -> str:
+    return f"定时任务 · {title.strip() or '未命名'}"
+
+
+def _ensure_task_session(
+    task_type: str, title: str, session_id: str | None
+) -> tuple[str | None, bool]:
+    """给需要跑 Agent 的任务准备会话。
+
+    返回 ``(session_id, created)``。未指定会话时自动建一个**专属会话**，
+    让定时任务跑出来的内容有地方可看；``reminder`` 不建。
+    """
+    if session_id:
+        return session_id, False
+    if task_type not in _AGENT_TASK_TYPES:
+        return None, False
+    # 归属项目取「列表第一个」（与前端侧栏顺序一致：pinned → sort_order → updated_at）。
+    # 不用 default_project()——它取的是最早创建的项目，可能排在侧栏底部、用户看不到。
+    project = db.first_project()
+    session = db.create_session(
+        title=_task_session_title(title),
+        project_id=project["id"] if project else None,
+    )
+    return str(session["id"]), True
+
+
 @router.post("", status_code=201)
 def create_scheduled_task(body: ScheduledTaskCreate):
     if body.session_id and db.get_session(body.session_id) is None:
         raise HTTPException(status_code=404, detail="会话不存在")
+    session_id, session_created = _ensure_task_session(
+        body.task_type, body.title, body.session_id
+    )
     schedule_values = body.model_dump(exclude_none=True)
     task = db.create_scheduled_task(
         title=body.title.strip(),
         description=body.description.strip(),
-        session_id=body.session_id,
+        session_id=session_id,
         task_type=body.task_type,
         frequency=body.frequency,
         interval_minutes=body.interval_minutes,
@@ -49,6 +83,9 @@ def create_scheduled_task(body: ScheduledTaskCreate):
         task["title"],
         task["frequency"],
     )
+    if session_created:
+        # 让前端侧栏立刻出现这个「任务专属会话」
+        events.broadcast("sessions_changed", {"reason": "task_created"})
     return task
 
 
@@ -69,6 +106,16 @@ def update_scheduled_task(task_id: str, body: ScheduledTaskUpdate):
     if "session_id" in fields and fields["session_id"]:
         if db.get_session(fields["session_id"]) is None:
             raise HTTPException(status_code=404, detail="会话不存在")
+    # 任务改成需要跑 Agent 的类型（或原本就没有会话）时，补建专属会话
+    session_created = False
+    if not fields.get("session_id") and not current.get("session_id"):
+        merged_type = fields.get("task_type") or current.get("task_type") or ""
+        if merged_type in _AGENT_TASK_TYPES:
+            fields["session_id"], session_created = _ensure_task_session(
+                merged_type,
+                fields.get("title") or current.get("title") or "",
+                None,
+            )
     reschedule_keys = {
         "frequency",
         "interval_minutes",
@@ -87,6 +134,8 @@ def update_scheduled_task(task_id: str, body: ScheduledTaskUpdate):
         task_id,
         updated.get("status"),
     )
+    if session_created:
+        events.broadcast("sessions_changed", {"reason": "task_updated"})
     return updated
 
 

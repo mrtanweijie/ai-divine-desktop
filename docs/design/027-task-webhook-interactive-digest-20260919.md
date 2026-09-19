@@ -826,3 +826,60 @@ ChannelEditor 与 CollapsibleSection 引入 / 折叠 JSX 区块）全部在位�
 
 教训：用户说「XX 折叠 / 收起 / 不显示」通常是**交互与默认态**，不等于「删掉功能」。
 涉及删除已实现功能时，先确认。
+
+---
+
+## 16. 收尾修复：任务专属会话 + 全局事件流（2026-09-19）
+
+### 16.1 背景：Agent 型任务此前根本不会执行
+
+查证发现：前端建任务时**从不传 `session_id`**，而 `Scheduler._run_agent_task`
+第一件事就是 `if not session_id: logger.warning(...); return`。
+所以 agent 任务到点后只推进了 `next_run_at`，**Agent 一步没跑**，
+消息列表里也不会出现任何内容（`db.add_message` / `run_agent` 都在那个 early return 之后）。
+
+### 16.2 修复：每个任务一个专属会话
+
+- **创建任务时**（`api/scheduled_tasks.py::create_scheduled_task`）：
+  `agent` / `monitor` / `webhook` / `digest` / `interactive` 五类若未带 `session_id`，
+  自动 `db.create_session(title="定时任务 · {title}")` 并写进任务。
+  `reminder` 不建（只提醒、不跑 Agent）。
+- **编辑任务时**：类型从 reminder 改成上述五类、且任务还没有会话 → 同样补建。
+- **执行时兜底**（`agent/tasks/common.py::ensure_task_session`）：
+  会话为空（老任务、或会话被删）→ 懒创建并**写回任务**。
+  写回是关键：否则每次执行都会新建会话，侧栏会被刷屏。
+- **归属项目**：取 `db.first_project()` —— 即 `list_projects()` 的**首项**，
+  顺序与前端侧栏完全一致（`pinned DESC → sort_order ASC → updated_at DESC`）。
+  ⚠️ **不要**用 `default_project()`：它是 `ORDER BY created_at ASC LIMIT 1`，
+  取的是**最早创建**的项目，在侧栏里可能排到底部、用户根本看不到。
+  没有项目时返回 `None`，交回 `create_session` 的默认逻辑（会现场建「默认项目」）。
+  连带效果：`session_workspace()` 是 JOIN projects 取 `path`，所以 Agent 跑任务时的
+  工作目录 = 列表第一个项目的目录。
+
+### 16.3 全局事件流：`GET /api/events`
+
+对话回合内的 SSE 只在回合进行期间存在，覆盖不到**后台**发生的事。新增：
+
+- `app/events.py`：进程内 pub/sub。订阅者各持一个 `asyncio.Queue`（容量 100，
+  满则丢最旧）。`broadcast()` 可在**任意线程**调用——FastAPI 的同步端点跑在
+  worker 线程里，所以统一走 `loop.call_soon_threadsafe`（主循环由
+  `events.bind_loop()` 在 lifespan 中登记）。
+- `app/api/events.py`：`GET /api/events` 返回 `text/event-stream`，15 秒心跳，
+  首帧发 `ready`。
+- 前端 `services/events.ts`：`EventSource` 常驻连接 + 订阅分发（自带重连）。
+  `pages/chat/index.tsx` 订阅 `sessions_changed` → `refreshSessions()`，
+  于是后台建了会话，侧栏立刻出现。
+
+### 16.4 顺带修掉的缺陷：webhook 会推空消息
+
+`run_agent_with_user_prompt` 拿不到会话时返回 `[]` → 最终答案 `""` →
+`delivery.dispatch` 与 `channels.py` **都没有空内容保护** → 真会往飞书/企微
+发一条**空消息**，通道返回 200 还会被记成 `succeeded`，执行历史里完全看不出问题。
+现在 `webhook.py` 在最终答案为空时直接
+`recorder.skip("Agent 未产出内容，已跳过投递")`。
+
+### 16.5 测试
+
+`tests/test_task_session_and_events.py`（10 例）：SSE 报文格式、广播 / 退订 / 队列满淘汰、
+`ensure_task_session` 创建与写回、API 建会话（agent 建 / reminder 不建 / 广播触发）、
+webhook 空内容不投递。

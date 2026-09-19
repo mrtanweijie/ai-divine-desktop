@@ -12,13 +12,46 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from ... import db
+from ... import db, events
 from ...config import workspace_dir
 
 logger = logging.getLogger("divine.tasks.common")
 
 # 改前就存在的两类：强制跑满权限、计划模式直接执行
 _LEGACY_FORCED_TYPES = ("agent", "monitor")
+
+
+def ensure_task_session(task: dict[str, Any]) -> str | None:
+    """取任务绑定的会话；没有就建一个**专属会话**并写回任务。
+
+    设计意图：定时任务跑出来的内容要有个地方可看。前端创建任务时已经会带上
+    会话，这里主要兜住两种漏网情况——
+    1. design 027 之前建的老任务（那时前端不传 ``session_id``）；
+    2. 会话被删掉之后。
+
+    写回 ``session_id`` 是关键：否则每次执行都会新建一个会话，
+    会话列表会被刷屏。返回可用的 session_id。
+    """
+    session_id = task.get("session_id")
+    if session_id:
+        return str(session_id)
+
+    title = task.get("title") or "定时任务"
+    # 归属项目取「列表第一个」（与前端侧栏顺序一致），而不是 default_project()
+    # 那个「最早创建」的项目——后者可能排在侧栏底部、用户根本看不到。
+    project = db.first_project()
+    session = db.create_session(
+        title=f"定时任务 · {title}",
+        project_id=project["id"] if project else None,
+    )
+    new_id = str(session["id"])
+    try:
+        db.update_scheduled_task(task["id"], session_id=new_id)
+    except Exception:  # noqa: BLE001 — 写回失败不该阻断本次执行
+        logger.exception("failed to persist session_id task_id=%s", task.get("id"))
+    # 前端侧栏据此刷新，让新会话立刻可见
+    events.broadcast("sessions_changed", {"reason": "task_run"})
+    return new_id
 
 
 def _approval_and_plan(task: dict[str, Any], session: dict[str, Any]) -> tuple[str, str]:
@@ -46,9 +79,9 @@ async def run_agent_with_user_prompt(
     user message 取 ``task['prompt']``（新类型由用户填），
     回退顺序 prompt → description → title → "定时任务"。
     """
-    session_id = task.get("session_id")
+    session_id = await asyncio.to_thread(ensure_task_session, task)
     if not session_id:
-        logger.warning("scheduled task has no session_id task_id=%s", task["id"])
+        logger.warning("scheduled task session unavailable task_id=%s", task["id"])
         return []
     session = await asyncio.to_thread(db.get_session, session_id)
     if session is None:

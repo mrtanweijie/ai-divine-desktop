@@ -27,6 +27,7 @@ import { FilePreviewPanel } from "@/pages/chat/components/FilePreviewPanel";
 import { SessionList } from "@/pages/chat/components/SessionList";
 import { SettingsModal } from "@/components/SettingsModal";
 import { isMacosDesktop } from "@/services/tauri";
+import { subscribeAppEvent } from "@/services/events";
 import type { ApprovalMode, ChatFile, ChatMessage, Project, SettingsSaveBody } from "@/types";
 import { useConfigState } from "@/pages/chat/state/configStore";
 import { useFullscreen } from "@/pages/chat/state/fullscreenStore";
@@ -588,6 +589,14 @@ export default function ChatPage() {
     },
     [selectedId, setSettings],
   );
+
+  // 后台事件：调度器建了「任务专属会话」或跑完定时任务 → 刷新侧栏会话列表。
+  // 这条连接常驻（services/events.ts），与对话回合内的 SSE 是两回事。
+  useEffect(() => {
+    return subscribeAppEvent("sessions_changed", () => {
+      void refreshSessions().catch(() => undefined);
+    });
+  }, [refreshSessions]);
 
   const handleModelChange = useCallback(
     (modelId: string) => {
