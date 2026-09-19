@@ -183,7 +183,11 @@ class ScheduledTaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     description: str = ""
     session_id: str | None = None
-    task_type: Literal["reminder", "agent", "monitor"] = "reminder"
+    # 027 设计：加 3 类新任务（webhook / interactive / digest），
+    # reminder / agent / monitor 保留原语义。
+    task_type: Literal[
+        "reminder", "agent", "monitor", "webhook", "interactive", "digest"
+    ] = "reminder"
     frequency: Literal["once", "interval", "daily", "weekly", "monthly"] = (
         "interval"
     )
@@ -194,13 +198,22 @@ class ScheduledTaskCreate(BaseModel):
     days_of_week: list[int] = []
     day_of_month: int | None = Field(default=None, ge=1, le=31)
     status: Literal["active", "paused", "done"] = "active"
+    # 027 设计：把任务源 / 投递 / 交互元数据下沉到任务本身。
+    # 仅 webhook / interactive / digest 使用；其他类型留空也合法。
+    prompt: str = ""
+    model_id: str | None = None
+    allow_full_access: bool = False
+    delivery: dict[str, Any] | None = None
+    interactive: dict[str, Any] | None = None
 
 
 class ScheduledTaskUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = None
     session_id: str | None = None
-    task_type: Literal["reminder", "agent", "monitor"] | None = None
+    task_type: Literal[
+        "reminder", "agent", "monitor", "webhook", "interactive", "digest"
+    ] | None = None
     frequency: Literal["once", "interval", "daily", "weekly", "monthly"] | None = None
     interval_minutes: int | None = Field(default=None, ge=1)
     run_at: str | None = None
@@ -212,6 +225,12 @@ class ScheduledTaskUpdate(BaseModel):
     last_run_at: str | None = None
     status: Literal["active", "paused", "done"] | None = None
     calendar_synced: int | None = None
+    # 027 设计：stage 2+ 才会从前端传入；stage 1 仅开放字段，API 透传。
+    prompt: str | None = None
+    model_id: str | None = None
+    allow_full_access: bool | None = None
+    delivery: dict[str, Any] | None = None
+    interactive: dict[str, Any] | None = None
 
 
 class CalendarEventCreate(BaseModel):

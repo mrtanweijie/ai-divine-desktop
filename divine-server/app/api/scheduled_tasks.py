@@ -36,6 +36,11 @@ def create_scheduled_task(body: ScheduledTaskCreate):
         day_of_month=body.day_of_month,
         next_run_at=compute_next_run(schedule_values),
         status=body.status,
+        prompt=body.prompt,
+        model_id=body.model_id,
+        allow_full_access=body.allow_full_access,
+        delivery=body.delivery,
+        interactive=body.interactive,
     )
     logger.info(
         "scheduled task created id=%s title=%s frequency=%s",
@@ -52,6 +57,12 @@ def update_scheduled_task(task_id: str, body: ScheduledTaskUpdate):
     if not current:
         raise HTTPException(status_code=404, detail="定时任务不存在")
     fields = body.model_dump(exclude_none=True)
+    # 027 设计：把 schema 字段名映射到列名（update_scheduled_task 用 **fields，
+    # 直接按列名匹配，schema 的 "delivery" / "interactive" 在此处转一下）。
+    if "delivery" in fields:
+        fields["delivery_json"] = fields.pop("delivery")
+    if "interactive" in fields:
+        fields["interactive_json"] = fields.pop("interactive")
     if "session_id" in fields and fields["session_id"]:
         if db.get_session(fields["session_id"]) is None:
             raise HTTPException(status_code=404, detail="会话不存在")

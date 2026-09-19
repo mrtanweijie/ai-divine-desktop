@@ -90,14 +90,16 @@ class Scheduler:
         self, task: dict[str, Any], lock: asyncio.Lock
     ) -> None:
         async with lock:
+            # 027 设计：分派到 app.agent.tasks 注册的 handler；
+            # reminder / agent / monitor 走 builtins.py 默认实现，行为不变。
+            from .agent import tasks as task_dispatcher
+
             try:
-                if task.get("task_type") in ("agent", "monitor"):
-                    await self._run_agent_task(task)
-                elif task.get("task_type") == "reminder":
-                    self._mark_reminder_due(task)
+                await task_dispatcher.run_task(task)
             except Exception:
                 logger.exception(
-                    "scheduled agent task failed task_id=%s", task["id"]
+                    "scheduled task handler failed task_id=%s",
+                    task["id"],
                 )
             try:
                 await self._advance(task)

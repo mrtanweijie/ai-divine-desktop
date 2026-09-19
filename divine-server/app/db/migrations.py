@@ -86,8 +86,28 @@ CREATE TABLE IF NOT EXISTS scheduled_tasks (
     last_run_at TEXT,
     status TEXT NOT NULL DEFAULT 'active',
     calendar_synced INTEGER NOT NULL DEFAULT 0,
+    -- 027 设计：把"执行内容 / 投递 / 交互"从硬编码迁移到任务本身
+    prompt TEXT NOT NULL DEFAULT '',
+    model_id TEXT,
+    allow_full_access INTEGER NOT NULL DEFAULT 0,
+    delivery_json TEXT NOT NULL DEFAULT '{}',
+    interactive_json TEXT NOT NULL DEFAULT '{}',
+    pending_user_action TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+-- 027 设计：每次跑一次任务生成一行执行历史（webhook/digest/interactive 用；
+-- reminder/agent/monitor 不写，留空表以避免回溯历史）
+CREATE TABLE IF NOT EXISTS task_runs (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES scheduled_tasks(id) ON DELETE CASCADE,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    status TEXT NOT NULL,
+    output TEXT NOT NULL DEFAULT '',
+    error TEXT NOT NULL DEFAULT '',
+    delivery_status_json TEXT NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS calendar_events (
@@ -112,6 +132,7 @@ CREATE INDEX IF NOT EXISTS idx_tool_runs_session ON tool_runs(session_id);
 CREATE INDEX IF NOT EXISTS idx_todos_session ON agent_todos(session_id);
 CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_session ON scheduled_tasks(session_id);
+CREATE INDEX IF NOT EXISTS idx_task_runs_task ON task_runs(task_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_task ON calendar_events(task_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_start ON calendar_events(start_at);
 
@@ -326,6 +347,24 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_sessions_project "
             "ON sessions(project_id)"
         )
+        # 027 设计：把 webhook/digest/interactive 的元数据落到 scheduled_tasks
+        scheduled_task_columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(scheduled_tasks)")
+        }
+        _ST_ADD_COLUMNS: list[tuple[str, str]] = [
+            ("prompt", "TEXT NOT NULL DEFAULT ''"),
+            ("model_id", "TEXT"),
+            ("allow_full_access", "INTEGER NOT NULL DEFAULT 0"),
+            ("delivery_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ("interactive_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ("pending_user_action", "TEXT"),
+        ]
+        for name, ddl in _ST_ADD_COLUMNS:
+            if name not in scheduled_task_columns:
+                conn.execute(
+                    f"ALTER TABLE scheduled_tasks ADD COLUMN {name} {ddl}"
+                )
         conn.commit()
 
     default = default_project()

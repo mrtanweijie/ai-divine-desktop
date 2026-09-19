@@ -14,6 +14,7 @@ from . import (
     scheduled_tasks,
     sessions,
     summaries,
+    task_runs,
     todos,
     tool_runs,
 )
@@ -92,6 +93,12 @@ from .summaries import (
     get_summary,
     save_summary,
     search_summaries,
+)
+from .task_runs import (
+    create_run,
+    get_run,
+    list_runs_for_task,
+    update_run,
 )
 from .todos import (
     abort_todos,
