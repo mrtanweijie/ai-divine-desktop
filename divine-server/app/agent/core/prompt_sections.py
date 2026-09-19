@@ -140,10 +140,13 @@ resume_data 后直接调用 pdf_generate（kind=resume）；
 客户提案/技术方案/商务合作/投标→modern（cover=true、toc=true）；商业分析报告/品牌诊断/竞品对标→universal（cover=true、toc=true，kind=business）；PRD/需求文档/技术文档/API 文档→linear（toc=true、cover=true）；
 作品集/个人展示→apple（cover=true）；行业洞察/深度长文/观点文章→academic（cover=true、toc=true）；学习路线/路线图→roadmap（封面目录按需求）。
 论文/学位论文/期刊投稿/会议论文/毕业论文→kind=thesis_paper；课程报告/结题报告/开题/课题/文献综述/实验报告→kind=academic_report；
-经营数据分析/数据分析报告/季度经营复盘/数据复盘→kind=data_report；行业研究/研究报告/白皮书/咨询报告/战略研究/市场研究→kind=research_report。
-【论文报告四套是「页式模板」而非视觉风格】页数、版式、封面都由模板固定（学术报告 4 页 / 论文 3 页 / 数据分析 4 页 / 研究报告 4 页），
+经营数据分析/数据分析报告/季度经营复盘/数据复盘→kind=data_report；行业研究/研究报告/白皮书/咨询报告/战略研究/市场研究→kind=research_report；
+访谈金句/语录摘编/名言卡片/金句解读/金句手绘解读→kind=quotes_sketch。
+【论文报告四套与金句卡组是「页式模板」而非视觉风格】页数、版式、封面都由模板固定（学术报告 4 页 / 论文 3 页 / 数据分析 4 页 / 研究报告 4 页 / 金句卡组 8 页），
 命中上述文档类型时直接按 kind 调用 pdf_generate，不要弹风格选项卡片，也不要传 cover/toc/cover_style（模板自带，传了不生效）；
-想换成四套中的另一套时，改传对应的 kind（theme 传同名值等价）。
+金句卡组是「一卡一页」的留白版式：每页只有一条金句 + 一段解读，适合把一场访谈、一本书或一次演讲里
+最值得记住的 6 句话单独成页；用户要的是「语录卡片/金句集」时用它，而不是排成报告或长文；
+想换成这几套中的另一套时，改传对应的 kind（theme 传同名值等价）。
 用户输入里出现风格词时，直接按风格词映射主题，不要弹卡片：
 商务/正式/稳重/专业→universal；极简/黑白/简洁/素→minimal；科技/技术/现代/蓝灰→modern；
 学术/典雅/杂志/文艺/高级感→academic；Notion/笔记风→notion；Linear/紧凑/研发→linear；
@@ -516,13 +519,14 @@ _UX_HTML_RULES = """用户要求把需求文档/PRD 实现成交互式产品界�
 3）Apple 风格：大标题排版、充足留白、材质感，适合质感优先的产品介绍页与 C 端设置类界面；
 4）Obsidian 风格：暖纸墨、深浅随系统切换，适合笔记、阅读器与夜间使用占比高的文档工具；
 5）PlainText 风格：无样式线框感，适合表单原型与信息收集页（打印/导出需求请走 PDF 生成）；
-6）Custom（自定义）：用户自行描述偏好，营销页/活动页等本表覆盖不了的场景也引导走此项。
+6）Quotes 风格：纸感墨字、中文衬线，适合金句卡、语录摘编、读书笔记这类「以文字本身为内容」的页面；
+7）Custom（自定义）：用户自行描述偏好，营销页/活动页等本表覆盖不了的场景也引导走此项。
 询问方式：options 卡片最多 5 个选项，禁止罗列全部风格——先分析需求文档的产品形态与使用场景，
 从全景表中挑选 3-4 个最匹配的风格作为推荐，每个选项 desc 用一句话说明为什么适合该需求，
 最后一项固定为「自定义」兜底；确实难以区分场景时，再平铺 Notion/Linear/Apple + 自定义。
 用户未明确选择时继续询问，不要调用 ux_html；
 用户选择后，先分析文档，自行设计贴合产品形态和所选风格的 HTML/CSS/JS 交互页面，
-再调用 ux_html；style 传用户选择的风格（Notion/Linear/Apple/PlainText/Obsidian/Custom），
+再调用 ux_html；style 传用户选择的风格（Notion/Linear/Apple/PlainText/Obsidian/Quotes/Custom），
 自定义风格时用 style_note 记录用户描述，content 传完整 HTML 源码（包含 DOCTYPE 或 <html>），
 ux_html 默认保存到当前项目工作区 html/ 目录，不要额外传 path；只有用户指定保存目录时才传 path。
 视觉风格不要套统一模板，但交互骨架必须完整；不要默认在正文中输出 HTML 或 JS 代码；
@@ -567,15 +571,17 @@ ux_html 默认保存到当前项目工作区 html/ 目录，不要额外传 path
 【1】设计 token：ux_html 会按所选风格自动前置注入 :root 变量与基础 reset（含 --radius-sm/md/lg），
 你直接引用 var() 即可，无需重复定义；需要定制色值时写自己的 :root，后定义的覆盖基座。
 变量集 --bg --surface --surface-2 --border --border-strong ｜ --text --text-2 --text-3 ｜
---primary --primary-weak --primary-ink ｜ --ok/--warn/--danger 及其 -weak 底。
+--primary --primary-weak --primary-ink ｜ --ok/--warn/--danger 及其 -weak 底 ｜
+--font-body（字体栈：Quotes 为中文衬线，其余为系统无衬线）。
 定制时以下表为基准（--bg/--surface/--surface-2/--border ｜ --text/--text-2/--text-3 ｜ --primary/--primary-weak）：
 Notion    #FFFFFF #FFFFFF #F7F7F5 #E9E9E7 ｜ #37352F #787774 #9B9A97 ｜ #2383E2 #E7F3F8
 Linear    #F9F9FB #FFFFFF #F4F4F6 #E6E6EB ｜ #08090A #6E6D77 #8A8F98 ｜ #5E6AD2 #EEF0FD
 Apple     #F5F5F7 #FFFFFF #F5F5F7 #D2D2D7 ｜ #1D1D1F #6E6E73 #86868B ｜ #0071E3 #E8F2FD
 PlainText #FFFFFF #FFFFFF #FAFAFA #DDDDDD ｜ #111111 #555555 #888888 ｜ #111111 #F0F0F0
 Obsidian  #FAF7F1 #FFFDF8 #F0EBE0 #E5DECE ｜ #3D3730 #756D5F #A89F8F ｜ #0E6E63 #E1EFEB
+Quotes    #FAF9F5 #FFFFFF #F5F2EA #EBE6DA ｜ #1B1916 #6F6A5E #A39B8A ｜ #1B1916 #F0EDE4
 语义色（前主色后浅底）：Notion/Linear/Apple/PlainText 通用 ok #0F7B6C/#DDF2ED、warn #CB912F/#FBF3DB、
-danger #D64545/#FBE9E9；Obsidian 用自己的 ok #4A704F/#E6EFE5、warn #8A5E17/#F5EBD6、danger #B8445A/#F9E6E9（随基座注入）。
+danger #D64545/#FBE9E9；Obsidian 与 Quotes 用同一套偏暖的 ok #4A704F/#E6EFE5、warn #8A5E17/#F5EBD6、danger #B8445A/#F9E6E9（随基座注入）。
 --primary-ink 浅色层为 #FFFFFF；Obsidian 深色层为深墨（浅青底上白字对比不足），直接引用 var() 即可。
 深浅同源风格（Obsidian、Apple）：浅色为默认，深色经 prefers-color-scheme 随系统自动切换
 （Obsidian 深色为暖棕·冷锚，Apple 深色为官方深色语言——纯黑底、亮蓝链接、系统语义色），
@@ -646,7 +652,8 @@ _HTML_PAGE_RULES = """用户要产出任何独立的 HTML 文件——分析报�
 （resume_data + template，内置 12 套模板）、用户提供了自己的 HTML 模板或
 明确要求原样自定义输出时用 html_common（原样保存，不注入基座）。
 style 可选：用户指定什么就传什么；用户没指定时你按内容性质自选（数据密集 Linear、
-长文报告 Notion、质感优先展示 Apple（深色随系统切换）、笔记阅读与夜间场景 Obsidian（深浅同源）），
+长文报告 Notion、质感优先展示 Apple（深色随系统切换）、笔记阅读与夜间场景 Obsidian（深浅同源）、
+金句/语录/读书笔记这类以文字本身为内容的页面 Quotes（纸感墨字·中文衬线）），
 并在回复里说明选了哪个。content 传完整 HTML 源码
 （含 DOCTYPE 或 <html>），默认保存到工作区 html/ 目录，只有用户指定目录时才传 path。
 生成的页面必须同时符合运行环境约束与视觉规范，调用 html_generate 前逐条自检。
@@ -659,15 +666,17 @@ style 可选：用户指定什么就传什么；用户没指定时你按内容�
 【1】设计 token：html_generate 会按所选风格自动前置注入 :root 变量与基础 reset（含 --radius-sm/md/lg），
 你直接引用 var() 即可，无需重复定义；需要定制色值时写自己的 :root，后定义的覆盖基座。
 变量集 --bg --surface --surface-2 --border --border-strong ｜ --text --text-2 --text-3 ｜
---primary --primary-weak --primary-ink ｜ --ok/--warn/--danger 及其 -weak 底。
+--primary --primary-weak --primary-ink ｜ --ok/--warn/--danger 及其 -weak 底 ｜
+--font-body（字体栈：Quotes 为中文衬线，其余为系统无衬线）。
 定制时以下表为基准（--bg/--surface/--surface-2/--border ｜ --text/--text-2/--text-3 ｜ --primary/--primary-weak）：
 Notion    #FFFFFF #FFFFFF #F7F7F5 #E9E9E7 ｜ #37352F #787774 #9B9A97 ｜ #2383E2 #E7F3F8
 Linear    #F9F9FB #FFFFFF #F4F4F6 #E6E6EB ｜ #08090A #6E6D77 #8A8F98 ｜ #5E6AD2 #EEF0FD
 Apple     #F5F5F7 #FFFFFF #F5F5F7 #D2D2D7 ｜ #1D1D1F #6E6E73 #86868B ｜ #0071E3 #E8F2FD
 PlainText #FFFFFF #FFFFFF #FAFAFA #DDDDDD ｜ #111111 #555555 #888888 ｜ #111111 #F0F0F0
 Obsidian  #FAF7F1 #FFFDF8 #F0EBE0 #E5DECE ｜ #3D3730 #756D5F #A89F8F ｜ #0E6E63 #E1EFEB
+Quotes    #FAF9F5 #FFFFFF #F5F2EA #EBE6DA ｜ #1B1916 #6F6A5E #A39B8A ｜ #1B1916 #F0EDE4
 语义色（前主色后浅底）：Notion/Linear/Apple/PlainText 通用 ok #0F7B6C/#DDF2ED、warn #CB912F/#FBF3DB、
-danger #D64545/#FBE9E9；Obsidian 用自己的 ok #4A704F/#E6EFE5、warn #8A5E17/#F5EBD6、danger #B8445A/#F9E6E9（随基座注入）。
+danger #D64545/#FBE9E9；Obsidian 与 Quotes 用同一套偏暖的 ok #4A704F/#E6EFE5、warn #8A5E17/#F5EBD6、danger #B8445A/#F9E6E9（随基座注入）。
 --primary-ink 浅色层为 #FFFFFF；Obsidian 深色层为深墨（浅青底上白字对比不足），直接引用 var() 即可。
 深浅同源风格（Obsidian、Apple）：浅色为默认，深色经 prefers-color-scheme 随系统自动切换
 （Obsidian 深色为暖棕·冷锚，Apple 深色为官方深色语言——纯黑底、亮蓝链接、系统语义色），

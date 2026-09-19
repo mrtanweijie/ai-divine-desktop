@@ -279,6 +279,26 @@ THEMES: dict[str, dict[str, Any]] = {
             "--paper": "#FDFCFA",
         },
     },
+    "quotes_sketch": {
+        "file": "quotes_sketch.html",
+        "display_name": "金句手绘解读",
+        "description": "纸感底色 + 衬线墨字，一卡一页的金句卡组，适合访谈金句、语录摘编、读书笔记",
+        "html_template": True,
+        "own_cover": True,
+        "variables": {
+            # 主色即墨色：本模板是单色设计，--accent（分隔短线）挂在主色上，
+            # 换主色只影响那两条短线，正文墨色 --ink 不跟随。
+            "--primary": "#1B1916",
+            "--accent": "#1B1916",
+            "--paper": "#FAF9F5",
+            "--card": "#FFFFFF",
+            "--ink": "#1B1916",
+            "--ink-mid": "#55503F",
+            "--ink-soft": "#6F6A5E",
+            "--ink-faint": "#A39B8A",
+            "--hair": "#EBE6DA",
+        },
+    },
 }
 
 # 页式 HTML 模板主题（CSS 内嵌在模板 <style> 中，自带封面与页眉页脚）

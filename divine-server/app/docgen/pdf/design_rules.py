@@ -37,11 +37,13 @@ KNOWN_THEMES: frozenset[str] = frozenset(
         "thesis_paper",
         "data_report",
         "research_report",
+        # 金句卡组（页式 HTML 模板）
+        "quotes_sketch",
     }
 )
 
 # 独立主题体系的配方：不走场景分类与风格词决策，主题只由显式参数或配方默认决定
-# （旅行手册、论文/报告四套都是「一个配方对一个模板」，场景词会误伤它们）
+# （旅行手册、论文/报告四套、金句卡组都是「一个配方对一个模板」，场景词会误伤它们）
 INDEPENDENT_THEME_RECIPES: frozenset[str] = frozenset(
     {
         "travel",
@@ -49,14 +51,21 @@ INDEPENDENT_THEME_RECIPES: frozenset[str] = frozenset(
         "thesis_paper",
         "data_report",
         "research_report",
+        "quotes_sketch",
     }
 )
 
-# 论文/报告四套的页式模板主题。它们的 CSS 只适配各自模板的页结构
-# （.sec-h1 / .three-line-table / .fin-table / .insight-item 等），
+# 论文/报告四套与金句卡组的页式模板主题。它们的 CSS 只适配各自模板的页结构
+# （.sec-h1 / .three-line-table / .fin-table / .insight-item / .card--art 等），
 # 因此禁止在 markdown 渲染路径上被选中，否则版式会散架。
 PAGE_TEMPLATE_THEMES: frozenset[str] = frozenset(
-    {"academic_report", "thesis_paper", "data_report", "research_report"}
+    {
+        "academic_report",
+        "thesis_paper",
+        "data_report",
+        "research_report",
+        "quotes_sketch",
+    }
 )
 
 
@@ -390,7 +399,8 @@ def parse_cover_style(text: str) -> str | None:
 # 仅接受合法值；非法字段忽略后走场景/配方默认
 # ---------------------------------------------------------------------------
 
-# DesignSpec 的 base_theme 不允许跨到旅行/简历/论文报告模板的独立主题体系
+# DesignSpec 的 base_theme 不允许跨到旅行/简历/页式模板的独立主题体系
+# （页式模板主题与页结构强耦合，只能由 kind/theme 显式选中）
 _SPEC_THEME_BLOCKLIST = frozenset(
     {
         "travel",
@@ -403,6 +413,7 @@ _SPEC_THEME_BLOCKLIST = frozenset(
         "thesis_paper",
         "data_report",
         "research_report",
+        "quotes_sketch",
     }
 )
 _KNOWN_COVER_STYLES = frozenset(style for style, _ in COVER_STYLE_ALIASES)

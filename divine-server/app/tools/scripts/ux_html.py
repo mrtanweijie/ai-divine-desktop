@@ -37,7 +37,15 @@ def derive_title(title: str, content: str) -> str:
     return "UX交互原型"
 
 
-ALLOWED_STYLES = {"Notion", "Linear", "Apple", "PlainText", "Obsidian", "Custom"}
+ALLOWED_STYLES = {
+    "Notion",
+    "Linear",
+    "Apple",
+    "PlainText",
+    "Obsidian",
+    "Quotes",
+    "Custom",
+}
 
 # ---------------------------------------------------------------------------
 # 设计 token 基座
@@ -51,7 +59,7 @@ ALLOWED_STYLES = {"Notion", "Linear", "Apple", "PlainText", "Obsidian", "Custom"
 # --run-script 由子进程执行，读外部资源路径不可靠。
 # ---------------------------------------------------------------------------
 _RESET = """*,*::before,*::after{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+body{margin:0;font-family:var(--font-body,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif);
 font-size:14px;line-height:1.7;background:var(--bg);color:var(--text)}
 h1,h2,h3,h4,p{margin:0}
 button{font:inherit;color:inherit;cursor:pointer}
@@ -59,33 +67,55 @@ input,select,textarea{font:inherit;color:inherit}
 a{color:var(--primary);text-decoration:none}
 table{border-collapse:collapse}"""
 
+# 字体栈：作为 --font-body 的值随基座注入，reset 里的 var() 取它。
+# 每个风格都必须定义该变量（名字集一致性由 tests/test_ux_html.py 兜住），
+# 否则换风格时 var() 取空、字体回退到浏览器默认。
+_SANS_STACK = '-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'
+_SERIF_STACK = (
+    '"Songti SC","STSong","Source Han Serif SC","Noto Serif CJK SC","SimSun",serif'
+)
+
 _TOKENS: dict[str, str] = {
     "Notion": """--bg:#FFFFFF;--surface:#FFFFFF;--surface-2:#F7F7F5;--border:#E9E9E7;--border-strong:#DFDFDC;
 --text:#37352F;--text-2:#787774;--text-3:#9B9A97;
 --primary:#2383E2;--primary-weak:#E7F3F8;--primary-ink:#FFFFFF;
 --ok:#0F7B6C;--ok-weak:#DDF2ED;--warn:#CB912F;--warn-weak:#FBF3DB;--danger:#D64545;--danger-weak:#FBE9E9;
---radius-sm:6px;--radius-md:12px;--radius-lg:16px""",
+--radius-sm:6px;--radius-md:12px;--radius-lg:16px"""
+    + f";--font-body:{_SANS_STACK}",
     "Linear": """--bg:#F9F9FB;--surface:#FFFFFF;--surface-2:#F4F4F6;--border:#E6E6EB;--border-strong:#D4D4DA;
 --text:#08090A;--text-2:#6E6D77;--text-3:#8A8F98;
 --primary:#5E6AD2;--primary-weak:#EEF0FD;--primary-ink:#FFFFFF;
 --ok:#0F7B6C;--ok-weak:#DDF2ED;--warn:#CB912F;--warn-weak:#FBF3DB;--danger:#D64545;--danger-weak:#FBE9E9;
---radius-sm:6px;--radius-md:12px;--radius-lg:16px""",
+--radius-sm:6px;--radius-md:12px;--radius-lg:16px"""
+    + f";--font-body:{_SANS_STACK}",
     "Apple": """--bg:#F5F5F7;--surface:#FFFFFF;--surface-2:#F5F5F7;--border:#D2D2D7;--border-strong:#B9B9BF;
 --text:#1D1D1F;--text-2:#6E6E73;--text-3:#86868B;
 --primary:#0071E3;--primary-weak:#E8F2FD;--primary-ink:#FFFFFF;
 --ok:#0F7B6C;--ok-weak:#DDF2ED;--warn:#CB912F;--warn-weak:#FBF3DB;--danger:#D64545;--danger-weak:#FBE9E9;
---radius-sm:8px;--radius-md:16px;--radius-lg:20px""",
+--radius-sm:8px;--radius-md:16px;--radius-lg:20px"""
+    + f";--font-body:{_SANS_STACK}",
     "PlainText": """--bg:#FFFFFF;--surface:#FFFFFF;--surface-2:#FAFAFA;--border:#DDDDDD;--border-strong:#C4C4C4;
 --text:#111111;--text-2:#555555;--text-3:#888888;
 --primary:#111111;--primary-weak:#F0F0F0;--primary-ink:#FFFFFF;
 --ok:#0F7B6C;--ok-weak:#DDF2ED;--warn:#CB912F;--warn-weak:#FBF3DB;--danger:#D64545;--danger-weak:#FBE9E9;
---radius-sm:4px;--radius-md:8px;--radius-lg:12px""",
+--radius-sm:4px;--radius-md:8px;--radius-lg:12px"""
+    + f";--font-body:{_SANS_STACK}",
     # 暖白纸张（浅色默认层）。深色层见 _DARK_TOKENS——深浅同源，换光线不换皮肤。
     "Obsidian": """--bg:#FAF7F1;--surface:#FFFDF8;--surface-2:#F0EBE0;--border:#E5DECE;--border-strong:#D2C8B4;
 --text:#3D3730;--text-2:#756D5F;--text-3:#A89F8F;
 --primary:#0E6E63;--primary-weak:#E1EFEB;--primary-ink:#FFFFFF;
 --ok:#4A704F;--ok-weak:#E6EFE5;--warn:#8A5E17;--warn-weak:#F5EBD6;--danger:#B8445A;--danger-weak:#F9E6E9;
---radius-sm:6px;--radius-md:12px;--radius-lg:16px""",
+--radius-sm:6px;--radius-md:12px;--radius-lg:16px"""
+    + f";--font-body:{_SANS_STACK}",
+    # 纸感墨字：暖白纸 + 墨黑主色 + 极浅暖灰底，中文衬线。
+    # 适合「以文字本身为内容」的页面——金句卡、语录摘编、读书笔记、纪念页。
+    # 主色即墨色（与 PlainText 同理）：本风格不用彩色强调，层级靠字号与留白。
+    "Quotes": """--bg:#FAF9F5;--surface:#FFFFFF;--surface-2:#F5F2EA;--border:#EBE6DA;--border-strong:#DDD6C6;
+--text:#1B1916;--text-2:#6F6A5E;--text-3:#A39B8A;
+--primary:#1B1916;--primary-weak:#F0EDE4;--primary-ink:#FFFFFF;
+--ok:#4A704F;--ok-weak:#E6EFE5;--warn:#8A5E17;--warn-weak:#F5EBD6;--danger:#B8445A;--danger-weak:#F9E6E9;
+--radius-sm:3px;--radius-md:6px;--radius-lg:10px"""
+    + f";--font-body:{_SERIF_STACK}",
 }
 # Custom 没有固定色值：用中性兜底 token，模型按 style_note 自己覆盖即可
 _TOKENS["Custom"] = _TOKENS["Notion"]
@@ -250,7 +280,7 @@ def main() -> None:
             json.dumps(
                 {
                     "success": False,
-                    "message": "style 必须由用户明确选择：Notion/Linear/Apple/PlainText/Obsidian/Custom",
+                    "message": "style 必须由用户明确选择：Notion/Linear/Apple/PlainText/Obsidian/Quotes/Custom",
                 },
                 ensure_ascii=False,
             )

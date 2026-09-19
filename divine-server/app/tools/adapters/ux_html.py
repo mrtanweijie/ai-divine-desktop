@@ -10,7 +10,7 @@ from ..registry import register_tool
     "ux_html",
     "保存 Agent 设计好的完整 UX 交互 HTML 页面；content 传完整 HTML 源码（含 DOCTYPE 或 <html>），"
     "工具只负责校验和保存，不套用统一模板；视觉规范见系统提示（Apple/Linear/Notion 风格）。"
-    "style 必须为用户明确选择的 Notion/Linear/Apple/PlainText/Obsidian/Custom 之一。",
+    "style 必须为用户明确选择的 Notion/Linear/Apple/PlainText/Obsidian/Quotes/Custom 之一。",
     {
         "type": "object",
         "properties": {
@@ -20,8 +20,16 @@ from ..registry import register_tool
             },
             "style": {
                 "type": "string",
-                "description": "用户明确选择的交互风格，只能是 Notion/Linear/Apple/PlainText/Obsidian/Custom",
-                "enum": ["Notion", "Linear", "Apple", "PlainText", "Obsidian", "Custom"],
+                "description": "用户明确选择的交互风格，只能是 Notion/Linear/Apple/PlainText/Obsidian/Quotes/Custom",
+                "enum": [
+                    "Notion",
+                    "Linear",
+                    "Apple",
+                    "PlainText",
+                    "Obsidian",
+                    "Quotes",
+                    "Custom",
+                ],
             },
             "style_note": {
                 "type": "string",

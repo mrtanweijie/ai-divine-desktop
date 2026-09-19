@@ -78,10 +78,29 @@ def test_scaffold_injects_style_specific_token():
         ("Apple", "--primary:#0071E3"),
         ("PlainText", "--primary:#111111"),
         ("Obsidian", "--primary:#0E6E63"),
+        ("Quotes", "--primary:#1B1916"),
     ):
         out, ok = inject_scaffold(_HEAD_DOC, style)
         assert ok
         assert token in out, f"{style} 未注入 {token}"
+
+
+def test_quotes_style_switches_body_typeface_to_serif():
+    """Quotes 是唯一切换字体栈的风格：reset 经 --font-body 取到中文衬线。
+
+    基座必须把 --font-body 写进 :root 且 reset 用 var() 引用它，
+    否则纸感墨字的风格会退化成系统无衬线，风格辨识度直接丢失。
+    """
+    out, ok = inject_scaffold(_HEAD_DOC, "Quotes")
+    assert ok
+    assert "--font-body:" in out
+    assert "Songti SC" in out and "serif" in out
+    assert "font-family:var(--font-body," in out
+
+    # 其余风格仍是系统无衬线（换了字体栈就不叫同一个风格了）
+    for style in ("Notion", "Linear", "Apple", "PlainText", "Obsidian"):
+        other, _ = inject_scaffold(_HEAD_DOC, style)
+        assert "Songti SC" not in other, f"{style} 不应切成衬线"
 
 
 def test_dark_light_style_injects_prefers_color_scheme():
@@ -330,7 +349,7 @@ def test_prompt_swatch_matches_injected_tokens():
     只改一侧会让模型拿到的色值和它以为的不一样，且这种漂移不会报错，
     只能靠这条测试兜住。
     """
-    for style in ("Notion", "Linear", "Apple", "PlainText", "Obsidian"):
+    for style in ("Notion", "Linear", "Apple", "PlainText", "Obsidian", "Quotes"):
         swatch = _prompt_swatch(style)
         assert len(swatch) == len(SWATCH_ORDER), (
             f"{style} 速查表应 {len(SWATCH_ORDER)} 个色值，实际 {len(swatch)}"

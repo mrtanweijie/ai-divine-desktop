@@ -1,7 +1,8 @@
-"""论文/报告四套页式模板：主题注册、骨架提取、配方分流与端到端渲染。
+"""论文/报告四套 + 金句卡组页式模板：主题注册、骨架提取、配方分流与端到端渲染。
 
-四套模板（academic_report / thesis_paper / data_report / research_report）与 travel
-同一管线：CSS 从模板 <style> 提取，LLM 按骨架产出 HTML body，模板自带封面与页眉页脚。
+五套模板（academic_report / thesis_paper / data_report / research_report /
+quotes_sketch）与 travel 同一管线：CSS 从模板 <style> 提取，LLM 按骨架产出
+HTML body，模板自带封面与页眉页脚。
 """
 
 from __future__ import annotations
@@ -40,6 +41,8 @@ EXPECTED_PAGES = {
     "thesis_paper": 3,
     "data_report": 4,
     "research_report": 4,
+    # 金句卡组：封面 + 6 张金句卡（一卡一页）+ 尾页
+    "quotes_sketch": 8,
 }
 
 
@@ -73,7 +76,7 @@ class StructuredLLM:
 def test_theme_registered_as_html_template(theme: str):
     assert theme in THEMES
     assert is_html_template_theme(theme)
-    assert theme_owns_cover(theme), "四套模板自带封面页"
+    assert theme_owns_cover(theme), "页式模板自带封面页"
     assert THEMES[theme]["file"].endswith(".html")
     assert THEMES[theme]["display_name"]
     assert THEMES[theme]["description"]
@@ -100,6 +103,8 @@ def test_template_primary_alias_wired_to_theme_token():
             "--green: var(--primary)",
             "--green-deep: var(--primary-dark)",
         ),
+        # 金句卡组是单色设计：--accent（两条分隔短线）挂在主色上
+        "quotes_sketch": ("--accent: var(--primary)",),
     }
     for theme, tokens in aliases.items():
         css = load_theme_css(theme)
@@ -170,6 +175,10 @@ def test_recipes_registered():
         ("帮我写一份经营数据分析报告", "data_report"),
         ("出一份行业研究报告", "research_report"),
         ("做份白皮书", "research_report"),
+        # 金句卡组：产物形态（语录卡片）比题材词更能代表成品
+        ("把这场的金句做成卡片", "quotes_sketch"),
+        ("整理一份访谈语录", "quotes_sketch"),
+        ("做一张名言卡", "quotes_sketch"),
         # 不能被更宽泛的 report/business 吸走
         ("帮我写份周报", "report"),
         ("做一份商业分析报告", "business"),
@@ -177,6 +186,22 @@ def test_recipes_registered():
 )
 def test_detect_recipe_routing(text: str, expected: str):
     assert detect_recipe(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "把这篇论文里的金句整理成卡片",
+        "把这份研究报告的金句做成手绘解读",
+    ],
+)
+def test_quotes_sketch_wins_over_topic_words(text: str):
+    """「金句/语录」是产物形态，优先级高于论文/报告这类题材词。
+
+    「把这篇论文的金句整理成卡片」要的是卡片，不是论文——分流必须排在
+    thesis_paper / academic_report / research_report 之前。
+    """
+    assert detect_recipe(text) == "quotes_sketch"
 
 
 def test_independent_recipes_declared():
@@ -433,12 +458,13 @@ def _tmp_out(name: str) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# 样张占位符卫生（011–016 全量）
+# 样张占位符卫生（011–018 全量）
 # ---------------------------------------------------------------------------
 
-# 011–014 是 PDF 管线的页式模板，占位符必须扁平；
+# 011–014 与 018 是 PDF 管线的页式模板，占位符必须扁平；
 # 015–016 是 PPT 主题（keynote/devconf）的视觉样张，历史上用「整句包裹 + 内层插槽」的
-# 嵌套写法，只要求括号平衡——若日后把它们接入会做占位符替换的管线，必须先扁平化。
+# 嵌套写法；017 是「金句手绘解读」的**网页阅读版**样张（带配图，未接入管线）——
+# 这三份只要求括号平衡。若日后把它们接入会做占位符替换的管线，必须先扁平化。
 _ALL_SAMPLES = {
     "011-academic-report-template-20260912.html",
     "012-thesis-paper-template-20260912.html",
@@ -446,12 +472,16 @@ _ALL_SAMPLES = {
     "014-research-report-template-20260912.html",
     "015-launch-keynote-style-20260912.html",
     "016-product-intro-devconf-style-20260912.html",
+    "017-quotes-sketch-20260917.html",
+    # 018 是 017 的分页运行时版（管线消费的那一份），必须扁平。
+    "018-quotes-sketch-page-20260917.html",
 }
 _FLAT_REQUIRED = {
     "011-academic-report-template-20260912.html",
     "012-thesis-paper-template-20260912.html",
     "013-data-analysis-report-template-20260912.html",
     "014-research-report-template-20260912.html",
+    "018-quotes-sketch-page-20260917.html",
 }
 
 
@@ -496,6 +526,116 @@ def test_pdf_sample_placeholders_are_flat(name: str):
         assert "{{" not in residue, (
             f"{name}:{lineno} 占位符嵌套：{line.strip()[:90]}"
         )
+
+
+# ---------------------------------------------------------------------------
+# quotes_sketch：插图位是「图位」不是真图（页式模板管线不下载图片）
+# ---------------------------------------------------------------------------
+
+def _quotes_sketch_source() -> str:
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "docgen"
+        / "pdf"
+        / "pdf_themes"
+        / THEMES["quotes_sketch"]["file"]
+    )
+    return path.read_text(encoding="utf-8")
+
+
+def test_quotes_sketch_has_no_img_tag():
+    """页片段里不能有 <img>，也不能内嵌 base64。
+
+    页式模板的图片内嵌（_inline_placeholder_images）只对 travel 生效；
+    非 travel 的页式模板里放 <img src="https://…"> 会由 WeasyPrint 直连外网，
+    失败即渲染成白块。插图位因此做成虚线「图位」（.plate），
+    接入真实插图时把 .plate 换成 <img> 即可，其余版式不变。
+    """
+    source = _quotes_sketch_source()
+    pages = "\n".join(html_template_pages("quotes_sketch"))
+    assert "<img" not in pages
+    assert 'class="plate"' in pages
+    # 模板本身也要轻：不许内嵌图片（017 网页版样张才带 base64 配图）
+    assert "data:image" not in source
+
+
+def test_quotes_sketch_card_variants_match_page_plan():
+    """P2/P5 带插图位，P3/P4/P6/P7 是纯文字卡；首尾页类名固定。"""
+    pages = html_template_pages("quotes_sketch")
+    assert [i for i, p in enumerate(pages, 1) if "card--art" in p] == [2, 5]
+    assert [i for i, p in enumerate(pages, 1) if "card--text" in p] == [3, 4, 6, 7]
+    assert pages[0].lstrip().startswith('<div class="page cover"')
+    assert pages[-1].lstrip().startswith('<div class="page end"')
+
+
+def test_quotes_sketch_prompt_states_char_budget():
+    """留白版式的字数上限必须进提示词，否则长文本会把卡片挤到第二页。"""
+    recipe = get_recipe("quotes_sketch")
+    prompt = recipe.content_system_prompt(recipe.fallback_intent("测试主题"))
+    assert "字数上限" in prompt
+    assert "{{金句原文}} ≤ 40 字" in prompt
+    assert "{{解读}} ≤ 90 字" in prompt
+
+
+def test_quotes_sketch_max_length_still_one_page_each(tmp_path: Path):
+    """按提示词给的上限写满时，每张卡仍只占一页（8 页不变）。
+
+    这条锁住 extra_rules 里的字数上限与 CSS 实际容量的对应关系：
+    改 .card--text 的字号/内边距而不复验上限，会把「一卡一页」变成「一卡两页」。
+    """
+    pymupdf = pytest.importorskip("pymupdf")
+    pytest.importorskip("weasyprint")
+    from weasyprint import HTML
+
+    filler = {
+        "系列标签": "人物访谈金句",
+        "主标题": "把话说透",
+        "副标题": "一场关于长期主义的对话",
+        "时间与出处": "2026 年 9 月 · 公开交流会现场实录整理",
+        # 卷首语上限 80 字
+        "卷首语": (
+            "把六段被反复引用的话拆开来看，看见每一句判断背后的取舍与代价，"
+            "也看见说话的人在什么处境下、用什么代价换来了这句话——"
+            "这才是金句真正值得被记住的部分。"
+        ),
+        "结语": "以上六句，来自同一场对话的六个切面。",
+        "版权与说明": "本页内容仅作交流整理，不构成任何投资建议。",
+    }
+    # 金句原文上限 40 字 / 解读上限 90 字 / 小标题上限 6 字
+    quote = "真正稀缺的从来不是信息本身，而是把信息放进时间里反复验证的那份耐心。"
+    note = (
+        "这句话的重点不在信息本身，而在时间这个变量：短期里噪音占主导，"
+        "只有把观察窗口拉长到以年为单位，判断的胜率才会真正显现出来，"
+        "这也是所有长期决策共同的前提条件。"
+    )
+    label = "长期视角"
+    assert len(quote) <= 40 and len(note) <= 90 and len(label) <= 6
+    assert len(filler["卷首语"]) <= 80
+
+    pages = html_template_pages("quotes_sketch")
+    counter = {"n": 0}
+
+    def _sub(match: re.Match[str]) -> str:
+        key = match.group(1)
+        if key in filler:
+            return filler[key]
+        if key == "序号":
+            counter["n"] += 1
+            return f"{counter['n']:02d}"
+        return {
+            "小标题": label,
+            "金句原文": quote,
+            "解读": note,
+        }.get(key, "手绘插图：围坐长桌交谈")
+
+    filled = [re.sub(r"\{\{([^{}]*)\}\}", _sub, page) for page in pages]
+    document = build_html_template_document(
+        "\n".join(filled), "上限压测", theme="quotes_sketch"
+    )
+    target = tmp_path / "quotes_sketch_maxlen.pdf"
+    HTML(string=document).write_pdf(str(target), presentational_hints=True)
+    assert pymupdf.open(target).page_count == EXPECTED_PAGES["quotes_sketch"]
 
 
 # ---------------------------------------------------------------------------
@@ -564,6 +704,9 @@ _DOC_TO_RUNTIME = {
     "012-thesis-paper-template-20260912.html": "thesis_paper.html",
     "013-data-analysis-report-template-20260912.html": "data_report.html",
     "014-research-report-template-20260912.html": "research_report.html",
+    # 017 是「网页阅读版」样张（含配图、header/main/footer 结构），与运行时副本
+    # 有意不同，故不在此表内；018 才是 quotes_sketch.html 的样张。
+    "018-quotes-sketch-page-20260917.html": "quotes_sketch.html",
 }
 
 

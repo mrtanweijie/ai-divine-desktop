@@ -717,12 +717,67 @@ class ResearchReportRecipe(PageTemplateRecipe):
     )
 
 
+class QuotesSketchRecipe(PageTemplateRecipe):
+    """金句手绘解读：一卡一页的金句卡组（封面 + 6 张卡 + 尾页 = 8 页）。
+
+    与论文/报告四套同一管线，但版式意图相反——那四套是「信息密度优先」，
+    这一套是「留白优先」：每页只有一条金句 + 一段解读，整页垂直居中。
+    因此本配方对字数上限的要求比其他配方严格得多（超字数会溢出到第二页）。
+    """
+
+    name = "quotes_sketch"
+    display_name = "金句手绘解读"
+    html_theme = "quotes_sketch"
+    css_template = "quotes_sketch"
+    color_scheme = "monochrome"
+    intent_json_hint = (
+        '{"title": "金句集标题", "topic": "材料主题", '
+        '"series": "系列标签（4–6 字）", "subtitle": "副标题（8–16 字）", '
+        '"source": "时间与出处（12–24 字）", "preface": "卷首语（40–80 字）", '
+        '"quotes": [{"label": "小标题（4–6 字）", "quote": "金句原文（20–40 字）", '
+        '"note": "解读（50–90 字）", "art": "配图说明（8–16 字）"}], '
+        '"closing": "结语（6–12 字）", "colophon": "版权与说明（16–32 字）"}'
+    )
+    page_plan = (
+        "【页面顺序（8 页，不可增减）】\n"
+        "P1 封面：系列标签 → 主标题 → 副标题 → 时间与出处 → 卷首语 → 分隔短线。\n"
+        "P2 金句卡 01（带插图位）：虚线插图位（图注一句）→ 眉标 `N° 01 · 小标题` → "
+        "金句原文 → 解读。\n"
+        "P3 金句卡 02（纯文字）：眉标 → 引号饰件 → 金句原文 → 解读。\n"
+        "P4 金句卡 03（纯文字）：结构同 P3。\n"
+        "P5 金句卡 04（带插图位）：结构同 P2。\n"
+        "P6 金句卡 05（纯文字）：结构同 P3。\n"
+        "P7 金句卡 06（纯文字）：结构同 P3。\n"
+        "P8 尾页：分隔短线 → 结语 → 版权与说明。\n"
+        "六张卡片的 {{序号}} 依次填 01–06；六条金句与六段解读互不重复，"
+        "且都取自同一份材料，不要凑数、不要重复同一句话的不同说法。"
+    )
+    extra_rules = (
+        "【本模板排版契约（一卡一页，超字数会挤到第二页）】\n"
+        "- 每个 `<div class=\"page\">` 就是一页：不要增页、不要合并卡片、不要改 class 名。\n"
+        "- 三种页的类名不能混用：P1 是 `<div class=\"page cover\">`、P2–P7 是 `<div class=\"page\">`、"
+        "P8 是 `<div class=\"page end\">`。\n"
+        "- 卡片两种形态严格照骨架，不要互换：P2/P5 用 `<article class=\"card card--art\">`"
+        "（含 `<figure class=\"frame\">` 与虚线插图位 `<div class=\"plate\">`）；"
+        "P3/P4/P6/P7 用 `<article class=\"card card--text\">`"
+        "（含引号饰件 `<span class=\"qm\" aria-hidden=\"true\">&ldquo;</span>`）。\n"
+        "- 插图位是虚线「图位」，不是真图：`{{配图说明}}` 只写一句图注（8–16 字），"
+        "**不要**插入 `<img>`、不要写图片 URL、也不要留空。\n"
+        "- 字数上限（超了会溢出到第二页）：{{卷首语}} ≤ 80 字、{{金句原文}} ≤ 40 字、"
+        "{{解读}} ≤ 90 字、{{小标题}} ≤ 6 字、{{结语}} ≤ 12 字、{{版权与说明}} ≤ 32 字。\n"
+        "- 金句原文是整页的视觉主体，保持一句话：不要把解读并进 `<blockquote>`，"
+        "也不要给 `<blockquote>` 加编号或引号。\n"
+        "- 只用骨架里出现过的标签与类名，不要自创类名、不要给元素加行内 style。"
+    )
+
+
 PAGE_TEMPLATE_RECIPES: frozenset[str] = frozenset(
     {
         "academic_report",
         "thesis_paper",
         "data_report",
         "research_report",
+        "quotes_sketch",
     }
 )
 
@@ -919,6 +974,7 @@ RECIPE_REGISTRY: dict[str, type[PDFRecipe]] = {
         ThesisPaperRecipe,
         DataReportRecipe,
         ResearchReportRecipe,
+        QuotesSketchRecipe,
         RoadmapRecipe,
         BookRecipe,
         SlideRecipe,
@@ -950,6 +1006,16 @@ def detect_recipe(user_input: str) -> str:
         for word in ("学习路线", "路线图", "学习路径", "从入门到", "roadmap")
     ):
         return "roadmap"
+    # 金句卡组：产物形态非常特定（一卡一页的语录卡），比「论文/报告」这类
+    # 题材词更能代表用户想要的成品，故排在论文/报告四套之前——
+    # 「把这篇论文的金句做成卡片」要的是卡片，不是论文。
+    if any(
+        word in text
+        for word in (
+            "金句", "语录", "名言", "金句卡", "手绘解读", "quote",
+        )
+    ):
+        return "quotes_sketch"
     # 论文/报告四套：比 business/report 更具体的词先判，避免被宽泛词吸走
     if any(
         word in text
