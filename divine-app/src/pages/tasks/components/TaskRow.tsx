@@ -1,4 +1,4 @@
-// One scheduled-task row with frequency icon, actions, and active switch.
+// One scheduled-task card: head (title + actions) → body (schedule/run) → foot (icon + switch).
 import { useEffect, useState } from "react";
 import {
   Calendar1,
@@ -85,7 +85,7 @@ export function TaskRow({
         if (alive) setRuns(res.runs ?? []);
       })
       .catch(() => {
-        // 拉不到就算了，不影响任务行本身
+        // 拉不到就算了，不影响任务卡片本身
       });
     return () => {
       alive = false;
@@ -101,17 +101,52 @@ export function TaskRow({
 
   return (
     <div key={task.id} className={`task-row ${task.status}`}>
-      <div className={`task-row-icon ${task.frequency}`}>
-        <TaskFrequencyIcon task={task} />
-      </div>
-      <div className="task-row-main">
+      <Flex align="start" justify="space-between" gap={8} className="task-row-head">
         <div className="task-row-title">
-          {task.title}
-          <span className={`task-type-badge ${task.task_type}`}>{t(typeKey, typeFallback)}</span>
+          <span className="task-row-name">{task.title}</span>
+          <span className="task-row-type">{t(typeKey, typeFallback)}</span>
           {task.status === "paused" && (
-            <span className="task-status-badge">{t("tasks.paused", "已暂停")}</span>
+            <span className="task-row-paused">{t("tasks.paused", "已暂停")}</span>
           )}
         </div>
+        <Dropdown
+          align="end"
+          openOn="hover"
+          trigger={
+            <Button
+              variant="icon"
+              size="small"
+              title={t("tasks.moreActions", "更多操作")}
+              aria-label={t("tasks.moreActions", "更多操作")}
+            >
+              <MoreHorizontal size={15} />
+            </Button>
+          }
+          items={[
+            {
+              key: "calendar",
+              label: t("tasks.writeCalendar", "写入日程"),
+              icon: <CalendarPlus size={13} />,
+              disabled: !task.next_run_at || writingCalendarTaskId === task.id,
+              onClick: () => onWriteCalendar(task),
+            },
+            {
+              key: "edit",
+              label: t("tasks.edit", "编辑"),
+              icon: <Pencil size={13} />,
+              onClick: () => onEdit(task),
+            },
+            {
+              key: "delete",
+              label: t("tasks.delete", "删除"),
+              icon: <Trash2 size={13} />,
+              onClick: () => onDelete(task),
+            },
+          ]}
+        />
+      </Flex>
+
+      <div className="task-row-body">
         <div className="task-row-schedule">
           {formatTaskSchedule(task)}
           {task.next_run_at && (
@@ -160,42 +195,12 @@ export function TaskRow({
           </div>
         )}
       </div>
-      <Flex align="center" gap={4} className="task-row-actions">
-        <Dropdown
-          align="end"
-          openOn="hover"
-          trigger={
-            <Button
-              variant="icon"
-              size="small"
-              title={t("tasks.moreActions", "更多操作")}
-              aria-label={t("tasks.moreActions", "更多操作")}
-            >
-              <MoreHorizontal size={15} />
-            </Button>
-          }
-          items={[
-            {
-              key: "calendar",
-              label: t("tasks.writeCalendar", "写入日程"),
-              icon: <CalendarPlus size={13} />,
-              disabled: !task.next_run_at || writingCalendarTaskId === task.id,
-              onClick: () => onWriteCalendar(task),
-            },
-            {
-              key: "edit",
-              label: t("tasks.edit", "编辑"),
-              icon: <Pencil size={13} />,
-              onClick: () => onEdit(task),
-            },
-            {
-              key: "delete",
-              label: t("tasks.delete", "删除"),
-              icon: <Trash2 size={13} />,
-              onClick: () => onDelete(task),
-            },
-          ]}
-        />
+
+      {/* 底部：图标左对齐、开关右对齐 */}
+      <Flex align="center" justify="space-between" gap={8} className="task-row-foot">
+        <div className={`task-row-icon ${task.frequency}`}>
+          <TaskFrequencyIcon task={task} />
+        </div>
         <Switch checked={task.status === "active"} onChange={() => onToggle(task)} />
       </Flex>
     </div>

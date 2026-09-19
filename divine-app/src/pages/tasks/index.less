@@ -107,25 +107,81 @@
   text-align: center;
 }
 
+/* 三列，和下方【建议】的 .suggestion-grid 保持一致 */
 .task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .task-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 58px;
-  padding: 10px 12px;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 118px;
+  padding: 13px 14px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.task-row:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-hover-soft);
 }
 
 .task-row.paused {
   opacity: 0.62;
+}
+
+.task-row-head {
+  gap: 8px;
+}
+
+.task-row-title {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.task-row-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 类型 / 状态：跟在标题后，用「·」连接的次要文字（不用 Tag，避免胶囊块） */
+.task-row-type,
+.task-row-paused {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.task-row-type::before,
+.task-row-paused::before {
+  content: "·";
+  margin-right: 6px;
+  color: var(--color-text-muted);
+}
+
+.task-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-row-foot {
+  flex-shrink: 0;
 }
 
 .task-row-icon {
@@ -160,29 +216,6 @@
   color: var(--status-red);
 }
 
-.task-row-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.task-row-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-text);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.task-status-badge {
-  padding: 1px 6px;
-  border-radius: var(--radius-full);
-  background: var(--color-accent-soft);
-  color: var(--color-text-muted);
-  font-size: 11px;
-  font-weight: 400;
-}
-
 .task-row-schedule {
   margin-top: 3px;
   color: var(--color-text-secondary);
@@ -199,10 +232,6 @@
   color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1.45;
-}
-
-.task-row-actions {
-  flex-shrink: 0;
 }
 
 .suggestion-section {
@@ -336,29 +365,7 @@
   color: var(--color-text);
 }
 
-/* design 027 §5.4：任务类型徽标 + 最近一次执行状态 + 投递结果 */
-
-.task-type-badge {
-  margin-left: 6px;
-  padding: 1px 6px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-2);
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  font-weight: 400;
-}
-
-.task-type-badge.webhook,
-.task-type-badge.digest {
-  border-color: var(--color-accent);
-  color: var(--color-text);
-}
-
-.task-type-badge.interactive {
-  border-color: rgba(244, 123, 110, 0.5);
-  color: var(--color-text);
-}
+/* design 027 §5.4：最近一次执行状态 + 投递结果（类型徽标改用 ui/Tag 组件）*/
 
 .task-row-run {
   display: flex;
