@@ -6,6 +6,7 @@ from typing import Any
 
 from ..base import ToolAdapter, ToolExecutionError, ToolResult
 from ..command_output import parse_test_output
+from ..diagnostics import attach_traces, parse_failures
 from ..registry import register_tool
 from .command_support import (
     build_content_summary,
@@ -163,11 +164,22 @@ class RunTestsAdapter(ToolAdapter):
             detected_runner = str(scoped.get("runner") or "unknown")
         result = await run_via_terminal(workspace, scoped, command, timeout)
         stdout, stderr, exit_code = extract_command_output(result)
-        parsed = parse_test_output(f"{stdout}\n{stderr}", detected_runner)
+        raw_output = f"{stdout}\n{stderr}"
+        parsed = parse_test_output(raw_output, detected_runner)
         counts = parsed.get("counts") or {}
         passed = int(counts.get("passed", 0))
         failed = int(counts.get("failed", 0))
         success = bool(result.success) and exit_code == 0 and failed == 0
+        # 诊断双通道之一：data.failures[] 补 trace（frames + fingerprint），
+        # 供前端渲染与程序化消费；模型看的那条通道是 execution.py 的 [诊断] 段。
+        # 解析失败绝不能让一次成功的测试变成失败，故整段兜住。
+        failures = parsed["items"]
+        if not success:
+            try:
+                reports = parse_failures(raw_output, workspace, detected_runner)
+                failures = attach_traces(failures, reports)
+            except Exception:  # noqa: BLE001 — 诊断是增益，失败即退回原样
+                failures = parsed["items"]
         if failed:
             message = f"测试失败：{failed} 个失败，{passed} 个通过"
         elif success and parsed["parsed"]:
@@ -193,6 +205,6 @@ class RunTestsAdapter(ToolAdapter):
                 "parsed": parsed["parsed"],
                 "summary": parsed.get("summary"),
                 "counts": counts,
-                "failures": parsed["items"],
+                "failures": failures,
             },
         )

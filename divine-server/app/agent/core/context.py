@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 # Rough local token estimation: CJK ~1 token/char, other text ~4 chars/token.
@@ -85,3 +85,9 @@ class AgentRunContext:
     # 本轮被用户用 `/技能` 显式指定的技能名（顺序无关）：既用于结束时校验
     # “技能是否真的被使用”（unused_mentions），也用于把能力技能透传给子 agent。
     mention_skills: frozenset[str] = frozenset()
+    # 调试收敛状态（design 026 P2，DebugLoopMiddleware 维护）：
+    # 错误指纹 → 本会话内该错误已出现的次数（键不含工具名，换工具重跑也累计）。
+    debug_state: dict[str, int] = field(default_factory=dict)
+    # 已触发硬刹车：同一错误连续失败达阈值，中间件不再追加提示，
+    # 要求模型停止自动重试并如实汇报。子 agent 各自持有 ctx，互不干扰。
+    debug_halt: bool = False

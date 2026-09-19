@@ -1,6 +1,7 @@
 # Agent 自动调试能力 · 方案设计
 
-> 编号：026 ｜ 类型：design ｜ 日期：2026-09-17 ｜ 状态：待实施（方案待审）
+> 编号：026 ｜ 类型：design ｜ 日期：2026-09-17 ｜ 状态：**已实施（P1–P3）**，P4 未实施
+> 实施日期：2026-09-19 ｜ 实施记录见 §12（含 4 处与本文设计的偏差及原因）
 > 目标：把 Agent 的"改完跑一遍测试"升级为**故障驱动的调试闭环**——运行崩溃或测试失败后，能自动定位到源码行、识别"同一个错第几次出现"、在收敛上限内自主修复，修不动就如实汇报而不是无限打转。
 > 前置：`docs/plan/002-code-support-roadmap-20260830.md` 的 P0–P4 已全部实施，**执行腿齐备**（能跑测试、能改代码、能回滚）。本方案只补**定位腿**与**收敛刹车**。
 
@@ -286,3 +287,77 @@ if not output.get("success") and name in _COMMAND_TOOLS | {"terminal"}:
 - **中间件**：计数正确、跨工具共享计数、三次刹车、`debug_halt` 后不再自动重试；
 - **回归**：现有 `test_run_tests.py` / `test_terminal_dev.py` / `test_code_review.py` 全绿；`_LOCK_FREE_TOOLS` 与 `_READ_ONLY_TOOLS` 不因本方案变化；
 - **命令**：`pytest --basetemp=/tmp/pt -p no:cacheprovider`（沙箱下默认 tmp 目录会报 `PermissionError: EEXIST`）。
+
+---
+
+## 12. 实施记录（2026-09-19）
+
+### 12.1 落地内容
+
+P1–P3 已实施，P4（前端诊断卡片、`pin_repro`、`_is_recovery_title` 去重键替换）未实施。
+
+| 文件 | 改动 |
+| --- | --- |
+| `app/tools/diagnostics.py`（新） | `Frame` / `FailureReport` / `parse_python_traceback` / `parse_pytest_short` / `parse_node_stack` / `parse_compile_errors` / `parse_failures` / `compute_fingerprint` / `format_failure_block` / `diagnose_tool_output` / `attach_traces` / `trace_payload` |
+| `app/tools/adapters/run_tests.py` | `data.failures[]` 补 `trace`（仅失败时计算） |
+| `app/agent/tools/execution.py` | 新增 `_command_failed()`；命令类工具失败时追加 `[诊断]` 段 |
+| `app/agent/middleware/debug_loop.py`（新） | `DebugLoopMiddleware`：指纹计数 + 二次提示 + 三次刹车 |
+| `app/agent/middleware/__init__.py` | 导出 `DebugLoopMiddleware` |
+| `app/agent/tools/tools.py` | `_build_agent` 中间件链插入（`ToolErrorMiddleware` 之前 = 更外层） |
+| `app/agent/core/context.py` | `AgentRunContext` 新增 `debug_state` / `debug_halt` |
+| `app/agent/core/prompt_sections.py` | `_PROJECT_WORKFLOW` 验证段改写为「验证与调试」四步循环 |
+| `tests/test_diagnostics.py`（新） | 35 项 |
+| `tests/test_debug_loop.py`（新） | 11 项 |
+| `tests/test_command_tools.py` | `test_run_tests_end_to_end` 补 `trace` 断言 |
+| `evals/scenarios/s13_runtime_crash_nested/`（新） | 运行时崩溃场景（三层嵌套栈，修复点在调用方帧） |
+| `evals/harness.py` | 修 `--rootdir` 未锚定导致的 nodeid 前缀错位（见 §12.3） |
+
+### 12.2 与本文设计的偏差（4 处，均有实测依据）
+
+1. **新增 `parse_pytest_short`**（§2.2 未列）。本文只描述了带 `Traceback (most recent call last):`
+   头的完整栈，但 `run_tests` 用的是 `--tb=short`——实测该格式**没有**这行头，
+   帧写作 `tests/test_api.py:5: in test_login`，完整栈解析器一条都抓不到。
+   不补这条解析器，P1 对 `run_tests` 完全失效。同一条解析器另兼容 `--tb=long`
+   （首帧 `file:line: `、末帧 `file:line: KeyError`，均无 `in func`）。
+   实测两种 tb 格式对同一次失败产出**相同指纹**，刹车计数不会分裂。
+2. **`_command_failed()` 取代 `not output["success"]`**（§3 的判定条件不成立）。
+   实测 `terminal` 把「命令跑起来了」记为 `success=True`，非零退出码只在
+   `data.exit_code`（`success=True, exit_code=2`）。只认 `success` 的话诊断回灌
+   对 terminal 永不触发，而它正是排障主入口。现在两条路径都认。
+3. **`is_user_code` 之外增设 `is_business`**（§2.4 只定义了前者）。
+   §3 样例把 `<- 业务代码` 标在 `app/api/auth.py:88` 而没标测试帧，
+   §2.3 又说指纹取「首个业务帧」——两者要求把测试文件排除出业务帧。
+   否则同一个 bug 被两个测试打到会得到两个指纹，去重失效。
+   `is_user_code` 仍按 §2.4 原义（测试文件算 user_code），只多一个更窄的判定。
+4. **帧截断保留原始顺序**，不做「业务帧提前」（§2.1 的措辞）。
+   顺序打乱会丢掉「谁调用了谁」这条最关键的信息；`_MAX_FRAMES` 不够时
+   改为优先丢弃外侧的非业务帧。
+
+另有两处小改：`FailureReport` 增 `node` 字段（pytest 段落头里的用例名，
+用于把报告回挂到 `data.failures[]`，按名匹配比按序稳）；抽出
+`diagnose_tool_output()` 把「解析 → 渲染」收成一个可测函数。
+
+**P2 可选项 `jump_to="end"` 未实施**：本文 §4.2 标为可选，且它与 §8
+「硬刹车后行为 = 汇报而非静默中止」冲突——直接收尾会让模型来不及汇报，
+用户只看到任务中断。现改为「注入硬指令 + 置 `debug_halt`，此后不再追加提示」。
+
+### 12.3 顺带修复：eval harness 的 rootdir 缺陷（非本方案引入）
+
+`evals/harness.py::run_pytest` 未锚定 rootdir。pytest 的 nodeid 是相对 rootdir 算的，
+而工作区落在仓库内（`evals/.runs/`）时，pytest 会向上找到
+`divine-server/pytest.ini` 并把 rootdir 定成 `divine-server`，nodeid 于是变成
+`evals/.runs/<...>/tests/test_x.py::test_y`，与 `config.yaml` 里写的
+`tests/test_x.py::test_y` 永不相等。
+
+后果：`check` 报「全部场景夹具有问题」，`run` 把每个场景标成 `scenario_fixture_broken`。
+`pytest.ini` 的 mtime 是 **2026-09-05**，而 `evals/results/` 里最后一份成功报告是
+**2026-08-30**——harness 从那时起就静默失效了。修法是给 pytest 传
+`--rootdir <workspace>`。修后 `check` 13/13 通过、`run --fake` 13/13 resolved。
+
+### 12.4 验收
+
+- `tests/test_diagnostics.py` 35 项 + `tests/test_debug_loop.py` 11 项全绿；
+- `tests/test_command_tools.py` 13 项全绿（含新增 `trace` 断言）；
+- `evals.harness check` 13/13；`evals.harness run --fake` **13/13 resolved**；
+- 端到端（`tests/test_diagnostics.py::test_execution_appends_diagnosis_on_command_failure`）
+  证明真实 `terminal` 失败后模型收到的 content 里带 `[诊断]` + 业务帧 + 指纹。

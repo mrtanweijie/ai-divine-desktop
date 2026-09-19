@@ -52,6 +52,25 @@ def _normalized_command(command: str) -> str:
     return " ".join((command or "").split())
 
 
+def _command_failed(output: dict[str, Any]) -> bool:
+    """命令类工具这一次是否"失败了"。
+
+    不能只看 ``success``：``terminal`` 把"命令跑起来了"记为成功，
+    非零退出码只体现在 ``data.exit_code``（实测 ``success=True, exit_code=2``）。
+    只认 ``success`` 的话，诊断回灌对 terminal 永远不触发——而它恰恰是
+    排障的主入口。``run_tests`` / ``lint_check`` 走的是 ``success=False``，
+    两条路径都要认。
+    """
+    if not output.get("success"):
+        return True
+    data = output.get("data")
+    if isinstance(data, dict):
+        code = data.get("exit_code")
+        if isinstance(code, int) and code != 0:
+            return True
+    return False
+
+
 def _is_session_approved(session_id: str, command: str) -> bool:
     return _normalized_command(command) in _SESSION_APPROVED_COMMANDS.get(
         session_id, set()
@@ -1041,6 +1060,24 @@ async def _handle_adapter_call(
                     "\n\n[语法检查警告] 刚写入的文件存在语法错误，"
                     "请立即修复后再继续其他步骤：\n" + "\n".join(problems)
                 )
+
+        # 故障诊断回灌（design 026 §3）：命令类工具失败时把异常栈解析成结构化栈帧，
+        # 让模型直接 read_file 到出错行，而不是重新全仓 grep 猜。
+        # 判定走 _command_failed（success 或非零 exit_code），只在失败路径触发，
+        # 成功路径零新增开销；解析异常不影响工具结果；
+        # 只加 content 尾注，不动 data 结构——前端渲染契约与历史回放不受影响。
+        if _command_failed(output) and name in _COMMAND_TOOLS | {"terminal"}:
+            from ...tools.diagnostics import diagnose_tool_output
+
+            data = output.get("data")
+            runner = (
+                str(data.get("runner") or "") or None
+                if isinstance(data, dict)
+                else None
+            )
+            block = diagnose_tool_output(tool_content, ctx.workspace, runner)
+            if block:
+                tool_content += "\n\n" + block
 
         # Office 编辑成功后把撤销能力与提醒回灌给模型（产物重开验证已由脚本完成）。
         if name in _OFFICE_EDIT_TOOLS and output.get("success"):

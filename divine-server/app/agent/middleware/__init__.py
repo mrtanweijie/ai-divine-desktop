@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .debug_loop import DebugLoopMiddleware
 from .injection import UserInjectionMiddleware
 from .middleware import TodoSyncMiddleware, TurnCounterMiddleware
 from .preprocess import (
@@ -16,6 +17,7 @@ from .project_context import (
 )
 
 __all__ = [
+    "DebugLoopMiddleware",
     "TodoSyncMiddleware",
     "TurnCounterMiddleware",
     "UserInjectionMiddleware",

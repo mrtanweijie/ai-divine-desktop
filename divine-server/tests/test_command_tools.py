@@ -173,6 +173,13 @@ def test_run_tests_end_to_end(tmp_path: Path):
     assert "test_bad" in failures[0]["test"]
     assert out.success is False
     assert "失败" in out.message or "未通过" in out.message
+    # 诊断双通道之一：data.failures[] 带 trace（frames + fingerprint），
+    # 供前端渲染与程序化消费；模型看的是 execution.py 的 [诊断] 段。
+    trace = failures[0]["trace"]
+    assert trace["exception"] == "AssertionError"
+    assert len(trace["fingerprint"]) == 12
+    assert trace["frames"][0]["file"] == "tests/test_ok.py"
+    assert trace["frames"][0]["code"] == "assert 1 + 1 == 3"
 
 
 def test_run_tests_all_pass(tmp_path: Path):

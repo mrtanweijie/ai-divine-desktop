@@ -23,7 +23,12 @@ from ...tools.registry import registry
 from ..core import MAX_TOOL_TURNS, _READ_ONLY_TOOLS
 from ..core import AgentRunContext
 from .execution import _handle_adapter_call
-from ..middleware import TodoSyncMiddleware, TurnCounterMiddleware, UserInjectionMiddleware
+from ..middleware import (
+    DebugLoopMiddleware,
+    TodoSyncMiddleware,
+    TurnCounterMiddleware,
+    UserInjectionMiddleware,
+)
 from ..core.prompts import _build_dynamic_prompt, _should_ask_plan
 from ..core import _make_args_model, _run_skill_script, _skill_args_model, _skill_tool_name
 
@@ -272,6 +277,10 @@ def _build_agent(
         TodoSyncMiddleware(ctx),
         UserInjectionMiddleware(ctx),
         TodoListMiddleware(),
+        # 收敛刹车（design 026 §4.3）：插在 ToolErrorMiddleware **之外**——
+        # 中间件列表首个是最外层，故最后一项最靠近工具。异常先由 ToolErrorMiddleware
+        # 格式化成错误 ToolMessage，本中间件才看得到成型的工具结果并计数。
+        DebugLoopMiddleware(ctx),
         ToolErrorMiddleware(
             on_error=lambda exc, request: (
                 f"工具执行异常: {type(exc).__name__}: {str(exc)[:300]}"

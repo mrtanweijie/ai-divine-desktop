@@ -42,7 +42,7 @@
 | 035 | [design-pdf-page-template-styles](design/023-pdf-page-template-styles-20260913.md) | 2026-09-13 | **已实施（论文/报告四套页式模板接入 PDF 工具）** |
 | 036 | [design-model-effort-slider](design/024-model-effort-slider-20260913.md) | 2026-09-13 | **P1 已实施（滑块直选单面板）** |
 | 037 | [design-chat-mention-files](design/025-chat-mention-files-20260913.md) | 2026-09-13 | 未实施（方案待审） |
-| 042 | [design-agent-auto-debug](design/026-agent-auto-debug-20260917.md) | 2026-09-17 | 待实施（方案待审） |
+| 042 | [design-agent-auto-debug](design/026-agent-auto-debug-20260917.md) | 2026-09-17 | **已实施（P1–P3）** |
 
 ### 修复（fix）
 
