@@ -1,7 +1,6 @@
 // Detail modal for SKILL.md body, references, dependencies, and metadata.
-import { FileText, FolderTree, Package, X } from "lucide-react";
+import { FileText, FolderTree, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import type { InstalledSkill } from "@/types";
 import { SkillTypeIcon, skillScriptLabel, sourceLabel, typeLabel } from "../SkillLabels";
@@ -18,17 +17,6 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
       open
       title={t("skills.detailTitle", "技能详情")}
       titleSuffix={`v${skill.version}`}
-      headerAction={
-        <Button
-          variant="icon"
-          size="small"
-          onClick={onClose}
-          title={t("common.close", "关闭")}
-          aria-label={t("common.close", "关闭")}
-        >
-          <X size={15} />
-        </Button>
-      }
       onClose={onClose}
       width={620}
     >

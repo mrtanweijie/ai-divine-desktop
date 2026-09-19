@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AudioWaveform, Blocks, Brain, Cpu, Info, Save, Settings2, X } from "lucide-react";
+import { AudioWaveform, Blocks, Brain, Cpu, Info, Save, Settings2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
 import type { ModelConfig, Settings, SettingsSaveBody } from "@/types";
@@ -192,16 +192,6 @@ export function SettingsModal({
       titleSuffix={version}
       onClose={onClose}
       width={860}
-      headerAction={
-        <Button
-          variant="icon"
-          onClick={onClose}
-          aria-label={t("common.close", "关闭")}
-          title={t("common.close", "关闭")}
-        >
-          <X size={16} />
-        </Button>
-      }
       footer={
         // 意图 tab 的操作（模式切换/模型启停）即时生效，无需底部保存按钮
         section !== "about" && section !== "local" && section !== "mcp" && section !== "memory" ? (
