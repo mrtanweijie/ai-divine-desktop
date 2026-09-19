@@ -180,6 +180,13 @@ def run_pytest(ws: Path, out_dir: Path) -> dict[str, str]:
             [
                 sys.executable, "-m", "pytest", "tests", "-q",
                 "--tb=short", "--disable-warnings",
+                # 显式锚定 rootdir：pytest 的 nodeid 是相对 rootdir 算的。
+                # 工作区在 evals/.runs/ 下（仓库内）时，pytest 会向上找到
+                # divine-server/pytest.ini 并把 rootdir 定成 divine-server，
+                # nodeid 于是变成 "evals/.runs/<...>/tests/test_x.py::test_y"，
+                # 与 config.yaml 里写的 "tests/test_x.py::test_y" 永不相等——
+                # 全部场景会被误判成夹具损坏。锚到工作区即可与配置对齐。
+                "--rootdir", str(ws),
                 "-p", "evals_pytest_plugin",
             ],
             cwd=ws, env=env, capture_output=True, text=True, timeout=180,
