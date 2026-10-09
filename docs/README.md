@@ -44,6 +44,7 @@
 | 037 | [design-chat-mention-files](design/025-chat-mention-files-20260913.md) | 2026-09-13 | 未实施（方案待审） |
 | 042 | [design-agent-auto-debug](design/026-agent-auto-debug-20260917.md) | 2026-09-17 | **已实施（P1–P3）** |
 | 043 | [design-task-webhook-interactive-digest](design/027-task-webhook-interactive-digest-20260919.md) | 2026-09-19 | 已实施（stage 1–5；digest/interactive 仅后端，无 UI 入口） |
+| 044 | [design-a2ui-integration](design/028-a2ui-integration-20261009.md) | 2026-10-09 | 方案待审（A2UI v0.9.1 接入，S0–S5 分期） |
 
 ### 修复（fix）
 
