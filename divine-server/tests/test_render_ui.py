@@ -570,6 +570,25 @@ def test_sse_payload_shape() -> None:
     assert len(payload["messages"]) >= 2
     # 帧内完整性：所有消息都带 version，且没有 None
     assert all(m.get("version") == A2UI_VERSION for m in payload["messages"])
+    # 标题走帧封装顶层（前端面板 header 只认这里；漏了它面板就没标题，
+    # 而除了标题之外一切正常，接口测试很难发现）。
+    assert payload["title"] == "本月成本结构"
+    # 且**不能**塞进 createSurface —— 那是 A2UI 协议消息，不是我们的扩展点。
+    assert "title" not in payload["messages"][0]["createSurface"]
+
+
+def test_sse_payload_omits_missing_or_blank_title() -> None:
+    """没标题（或只有空白）时不吐空 `title` 键，前端据此回落默认文案。"""
+    surface = sample_surface()
+    surface.pop("title")
+    result = validate_ui_surface(surface, catalog_id=CATALOG_ID)
+    assert result.ok, result.errors
+    assert "title" not in to_sse_payload(result.normalized or {})
+
+    surface["title"] = "   "
+    result = validate_ui_surface(surface, catalog_id=CATALOG_ID)
+    assert result.ok, result.errors
+    assert "title" not in to_sse_payload(result.normalized or {})
 
 
 def test_validator_does_not_mutate_input() -> None:

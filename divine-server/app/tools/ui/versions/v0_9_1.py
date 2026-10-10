@@ -100,6 +100,11 @@ def to_sse_payload(
 
     **帧内完整性铁律**（044 §5.1）：一帧里的 ``messages`` 必须完整，
     不做 JSONL 跨帧拼接。代价是首帧延迟，收益是解析零歧义。
+
+    ``title`` 放**帧封装顶层**（与 ``surfaceId``/``seq`` 同级），不塞进
+    ``createSurface``：后者是 A2UI 协议消息，往里加自定义字段会污染协议
+    形状（将来换版本/对齐官方实现时是要还的债）。帧封装本就是我们自己的
+    结构，``surfaceId`` 已经这么用了。
     """
     surface_id = str(surface.get("surfaceId") or "")
     payload: dict[str, Any] = {
@@ -108,6 +113,9 @@ def to_sse_payload(
         "seq": seq,
         "messages": to_messages(surface),
     }
+    title = surface.get("title")
+    if isinstance(title, str) and title.strip():
+        payload["title"] = title.strip()
     if source_call_id:
         payload["source_call_id"] = source_call_id
     return payload
