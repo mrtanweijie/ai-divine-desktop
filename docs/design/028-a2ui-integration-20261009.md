@@ -553,7 +553,7 @@ S1（后端骨架）已落地。**三处与设计稿的有意偏差**记录在�
 - `Table` 行高 `padding: 7px 10px` → **四边 `12px`**（12.5px 字号下单行 ≈ 43px；用户两轮反馈后定稿：7px 太挤 → 10/12px → 12px）。
 - `MessageItem/ToolStatusIcon.tsx`：`render_ui` 原先落到兜底 `<FileText>`，现指定 **`SquareMousePointer`**。该分支必须放在兜底之前，且已核对 `render_ui` 不会落进任何更早的 `includes(...)` 宽匹配分支（`svg` / `image` / `search` / `chart` / `ux` 等一个都不命中）。
 
-**验证基座**：新增 `divine-app/ui-harness.html` + `ui-harness.tsx` —— 走真解析（`parseUISurfaceIR`）+ 真组件（`UISurfaceBlock`），`?theme=dark` 切深色、`&narrow=1` 切 360px 窄窗、`&only=table,stats` 只渲染指定块（放大看细节），改 less 即时 HMR 预览，不必再「让模型吐 IR」。样张：`docs/templates/019-a2ui-panel-preview-{light,dark}-20261010.png` + `019-a2ui-panel-table-20261010.png`（headless Chrome 截图）。
+**验证手法（临时基座，已移除）**：面板样式迭代期用过一份**临时** harness —— 走真解析（`parseUISurfaceIR`）+ 真组件（`UISurfaceBlock`），`?theme=dark` 切深色、`&narrow=1` 切 360px 窄窗、`&only=table,stats` 只渲染指定块（放大看细节），改 less 即时 HMR 预览。**该临时文件未入仓库**（2026-10-10 决定），需要时按同一手法临时起一份即可；关键是**不要再走「让模型吐 IR」那条链路**（打包版 sidecar 无 `render_ui`，本来也走不通）。样张：`docs/templates/019-a2ui-panel-preview-{light,dark}-20261010.png` + `019-a2ui-panel-table-20261010.png`（headless Chrome 截图）。
 
 **遗留**：`Slider` 仍缺（首版用 `ChoicePicker` / `NumberField` 替代，§14 待决 3）。
 

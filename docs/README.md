@@ -128,8 +128,9 @@
   - 占位符卫生由 `tests/test_pdf_page_templates.py` 强制校验：括号平衡 + 无四重括号（011–018），
     且 011–014 与 018 禁止嵌套（`test_sample_placeholders_balanced` / `test_pdf_sample_placeholders_are_flat`）。
   - **019 是 A2UI 面板的视觉样张（PNG，非 docgen 模板、不入任何管线）**：
-    light/dark 各一张 + 一张表格特写，由 `divine-app/ui-harness.html` 走真解析 + 真组件渲染后 headless Chrome 截图，
+    light/dark 各一张 + 一张表格特写，由 dev 环境下临时渲染（真解析 + 真组件）+ headless Chrome 截图产出
+    （渲染用的临时 harness **未入仓库**，需要时按 design 028 §6.6 记录的手法临时起一份），
     对应 [design 028](design/028-a2ui-integration-20261009.md) §6.6 的「内部块去卡片化」。
-    改面板样式后重新截图覆盖即可（该 harness 也可本地开着做 HMR 预览，支持 `?theme=dark` / `&narrow=1` / `&only=`）。
+    改面板样式后重新截图覆盖即可。
 - `assets/`：文档引用的图片资源
 - `pdf-modules/`：PDF 模块 JSON/CSS/HTML 资源（由 docgen 管线引用）
