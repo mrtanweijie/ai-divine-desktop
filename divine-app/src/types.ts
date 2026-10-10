@@ -1,3 +1,5 @@
+import type { UISurface } from "@/pages/chat/components/UISurface/types";
+
 export type ApprovalMode = "ask" | "assist" | "full";
 
 export interface Project {
@@ -31,7 +33,11 @@ export interface Session {
 export interface MessagePart {
   id: string;
   message_id: string;
-  type: "think" | "tool" | "file" | "tool_calls" | "tool_result" | "preprocess";
+  /**
+   * `ui_surface` = A2UI 面板的**最终态**（中立 IR 的 JSON 字符串），
+   * 供刷新/切会话后回放（design 028 §5.3）。**不进模型上下文**。
+   */
+  type: "think" | "tool" | "file" | "tool_calls" | "tool_result" | "preprocess" | "ui_surface";
   content: string;
   order: number;
 }
@@ -237,6 +243,14 @@ export interface ChatMessage {
   unused_mentions?: string[];
   /** 选项卡片的已选状态（选择后置灰持久化） */
   choice_state?: Record<string, unknown>;
+  /**
+   * A2UI 交互面板（design 028 §5.2）。
+   *
+   * ⚠️ **引用稳定性铁律**：`seq` 不变时这个数组的引用必须保持不变 ——
+   * `MessageItem` 是 `memo` 的，每帧新建数组会让长会话全量白重渲染
+   * （见 `pages/chat/state/surfaceStore.ts` 的注释与 design 028 §16.3）。
+   */
+  surfaces?: UISurface[];
   /** 消息来源：normal=云端/local=本地模型/local_fallback=本地拒答转云端 */
   source?: string;
   /** 本条回复消耗的 token（real=API 上报，estimated=本地估算） */

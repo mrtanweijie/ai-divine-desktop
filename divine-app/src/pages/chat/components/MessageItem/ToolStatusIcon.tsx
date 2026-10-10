@@ -51,6 +51,7 @@ import {
   ScrollText,
   Stamp,
   SquareKanban,
+  SquareMousePointer,
   StickyNote,
   Table2,
   TerminalSquare,
@@ -112,6 +113,9 @@ export function toolIcon(tool: string) {
   if (tool.includes("directory") || tool.includes("tree")) return <FolderTree size={16} />;
   if (tool === "generate_chart" || tool.includes("chart")) return <BarChart3 size={16} />;
   if (tool === "render_graph") return <Workflow size={16} />;
+  // 交互面板：鼠标指针 = "这里能点"。注意必须排在下面的兜底之前，
+  // 且不能落进 `includes("svg")` / `includes("image")` 等宽匹配分支。
+  if (tool === "render_ui") return <SquareMousePointer size={16} />;
   if (tool.includes("mermaid") || tool.includes("diagram")) return <Workflow size={16} />;
   if (
     tool.includes("requirements") ||

@@ -1,0 +1,485 @@
+/* A2UI 面板样式。
+ *
+ * 设计文档：docs/design/028-a2ui-integration-20261009.md §7 / §16。
+ *
+ * 两条纪律：
+ * 1. **类名统一 `uis-` 前缀** —— 本项目 Less 是全局作用域，不加前缀会互染
+ *    （参考 `.diff-view` 事故）；不引入 CSS Modules。
+ * 2. **只用 token** —— 颜色 / 圆角全部走 `var(--color-*)` / `var(--radius-*)`，
+ *    深色与浅色自动跟随，面板不持有自己的主题（044 §9.4）。
+ *
+ * `contain: layout paint style` 是 §16.4 的硬要求：面板内部变化（图片解码、
+ * 输入框打字）不得触发外层虚拟列表重测高度。
+ */
+
+.uis-surface {
+  --uis-gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  contain: layout paint style;
+}
+
+.uis-surface.is-closed {
+  opacity: 0.86;
+  background: var(--color-surface-2);
+}
+
+.uis-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.uis-header-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.uis-header-badge {
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.uis-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.uis-empty {
+  padding: 12px;
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+}
+
+/* ------------------------------------------------------------------ 布局 */
+
+.uis-column,
+.uis-row {
+  min-width: 0;
+}
+
+/* 内部块**不做卡片**（2026-10-10 用户要求）。
+ *
+ * 面板自身（`.uis-surface`）已经是一层带边框的卡片，块内再套 border/底/圆角
+ * 就是「框套框」；模型一次往往生成 5–8 个块，线条叠起来非常吵。
+ * 分区改由【左侧竖色块 + 标题文本】（`.uis-card-title::before`）承担，
+ * 不画任何边框，块与块之间只靠面板的 `gap`。
+ *
+ * 竖条默认用中性灰（不引入强调色），只有显式带 `tone` 时才取语义色。
+ */
+.uis-card {
+  --uis-card-rule: var(--color-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.uis-card.tone-primary {
+  --uis-card-rule: var(--color-accent);
+}
+.uis-card.tone-success {
+  --uis-card-rule: var(--color-success);
+}
+.uis-card.tone-warning {
+  --uis-card-rule: var(--color-warning);
+}
+.uis-card.tone-danger {
+  --uis-card-rule: var(--color-danger);
+}
+
+/* 标题行 = 竖色块 + 文本；内容顶格，与竖条左对齐（常见 section 标题写法）。 */
+.uis-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+.uis-card-title::before {
+  content: "";
+  flex: none;
+  width: 3px;
+  height: 13px;
+  border-radius: var(--radius-full);
+  background: var(--uis-card-rule);
+}
+
+.uis-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.uis-divider.is-horizontal {
+  height: 1px;
+  background: var(--color-border);
+  border: 0;
+}
+
+.uis-divider.is-vertical {
+  width: 1px;
+  align-self: stretch;
+  background: var(--color-border);
+}
+
+/* ------------------------------------------------------------------ 展示 */
+
+.uis-text {
+  color: var(--color-text);
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.uis-text.is-h1 {
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.uis-text.is-h2 {
+  font-size: 16.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.uis-text.is-h3 {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.uis-text.is-h4 {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.uis-text.is-body {
+  font-size: 13.5px;
+}
+.uis-text.is-caption {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.uis-text.tone-primary {
+  color: var(--color-accent);
+}
+.uis-text.tone-success {
+  color: var(--color-success);
+}
+.uis-text.tone-warning {
+  color: var(--color-warning);
+}
+.uis-text.tone-danger {
+  color: var(--color-danger);
+}
+
+.uis-badge {
+  font-size: 12px;
+}
+
+.uis-image {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.uis-image-box {
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface-2);
+}
+
+.uis-image-box img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.uis-image-caption {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.uis-table-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.uis-table-scroll {
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.uis-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+/* 行高：四边 `12px` + 12.5px 字号 → 单行 ≈ 43px（2026-10-10 用户两轮反馈：
+ * 先 7px 太挤 → 10/12px → 定为 12px）。 */
+.uis-table th,
+.uis-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.uis-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.uis-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.uis-table td {
+  color: var(--color-text);
+}
+
+.uis-table-caption {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.uis-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.uis-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+.uis-progress-pct {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.uis-progress-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  overflow: hidden;
+}
+
+.uis-progress-bar {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  transition: width 0.3s ease;
+}
+
+.uis-progress-bar.tone-success {
+  background: var(--color-success);
+}
+.uis-progress-bar.tone-warning {
+  background: var(--color-warning);
+}
+.uis-progress-bar.tone-danger {
+  background: var(--color-danger);
+}
+
+.uis-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.uis-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.uis-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+.uis-step-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+}
+
+.uis-step.is-active {
+  color: var(--color-text);
+  font-weight: 600;
+}
+.uis-step.is-active .uis-step-dot {
+  background: var(--color-accent);
+}
+.uis-step.is-done {
+  color: var(--color-text);
+}
+.uis-step.is-done .uis-step-dot {
+  background: var(--color-success);
+}
+.uis-step.is-error {
+  color: var(--color-danger);
+}
+.uis-step.is-error .uis-step-dot {
+  background: var(--color-danger);
+}
+
+.uis-steps-caption {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------ 输入 */
+
+.uis-unit {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.uis-readonly-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.uis-readonly-value {
+  padding: 0 12px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.uis-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.uis-choice-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  min-width: 88px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.uis-choice-item:hover {
+  background: var(--color-hover-soft);
+}
+
+.uis-choice-item.is-active {
+  border-color: var(--color-border-strong);
+  background: var(--color-accent-soft);
+}
+
+.uis-choice-item.is-disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.uis-choice-label {
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.uis-choice-desc {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+}
+
+.uis-check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.uis-check-label {
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+/* ------------------------------------------------------------------ 动作 */
+
+.uis-button {
+  align-self: flex-start;
+}
+
+/* ---------------------------------------------------------------- 富媒体 */
+
+/* 懒挂载槽位：未进视口时只有高度（inline style 给），进来后再挂真组件。
+ * 不给 border/background，避免"占位是空盒子、加载后消失"的闪动。 */
+.uis-media-slot {
+  width: 100%;
+  /* 图表初始化前后宽度不变，但内容可能比容器宽 → 不许撑破面板 */
+  overflow: hidden;
+}
+
+.uis-media-caption {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+/* FileList 复用 ToolFileList 的行样式（.file-actions / .file-list-item …），
+ * 这里只补面板内的容器约束与行内间距。 */
+.uis-filelist {
+  width: 100%;
+}
+
+.uis-filelist .file-list {
+  margin: 0;
+}

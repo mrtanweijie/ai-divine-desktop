@@ -15,6 +15,7 @@ import {
   chartTypeIcon,
   graphIRFromResult,
   openToolUrl,
+  toolMessageLine,
 } from "./MessageHelpers";
 import { ToolCommands } from "./ToolCommands";
 import { ToolConfirmSection } from "./ToolConfirmSection";
@@ -75,6 +76,17 @@ export const ToolStatusCard = memo(function ToolStatusCard({
   const chartIcon = chartOption ? chartTypeIcon(chartOption) : null;
   const graphIR = graphIRFromResult(tool.result);
   const icon = toolIcon(tool.tool);
+  // 终态（done / error）的状态行**只占一行**：`tool.message` 在失败时可能是
+  // 十几行路径级校验错误（render_ui / ux_html 等），那是**给模型自纠用的**，
+  // 用户只需要"失败了、为什么败"——取首个非空行 + 省略号，全文走 title 悬停。
+  // confirm / running / preparing 保持原样：那里的 message 可能是用户**必须读**
+  // 的预览（plan / 命令 / 技能迁移预览，见 ToolConfirmSection）。
+  const terminal = tool.status === "done" || tool.status === "error";
+  const collapsed = terminal ? toolMessageLine(statusMessage) : null;
+  const statusLine = collapsed ? collapsed.text : statusMessage;
+  const nowrapMessage = (tool.status === "running" && !!tool.currentUrl) || terminal;
+  const statusTooltip =
+    collapsed && (collapsed.more || collapsed.text !== statusMessage) ? statusMessage : undefined;
 
   const copyJson = async () => {
     if (!tool.result) return;
@@ -138,12 +150,9 @@ export const ToolStatusCard = memo(function ToolStatusCard({
                 ? t("tool.askUserTitle", "向用户提问")
                 : tool.tool}
           </span>
-          <span
-            className={`tool-message${
-              tool.status === "running" && tool.currentUrl ? " nowrap" : ""
-            }`}
-          >
-            {statusMessage}
+          <span className={`tool-message${nowrapMessage ? " nowrap" : ""}`} title={statusTooltip}>
+            {statusLine}
+            {collapsed?.more ? "…" : ""}
           </span>
         </div>
         {(typeof tool.turn === "number" && tool.turn > 0) ||

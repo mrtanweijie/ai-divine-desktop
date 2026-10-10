@@ -9,6 +9,7 @@ import {
 } from "@/services/api";
 import { storageGetRaw } from "@/services/storage";
 import { changedFilePathsFromResult, changedFileRel } from "@/pages/chat/chatUtils";
+import { hydrateSessionSurfaceEdits } from "@/pages/chat/components/UISurface/uiSurfaceStateStore";
 import type { ApprovalMode, ChatMessage, Project, Session } from "@/types";
 
 interface SessionLoaderDeps {
@@ -82,6 +83,11 @@ export function useSessionLoader({
 
       const data = await getSession(id, { limit: 80 });
       // 已被更新的点击取代时丢弃本次结果，避免旧请求覆盖新会话的元信息。
+      if (seq !== loadSessionSeqRef.current) return;
+      // A2UI 面板编辑态（044 §5.5 ②）：**必须赶在消息落进 state 之前**
+      // 灌进内存 —— 面板只在挂载时读一次编辑态，晚一步就等于没恢复。
+      // 这一步失败不影响会话加载（内部已静默）。
+      await hydrateSessionSurfaceEdits(id);
       if (seq !== loadSessionSeqRef.current) return;
       setSelectedProjectId(data.session.project_id);
       setApprovalMode(data.session.approval_mode ?? "ask");

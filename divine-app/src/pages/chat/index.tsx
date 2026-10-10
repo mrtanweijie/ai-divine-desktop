@@ -49,7 +49,10 @@ import { ProjectModal } from "@/pages/chat/components/ProjectModal";
 import { ProjectPicker } from "@/pages/chat/components/ProjectPicker";
 import { useChatStream } from "@/pages/chat/hooks/useChatStream";
 import { useAppBootstrap, useSessionPreferenceSync } from "@/pages/chat/hooks/useAppBootstrap";
-import { ChatStreamContext } from "@/pages/chat/hooks/ChatStreamContext";
+import {
+  ChatStreamContext,
+  type ChatStreamContextValue,
+} from "@/pages/chat/hooks/ChatStreamContext";
 import { useSessionLoader } from "@/pages/chat/hooks/useSessionLoader";
 import { useWorkspacePanel } from "@/pages/chat/hooks/useWorkspacePanel";
 import { expandModelId, expandModelsForSwitcher } from "@/config/providers";
@@ -652,27 +655,28 @@ export default function ChatPage() {
     }
   }, []);
 
-  const { sendSupplement, sendMessage, stopStreaming, retryCloud } = useChatStream({
-    selectedId,
-    selectedProjectId,
-    projects,
-    approvalMode,
-    streaming,
-    modelId: composerModelId,
-    workspacePanelOpenRef,
-    setSessions,
-    setSelectedId,
-    setSessionMessages,
-    setSessionStreaming,
-    setAgentChangedFiles,
-    setHasMoreOlder,
-    setOldestMessageId,
-    refreshSessions,
-    refreshProjects,
-    refreshWorkspace,
-    loadChangedFiles,
-    t,
-  });
+  const { sendSupplement, sendMessage, stopStreaming, retryCloud, submitSurfaceAction } =
+    useChatStream({
+      selectedId,
+      selectedProjectId,
+      projects,
+      approvalMode,
+      streaming,
+      modelId: composerModelId,
+      workspacePanelOpenRef,
+      setSessions,
+      setSelectedId,
+      setSessionMessages,
+      setSessionStreaming,
+      setAgentChangedFiles,
+      setHasMoreOlder,
+      setOldestMessageId,
+      refreshSessions,
+      refreshProjects,
+      refreshWorkspace,
+      loadChangedFiles,
+      t,
+    });
 
   const handleStopStreaming = useCallback(() => {
     if (!selectedId) return;
@@ -703,15 +707,18 @@ export default function ChatPage() {
     [composerEffort, retryCloud],
   );
 
-  // 供消息渲染层的可点击组件（如风格选择卡片）发送消息。
-  const chatStreamValue = useMemo(
+  // 供消息渲染层的可点击组件（如风格选择卡片、A2UI 面板）发送消息 / 提交面板动作。
+  const chatStreamValue = useMemo<ChatStreamContextValue>(
     () => ({
       sendMessage: (question: string, files: ChatFile[] = [], effort?: string) => {
         void sendMessage(question, files, [], effort ?? composerEffort);
       },
+      // 面板动作也走输入框当前的深度思考档位：用户在同一个会话里，
+      // 不该因为"点了按钮"而不是"打了字"就换一套模型参数。
+      submitSurfaceAction: (input, options) => submitSurfaceAction(input, composerEffort, options),
       effort: composerEffort,
     }),
-    [sendMessage, composerEffort],
+    [sendMessage, submitSurfaceAction, composerEffort],
   );
 
   const handleAcceptFile = useCallback(

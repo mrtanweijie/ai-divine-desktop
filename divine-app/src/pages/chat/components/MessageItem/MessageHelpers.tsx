@@ -51,6 +51,27 @@ export function graphIRFromResult(result?: ToolEvent["result"]): GraphIR | null 
   return parsed.ir;
 }
 
+/**
+ * 工具卡状态行的**单行化**：卡片是状态位，不是报错控制台。
+ *
+ * `tool.message` 可能是多行长文本（典型：`render_ui` 校验失败时把十几条
+ * 路径级错误全铺出来，`ux_html`/`html_generate` 的静态校验警告同理）。
+ * 这类文本是**给模型自纠用的**，用户只需要知道"失败了、为什么败"。
+ *
+ * 规则：取**第一个非空行**（后端 summary 首行就是 `xxx 校验未通过（13 处）：`
+ * 这种可读摘要，且原文常以 `\n` 开头），后面还有内容则在末尾补 `…`——补之前
+ * 去掉摘要行末尾的冒号，避免出现 `（13 处）：…` 这种叠在一起的标点；
+ * 完整文本由调用方挂 `title` 悬停查看。**只影响展示，不改回灌模型的内容。**
+ */
+export function toolMessageLine(message: string): { text: string; more: boolean } {
+  const lines = message.split("\n").map((line) => line.trim());
+  const firstIndex = lines.findIndex((line) => line.length > 0);
+  if (firstIndex === -1) return { text: "", more: false };
+  const rest = lines.slice(firstIndex + 1).some((line) => line.length > 0);
+  const text = rest ? lines[firstIndex].replace(/[：:]\s*$/, "") : lines[firstIndex];
+  return { text, more: rest };
+}
+
 export const GROUPABLE_TOOLS = new Set([
   "web_search",
   "web_fetch",

@@ -18,6 +18,7 @@ import { toast } from "@/components/ui/Toast";
 import { Flex } from "@/components/ui/Flex";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
+import { UISurfaceBlock } from "@/pages/chat/components/UISurface/UISurfaceBlock";
 import type { ChatMessage, PreviewFile, TodoItem } from "@/types";
 import { copyText, formatDuration, formatSize, formatTime, formatTokens } from "@/utils";
 import { parseSupplement } from "@/pages/chat/chatUtils";
@@ -264,6 +265,17 @@ export const MessageItem = memo(function MessageItem({
               <span className="stream-text">{t("message.working", "Working...")}</span>
             </span>
           )}
+          {/* A2UI 交互面板（044 §5.2）：放在正文之后、错误之前 ——
+              面板是"结论的延伸操作区"，DOM 顺序稳定，流式增长时不抖动重排。
+              key 带 seq：同一 surfaceId 的新一轮更新 = 整块重挂载（原地刷新）。 */}
+          {message.surfaces?.map((surface) => (
+            <UISurfaceBlock
+              key={`${surface.surfaceId}:${surface.seq}`}
+              surface={surface}
+              sessionId={sessionId}
+              workspacePath={workspacePath}
+            />
+          ))}
           {message.error && (
             <div className="message-error">
               <AlertCircle size={15} />

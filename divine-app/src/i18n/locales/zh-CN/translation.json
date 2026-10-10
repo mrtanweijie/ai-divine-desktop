@@ -758,6 +758,15 @@
     "descPhi3Mini4k": "微软小模型，4K上下文，适合快速推理",
     "descGemma2_2b": "Google 轻量模型，适合多语言任务"
   },
+  "uiSurface": {
+    "actionFailed": "操作提交失败，请重试",
+    "closed": "历史面板",
+    "continueInNewTurn": "在新回合继续",
+    "disabled": "交互面板当前不可用",
+    "panel": "交互面板",
+    "sessionBusy": "当前会话正在生成中，请等这轮结束后再操作",
+    "unavailable": "面板内容不可用"
+  },
   "shortcuts": {
     "collapse": "收起",
     "count": "{{total}} 项",

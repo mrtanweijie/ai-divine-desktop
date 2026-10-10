@@ -8,6 +8,7 @@ import type {
   MentionCandidate,
   MentionKind,
   Message,
+  MessagePart,
   Project,
   Session,
   Settings,
@@ -18,6 +19,8 @@ import type {
   ToolRun,
   WorkspaceCategory,
 } from "@/types";
+import { parseUISurfaceIR } from "@/pages/chat/components/UISurface/parseUISurface";
+import type { UISurface } from "@/pages/chat/components/UISurface/types";
 import { isTauri, openUrl } from "@/services/tauri";
 import { API_BASE, apiBase, request } from "@/services/request";
 import i18next from "@/i18n";
@@ -90,6 +93,78 @@ export function saveMessageChoiceState(
     method: "POST",
     body: JSON.stringify({ state }),
   });
+}
+
+/** 面板动作请求体（design 028 §8.1）。 */
+export interface SurfaceActionBody {
+  session_id: string;
+  /** 面板所属的 assistant 消息 id（定位与回显用）。流式期间可能是前端乐观 id。 */
+  message_id: string;
+  surface_id: string;
+  /** 幂等键：60s 内重复只跑一轮（前端连点两次不会起两个回合）。 */
+  action_id: string;
+  name: string;
+  /** 触发它的按钮文案：后端拿它当**可见 user 正文**的主体（§8.2 的 ⚠️）。 */
+  label: string;
+  /** action.context 求值结果。 */
+  context: Record<string, unknown>;
+  /** 面板当前态（含用户改过的值）。 */
+  data_model: Record<string, unknown>;
+  // —— 以下与 /stream_chat 同构，由 useChatStream 按输入框当前档位补齐 ——
+  approval_mode?: ApprovalMode;
+  think?: boolean;
+  reasoning_effort?: string;
+  locale?: string;
+  ui_theme?: string;
+  model_id?: string | null;
+}
+
+/**
+ * 动作请求里"面板那一半"的字段。由 `UISurfaceBlock` 收集，
+ * 交给 `useChatStream.submitSurfaceAction` 补齐会话/模型档位后再发出去
+ * —— 面板不该知道当前用的是哪个模型、要不要深度思考。
+ */
+export interface SurfaceActionInput {
+  sessionId: string;
+  messageId: string;
+  surfaceId: string;
+  /** 幂等键，由 `useSurfaceAction` 生成。 */
+  actionId: string;
+  name: string;
+  label: string;
+  context: Record<string, unknown>;
+  dataModel: Record<string, unknown>;
+}
+
+/**
+ * 保存面板编辑态（用户改了但还没提交的值，抗刷新，design 028 §5.5 ②）。
+ *
+ * **按会话写**而不是按消息：`ui_surface_states` 的主键是 `surface_id`，
+ * 而消息 id 在流式期间是前端乐观 id（`local-assistant-*`）、`done` 之后
+ * 又会换成服务端 id —— 拿它当写入口会让编辑态在 id 漂移时整份丢失。
+ */
+export function saveUiSurfaceState(
+  sessionId: string,
+  body: { surface_id: string; message_id?: string; data: Record<string, unknown> },
+): Promise<{ ok: boolean }> {
+  return request(`/sessions/${sessionId}/ui-surface-state`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/** 面板编辑态的持久化形态（`GET /sessions/{id}/ui-surface-states`）。 */
+export interface PersistedUISurfaceState {
+  surface_id: string;
+  message_id: string;
+  data: Record<string, unknown>;
+}
+
+/** 取该会话下全部面板编辑态，加载历史后一次性恢复（§5.5 ② 的读取端）。 */
+export function listSessionUiSurfaceStates(
+  sessionId: string,
+): Promise<{ states: PersistedUISurfaceState[] }> {
+  return request(`/sessions/${sessionId}/ui-surface-states`);
 }
 
 export function cancelSessionGeneration(id: string): Promise<{ ok: boolean }> {
@@ -607,11 +682,39 @@ export function messagesToChatMessages(
       tools,
       subagents: subagentsFromToolRuns(tools),
       choice_state: message.choice_state,
+      surfaces: surfacesFromParts(message.parts, message.id),
       source: message.source,
       token_usage: message.token_usage,
     });
   });
   return chatMessages;
+}
+
+/**
+ * 从 `ui_surface` part 重建面板（design 028 §5.3 历史回放）。
+ *
+ * 回放出来的面板一律 `status:"closed"`：输入控件只读、按钮禁用，
+ * 避免用户对一条已经结束的历史回合做"看起来能点但点了没用"的操作。
+ * 解析失败的面板**直接跳过**（一处坏数据不该毁掉整段历史），
+ * 与流式路径的"非法就忽略"保持一致。
+ */
+export function surfacesFromParts(
+  parts: MessagePart[],
+  messageId: string,
+): UISurface[] | undefined {
+  const surfaces: UISurface[] = [];
+  for (const part of parts) {
+    if (part.type !== "ui_surface") continue;
+    let raw: unknown;
+    try {
+      raw = JSON.parse(part.content);
+    } catch {
+      continue;
+    }
+    const parsed = parseUISurfaceIR(raw, { status: "closed", messageId });
+    if (parsed.ok) surfaces.push(parsed.surface);
+  }
+  return surfaces.length ? surfaces : undefined;
 }
 
 /** Rebuild the sub-agent panel from a persisted run_subagents tool run. */

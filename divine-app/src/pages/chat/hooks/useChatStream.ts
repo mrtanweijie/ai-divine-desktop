@@ -9,11 +9,16 @@ import {
   getSession,
   injectSupplement,
   messagesToChatMessages,
+  type SurfaceActionInput,
 } from "@/services/api";
 import { requestRaw } from "@/services/request";
 import { consumeSSE } from "@/services/sse";
 import { readThemePreference, resolveTheme } from "@/services/theme";
 import { createStreamBuffer } from "@/pages/chat/hooks/streamBuffer";
+import type {
+  SurfaceSubmitOptions,
+  SurfaceSubmitResult,
+} from "@/pages/chat/hooks/ChatStreamContext";
 import { setSessionEffort } from "@/pages/chat/state/sessionEffort";
 import { setSessionModelId } from "@/pages/chat/state/sessionModel";
 import { emitEventsChanged, emitTasksChanged } from "@/services/scheduledTasks";
@@ -26,6 +31,9 @@ import {
   upsertSubAgent,
   upsertTool,
 } from "@/pages/chat/chatUtils";
+import { parseA2UIFrame } from "@/pages/chat/components/UISurface/parseUISurface";
+import type { UISurface } from "@/pages/chat/components/UISurface/types";
+import { markSurfaceClosed, upsertSurface } from "@/pages/chat/state/surfaceStore";
 import type {
   ApprovalMode,
   ChatFile,
@@ -37,6 +45,70 @@ import type {
   TodoItem,
   ToolEvent,
 } from "@/types";
+
+/**
+ * 局部更新某条消息的 `surfaces`，**引用不变则返回原数组**。
+ *
+ * 这是消息级面板（design 028 §5.2）唯一允许的写入路径：
+ * `MessageItem` 是 `memo` 的，若这里在"没有实际变化"时也返回新数组，
+ * 流式期间每个 chunk 都会让全部历史消息白重渲染（044 §16.3）。
+ */
+function patchMessageSurfaces(
+  messages: ChatMessage[],
+  messageId: string,
+  update: (surfaces: UISurface[] | undefined) => UISurface[],
+): ChatMessage[] {
+  let changed = false;
+  const next = messages.map((message) => {
+    if (message.id !== messageId) return message;
+    const surfaces = update(message.surfaces);
+    if (surfaces === message.surfaces) return message;
+    changed = true;
+    return { ...message, surfaces };
+  });
+  return changed ? next : messages;
+}
+
+/**
+ * 把一帧面板写到**它该在的那条消息**上（044 §8.3「面板原地刷新」）。
+ *
+ * 默认写到本轮 assistant 消息；但若同一 `surfaceId` 已经挂在**别的**
+ * 消息上（上一回合那块面板），就写回那条 —— 用户看到的是面板原地更新，
+ * 而不是"下方又长出一块"。模型想新开一块面板时会用新的 `surfaceId`。
+ *
+ * 返回值引用不变 = 这一帧被 `seq` 判定为过期/重复（`upsertSurface` 丢弃），
+ * 保证 `MessageItem` 的 memo 不因无变化而失效。
+ */
+function writeSurfaceFrame(
+  messages: ChatMessage[],
+  assistantId: string,
+  surface: UISurface,
+): ChatMessage[] {
+  let ownerId: string | null = null;
+  for (const message of messages) {
+    if (message.id === assistantId) continue;
+    if (message.surfaces?.some((item) => item.surfaceId === surface.surfaceId)) {
+      ownerId = message.id;
+      break;
+    }
+  }
+  return patchMessageSurfaces(messages, ownerId ?? assistantId, (surfaces) =>
+    upsertSurface(surfaces, surface),
+  );
+}
+
+/** `deleteSurface`：面板可能挂在任何一条消息上，全量找一遍再收起。 */
+function closeSurfaceEverywhere(messages: ChatMessage[], surfaceId: string): ChatMessage[] {
+  let changed = false;
+  const next = messages.map((message) => {
+    if (!message.surfaces?.some((item) => item.surfaceId === surfaceId)) return message;
+    const surfaces = markSurfaceClosed(message.surfaces, surfaceId);
+    if (surfaces === message.surfaces) return message;
+    changed = true;
+    return { ...message, surfaces };
+  });
+  return changed ? next : messages;
+}
 
 // `/技能` 未被真正使用的提示要挂在**本轮回复**上（方案 025 §3.3 校验闭环）：
 // done 后会话会从服务端整段恢复，消息 id 换成服务端 id，所以统一按
@@ -185,6 +257,23 @@ export function useChatStream(options: UseChatStreamOptions) {
                 : message,
             ),
           );
+        },
+        // A2UI 面板帧（044 §5.1）。后端保证**帧内消息完整**（一条 A2UI 消息不跨帧），
+        // 因此这里解析出的永远是一整块 surface；非法帧只告警、不崩（纵深防御 L3）。
+        a2ui: (data: unknown) => {
+          const parsed = parseA2UIFrame(data, { messageId: assistantId });
+          if ("deleted" in parsed && parsed.deleted) {
+            setSessionMessages(sessionId, (prev) => closeSurfaceEverywhere(prev, parsed.surfaceId));
+            return;
+          }
+          if (!parsed.ok) {
+            console.warn("[uiSurface] 忽略非法的 a2ui 帧：", parsed.reason);
+            return;
+          }
+          const surface = parsed.surface;
+          // 写回**它原本所在的**消息：动作触发的新回合会重发同 surfaceId 的
+          // 面板，那是一次原地刷新而非新开一块（044 §8.3）。
+          setSessionMessages(sessionId, (prev) => writeSurfaceFrame(prev, assistantId, surface));
         },
         tool: (data: unknown) => {
           const event = data as unknown as ToolEvent;
@@ -574,6 +663,163 @@ export function useChatStream(options: UseChatStreamOptions) {
     ],
   );
 
+  /**
+   * A2UI 面板动作 → 新回合（design 028 §8）。
+   *
+   * 走的是**和打字完全同一条管线**：后端把动作落成一条可见 user 消息，
+   * 再跑一轮常规 `/stream_chat`。这里复用 `buildStreamHandlers`，所以
+   * 新一轮吐出的面板会自动写回原处（`writeSurfaceFrame`），用户看到的
+   * 是"面板原地刷新"（§8.3）。agent 内核零侵入。
+   *
+   * 三条前端纪律：
+   * 1. **不排队**：该会话已有活跃流就直接返回 `busy`，由调用方提示
+   *    （后端也会 409，这里是省一次往返）。插话（steering）才是"排队"语义。
+   * 2. **失败要撤**：请求根本没跑起来（网络错/409/404）时，把乐观追加的
+   *    user + assistant 两条一起撤掉 —— 否则历史里会留下一条没有回答的问题。
+   * 3. **失败不丢状态**：面板里的值仍由 `uiSurfaceStateStore` 持有，
+   *    用户再点一次即可，不做自动重试（重试是用户意图，不是系统猜测）。
+   */
+  const submitSurfaceAction = useCallback(
+    async (
+      input: SurfaceActionInput,
+      effort: string,
+      options?: SurfaceSubmitOptions,
+    ): Promise<SurfaceSubmitResult> => {
+      const sessionId = input.sessionId;
+      if (!sessionId || !input.name) return { ok: false, reason: "failed" };
+      // 用 abortControllers 而不是 streaming prop 判忙：后者只反映**当前选中**
+      // 会话的流态，而面板属于它自己那条会话。
+      if (abortControllersRef.current.has(sessionId)) return { ok: false, reason: "busy" };
+
+      const think = effort !== "off";
+      const stamp = Date.now();
+      const userId = `local-user-${stamp}`;
+      const assistantId = `local-assistant-${stamp}`;
+      const userMessage: ChatMessage = {
+        id: userId,
+        role: "user",
+        // 正文先用按钮文案（所见即所得）。`done` 时整段从服务端恢复，
+        // 那时会换上后端补过 context 求值的完整版本（§8.2 的 ⚠️）。
+        content: input.label || input.name,
+        created_at: new Date().toISOString(),
+        tools: [],
+      };
+      const assistantMessage: ChatMessage = {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        created_at: new Date().toISOString(),
+        tools: [],
+        streaming: true,
+      };
+      setSessionMessages(sessionId, (prev) => [...prev, userMessage, assistantMessage]);
+      setSessionStreaming(sessionId, true);
+
+      const controller = new AbortController();
+      abortControllersRef.current.set(sessionId, controller);
+      const { buffer, handlers } = buildStreamHandlers(sessionId, assistantId);
+      /** 回合根本没跑起来 → 撤掉乐观追加的两条。 */
+      const rollback = () =>
+        setSessionMessages(sessionId, (prev) =>
+          prev.filter((item) => item.id !== assistantId && item.id !== userId),
+        );
+
+      let response: Response;
+      try {
+        response = await requestRaw("/chat/surface-action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            session_id: sessionId,
+            message_id: input.messageId,
+            surface_id: input.surfaceId,
+            action_id: input.actionId,
+            name: input.name,
+            label: input.label,
+            context: input.context,
+            data_model: input.dataModel,
+            approval_mode: approvalMode,
+            think,
+            ...(think ? { reasoning_effort: effort } : {}),
+            ...(modelId ? { model_id: modelId } : {}),
+            locale: i18next.language || "zh-CN",
+            // 传 resolved 值（dark/light），不传 preference——后端不认 "system"
+            ui_theme: resolveTheme(readThemePreference()),
+          }),
+        });
+      } catch (error) {
+        buffer.dispose();
+        rollback();
+        abortControllersRef.current.delete(sessionId);
+        setSessionStreaming(sessionId, false);
+        console.error("[uiSurface] surface-action 请求失败", error);
+        return { ok: false, reason: "failed" };
+      }
+
+      if (!response.ok) {
+        buffer.dispose();
+        rollback();
+        abortControllersRef.current.delete(sessionId);
+        setSessionStreaming(sessionId, false);
+        if (response.status === 409) return { ok: false, reason: "busy" };
+        if (response.status === 404) return { ok: false, reason: "disabled" };
+        return { ok: false, reason: "failed" };
+      }
+
+      // 走到这里回合已经起了：通知面板清掉用户编辑态（§8.3）——
+      // 必须在**消费流之前**，否则新一轮刷回来的面板会先被旧编辑态覆盖一遍。
+      options?.onAccepted?.();
+
+      // 后续失败按普通流错误处理，消息**保留**并标记，
+      // 与 sendMessage 的收尾语义一致（半截内容也是内容）。
+      try {
+        await consumeSSE(response, handlers);
+        return { ok: true };
+      } catch (error) {
+        buffer.flush();
+        if (controller.signal.aborted) {
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((item) =>
+              item.id === assistantId
+                ? {
+                    ...item,
+                    streaming: false,
+                    thinking: false,
+                    tools: settleInFlightTools(item.tools),
+                  }
+                : item,
+            ),
+          );
+        } else {
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((item) =>
+              item.id === assistantId
+                ? {
+                    ...item,
+                    streaming: false,
+                    thinking: false,
+                    error:
+                      error instanceof Error
+                        ? error.message
+                        : t("chat.requestFailed", "请求失败，请稍后重试"),
+                  }
+                : item,
+            ),
+          );
+        }
+        return { ok: false, reason: "failed" };
+      } finally {
+        buffer.dispose();
+        if (abortControllersRef.current.get(sessionId) === controller) {
+          abortControllersRef.current.delete(sessionId);
+        }
+        setSessionStreaming(sessionId, false);
+      }
+    },
+    [approvalMode, buildStreamHandlers, modelId, setSessionMessages, setSessionStreaming, t],
+  );
+
   // 立即停止指定会话的流：前端中止该会话的 SSE 连接（即时反应），
   // 同时调用后端取消接口，让 agent 尽早停下并持久化部分内容。
   const stopStreaming = useCallback(
@@ -615,5 +861,5 @@ export function useChatStream(options: UseChatStreamOptions) {
     [setSessionMessages],
   );
 
-  return { sendSupplement, sendMessage, stopStreaming, retryCloud };
+  return { sendSupplement, sendMessage, stopStreaming, retryCloud, submitSurfaceAction };
 }

@@ -16,6 +16,16 @@ export interface SSEHandlers {
   todo_update?: (data: { id: string; status: string; result?: string }) => void;
   tool?: (data: Record<string, unknown>) => void;
   subagent?: (data: SubAgentSSEData) => void;
+  /**
+   * A2UI 面板帧（design 028 §5.1）。**帧内消息必须完整**——一条 A2UI 消息
+   * 不得跨帧切分，因此这里收到的 `messages` 永远是一整块 surface。
+   */
+  a2ui?: (data: {
+    surfaceId: string;
+    seq: number;
+    messages: Record<string, unknown>[];
+    source_call_id?: string;
+  }) => void;
   scheduled_tasks_changed?: (data: { tasks: Record<string, unknown>[] }) => void;
   calendar_events_changed?: (data: { events: Record<string, unknown>[] }) => void;
   done?: (data: { message: string; unused_mentions?: string[] }) => void;
