@@ -810,9 +810,12 @@
     "closed": "歷史面板",
     "continueInNewTurn": "在新回合繼續",
     "disabled": "互動面板目前無法使用",
+    "noUpdate": "本輪未回傳面板更新",
     "panel": "互動面板",
     "sessionBusy": "目前工作階段正在生成中，請等這輪結束後再操作",
-    "unavailable": "面板內容無法使用"
+    "unavailable": "面板內容無法使用",
+    "updateFailed": "面板更新失敗",
+    "updating": "正在更新面板…"
   },
   "shortcuts": {
     "collapse": "收起",

@@ -369,7 +369,7 @@ export interface ChatMessage {
 | 前端类型 | `types.ts` L31-37 `MessagePart.type` 联合**增加 `"ui_surface"`**                                                      |
 | 后端落库 | 回合结束（或收到 `deleteSurface`）时把**最终态**（components map + dataModel）序列化成一个 part 写入，`db.add_message_part`                |
 | 落库裁剪 | 只存最终态，**丢弃中间 `updateComponents` 帧**；压缩后若 > 64KB 则只存 `components` 丢 `dataModel` 并把组件降级为静态文本                        |
-| 历史回放 | 前端加载历史时从 part 重建 `UISurface`，`status:"closed"`（不可交互，可点"在新回合继续"）                                                   |
+| 历史回放 | 前端加载历史时从 part 重建 `UISurface`，**只有会话里最后被写入的那块**为 `status:"live"`，其余 `"closed"`（不可交互，可点"在新回合继续"）；同一 `surfaceId` 只渲染一块（§6.7）                                                          |
 | 出站透传 | `persistence.py` L184 **`_FRONTEND_OPAQUE_KEYS` 增加 `"uiSurface"`**，防递归截断把组件列表砍半（同 `graphIR` 的理由，参照 design 020 §3） |
 
 > ⚠️ 这一条是整个方案里**最容易被漏掉、后果最难查**的点：漏加 opaque key 时表现是"复杂面板渲染出来少了几个组件"，而非报错。
@@ -559,6 +559,120 @@ S1（后端骨架）已落地。**三处与设计稿的有意偏差**记录在�
 
 **测试**：`tests/test_render_ui.py` **61 项**（S5 组 15 项：Chart option 对象/剥离顶层/不剥嵌套/非对象/超长、双 Chart 被单类限额拒、Graph 复用 `render_graph` validator/非对象、FileList 项/超限/不安全路径/未知字段、富媒体组件在目录内）。
 
+### 6.7 修复记录（2026-10-10 · 面板渲染出来完全点不动）
+
+用户反馈「渲染的内容没法交互」。
+
+**根因**：可交互性（`UISurface.status`）只在**流式路径**被置成 `"live"`；而回合结束（`done`）时前端会用服务端消息**整段覆盖**本地状态（`useChatStream` 的 done → `getSession` → `messagesToChatMessages` → `surfacesFromParts`），**回放路径却把 `status` 硬编码为 `"closed"`**。结果是面板只在「a2ui 帧到达」到「done」之间那一瞬可交互 —— 用户能看到的每一刻都是全灰的（输入只读、按钮 `disabled`）。
+
+这与 §8.4「面板在**回合结束后**可交互」（动作 = 用户说了一句话，起新回合）直接冲突。§5.3 的「历史回放 → closed」本意只针对**旧回合**的面板，不该把刚结束的那一轮也算进去。
+
+**修复**（`divine-app/src/services/api.ts`，新增 `resolveSurfaces` 统一收口）：判据从「是不是流式」改成「**是不是会话里最后被写入的那块面板**」，并顺手补去重：
+
+| 规则 | 说明 |
+| --- | --- |
+| 同一 `surfaceId` 只渲染一块 | 位置取**首次出现**的消息、内容取**最后一次出现**的最终态 |
+| 只有「最后被写入的那块」`status:"live"` | 其余 `"closed"`（历史面板保持只读） |
+| 翻更早的历史页传 `liveSurfaces:false` | `useSessionLoader::loadOlderMessages` —— 老页尾部那块并非会话最新面板 |
+
+**去重不是顺手，是必须**：动作回合把面板**原地刷新**（流式路径 `writeSurfaceFrame` 写回原消息），但后端落库把最终态挂在**本回合那条 assistant 正文消息**上（`agent/state/persistence.py`）—— 同一个 `surfaceId` 会在两条消息上各留一个 part。不去重时用户做完**一次动作就会看到两块一模一样的面板**（一块 live、一块 closed）。
+
+**关联影响**：`surfacesFromParts` 不再接收 `status` 参数（恒以 `"closed"` 占位），可交互性统一由 `resolveSurfaces` 决定；`messagesToChatMessages` 新增可选参数 `options.liveSurfaces`（默认 `true`）。
+
+**验证**：纯函数复算五种会话形态（单面板 / 动作刷新同 `surfaceId` 两条消息 / 面板后跟纯文本轮 / 两块不同面板 / 更早历史页），判定均符合预期；`eslint` 干净。前端无测试框架（未装 vitest），未补自动化用例 —— 回归靠人工：**回合结束后立刻点按钮应能起新回合，刷新页面后最近那块面板仍可交互**。
+
+---
+
+### 6.8 修复记录（2026-10-10 · 点了「提交参数」但数值没跟过来）
+
+用户反馈「点了提交参数，只收到动作名，三个输入框的数字没跟过来」。
+
+**根因：模型漏写 `action.context`，而值只在 `context` 里搬。** 从**真实落库的 IR**（`message_parts.type='ui_surface'`，`surfaceId=cost_dashboard_v2`）看到：
+
+```json
+{"id": "btn_calc", "component": "Button", "text": "提交参数",
+ "action": {"name": "submit"}}          ← 只有 name，没有 context
+```
+
+三个 `NumberField` 都正常绑了 `{"path": "/labor_input"}` 这类路径（`data` 里也有值），**面板渲染与写值链路全是好的**；但前端 `evaluateActionContext(undefined, …)` 得到 `{}`，后端 `_surface_action_question` 又**只认 `context`**（`data_model` 一路收到了却没人读）→ 正文只剩「提交参数」。
+
+**修法选「前端兜底」而不是「要求模型别忘」**（`divine-app/src/pages/chat/components/UISurface/`）：
+
+| 文件 | 改动 |
+| --- | --- |
+| `dataModel.ts` | 新增 `INPUT_BINDING_PROPS` / `collectInputBindings(surface)` / `inputKeyFromPath` —— 从 IR 收集**输入控件**的绑定（`TextField`/`TextArea`/`NumberField`/`Select`/`ChoicePicker` → `value`，`Checkbox`/`Switch` → `checked`），路径末段作回传字段名（撞名退回完整路径） |
+| `useSurfaceAction.ts` | `evaluateActionContext` 增第三参 `inputs`；**仅当 `items === undefined`**（模型压根没写 `context`）时兜底带上输入控件的当前值 |
+| `UISurfaceBlock.tsx` | `useMemo(() => collectInputBindings(surface), [surface])` 传给 hook |
+| `render_ui.py` DESCRIPTION | 把规则告诉模型：省略 `context` 会自动带上面板内所有输入控件的当前值；**确实不要参数请显式写 `context: []`** |
+
+**边界刻意收紧**：`context` 一旦存在（**包括空数组 `[]`**）就完全按模型声明走、不兜底。写 `[]` = 「这个动作不要参数」（如「刷新面板」），写部分 = 「只要这几个」。若任何时候都强行补齐，等于用兜底**覆盖模型意图**。选前端而非后端兜底，是因为它**数据驱动**（直接从 IR 推导），对**已经存在的老面板**同样生效 —— 改提示词只影响之后生成的面板。
+
+**验证**：用真实 IR 复算 8 组（模型没写 `context` / 只写部分 / 键名撞车 / 空串与 `0` / 面板无输入控件 / 纯展示面板），输出全部符合预期，典型结果：
+
+```
+提交参数（labor_input=30，head_input=120，growth_input=12）
+```
+
+`eslint` 干净；后端 `test_render_ui.py + test_a2ui_persistence.py` **81 passed**，相关模块回归 **117 passed**。
+
+**已知取舍**：点击后的**乐观 user 消息**仍只显示按钮文案（既有设计：`done` 时整段从服务端恢复为权威版本），所以带参数的正文在**回合结束**后才出现；未在前端复刻后端的正文拼接，避免两套实现漂移。
+
+---
+
+### 6.9 实施记录（2026-10-10 · 静默回合：面板动作不再新增消息）
+
+用户反馈：「点『提交参数』后会在对话里发一条消息、LLM 再回一条，但面板在原地（上面），我得滚回去看结果 —— 希望在对话里点面板按钮**不要新增消息**，静默提交、直接更新原面板。」
+
+**诊断**（三条链路读完之后的结论）：
+
+| 现象 | 根因 |
+| --- | --- |
+| 底部多出两条气泡 | `chat.py::surface_action` 走完整 `stream_chat`：先落一条**可见 user 消息**（正文 `提交参数（…）`），回合结束再由 `persistence.py::_persist_new_messages` 新建一条 assistant 消息并把面板挂在它上面 |
+| 用户得滚回去 | 前端的"原地刷新"（`useChatStream::writeSurfaceFrame`：同 surfaceId 写回原消息）只在**流式期间**成立；`done` 从服务端整段恢复后，权威数据把面板放回新 assistant 消息 —— 视觉上就是"底部多了两块内容 + 面板被顶走" |
+| 面板可能整块丢 | `_persist_new_messages` 在"本轮没有 assistant 正文"时**不落** `ui_surface`（原注释："宁可不落，也不新建空消息污染历史"）—— 于是"只更新面板、不说话"的一轮，刷新后连面板都没了 |
+
+**改法：把面板动作做成"一次静默的会话内回合"**（用户拍板：端到端静默 / 结果说明放面板底部一行 / 无更新时面板内联提示）。
+
+后端（`divine-server/app`）：
+
+| 文件 | 改动 |
+| --- | --- |
+| `api/chat.py` | `_surface_action_question` 追加 `[面板交互] surface_id=…` 与「沿用同一 surfaceId、不要新建面板、正文只写一句简短结论」的指示（`surface_id`/`message_id`/`data_model` 都是结构化字段、不进模型上下文，不写模型就会另起一块）；新增 `SURFACE_ACTION_SOURCE` / `_finalize_surface_turn` / `_silent_surface_stream`；端点记录 `boundary_id` 并包一层流 |
+| `db/messages.py` | 新增 `delete_message_part` / `mark_messages_source` |
+| `db/sessions.py` | 会话列表 `last_message` 子查询排除 `surface_action` 消息（预览不该显示"提交参数（…）"） |
+| `db/tool_runs.py` | `save_tool_turn` 返回承载消息 id |
+| `agent/state/persistence.py` | 新增 `fallback_holder_id`：本轮没有 assistant 正文时，面板退到工具轮次那条消息上承载（上表第三条根因） |
+
+`_finalize_surface_turn` 在 `done` **之前**完成三件事（卡 done 的理由见 `_silent_surface_stream` 注释：前端收到 done 会立刻重新拉会话，合并必须在那之前落库）：
+
+1. 本轮新建的消息统一打 `source='surface_action'` —— **照样落库**。`history_for_model` 只读 `messages.content`，动作痕迹不能丢：模型下一轮还得知道"用户点了提交、参数是这些"；
+2. 本轮的 `ui_surface` 部件**搬回** `message_id` 那条消息：同 surfaceId 的旧部件先删（面板是**覆盖**不是叠加），来源消息里的部件就地删除；本轮没有面板产出时**保留**旧面板；
+3. 本轮 assistant 正文降级成一条 `surface_note` part：`{"text": …, "updated": bool}` —— `updated=false` 是前端"本轮未返回面板更新"提示的依据。
+
+防护一条：面板所属消息**永不**算作"本轮产出"（`fresh` 先把它过滤掉）。用户往上滚到旧面板上操作时它也会落在边界之前，误当成产出会连带打上隐藏标记、删掉它自己的面板 —— 面板会整个消失。
+
+前端（`divine-app/src`）：
+
+| 文件 | 改动 |
+| --- | --- |
+| `services/api.ts` | 导出 `SURFACE_ACTION_SOURCE`；`messagesToChatMessages` 整条跳过该 source 的消息；新增 `parseSurfaceNotePart` → `ChatMessage.surface_note` |
+| `pages/chat/hooks/useChatStream.ts` | `buildStreamHandlers` 增 `{silent}`：除 a2ui 帧 / done / error 外一律短路（正文、思考、计划、工具卡都不进气泡），error 改挂面板（`surface_error`）；`submitSurfaceAction` **不再乐观追加 user + assistant 两条气泡**，改为在目标消息上置 `surface_updating`，流事件直接绑到它 |
+| `components/UISurface/UISurfaceBlock.tsx` | 新增 `SurfaceFooter`：更新中（spinner）/ 更新失败 / 「本轮未返回面板更新」/ 一行结果说明；三个 props 由 `MessageItem` 从**消息级**状态传入 |
+| `types.ts` | `ChatMessage` 增 `surface_note` / `surface_updating` / `surface_error` |
+| `UISurface.less` + i18n ×3 | `.uis-footer`（只用 token；说明文本 `-webkit-line-clamp: 2`，模型写一整段也不会把面板撑变形）；补 `updating` / `noUpdate` / `updateFailed` |
+
+**为什么不是"完全不落库"**：模型历史回溯读 `messages.content`，不落库等于模型下一轮看不到"用户点了提交、参数是 X"，多轮迭代立刻失忆。
+
+**为什么不是"仅前端合并渲染"（备选方案）**：库里会长期留着隐藏消息，检索 / 最小地图 / 其他端仍会看到它们；后端做对（搬迁）让数据模型本身就是干净的 —— 代价是要重建 sidecar 才能验证。
+
+**测试**：`tests/test_a2ui_persistence.py` 新增 S5 组 5 项（搬迁与打标 / 本轮无面板时保留旧面板 / 承载者缺失时只打标不搬迁 / 正文带"原地更新"指示 / 会话预览跳过静默消息），并把旧的 `test_persist_new_messages_skips_surface_without_text_message` 改写成 `..._parks_surface_on_tool_turn`（行为已变）。该文件 **24 passed**；相关回归 **116 passed**；`eslint` 干净。
+
+**遗留**：
+
+- 历史里**已经产生**的动作消息没有标记，无法自动识别 / 清理（验证请用新会话，或手工清库）；
+- 旧回合面板的「在新回合继续」按钮仍未实现（F15 ⚠️）；
+- 后端改动生效需重建 sidecar（`./build-sidecar.sh`）。
+
 ---
 
 ## 7. 前端实现任务（文件级）
@@ -579,7 +693,7 @@ S1（后端骨架）已落地。**三处与设计稿的有意偏差**记录在�
 | F12 | `src/styles/…UISurface.less`                   | 新增 | 全部走现有 CSS token；类名统一 `uis-` 前缀（防全局类名互染，参照 `.diff-view` 事故）                                                     |
 | F13 | `.../MessageItem/ToolFileList.tsx`             | 改  | 抽出可复用的行渲染子组件供 `FileList` 组件复用                                                                                  |
 | F14 | i18n 三套 `translation.json`                     | 改  | 面板标题、动作进行中/失败、"面板已过期，可点击继续"等文案                                                                                 |
-| F15 | 历史回放                                           | 改  | 加载历史时从 `ui_surface` part 重建（`status:"closed"`，按钮显示为"在新回合继续"）                                                   |
+| F15 | 历史回放                                           | 改  | 加载历史时从 `ui_surface` part 重建；**最近一块** `"live"`、其余 `"closed"`，同 `surfaceId` 只留一块（`resolveSurfaces`，§6.7）。⚠️ `"closed"` 的「在新回合继续」按钮**尚未实现**，当前只是整块禁用                                                   |
 | F16 | `.../UISurface/uiSurfaceStateStore.ts`         | 新增 | 模块级 Map（跨 mount 存活）+ 防抖写 DB + 提交后清理；镜像 `ChoiceBlock` 的 `choiceStateStore` 策略（§5.5 ① ②）                     |
 
 **约束遵守**：
@@ -587,6 +701,35 @@ S1（后端骨架）已落地。**三处与设计稿的有意偏差**记录在�
 - 确认类按钮一律用 `components/ui/Button`（禁原生 `<button>`）。
 - 不做 CSS Modules（沿用现有 Less + `uis-` 前缀策略）。
 - 未主动跑 tsc / vite build（按项目约定）。
+
+### 6.10 实施记录（2026-10-10 · 修正：底部说明里的 ` ```options ` 围栏被吞）
+
+**现象（实时落库数据，非推测）**：点「重新测算」后，面板底部那行说明**整段显示成裸 JSON**，模型追问的「接下来需要我做什么？」三个选项**点不到**。
+
+**根因**：`surface_note.text` 是本轮 assistant 正文**原样**搬过来的，而模型虽然被要求"正文只写一句简短结论"，仍会在末尾追一个 ` ```options ` 围栏 —— §8.5 只规定了"压成一行"，**没说围栏怎么办**。`SurfaceFooter` 是纯文本渲染（`uis-footer-detail` + `-webkit-line-clamp: 2`），既不解析围栏也不渲染卡片。改动前这一轮是**可见气泡**，`MarkdownView` 会命中 `language === "options"` → `parseOptionsBlock` → `ChoiceBlock`；静默化把气泡藏了，这条渲染路径就整条被绕过 —— 属**静默化引入的功能退化**，不是渲染 bug。
+
+**修法（纯前端，不动后端、不回填数据）**：新增 `ChoiceBlock/splitNoteOptions(text)`（与 `parseOptionsBlock` 同文件、共用同一个围栏约定），把 note 拆成 `{prose, data}`：散文照旧进说明行，围栏交给现成的 `ChoiceBlock` 渲染在说明行**下方**。解析刻意放在**渲染侧** —— note 是原样存档的转写，这样已落库的老数据也一并修好。
+
+| 文件 | 动作 | 说明 |
+| --- | -- | --- |
+| `ChoiceBlock/index.tsx` | 改 | 新增 `splitNoteOptions` + `OPTIONS_FENCE_RE`；捕获组直接喂 `parseOptionsBlock`，复用它的畸形 JSON 修复 |
+| `UISurface/UISurfaceBlock.tsx` | 改 | `SurfaceFooter` 改成 `<>footer + choice</>` 两段；`useMemo` 必须提到**所有 early return 之前**（hooks 规则） |
+| `UISurface/UISurface.less` | 改 | 新增 `.uis-footer-choice`：`margin/padding/border/border-radius/background` 五条全归零（去卡片化见决策 3），并给标题补 `.uis-card-title::before` 同款竖色块 |
+
+**三个边界决策**：
+
+1. **选项卡不传 `messageId`** → 选中态不落库。一条消息只有一个 `choice_state` 槽（`saveMessageChoiceState` 按消息覆盖），而承载消息自身可能已有顶层选项卡，共用一个槽会互相污染（刷新后两张卡显示同一个选中项）。代价是刷新后回到未选，可接受。
+2. **围栏解析不出来时不吐裸 JSON** —— 围栏照剥，只是不出卡片。`MarkdownView` 遇到无法解析的围栏会退回渲染代码块；footer 只有两行，吐 JSON 必然变垃圾，故选择静默丢弃。
+3. **不做卡片**（2026-10-10 二次修订，**推翻初版"保留卡片外观"**）：`.choice-block` 在 footer 上下文里的 `padding / border / border-radius / background` 全部归零，标题改用面板内部块同一套语形 —— 左侧 3px × 13px 中性灰竖色块 + 文本，与 `.uis-card-title::before` **逐值相同**（3px × 13px / `--color-text-muted` / `--radius-full`）。理由：面板已有 §7「内部块不做卡片」的既定规则，底部再放一张带框卡片就是"框套框"，与看板内其他分区风格打架。
+   - **例外**：`.choice-option` 按钮自身的边框要留 —— 那是可点控件，不是分区容器。
+   - 作用域限 footer：气泡里的 `.choice-block` 不受影响，仍是带框卡片（全局"选项卡"语形）。
+
+**验证**：
+
+- Node 22 原生 TS 剥离直接跑 `ChoiceBlock` 的**真实源码切片**（不是复制函数体），喂实时库里那条真 note：`prose` 恰好剥成一句结论，`data` 解析出标题与 3 个选项，`decline` 项 `other` 强制 `false`、副标题兜底成「后续有需求再继续任务」；另覆盖 空串／纯散文／只有围栏／围栏未闭合／裸 JSON／围栏内垃圾／desc 裸引号 共 8 组，全绿。（`sanitizeJsonQuotes` 的修复边界较窄，属**既有**语义、源码注释明令不许改，故 desc 裸引号那组断言的是"优雅降级"而非"能修复"。）
+- CDP 直连 8010 真实 dev app（点开该会话实测）：`.uis-footer-detail` **不含**围栏或 `"options"`；`.uis-footer-choice .choice-block` 存在，三个 `.choice-option` 按钮文案与副标题正确。
+- **二次复核（去卡片化后，同一会话实测）**：`.uis-footer-choice .choice-block` → `padding: 0 / border: 0 / border-radius: 0 / background: rgba(0,0,0,0) / margin: 0`；气泡内对照 `.choice-block` 仍为 `padding: 14px 16px` + `border: 1px`；`.choice-title::before` 与 `.uis-card-title::before` 读数逐值相同。截图见对话附件。
+- `eslint` 干净。**未跑 tsc/build**（按约定），**未提交**。
 
 ---
 
@@ -611,7 +754,8 @@ POST /api/chat/surface-action
 
 1. 校验 `name` ∈ catalog 声明的 action 白名单（默认 `submit` / `cancel` / `refresh`；domain action 如 `recalc` / `export_pdf` 必须在 catalog 里登记，**不允许模型临时发明**）。
 2. `action_id` 幂等：60s 内重复 → 直接返回既有回合 id，不新起回合。
-3. 生成一条**可见的 user 消息**：正文 = 按钮文案（`"重新测算"`），加隐藏 part `{type:"a2ui_action", name, context, data_model}`。
+3. ⚠️ **2026-10-10 修订：本条已由 §8.5「静默回合」取代** —— 动作消息照常落库（模型上下文需要它），但打上 `surface_action` 标记、前端不成气泡。下面保留原始设计（"为什么当初选可见"）与仍然有效的部分。
+   **生成一条可见的 user 消息**：正文 = 按钮文案（`"重新测算"`），加隐藏 part `{type:"a2ui_action", name, context, data_model}`。
    - 为什么可见：必须可回放、可追溯、符合现有 user message 渲染；**不做隐藏注入**（隐藏注入会绕过 steering / plan / 工具预算这些既有中间件，且历史里会出现"agent 凭空自问自答"）。
    - ⚠️ **结构化参数必须落进正文，不能只放 part**：`message_parts` 不参与模型上下文（`prompts.py` L204-214 只读 `content`）。正文必须带求值结果，如 `重新测算（人力成本占比=25%）`；part 里的 `context` / `data_model` 仅供回放与分析。二者取自**同一个 `data_model` 快照**（§5.5 ③）。
 4. 复用现有 `/stream_chat` 管线起新一轮（同一 session，串行：若该 session 正在流式中 → 返回 409 由前端排队提示）。
@@ -632,6 +776,36 @@ POST /api/chat/surface-action
 | A2UI action                          | 回合**结束后**的操作    | 新回合（§8.2），走与用户打字完全同一条管线       |
 
 **结论**：期一/二不碰暂停/恢复语义，动作永远表现为"用户说了一句话"。这让整个方案在 agent 内核上是**零侵入**的。
+
+---
+
+### 8.5 静默回合（面板动作的呈现契约 · 2026-10-10 修订）
+
+§8.2 第 3 条原本把动作落成一条**可见**的 user 消息、再起一条新的 assistant 回复。实测下来这条规则是错的：用户点按钮时**视线就在面板上**，多出来的两条气泡把面板顶出视口，他必须滚回去才能看到结果。
+
+现行契约：
+
+```text
+点击面板按钮
+  → POST /chat/surface-action        （不产生任何可见消息）
+  → 服务端跑一轮 agent，消息落库并打 source='surface_action'
+  → 流结束（done 之前）：ui_surface 搬回面板所属消息、正文降级为 surface_note
+  → 前端 done 恢复：面板在同一位置原地刷新，底部一行结果说明
+```
+
+| 维度 | 规则 |
+| --- | --- |
+| 消息 | 本轮消息**落库但不渲染**（`source='surface_action'`）。模型上下文完整，视觉上"什么都没发生" |
+| 面板 | 搬到 `message_id` 那条消息上原地更新（同 surfaceId 覆盖）；后端保底：找不到承载者就退化为普通回合（宁愿多两条气泡，也不能把面板丢掉） |
+| 结果说明 | 模型这一轮的正文 → `surface_note`，渲染成面板底部一行（超过两行截断）；`updated=false` 时改说"本轮未返回面板更新" |
+| 失败 | 流错误挂 `surface_error` 显示在面板上（没有助手气泡可挂）；提交被拒（409/404/网络）仍走 toast，面板内容保持用户填的那份 |
+| 视觉反馈 | 提交中面板底部显示"正在更新面板…"（按钮自身仍有 loading 态） |
+
+**说明行里的 ` ```options ` 围栏（2026-10-10 补）**：模型被要求"正文只写一句简短结论"，但它仍常在末尾追问一句并附 ` ```options ` 围栏。围栏**不进说明行** —— 渲染前由 `splitNoteOptions` 拆走，选项用 `ChoiceBlock` 渲染在说明行**下方**（选中态不落库）。说明行只留散文，且仍限两行。详见 §6.10。
+
+**与 §8.3 的关系**：§8.3 的"面板原地刷新"讲**怎么渲染**（同 surfaceId 覆盖），§8.5 讲**这一轮从哪来**（不再新起消息）。两者叠加才是用户看到的"点一下就刷新"。
+
+**实现**：见 §6.9 实施记录（后端 `_finalize_surface_turn` / `_silent_surface_stream`，前端 `buildStreamHandlers({silent})`）。
 
 ---
 

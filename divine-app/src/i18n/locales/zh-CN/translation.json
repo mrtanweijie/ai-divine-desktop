@@ -763,9 +763,12 @@
     "closed": "历史面板",
     "continueInNewTurn": "在新回合继续",
     "disabled": "交互面板当前不可用",
+    "noUpdate": "本轮未返回面板更新",
     "panel": "交互面板",
     "sessionBusy": "当前会话正在生成中，请等这轮结束后再操作",
-    "unavailable": "面板内容不可用"
+    "unavailable": "面板内容不可用",
+    "updateFailed": "面板更新失败",
+    "updating": "正在更新面板…"
   },
   "shortcuts": {
     "collapse": "收起",

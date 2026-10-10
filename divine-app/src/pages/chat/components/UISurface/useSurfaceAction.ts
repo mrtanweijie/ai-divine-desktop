@@ -21,7 +21,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "@/components/ui/Toast";
 import { useOptionalChatStreamContext } from "@/pages/chat/hooks/ChatStreamContext";
-import { getByPath, isBinding } from "./dataModel";
+import { getByPath, isBinding, type UIInputBinding } from "./dataModel";
 import type { UIAction, UIActionContextItem } from "./types";
 
 /** 生成幂等键。优先用 crypto.randomUUID（Tauri/现代浏览器都有）。 */
@@ -36,13 +36,35 @@ function makeActionId(): string {
 /**
  * 求值动作上下文：`[{key, value}]` → `{key: 求值结果}`。
  * `value` 可以是字面量，也可以是 `{path}`（面板里改过的值）。
+ *
+ * **兜底**（`items === undefined`，即模型压根没写 `context`）：把 `inputs`
+ * 里所有输入控件的**当前值**补进去 —— 模型经常只写 `action.name` 而漏掉
+ * `action.context`（2026-10-10 实测的 `cost_dashboard_v2` 就是这样），
+ * 结果用户点了「提交参数」，三个输入框的数字**静默丢失**，后端正文只剩一个
+ * 动作名（`_surface_action_question` 只认 `context`，`data_model` 没人读）。
+ *
+ * **边界刻意收紧**：`context` 一旦存在（**包括空数组 `[]`**）就完全按模型
+ * 声明来，不兜底。这样模型能精确控制传什么 —— 写 `[]` = 「这个动作不要参数」
+ * （比如「刷新面板」），写部分 = 「我只要这几个」。若任何时候都强行补齐，
+ * 等于用兜底覆盖模型意图。该规则已写进工具 DESCRIPTION，模型可控。
  */
 export function evaluateActionContext(
   items: UIActionContextItem[] | undefined,
   dataModel: Record<string, unknown>,
+  inputs?: UIInputBinding[],
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const item of items ?? []) {
+  if (items === undefined) {
+    // 模型未声明 context：兜底带上输入控件的当前值。
+    for (const input of inputs ?? []) {
+      const value = getByPath(dataModel, input.path);
+      // 只跳 `undefined`（路径不存在）：空串 / 0 / false 都是用户填的有效值。
+      if (value === undefined) continue;
+      out[input.key] = value;
+    }
+    return out;
+  }
+  for (const item of items) {
     if (!item || typeof item.key !== "string") continue;
     out[item.key] = isBinding(item.value) ? getByPath(dataModel, item.value.path) : item.value;
   }
@@ -66,6 +88,11 @@ interface UseSurfaceActionOptions {
   messageId?: string;
   /** 读最新的 dataModel（面板当前态）。用 getter 而非值，避免闭包拿到旧快照。 */
   getDataModel: () => Record<string, unknown>;
+  /**
+   * 面板里所有输入控件的绑定（`collectInputBindings(surface)`）。
+   * 用于在模型漏写 `action.context` 时兜底回传用户填的值。
+   */
+  inputs?: UIInputBinding[];
   /** 当有动作在提交中时通知外层（用于按钮 loading / 全禁）。 */
   onPendingChange?: (componentId: string | null) => void;
   /** 回合已被受理（§8.3：此刻清掉该面板的用户编辑态）。 */
@@ -117,7 +144,7 @@ export function useSurfaceAction(options: UseSurfaceActionOptions): {
             actionId,
             name: action.name,
             label: label ?? "",
-            context: evaluateActionContext(action.context, dataModel),
+            context: evaluateActionContext(action.context, dataModel, current.inputs),
             dataModel,
           },
           { onAccepted: () => current.onAccepted?.() },

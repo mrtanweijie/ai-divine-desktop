@@ -121,21 +121,28 @@ class UiSurfaceStateUpdate(BaseModel):
 
 
 class SurfaceActionRequest(BaseModel):
-    """A2UI 面板动作 → 新回合（design 028 §8.1）。
+    """A2UI 面板动作 → 一次静默的会话内回合（design 028 §8.1 / §8.5）。
 
-    动作**不是**特权通道：服务端把它写成一条**可见的 user 消息**再跑常规回合
-    （不做隐藏注入 —— 隐藏注入会绕过 steering / plan / 工具预算这些既有中间件）。
-    因此这一步在 agent 内核上是零侵入的。
+    动作**不是**特权通道：服务端把它折成一段 user 正文再跑常规回合
+    （不做隐藏注入 —— 隐藏注入会绕过 steering / plan / 工具预算这些既有中间件），
+    因此 agent 内核零侵入。
+
+    与普通回合的差别全在**收尾**：这一轮的消息照常落库（模型历史回溯只读
+    ``messages.content``，交互痕迹不能丢），但会被打上 ``surface_action``
+    标记、前端不成气泡；本轮的 ``ui_surface`` 部件搬回 ``message_id`` 那条
+    消息 —— 用户看到的是"面板原地刷新"，而不是底部又多出两条气泡。
     """
 
     session_id: str
-    #: 面板所属的 assistant 消息（定位与回显用；可为空）
+    #: 面板所属的 assistant 消息 = 面板**原地刷新**的落点（搬迁目标）。
+    #: 为空/不属本会话时退化为普通回合（本轮消息照常渲染），宁愿多两条气泡
+    #: 也不能把面板丢掉。
     message_id: str = ""
     surface_id: str = ""
     #: 幂等键，60s 内重复只跑一轮
     action_id: str = Field(min_length=1, max_length=120)
     name: str = Field(min_length=1, max_length=64)
-    #: 按钮文案（可见 user 消息正文的主体）
+    #: 按钮文案（user 正文的主体；正文会额外带上面板归属与"原地更新"指示）
     label: str = ""
     #: action.context 的求值结果（会写进正文，见 §8.2 的 ⚠️）
     context: dict[str, Any] = {}

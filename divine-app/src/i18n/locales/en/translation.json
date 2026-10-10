@@ -815,9 +815,12 @@
     "closed": "Archived panel",
     "continueInNewTurn": "Continue in a new turn",
     "disabled": "Interactive panels are unavailable",
+    "noUpdate": "No panel update was returned this turn",
     "panel": "Interactive panel",
     "sessionBusy": "This session is still generating. Try again once it finishes.",
-    "unavailable": "Panel content is unavailable"
+    "unavailable": "Panel content is unavailable",
+    "updateFailed": "Panel update failed",
+    "updating": "Updating panel…"
   },
   "shortcuts": {
     "collapse": "Collapse",

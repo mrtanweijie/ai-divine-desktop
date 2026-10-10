@@ -20,7 +20,7 @@ import type {
   WorkspaceCategory,
 } from "@/types";
 import { parseUISurfaceIR } from "@/pages/chat/components/UISurface/parseUISurface";
-import type { UISurface } from "@/pages/chat/components/UISurface/types";
+import type { UISurface, UISurfaceStatus } from "@/pages/chat/components/UISurface/types";
 import { isTauri, openUrl } from "@/services/tauri";
 import { API_BASE, apiBase, request } from "@/services/request";
 import i18next from "@/i18n";
@@ -569,6 +569,16 @@ function prepareRuns(toolRuns: ToolRun[]): {
   return { prepared, byStart };
 }
 
+/**
+ * 面板动作那一轮消息的 source 标记（后端 design 028 §8.5）。
+ *
+ * 那一轮**照样落库**（模型历史回溯只读 `messages.content`，动作痕迹不能丢），
+ * 但它属于"面板的内部回合"：面板部件已被后端搬回原面板所在的消息，这些消息
+ * 不该在消息流里出现 —— 否则用户每点一次按钮，列表底部就多出两条气泡，
+ * 把他原来正在看的面板顶到屏幕外。
+ */
+export const SURFACE_ACTION_SOURCE = "surface_action";
+
 /** 解析本地预整理标记部件（type="preprocess"）。 */
 function parsePreprocessPart(parts: Message["parts"]): ChatPreprocess | undefined {
   const part = parts.find((p) => p.type === "preprocess");
@@ -580,14 +590,38 @@ function parsePreprocessPart(parts: Message["parts"]): ChatPreprocess | undefine
   }
 }
 
+/** 解析面板结果说明部件（type="surface_note"，design 028 §8.5）。 */
+function parseSurfaceNotePart(parts: Message["parts"]): ChatMessage["surface_note"] {
+  // 取最后一条：同一面板多次动作时只保留最新一次的结果说明。
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index];
+    if (part.type !== "surface_note") continue;
+    try {
+      const parsed = JSON.parse(part.content) as { text?: unknown; updated?: unknown };
+      return {
+        text: typeof parsed.text === "string" ? parsed.text : "",
+        // 缺字段按 true 处理：老数据没有这个 part，不该被当成"未返回更新"
+        updated: parsed.updated !== false,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 export function messagesToChatMessages(
   messages: Message[],
   toolRuns: ToolRun[] = [],
   todos?: TodoItem[],
+  options: { liveSurfaces?: boolean } = {},
 ): ChatMessage[] {
   const chatMessages: ChatMessage[] = [];
   let currentUserIndex = -1;
   const planTodos = todos && todos.length > 0 ? todos : undefined;
+  // 只有传进来的这批是**会话最新一页**时，它内部“最后一块面板”才是会话的最新面板。
+  // 翻更早的历史页必须显式关掉（否则老页尾部那块会被误标可交互）。
+  const liveSurfaces = options.liveSurfaces !== false;
   const lastAssistantIndex = messages.reduce(
     (last, message, index) => (message.role === "assistant" ? index : last),
     -1,
@@ -609,6 +643,8 @@ export function messagesToChatMessages(
     return lo;
   };
   messages.forEach((message, index) => {
+    // 面板动作回合（见 SURFACE_ACTION_SOURCE 的说明）：整条跳过。
+    if (message.source === SURFACE_ACTION_SOURCE) return;
     if (
       message.role === "tool" ||
       (message.role === "assistant" &&
@@ -683,9 +719,64 @@ export function messagesToChatMessages(
       subagents: subagentsFromToolRuns(tools),
       choice_state: message.choice_state,
       surfaces: surfacesFromParts(message.parts, message.id),
+      surface_note: parseSurfaceNotePart(message.parts),
       source: message.source,
       token_usage: message.token_usage,
     });
+  });
+  return resolveSurfaces(chatMessages, liveSurfaces);
+}
+
+/**
+ * 面板落到消息上前的**收口**：去重 + 定可交互性。
+ *
+ * 两条规则都来自「回放要和流式看到的一致」这个要求：
+ *
+ * 1. **同一 `surfaceId` 只渲染一块**，位置取**首次出现**的消息、内容取
+ *    **最后一次出现**的最终态。理由：动作回合会把面板原地刷新（流式路径
+ *    走 `useChatStream::writeSurfaceFrame`，写回原消息），但后端落库是把
+ *    最终态挂在**本回合那条 assistant 正文消息**上（`persistence.py`）——
+ *    同一个 `surfaceId` 因此会在两条消息上各留一个 part。不去重的话，
+ *    用户做完一次动作就会看到两块一模一样的面板。
+ * 2. **只有「最后被写入的那一块」可交互**（`status:"live"`），其余 `"closed"`。
+ *    理由：`done` 时前端会用服务端消息整段覆盖（`useChatStream` 的
+ *    `done` → `getSession` → 本函数），若回放一律 `closed`，面板只在
+ *    「a2ui 帧到达」到「done」之间那一瞬可交互 —— 表现就是**渲染出来完全
+ *    点不动**（对照 §8.4「面板在回合结束后可交互」）。
+ *
+ * `liveSurfaces=false` 用于**翻更早的历史页**：那一页里的面板全都不是会话
+ * 最新的，必须整体保持只读（否则老页尾部那块会被误标成可交互）。
+ */
+function resolveSurfaces(chatMessages: ChatMessage[], liveSurfaces: boolean): ChatMessage[] {
+  const merged = new Map<string, { firstIndex: number; lastIndex: number; surface: UISurface }>();
+  chatMessages.forEach((message, index) => {
+    for (const surface of message.surfaces ?? []) {
+      const found = merged.get(surface.surfaceId);
+      if (found) {
+        found.lastIndex = index;
+        found.surface = surface;
+      } else {
+        merged.set(surface.surfaceId, { firstIndex: index, lastIndex: index, surface });
+      }
+    }
+  });
+  if (merged.size === 0) return chatMessages;
+
+  // 最后被写入的那块 = 用户最近的交互目标；同一条消息上的多块面板一起放行。
+  let liveIndex = -1;
+  if (liveSurfaces) {
+    for (const entry of merged.values()) liveIndex = Math.max(liveIndex, entry.lastIndex);
+  }
+
+  const buckets = new Map<number, UISurface[]>();
+  for (const entry of merged.values()) {
+    const status: UISurfaceStatus = entry.lastIndex === liveIndex ? "live" : "closed";
+    const list = buckets.get(entry.firstIndex);
+    if (list) list.push({ ...entry.surface, status });
+    else buckets.set(entry.firstIndex, [{ ...entry.surface, status }]);
+  }
+  chatMessages.forEach((message, index) => {
+    message.surfaces = buckets.get(index);
   });
   return chatMessages;
 }
@@ -693,10 +784,10 @@ export function messagesToChatMessages(
 /**
  * 从 `ui_surface` part 重建面板（design 028 §5.3 历史回放）。
  *
- * 回放出来的面板一律 `status:"closed"`：输入控件只读、按钮禁用，
- * 避免用户对一条已经结束的历史回合做"看起来能点但点了没用"的操作。
- * 解析失败的面板**直接跳过**（一处坏数据不该毁掉整段历史），
- * 与流式路径的"非法就忽略"保持一致。
+ * 这里只负责「把 part 解析成 `UISurface`」，`status` 一律先给 `"closed"` ——
+ * 可交互性要等**整页消息都在手上**才能定（判据是「是不是最后被写入的那块」），
+ * 由 `resolveSurfaces` 统一收口。解析失败的面板**直接跳过**（一处坏数据
+ * 不该毁掉整段历史），与流式路径的"非法就忽略"保持一致。
  */
 export function surfacesFromParts(
   parts: MessagePart[],

@@ -64,6 +64,9 @@ def list_sessions(project_id: str | None = None) -> list[dict[str, Any]]:
                 "SELECT s.*, "
                 "(SELECT m.content FROM messages m "
                 "WHERE m.session_id = s.id AND m.role = 'user' "
+                # 静默回合（面板动作）的消息不参与预览：会话列表不该显示
+                # "提交参数（…）"这种面板回执（design 028 §8.5）。
+                "AND m.source <> 'surface_action' "
                 "ORDER BY m.created_at DESC LIMIT 1) AS last_message "
                 "FROM sessions s WHERE s.project_id = ? "
                 "ORDER BY s.updated_at DESC",
@@ -74,6 +77,9 @@ def list_sessions(project_id: str | None = None) -> list[dict[str, Any]]:
                 "SELECT s.*, "
                 "(SELECT m.content FROM messages m "
                 "WHERE m.session_id = s.id AND m.role = 'user' "
+                # 静默回合（面板动作）的消息不参与预览：会话列表不该显示
+                # "提交参数（…）"这种面板回执（design 028 §8.5）。
+                "AND m.source <> 'surface_action' "
                 "ORDER BY m.created_at DESC LIMIT 1) AS last_message "
                 "FROM sessions s ORDER BY s.updated_at DESC"
             ).fetchall()

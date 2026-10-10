@@ -180,11 +180,17 @@ export function useChatStream(options: UseChatStreamOptions) {
   // 流式事件处理器（sendMessage / retryCloud 共用）：把事件写进
   // assistantId 对应的乐观消息，done 时从服务端恢复整段会话。
   // 返回 buffer 供调用方在中断/收尾时 flush/dispose。
+  //
+  // `options.silent`（面板动作的静默回合，design 028 §8.5）：除面板帧与收尾
+  // （done / error）外**一切产出都不落消息** —— 那一轮不该长出气泡，模型正文
+  // 由后端降级成面板底部的 `surface_note`。
   const buildStreamHandlers = useCallback(
-    (sessionId: string, assistantId: string) => {
+    (sessionId: string, assistantId: string, options: { silent?: boolean } = {}) => {
+      const silent = options.silent === true;
       // B2：文本增量先进缓冲区，rAF 帧对齐合并成一次 setSessionMessages，
       // 渲染频率从每 chunk 一次降到 ≤60Hz；think 与 content 同帧一次提交。
       const buffer = createStreamBuffer(({ think, content }) => {
+        if (silent) return;
         setSessionMessages(sessionId, (prev) =>
           prev.map((message) => {
             if (message.id !== assistantId) return message;
@@ -354,6 +360,9 @@ export function useChatStream(options: UseChatStreamOptions) {
                     thinking: false,
                     preprocess_pending: false,
                     unused_mentions: unusedMentions,
+                    // 静默回合：面板的"更新中"态在这里收尾（流已结束，
+                    // 服务端也已完成面板搬迁，下面的 getSession 会带回终态）。
+                    surface_updating: false,
                   }
                 : message,
             ),
@@ -393,25 +402,34 @@ export function useChatStream(options: UseChatStreamOptions) {
           messageParams?: Record<string, unknown>;
         }) => {
           buffer.flush();
+          const text = messageKey
+            ? t(messageKey, { ...(messageParams ?? {}), defaultValue: message })
+            : message;
           setSessionMessages(sessionId, (prev) =>
-            prev.map((item) =>
-              item.id === assistantId
-                ? {
-                    ...item,
-                    streaming: false,
-                    thinking: false,
-                    error: messageKey
-                      ? t(messageKey, {
-                          ...(messageParams ?? {}),
-                          defaultValue: message,
-                        })
-                      : message,
-                  }
-                : item,
-            ),
+            prev.map((item) => {
+              if (item.id !== assistantId) return item;
+              // 静默回合没有可挂错误的助手气泡 → 错误挂在面板上（§8.5）。
+              if (silent) {
+                return { ...item, surface_updating: false, surface_error: text };
+              }
+              return { ...item, streaming: false, thinking: false, error: text };
+            }),
           );
         },
       };
+
+      if (silent) {
+        // 静默回合（面板动作）：只有 a2ui 帧、done、error 与两类全局变更事件
+        // 需要处理 —— 正文 / 思考 / 计划 / 工具卡都不该出现在任何气泡里。
+        handlers.think = () => undefined;
+        handlers.think_done = () => undefined;
+        handlers.message = () => undefined;
+        handlers.plan = () => undefined;
+        handlers.plan_sync = () => undefined;
+        handlers.todo_update = () => undefined;
+        handlers.tool = () => undefined;
+        handlers.subagent = () => undefined;
+      }
 
       return { buffer, handlers };
     },
@@ -692,36 +710,32 @@ export function useChatStream(options: UseChatStreamOptions) {
       if (abortControllersRef.current.has(sessionId)) return { ok: false, reason: "busy" };
 
       const think = effort !== "off";
-      const stamp = Date.now();
-      const userId = `local-user-${stamp}`;
-      const assistantId = `local-assistant-${stamp}`;
-      const userMessage: ChatMessage = {
-        id: userId,
-        role: "user",
-        // 正文先用按钮文案（所见即所得）。`done` 时整段从服务端恢复，
-        // 那时会换上后端补过 context 求值的完整版本（§8.2 的 ⚠️）。
-        content: input.label || input.name,
-        created_at: new Date().toISOString(),
-        tools: [],
-      };
-      const assistantMessage: ChatMessage = {
-        id: assistantId,
-        role: "assistant",
-        content: "",
-        created_at: new Date().toISOString(),
-        tools: [],
-        streaming: true,
-      };
-      setSessionMessages(sessionId, (prev) => [...prev, userMessage, assistantMessage]);
+      // 静默回合（design 028 §8.5）：**不追加乐观气泡**。面板动作的全部意义是
+      // "面板原地刷新"，多出来的 user + assistant 两条气泡会把用户正在看的
+      // 那块面板顶出视口 —— 用户报告的就是这个。
+      //
+      // 流事件仍要有承载者：直接挂到**面板所属的那条消息**上（服务端认这个 id，
+      // 收尾时也会把新面板搬回它）。`surface_updating` 是纯本地标记。
+      const targetId = input.messageId;
+      if (!targetId) return { ok: false, reason: "failed" };
+      setSessionMessages(sessionId, (prev) =>
+        prev.map((message) =>
+          message.id === targetId
+            ? { ...message, surface_updating: true, surface_error: undefined }
+            : message,
+        ),
+      );
       setSessionStreaming(sessionId, true);
 
       const controller = new AbortController();
       abortControllersRef.current.set(sessionId, controller);
-      const { buffer, handlers } = buildStreamHandlers(sessionId, assistantId);
-      /** 回合根本没跑起来 → 撤掉乐观追加的两条。 */
+      const { buffer, handlers } = buildStreamHandlers(sessionId, targetId, { silent: true });
+      /** 回合根本没跑起来 → 撤掉"更新中"标记（面板内容保持原样）。 */
       const rollback = () =>
         setSessionMessages(sessionId, (prev) =>
-          prev.filter((item) => item.id !== assistantId && item.id !== userId),
+          prev.map((message) =>
+            message.id === targetId ? { ...message, surface_updating: false } : message,
+          ),
         );
 
       let response: Response;
@@ -771,8 +785,8 @@ export function useChatStream(options: UseChatStreamOptions) {
       // 必须在**消费流之前**，否则新一轮刷回来的面板会先被旧编辑态覆盖一遍。
       options?.onAccepted?.();
 
-      // 后续失败按普通流错误处理，消息**保留**并标记，
-      // 与 sendMessage 的收尾语义一致（半截内容也是内容）。
+      // 后续失败按普通流错误处理。静默回合没有助手气泡可挂错误，
+      // 一律落到面板上（surface_error），面板内容保持用户填的那份。
       try {
         await consumeSSE(response, handlers);
         return { ok: true };
@@ -781,29 +795,20 @@ export function useChatStream(options: UseChatStreamOptions) {
         if (controller.signal.aborted) {
           setSessionMessages(sessionId, (prev) =>
             prev.map((item) =>
-              item.id === assistantId
-                ? {
-                    ...item,
-                    streaming: false,
-                    thinking: false,
-                    tools: settleInFlightTools(item.tools),
-                  }
+              item.id === targetId
+                ? { ...item, surface_updating: false, streaming: false, thinking: false }
                 : item,
             ),
           );
         } else {
+          const text =
+            error instanceof Error
+              ? error.message
+              : t("chat.requestFailed", "请求失败，请稍后重试");
           setSessionMessages(sessionId, (prev) =>
             prev.map((item) =>
-              item.id === assistantId
-                ? {
-                    ...item,
-                    streaming: false,
-                    thinking: false,
-                    error:
-                      error instanceof Error
-                        ? error.message
-                        : t("chat.requestFailed", "请求失败，请稍后重试"),
-                  }
+              item.id === targetId
+                ? { ...item, surface_updating: false, surface_error: text }
                 : item,
             ),
           );

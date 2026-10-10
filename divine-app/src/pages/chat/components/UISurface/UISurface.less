@@ -65,6 +65,98 @@
   font-size: 12.5px;
 }
 
+/* ------------------------------------------------- 底部状态行（§8.5 静默回合）
+ *
+ * 面板动作不再新起气泡，模型这一轮的产出被压成这样一行：更新中 / 更新失败 /
+ * 「本轮未返回面板更新」/ 一句结果说明。它是用户唯一的"动作有回音"信号，
+ * 所以必须留下来 —— 否则点了按钮像没反应。
+ *
+ * 说明文本最多两行：模型偶尔会写一整段，不能让它把面板撑变形。
+ * 若正文里带 ```options 围栏，围栏不会显示在这里 —— 渲染前已被
+ * `splitNoteOptions` 拆走，选项交给下方的 `.uis-footer-choice` 卡片呈现。
+ */
+.uis-footer {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.uis-footer.is-busy,
+.uis-footer.is-stale {
+  color: var(--color-text-secondary);
+}
+
+.uis-footer.is-error {
+  color: var(--color-danger);
+}
+
+.uis-footer svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.uis-footer-detail {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.uis-footer-spinner {
+  animation: uis-footer-spin 900ms linear infinite;
+}
+
+/* 说明行里的 ```options 就地渲染成可点选项卡（§8.5）。
+ *
+ * **不做卡片**（2026-10-10 用户要求）：`.choice-block` 自带的边框 / 内边距 /
+ * 底色全部去掉，改与看板内部块同一套语形 —— 分区由【左侧 3px 竖色块 + 标题
+ * 文本】承担（规则见下方 `.uis-card` 段），一根线都不画。
+ * 留着卡片外观会跟面板「内部块不做卡片」的既定风格打架（框套框），
+ * 而且模型一次常生成 5–8 个块，多一张框就多一层噪音。
+ * 例外：`.choice-option` 按钮自带边框要留着 —— 那是可点控件，不是分区容器。
+ */
+.uis-footer-choice {
+  min-width: 0;
+}
+
+.uis-footer-choice .choice-block {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* 标题前的竖色块：与 `.uis-card-title::before` 同规格（3px × 13px 圆角条、
+ * 默认中性灰），让这块选项读起来就是面板里的一个普通分区。
+ * 只在 footer 上下文启用，气泡里的 `.choice-block` 仍是带框卡片。 */
+.uis-footer-choice .choice-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.uis-footer-choice .choice-title::before {
+  content: "";
+  flex: none;
+  width: 3px;
+  height: 13px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+}
+
+@keyframes uis-footer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ------------------------------------------------------------------ 布局 */
 
 .uis-column,

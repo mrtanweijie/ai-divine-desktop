@@ -274,6 +274,9 @@ export const MessageItem = memo(function MessageItem({
               surface={surface}
               sessionId={sessionId}
               workspacePath={workspacePath}
+              updating={message.surface_updating}
+              error={message.surface_error}
+              note={message.surface_note}
             />
           ))}
           {message.error && (

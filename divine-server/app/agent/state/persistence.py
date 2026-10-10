@@ -86,6 +86,11 @@ def _persist_new_messages(
         last_input_index = 0
 
     last_saved_id: str | None = None
+    #: 本轮没有 assistant 正文时面板的兜底承载者（承载 tool_calls 的那条
+    #: 空 assistant 消息）。正常回合里前端会跳过这条消息、读不到面板，行为
+    #: 与"不落库"一致；但静默回合（design 028 §8.5）的搬迁要按消息找面板，
+    #: 没有它就等于"只更新面板、不说话"的一轮把面板整块丢掉。
+    fallback_holder_id: str | None = None
     index = last_input_index + 1
     while index < len(messages):
         message = messages[index]
@@ -107,12 +112,14 @@ def _persist_new_messages(
                 )
                 next_index += 1
             if results and len(results) >= len(calls):
-                db.save_tool_turn(
+                turn_holder = db.save_tool_turn(
                     session_id,
                     calls,
                     think_by_id.get(message.id, ""),
                     results,
                 )
+                if turn_holder:
+                    fallback_holder_id = turn_holder
                 # 只在"工具全部执行完"时收集面板：没跑完的那轮不算产出（044 §5.3）。
                 pending_ui_surfaces.extend(_collect_ui_surfaces(message.tool_calls))
             index = next_index
@@ -132,13 +139,15 @@ def _persist_new_messages(
             if think:
                 db.add_message_part(saved["id"], "think", think, order=0)
         index += 1
-    # A2UI 面板最终态（044 §5.3）：挂到最后一条 assistant 正文消息上。
-    # 只存最终态、丢弃中间 updateComponents 帧；前端按 type 过滤，order 只作稳定排序。
-    # 没有正文消息时（只调工具没输出文字）宁可不落，也不新建空消息污染历史。
-    if last_saved_id and pending_ui_surfaces:
+    # A2UI 面板最终态（044 §5.3）：挂到最后一条 assistant 正文消息上；
+    # 本轮只有工具调用、没有正文时退到工具轮次的空 assistant 消息上
+    # （见 fallback_holder_id 的说明）。只存最终态、丢弃中间 updateComponents
+    # 帧；前端按 type 过滤，order 只作稳定排序。
+    holder_id = last_saved_id or fallback_holder_id
+    if holder_id and pending_ui_surfaces:
         for offset, surface in enumerate(pending_ui_surfaces):
             db.add_message_part(
-                last_saved_id,
+                holder_id,
                 "ui_surface",
                 json.dumps(surface, ensure_ascii=False),
                 order=100 + offset,

@@ -138,7 +138,10 @@ export function useSessionLoader({
         limit: 80,
         beforeId: oldestMessageId,
       });
-      const older = messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos);
+      const older = messagesToChatMessages(data.messages, data.tool_runs ?? [], data.todos, {
+        // 这是更早的历史页：它的尾部面板不是“最近一轮”，必须保持只读。
+        liveSurfaces: false,
+      });
       setSessionMessages(selectedId, (prev) => [...older, ...prev]);
       setHasMoreOlder(Boolean(data.has_more));
       if (data.messages.length > 0) {

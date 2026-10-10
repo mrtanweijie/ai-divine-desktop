@@ -8,7 +8,7 @@
  * `UISurfaceBlock` 的 React state，原地改会让重渲染失效。
  */
 
-import type { UIBindable, UIBinding } from "./types";
+import type { UIBindable, UIBinding, UISurface } from "./types";
 
 /** 判定一个属性值是不是数据绑定 `{"path": "..."}`。 */
 export function isBinding(value: unknown): value is UIBinding {
@@ -89,4 +89,73 @@ export function resolveBindable<T>(
   if (value === undefined || value === null) return undefined;
   if (isBinding(value)) return getByPath(data, value.path) as T | undefined;
   return value as T;
+}
+
+// ---------------------------------------------------------------------------
+// 输入控件的当前值（动作回填的兜底来源）
+// ---------------------------------------------------------------------------
+
+/**
+ * 输入控件的「值属性」：这些控件的当前值就是用户填的参数。
+ *
+ * 与 `registry.tsx` 的 `useBoundValue` / `bindingPath` 一一对应 —— 改输入
+ * 组件的绑定属性时**这张表要一起改**（别让它像 `MessageHelpers` 的双映射表
+ * 那样悄悄漂移）。
+ */
+const INPUT_BINDING_PROPS: Record<string, "value" | "checked"> = {
+  TextField: "value",
+  TextArea: "value",
+  NumberField: "value",
+  Select: "value",
+  ChoicePicker: "value",
+  Checkbox: "checked",
+  Switch: "checked",
+};
+
+export interface UIInputBinding {
+  /** 绑定路径（RFC 6901，如 `/labor_input`）。 */
+  path: string;
+  /** 回传给后端的字段名：路径末段（撞名时退回完整路径）。 */
+  key: string;
+}
+
+/**
+ * 收集面板里**所有输入控件的绑定路径**（去重、稳定顺序）。
+ *
+ * **这是「动作上下文」的兜底来源**：模型经常只写 `action.name` 而漏掉
+ * `action.context`（2026-10-10 实际生成的 `cost_dashboard_v2` 就是这样，
+ * 三个 NumberField 都绑了 data 路径，但 `Button.action` 只有一个 `name`），
+ * 于是用户点了「提交参数」，面板上的数字**静默丢失** —— 后端只收到动作名，
+ * 因为 `_surface_action_question` 只认 `context`，而 `data_model` 里的值
+ * 没人往正文里搬。
+ *
+ * 修法选在**前端兜底**而不是「要求模型别忘」：兜底是数据驱动的（直接从 IR
+ * 推导），对**已经存在的老面板**同样生效（它们的 IR 里本来就有输入控件），
+ * 而改提示词只能影响之后生成的面板。
+ */
+export function collectInputBindings(surface: UISurface): UIInputBinding[] {
+  const out: UIInputBinding[] = [];
+  const seenPaths = new Set<string>();
+  const seenKeys = new Set<string>();
+  for (const component of Object.values(surface.components)) {
+    const prop = INPUT_BINDING_PROPS[component.component as string];
+    if (!prop) continue;
+    const raw = (component as unknown as Record<string, unknown>)[prop];
+    if (!isBinding(raw)) continue;
+    const path = raw.path;
+    if (!path || seenPaths.has(path)) continue;
+    seenPaths.add(path);
+    let key = inputKeyFromPath(path);
+    // 路径末段撞名（`/a/x` 与 `/b/x`）时退回完整路径，保证字段可区分。
+    if (seenKeys.has(key)) key = path;
+    seenKeys.add(key);
+    out.push({ path, key });
+  }
+  return out;
+}
+
+/** 绑定路径的末段作为回传字段名：`/target/labor` → `labor`。 */
+export function inputKeyFromPath(path: string): string {
+  const segments = parsePointer(path);
+  return segments.length ? segments[segments.length - 1] : path;
 }

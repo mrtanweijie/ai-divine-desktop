@@ -164,3 +164,27 @@ def add_message_part(
             (_new_id(), message_id, part_type, content, order),
         )
         conn.commit()
+
+
+def delete_message_part(part_id: str) -> None:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM message_parts WHERE id = ?", (part_id,))
+        conn.commit()
+
+
+def mark_messages_source(message_ids: list[str], source: str) -> None:
+    """给一批消息打 ``source`` 标记（不改内容、不改时间）。
+
+    用途（design 028 §8.5 静默回合）：面板动作跑出的那一轮消息**照样落库**
+    （模型历史回溯要读 ``messages.content``，动作痕迹不能丢），但它们是"面板的
+    内部回合"而非用户可见对话 —— 前端按 ``source`` 把它们从消息流里滤掉。
+    """
+    if not message_ids:
+        return
+    placeholders = ",".join("?" for _ in message_ids)
+    with get_conn() as conn:
+        conn.execute(
+            f"UPDATE messages SET source = ? WHERE id IN ({placeholders})",
+            (source, *message_ids),
+        )
+        conn.commit()

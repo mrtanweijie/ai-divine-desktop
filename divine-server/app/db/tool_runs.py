@@ -14,9 +14,14 @@ def save_tool_turn(
     tool_calls: list[dict[str, Any]],
     think: str,
     results: list[tuple[str, str]],
-) -> None:
+) -> str:
+    """落一轮工具调用（assistant 空正文 + tool 结果），返回承载消息 id。
+
+    返回值供 ``_persist_new_messages`` 在"本轮没有 assistant 正文"时兜底承载
+    A2UI 面板（design 028 §8.5）：以前面板在这种情况下会被整块丢掉。
+    """
     if not tool_calls:
-        return
+        return ""
     message = add_message(session_id, "assistant", "")
     order = 0
     add_message_part(
@@ -37,6 +42,7 @@ def save_tool_turn(
             json.dumps({"tool_call_id": call_id}, ensure_ascii=False),
             order=0,
         )
+    return str(message["id"])
 
 def list_message_parts(message_id: str) -> list[dict[str, Any]]:
     with get_conn() as conn:

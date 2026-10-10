@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from collections import OrderedDict
-from collections.abc import Iterable
+from collections.abc import AsyncIterator, Iterable
 from pathlib import Path
 from typing import Any
 
@@ -88,19 +88,152 @@ def _format_context_value(value: Any) -> str:
 
 
 def _surface_action_question(request: SurfaceActionRequest) -> str:
-    """把动作折成**可见的 user 正文**（044 §8.2 的硬要求）。
+    """把动作折成 user 正文（044 §8.2 的硬要求）。
 
     结构化参数必须落进正文：``message_parts`` 不参与模型上下文
     （``agent/core/prompts.py`` 的历史回溯只读 ``content``）。只写 part 的话，
     模型只会收到"重新测算"四个字、拿不到"人力成本占比=25%"。
+
+    面板归属与"原地更新"指示同理必须写进正文（``surface_id`` / ``message_id``
+    / ``data_model`` 都是结构化字段，模型看不到）：不写的话模型不知道这是对
+    哪块面板的操作，会另起一块新面板 —— 用户就得滚下去找结果（design 028 §8.5）。
     """
     base = (request.label or request.name).strip() or request.name
-    if not request.context:
-        return base
-    pairs = "，".join(
-        f"{key}={_format_context_value(value)}" for key, value in request.context.items()
+    detail = base
+    if request.context:
+        pairs = "，".join(
+            f"{key}={_format_context_value(value)}"
+            for key, value in request.context.items()
+        )
+        detail = f"{base}（{pairs}）"
+    if not request.surface_id:
+        return detail
+    return (
+        f"{detail}\n"
+        f"[面板交互] surface_id={request.surface_id}\n"
+        "请针对这次操作**更新同一块面板**：调用 render_ui 时沿用上面这个 "
+        "surfaceId，不要新建面板；新结果用面板表达，正文只写一句简短结论。"
     )
-    return f"{base}（{pairs}）"
+
+
+#: 面板动作那一轮消息的 source 标记（design 028 §8.5）。
+#: 这些消息**照样落库**（模型历史回溯只读 messages.content，交互痕迹不能丢），
+#: 但它们是"面板的内部回合"而非用户可见对话，前端按此标记从消息流里滤掉。
+SURFACE_ACTION_SOURCE = "surface_action"
+
+
+def _finalize_surface_turn(
+    session_id: str,
+    boundary_message_id: str,
+    target_message_id: str,
+) -> None:
+    """静默回合收尾：打标 + 把本轮成果并回面板所属的那条消息（§8.5）。
+
+    1. 本轮新建的消息（user 动作 / assistant 正文 / tool 结果）统一打上
+       ``SURFACE_ACTION_SOURCE``；
+    2. 本轮的 ``ui_surface`` 部件搬到 ``target_message_id``，实现"面板原地
+       更新"—— 同 surfaceId 的旧部件先删，面板是**覆盖**而不是叠加；
+    3. 本轮的 assistant 正文降级成一条 ``surface_note``（面板底部的结果说明）；
+       本轮没有面板产出时 ``updated=false``，前端据此提示"本轮未返回面板更新"。
+
+    ``target_message_id`` 缺失或不属本会话（老数据 / 前端拿到的是本地乐观 id）
+    时**只打标不搬迁**：前端会照常渲染本轮那条 assistant 消息，比丢面板好。
+    """
+    rows = db.list_messages(session_id)
+    start = 0
+    if boundary_message_id:
+        for index, row in enumerate(rows):
+            if row["id"] == boundary_message_id:
+                start = index + 1
+                break
+    fresh = rows[start:]
+    # 面板所属的那条消息**永远不算"本轮产出"**：它可能落在边界之前（常见：
+    # 用户往上滚到旧面板上操作），也可能就是边界那条。误把它当产出会连带
+    # 打上隐藏标记、删掉它自己的面板部件 —— 面板会整个消失。
+    fresh = [row for row in fresh if row["id"] != target_message_id]
+    if not fresh:
+        return
+
+    surfaces: list[dict[str, Any]] = []
+    for row in fresh:
+        for part in db.list_message_parts(row["id"]):
+            if part["type"] != "ui_surface":
+                continue
+            try:
+                parsed = json.loads(part["content"])
+            except (TypeError, ValueError):
+                continue
+            if isinstance(parsed, dict):
+                surfaces.append(parsed)
+
+    note = ""
+    for row in reversed(fresh):
+        if row["role"] == "assistant" and str(row.get("content") or "").strip():
+            note = str(row["content"]).strip()
+            break
+
+    db.mark_messages_source([row["id"] for row in fresh], SURFACE_ACTION_SOURCE)
+
+    target = db.get_message(target_message_id) if target_message_id else {}
+    if not target or target.get("session_id") != session_id:
+        return
+
+    existing = db.list_message_parts(target_message_id)
+    if surfaces:
+        for part in existing:
+            if part["type"] == "ui_surface":
+                db.delete_message_part(part["id"])
+        for offset, surface in enumerate(surfaces):
+            db.add_message_part(
+                target_message_id,
+                "ui_surface",
+                json.dumps(surface, ensure_ascii=False),
+                order=100 + offset,
+            )
+        # 来源消息里的部件搬走后就地删除：留着的话，一旦 source 标记在异常路径
+        # 上失效，前端会同时渲染原消息与本轮消息两块同 id 面板。
+        for row in fresh:
+            for part in db.list_message_parts(row["id"]):
+                if part["type"] == "ui_surface":
+                    db.delete_message_part(part["id"])
+    # 结果说明只留最新一条：多次动作不该把 note 在面板底部堆成一摞。
+    for part in existing:
+        if part["type"] == "surface_note":
+            db.delete_message_part(part["id"])
+    db.add_message_part(
+        target_message_id,
+        "surface_note",
+        json.dumps({"text": note, "updated": bool(surfaces)}, ensure_ascii=False),
+        order=300,
+    )
+
+
+async def _silent_surface_stream(
+    source: AsyncIterator[str],
+    session_id: str,
+    boundary_message_id: str,
+    target_message_id: str,
+) -> AsyncIterator[str]:
+    """转发面板动作的 SSE，并在 ``done`` **之前**完成成果合并。
+
+    卡住 done 是本函数存在的全部理由：前端收到 done 会立刻重新拉整段会话
+    （``useChatStream`` 的 done → getSession），合并必须在那之前落库，
+    否则用户会看到"刷新后面板又回到旧值 / 本轮消息又冒出来"。
+    """
+    done_chunk: str | None = None
+    async for chunk in source:
+        if isinstance(chunk, str) and chunk.startswith("event: done\n"):
+            done_chunk = chunk
+            break
+        yield chunk
+    try:
+        await asyncio.to_thread(
+            _finalize_surface_turn, session_id, boundary_message_id, target_message_id
+        )
+    except Exception as exc:  # noqa: BLE001 — 收尾失败不该吞掉这一轮的回答
+        logger.warning("面板静默回合收尾失败 session=%s: %s", session_id, exc)
+    if done_chunk is not None:
+        yield done_chunk
 
 
 def _read_text_fallback(path: Path) -> str:
@@ -976,17 +1109,21 @@ async def answer_question(request: ChatAnswer) -> dict[str, object]:
 
 @router.post("/chat/surface-action")
 async def surface_action(request: SurfaceActionRequest):
-    """A2UI 面板动作 → 新回合（design 028 §8）。
+    """A2UI 面板动作 → 一次**静默的会话内回合**（design 028 §8）。
 
     **返回 SSE 流**（与 ``/stream_chat`` 同构），不是 JSON：动作会跑出一个新的
     assistant 回合（可能再吐一块同 surfaceId 的面板），前端复用同一套流式
     处理器，面板才能"原地刷新"（§8.3）。
 
-    三条边界（044 §8.2）：
+    四条边界（044 §8.2 / §8.5）：
     1. 幂等：``action_id`` 60s 内重复 → 只回一个 ``done``，不起新回合；
     2. 会话正在流式中 → **409**（不排队），由前端提示用户；
     3. 动作表现为"用户说了一句话"：复用 ``stream_chat`` 全流程，
-       **不碰** interrupt / 暂停恢复语义，agent 内核零侵入。
+       **不碰** interrupt / 暂停恢复语义，agent 内核零侵入；
+    4. **静默**：这一轮照常落库（模型历史要有交互痕迹），但流结束时
+       ``_finalize_surface_turn`` 会把这些消息打上 ``surface_action`` 标记
+       （前端滤掉、不成气泡），并把面板部件搬回 ``message_id`` 那条消息 ——
+       用户看到的只是"面板原地刷新"，而不是底部又多出两条消息。
     """
     if not a2ui_enabled():
         raise HTTPException(status_code=404, detail="A2UI 未启用")
@@ -1004,6 +1141,11 @@ async def surface_action(request: SurfaceActionRequest):
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+    # 本轮消息的边界：收尾时靠它把"这一轮新建的消息"从历史里切出来。
+    # 必须在 stream_chat 之前取 —— 它内部会立刻落一条 user 消息。
+    before = await asyncio.to_thread(db.list_messages, session_id)
+    boundary_id = str(before[-1]["id"]) if before else ""
 
     response = await stream_chat(
         StreamChatRequest(
@@ -1045,7 +1187,14 @@ async def surface_action(request: SurfaceActionRequest):
             )
     except Exception as exc:  # noqa: BLE001 — 回放部件写失败不该影响对话本身
         logger.warning("a2ui_action part 写入失败: %s", exc)
-    return response
+    # 包一层：done 之前完成"标记 + 面板搬迁"（§8.5），前端刷新即拿到终态。
+    return StreamingResponse(
+        _silent_surface_stream(
+            response.body_iterator, session_id, boundary_id, request.message_id
+        ),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/sessions/{session_id}/inject")

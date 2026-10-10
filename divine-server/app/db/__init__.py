@@ -39,9 +39,11 @@ from .messages import (
     add_message_part,
     clear_fallback_pending,
     clear_messages,
+    delete_message_part,
     get_message,
     list_messages,
     mark_fallback_pending,
+    mark_messages_source,
     update_choice_state,
 )
 from .memories import (

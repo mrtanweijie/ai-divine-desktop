@@ -251,6 +251,18 @@ export interface ChatMessage {
    * （见 `pages/chat/state/surfaceStore.ts` 的注释与 design 028 §16.3）。
    */
   surfaces?: UISurface[];
+  /**
+   * 面板动作的**结果说明**（design 028 §8.5）。
+   *
+   * 面板动作跑的是"静默回合"：那一轮不产生新气泡，模型的正文被后端降级成
+   * 这一行注记，显示在面板底部；`updated=false` 表示这一轮**没有返回面板
+   * 更新**，前端据此提示用户（否则"点了没反应"）。
+   */
+  surface_note?: { text: string; updated: boolean };
+  /** 面板动作提交中（纯本地流态）：面板显示"正在更新"。 */
+  surface_updating?: boolean;
+  /** 面板动作这一轮出错（纯本地流态）：面板显示失败原因（没有新气泡可挂错误）。 */
+  surface_error?: string;
   /** 消息来源：normal=云端/local=本地模型/local_fallback=本地拒答转云端 */
   source?: string;
   /** 本条回复消耗的 token（real=API 上报，estimated=本地估算） */

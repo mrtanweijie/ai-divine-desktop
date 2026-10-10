@@ -133,8 +133,14 @@ def test_persist_new_messages_attaches_ui_surface_part(db_env) -> None:
     assert db.get_message(last_id)["content"] == "结论如下。"
 
 
-def test_persist_new_messages_skips_surface_without_text_message(db_env) -> None:
-    """只调工具没输出正文时宁可不落，也不新建空消息污染历史。"""
+def test_persist_new_messages_parks_surface_on_tool_turn(db_env) -> None:
+    """只调工具没输出正文时，面板退到工具轮次那条消息上（design 028 §8.5）。
+
+    以前是"没有正文消息宁可不落"。但静默回合（面板动作）要按消息把面板搬回
+    原面板所在的那条消息 —— 没有承载者就等于"只更新面板、不说话"的一轮把
+    面板整块丢掉。正常回合不受影响：前端会跳过这条空 assistant 消息，
+    读不到它的 parts。
+    """
     db = db_env
     session_id = db.create_session("无正文", locale="zh-CN")["id"]
     messages = [
@@ -146,12 +152,20 @@ def test_persist_new_messages_skips_surface_without_text_message(db_env) -> None
         ToolMessage(content="✓", tool_call_id="call_1"),
     ]
     last_id = _persist_new_messages(session_id, [messages[0]], messages, {})
+    # 返回值语义不变：仍然只表示"最后一条 assistant 正文消息"，这里是 None
     assert last_id is None
-    assert all(
-        part["type"] != "ui_surface"
+
+    parked = [
+        (message, part)
         for message in db.list_messages(session_id)
         for part in db.list_message_parts(message["id"])
-    )
+        if part["type"] == "ui_surface"
+    ]
+    assert len(parked) == 1
+    holder, part = parked[0]
+    assert holder["role"] == "assistant"
+    assert holder["content"] == ""
+    assert json.loads(part["content"])["surfaceId"] == "cost-panel"
 
 
 # ---------------------------------------------------------------------------
@@ -384,3 +398,156 @@ def test_catalog_id_is_used_by_messages() -> None:
     normalized = _collect_ui_surfaces([{"name": "render_ui", "args": _sample_args()}])[0]
     messages = to_messages(normalized)
     assert messages[0]["createSurface"]["catalogId"] == CATALOG_ID
+
+
+# ---------------------------------------------------------------------------
+# S5 · 静默回合：打标 + 面板搬回原消息（design 028 §8.5）
+# ---------------------------------------------------------------------------
+
+
+def _panel_ir(surface_id: str, component_id: str) -> str:
+    return json.dumps(
+        {
+            "surfaceId": surface_id,
+            "components": [{"id": component_id, "component": "Text", "text": "x"}],
+            "data": {},
+        },
+        ensure_ascii=False,
+    )
+
+
+def _seed_action_turn(db, session_id: str, *, with_surface: bool = True) -> list[str]:
+    """造"本轮"三条消息：user 动作 / assistant 正文（可含面板）/ tool 结果。"""
+    ids = [db.add_message(session_id, "user", "提交参数（labor_input=20）")["id"]]
+    assistant = db.add_message(session_id, "assistant", "已按新参数重算。")
+    ids.append(assistant["id"])
+    if with_surface:
+        db.add_message_part(
+            assistant["id"], "ui_surface", _panel_ir("cost-panel", "new"), order=100
+        )
+    ids.append(db.add_message(session_id, "tool", "✓ 已更新面板")["id"])
+    return ids
+
+
+def _parts_of_type(db, message_id: str, part_type: str) -> list[dict]:
+    return [
+        json.loads(part["content"])
+        for part in db.list_message_parts(message_id)
+        if part["type"] == part_type
+    ]
+
+
+def test_finalize_surface_turn_moves_panel_back_to_owner(db_env) -> None:
+    from app.api.chat import _finalize_surface_turn
+
+    db = db_env
+    session_id = db.create_session("静默回合", locale="zh-CN")["id"]
+    # 面板挂在更早的一条消息上，随后才是"动作前的最后一条消息"（边界）。
+    # 真实场景里用户就是往上滚到旧面板上去操作的。
+    owner = db.add_message(session_id, "assistant", "结论如下。")
+    db.add_message_part(
+        owner["id"], "ui_surface", _panel_ir("cost-panel", "old"), order=100
+    )
+    boundary = db.add_message(session_id, "user", "给我看成本结构")
+
+    fresh_ids = _seed_action_turn(db, session_id)
+    _finalize_surface_turn(session_id, boundary["id"], owner["id"])
+
+    rows = {row["id"]: row for row in db.list_messages(session_id)}
+    # 本轮消息全部打标（前端据此把这一轮滤成不成气泡）
+    assert all(rows[mid]["source"] == "surface_action" for mid in fresh_ids)
+    # 边界之前与面板所属的消息不受影响
+    assert rows[boundary["id"]]["source"] == "normal"
+    assert rows[owner["id"]]["source"] == "normal"
+
+    # 面板原地更新：同 surfaceId 是覆盖而非叠加，且部件已从本轮消息搬走
+    assert [
+        s["components"][0]["id"]
+        for s in _parts_of_type(db, owner["id"], "ui_surface")
+    ] == ["new"]
+    assert all(
+        _parts_of_type(db, mid, "ui_surface") == [] for mid in fresh_ids
+    )
+    # 本轮正文降级成面板底部一行说明
+    assert _parts_of_type(db, owner["id"], "surface_note") == [
+        {"text": "已按新参数重算。", "updated": True}
+    ]
+
+
+def test_finalize_surface_turn_keeps_panel_when_turn_has_none(db_env) -> None:
+    from app.api.chat import _finalize_surface_turn
+
+    db = db_env
+    session_id = db.create_session("无面板", locale="zh-CN")["id"]
+    # 面板挂在更早的一条消息上，随后才是"动作前的最后一条消息"（边界）。
+    # 真实场景里用户就是往上滚到旧面板上去操作的。
+    owner = db.add_message(session_id, "assistant", "结论如下。")
+    db.add_message_part(
+        owner["id"], "ui_surface", _panel_ir("cost-panel", "old"), order=100
+    )
+    boundary = db.add_message(session_id, "user", "给我看成本结构")
+
+    _seed_action_turn(db, session_id, with_surface=False)
+    _finalize_surface_turn(session_id, boundary["id"], owner["id"])
+
+    # 本轮没有面板产出 → 旧面板必须留着，只追加"未返回更新"的说明
+    assert [
+        s["components"][0]["id"]
+        for s in _parts_of_type(db, owner["id"], "ui_surface")
+    ] == ["old"]
+    assert _parts_of_type(db, owner["id"], "surface_note") == [
+        {"text": "已按新参数重算。", "updated": False}
+    ]
+
+
+def test_finalize_surface_turn_marks_only_when_owner_missing(db_env) -> None:
+    from app.api.chat import _finalize_surface_turn
+
+    db = db_env
+    session_id = db.create_session("目标缺失", locale="zh-CN")["id"]
+    boundary = db.add_message(session_id, "user", "给我看成本结构")
+    fresh_ids = _seed_action_turn(db, session_id)
+
+    _finalize_surface_turn(session_id, boundary["id"], "no-such-message")
+
+    rows = {row["id"]: row for row in db.list_messages(session_id)}
+    assert all(rows[mid]["source"] == "surface_action" for mid in fresh_ids)
+    # 没有承载者 → 不搬迁，本轮面板留在原消息里（前端照常渲染那条消息，
+    # 比丢面板好）
+    assert [
+        s["components"][0]["id"]
+        for s in _parts_of_type(db, fresh_ids[1], "ui_surface")
+    ] == ["new"]
+
+
+def test_surface_action_question_asks_to_refresh_same_panel() -> None:
+    from app.api.chat import _surface_action_question
+    from app.schemas import SurfaceActionRequest
+
+    request = SurfaceActionRequest(
+        session_id="s1",
+        action_id="a1",
+        name="submit",
+        label="提交参数",
+        context={"labor_input": 20},
+        surface_id="cost_dashboard_v2",
+    )
+    text = _surface_action_question(request)
+    # 求值结果照旧落进正文（message_parts 不进模型上下文）
+    assert "提交参数（labor_input=20）" in text
+    # 面板归属与"原地更新"指示必须进正文：结构化字段模型看不到，
+    # 不写的话模型会另起一块面板 → 用户又得滚下去找结果
+    assert "surface_id=cost_dashboard_v2" in text
+    assert "不要新建面板" in text
+
+
+def test_session_preview_skips_surface_action_messages(db_env) -> None:
+    db = db_env
+    session_id = db.create_session("预览", locale="zh-CN")["id"]
+    db.add_message(session_id, "user", "真实的用户提问")
+    silent = db.add_message(session_id, "user", "提交参数（labor_input=20）")
+    db.mark_messages_source([silent["id"]], "surface_action")
+
+    session = next(item for item in db.list_sessions() if item["id"] == session_id)
+    # 会话列表不该显示面板回执当预览
+    assert session["last_message"] == "真实的用户提问"

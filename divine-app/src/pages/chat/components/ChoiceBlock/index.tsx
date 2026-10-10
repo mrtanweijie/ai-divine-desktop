@@ -144,6 +144,46 @@ export function parseOptionsBlock(code: string): ChoiceBlockData | null {
   };
 }
 
+/** ```options 围栏（``` 前的语言标记大小写不敏感）。 */
+const OPTIONS_FENCE_RE = /```options\b([\s\S]*?)```/i;
+
+/**
+ * 把「散文 + ```options 围栏」的文本拆成说明与选项数据。
+ *
+ * 面板动作的静默回合里，assistant 正文被整段搬进 `surface_note.text`
+ * （design 028 §8.5），而这段正文常常以 ```options 围栏结尾——模型虽然被要求
+ * 「正文只写一句简短结论」，但它仍会顺手问「接下来需要我做什么？」。
+ * footer 是纯文本渲染，直接吐 `text` 会让用户看到**裸 JSON**、并且选项点不到；
+ * 拆开后说明行只留散文，选项交给 `ChoiceBlock` 渲染成可点卡片。
+ *
+ * 解析放在渲染侧（不落库）是刻意的：note 是原样存档的转写，
+ * 这样**已经落库的老 note 也能一并修好**，不必回填数据。
+ */
+export function splitNoteOptions(text: string): {
+  prose: string;
+  data: ChoiceBlockData | null;
+} {
+  const raw = (text || "").trim();
+  if (!raw) return { prose: "", data: null };
+  const match = OPTIONS_FENCE_RE.exec(raw);
+  if (match) {
+    const prose = `${raw.slice(0, match.index)}${raw.slice(match.index + match[0].length)}`.trim();
+    return { prose, data: parseOptionsBlock(match[1]) };
+  }
+  // 兜底：模型偶尔漏写围栏、直接把 JSON 当段落输出（MarkdownView 有同样的兜底）。
+  if (raw.includes('"options"')) {
+    const data = parseOptionsBlock(raw);
+    if (data) {
+      const start = raw.indexOf("{");
+      const end = raw.lastIndexOf("}");
+      const prose =
+        start >= 0 && end > start ? `${raw.slice(0, start)}${raw.slice(end + 1)}`.trim() : raw;
+      return { prose, data };
+    }
+  }
+  return { prose: raw, data: null };
+}
+
 // 主题色副标题（前端兜底覆盖：卡片 desc 由 LLM 自由生成，
 // 常从历史复现旧文案，已知主题一律用内置文案替换）
 const THEME_DESCS: Record<string, string> = {

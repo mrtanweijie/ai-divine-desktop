@@ -27,7 +27,7 @@ divine-server/.pytest-tmp*
 
 __pycache__/
 .pytest_cache
-
+.tmp-pytest*
 bin/
 
 # Env
