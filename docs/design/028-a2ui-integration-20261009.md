@@ -546,7 +546,7 @@ S1（后端骨架）已落地。**三处与设计稿的有意偏差**记录在�
 
 理由：面板自身（`.uis-surface`）已经是一层带边框的卡片，块内再套一层就是「框套框」；一个面板常含 5–8 个块，线条叠加非常吵。分区改由竖条承担后，块与块之间只剩面板 `gap`。
 
-**有意保留的线条**：面板 header 的 `border-bottom`（区分面板标题与内容）、`.uis-table-scroll` 的外框（数据网格需要边界）、输入控件的边框（控件语义，不是装饰）。
+**有意保留的线条**：面板 header 的 `border-bottom`（区分面板标题与内容）、`.uis-table-scroll` 的外框（数据网格需要边界）、`.uis-verdicts` 的外框（同属「数据块」，见 §6.12）、输入控件的边框（控件语义，不是装饰）。
 
 **同轮追加（用户连续反馈的两处）**：
 
@@ -730,6 +730,52 @@ S1（后端骨架）已落地。**三处与设计稿的有意偏差**记录在�
 - **顺序修复需重建 sidecar 才生效**，且**只影响后续回合** —— 已落库的那块面板顺序不会自动改变。
 
 **顺带修正**：本节（§6.10）原先被插在了 §7 章节内部（上一轮锚点选到了 §7 的「约束遵守」之后），已移回 §6；§6.1–6.11 现为连续序列。
+
+### 6.12 UI 迭代（2026-10-10 · 结论清单 / 选中态 / 单位间距）
+
+用户连续三条视觉反馈（①后又复审两次），落地为**四处渲染层改动**（装配侧零改动：不改 IR、不改协议，**已落库的面板立即生效**，无需重建 sidecar）。
+
+**① 面板内 `Badge` 按「容器方向」二分：纵向 = 圆点 + 文案，横向 = 保留胶囊**（用户：「不要每条信息都使用单独胶囊，合并到整个内容块卡片」→ 复审 a：「单条的也不要胶囊，改为圆点+文案」→ 复审 b：「【示例数据】需要保持胶囊样式」）
+
+模型回显时习惯把结论丢成 `Badge`：**同一 `Column` 里 3–5 个**（逐条结论）是一摞彩色药丸；**`Row` 里 1 个**（贴在标题旁的标记，如「示例数据」）则本该是个标签。判据取**容器方向**而非 `tone` —— 实测证明 `tone` 分不开：「示例数据」是 `warning`、「人均成本 1.52 万元」也是 `warning`，前者是标记、后者是陈述，而横 / 纵恰好对应这两类。
+
+| 文件 | 动作 | 说明 |
+| --- | --- | --- |
+| `UISurface/types.ts` + `UISurfaceBlock.tsx` | 改 | `SurfaceContext` 新增**只读** `getComponent(id)`（容器类组件判断子项类型用，不渲染） |
+| `UISurface/registry.tsx` | 改 | ① 新增 `SurfaceLayoutContext`（`Row` / `Column` 各提供一层，就近生效，嵌套时内层覆盖外层）；② `BadgeComp` 按方向二分：`row` → 复用 `Tag`（`uis-badge is-chip`），`column` → 自绘 `span.uis-badge.is-note.is-{tone}`；③ `isBadgeList(ctx, children)`：子项**全是 `Badge` 且 ≥2** → 该 `Column` 加 `.uis-verdicts`、列间距置 0（分隔交给块自身） |
+| `UISurface/UISurface.less` | 改 | `.is-note` = 圆点（6px，`::before`）+ 中性色文案，`is-{tone}` 只改圆点色；`.uis-verdicts` 追加一个外框（与 `.uis-table-scroll` 同规格，两者都属「数据块」）+ 行 `padding: 8px 12px`。`.is-chip` **一个字都不覆盖**（样式全部来自 `Tag`） |
+
+**最终契约**（三条并列）：`Column` 内 `Badge` = **圆点 + 文案**；其中**一列全是 `Badge` 且 ≥2** 时这一列额外获得外框、合并成一个内容块（单条不画外框 —— 它就是一行带标记的文本）；`Row` 内 `Badge` = **保留全局胶囊**（「标记徽标」语形，如「示例数据」）。
+
+**为什么 `column` 内不复用 `Tag`、`row` 内却复用**：`Tag` 是全局「胶囊」语形，且带 `:root[data-theme="dark"] .ui-tag--*` 的 tone 覆盖（权重 0,3,0）—— 面板的「陈述行」要的恰恰是反过来的东西（无底无色、圆点承色），复用就得打一场特异性拉锯。而「标记徽标」本来就该是胶囊，复用 `Tag` 反而保证配色与全应用同源、不各自漂移。所以判据不是「面板内 / 外」，而是**这个 `Badge` 在说什么**：陈述 → 自有原语；标记 → 共享原语。**`components/ui/Tag` 本身一行未改**（`git diff HEAD -- divine-app/src/components/ui/Tag/` 为空），气泡等其它场景不受影响。
+
+**踩坑（深色主题，值得单记）**：一度让**所有**面板 `Badge` 复用 `Tag`，此时 `:root[data-theme="dark"] .ui-tag--success`（0,3,0）压过 `.uis-verdicts .uis-badge`（0,2,0）→ **success 那条仍是绿底绿字胶囊**，另两条 warning 却正常（同权重靠源码顺序决胜负，而两个 less 的加载顺序由 import 图决定）。当时先抬到 0,4,0 硬顶，最终把「陈述行」改为自绘，这类拉锯从根上消失。教训两条：**改共享组件在「别人上下文里」的样子时，先 grep 它在 `[data-theme]` 下的规则**；**当一个场景反复需要「对抗」某个共享组件的样式，说明它该有自己的原语了**。
+
+**两条用户复审**（同一轮改的）：初版行间画 `border-top` 分隔线 → **去掉**（间距足够，线条越少越静）；行首标记初版是 3×13px **竖条**（对齐 `.uis-card-title::before`）→ 改为 **6px 圆点**。
+
+**边界**：`Text + Badge` 混排的列仍按列布局（只是每个 `Badge` 自身是圆点行）；气泡里的 `.choice-block` 等其他 `Tag` 场景完全不受影响。
+
+**② `ChoicePicker` 选中态不明显**（用户：「多选 选中的效果不明显」）
+
+改前只动两处：`border-color: --color-border-strong`（`rgba(15,23,42,.18)`）+ `background: --color-accent-soft`（仅 8% 黑）—— 浅色下与未选是同一个灰，多选场景几乎只能靠数边框灰度分辨。改后**三件事同时变**：底色 `color-mix(in srgb, var(--color-accent) 14%, transparent)`、边框取 `--color-accent`（浅色近黑 / 深色近白）、文案 `secondary → text` + `font-weight: 600`；并显式写 `.is-active:hover` 组合句（两条规则同权重，否则鼠标停在已选项上会被 hover 覆盖）。
+
+与「hover 不用强调色描边」不冲突：那句约束管的是 hover，而**选中是结果**，值得一条实边框。实测（深色）：选中 = 白框 + `color(srgb 1 1 1 / 0.14)` 底 + 600 白字；未选 = 8% 白框 + `--color-surface-2` 底 + 400 次灰字。
+
+**③ 数字输入框的单位贴边框**（用户：「输入框后面的单位【个】离边框太近了」）
+
+| 文件 | 动作 | 说明 |
+| --- | --- | --- |
+| `components/ui/Input/index.less` | 改 | `.ui-input-action` 的 `right: 4px` → **10px**（与输入框自身水平内边距一致）；`.ui-input-wrap.has-action .ui-input` 的 `padding-right: 36px` → **44px**（顺带把原生数字微调箭头也推离单位） |
+
+该槽（`Input` 的 `action`）**全项目只有面板的 `NumberField` 在用**（grep `ui-input-action` 仅 `registry.tsx:370` 一处传入），所以直接改共享组件没有外溢面。实测：两个单位（元 / 个）`gapToBorder = 10px`、`padding-right = 44px`。
+
+**验证**：CDP 直连 8010 真实 dev app 实测五条 ——
+① 结论清单 3 行全部 `background: rgba(0,0,0,0)` + `border-top: 0` + 圆点 `6px / 50%`（色分别 amber/amber/green）；
+② **纵向单条** badge（`提交链路正常 · 5/5 字段回收正确`）`className = "uis-badge is-note is-success"`、`display: flex`、`padding: 0`、`border-radius: 0`、底色透明、圆点 `6px / 50%`；
+③ **横向徽标**（面板标题旁的「示例数据」）`className = "uis-badge is-chip"` + `ui-tag ui-tag--warning`、仍是胶囊（有底色 + 全圆角 + 无 `::before` 圆点）；
+④ 选中态（深色）= `--color-accent` 边框 + `color(srgb 1 1 1 / 0.14)` 底 + 600 字重；
+⑤ 单位 `gapToBorder = 10px`、`padding-right = 44px`。
+`eslint` 干净；**未跑 tsc / vite build**（按约定）；未提交。
 
 ---
 

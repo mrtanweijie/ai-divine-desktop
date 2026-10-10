@@ -310,6 +310,11 @@ export interface SurfaceContext {
   /** 按 id 递归渲染子组件（容器类组件用）。 */
   renderChild: (id: string) => ReactNode;
   /**
+   * 按 id 取子组件**定义**（不渲染）。容器类组件靠它判断子项类型——
+   * 目前只有 Column 用：整列都是 Badge 时合并成一个「结论清单」块（§7）。
+   */
+  getComponent: (id: string) => UIComponent | undefined;
+  /**
    * 当前会话工作区路径。只服务富媒体组件（Chart/Graph 的导出按钮、
    * FileList 的「打开所在目录」），组件自身不读文件 —— 044 §16.5
    * 明令渲染期禁同步 IPC / 读文件，这里只做异步动作的路径参数。

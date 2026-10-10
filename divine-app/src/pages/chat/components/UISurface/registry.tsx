@@ -12,6 +12,8 @@
 
 import {
   Fragment,
+  createContext,
+  useContext,
   useEffect,
   useId,
   useRef,
@@ -47,6 +49,28 @@ import type {
 // 常量映射
 // ---------------------------------------------------------------------------
 
+/** tone 语义 → Tag 预设配色。 */
+const TAG_TONE: Record<UITone, TagTone> = {
+  default: "default",
+  primary: "accent",
+  success: "success",
+  warning: "warning",
+  danger: "danger",
+};
+
+/**
+ * 当前 Badge 所处的容器方向 —— 决定它是「标记徽标」还是「逐条陈述」。
+ *
+ * 由 `Row` / `Column` 各自提供一层（就近生效，嵌套时内层覆盖外层）：
+ * - `row`：横向并排 → **保留全局胶囊**（复用 `Tag`）。
+ * - `column`：纵向排列 → **圆点 + 文案**（面板自有语形，见 §6.12）。
+ *
+ * 判据取容器方向而不是 `tone`：实测两个面板证明 `tone` 分不开 ——
+ * 「示例数据」是 `warning`、「人均成本 1.52 万元」也是 `warning`，
+ * 前者是贴在标题旁的标记，后者是逐条陈述。横 / 纵恰好就是这两类。
+ */
+const SurfaceLayoutContext = createContext<"row" | "column">("column");
+
 /** gap 语义 → px（与项目 8px 网格一致）。 */
 const GAP_PX: Record<UIGap, number> = { none: 0, sm: 8, md: 12, lg: 20 };
 
@@ -56,15 +80,6 @@ const JUSTIFY_MAP: Record<UIJustify, "start" | "center" | "end" | "space-between
   center: "center",
   end: "end",
   between: "space-between",
-};
-
-/** tone 语义 → Tag 预设配色。 */
-const TAG_TONE: Record<UITone, TagTone> = {
-  default: "default",
-  primary: "accent",
-  success: "success",
-  warning: "warning",
-  danger: "danger",
 };
 
 // ---------------------------------------------------------------------------
@@ -126,35 +141,58 @@ function cellValue(row: unknown, column: UITableColumn, columnIndex: number): un
 // A 组 · 布局
 // ---------------------------------------------------------------------------
 
-function ColumnComp({ component, ctx }: CompProps<"Column">) {
+/** 一列全是 Badge → 读作「结论清单」，合并成一个内容块（§6.12 · 2026-10-10）。
+ *
+ * 模型给多选/边界值这类回显时，习惯纵向丢 3–5 个 Badge 当逐条结论。合并成一个
+ * 块后：一个外框、条目各占一行、行首一个圆点承载语义色（不画分隔线）。
+ *
+ * 判据刻意收窄：**子项全部是 Badge 且 ≥2**。只有 1 个 Badge、或混排
+ * （Text + Badge + …）的列都不加外框 —— 那些 Badge 只是一行带标记的文本
+ * （圆点样式仍生效，见 `BadgeComp`）。
+ */
+function isBadgeList(ctx: SurfaceContext, children: string[]): boolean {
   return (
-    <Flex
-      className="uis-column"
-      direction="column"
-      gap={GAP_PX[component.gap ?? "md"]}
-      align={component.align ?? "stretch"}
-      justify={JUSTIFY_MAP[component.justify ?? "start"]}
-    >
-      {component.children.map((id) => (
-        <Fragment key={id}>{ctx.renderChild(id)}</Fragment>
-      ))}
-    </Flex>
+    children.length >= 2 && children.every((id) => ctx.getComponent(id)?.component === "Badge")
+  );
+}
+
+function ColumnComp({ component, ctx }: CompProps<"Column">) {
+  const asList = isBadgeList(ctx, component.children);
+  return (
+    // 纵向容器：内部 Badge 是「逐条陈述」→ 圆点行（见 SurfaceLayoutContext）。
+    <SurfaceLayoutContext.Provider value="column">
+      <Flex
+        className={asList ? "uis-column uis-verdicts" : "uis-column"}
+        direction="column"
+        // 合并成清单后条目要紧贴（外框已由 `.uis-verdicts` 提供），不能再留列间距。
+        gap={asList ? 0 : GAP_PX[component.gap ?? "md"]}
+        align={component.align ?? "stretch"}
+        justify={JUSTIFY_MAP[component.justify ?? "start"]}
+      >
+        {component.children.map((id) => (
+          <Fragment key={id}>{ctx.renderChild(id)}</Fragment>
+        ))}
+      </Flex>
+    </SurfaceLayoutContext.Provider>
   );
 }
 
 function RowComp({ component, ctx }: CompProps<"Row">) {
   return (
-    <Flex
-      className="uis-row"
-      direction="row"
-      gap={GAP_PX[component.gap ?? "sm"]}
-      align={component.align ?? "center"}
-      wrap={Boolean(component.wrap)}
-    >
-      {component.children.map((id) => (
-        <Fragment key={id}>{ctx.renderChild(id)}</Fragment>
-      ))}
-    </Flex>
+    // 横向容器：内部 Badge 是「标记徽标」→ 保留胶囊（见 SurfaceLayoutContext）。
+    <SurfaceLayoutContext.Provider value="row">
+      <Flex
+        className="uis-row"
+        direction="row"
+        gap={GAP_PX[component.gap ?? "sm"]}
+        align={component.align ?? "center"}
+        wrap={Boolean(component.wrap)}
+      >
+        {component.children.map((id) => (
+          <Fragment key={id}>{ctx.renderChild(id)}</Fragment>
+        ))}
+      </Flex>
+    </SurfaceLayoutContext.Provider>
   );
 }
 
@@ -185,11 +223,21 @@ function TextComp({ component, ctx }: CompProps<"Text">) {
 
 function BadgeComp({ component, ctx }: CompProps<"Badge">) {
   const text = ctx.resolve(component.text) ?? "";
-  return (
-    <Tag className="uis-badge" tone={TAG_TONE[component.tone ?? "default"]}>
-      {text}
-    </Tag>
-  );
+  const tone = component.tone ?? "default";
+  const layout = useContext(SurfaceLayoutContext);
+  // 横向并排 = 贴在标题旁的**标记徽标**（如「示例数据」）→ 复用全局 `Tag`，
+  // 配色与全应用一致、不会各自漂移（§6.12 用户要求保留这一种胶囊）。
+  if (layout === "row") {
+    return (
+      <Tag className="uis-badge is-chip" tone={TAG_TONE[tone]}>
+        {text}
+      </Tag>
+    );
+  }
+  // 纵向排列 = **逐条陈述**（结论 / 状态）→ 面板自有语形：圆点 + 中性色文案。
+  // 不复用 Tag：Tag 是「胶囊」语形，且带 `:root[data-theme="dark"]` 的 tone
+  // 覆盖（0,3,0），在面板里要反过来对抗它 —— 自绘一个 class 便无此拉锯。
+  return <span className={`uis-badge is-note is-${tone}`}>{text}</span>;
 }
 
 function ImageComp({ component, ctx }: CompProps<"Image">) {

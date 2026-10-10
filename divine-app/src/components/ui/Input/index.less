@@ -40,14 +40,19 @@
   align-items: center;
 }
 
+/* 右侧附属槽（面板的 NumberField 拿它放单位「个 / 元」）。
+ * `right: 4px` 时单位几乎贴在输入框右边框上（2026-10-10 用户反馈），
+ * 改成与输入框自身水平内边距一致的 10px；`padding-right` 同步加到 44px，
+ * 把原生数字微调箭头也一起推离单位，两者不再挨着。
+ * 该槽目前全项目只有面板单位在用（grep `ui-input-action` 仅 registry 一处传入）。 */
 .ui-input-wrap.has-action .ui-input {
-  padding-right: 36px;
+  padding-right: 44px;
 }
 
 .ui-input-action {
   position: absolute;
   top: 50%;
-  right: 4px;
+  right: 10px;
   display: inline-flex;
   transform: translateY(-50%);
 }

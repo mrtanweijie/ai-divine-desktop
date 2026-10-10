@@ -281,8 +281,70 @@
   color: var(--color-danger);
 }
 
-.uis-badge {
-  font-size: 12px;
+/* Badge 有两种呈现，判据是**所在容器的方向**（见 registry `SurfaceLayoutContext`）：
+ *
+ * - `.is-note`（在 `Column` 里）：**圆点 + 文案**。纵向排列的是「逐条陈述」
+ *   —— 结论、状态、校验结果。药丸一多就成了一摞彩色胶囊，线与色同时吵。
+ * - `.is-chip`（在 `Row` 里）：**保留全局胶囊**，直接复用 `Tag` 组件。
+ *   横向并排的是「标记徽标」，如面板标题旁的「示例数据」—— 它就该是个标签。
+ *
+ * 判据为何不用 `tone`：实测两个面板证明 `tone` 分不开 ——「示例数据」是
+ * `warning`、「人均成本 1.52 万元」也是 `warning`，前者是标记、后者是陈述。
+ * 横 / 纵恰好对应这两类。
+ *
+ * 注：`.is-chip` 的样式全部来自 `Tag`（`components/ui/Tag`），这里一个字都不覆盖
+ * —— 胶囊是全局语形，配色必须与其它场景同源，不能各自维护一份。
+ */
+.uis-badge.is-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  color: var(--color-text);
+  font-size: 12.5px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* 行首圆点：6px。`margin-top: 6px` = 首行行高（12.5 × 1.5 ≈ 18.75）与圆点（6）
+ * 差值的一半，让圆点与第一行文字视觉居中，多行时也不会被拉长。 */
+.uis-badge.is-note::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+}
+
+.uis-badge.is-note.is-primary::before {
+  background: var(--color-accent);
+}
+.uis-badge.is-note.is-success::before {
+  background: var(--color-success);
+}
+.uis-badge.is-note.is-warning::before {
+  background: var(--color-warning);
+}
+.uis-badge.is-note.is-danger::before {
+  background: var(--color-danger);
+}
+
+/* 一串 Badge（同一列全是 Badge 且 ≥2，判据见 registry `isBadgeList`）合并成
+ * 一个内容块：一个外框（与 `.uis-table-scroll` 同规格 —— 两者都是「数据块」）
+ * + 行内边距。**单条 Badge 不画外框**，它就是一行带标记的文本。
+ *
+ * 行与行之间**不画分隔线**（2026-10-10 用户复审）：间距足够，线条越少越静。
+ */
+.uis-verdicts {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.uis-verdicts .uis-badge.is-note {
+  padding: 8px 12px;
 }
 
 .uis-image {
@@ -505,16 +567,31 @@
   cursor: pointer;
   transition:
     background 0.15s ease,
-    border-color 0.15s ease;
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .uis-choice-item:hover {
   background: var(--color-hover-soft);
 }
 
-.uis-choice-item.is-active {
-  border-color: var(--color-border-strong);
-  background: var(--color-accent-soft);
+/* 选中态（2026-10-10 用户反馈「多选选中的效果不明显」）。
+ *
+ * 原来只动两处：底色 `--color-accent-soft`（仅 8% 黑）、边框
+ * `--color-border-strong`（rgba(15,23,42,.18)）—— 浅色下几乎是同一个灰，
+ * 选没选中要靠数边框灰度，多选场景尤其糊。
+ *
+ * 现在三件事同时变，未选/已选一眼可辨：
+ * 1. 底色加深到 14%（color-mix，不新增 token）；
+ * 2. 边框取 `--color-accent`（浅色近黑 / 深色近白）—— 选中是**结果**，
+ *    值得一条实边框；这与「hover 不用强调色描边」不冲突，hover 仍未选态。
+ * 3. 文案从 secondary 提到 text 并加粗。
+ * 顺带显式写 `:hover` 组合：两条规则同权重，否则鼠标停在已选项上会被 hover 覆盖。
+ */
+.uis-choice-item.is-active,
+.uis-choice-item.is-active:hover {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
 
 .uis-choice-item.is-disabled {
@@ -522,9 +599,16 @@
   opacity: 0.65;
 }
 
+/* 未选文案压一档（secondary），已选回到 text + 加粗 —— 与上面的选中态配套，
+ * 否则两边同为 `--color-text`，「加粗」这一级差几乎看不出来。 */
 .uis-choice-label {
   font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.uis-choice-item.is-active .uis-choice-label {
   color: var(--color-text);
+  font-weight: 600;
 }
 
 .uis-choice-desc {

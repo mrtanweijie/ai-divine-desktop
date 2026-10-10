@@ -170,6 +170,9 @@ export function UISurfaceBlock({
     return renderComponentNode(component.component, component, ctx);
   };
 
+  // 只读的组件定义查询（容器判断子项类型用）；IR 不变则引用不变。
+  const getComponent = useCallback((id: string) => surface.components[id], [surface]);
+
   const ctx: SurfaceContext = {
     data: dataModel,
     setValue,
@@ -178,6 +181,7 @@ export function UISurfaceBlock({
     pendingActionId: pendingComponentId,
     resolve,
     renderChild,
+    getComponent,
     workspacePath,
   };
 
