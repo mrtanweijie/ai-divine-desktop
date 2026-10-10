@@ -112,7 +112,10 @@ def _surface_action_question(request: SurfaceActionRequest) -> str:
         f"{detail}\n"
         f"[面板交互] surface_id={request.surface_id}\n"
         "请针对这次操作**更新同一块面板**：调用 render_ui 时沿用上面这个 "
-        "surfaceId，不要新建面板；新结果用面板表达，正文只写一句简短结论。"
+        "surfaceId，不要新建面板；**保持原有组件的顺序与 id 不变**，只更新数据与"
+        "文案，要新增的结果/说明块**追加在你刚操作的那个分区之后** —— "
+        "不要挪到面板顶部（位置突变会让人找不到刚填的表单）；"
+        "新结果用面板表达，正文只写一句简短结论。"
     )
 
 

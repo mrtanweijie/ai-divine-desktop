@@ -39,6 +39,7 @@ import type {
   UIComponentName,
   UIGap,
   UIJustify,
+  UITableColumn,
   UITone,
 } from "./types";
 
@@ -104,6 +105,21 @@ function renderCell(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+/**
+ * 单元格取值：**行对象优先，二维数组兜底**。
+ *
+ * 契约是行对象（`row[column.key]`，见 `types.ts` 的 `Table.rows`），但「rows 必须是
+ * 行对象数组」原先只写在 TS 类型里、模型看不到 —— 实测（2026-10-10，`test-form-submit`）
+ * 模型给了 `[["姓名","/form/name","张三"], …]`，于是 `array["field"]` 恒为 undefined，
+ * 表格**行数对、格子全空**。形态说明已补进 `render_ui` 描述与 catalog，但已落库的
+ * 面板救不回来，所以这里按列序兜底，别让 IR 里明明有的数据白给。
+ */
+function cellValue(row: unknown, column: UITableColumn, columnIndex: number): unknown {
+  if (Array.isArray(row)) return row[columnIndex];
+  if (row && typeof row === "object") return (row as Record<string, unknown>)[column.key];
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,8 +236,8 @@ function TableComp({ component, ctx }: CompProps<"Table">) {
           <tbody>
             {rows.map((row, rowIndex) => (
               <tr key={rowIndex}>
-                {columns.map((column) => (
-                  <td key={column.key}>{renderCell(row?.[column.key])}</td>
+                {columns.map((column, columnIndex) => (
+                  <td key={column.key}>{renderCell(cellValue(row, column, columnIndex))}</td>
                 ))}
               </tr>
             ))}

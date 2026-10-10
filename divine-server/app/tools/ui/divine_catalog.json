@@ -294,7 +294,7 @@
           "type": "array",
           "required": true,
           "bindable": true,
-          "description": "行数据；**行数上限 200**，超出请改用 run_sql 之类工具导出文件"
+          "description": "行数据，**行对象数组**：每个元素是「列 key → 单元格值」的对象，如 [{\"field\": \"姓名\", \"value\": \"张三\"}]，**不要给二维数组**（[[\"姓名\",\"张三\"]]，前端按列 key 取值会全空）；**行数上限 200**，超出请改用 run_sql 之类工具导出文件"
         },
         "maxHeight": {
           "type": "integer",

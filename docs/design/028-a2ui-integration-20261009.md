@@ -675,33 +675,6 @@ S1（后端骨架）已落地。**三处与设计稿的有意偏差**记录在�
 
 ---
 
-## 7. 前端实现任务（文件级）
-
-| #   | 文件                                             | 动作 | 说明                                                                                                             |
-| --- | ---------------------------------------------- | -- | -------------------------------------------------------------------------------------------------------------- |
-| F1  | `src/pages/chat/components/UISurface/types.ts` | 新增 | 镜像 `divine_catalog.json`：`UIComponent` 联合类型 + 白名单键集 + 禁用键（`on*` / `__proto__` / `style` / `className`）         |
-| F2  | `.../UISurface/parseUISurface.ts`              | 新增 | 纵深防御解析：逐组件白名单裁剪、引用完整性、环检测；**非法就返回 null，绝不抛**（对照 `GraphIR.ts` L244-355）                                         |
-| F3  | `.../UISurface/registry.tsx`                   | 新增 | `Record<string, ComponentType<CompProps>>`，A/B/C/D 组按 §4.2 映射                                                  |
-| F4  | `.../UISurface/UISurfaceBlock.tsx`             | 新增 | 渲染根 + 状态容器（dataModel 在 React state 里）                                                                          |
-| F5  | `.../UISurface/dataModel.ts`                   | 新增 | `{path}` 取值/写值（RFC 6901 子集）+ 变更订阅                                                                              |
-| F6  | `.../UISurface/useSurfaceAction.ts`            | 新增 | 收集 context + dataModel → `POST /api/chat/surface-action`；乐观置 `pendingActionId`；失败回滚 + Toast                    |
-| F7  | `src/services/sse.ts`                          | 改  | L10-28 `SSEHandlers` 增 `a2ui`                                                                                  |
-| F8  | `src/pages/chat/hooks/useChatStream.ts`        | 改  | L134-325 增 `a2ui` handler：`surfaceStore.upsert()` → 写回 `setSessionMessages` 的 `surfaces`                       |
-| F9  | `src/pages/chat/state/surfaceStore.ts`         | 新增 | 纯 reducer：`createSurface / updateComponents / updateDataModel / deleteSurface`；`seq` 乱序丢弃；**独立于 messageStore** |
-| F10 | `src/types.ts`                                 | 改  | L31-37 加 `"ui_surface"`；L218-251 `ChatMessage` 加 `surfaces?`                                                   |
-| F11 | `.../MessageItem/index.tsx`                    | 改  | L235-260 之后插入 `UISurfaceBlock`                                                                                 |
-| F12 | `src/styles/…UISurface.less`                   | 新增 | 全部走现有 CSS token；类名统一 `uis-` 前缀（防全局类名互染，参照 `.diff-view` 事故）                                                     |
-| F13 | `.../MessageItem/ToolFileList.tsx`             | 改  | 抽出可复用的行渲染子组件供 `FileList` 组件复用                                                                                  |
-| F14 | i18n 三套 `translation.json`                     | 改  | 面板标题、动作进行中/失败、"面板已过期，可点击继续"等文案                                                                                 |
-| F15 | 历史回放                                           | 改  | 加载历史时从 `ui_surface` part 重建；**最近一块** `"live"`、其余 `"closed"`，同 `surfaceId` 只留一块（`resolveSurfaces`，§6.7）。⚠️ `"closed"` 的「在新回合继续」按钮**尚未实现**，当前只是整块禁用                                                   |
-| F16 | `.../UISurface/uiSurfaceStateStore.ts`         | 新增 | 模块级 Map（跨 mount 存活）+ 防抖写 DB + 提交后清理；镜像 `ChoiceBlock` 的 `choiceStateStore` 策略（§5.5 ① ②）                     |
-
-**约束遵守**：
-
-- 确认类按钮一律用 `components/ui/Button`（禁原生 `<button>`）。
-- 不做 CSS Modules（沿用现有 Less + `uis-` 前缀策略）。
-- 未主动跑 tsc / vite build（按项目约定）。
-
 ### 6.10 实施记录（2026-10-10 · 修正：底部说明里的 ` ```options ` 围栏被吞）
 
 **现象（实时落库数据，非推测）**：点「重新测算」后，面板底部那行说明**整段显示成裸 JSON**，模型追问的「接下来需要我做什么？」三个选项**点不到**。
@@ -732,6 +705,60 @@ S1（后端骨架）已落地。**三处与设计稿的有意偏差**记录在�
 - `eslint` 干净。**未跑 tsc/build**（按约定），**未提交**。
 
 ---
+
+### 6.11 实施记录（2026-10-10 · 修：表格空白 + 更新面板乱序）
+
+**现象一：`Table` 有表头、无数据。** 实时库 IR（`surfaceId=test-form-submit`）里 `rows` **数据是齐的**（7 行 × 3 列），前端却整片空白。
+
+**根因是契约缺失，不是模型乱来**：「`rows` 必须是**行对象数组**」这个约束**只写在 TS 类型**（`types.ts` 的 `Table.rows: UIBindable<Record<string, unknown>[]>`）里，**模型看不到** —— `render_ui` 速查只有 `Table{columns:[{key,title}], rows, maxHeight}`，`catalog.py` 的 `rows` 也只说「行数据；行数上限 200」，而 `validator._check_table_rows` 只校验行数上限、**不校验元素形态**。于是模型给二维数组 `[["姓名","/form/name","张三"], …]` 一路绿灯；渲染侧是 `row?.[column.key]` → `数组["field"]` 恒 `undefined` → **行数对、格子全空**。
+
+**现象二：结果块跑到表单上方。** 09:17:16 的静默回合里模型把面板从 16 个组件扩到 22 个，`root.children` 重排成 `[t-title, t-desc, row-badge, card-result, card-form, row-actions]` —— 新增的「服务端收到的值」块被插到了**表单前面**。当时 `_surface_action_question` 只说「沿用同一 surfaceId、不要新建面板」，**一个字都没提顺序**；模型重新生成整块 IR 时按「重要信息在上」重排，把用户正在操作的表单顶了下去。
+
+| 文件 | 动作 | 说明 |
+| --- | --- | --- |
+| `UISurface/registry.tsx` | 改 | 新增 `cellValue(row, column, index)`：**行对象优先（`row[column.key]`），二维数组按下标兜底**。已落库的面板**立刻**恢复显示，不用重建 sidecar、不用回填数据 |
+| `render_ui.py` | 改 | 速查表改为 `Table{columns:[{key,title}], rows:[{列key:值}]（**行对象数组，不是二维数组**）, maxHeight}` |
+| `catalog.py` + `divine_catalog.json` | 改 | `rows` 描述写明「行对象数组」并给 `[{"field":"姓名","value":"张三"}]` 样例；产物按漂移守卫同步重生成 |
+| `api/chat.py` | 改 | `_surface_action_question` 追加：**保持原有组件的顺序与 id 不变**、新增结果/说明块**追加在刚操作的分区之后**（不要挪到顶部） |
+
+**边界决策**：**validator 不加「拒绝二维数组」**。前端已兜底、模型可见文档已写明形态，再让校验器硬拒只会让模型多耗一轮重试、失败时面板完全不更新 —— 收益（契约更硬）不抵代价。
+
+**验证**：
+
+- `test_a2ui_persistence.py` + `test_render_ui.py` **86 passed**（含 catalog 产物漂移守卫、新增的两条顺序断言）。
+- CDP 直连 8010 同一会话实测：同一块面板（**未重建 sidecar、未改数据**）`.uis-table` 读出 **7 行 × 3 列 = 21 个非空格子**，内容与 IR 逐值一致。截图见对话附件。
+- **顺序修复需重建 sidecar 才生效**，且**只影响后续回合** —— 已落库的那块面板顺序不会自动改变。
+
+**顺带修正**：本节（§6.10）原先被插在了 §7 章节内部（上一轮锚点选到了 §7 的「约束遵守」之后），已移回 §6；§6.1–6.11 现为连续序列。
+
+---
+
+## 7. 前端实现任务（文件级）
+
+| #   | 文件                                             | 动作 | 说明                                                                                                             |
+| --- | ---------------------------------------------- | -- | -------------------------------------------------------------------------------------------------------------- |
+| F1  | `src/pages/chat/components/UISurface/types.ts` | 新增 | 镜像 `divine_catalog.json`：`UIComponent` 联合类型 + 白名单键集 + 禁用键（`on*` / `__proto__` / `style` / `className`）         |
+| F2  | `.../UISurface/parseUISurface.ts`              | 新增 | 纵深防御解析：逐组件白名单裁剪、引用完整性、环检测；**非法就返回 null，绝不抛**（对照 `GraphIR.ts` L244-355）                                         |
+| F3  | `.../UISurface/registry.tsx`                   | 新增 | `Record<string, ComponentType<CompProps>>`，A/B/C/D 组按 §4.2 映射                                                  |
+| F4  | `.../UISurface/UISurfaceBlock.tsx`             | 新增 | 渲染根 + 状态容器（dataModel 在 React state 里）                                                                          |
+| F5  | `.../UISurface/dataModel.ts`                   | 新增 | `{path}` 取值/写值（RFC 6901 子集）+ 变更订阅                                                                              |
+| F6  | `.../UISurface/useSurfaceAction.ts`            | 新增 | 收集 context + dataModel → `POST /api/chat/surface-action`；乐观置 `pendingActionId`；失败回滚 + Toast                    |
+| F7  | `src/services/sse.ts`                          | 改  | L10-28 `SSEHandlers` 增 `a2ui`                                                                                  |
+| F8  | `src/pages/chat/hooks/useChatStream.ts`        | 改  | L134-325 增 `a2ui` handler：`surfaceStore.upsert()` → 写回 `setSessionMessages` 的 `surfaces`                       |
+| F9  | `src/pages/chat/state/surfaceStore.ts`         | 新增 | 纯 reducer：`createSurface / updateComponents / updateDataModel / deleteSurface`；`seq` 乱序丢弃；**独立于 messageStore** |
+| F10 | `src/types.ts`                                 | 改  | L31-37 加 `"ui_surface"`；L218-251 `ChatMessage` 加 `surfaces?`                                                   |
+| F11 | `.../MessageItem/index.tsx`                    | 改  | L235-260 之后插入 `UISurfaceBlock`                                                                                 |
+| F12 | `src/styles/…UISurface.less`                   | 新增 | 全部走现有 CSS token；类名统一 `uis-` 前缀（防全局类名互染，参照 `.diff-view` 事故）                                                     |
+| F13 | `.../MessageItem/ToolFileList.tsx`             | 改  | 抽出可复用的行渲染子组件供 `FileList` 组件复用                                                                                  |
+| F14 | i18n 三套 `translation.json`                     | 改  | 面板标题、动作进行中/失败、"面板已过期，可点击继续"等文案                                                                                 |
+| F15 | 历史回放                                           | 改  | 加载历史时从 `ui_surface` part 重建；**最近一块** `"live"`、其余 `"closed"`，同 `surfaceId` 只留一块（`resolveSurfaces`，§6.7）。⚠️ `"closed"` 的「在新回合继续」按钮**尚未实现**，当前只是整块禁用                                                   |
+| F16 | `.../UISurface/uiSurfaceStateStore.ts`         | 新增 | 模块级 Map（跨 mount 存活）+ 防抖写 DB + 提交后清理；镜像 `ChoiceBlock` 的 `choiceStateStore` 策略（§5.5 ① ②）                     |
+
+**约束遵守**：
+
+- 确认类按钮一律用 `components/ui/Button`（禁原生 `<button>`）。
+- 不做 CSS Modules（沿用现有 Less + `uis-` 前缀策略）。
+- 未主动跑 tsc / vite build（按项目约定）。
 
 ## 8. 交互回流（Action）设计
 

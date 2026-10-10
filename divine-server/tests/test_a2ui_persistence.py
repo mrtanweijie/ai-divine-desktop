@@ -539,6 +539,10 @@ def test_surface_action_question_asks_to_refresh_same_panel() -> None:
     # 不写的话模型会另起一块面板 → 用户又得滚下去找结果
     assert "surface_id=cost_dashboard_v2" in text
     assert "不要新建面板" in text
+    # 结构稳定性同样必须进正文：实测（2026-10-10）模型原地更新时把新增的结果块
+    # 插到了面板**顶部**，用户刚填的表单被顶下去，找不到自己在操作什么。
+    assert "保持原有组件的顺序" in text
+    assert "追加在你刚操作的那个分区之后" in text
 
 
 def test_session_preview_skips_surface_action_messages(db_env) -> None:

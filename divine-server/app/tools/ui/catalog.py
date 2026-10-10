@@ -253,7 +253,12 @@ COMPONENTS: dict[str, dict[str, Any]] = {
                 "array",
                 required=True,
                 bindable=True,
-                desc=f"行数据；**行数上限 {MAX_TABLE_ROWS}**，超出请改用 run_sql 之类工具导出文件",
+                desc=(
+                    "行数据，**行对象数组**：每个元素是「列 key → 单元格值」的对象，"
+                    '如 [{"field": "姓名", "value": "张三"}]，'
+                    "**不要给二维数组**（[[\"姓名\",\"张三\"]]，前端按列 key 取值会全空）；"
+                    f"**行数上限 {MAX_TABLE_ROWS}**，超出请改用 run_sql 之类工具导出文件"
+                ),
             ),
             "maxHeight": _p("integer", desc="内部滚动高度（px），建议 ≤ 320"),
             "caption": _p("string", bindable=True),
