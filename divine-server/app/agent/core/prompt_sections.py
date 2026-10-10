@@ -736,6 +736,22 @@ _CHART_RULES = """当用户要求画图、展示趋势/对比/占比/分布等�
 filepath；再在正文组织完整 Markdown，用 ![图表标题](<filepath>) 插入图表，
 最后调用 pdf_generate 并传 markdown 参数，不要只传 prompt。"""
 
+# A2UI_SECTION — 交互面板（render_ui）：何时用 / 组件速查 / 硬约束与禁令。
+# **≤ 12 行**（028 §10.1 ②）：只当 cheat-sheet，不重复工具 DESCRIPTION 里已有的
+# 属性细节——重复既费 token 又破坏前缀缓存（稳定节前置就是为了命中缓存）。
+_A2UI_SECTION = """【交互面板 render_ui】默认**不要调用**。同时满足两条才用：
+①需要**组合**呈现（≥3 类内容组织在一起，如「结论 + 数据表 + 操作按钮」）；
+②或用户**要在界面里改动/操作**（调参数、勾选、点按钮触发下一步）。
+只要展示结论——一张图用 generate_chart、一张表用 Markdown 表格、一段可点选项用 options 卡片——都不要用本工具。
+组件速查（属性见工具说明）：布局 Column/Row/Card/Divider；展示 Text/Badge/Image/Table/Progress/Steps；
+输入 TextField/TextArea/NumberField/Select/ChoicePicker/Checkbox/Switch；动作 Button；
+富媒体 Chart/Graph/FileList（同屏合计 ≤2 个且同类各限 1）。
+硬约束：必须有且仅有一个 id 为 root 的根组件、其余组件从它可达；只能用上述组件名；
+按钮动作必须是内置动作（submit/cancel/refresh/dismiss/open）或已在 surface.actions 里登记过的业务动作；
+输入控件的 value/checked 用 {"path": "/x"} 绑定 data 里的值，面板内改动能随动作回流。
+禁止项：禁坐标、禁色值、禁样式、禁 HTML、禁脚本——颜色只用 tone 语义色，深浅色由客户端主题决定。
+反例：数据超过 200 行 → 用工具导出成文件，不要塞进 Table；面板渲染后不要在正文重复面板里的数据，只给结论或下一步建议。"""
+
 # FILE_AND_WEB_RULES — 文件读取与网页抓取：read_file、Excel、禁止 cat/python 读文件、web_search / web_fetch_batch、工作区外确认
 _FILE_AND_WEB_RULES = """读取文件内容必须使用 read_file、word_document 等专用工具；
 读取大文件时使用 read_file 的 start_line/end_line 只读取需要的行段；

@@ -18,9 +18,10 @@ from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.prebuilt import ToolRuntime
 
+from ...config import settings_store
 from ...skills import skill_registry
 from ...tools.registry import registry
-from ..core import MAX_TOOL_TURNS, _READ_ONLY_TOOLS
+from ..core import A2UI_INTENTS, MAX_TOOL_TURNS, _READ_ONLY_TOOLS
 from ..core import AgentRunContext
 from .execution import _handle_adapter_call
 from ..middleware import (
@@ -80,6 +81,11 @@ _CONTENT_TOOLS: dict[str, str | tuple[str, ...]] = {
     "discover_importable_skills": "skill",
     "preview_skill_repo": "skill",
     "run_subagents": "subagent",
+    # render_ui 的判据必须与提示词节 _A2UI_SECTION 的挂载完全一致
+    # （core.constants.A2UI_INTENTS 是唯一真源，028 §10.1 ③）。
+    # 注意：intents 为空时 _content_tool_allowed 全量放行，所以「无信号的
+    # 追问轮」仍拿得到面板工具，不会因意图漏判而「该用用不了」。
+    "render_ui": A2UI_INTENTS,
 }
 
 
@@ -122,15 +128,36 @@ def _content_tool_allowed(name: str, intents: set[str] | frozenset[str]) -> bool
     return bool(needed & intents)
 
 
+def _ui_a2ui_enabled() -> bool:
+    """A2UI 交互面板总开关（默认关闭）。
+
+    settings 是**扁平** dict，所以键写成 ``ui_a2ui_enabled`` 而不是设计文档
+    里的点号路径 ``ui.a2ui.enabled``。
+
+    关闭时 ``render_ui`` 根本不进工具列表 —— 模型「看不见就调不到」，
+    这是开关生效的第一道（也是唯一必要的一道）闸门，
+    见 docs/design/028-a2ui-integration-20261009.md §10.1 ②。
+    """
+    try:
+        return bool(settings_store.load().get("ui_a2ui_enabled"))
+    except Exception:  # noqa: BLE001 — 读设置失败不能阻断工具构建
+        logger.exception("读取 ui_a2ui_enabled 失败，按关闭处理")
+        return False
+
+
 def _build_tools(ctx: AgentRunContext) -> list[StructuredTool]:
     """Build the full tool set for a session, including installed skills."""
     tools: list[StructuredTool] = []
     skill_registry.refresh(ctx.workspace)
     lock = _TOOL_LOCKS.setdefault(ctx.session_id, asyncio.Lock())
     intents = ctx.intents
+    a2ui_enabled = _ui_a2ui_enabled()
     for meta in registry.list():
         name = meta["name"]
         if name == "create_plan":
+            continue
+        # A2UI 面板：总开关关闭时整块工具下线（不注入、不可见、不可调）。
+        if name == "render_ui" and not a2ui_enabled:
             continue
         # 意图工具裁减：内容创作/技能类工具仅当对应意图命中时注入。
         if not _content_tool_allowed(name, intents):

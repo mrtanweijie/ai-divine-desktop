@@ -16,8 +16,9 @@ from typing import Any
 
 from ... import db
 from ...config import DEFAULT_LOCAL_LLM_THRESHOLD
-from ..core import SYSTEM_PROMPT
+from ..core import A2UI_INTENTS, SYSTEM_PROMPT
 from ..core.prompt_sections import (
+    _A2UI_SECTION,
     _CHART_RULES,
     _DATA_TOOL_RULES,
     _DOCUMENT_RULES,
@@ -72,6 +73,16 @@ CONDITIONAL_SECTIONS: dict[str, tuple[str, ...]] = {
     "project": (_PROJECT_WORKFLOW,),
     "memory": (_MEMORY_RULES,),
 }
+
+# A2UI 面板节（_A2UI_SECTION）挂到 A2UI_INTENTS 的每个意图上——**与
+# tools.py 里 render_ui 的工具可见性共用同一份判据**（core.constants.A2UI_INTENTS），
+# 否则会出现「提示词说了但工具没挂上」或反之（028 §10.1 ③）。
+# 节内容在 split_rule_sections 里按 `seen` 去重，因此一个回合命中多个意图时
+# 也只会注入一次。
+for _a2ui_intent in A2UI_INTENTS:
+    CONDITIONAL_SECTIONS[_a2ui_intent] = CONDITIONAL_SECTIONS.get(
+        _a2ui_intent, ()
+    ) + (_A2UI_SECTION,)
 
 # 条件节输出顺序（对齐旧版 SYSTEM_PROMPT 中规则块的原始顺序，保持输出稳定）
 _INTENT_ORDER: tuple[str, ...] = (

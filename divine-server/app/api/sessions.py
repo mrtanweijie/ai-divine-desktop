@@ -16,7 +16,12 @@ from ..localization import (
     normalize_locale,
 )
 from ..docgen.pdf.export import render_markdown_pdf
-from ..schemas import ChoiceStateUpdate, SessionCreate, SessionUpdate
+from ..schemas import (
+    ChoiceStateUpdate,
+    SessionCreate,
+    SessionUpdate,
+    UiSurfaceStateUpdate,
+)
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 logger = logging.getLogger("divine.sessions")
@@ -102,6 +107,9 @@ def delete_session(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
     db.pause_tasks_for_session(session_id)
+    # 面板编辑态没有外键（surface_id 是主键，不指向 messages），
+    # 必须与会话一起显式清理，否则会残留成孤儿数据。
+    db.clear_session_ui_surface_states(session_id)
     db.delete_session(session_id)
     logger.info("session deleted id=%s", session_id)
 
@@ -117,12 +125,52 @@ def update_message_choice_state(message_id: str, payload: ChoiceStateUpdate):
     return {"message": state}
 
 
+@router.post("/{session_id}/ui-surface-state")
+def update_ui_surface_state(session_id: str, payload: UiSurfaceStateUpdate):
+    """保存 A2UI 面板的编辑态（用户改了但还没提交的值），抗刷新。
+
+    design 028 §5.5 ②。前端是**防抖写**（400ms），失败不阻塞交互 ——
+    所以这里只做最朴素的覆盖写，不做任何业务校验（面板已经在渲染期
+    校验过了，这里存的是用户输入值）。
+
+    **为什么按会话而不是按消息**：`ui_surface_states` 的主键是
+    `surface_id`（§5.5 的 B 方案），会话只是它的归属范围。而消息 id 在
+    流式期间还是前端乐观 id（`local-assistant-*`），拿它当写入口会让
+    "面板刚出现、回合还没结束时的编辑"直接 404；`done` 恢复后 id 换成
+    服务端 id，同一块面板又会换一个 key。按会话写就绕开了这层漂移。
+    写入的 `message_id` 只作回放定位用的元信息，**不参与校验**。
+    """
+    if db.get_session(session_id) is None:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    db.save_ui_surface_state(
+        payload.surface_id,
+        payload.data or {},
+        message_id=payload.message_id or "",
+        session_id=session_id,
+    )
+    return {"ok": True}
+
+
+@router.get("/{session_id}/ui-surface-states")
+def list_ui_surface_states(session_id: str):
+    """取该会话下全部面板编辑态（前端加载历史后一次性恢复）。
+
+    design 028 §5.5 ② 的读取端。按会话一次性返回，而不是每个面板一次请求 ——
+    长会话里几十块面板逐个拉会把恢复变成几十次往返。
+    """
+    if db.get_session(session_id) is None:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return {"states": db.list_session_ui_surface_states(session_id)}
+
+
 @router.post("/{session_id}/clear")
 def clear_session(session_id: str):
     session = db.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
     db.clear_messages(session_id)
+    # A2UI 面板编辑态一并清空（消息没了，编辑态就失去宿主）。
+    db.clear_session_ui_surface_states(session_id)
     # 决策 4：预整理原文附件随会话清空删除。
     # 路径必须与 preprocess.py 落盘位置一致：
     # workspace/sessions/{session_id}/attachments/

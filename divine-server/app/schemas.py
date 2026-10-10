@@ -106,6 +106,49 @@ class ChoiceStateUpdate(BaseModel):
     state: dict[str, Any] | None = None
 
 
+class UiSurfaceStateUpdate(BaseModel):
+    """面板编辑态（用户改了但没提交的值），抗刷新（design 028 §5.5 ②）。
+
+    与 `choice_state` 分开存：那是"选项卡片的已选态"，这是"A2UI 面板的
+    输入控件当前值"，语义与体量都不同（后者可能很大）。
+    """
+
+    surface_id: str = Field(min_length=1, max_length=120)
+    #: 面板所属 assistant 消息（可空）。**仅作回放定位的元信息**：
+    #: 流式期间这个 id 还是前端乐观 id，所以它不参与任何校验。
+    message_id: str = ""
+    data: dict[str, Any] = {}
+
+
+class SurfaceActionRequest(BaseModel):
+    """A2UI 面板动作 → 新回合（design 028 §8.1）。
+
+    动作**不是**特权通道：服务端把它写成一条**可见的 user 消息**再跑常规回合
+    （不做隐藏注入 —— 隐藏注入会绕过 steering / plan / 工具预算这些既有中间件）。
+    因此这一步在 agent 内核上是零侵入的。
+    """
+
+    session_id: str
+    #: 面板所属的 assistant 消息（定位与回显用；可为空）
+    message_id: str = ""
+    surface_id: str = ""
+    #: 幂等键，60s 内重复只跑一轮
+    action_id: str = Field(min_length=1, max_length=120)
+    name: str = Field(min_length=1, max_length=64)
+    #: 按钮文案（可见 user 消息正文的主体）
+    label: str = ""
+    #: action.context 的求值结果（会写进正文，见 §8.2 的 ⚠️）
+    context: dict[str, Any] = {}
+    #: 提交瞬间的面板状态（只入 part 供回放/分析，不进模型上下文）
+    data_model: dict[str, Any] = {}
+    approval_mode: str | None = None
+    think: bool = False
+    reasoning_effort: ReasoningEffort | None = None
+    locale: str | None = None
+    ui_theme: str | None = None
+    model_id: str | None = None
+
+
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     path: str | None = None

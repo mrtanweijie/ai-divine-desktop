@@ -1,0 +1,652 @@
+{
+  "catalogId": "https://divine.local/catalogs/divine-ui/v0_9_1.json",
+  "a2uiVersion": "v0.9.1",
+  "groups": {
+    "layout": "布局",
+    "display": "展示",
+    "input": "输入",
+    "action": "动作",
+    "media": "富媒体"
+  },
+  "limits": {
+    "maxComponents": 120,
+    "maxDepth": 12,
+    "maxRichMedia": 2,
+    "maxChart": 1,
+    "maxGraph": 1,
+    "maxTableRows": 200,
+    "maxFileItems": 50,
+    "maxActions": 8,
+    "maxChartOptionChars": 40000,
+    "maxSurfaceChars": 200000
+  },
+  "actions": {
+    "builtin": [
+      "submit",
+      "cancel",
+      "refresh",
+      "dismiss",
+      "open"
+    ],
+    "namePattern": "^[a-z][a-z0-9_]{0,31}$"
+  },
+  "tones": [
+    "default",
+    "primary",
+    "success",
+    "warning",
+    "danger"
+  ],
+  "components": {
+    "Column": {
+      "group": "layout",
+      "label": "纵向容器",
+      "props": {
+        "children": {
+          "type": "children",
+          "required": true,
+          "bindable": false,
+          "description": "子组件 id 列表，顺序即渲染顺序"
+        },
+        "gap": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "none",
+            "sm",
+            "md",
+            "lg"
+          ],
+          "default": "md"
+        },
+        "align": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "stretch"
+          ],
+          "default": "stretch"
+        },
+        "justify": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "between"
+          ],
+          "default": "start"
+        }
+      }
+    },
+    "Row": {
+      "group": "layout",
+      "label": "横向容器",
+      "props": {
+        "children": {
+          "type": "children",
+          "required": true,
+          "bindable": false,
+          "description": "子组件 id 列表"
+        },
+        "gap": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "none",
+            "sm",
+            "md",
+            "lg"
+          ],
+          "default": "sm"
+        },
+        "align": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "stretch"
+          ],
+          "default": "center"
+        },
+        "wrap": {
+          "type": "boolean",
+          "required": false,
+          "bindable": false,
+          "description": "超宽是否换行",
+          "default": false
+        }
+      }
+    },
+    "Card": {
+      "group": "layout",
+      "label": "卡片容器",
+      "props": {
+        "child": {
+          "type": "child",
+          "required": true,
+          "bindable": false,
+          "description": "内容组件 id（单个）"
+        },
+        "title": {
+          "type": "string",
+          "required": false,
+          "bindable": true,
+          "description": "卡片标题（可选）"
+        },
+        "tone": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "default",
+            "primary",
+            "success",
+            "warning",
+            "danger"
+          ],
+          "default": "default"
+        }
+      }
+    },
+    "Divider": {
+      "group": "layout",
+      "label": "分隔线",
+      "props": {
+        "orientation": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "horizontal",
+            "vertical"
+          ],
+          "default": "horizontal"
+        }
+      }
+    },
+    "Text": {
+      "group": "display",
+      "label": "文本",
+      "props": {
+        "text": {
+          "type": "string",
+          "required": true,
+          "bindable": true,
+          "description": "纯文本；**不解析 HTML/Markdown**（富文本走正文的 MarkdownView）"
+        },
+        "variant": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "body",
+            "caption"
+          ],
+          "default": "body"
+        },
+        "tone": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "default",
+            "primary",
+            "success",
+            "warning",
+            "danger"
+          ],
+          "default": "default"
+        }
+      }
+    },
+    "Badge": {
+      "group": "display",
+      "label": "徽标",
+      "props": {
+        "text": {
+          "type": "string",
+          "required": true,
+          "bindable": true,
+          "description": ""
+        },
+        "tone": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "default",
+            "primary",
+            "success",
+            "warning",
+            "danger"
+          ],
+          "default": "default"
+        }
+      }
+    },
+    "Image": {
+      "group": "display",
+      "label": "图片",
+      "props": {
+        "url": {
+          "type": "string",
+          "required": true,
+          "bindable": false,
+          "description": "仅 http(s) 或工作区相对路径；拒绝 .. / 绝对路径 / file: / data: / javascript:"
+        },
+        "alt": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "无障碍描述，建议填写"
+        },
+        "aspectRatio": {
+          "type": "number",
+          "required": false,
+          "bindable": false,
+          "description": "宽高比（w/h）。**必填以预留高度**，防虚拟列表抖动（044 §16.4）"
+        },
+        "caption": {
+          "type": "string",
+          "required": false,
+          "bindable": true,
+          "description": ""
+        }
+      }
+    },
+    "Table": {
+      "group": "display",
+      "label": "数据表",
+      "props": {
+        "columns": {
+          "type": "columns",
+          "required": true,
+          "bindable": false,
+          "description": "列定义 [{key, title, width?}]；key 对应行对象字段"
+        },
+        "rows": {
+          "type": "array",
+          "required": true,
+          "bindable": true,
+          "description": "行数据；**行数上限 200**，超出请改用 run_sql 之类工具导出文件"
+        },
+        "maxHeight": {
+          "type": "integer",
+          "required": false,
+          "bindable": false,
+          "description": "内部滚动高度（px），建议 ≤ 320"
+        },
+        "caption": {
+          "type": "string",
+          "required": false,
+          "bindable": true,
+          "description": ""
+        }
+      }
+    },
+    "Progress": {
+      "group": "display",
+      "label": "进度条",
+      "props": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "bindable": true,
+          "description": "0..1"
+        },
+        "label": {
+          "type": "string",
+          "required": false,
+          "bindable": true,
+          "description": ""
+        },
+        "tone": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "default",
+            "primary",
+            "success",
+            "warning",
+            "danger"
+          ],
+          "default": "default"
+        }
+      }
+    },
+    "Steps": {
+      "group": "display",
+      "label": "步骤条",
+      "props": {
+        "items": {
+          "type": "steps",
+          "required": true,
+          "bindable": false,
+          "description": "步骤 [{label, status}]，status ∈ pending|active|done|error"
+        },
+        "caption": {
+          "type": "string",
+          "required": false,
+          "bindable": true,
+          "description": ""
+        }
+      }
+    },
+    "TextField": {
+      "group": "input",
+      "label": "单行输入",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "bindable": false,
+          "description": ""
+        },
+        "value": {
+          "type": "string",
+          "required": true,
+          "bindable": true,
+          "description": "绑定 data 里的路径"
+        },
+        "placeholder": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": ""
+        },
+        "required": {
+          "type": "boolean",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "default": false
+        }
+      }
+    },
+    "TextArea": {
+      "group": "input",
+      "label": "多行输入",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "bindable": false,
+          "description": ""
+        },
+        "value": {
+          "type": "string",
+          "required": true,
+          "bindable": true,
+          "description": ""
+        },
+        "rows": {
+          "type": "integer",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "default": 4
+        }
+      }
+    },
+    "NumberField": {
+      "group": "input",
+      "label": "数字输入",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "bindable": false,
+          "description": ""
+        },
+        "value": {
+          "type": "number",
+          "required": true,
+          "bindable": true,
+          "description": ""
+        },
+        "min": {
+          "type": "number",
+          "required": false,
+          "bindable": false,
+          "description": ""
+        },
+        "max": {
+          "type": "number",
+          "required": false,
+          "bindable": false,
+          "description": ""
+        },
+        "step": {
+          "type": "number",
+          "required": false,
+          "bindable": false,
+          "description": ""
+        },
+        "unit": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "单位后缀，如 % / 万"
+        }
+      }
+    },
+    "Select": {
+      "group": "input",
+      "label": "下拉选择",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "bindable": false,
+          "description": ""
+        },
+        "value": {
+          "type": "string",
+          "required": true,
+          "bindable": true,
+          "description": ""
+        },
+        "options": {
+          "type": "options",
+          "required": true,
+          "bindable": false,
+          "description": "[{value, label}]"
+        }
+      }
+    },
+    "ChoicePicker": {
+      "group": "input",
+      "label": "选项卡片",
+      "props": {
+        "value": {
+          "type": "string",
+          "required": true,
+          "bindable": true,
+          "description": "多选时用逗号分隔"
+        },
+        "options": {
+          "type": "options",
+          "required": true,
+          "bindable": false,
+          "description": "[{value, label, desc?}]"
+        },
+        "multiple": {
+          "type": "boolean",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "default": false
+        }
+      }
+    },
+    "Checkbox": {
+      "group": "input",
+      "label": "复选框",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "bindable": false,
+          "description": ""
+        },
+        "checked": {
+          "type": "boolean",
+          "required": true,
+          "bindable": true,
+          "description": ""
+        }
+      }
+    },
+    "Switch": {
+      "group": "input",
+      "label": "开关",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "bindable": false,
+          "description": ""
+        },
+        "checked": {
+          "type": "boolean",
+          "required": true,
+          "bindable": true,
+          "description": ""
+        }
+      }
+    },
+    "Button": {
+      "group": "action",
+      "label": "按钮",
+      "props": {
+        "text": {
+          "type": "string",
+          "required": true,
+          "bindable": true,
+          "description": ""
+        },
+        "variant": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "enum": [
+            "primary",
+            "ghost",
+            "danger"
+          ],
+          "default": "primary"
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "bindable": false,
+          "description": "",
+          "default": false
+        },
+        "action": {
+          "type": "action",
+          "required": true,
+          "bindable": false,
+          "description": "动作 {name, context?}；name 必须是内置动作（submit|cancel|refresh|dismiss|open）或在 surface.actions 里登记过的业务动作"
+        }
+      }
+    },
+    "Chart": {
+      "group": "media",
+      "label": "图表",
+      "props": {
+        "option": {
+          "type": "chartOption",
+          "required": true,
+          "bindable": false,
+          "description": "ECharts option（与 generate_chart 的产物同形态）。**不要写 color/backgroundColor/textStyle/animation**：深浅色由前端主题决定，写了也会被剥掉（044 §9.4）"
+        },
+        "height": {
+          "type": "integer",
+          "required": false,
+          "bindable": false,
+          "description": "预留高度 px。**必须给足**，否则加载完会撑高、让虚拟列表滚动跳动",
+          "default": 260
+        },
+        "caption": {
+          "type": "string",
+          "required": false,
+          "bindable": true,
+          "description": ""
+        }
+      }
+    },
+    "Graph": {
+      "group": "media",
+      "label": "关系图",
+      "props": {
+        "ir": {
+          "type": "graphIR",
+          "required": true,
+          "bindable": false,
+          "description": "GraphIR（与 render_graph 同一份契约）。最省事的办法是直接复用 render_graph 那次调用里已经通过的 IR"
+        },
+        "height": {
+          "type": "integer",
+          "required": false,
+          "bindable": false,
+          "description": "预留高度 px；X6 异步创建，必须自留高度",
+          "default": 320
+        },
+        "caption": {
+          "type": "string",
+          "required": false,
+          "bindable": true,
+          "description": ""
+        }
+      }
+    },
+    "FileList": {
+      "group": "media",
+      "label": "文件列表",
+      "props": {
+        "files": {
+          "type": "fileItems",
+          "required": true,
+          "bindable": false,
+          "description": "文件项 [{name, path?, size?}]，**上限 50 项**。path 为工作区内相对路径（禁绝对路径与 ..）；图标按 name 的扩展名自动选，不必自己指定"
+        },
+        "caption": {
+          "type": "string",
+          "required": false,
+          "bindable": true,
+          "description": ""
+        }
+      }
+    }
+  }
+}

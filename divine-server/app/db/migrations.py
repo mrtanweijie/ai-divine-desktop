@@ -45,6 +45,17 @@ CREATE TABLE IF NOT EXISTS message_parts (
     "order" INTEGER NOT NULL DEFAULT 0
 );
 
+-- A2UI 面板的「编辑态」：用户改了但还没提交的输入值（design 028 §5.5 ②）。
+-- 独立于 messages：它不是对话内容，也不该进 LLM 上下文；按 surface_id 覆盖写
+-- （不堆行），只存 dirty 字段。对标 messages.choice_state，但语义与体量都不同。
+CREATE TABLE IF NOT EXISTS ui_surface_states (
+    surface_id TEXT PRIMARY KEY,
+    message_id TEXT NOT NULL DEFAULT '',
+    session_id TEXT NOT NULL DEFAULT '',
+    data TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS tool_runs (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -130,6 +141,8 @@ CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_session_time
     ON messages(session_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_parts_message ON message_parts(message_id);
+CREATE INDEX IF NOT EXISTS idx_ui_surface_states_session
+    ON ui_surface_states(session_id);
 CREATE INDEX IF NOT EXISTS idx_tool_runs_session ON tool_runs(session_id);
 CREATE INDEX IF NOT EXISTS idx_todos_session ON agent_todos(session_id);
 CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status);

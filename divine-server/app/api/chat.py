@@ -3,8 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
+from collections import OrderedDict
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -21,7 +24,7 @@ from ..agent.core.injection import (
     enqueue_injection,
     pending_count,
 )
-from ..config import settings_store, workspace_dir
+from ..config import a2ui_enabled, settings_store, workspace_dir
 from ..document_reader import read_file_text
 from ..file_types import is_image_path
 from ..localization import default_session_title, normalize_locale
@@ -31,6 +34,7 @@ from ..schemas import (
     InjectRequest,
     RetryCloudRequest,
     StreamChatRequest,
+    SurfaceActionRequest,
 )
 from ..sse import error_event, sse_event
 from .mention_skills import resolve_skill_mentions
@@ -41,6 +45,62 @@ router = APIRouter(tags=["chat"])
 logger = logging.getLogger("divine.chat")
 # Session-id -> cancel event, used by POST /sessions/{id}/cancel to stop a stream.
 _CANCEL_EVENTS: dict[str, asyncio.Event] = {}
+
+# ---------------------------------------------------------------------------
+# A2UI 面板动作（design 028 §8）
+# ---------------------------------------------------------------------------
+
+#: 动作幂等窗口（秒）：连点两次只跑一轮（044 §8.2 第 2 条）。
+_SURFACE_ACTION_TTL_SECONDS = 60.0
+
+#: action_id -> 首次提交时刻。有序字典，登记时顺手淘汰过期项。
+_SURFACE_ACTION_SEEN: OrderedDict[str, float] = OrderedDict()
+
+#: 动作正文里单个 context 值的最长展示长度（正文是可见消息，不该被长值撑爆）。
+_MAX_CONTEXT_VALUE_CHARS = 60
+
+
+def _remember_surface_action(action_id: str) -> bool:
+    """登记动作 id。``True``=首次；``False``=窗口内重复（幂等命中，不起新回合）。"""
+    now = time.monotonic()
+    while _SURFACE_ACTION_SEEN:
+        oldest_id, stamp = next(iter(_SURFACE_ACTION_SEEN.items()))
+        if now - stamp <= _SURFACE_ACTION_TTL_SECONDS:
+            break
+        _SURFACE_ACTION_SEEN.popitem(last=False)
+    if action_id in _SURFACE_ACTION_SEEN:
+        return False
+    _SURFACE_ACTION_SEEN[action_id] = now
+    return True
+
+
+def _format_context_value(value: Any) -> str:
+    if isinstance(value, (str, int, float, bool)):
+        text = str(value)
+    else:
+        try:
+            text = json.dumps(value, ensure_ascii=False)
+        except (TypeError, ValueError):
+            text = str(value)
+    if len(text) > _MAX_CONTEXT_VALUE_CHARS:
+        text = text[: _MAX_CONTEXT_VALUE_CHARS - 1] + "…"
+    return text
+
+
+def _surface_action_question(request: SurfaceActionRequest) -> str:
+    """把动作折成**可见的 user 正文**（044 §8.2 的硬要求）。
+
+    结构化参数必须落进正文：``message_parts`` 不参与模型上下文
+    （``agent/core/prompts.py`` 的历史回溯只读 ``content``）。只写 part 的话，
+    模型只会收到"重新测算"四个字、拿不到"人力成本占比=25%"。
+    """
+    base = (request.label or request.name).strip() or request.name
+    if not request.context:
+        return base
+    pairs = "，".join(
+        f"{key}={_format_context_value(value)}" for key, value in request.context.items()
+    )
+    return f"{base}（{pairs}）"
 
 
 def _read_text_fallback(path: Path) -> str:
@@ -912,6 +972,80 @@ async def answer_question(request: ChatAnswer) -> dict[str, object]:
     if not resolve_terminal_answer(request.session_id, request.answer):
         raise HTTPException(status_code=409, detail="no_pending_ask")
     return {"ok": True}
+
+
+@router.post("/chat/surface-action")
+async def surface_action(request: SurfaceActionRequest):
+    """A2UI 面板动作 → 新回合（design 028 §8）。
+
+    **返回 SSE 流**（与 ``/stream_chat`` 同构），不是 JSON：动作会跑出一个新的
+    assistant 回合（可能再吐一块同 surfaceId 的面板），前端复用同一套流式
+    处理器，面板才能"原地刷新"（§8.3）。
+
+    三条边界（044 §8.2）：
+    1. 幂等：``action_id`` 60s 内重复 → 只回一个 ``done``，不起新回合；
+    2. 会话正在流式中 → **409**（不排队），由前端提示用户；
+    3. 动作表现为"用户说了一句话"：复用 ``stream_chat`` 全流程，
+       **不碰** interrupt / 暂停恢复语义，agent 内核零侵入。
+    """
+    if not a2ui_enabled():
+        raise HTTPException(status_code=404, detail="A2UI 未启用")
+
+    session_id = request.session_id
+    if await asyncio.to_thread(db.get_session, session_id) is None:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    if _CANCEL_EVENTS.get(session_id) is not None:
+        raise HTTPException(status_code=409, detail="session_busy")
+
+    if not _remember_surface_action(request.action_id):
+        # 幂等命中：回一个立即结束的空流（前端不会重复追加回合）。
+        return StreamingResponse(
+            iter([sse_event("done", {"message": "", "deduped": True})]),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    response = await stream_chat(
+        StreamChatRequest(
+            question=_surface_action_question(request),
+            session_id=session_id,
+            approval_mode=request.approval_mode,
+            think=request.think,
+            reasoning_effort=request.reasoning_effort,
+            locale=request.locale,
+            ui_theme=request.ui_theme,
+            model_id=request.model_id,
+        )
+    )
+    # stream_chat 在返回前已落好 user 消息（其内部在流式生成器之前 add_message），
+    # 这里补一个 a2ui_action part：**只供回放与分析**，不进模型上下文
+    # （正文已经带了求值结果，见 _surface_action_question 的说明）。
+    try:
+        messages = await asyncio.to_thread(db.list_messages, session_id)
+        user_message = next(
+            (item for item in reversed(messages) if item.get("role") == "user"), None
+        )
+        if user_message is not None:
+            await asyncio.to_thread(
+                db.add_message_part,
+                user_message["id"],
+                "a2ui_action",
+                json.dumps(
+                    {
+                        "name": request.name,
+                        "surface_id": request.surface_id,
+                        "action_id": request.action_id,
+                        "message_id": request.message_id,
+                        "context": request.context,
+                        "data_model": request.data_model,
+                    },
+                    ensure_ascii=False,
+                ),
+                order=0,
+            )
+    except Exception as exc:  # noqa: BLE001 — 回放部件写失败不该影响对话本身
+        logger.warning("a2ui_action part 写入失败: %s", exc)
+    return response
 
 
 @router.post("/sessions/{session_id}/inject")

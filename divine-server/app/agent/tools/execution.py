@@ -205,6 +205,36 @@ async def _handle_ask_user(
     return answer
 
 
+def _take_a2ui_payload(
+    output: dict[str, Any], call_id: str, seq: int
+) -> dict[str, Any] | None:
+    """构造 ``event: a2ui`` 载荷，并把消息从工具返回值里**摘除**。
+
+    为什么由执行层发、而不是在 ``adapters/render_ui.py`` 里发：适配器拿不到
+    ``runtime.stream_writer``（只有这里 L217 有）。这与 ``scheduled_tasks_changed``
+    同一做法——事件按工具名/返回值发射，适配器保持纯函数。
+
+    摘除 ``a2uiMessages`` 的理由：它只服务这一次传输，随后前端会拿到
+    ``data.uiSurface``（归一化 IR）用于持久化与兜底，消息再随 tool result
+    走一遍就是同内容双份，既费带宽也费本地 IPC。
+
+    见 docs/design/028-a2ui-integration-20261009.md §5.1 / §5.4。
+    """
+    data = output.get("data")
+    if not isinstance(data, dict):
+        return None
+    messages = data.pop("a2uiMessages", None)
+    if not isinstance(messages, list) or not messages:
+        return None
+    return {
+        "event": "a2ui",
+        "surfaceId": str(data.get("surfaceId") or ""),
+        "seq": seq,
+        "source_call_id": call_id,
+        "messages": messages,
+    }
+
+
 async def _handle_adapter_call(
     ctx: AgentRunContext,
     runtime: ToolRuntime,
@@ -1090,6 +1120,16 @@ async def _handle_adapter_call(
                 "\n\n[Office 编辑提示] 原文件已自动备份，用户要求撤销时调用"
                 " undo_last_turn；结果中 missing/未命中项请向用户澄清，不要臆测补齐。"
             )
+        # A2UI：面板消息必须**先于** tool 事件送出（前端先建面板、再收到工具卡
+        # 结果），否则会出现「先看到工具卡、面板才补上」的闪动。
+        # 帧内完整性：一次给出整块 surface，不跨帧拼接（044 §5.1）。
+        if name == "render_ui" and output.get("success"):
+            a2ui_payload = _take_a2ui_payload(
+                output, call_id, int(getattr(ctx, "turn_index", 0) or 0)
+            )
+            if a2ui_payload is not None:
+                writer(a2ui_payload)
+
         payload: dict[str, Any] = {
             "event": "tool",
             "tool": name,

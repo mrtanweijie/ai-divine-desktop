@@ -72,6 +72,9 @@ _READ_ONLY_TOOLS = {
     "web_fetch_batch",
     "web_search",
     "generate_chart",
+    # render_ui 是纯展示工具：只做校验 + 出协议消息，无 IO、无副作用，
+    # 因此归入只读集合（=> 免审批、免锁可并行、plan_first 期间可放行）。
+    "render_ui",
     "describe_svg",
     "git_status",
     "git_diff",
@@ -80,6 +83,27 @@ _READ_ONLY_TOOLS = {
     "bg_status",
     "bg_output",
 }
+
+#: A2UI 交互面板（``render_ui``）的适用意图 —— **唯一判据**。
+#:
+#: 「工具可见性」与「提示词节 ``_A2UI_SECTION`` 的挂载」必须用同一份集合，
+#: 否则会出现「提示词说了但工具没挂上」（或反之），
+#: 见 docs/design/028-a2ui-integration-20261009.md §10.1 ③。
+#:
+#: 收录所有「用户要产出某个东西」的意图（面板是产物的呈现形态之一）；
+#: 本地动作类（open_app/screenshot 等）、图片生成、技能、终端、子 Agent、
+#: 记忆这些与「呈现/交互」无关的意图不收。
+A2UI_INTENTS: tuple[str, ...] = (
+    "pdf",
+    "resume",
+    "document",
+    "chart",
+    "mermaid",
+    "svg",
+    "ux",
+    "html",
+    "project",
+)
 
 _NO_PLAN_TOOLS = {
     "ask_user",

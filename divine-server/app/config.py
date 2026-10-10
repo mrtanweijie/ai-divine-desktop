@@ -299,6 +299,10 @@ class SettingsStore:
             "context_limit": 30,
             # 桌面全局快捷键（唤起/隐藏主窗口）
             "global_shortcut_enabled": True,
+            # A2UI 交互面板（render_ui 工具）总开关。默认关闭：
+            # 关闭时不注入工具、前端也忽略 a2ui 事件，等于完全下线。
+            # 见 docs/design/028-a2ui-integration-20261009.md §11。
+            "ui_a2ui_enabled": True,
             # 本地模型配置
             "local_llm_enabled": False,
             "local_llm_mode": "keyword",  # "keyword" | "local" | "hybrid"
@@ -354,6 +358,19 @@ class SettingsStore:
 
 
 settings_store = SettingsStore()
+
+
+def a2ui_enabled() -> bool:
+    """A2UI 交互面板总开关（design 028 §11）。
+
+    关闭时四件事同时发生，等于**完全下线**（无数据迁移、无回滚成本）：
+    不注入提示词节、``render_ui`` 不进工具列表、``/chat/surface-action`` 返回 404、
+    前端收到 ``a2ui`` 事件直接忽略。
+
+    读的是扁平 settings 键 ``ui_a2ui_enabled``（不是点号路径 —— settings 是
+    扁平 dict，见 ``_build()``）。
+    """
+    return bool(settings_store.load().get("ui_a2ui_enabled", False))
 
 
 def workspace_dir() -> Path:
