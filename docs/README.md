@@ -44,7 +44,7 @@
 | 037 | [design-chat-mention-files](design/025-chat-mention-files-20260913.md) | 2026-09-13 | 未实施（方案待审） |
 | 042 | [design-agent-auto-debug](design/026-agent-auto-debug-20260917.md) | 2026-09-17 | **已实施（P1–P3）** |
 | 043 | [design-task-webhook-interactive-digest](design/027-task-webhook-interactive-digest-20260919.md) | 2026-09-19 | 已实施（stage 1–5；digest/interactive 仅后端，无 UI 入口） |
-| 044 | [design-a2ui-integration](design/028-a2ui-integration-20261009.md) | 2026-10-09 | 方案待审（A2UI v0.9.1 接入，S0–S5 分期） |
+| 044 | [design-a2ui-integration](design/028-a2ui-integration-20261009.md) | 2026-10-09 | **S1–S5 已实施**（A2UI v0.9.1 接入；待人工验收） |
 
 ### 修复（fix）
 
@@ -127,5 +127,9 @@
     （纸感 token + `--font-body` 切中文衬线），两条路径共用同一套色值。
   - 占位符卫生由 `tests/test_pdf_page_templates.py` 强制校验：括号平衡 + 无四重括号（011–018），
     且 011–014 与 018 禁止嵌套（`test_sample_placeholders_balanced` / `test_pdf_sample_placeholders_are_flat`）。
+  - **019 是 A2UI 面板的视觉样张（PNG，非 docgen 模板、不入任何管线）**：
+    light/dark 各一张 + 一张表格特写，由 `divine-app/ui-harness.html` 走真解析 + 真组件渲染后 headless Chrome 截图，
+    对应 [design 028](design/028-a2ui-integration-20261009.md) §6.6 的「内部块去卡片化」。
+    改面板样式后重新截图覆盖即可（该 harness 也可本地开着做 HMR 预览，支持 `?theme=dark` / `&narrow=1` / `&only=`）。
 - `assets/`：文档引用的图片资源
 - `pdf-modules/`：PDF 模块 JSON/CSS/HTML 资源（由 docgen 管线引用）
