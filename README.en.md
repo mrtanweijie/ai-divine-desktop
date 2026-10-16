@@ -97,6 +97,7 @@ Default ports:
 | `divine-app`                       | Vite + React + TypeScript frontend with self-built components                                                                                             |
 | `divine-app/src-tauri`             | Tauri 2 + Rust desktop shell                                                                                                                              |
 | `docs`                             | Project design documents (plan / design / fix / review / templates; see the index in `docs/README.md`)                                                    |
+| `screenshots`                      | UI screenshots used by this README (see "Screenshots" at the end)                                                                                         |
 | `scripts`                          | macOS packaging, signing, notarization and release scripts                                                                                                |
 
 ## Getting Started
@@ -472,3 +473,39 @@ The repository ships two workflows, both triggerable by pushing a `v*` tag or ma
 
 - `.github/workflows/build.yml` (`Build Desktop Apps`): builds macOS ARM64 / macOS x64 / Windows x64 / Linux x64 and uploads the artifacts as Actions artifacts, also attaching them to the Release when a tag is pushed.
 - `.gitea/workflows/release-macos-universal.yaml` (`macOS DMG Release`): builds, signs, notarizes and publishes both the arm64 and x64 DMGs on a macOS self-hosted runner.
+
+## Screenshots
+
+All captured from a real local run (dark theme by default; the Settings page is shown in light theme).
+
+**Self-introduction** — ask "introduce yourself" right after launch and the agent lays out its own scope under "What I do / How I like to work / On your workspace".
+
+![Self-introduction](screenshots/0.png)
+
+**Chat home** — session and project sidebar on the left, capability cards in the middle, and a composer at the bottom with model, reasoning effort and approval policy.
+
+![Chat home](screenshots/1.png)
+
+**Tool chain and artifact preview in a conversation** — web fetch plus inline ECharts rendering, with the generated HTML dashboard previewed in the right-hand panel (candlesticks follow the A-share convention: red for up, green for down).
+
+![Tool chain and artifact preview](screenshots/2.png)
+
+**Skill hub** — install, search and preview SKILL.md skills, grouped by origin (User / Project) and type (Knowledge / Executable).
+
+![Skill hub](screenshots/3.png)
+
+**Scheduled tasks** — reminders and agent runs, each switchable at any time, with next-run times and one-click built-in templates.
+
+![Scheduled tasks](screenshots/4.png)
+
+**Project architecture walkthrough and workspace browsing** — a Mermaid architecture diagram rendered natively in the reply, with the file tree and a read-only code viewer open alongside (here `document_reader.py`).
+
+![Project architecture walkthrough and workspace browsing](screenshots/5.PNG)
+
+**Settings: intent recognition and local models** — keyword / local model / hybrid intent modes, plus local model download, run state and quantization footprint.
+
+![Settings: intent recognition and local models](screenshots/6.png)
+
+**Diagram generation** — a single "turn this into an architecture diagram" request renders the Monorepo project structure and the Turbo build pipeline as two Mermaid diagrams.
+
+![Diagram generation](screenshots/7.png)

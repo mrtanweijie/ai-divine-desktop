@@ -97,6 +97,7 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 | `divine-app`                       | Vite + React + TypeScript 前端，自研组件                                                                |
 | `divine-app/src-tauri`             | Tauri 2 + Rust 桌面壳                                                                                   |
 | `docs`                             | 项目方案文档（plan / design / fix / review / templates，见 `docs/README.md` 索引）                      |
+| `screenshots`                      | README 界面截图（见文末「界面截图」）                                                                   |
 | `scripts`                          | macOS 打包、签名、公证与发布脚本                                                                        |
 
 ## 快速开始
@@ -472,3 +473,39 @@ bash scripts/overwrite-release.sh 0.2.1
 
 - `.github/workflows/build.yml`（`Build Desktop Apps`）：构建 macOS ARM64 / macOS x64 / Windows x64 / Linux x64，产物作为 Actions Artifact 上传，推送 tag 时同时上传到 Release。
 - `.gitea/workflows/release-macos-universal.yaml`（`macOS DMG Release`）：在 macOS self-hosted runner 上构建、签名、公证并发布 arm64 / x64 两个 DMG。
+
+## 界面截图
+
+以下均为本地实际运行截图（默认深色主题，设置页为浅色主题）。
+
+**自我介绍** — 开箱直接问「请介绍一下你自己」，Agent 会按「我能做什么 / 我的工作方式 / 你的工作区」三块交代清楚自己的能力边界。
+
+![自我介绍](screenshots/0.png)
+
+**对话首页** — 左侧是会话与项目侧栏，中间是能力入口卡片，底部输入区可切换模型、推理强度与审批策略。
+
+![对话首页](screenshots/1.png)
+
+**对话内的工具链与产物预览** — 联网抓取 + ECharts 图表内联渲染，右侧面板同步预览生成的 HTML 看板（K 线遵循 A 股涨红跌绿）。
+
+![对话内的工具链与产物预览](screenshots/2.png)
+
+**技能中心** — 安装、搜索与预览 SKILL.md 技能，按来源（User / Project）与类型（Knowledge / Executable）区分。
+
+![技能中心](screenshots/3.png)
+
+**定时任务** — 提醒与 Agent 任务两类，可随时启停、查看下次执行时间，也能从内置模板快速创建。
+
+![定时任务](screenshots/4.png)
+
+**项目架构解读与工作区浏览** — 正文原生渲染 Mermaid 架构图，右侧打开文件树与只读代码视图（示例为 `document_reader.py`）。
+
+![项目架构解读与工作区浏览](screenshots/5.PNG)
+
+**设置：意图识别与本地模型** — 关键词 / 本地模型 / 混合三档意图识别，以及本地模型的下载、运行状态与量化占用信息。
+
+![设置：意图识别与本地模型](screenshots/6.png)
+
+**架构图生成** — 一句「做成架构图」即可把 Monorepo 项目结构与 Turbo 构建流程画成两张 Mermaid 图。
+
+![架构图生成](screenshots/7.png)
