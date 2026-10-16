@@ -36,8 +36,20 @@ export interface MessagePart {
   /**
    * `ui_surface` = A2UI 面板的**最终态**（中立 IR 的 JSON 字符串），
    * 供刷新/切会话后回放（design 028 §5.3）。**不进模型上下文**。
+   *
+   * `surface_note` = 面板动作那一轮的**结果说明**（`{text, updated}`），
+   * 由静默回合的收尾逻辑追加在面板所属消息上（design 028 §8.5）。
+   * 同样**不进模型上下文**，只服务底部那行说明 / 选项卡。
    */
-  type: "think" | "tool" | "file" | "tool_calls" | "tool_result" | "preprocess" | "ui_surface";
+  type:
+    | "think"
+    | "tool"
+    | "file"
+    | "tool_calls"
+    | "tool_result"
+    | "preprocess"
+    | "ui_surface"
+    | "surface_note";
   content: string;
   order: number;
 }

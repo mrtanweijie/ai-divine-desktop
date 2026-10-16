@@ -268,7 +268,11 @@ export function useChatStream(options: UseChatStreamOptions) {
         // 因此这里解析出的永远是一整块 surface；非法帧只告警、不崩（纵深防御 L3）。
         a2ui: (data: unknown) => {
           const parsed = parseA2UIFrame(data, { messageId: assistantId });
-          if ("deleted" in parsed && parsed.deleted) {
+          // 注意：这里只能判 `in`，不能写成 `"deleted" in parsed && parsed.deleted`
+          // —— 复合条件会让 TS 无法收窄联合（`!A` 与 `A && !B` 两种情况都要保留），
+          // 于是下面的 `parsed.ok` 会报「属性不存在」。该分支的 `deleted` 恒为 true，
+          // 单判 `in` 即可。
+          if ("deleted" in parsed) {
             setSessionMessages(sessionId, (prev) => closeSurfaceEverywhere(prev, parsed.surfaceId));
             return;
           }

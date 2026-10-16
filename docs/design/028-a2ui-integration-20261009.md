@@ -777,6 +777,22 @@ S1（后端骨架）已落地。**三处与设计稿的有意偏差**记录在�
 ⑤ 单位 `gapToBorder = 10px`、`padding-right = 44px`。
 `eslint` 干净；**未跑 tsc / vite build**（按约定）；未提交。
 
+### 6.13 修：补齐 `surface_note` part 类型并修掉一处联合收窄（2026-10-12）
+
+用户直接跑 `tsc -b && vite build --mode prod`，暴露 **4 个 TS 错误**，全是**既有代码**——前端长期约定不跑编译验证，所以一直没露头。两处根因：
+
+**① `MessagePart["type"]` 漏了 `"surface_note"`**（`src/types.ts`）
+
+§8.5 的静默回合会往面板所属消息追加 `surface_note` part，但前端这个联合里没写它，于是 `api.ts` 里 `part.type !== "surface_note"` 被判为"不可能的比较"（TS2367），并连带出另外两条。**改法**：并进联合 + 补注释（明确它同样**不进模型上下文**）。核查全仓 `parts.find / some / filter` 消费点**全部是显式 `type === "xxx"`**，故新增成员是纯增量、无副作用。
+
+**② 复合条件破坏了联合收窄**（`useChatStream.ts` 的 a2ui 帧处理）
+
+原写法 `if ("deleted" in parsed && parsed.deleted)`。`parseA2UIFrame` 返回 `{ok:true;surface} | {ok:false;reason} | {deleted:true;surfaceId}`；复合条件 `A && B` 的**假分支**在 TS 里是「`!A`」与「`A 且 !B`」的并集，`deleted` 那一支因此没被排除 → 后面的 `parsed.ok` 报「属性不存在」。**改法**：只判 `if ("deleted" in parsed)`（该分支 `deleted` 恒为 `true`，真值判断本就冗余），并在代码里留注释说明**不要写成复合条件**。
+
+**验证**：`npx tsc -b` 通过（exit 0）；完整 `vite build --mode prod` **通过**（`✓ built in 40.60s`，仅常规 chunk 体积提示）；`eslint` 干净。
+
+**环境坑（沙箱）**：`vite build` 的 `prepare-out-dir` 会清空 `dist/assets`，而沙箱的 safe-delete shim 对**单次 >50 个文件的批量删除**直接抛 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`（本次 110 个）——**不是项目问题**（用户本机终端无此 shim）。绕过法：`vite build --outDir <仓库外新目录>`，新目录为空即无需清空。
+
 ---
 
 ## 7. 前端实现任务（文件级）
