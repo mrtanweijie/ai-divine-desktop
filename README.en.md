@@ -40,11 +40,12 @@ Default ports:
 ### General Web Task Engine (Browser Automation)
 
 - Give it a URL plus one sentence, and the agent completes web tasks in a dedicated tab of a real browser: collecting/organizing page information, filling forms, publishing content, auto-shopping — any site
-- CDP attach to a dedicated browser profile (the only viable path on Chrome 136+): one-time login persisted and reused, random-port discovery with automatic guided relaunch (self-healing), zero system permissions throughout
-- ARIA snapshot with monotonic refs instead of raw CSS selectors; contenteditable rich-text editors and framework-delegated clickable controls (cursor:pointer) are all addressable; mutating actions return a fresh snapshot automatically
-- Four-tier risk gates: read-only / reversible actions run automatically; irreversible actions (submit / delete / pay) force the flow "extract → action confirmation card → user confirms → confirmed delegation"; password / captcha / API-key inputs are always rejected; a high-risk lexicon guards against mislabeling
-- Single delegation entry `web_task`: 10 browser operation primitives register only inside the browser subagent, never in the main agent tool table (protecting the prefix cache); every step emits an SSE heartbeat
-- Design doc: `docs/design/031-generic-web-task-20261024.md` (shopping policy pack, site recipes, and the phased plan live in the same document)
+- CDP attach to a dedicated browser profile (the only viable path on Chrome 136+): one-time login persisted and reused, random-port discovery, two-level self-healing (guided relaunch when the endpoint is missing or half-dead), zero system permissions throughout
+- ARIA snapshot with monotonic refs instead of raw CSS selectors; contenteditable rich-text editors, framework-delegated clickable controls (cursor:pointer), and mixed text nodes are all addressable; tabs opened by clicks / Enter are adopted automatically; role-less text cards on mobile H5 fall back to clicking by visible text
+- Four-tier risk gates: read-only / reversible actions run automatically; irreversible actions (submit / delete / pay) force the flow "extract → action confirmation card → user confirms → confirmed delegation"; password / captcha / API-key inputs are always rejected; a high-risk lexicon, submit idempotency lock, 40-step cap, and old-snapshot trimming back it up
+- Site recipes: `data/browser/recipes/*.json` inject flow knowledge by URL pattern; a broken recipe degrades to the generic loop automatically
+- Single delegation entry `web_task`: 10 browser operation primitives register only inside the browser subagent, never in the main agent tool table (protecting the prefix cache); every step emits an SSE heartbeat driving the persisted "Browser actions" timeline, and multi-segment delegations merge into one tool card
+- Design doc: `docs/design/031-generic-web-task-20261024.md` (shopping policy pack, domain policy settings, and the phased plan live in the same document)
 
 ### Generation & Editing (docgen)
 
@@ -242,6 +243,12 @@ The config file is `divine-server/.env`; see [.env.example](divine-server/.env.e
 | `local_llm_enabled` / `local_llm_mode` / `local_llm_port` / `local_llm_model` / `local_llm_threshold` | —                       | Local model switch and parameters                                                                                                  |
 | `local_llm_preprocess_*`                                                                              | —                       | Local pre-processing (input-side) switch and thresholds                                                                            |
 | `installed_models`                                                                                    | `[]`                    | Installed local model list                                                                                                         |
+| `browser_cdp_port` | empty | Manual browser debug port (usually unnecessary: the engine discovers or launches it) |
+| `browser_blocked_domains` | empty | Domains forbidden for navigation (comma-separated substrings) |
+| `browser_confirm_domains` | empty | Domains where mutations require per-action confirmation (comma-separated) |
+| `shopping_per_order_cap` / `shopping_monthly_cap` | `200` / empty | Per-order / monthly shopping amount guards (checked on checkout pages) |
+| `shopping_policy_domains` | four major platforms | Domain list for the shopping policy pack |
+| `shopping_default_address` | empty | Default delivery address (warning on the confirmation card when checkout differs) |
 | `max_retries` / `timeout`                                                                             | edit manually if needed | Request retry count and timeout; can be set at the top level or inside a model entry                                               |
 
 When launching the sidecar, the desktop app injects `DIVINE_DATA_DIR` and `DIVINE_WORKSPACE_DIR`, pointing at the system application data directory — so a packaged build does not depend on the repository's `data/` or `workspace/`.

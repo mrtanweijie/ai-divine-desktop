@@ -40,11 +40,12 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 ### 通用 Web 任务引擎（浏览器自动化）
 
 - 给一个 URL + 一句话要求，Agent 在真实浏览器的专属标签页里完成网页任务：查询/整理页面信息、填表单、发布内容，以及自动购物等任意站点场景
-- CDP 接管专用浏览器 profile（Chrome 136+ 唯一可行路径）：一次性登录持久复用、随机端口自动发现、端点丢失自动引导重启（自愈），全程零系统权限
-- aria 快照 + 单调 ref 定位，不裸用 CSS selector；contenteditable 富文本编辑器与框架委托事件的可点控件（cursor:pointer）均可寻址；变更操作自动带回新快照
-- 风险四级闸门：只读/可逆动作自动执行；提交/删除/支付类不可逆动作强制「抽取 → 操作确认卡 → 用户确认 → confirmed 委派段」；密码/验证码/API key 输入无条件拒绝；高风险词典兜底防误标
-- 委派入口 `web_task`：10 个 browser 操作原语只在 browser 子 agent 内注册，不占主 agent 工具表与 prefix cache；每步 SSE 心跳实时可见
-- 设计文档见 `docs/design/031-generic-web-task-20261024.md`（购物域策略包、站点配方与分期计划同文档）
+- CDP 接管专用浏览器 profile（Chrome 136+ 唯一可行路径）：一次性登录持久复用、随机端口自动发现、端点丢失/实例半死自动引导重启（两级自愈），全程零系统权限
+- aria 快照 + 单调 ref 定位，不裸用 CSS selector；contenteditable 富文本编辑器、框架委托的可点控件（cursor:pointer）、混排文本节点均可寻址；点击/回车打开的新标签页自动接管；无 role 的纯文本卡片（移动端 H5）用 text 按可见文本点击兜底
+- 风险四级闸门：只读/可逆动作自动执行；提交/删除/支付类不可逆动作强制「抽取 → 操作确认卡 → 用户确认 → confirmed 委派段」；密码/验证码/API key 输入无条件拒绝；高风险词典兜底 + 提交幂等锁 + 40 步上限 + 旧快照自动裁剪
+- 站点配方（recipe）：`data/browser/recipes/*.json` 按 URL 模式注入流程知识，失效自动退化为通用循环
+- 委派入口 `web_task`：10 个 browser 操作原语只在 browser 子 agent 内注册，不占主 agent 工具表与 prefix cache；每步 SSE 心跳驱动「浏览器操作」时间线（持久化入库，刷新可回看），多段委派合并为一张工具卡
+- 设计文档见 `docs/design/031-generic-web-task-20261024.md`（购物域策略包、域名策略设置项与分期计划同文档）
 
 ### 生成与编辑（docgen）
 
@@ -242,6 +243,12 @@ pnpm tauri:dev
 | `local_llm_enabled` / `local_llm_mode` / `local_llm_port` / `local_llm_model` / `local_llm_threshold` | —            | 本地模型开关与参数                                                           |
 | `local_llm_preprocess_*`                                                                              | —            | 本地预整理（输入侧预处理）开关与阈值                                         |
 | `installed_models`                                                                                    | `[]`         | 本地模型清单                                                                 |
+| `browser_cdp_port`                                                                                    | 空           | 手动指定浏览器调试端口（一般不用填：引擎自动发现/引导启动）                  |
+| `browser_blocked_domains`                                                                             | 空           | 禁止导航的域名（逗号分隔子串）                                               |
+| `browser_confirm_domains`                                                                             | 空           | 变更动作需每次确认的域名（逗号分隔子串）                                     |
+| `shopping_per_order_cap` / `shopping_monthly_cap`                                                     | `200` / 空   | 购物单笔/月度金额护栏（结算页自动判定，超限拦截）                            |
+| `shopping_policy_domains`                                                                             | 四大平台     | 购物域策略包命中的域名列表                                                   |
+| `shopping_default_address`                                                                            | 空           | 默认收货地址（结算地址不一致时在确认卡警示）                                 |
 | `max_retries` / `timeout`                                                                             | 可选手动编辑 | 请求重试次数与超时，可写在顶层或某个模型条目内                               |
 
 桌面端启动 sidecar 时会注入 `DIVINE_DATA_DIR` 和 `DIVINE_WORKSPACE_DIR`，指向系统应用数据目录，因此打包后不会依赖仓库内的 `data/` 和 `workspace/`。
