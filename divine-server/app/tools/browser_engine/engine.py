@@ -610,8 +610,11 @@ async def op_capture(
         {
             "message": "截图已保存（持久化，可嵌入对话）",
             "filepath": str(path),
+            # 现成可粘贴的 markdown：主 agent 原样放进回复正文即显示图片
+            "markdown": f"![二维码]({path})",
             "hint": (
-                "在回复正文嵌 ![二维码](绝对路径) 即可展示给用户扫码；"
+                "把 result 里的 markdown 字段原样放进你的回复正文，二维码就会"
+                "直接显示在对话里给用户扫码（不要只发文字说已获取）；"
                 "二维码通常 1-2 分钟过期，展示后立即 browser_wait 登录成功标记"
                 "（timeout 120-180s），过期则刷新二维码重截（≤2 次）"
             ),
