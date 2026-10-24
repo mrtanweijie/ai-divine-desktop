@@ -168,6 +168,100 @@ class BrowserReadCaptchaAdapter(_BrowserAdapter):
 
 
 @register_tool(
+    "browser_solve_slider",
+    "滑块验证码自动求解（实验性，仅 confirmed=true 委派段）：按手柄/滑轨 ref 截图"
+    "→ Pillow 像素分析定位缺口 → 拟人轨迹拖拽（分段缓动+过冲+抖动）→ 可选成功标记检测。"
+    "失败最多重试 1 次后必须降级有头人工拖拽（行为风控下成功率不稳定，避免风险分累积）",
+    {
+        "type": "object",
+        "properties": {
+            "handle_ref": {"type": "string", "description": "滑块手柄元素 ref"},
+            "track_ref": {"type": "string", "description": "滑轨/验证码容器元素 ref（截图分析对象）"},
+            "piece_ref": {"type": "string", "description": "可选：缺口拼图元素 ref（双图差分更准）"},
+            "success_text": {"type": "string", "description": "可选：成功标记文本（如「验证成功」），用于拖拽后检测"},
+        },
+        "required": ["handle_ref", "track_ref"],
+    },
+)
+class BrowserSolveSliderAdapter(_BrowserAdapter):
+    timeout = 60
+
+    async def _operate(self, session, workspace, arguments):
+        return await engine.op_solve_slider(
+            session,
+            workspace,
+            str(arguments.get("handle_ref") or ""),
+            str(arguments.get("track_ref") or ""),
+            arguments.get("piece_ref"),
+            arguments.get("success_text"),
+        )
+
+
+@register_tool(
+    "browser_solve_click_captcha",
+    "点选验证码自动求解（实验性，仅 confirmed=true 委派段）：验证码容器截图 → "
+    "视觉模型读出目标并定位坐标（targets 缺省时自动读提示与目标）→ 按顺序模拟点击 "
+    "→ 可选确认按钮与成功标记检测。geetest 类 canvas 无障碍盲区用 selector 定位。"
+    "识别失败返回 points=null，降级为有头人工点选，不要盲目点击",
+    {
+        "type": "object",
+        "properties": {
+            "selector": {
+                "type": "string",
+                "description": "CSS 定位验证码容器（geetest 常见 .geetest_widget 内 canvas/img）",
+            },
+            "image_ref": {"type": "string", "description": "或：验证码大图元素 ref（与 selector 二选一）"},
+            "targets": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "可选：按点击顺序给定的目标文本；缺省时由视觉模型读图中提示",
+            },
+            "submit_text": {"type": "string", "description": "可选：选完后的确认按钮文本（如「确认」）"},
+            "success_text": {"type": "string", "description": "可选：成功标记文本（如「验证成功」），用于检测"},
+        },
+    },
+)
+class BrowserSolveClickCaptchaAdapter(_BrowserAdapter):
+    timeout = 60
+
+    async def _operate(self, session, workspace, arguments):
+        targets = arguments.get("targets")
+        return await engine.op_solve_click_captcha(
+            session,
+            workspace,
+            arguments.get("image_ref"),
+            arguments.get("selector"),
+            targets if isinstance(targets, list) else None,
+            arguments.get("submit_text"),
+            arguments.get("success_text"),
+        )
+
+
+@register_tool(
+    "browser_geometry",
+    "读取元素的几何信息（x/y/width/height + devicePixelRatio），支持 CSS 选择器或快照 ref。"
+    "用于布局判断、验证码浮层定位等——替代 JS evaluate 取 rect",
+    {
+        "type": "object",
+        "properties": {
+            "selector": {"type": "string", "description": "CSS 选择器（如 .geetest_widget canvas）"},
+            "ref": {"type": "string", "description": "快照元素 ref"},
+        },
+    },
+)
+class BrowserGeometryAdapter(_BrowserAdapter):
+    timeout = 30
+
+    async def _operate(self, session, workspace, arguments):
+        return await engine.op_geometry(
+            session,
+            workspace,
+            arguments.get("selector"),
+            arguments.get("ref"),
+        )
+
+
+@register_tool(
     "browser_track_order",
     "提交订单后启动订单状态后台轮询：定期重新加载当前页检查标记文本（如「支付成功」），"
     "命中/超时经事件流通知用户。轮询不占用委派段生命周期——启动后即可结束汇报",

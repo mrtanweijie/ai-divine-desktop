@@ -282,7 +282,76 @@ def test_browser_engine_end_to_end(chrome_cdp, shopping_domain, tmp_path):
         finally:
             engine._vision_caption = orig_caption
 
-        # 14. ref 过期检测：编造 ref 返回过期错误而非异常
+        # 14. 滑块自动求解（032 §3 L2.5 实验性）：缺口识别 + 拟人拖拽 + 成功标记
+        slider_url = f"{base}/slider.html"
+        await engine.op_navigate(session, tmp_path, slider_url)
+        handle_ref = _ref_by_name(session, "滑块")
+        track_ref = _ref_by_name(session, "滑轨")
+        assert handle_ref and track_ref, "滑块/滑轨未进快照"
+
+        unconfirmed_slider = await engine.op_solve_slider(
+            session, tmp_path, handle_ref, track_ref
+        )
+        assert unconfirmed_slider["success"] is False
+        assert unconfirmed_slider["risk"] == "confirmed"
+
+        session.confirmed = True
+        try:
+            solved = await engine.op_solve_slider(
+                session, tmp_path, handle_ref, track_ref, success_text="验证成功"
+            )
+            assert solved["success"], solved
+            assert solved["slider"]["verified"] is True, solved
+            assert "验证成功" in solved["snapshot"]
+        finally:
+            session.confirmed = False
+
+        # 15. 点选验证码（032 §3 L2.6）：grounding 坐标 + 顺序点击
+        clickcap_url = f"{base}/click_captcha.html"
+        await engine.op_navigate(session, tmp_path, clickcap_url)
+        image_ref = _ref_by_name(session, "点选验证码")
+        assert image_ref, "验证码大图未进快照"
+
+        async def fake_grounding(image_path, prompt=None):
+            return (
+                '[{"label": "河", "x": 165, "y": 95}, '
+                '{"label": "山", "x": 55, "y": 45}, {"label": "月", "x": 255, "y": 65}]'
+            )
+
+        orig_caption = engine._vision_caption
+        engine._vision_caption = fake_grounding
+        try:
+            session.confirmed = True
+            solved_click = await engine.op_solve_click_captcha(
+                session, tmp_path, image_ref, ["河", "山", "月"], success_text="验证成功"
+            )
+            assert solved_click["success"], solved_click
+            assert solved_click["click_captcha"]["verified"] is True, solved_click
+            assert "验证成功" in solved_click["snapshot"]
+
+            # selector 路径点选（无 ref 盲区覆盖）+ 几何工具（替代 JS 取 rect）
+            solved_sel = await engine.op_solve_click_captcha(
+                session, tmp_path, selector="#clickcap", targets=["河", "山", "月"]
+            )
+            assert solved_sel["success"], solved_sel
+
+            geom = await engine.op_geometry(session, tmp_path, selector="#clickcap")
+            assert geom["success"], geom
+            assert abs(geom["rect"]["width"] - 320) < 1
+            assert geom["dpr"] >= 1
+
+            # 未确认段拒绝（防呆一致性）
+            session.confirmed = False
+            refused_click = await engine.op_solve_click_captcha(
+                session, tmp_path, image_ref, ["河", "山", "月"]
+            )
+            assert refused_click["success"] is False
+            assert refused_click["risk"] == "confirmed"
+        finally:
+            session.confirmed = False
+            engine._vision_caption = orig_caption
+
+        # 16. ref 过期检测：编造 ref 返回过期错误而非异常
         stale = await engine.op_click(session, tmp_path, "e999999")
         assert stale["success"] is False
         assert "过期" in stale["message"] or "不存在" in stale["message"]

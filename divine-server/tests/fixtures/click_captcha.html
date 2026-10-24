@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>点选验证</title>
+  </head>
+  <body>
+    <h1>安全验证</h1>
+    <p>请按顺序点击：河、山、月</p>
+    <div
+      id="clickcap"
+      role="img"
+      aria-label="点选验证码"
+      style="position: relative; width: 320px; height: 160px; background: #2f3b4c"
+    >
+      <span class="glyph" data-glyph="山" style="position: absolute; left: 40px; top: 30px; width: 30px; height: 30px; line-height: 30px; text-align: center; color: #fff">山</span>
+      <span class="glyph" data-glyph="河" style="position: absolute; left: 150px; top: 80px; width: 30px; height: 30px; line-height: 30px; text-align: center; color: #fff">河</span>
+      <span class="glyph" data-glyph="月" style="position: absolute; left: 240px; top: 50px; width: 30px; height: 30px; line-height: 30px; text-align: center; color: #fff">月</span>
+    </div>
+    <p id="cap-state">待点选</p>
+    <script>
+      var order = ["河", "山", "月"], idx = 0;
+      document.querySelectorAll(".glyph").forEach(function (g) {
+        g.addEventListener("click", function () {
+          if (order[idx] === g.dataset.glyph) {
+            idx += 1;
+            if (idx === order.length) {
+              document.getElementById("cap-state").innerText = "验证成功";
+            }
+          } else {
+            idx = 0;
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

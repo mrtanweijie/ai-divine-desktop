@@ -111,6 +111,9 @@ _SUBAGENT_BROWSER_TOOLS = frozenset(
         "browser_wait",
         "browser_press_key",
         "browser_read_captcha",
+        "browser_solve_slider",
+        "browser_solve_click_captcha",
+        "browser_geometry",
         "browser_track_order",
         "browser_read_page",
     }
@@ -151,6 +154,14 @@ BROWSER_SUBAGENT_PROMPT = """你是 Divine 的浏览器子 Agent，通过 DOM �
 - navigate 返回 login_barrier 时说明撞到登录表单：立即结束委段回传该结构，
   由主 agent 渲染登录卡片收集手机号/验证码，再以 confirmed=true 委派填入
   （验证码图片用 browser_read_captcha 识别，失败降级人工，不要反复重试）；
+  滑块验证码：browser_solve_slider 实验性自动求解（仅 confirmed 段），
+  失败最多重试 1 次后必须降级有头人工——行为风控下成功率不稳定；
+  点选验证码（按顺序点击图中文字）：browser_solve_click_captcha 实验性自动求解
+  （仅 confirmed 段，targets 按顺序给目标），失败同样 ≤1 次重试后降级人工；
+- 「请完成安全验证/请依次点击」类浮层（geetest）：目标文字由图片渲染、canvas 无障碍盲区，
+  快照拿不到 ref——用 browser_solve_click_captcha 的 selector 定位容器
+  （常见 .geetest_widget 内 canvas/.geetest_item_wrap），targets 缺省时视觉模型自动读提示；
+  元素几何信息用 browser_geometry（替代 JS evaluate 取 rect）；
 - 需要回车/Tab/方向键/Escape 时用 browser_press_key；回车可能触发表单提交，
   提交类按键只应在 confirmed=true 委派段使用；
 - 大页面（首页/搜索结果）用 browser_snapshot(ref) 子树或 browser_extract 抽取，不要反复全页快照；

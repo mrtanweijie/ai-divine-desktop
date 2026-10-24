@@ -57,8 +57,9 @@ IRREVERSIBLE_TERMS: tuple[str, ...] = (
     "log out",
 )
 
-# 凭据类输入禁令（032 §5 定向豁免后分两级）：
-# - 密码类：无条件拒绝（任何模式、任何委派段）——用短信登录形态规避密码
+# 凭据类输入（032 §5 修订后分三级）：
+# - 登录密码类：confirmed=true 委派段可填（用户决定，密码会经对话上下文——知情选择）
+# - 无条件拒绝类（卡片 PIN/CVV/API key）：任何模式、任何委派段都拒绝
 # - 验证码类：仅 confirmed=true 委派段放行（用户经登录卡片主动提供的短信码）
 CREDENTIAL_TERMS: tuple[str, ...] = (
     "密码",
@@ -82,15 +83,17 @@ CREDENTIAL_TERMS: tuple[str, ...] = (
 
 PASSWORD_TERMS: tuple[str, ...] = (
     "密码",
-    "口令",
-    "pin码",
-    "cvv",
-    "安全码",
-    "card code",
     "password",
     "passwd",
     "pwd",
-    "passcode",
+)
+
+ALWAYS_SECRET_TERMS: tuple[str, ...] = (
+    "cvv",
+    "安全码",
+    "card code",
+    "口令",
+    "pin码",
     "api key",
     "api token",
     "secret",
@@ -145,8 +148,13 @@ def credential_hit(field_name: str) -> str | None:
     return _name_matches(field_name, CREDENTIAL_TERMS)
 
 
+def always_secret_hit(field_name: str) -> bool:
+    """无条件拒绝类（卡片 PIN/CVV/API key）：任何模式、任何委派段都拒绝。"""
+    return _name_matches(field_name, ALWAYS_SECRET_TERMS) is not None
+
+
 def password_hit(field_name: str) -> bool:
-    """密码类字段：无条件拒绝，无任何放行路径（032 §5）。"""
+    """登录密码类字段：confirmed=true 委派段可填（用户决定，032 §5 修订）。"""
     return _name_matches(field_name, PASSWORD_TERMS) is not None
 
 

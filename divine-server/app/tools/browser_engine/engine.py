@@ -250,23 +250,43 @@ async def op_fill(
             rejected=True,
         )
     field = meta.get("name") or ""
-    if risk.password_hit(field):
+    # 无条件拒绝类：卡片 PIN/CVV/API key——agent 永远没有填它们的正当场景
+    if risk.always_secret_hit(field):
         return risk.refusal_payload(
-            f"目标字段「{field}」为密码类字段：无条件拒绝输入（032 §5），"
-            "请改用短信验证码登录形态",
+            f"目标字段「{field}」为卡片安全码/API key 类：无条件拒绝输入（032 §5），"
+            "此类凭据不存在可放行的场景",
             risk="credential",
             target=field,
         )
+    # 登录密码类（032 §5 修订）：confirmed=true 委派段可填，两种方式由用户在
+    # 对话流里选择——直接填（密码经对话上下文发给云端模型）或密钥把手
+    # （secret:xxx 引用，前端直存后端内存，密码不接触模型）；
+    # 未确认段仍拒绝。卡片 PIN/CVV/API key 无条件拒绝（always_secret_hit）。
+    is_password = risk.password_hit(field)
     code_term = risk.code_hit(field)
-    if code_term and not session.confirmed:
+    if (is_password or code_term) and not session.confirmed:
+        kind = "密码" if is_password else "验证码"
         return risk.refusal_payload(
-            f"目标字段「{field}」为验证码类字段：仅允许在用户经登录卡片提供"
-            "验证码后的 confirmed=true 委派段中填入（032 §5 定向豁免）。"
-            "当前为 confirmed=false 委派段，请结束本段并把登录表单结构回传主 agent",
+            f"目标字段「{field}」为{kind}类字段：仅允许在用户经登录卡片提供"
+            "凭据后的 confirmed=true 委派段中填入（032 §5）。"
+            "当前为 confirmed=false 委派段，请结束本委派段并回传登录表单结构",
             risk="credential",
             target=field,
         )
     page = await session.ensure()
+    # 密钥把手模式（032 §5，对话流里用户选择）：fill 值为 secret:<hex> 时由
+    # 后端内存存储解析真实值——明文不进对话上下文/日志，一次性销毁
+    fill_value = str(text or "")
+    if fill_value.startswith("secret:"):
+        from .secrets import resolve_secret
+
+        resolved = resolve_secret(fill_value)
+        if resolved is None:
+            return _error(
+                "密钥把手无效或已过期（一次性、10 分钟 TTL）：请让用户重新在登录卡片提交",
+                rejected=True,
+            )
+        fill_value = resolved
     # 用户「每次确认」名单：该域名的任何变更动作都必须在 confirmed 委派段
     if not session.confirmed and policy.in_confirm_domains(page.url):
         return risk.refusal_payload(
@@ -283,7 +303,7 @@ async def op_fill(
                 rejected=True,
             )
         await _pace()
-        await locator.fill(str(text or ""), timeout=_ACTION_TIMEOUT_MS)
+        await locator.fill(fill_value, timeout=_ACTION_TIMEOUT_MS)
     except Exception as exc:  # noqa: BLE001
         return _error(f"输入失败: {type(exc).__name__}: {str(exc)[:200]}")
     await _settle(page)
@@ -546,6 +566,367 @@ async def op_read_captcha(
     if not cleaned:
         return _ok({"code": None, "message": "验证码识别结果为空，请降级人工认读"})
     return _ok({"code": cleaned, "message": "验证码识别成功"})
+
+
+async def op_geometry(
+    session: BrowserSession,
+    workspace: Path,
+    selector: str | None = None,
+    ref: str | None = None,
+) -> dict[str, Any]:
+    """元素几何信息（032 §3 补充）：bounding_box + devicePixelRatio。
+
+    替代 JS evaluate 取 rect——Playwright 原生 bounding_box 无需任意 JS。
+    """
+    page = await session.ensure()
+    if ref:
+        meta = _ref_meta(session, ref)
+        if meta is None:
+            return _error(f"编号 {ref} 不存在或已过期，请重新 browser_snapshot", rejected=True)
+        locator = page.locator(meta["selector"])
+    elif (selector or "").strip():
+        locator = page.locator(selector.strip()).first
+    else:
+        return _error("需要 selector 或 ref 之一", rejected=True)
+    try:
+        if await locator.count() == 0:
+            return _error("元素不在页面上", rejected=True)
+        box = await locator.bounding_box()
+        if not box:
+            return _error("元素不可见或无几何信息", rejected=True)
+        dpr = await page.evaluate("window.devicePixelRatio")
+    except Exception as exc:  # noqa: BLE001
+        return _error(f"几何信息获取失败: {type(exc).__name__}: {str(exc)[:200]}")
+    return _ok({"rect": box, "dpr": dpr})
+
+
+async def op_solve_slider(
+    session: BrowserSession,
+    workspace: Path,
+    handle_ref: str,
+    track_ref: str,
+    piece_ref: str | None = None,
+    success_text: str | None = None,
+) -> dict[str, Any]:
+    """滑块验证码自动求解（032 §3 L2.5，实验性）。
+
+    仅 confirmed=true 委派段（用户在场授权）。流程：滑轨/拼图元素截图 →
+    Pillow 缺口识别（双图差分或列差分）→ 拟人轨迹拖拽（分段缓动+过冲+抖动）
+    → 可选成功标记检测。失败由模型重试 ≤2 次后降级人工（L4）。
+    """
+    if not session.confirmed:
+        return risk.refusal_payload(
+            "滑块自动求解仅允许在 confirmed=true 委派段执行（用户在场授权，"
+            "行为风控敏感操作）",
+            risk="confirmed",
+        )
+    handle_meta = _ref_meta(session, handle_ref)
+    track_meta = _ref_meta(session, track_ref)
+    if handle_meta is None or track_meta is None:
+        return _error(
+            "手柄/滑轨 ref 不存在或已过期，请重新 browser_snapshot",
+            rejected=True,
+        )
+    page = await session.ensure()
+    handle_loc = page.locator(handle_meta["selector"])
+    track_loc = page.locator(track_meta["selector"])
+    try:
+        if await handle_loc.count() == 0 or await track_loc.count() == 0:
+            return _error("手柄或滑轨元素已不在页面", rejected=True)
+        hb = await handle_loc.bounding_box()
+        tb = await track_loc.bounding_box()
+    except Exception as exc:  # noqa: BLE001
+        return _error(f"定位失败: {type(exc).__name__}: {str(exc)[:200]}")
+    if not hb or not tb:
+        return _error("无法获取手柄/滑轨几何信息", rejected=True)
+
+    from ...config import output_dir_for_workspace
+
+    out_dir = output_dir_for_workspace(workspace) / "browser"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%H%M%S")
+    track_png = out_dir / f"slider-track-{stamp}.png"
+    piece_png: Path | None = None
+    try:
+        # scale="css"：截图像素与 CSS 像素 1:1，缺口距离直接可用
+        await track_loc.screenshot(path=str(track_png), scale="css")
+        if piece_ref:
+            piece_meta = _ref_meta(session, piece_ref)
+            if piece_meta is not None:
+                ploc = page.locator(piece_meta["selector"])
+                if await ploc.count() > 0:
+                    piece_png = out_dir / f"slider-piece-{stamp}.png"
+                    await ploc.screenshot(path=str(piece_png), scale="css")
+    except Exception as exc:  # noqa: BLE001
+        return _error(f"滑块截图失败: {type(exc).__name__}: {str(exc)[:200]}")
+
+    from .slider import detect_gap_x, human_track
+
+    search_from = int(hb["x"] - tb["x"] + hb["width"] + 2)
+    gap_x = detect_gap_x(
+        Path(track_png).read_bytes(),
+        Path(piece_png).read_bytes() if piece_png else None,
+        search_from=search_from,
+    )
+    try:
+        track_png.unlink(missing_ok=True)
+        if piece_png:
+            piece_png.unlink(missing_ok=True)
+    except OSError:  # noqa: BLE001
+        pass
+    if gap_x is None:
+        return _error(
+            "缺口识别失败（截图对比度不足或结构特殊）：请再试一次或降级有头人工拖拽"
+            "（两次失败必须降级，避免风险分累积）",
+        )
+
+    handle_left = hb["x"] - tb["x"]
+    distance = max(8.0, min(float(gap_x) - handle_left, tb["width"] - hb["width"]))
+    moves = human_track(distance, random.Random())
+    start_x = hb["x"] + hb["width"] / 2
+    start_y = hb["y"] + hb["height"] / 2
+    try:
+        await _pace()
+        await page.mouse.move(start_x, start_y)
+        await page.mouse.down()
+        # dx 为手柄位移（从拖拽起点累积）→ 鼠标 = 起点 + dx
+        for dx, dy, delay in moves:
+            await page.mouse.move(start_x + dx, start_y + dy)
+            await asyncio.sleep(delay / 1000)
+        await page.mouse.up()
+    except Exception as exc:  # noqa: BLE001
+        try:
+            await page.mouse.up()
+        except Exception:  # noqa: BLE001
+            pass
+        return _error(f"拖拽执行失败: {type(exc).__name__}: {str(exc)[:200]}")
+    await asyncio.sleep(random.uniform(0.4, 0.8))
+
+    verified: bool | None = None
+    if success_text:
+        try:
+            await page.wait_for_selector(
+                f"text={success_text}", state="visible", timeout=6000
+            )
+            verified = True
+        except Exception:  # noqa: BLE001
+            verified = False
+    result = await _snapshot_payload(session, page)
+    if verified is False:
+        result["success"] = False
+        result["message"] = (
+            "滑块拖拽后未检测到成功标记（行为风控识别）：最多再试 1 次，"
+            "再失败请降级有头人工拖拽"
+        )
+        result["slider"] = {"distance": round(distance, 1), "verified": False}
+        return result
+    result["slider"] = {
+        "distance": round(distance, 1),
+        "moves": len(moves),
+        "verified": verified,
+    }
+    return result
+
+
+def _parse_grounding_items(text: str) -> list[tuple[str, float, float]] | None:
+    """解析视觉模型回复中的 [{label, x, y}, ...]；无有效数组返回 None。"""
+    import json as _json
+    import re as _re
+
+    if not text:
+        return None
+    items: list[tuple[str, float, float]] = []
+    for chunk in _re.findall(r"\[[^\[\]]*\]", text):
+        try:
+            arr = _json.loads(chunk)
+        except ValueError:
+            continue
+        if not isinstance(arr, list):
+            continue
+        for item in arr:
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("label", "")).strip()
+            if label and "x" in item and "y" in item:
+                try:
+                    items.append((label, float(item["x"]), float(item["y"])))
+                except (TypeError, ValueError):
+                    continue
+        if items:
+            return items  # 取第一个可解析的数组
+    return None
+
+
+def _parse_grounding(text: str, labels: list[str]) -> list[tuple[float, float]] | None:
+    """按给定 labels 顺序解析坐标；缺任一目标返回 None（兼容旧调用）。"""
+    items = _parse_grounding_items(text)
+    if items is None or len(items) < len(labels):
+        return None
+    points: list[tuple[float, float]] = []
+    for label in labels:
+        match = next((i for i in items if i[0] == label), None)
+        if match is None:
+            return None
+        points.append((match[1], match[2]))
+    return points
+
+
+async def op_solve_click_captcha(
+    session: BrowserSession,
+    workspace: Path,
+    image_ref: str | None = None,
+    selector: str | None = None,
+    targets: list[str] | None = None,
+    submit_text: str | None = None,
+    success_text: str | None = None,
+) -> dict[str, Any]:
+    """点选验证码自动求解（032 §3 L2.6，实验性）。
+
+    验证码图定位二选一：image_ref（快照元素）或 selector（CSS——geetest 类
+    canvas/无障碍盲区容器没有 ref，由配方/提示词给出选择器）。
+    元素截图（scale=css，像素=CSS 坐标）→ 视觉模型 grounding：
+    - targets 给定 → 在图中按顺序找目标；
+    - targets 缺省 → 视觉模型自己读提示文字与目标（目标字常由图片渲染，DOM 无文本）。
+    换算页面坐标 → 按顺序 mouse.click → 可选确认按钮。仅 confirmed=true 委派段；
+    识别失败返回 points=None 降级人工；模型重试 ≤2 次后降级有头浮窗（L4）。
+    """
+    if not session.confirmed:
+        return risk.refusal_payload(
+            "点选验证码自动求解仅允许在 confirmed=true 委派段执行（用户在场授权，"
+            "行为风控敏感操作）",
+            risk="confirmed",
+        )
+    labels = [str(t).strip() for t in (targets or []) if str(t).strip()]
+    if not selector and not image_ref:
+        return _error(
+            "需要 selector（CSS 定位验证码容器，geetest 类为 .geetest_widget 内的"
+            " canvas/图片）或 image_ref（快照 ref）之一",
+            rejected=True,
+        )
+    if labels and len(labels) > 6:
+        return _error("targets 最多 6 个目标", rejected=True)
+    page = await session.ensure()
+    try:
+        if image_ref:
+            image_meta = _ref_meta(session, image_ref)
+            if image_meta is None:
+                return _error(
+                    "验证码图片 ref 不存在或已过期，请重新 browser_snapshot；"
+                    "无障碍盲区的验证码容器请改用 selector 参数",
+                    rejected=True,
+                )
+            image_loc = page.locator(image_meta["selector"])
+        else:
+            image_loc = page.locator(str(selector).strip()).first
+        if await image_loc.count() == 0:
+            return _error(
+                "验证码图片元素不在页面：确认 selector 是否正确"
+                "（geetest 常见为 .geetest_widget 内的 canvas/img）",
+                rejected=True,
+            )
+        bbox = await image_loc.bounding_box()
+        if not bbox:
+            return _error("无法获取验证码图片几何信息", rejected=True)
+        from ...config import output_dir_for_workspace
+
+        out_dir = output_dir_for_workspace(workspace) / "browser"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        stamp = time.strftime("%H%M%S")
+        png = out_dir / f"click-captcha-{stamp}.png"
+        # scale="css"：截图像素与 CSS 像素 1:1，grounding 坐标可直接换算
+        await image_loc.screenshot(path=str(png), scale="css")
+    except Exception as exc:  # noqa: BLE001
+        return _error(f"验证码截图失败: {type(exc).__name__}: {str(exc)[:200]}")
+
+    from PIL import Image
+
+    img_w, img_h = Image.open(png).size
+    if labels:
+        vision_prompt = (
+            "在图中按顺序找到以下目标："
+            + "、".join(f"「{label}」" for label in labels)
+            + "。返回 JSON 数组，每项形如 {\"label\": \"目标\", \"x\": <中心横坐标像素>, "
+            "\"y\": <中心纵坐标像素>}，顺序与给定顺序一致。只输出 JSON，不要其他内容。"
+        )
+    else:
+        vision_prompt = (
+            "这是一张点选验证码。第一步：读出图中提示要求依次点击的目标文字；"
+            "第二步：返回每个目标中心的坐标。输出 JSON 数组，每项形如 "
+            "{\"label\": \"目标文字\", \"x\": <中心横坐标像素>, \"y\": <中心纵坐标像素>}，"
+            "按提示要求的点击顺序排列。只输出 JSON，不要其他内容。"
+        )
+    try:
+        code = await _vision_caption(png, prompt=vision_prompt)
+    finally:
+        try:
+            png.unlink(missing_ok=True)
+        except OSError:  # noqa: BLE001
+            pass
+
+    items = _parse_grounding_items(code or "")
+    if items is None or (labels and len(items) < len(labels)):
+        return _ok(
+            {
+                "points": None,
+                "message": (
+                    "点选目标识别失败（视觉模型未配置、目标文字读不出或 grounding 不准）："
+                    "请降级为登录卡片人工点选，不要盲目点击"
+                ),
+            }
+        )
+    if labels:
+        ordered: list[tuple[str, float, float]] = []
+        for label in labels:
+            match = next((item for item in items if item[0] == label), None)
+            if match is None:
+                return _ok(
+                    {
+                        "points": None,
+                        "message": f"目标「{label}」未在图中识别到：请降级为登录卡片人工点选",
+                    }
+                )
+            ordered.append(match)
+        resolved_labels = labels
+        points = [(ix, iy) for _, ix, iy in ordered]
+    else:
+        resolved_labels = [item[0] for item in items]
+        points = [(ix, iy) for _, ix, iy in items]
+
+    try:
+        for label, (ix, iy) in zip(resolved_labels, points):
+            px = bbox["x"] + (ix / img_w) * bbox["width"]
+            py = bbox["y"] + (iy / img_h) * bbox["height"]
+            await _pace()
+            await page.mouse.click(px, py)
+        if submit_text:
+            await _pace()
+            submit_loc = page.get_by_text(str(submit_text), exact=False).first
+            if await submit_loc.count() > 0:
+                await submit_loc.click(timeout=_ACTION_TIMEOUT_MS)
+    except Exception as exc:  # noqa: BLE001
+        return _error(f"点选执行失败: {type(exc).__name__}: {str(exc)[:200]}")
+    await asyncio.sleep(random.uniform(0.4, 0.8))
+
+    verified: bool | None = None
+    if success_text:
+        try:
+            await page.wait_for_selector(
+                f"text={success_text}", state="visible", timeout=6000
+            )
+            verified = True
+        except Exception:  # noqa: BLE001
+            verified = False
+    result = await _snapshot_payload(session, page)
+    if verified is False:
+        result["success"] = False
+        result["message"] = (
+            "点选提交后未通过（识别或顺序有误）：最多再试 1 次，"
+            "再失败请降级有头人工点选"
+        )
+        result["click_captcha"] = {"targets": labels, "verified": False}
+        return result
+    result["click_captcha"] = {"targets": labels, "points": points, "verified": verified}
+    return result
 
 
 async def op_read_page(session: BrowserSession, workspace: Path) -> dict[str, Any]:

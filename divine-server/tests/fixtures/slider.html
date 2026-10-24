@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>滑块验证</title>
+  </head>
+  <body>
+    <h1>安全验证</h1>
+    <div id="track" aria-label="滑轨" style="position: relative; width: 300px; height: 40px; background: #e8e8e8; cursor: pointer">
+      <div id="gap" style="position: absolute; left: 180px; width: 40px; height: 40px; background: #9a9a9a"></div>
+      <div id="handle" aria-label="滑块" style="position: absolute; left: 0; top: 0; width: 40px; height: 40px; background: #2b7cff; cursor: pointer"></div>
+    </div>
+    <p id="slider-state">未验证</p>
+    <script>
+      var dragging = false, startX = 0;
+      var GAP = 180, W = 40, MAX = 300 - W;
+      var handle = document.getElementById("handle");
+      handle.addEventListener("mousedown", function (e) {
+        dragging = true;
+        startX = e.clientX - parseFloat(handle.style.left || "0");
+      });
+      document.addEventListener("mousemove", function (e) {
+        if (!dragging) return;
+        var nx = Math.max(0, Math.min(MAX, e.clientX - startX));
+        handle.style.left = nx + "px";
+      });
+      document.addEventListener("mouseup", function (e) {
+        if (!dragging) return;
+        dragging = false;
+        var nx = parseFloat(handle.style.left || "0");
+        if (Math.abs(nx - GAP) < 6) {
+          document.getElementById("slider-state").innerText = "验证成功";
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -138,3 +138,37 @@ def test_address_guard_warns_on_mismatch(monkeypatch):
         "https://item.jd.com/1.html", "收货地址：上海市浦东新区世纪大道100号 12F；应付 ¥16.5"
     )
     assert not any("不一致" in w for w in result2["warnings"])
+
+
+# ---------------------------------------------------------------------------
+# 密钥把手（032 §5 对话流选择模式）
+# ---------------------------------------------------------------------------
+
+
+def test_secret_handle_roundtrip():
+    from app.tools.browser_engine.secrets import clear_all, resolve_secret, store_secret
+
+    clear_all()
+    handle = store_secret("hunter2")
+    assert handle.startswith("secret:")
+    assert resolve_secret(handle) == "hunter2"
+    assert resolve_secret(handle) is None  # 一次性：第二次解析即失效
+
+
+def test_secret_handle_invalid():
+    from app.tools.browser_engine.secrets import clear_all, resolve_secret
+
+    clear_all()
+    assert resolve_secret("secret:nonexistent") is None
+
+
+def test_password_direct_vs_always_secret():
+    from app.tools.browser_engine import risk
+
+    # 登录密码：confirmed 段判定可填（engine 层），词典命中 True
+    assert risk.password_hit("请输入密码") is True
+    assert risk.password_hit("Password") is True
+    # 卡片 CVV/API key：无条件拒绝类
+    assert risk.always_secret_hit("CVV 安全码") is True
+    assert risk.always_secret_hit("API Key") is True
+    assert risk.always_secret_hit("普通字段") is False

@@ -12,6 +12,9 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from ..config import data_root
+from pydantic import BaseModel, Field
+
+from ..tools.browser_engine.secrets import store_secret
 from ..tools.browser_engine.session import (
     discover_cdp_endpoint,
     launch_debug_chrome,
@@ -30,6 +33,17 @@ def browser_status():
         "endpoint": endpoint,
         "profile_dir": str(data_root() / "browser" / "profile"),
     }
+
+
+class SecretStoreBody(BaseModel):
+    value: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/secrets")
+def store_browser_secret(body: SecretStoreBody):
+    """登录卡片直存凭据（一次性把手，10 分钟 TTL）——密码不进对话上下文。"""
+    handle = store_secret(body.value)
+    return {"handle": handle}
 
 
 @router.post("/setup")
