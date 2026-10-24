@@ -546,3 +546,7 @@ All captured from a real local run (dark theme by default; the Settings page is 
 **General web task engine in action** — the browser subagent opens Juejin "Boiling Points" in the dedicated browser, scrapes the top 5 posts and drafts replies (confirmed in a table before sending), with chat and browser visible side by side; publishing always goes through a user confirmation card first.
 
 ![General web task engine](screenshots/11.jpg)
+
+**Auto-shopping in action** — the browser subagent searches 老乡鸡 on the Meituan H5 ordering site, compares 12 stores (rating / monthly sales / delivery fee / ETA) with a recommendation, and asks the user to pick a store via an options card.
+
+![Auto-shopping](screenshots/12.png)
