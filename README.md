@@ -36,6 +36,15 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 - 后台任务与子代理：dev server / 长任务后台运行并可查状态；大任务并行拆分给多个子 Agent
 - 交互式终端、Markdown 渲染与 Shiki 代码高亮、消息列表展示回复耗时
 
+### 通用 Web 任务引擎（浏览器自动化）
+
+- 给一个 URL + 一句话要求，Agent 在真实浏览器的专属标签页里完成网页任务：查询/整理页面信息、填表单、发布内容，以及自动购物等任意站点场景
+- CDP 接管专用浏览器 profile（Chrome 136+ 唯一可行路径）：一次性登录持久复用、随机端口自动发现、端点丢失自动引导重启（自愈），全程零系统权限
+- aria 快照 + 单调 ref 定位，不裸用 CSS selector；contenteditable 富文本编辑器与框架委托事件的可点控件（cursor:pointer）均可寻址；变更操作自动带回新快照
+- 风险四级闸门：只读/可逆动作自动执行；提交/删除/支付类不可逆动作强制「抽取 → 操作确认卡 → 用户确认 → confirmed 委派段」；密码/验证码/API key 输入无条件拒绝；高风险词典兜底防误标
+- 委派入口 `web_task`：10 个 browser 操作原语只在 browser 子 agent 内注册，不占主 agent 工具表与 prefix cache；每步 SSE 心跳实时可见
+- 设计文档见 `docs/design/031-generic-web-task-20261024.md`（购物域策略包、站点配方与分期计划同文档）
+
 ### 生成与编辑（docgen）
 
 - 文档与可视化生成：Word、PPT、Excel、PDF（报告/商业分析/旅行/路线图/书/幻灯片配方，另含学术报告 / 论文投稿 / 数据分析报告 / 研究报告 / 金句手绘解读五套页式模板）、Markdown、SVG 矢量图、ECharts 图表、Mermaid 图、完整 UX 交互 HTML、通用 HTML 页面、可编辑简历 HTML（19 套模板）
@@ -89,6 +98,7 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 | `divine-server/app/mcp`            | MCP server 连接管理（stdio/SSE）                                                                        |
 | `divine-server/app/skills`         | SKILL.md 技能注册与执行                                                                                 |
 | `divine-server/app/tools/adapters` | 工具注册与参数定义                                                                                      |
+| `divine-server/app/tools/browser_engine` | 通用 Web 任务引擎（CDP 会话、aria 快照 + ref、风险分级、购物策略钩子）                             |
 | `divine-server/app/tools/scripts`  | 工具子进程脚本                                                                                          |
 | `divine-server/app/tools/graph`    | GraphIR 契约（封闭枚举 schema + validator + 签入的 `graph_ir.schema.json`）                             |
 | `divine-server/app/tools/ui`       | A2UI 面板：组件目录（签入 `divine_catalog.json`）、IR 校验、v0.9.1 信封                                 |
@@ -254,7 +264,7 @@ pnpm tauri:dev
 
 ## 工具系统
 
-当前注册 80 个工具（随 MCP/技能动态增减），按名称排序：
+当前注册 91 个工具（随 MCP/技能动态增减），按名称排序：
 
 | 工具                                  | 用途                                                                                                         |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -327,11 +337,14 @@ pnpm tauri:dev
 | `ux_html`                             | 保存 Agent 设计的完整 UX 交互 HTML，可文件面板预览                                                           |
 | `web_fetch` / `web_fetch_batch`       | 抓取网页/批量抓取，JS 动态页自动浏览器兜底，可监听数据接口取 JSON                                            |
 | `web_search`                          | 联网搜索，返回标题/链接/摘要                                                                                 |
+| `web_task`                            | 通用 Web 任务引擎：把「URL + 要求」委托给 browser 子 Agent 在真实浏览器里执行（导航/快照/填表/点击/抽取），不可逆动作强制确认卡 |
 | `word_document`                       | 生成 Word 文档（标题/表格/图片/代码块等元素），支持以用户 docx 为样式基底                                    |
 | `write_calendar`                      | 写入日程/日历事件                                                                                            |
 | `write_file`                          | 创建/写入 workspace 内文本文件                                                                               |
 
 工具行为的两条默认：输出路径必须落在 workspace 内（越界拒绝）；高危操作（terminal、git 提交/还原、文件改动等）一律先征求用户确认。
+
+另有 `browser_navigate` / `browser_snapshot` / `browser_click` / `browser_fill` / `browser_select` / `browser_scroll` / `browser_extract` / `browser_wait` / `browser_press_key` / `browser_read_page` 10 个浏览器操作原语，只在 browser 子 agent 内注册——不进主 agent 工具表（保护 system prompt 与 prefix cache），主 agent 只通过 `web_task` 委派。
 
 `render_ui` 与 `render_graph` 都属于「默认不要调用」的工具：单纯展示结论用正文 Markdown，一张图用 `generate_chart`，一张表用 Markdown 表格，静态图先走 Mermaid；只有需要**组合呈现**、**在界面里操作**、或用户明确要求**可交互/可导出**时才调用，避免为了形式感付出 token 与渲染成本。
 

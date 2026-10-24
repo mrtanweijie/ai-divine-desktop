@@ -36,6 +36,15 @@ Default ports:
 - Background tasks & subagents: dev servers / long-running tasks run in the background with status checks; large tasks are split across parallel subagents
 - Interactive terminal, Markdown rendering with Shiki code highlighting, and per-message response time in the message list
 
+### General Web Task Engine (Browser Automation)
+
+- Give it a URL plus one sentence, and the agent completes web tasks in a dedicated tab of a real browser: collecting/organizing page information, filling forms, publishing content, auto-shopping — any site
+- CDP attach to a dedicated browser profile (the only viable path on Chrome 136+): one-time login persisted and reused, random-port discovery with automatic guided relaunch (self-healing), zero system permissions throughout
+- ARIA snapshot with monotonic refs instead of raw CSS selectors; contenteditable rich-text editors and framework-delegated clickable controls (cursor:pointer) are all addressable; mutating actions return a fresh snapshot automatically
+- Four-tier risk gates: read-only / reversible actions run automatically; irreversible actions (submit / delete / pay) force the flow "extract → action confirmation card → user confirms → confirmed delegation"; password / captcha / API-key inputs are always rejected; a high-risk lexicon guards against mislabeling
+- Single delegation entry `web_task`: 10 browser operation primitives register only inside the browser subagent, never in the main agent tool table (protecting the prefix cache); every step emits an SSE heartbeat
+- Design doc: `docs/design/031-generic-web-task-20261024.md` (shopping policy pack, site recipes, and the phased plan live in the same document)
+
 ### Generation & Editing (docgen)
 
 - Document and visualization generation: Word, PPT, Excel, PDF (report / business analysis / travel / roadmap / book / slide-deck recipes, plus five paginated templates: academic report / paper submission / data analysis report / research report / hand-drawn quote interpretation), Markdown, SVG vector graphics, ECharts charts, Mermaid diagrams, full UX-interactive HTML, general HTML pages, and editable résumé HTML (19 templates)
@@ -89,6 +98,7 @@ Default ports:
 | `divine-server/app/mcp`            | MCP server connection management (stdio / SSE)                                                                                                            |
 | `divine-server/app/skills`         | SKILL.md skill registration and execution                                                                                                                 |
 | `divine-server/app/tools/adapters` | Tool registration and parameter definitions                                                                                                               |
+| `divine-server/app/tools/browser_engine` | General web task engine (CDP sessions, ARIA snapshot + refs, risk tiers, shopping policy hooks)                                                     |
 | `divine-server/app/tools/scripts`  | Tool subprocess scripts                                                                                                                                   |
 | `divine-server/app/tools/graph`    | GraphIR contract (closed-enum schema + validator + checked-in `graph_ir.schema.json`)                                                                     |
 | `divine-server/app/tools/ui`       | A2UI panels: component catalog (checked-in `divine_catalog.json`), IR validation, v0.9.1 envelope                                                         |
@@ -254,7 +264,7 @@ The frontend uses a mode-specific env file:
 
 ## Tool System
 
-80 tools are registered at present (growing and shrinking with MCP servers and skills), sorted by name:
+91 tools are registered at present (growing and shrinking with MCP servers and skills), sorted by name:
 
 | Tool                                  | Purpose                                                                                                                                                                                                      |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -327,11 +337,14 @@ The frontend uses a mode-specific env file:
 | `ux_html`                             | Save a complete UX-interactive HTML page designed by the agent, previewable in the file panel                                                                                                                |
 | `web_fetch` / `web_fetch_batch`       | Fetch a page / batch-fetch, with automatic browser fallback for JS-driven pages; can listen to data APIs and take JSON                                                                                       |
 | `web_search`                          | Web search returning titles / links / snippets                                                                                                                                                               |
+| `web_task`                            | General web task engine: delegate "URL + request" to the browser subagent running in a real browser (navigate / snapshot / fill / click / extract); irreversible actions require a confirmation card                          |
 | `word_document`                       | Generate a Word document (headings / tables / images / code blocks and more), optionally using the user's docx as the style base                                                                             |
 | `write_calendar`                      | Write a schedule or calendar event                                                                                                                                                                           |
 | `write_file`                          | Create or write a text file inside the workspace                                                                                                                                                             |
 
 Two tool defaults: output paths must stay inside the workspace (anything outside is rejected), and high-risk operations (terminal, git commit / revert, file edits, etc.) always ask the user first.
+
+Ten browser operation primitives — `browser_navigate` / `browser_snapshot` / `browser_click` / `browser_fill` / `browser_select` / `browser_scroll` / `browser_extract` / `browser_wait` / `browser_press_key` / `browser_read_page` — register only inside the browser subagent, never in the main agent tool table (protecting the system prompt and prefix cache); the main agent delegates exclusively through `web_task`.
 
 `render_ui` and `render_graph` are both "do not call by default" tools: for a plain conclusion use Markdown prose, for a single chart use `generate_chart`, for a single table use a Markdown table, and for static diagrams use Mermaid first. Call them only when you need **composed presentation**, **in-UI manipulation**, or the user explicitly asks for something **interactive / exportable** — avoiding the token and rendering cost of form for its own sake.
 
