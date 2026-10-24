@@ -65,8 +65,17 @@ def test_default_branch_has_no_browser_tools():
     assert not ({tool.name for tool in tools} & _SUBAGENT_BROWSER_TOOLS)
 
 
-def test_browser_task_timeout_is_research_level():
-    assert subagent_timeout({"browser": True}) == subagents_mod.SUBAGENT_TIMEOUT_RESEARCH
+def test_browser_task_timeout_is_build_level():
+    # 逐步操作任务单段常见 5-10 分钟，与写文件类共用 600s
+    assert subagent_timeout({"browser": True}) == subagents_mod.SUBAGENT_TIMEOUT_BUILD
+
+
+def test_browser_turn_limit_doubles_research():
+    # 48 回合与 40 步工具上限配套；工具轮 ≈ 模型轮
+    assert (
+        subagents_mod.SUBAGENT_BROWSER_MAX_TOOL_TURNS
+        == subagents_mod.SUBAGENT_MAX_TOOL_TURNS * 2
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -59,6 +59,10 @@ MAX_SUBAGENT_PARALLEL = 4
 # 调研/分析类子任务（如多来源网页调研）需要较多模型回合；
 # 16 次对“国内AI服务定价调研”这类多厂商任务不够，24 次仍远低于主 Agent 的 96 次。
 SUBAGENT_MAX_TOOL_TURNS = 24
+# browser 委派段的模型调用上限：逐步操作型任务（快照/抽取/滚动/翻页）一单
+# 轻松超过调研类任务的 24 轮（店铺页实测触发 24/24 上限）。给 2 倍余量，
+# 与 40 步工具上限（SUBAGENT_BROWSER_STEP_CAP）配套：工具轮 ≈ 模型轮。
+SUBAGENT_BROWSER_MAX_TOOL_TURNS = 48
 # LangGraph 的 recursion_limit 统计的是图里的 super-step：模型调用和每次工具执行
 # 各算一步。研究类子任务一个回合常连续调用多个工具（多次搜索/抓取），
 # 2 倍余量会在模型调用上限触发前就抛 GraphRecursionError。
@@ -76,12 +80,10 @@ SUBAGENT_TIMEOUT_BUILD = 600
 def subagent_timeout(task: dict[str, Any]) -> int:
     """按任务类型返回超时秒数：写文件/终端类 600s，调研类 300s。
 
-    browser 任务同样按 300s：设计上拆成 prepare/act/verify 短委派段，
-    支付等待与订单轮询由主 agent 后台进行，不占子 agent 生命周期（031 §3）。
+    browser 任务同样 600s：逐步操作（快照/抽取/翻页）单段常见 5-10 分钟，
+    300s 会把 48 回合的余量截断；支付等待与订单轮询仍由主 agent 后台进行。
     """
-    if task.get("browser"):
-        return SUBAGENT_TIMEOUT_RESEARCH
-    if task.get("write") or task.get("terminal"):
+    if task.get("browser") or task.get("write") or task.get("terminal"):
         return SUBAGENT_TIMEOUT_BUILD
     return SUBAGENT_TIMEOUT_RESEARCH
 
@@ -858,7 +860,11 @@ async def _run_subagent(
             system_prompt=system_prompt,
             middleware=[
                 ModelCallLimitMiddleware(
-                    run_limit=SUBAGENT_MAX_TOOL_TURNS,
+                    run_limit=(
+                        SUBAGENT_BROWSER_MAX_TOOL_TURNS
+                        if browser_enabled
+                        else SUBAGENT_MAX_TOOL_TURNS
+                    ),
                     exit_behavior="end",
                 ),
                 ToolErrorMiddleware(
