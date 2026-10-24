@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>测试商店</title>
+  </head>
+  <body>
+    <h1>测试商店</h1>
+    <p class="intro">欢迎光临测试商店，请选购。</p>
+    <input type="text" id="kw" placeholder="搜索商品" />
+    <input type="password" id="pw" placeholder="请输入支付密码" />
+    <select id="spec">
+      <option>大杯</option>
+      <option selected>中杯</option>
+      <option>小杯</option>
+    </select>
+    <button id="fav" onclick="document.getElementById('fav').innerText='已收藏'">收藏商品</button>
+    <button id="submit" onclick="alert('已下单')">提交订单</button>
+    <a href="#detail">查看商品详情</a>
+    <p class="total">应付 ¥258.00</p>
+    <div id="circle-picker" style="cursor: pointer; padding: 8px; background: #f5f5f5; display: inline-block">
+      请选择圈子
+    </div>
+    <div id="editor" contenteditable="true" style="min-height: 40px; border: 1px solid #ccc; margin-top: 8px"></div>
+  </body>
+</html>

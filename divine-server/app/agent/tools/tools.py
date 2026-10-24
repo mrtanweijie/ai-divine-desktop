@@ -81,6 +81,8 @@ _CONTENT_TOOLS: dict[str, str | tuple[str, ...]] = {
     "discover_importable_skills": "skill",
     "preview_skill_repo": "skill",
     "run_subagents": "subagent",
+    # web_task（通用 Web 任务引擎，031）：browser 意图命中时注入，仅此一个入口
+    "web_task": "browser",
     # render_ui 的判据必须与提示词节 _A2UI_SECTION 的挂载完全一致
     # （core.constants.A2UI_INTENTS 是唯一真源，028 §10.1 ③）。
     # 注意：intents 为空时 _content_tool_allowed 全量放行，所以「无信号的
@@ -155,6 +157,9 @@ def _build_tools(ctx: AgentRunContext) -> list[StructuredTool]:
     for meta in registry.list():
         name = meta["name"]
         if name == "create_plan":
+            continue
+        # browser 工具集（031 §4）：只进 browser 子 agent，主 agent 只拿 task 入口。
+        if meta.get("category") == "browser":
             continue
         # A2UI 面板：总开关关闭时整块工具下线（不注入、不可见、不可调）。
         if name == "render_ui" and not a2ui_enabled:

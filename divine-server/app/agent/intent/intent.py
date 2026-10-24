@@ -19,6 +19,7 @@ from ...config import DEFAULT_LOCAL_LLM_THRESHOLD
 from ..core import A2UI_INTENTS, SYSTEM_PROMPT
 from ..core.prompt_sections import (
     _A2UI_SECTION,
+    _BROWSER_TASK_RULES,
     _CHART_RULES,
     _DATA_TOOL_RULES,
     _DOCUMENT_RULES,
@@ -70,6 +71,7 @@ CONDITIONAL_SECTIONS: dict[str, tuple[str, ...]] = {
     "skill": (_SKILL_RULES,),
     "terminal": (_TERMINAL_RULES,),
     "subagent": (_SUBAGENT_RULES,),
+    "browser": (_BROWSER_TASK_RULES,),
     "project": (_PROJECT_WORKFLOW,),
     "memory": (_MEMORY_RULES,),
 }
@@ -98,6 +100,7 @@ _INTENT_ORDER: tuple[str, ...] = (
     "chart",
     "terminal",
     "subagent",
+    "browser",
     "project",
     "memory",
 )
@@ -262,6 +265,29 @@ _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
         "同时调研",
         "多来源",
     ),
+    # 通用 Web 任务（031）：用户给 URL + 要求操作网页；关键词保持具体，
+    # 避免与 open_app 的"打开"、web_fetch 的"抓取"打架。
+    # 发布/发帖类动词是"要在站点上执行动作"的强信号（区别于纯内容抓取）
+    "browser": (
+        "点外卖",
+        "外卖",
+        "购物车",
+        "下单",
+        "帮我买",
+        "去结算",
+        "淘宝",
+        "京东",
+        "美团",
+        "饿了么",
+        "浏览器里",
+        "网页上",
+        "在这个页面",
+        "网页任务",
+        "发一条",
+        "发个",
+        "发帖",
+        "搜集一下",
+    ),
     # 记忆
     "memory": (
         "记住",
@@ -331,6 +357,7 @@ _TOOL_TO_INTENT: dict[str, str] = {
     "html_generate": "html",
     "terminal": "terminal",
     "run_subagents": "subagent",
+    "web_task": "browser",
     "migrate_skill": "skill",
     "migrate_skills": "skill",
     "install_skill": "skill",

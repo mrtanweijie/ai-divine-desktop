@@ -108,3 +108,58 @@ class RunSubagentsAdapter(ToolAdapter):
         progress_callback: Any = None,
     ) -> Any:
         raise ToolExecutionError("run_subagents 是内部元工具，不可直接执行")
+
+
+@register_tool(
+    "web_task",
+    "把一个需要操作真实浏览器的网页任务委托给 browser 子 Agent 执行（通用 Web 任务引擎，"
+    "支持任意 URL：查询/整理/表单/购物等）。子 Agent 在用户浏览器的专属标签页里"
+    "导航、读取、抽取、点击，逐步返回结果。多段委派模式：先以默认 confirmed=false "
+    "做导航/读取/抽取（不可逆动作会被拒绝），拿到结构化信息后由你渲染操作确认卡"
+    "（金额/地址/变更内容等关键字段只来自抽取结果），用户确认后再以 confirmed=true "
+    "委派执行提交/删除等不可逆动作。prompt 要自包含：写清目标 URL、要做什么、"
+    "要返回哪些结构化字段。",
+    {
+        "type": "object",
+        "properties": {
+            "subagent_type": {
+                "type": "string",
+                "enum": ["browser"],
+                "description": "子 Agent 类型，目前仅支持 browser",
+            },
+            "prompt": {
+                "type": "string",
+                "description": (
+                    "自包含任务说明：目标 URL、要完成的操作、需要返回的结构化字段；"
+                    "子 Agent 看不到本对话历史"
+                ),
+            },
+            "confirmed": {
+                "type": "boolean",
+                "description": (
+                    "true 时允许不可逆动作（提交/删除/支付跳转等），"
+                    "必须在操作确认卡获用户确认后才能置 true；默认 false"
+                ),
+                "default": False,
+            },
+        },
+        "required": ["subagent_type", "prompt"],
+    },
+)
+class TaskAdapter(ToolAdapter):
+    """Meta tool schema placeholder.
+
+    Execution never reaches this adapter: ``execution.py`` special-cases the
+    ``web_task`` tool name and dispatches to ``agent.subagents._run_browser_task``.
+    """
+
+    timeout = 300
+
+    async def run(
+        self,
+        workspace: Any,
+        arguments: dict[str, Any],
+        locale: str | None = None,
+        progress_callback: Any = None,
+    ) -> Any:
+        raise ToolExecutionError("web_task 是内部元工具，不可直接执行")

@@ -331,6 +331,11 @@ async def _handle_adapter_call(
             )
 
     try:
+        if name == "web_task":
+            from .subagents import _run_browser_task
+
+            return await _run_browser_task(ctx, runtime, arguments)
+
         if name == "run_subagents":
             from .subagents import (
                 _run_subagents,

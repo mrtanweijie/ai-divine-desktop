@@ -5,6 +5,7 @@ from __future__ import annotations
 # 这里按固定顺序用 "\n" 拼接成 SYSTEM_PROMPT，拼接结果与旧版单一字符串逐字节一致。
 
 from .prompt_sections import (
+    _BROWSER_TASK_RULES,
     _CHART_RULES,
     _DATA_TOOL_RULES,
     _DOCUMENT_RULES,
@@ -49,6 +50,7 @@ SYSTEM_PROMPT = "\n".join((
     _FILE_AND_WEB_RULES,
     _TERMINAL_RULES,
     _SUBAGENT_RULES,
+    _BROWSER_TASK_RULES,
     _PROJECT_WORKFLOW,
     _MEMORY_RULES,
 ))
