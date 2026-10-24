@@ -413,7 +413,8 @@
     "browserModeHeaded": "Headed (visible window)",
     "browserModeHint": "In headless mode, manual steps like login/payment still require switching back to headed (switch applies automatically; logins persist).",
     "sectionBrowser": "Browser",
-    "browserChannelTitle": "Channel & execution mode"
+    "browserChannelTitle": "Channel & execution mode",
+    "browserModeSaved": "Execution mode switched (applies on next task)"
   },
   "skills": {
     "bodyTitle": "SKILL.md content",

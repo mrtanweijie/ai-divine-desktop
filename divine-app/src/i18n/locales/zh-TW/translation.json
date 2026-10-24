@@ -412,7 +412,8 @@
     "browserModeHeaded": "有頭（可見視窗）",
     "browserModeHint": "無頭模式下登入/支付等人工步驟仍需切回有頭完成（切換自動生效，登入態保留）。",
     "sectionBrowser": "瀏覽器",
-    "browserChannelTitle": "調試通道與執行模式"
+    "browserChannelTitle": "調試通道與執行模式",
+    "browserModeSaved": "已切換執行模式（下次任務生效）"
   },
   "skills": {
     "bodyTitle": "SKILL.md 內文",

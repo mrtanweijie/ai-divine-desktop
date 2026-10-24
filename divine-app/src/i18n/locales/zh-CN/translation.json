@@ -406,7 +406,8 @@
     "browserModeHeaded": "有头（可见窗口）",
     "browserModeHint": "无头模式下登录/支付等人工步骤仍需切回有头完成（切换自动生效，登录态保留）。",
     "sectionBrowser": "浏览器",
-    "browserChannelTitle": "调试通道与执行模式"
+    "browserChannelTitle": "调试通道与执行模式",
+    "browserModeSaved": "已切换执行模式（下次任务生效）"
   },
   "skills": {
     "bodyTitle": "SKILL.md 正文",

@@ -131,6 +131,32 @@ export function BrowserSection() {
   const setField = (key: keyof PolicyState) => (value: string) =>
     setPolicy((prev) => ({ ...prev, [key]: value }));
 
+  /** 执行模式即时保存：点选即 PUT——模式按钮不是表单项，等「保存策略」
+   * 才持久化会让用户以为切了其实没存（实测踩坑）。 */
+  const chooseMode = useCallback(
+    async (mode: "headless" | "headed") => {
+      setPolicy((prev) => ({ ...prev, browser_mode: mode }));
+      try {
+        await request("/settings", {
+          method: "PUT",
+          body: JSON.stringify({ browser_mode: mode }),
+        });
+        toast.success(
+          t(
+            "settings.browserModeSaved",
+            mode === "headless" ? "已切无头模式（下次任务生效）" : "已切有头模式（下次任务生效）",
+          ),
+        );
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        toast.error(
+          t("settings.browserPolicySaveFailed", "保存失败") + (detail ? `: ${detail}` : ""),
+        );
+      }
+    },
+    [t],
+  );
+
   return (
     <div className="settings-section settings-browser">
       <h3>
@@ -156,13 +182,13 @@ export function BrowserSection() {
         <div className="browser-field-row">
           <Button
             variant={policy.browser_mode === "headless" ? "primary" : "secondary"}
-            onClick={() => setField("browser_mode")("headless")}
+            onClick={() => void chooseMode("headless")}
           >
             {t("settings.browserModeHeadless", "无头（不打扰）")}
           </Button>
           <Button
             variant={policy.browser_mode === "headed" ? "primary" : "secondary"}
-            onClick={() => setField("browser_mode")("headed")}
+            onClick={() => void chooseMode("headed")}
           >
             {t("settings.browserModeHeaded", "有头（可见窗口）")}
           </Button>
