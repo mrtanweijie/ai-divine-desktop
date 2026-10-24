@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ChevronDown, Globe } from "lucide-react";
+import { ChevronDown, GlobeCode } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BrowserStepItem } from "@/types";
 
@@ -39,7 +39,7 @@ export function BrowserStepsCard({ steps, streaming }: BrowserStepsCardProps) {
         }}
       >
         <ChevronDown size={13} className={open ? "expanded" : ""} />
-        <Globe size={13} />
+        <GlobeCode size={13} />
         <span className="subagent-title">{t("message.browserSteps", "浏览器操作")}</span>
         <span className="subagent-progress">{steps.length}</span>
         {!open && last ? (

@@ -76,6 +76,7 @@ export const GROUPABLE_TOOLS = new Set([
   "web_search",
   "web_fetch",
   "web_fetch_batch",
+  "web_task",
   "svg_to_png",
   "svg_to_png_batch",
   "mermaid_export",
@@ -163,6 +164,12 @@ function mergedCountMessage(tool: ToolEvent, count: number): string {
   }
   if (tool.tool === "web_fetch" || tool.tool === "web_fetch_batch") {
     return i18next.t("tool.fetchedSources", "已抓取 {{count}} 个数据源", { count });
+  }
+  if (tool.tool === "web_task") {
+    // 多段委派合并：状态行只显示段数；失败保留末段错误文本
+    return tool.status === "error"
+      ? tool.message
+      : i18next.t("tool.completedWebTasks", "已完成 {{count}} 段委派", { count });
   }
   if (tool.tool === "calculator") {
     return i18next.t("tool.completedCalculations", "已完成 {{count}} 次计算", { count });

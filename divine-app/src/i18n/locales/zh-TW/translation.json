@@ -794,7 +794,8 @@
     "repoContains_other": "倉庫包含 {{count}} 個技能：",
     "skillsToMigrate_other": "{{count}} 個技能待遷移",
     "urlCount_other": "{{count}} 個連結",
-    "writtenFiles_other": "已寫入 {{count}} 個檔案"
+    "writtenFiles_other": "已寫入 {{count}} 個檔案",
+    "completedWebTasks": "已完成 {{count}} 段委派"
   },
   "updater": {
     "available": "發現新版本 v{{version}}",

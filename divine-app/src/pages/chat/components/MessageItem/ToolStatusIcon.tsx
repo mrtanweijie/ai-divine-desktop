@@ -34,6 +34,7 @@ import {
   GitCompareArrows,
   GitGraph,
   Globe,
+  GlobeCode,
   Group,
   Image,
   ImageDown,
@@ -128,6 +129,7 @@ export function toolIcon(tool: string) {
     return <Presentation size={16} />;
   if (tool === "web_fetch_batch") return <Package size={16} />;
   if (tool === "web_fetch") return <Box size={16} />;
+  if (tool === "web_task") return <GlobeCode size={16} />;
   if (
     tool.includes("web") ||
     tool.includes("fetch") ||

@@ -68,10 +68,15 @@ export const ToolStatusCard = memo(function ToolStatusCard({
       : tool.count && tool.count > 1
         ? tool.message
         : tool.status === "done"
-          ? t("tool.done", "执行完成")
+          ? tool.tool === "web_task"
+            ? "" // web_task 成功单段不需要"执行完成"：合并时状态行显示段数
+            : t("tool.done", "执行完成")
           : tool.messageKey
             ? t(tool.messageKey, tool.messageParams ?? {})
             : tool.message;
+  // web_task 成功且无状态文本时隐藏整行（信息在浏览器时间线与正文里）；
+  // 失败时保留错误说明
+  const hideStatusLine = tool.tool === "web_task" && tool.status === "done" && !statusMessage;
   const chartOption = chartOptionFromResult(tool.result);
   const chartIcon = chartOption ? chartTypeIcon(chartOption) : null;
   const graphIR = graphIRFromResult(tool.result);
@@ -150,10 +155,12 @@ export const ToolStatusCard = memo(function ToolStatusCard({
                 ? t("tool.askUserTitle", "向用户提问")
                 : tool.tool}
           </span>
-          <span className={`tool-message${nowrapMessage ? " nowrap" : ""}`} title={statusTooltip}>
-            {statusLine}
-            {collapsed?.more ? "…" : ""}
-          </span>
+          {!hideStatusLine && (
+            <span className={`tool-message${nowrapMessage ? " nowrap" : ""}`} title={statusTooltip}>
+              {statusLine}
+              {collapsed?.more ? "…" : ""}
+            </span>
+          )}
         </div>
         {(typeof tool.turn === "number" && tool.turn > 0) ||
         tool.duration_ms != null ||
@@ -269,6 +276,7 @@ export const ToolStatusCard = memo(function ToolStatusCard({
       )}
       {tool.status === "done" &&
         tool.result &&
+        tool.tool !== "web_task" && // 浏览器任务的结果行（"浏览器任务完成"）不展示
         tool.tool !== "web_fetch" &&
         tool.tool !== "web_fetch_batch" && (
           <Flex align="center" gap={8} className="tool-result-actions">

@@ -74,7 +74,7 @@ L3 前端展示层 — SSE 步骤时间线 / 操作确认卡（通用卡 + 域�
 ```
 browser_navigate(url)             # 在会话专属 tab 内打开；返回新页面 aria 快照
 browser_snapshot(ref?)            # 全页或 ref 子树快照（结构化文本+元素 ref）
-browser_click(ref, intent?)       # 执行后自动返回新快照；intent 为风险标注（见 §6.1）
+browser_click(ref | text, intent?) # 点击并返回新快照；text 按可见文本点击（移动端 H5 纯文本卡片兜底）
 browser_fill(ref, text, intent?)  # 同上：fill + 新快照一并返回
 browser_select(ref, option)       # 同上
 browser_scroll(direction, amount) # 同上
