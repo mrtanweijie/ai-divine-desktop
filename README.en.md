@@ -44,7 +44,7 @@ Default ports:
 - ARIA snapshot with monotonic refs instead of raw CSS selectors; contenteditable rich-text editors, framework-delegated clickable controls (cursor:pointer), and mixed text nodes are all addressable; tabs opened by clicks / Enter are adopted automatically; role-less text cards on mobile H5 fall back to clicking by visible text
 - Four-tier risk gates: read-only / reversible actions run automatically; irreversible actions (submit / delete / pay) force the flow "extract → action confirmation card → user confirms → confirmed delegation"; password / captcha / API-key inputs are always rejected; a high-risk lexicon, submit idempotency lock, 40-step cap, and old-snapshot trimming back it up
 - Site recipes: `data/browser/recipes/*.json` inject flow knowledge by URL pattern; a broken recipe degrades to the generic loop automatically
-- Single delegation entry `web_task`: 11 browser operation primitives register only inside the browser subagent, never in the main agent tool table (protecting the prefix cache); every step emits an SSE heartbeat driving the persisted "Browser actions" timeline, and multi-segment delegations merge into one tool card
+- Single delegation entry `web_task`: 14 browser operation primitives register only inside the browser subagent, never in the main agent tool table (protecting the prefix cache); every step emits an SSE heartbeat driving the persisted "Browser actions" timeline, and multi-segment delegations merge into one tool card
 - Design doc: `docs/design/031-generic-web-task-20261024.md` (shopping policy pack, domain policy settings, and the phased plan live in the same document)
 
 ### Generation & Editing (docgen)
@@ -272,7 +272,7 @@ The frontend uses a mode-specific env file:
 
 ## Tool System
 
-92 tools are registered at present (growing and shrinking with MCP servers and skills), sorted by name:
+95 tools are registered at present (growing and shrinking with MCP servers and skills), sorted by name:
 
 | Tool                                  | Purpose                                                                                                                                                                                                      |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -352,7 +352,7 @@ The frontend uses a mode-specific env file:
 
 Two tool defaults: output paths must stay inside the workspace (anything outside is rejected), and high-risk operations (terminal, git commit / revert, file edits, etc.) always ask the user first.
 
-Eleven browser operation primitives — `browser_navigate` / `browser_snapshot` / `browser_click` / `browser_fill` / `browser_select` / `browser_scroll` / `browser_extract` / `browser_wait` / `browser_press_key` / `browser_track_order` / `browser_read_page` — register only inside the browser subagent, never in the main agent tool table (protecting the system prompt and prefix cache); the main agent delegates exclusively through `web_task`.
+Fourteen browser operation primitives — `browser_navigate` / `browser_snapshot` / `browser_click` / `browser_fill` / `browser_select` / `browser_scroll` / `browser_extract` / `browser_wait` / `browser_press_key` / `browser_read_captcha` / `browser_solve_slider` / `browser_solve_click_captcha` / `browser_geometry` / `browser_track_order` / `browser_read_page` — register only inside the browser subagent, never in the main agent tool table (protecting the system prompt and prefix cache); the main agent delegates exclusively through `web_task`.
 
 `render_ui` and `render_graph` are both "do not call by default" tools: for a plain conclusion use Markdown prose, for a single chart use `generate_chart`, for a single table use a Markdown table, and for static diagrams use Mermaid first. Call them only when you need **composed presentation**, **in-UI manipulation**, or the user explicitly asks for something **interactive / exportable** — avoiding the token and rendering cost of form for its own sake.
 
