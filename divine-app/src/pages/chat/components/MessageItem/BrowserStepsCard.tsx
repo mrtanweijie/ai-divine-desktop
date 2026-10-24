@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, Globe } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BrowserStepItem } from "@/types";
@@ -13,19 +13,13 @@ interface BrowserStepsCardProps {
 /**
  * browser 子 Agent 的操作步骤时间线（design 031 §4 SSE 契约扩展）。
  * 每行显示步号、工具名（去 browser_ 前缀）、页面标题或 URL。
+ * 默认收起：折叠时在标题行显示最近一步的预览，不占正文空间。
  */
 export function BrowserStepsCard({ steps, streaming }: BrowserStepsCardProps) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const last = steps[steps.length - 1];
-
-  // 有新步骤流入时保持展开（流结束后不强制收起，尊重用户当前状态）
-  useEffect(() => {
-    if (streaming && !detailsRef.current?.open) {
-      setOpen(true);
-    }
-  }, [steps.length, streaming]);
 
   const toggle = () => setOpen((value) => !value);
   const shortTool = (tool: string) => tool.replace(/^browser_/, "");
@@ -48,8 +42,11 @@ export function BrowserStepsCard({ steps, streaming }: BrowserStepsCardProps) {
         <Globe size={13} />
         <span className="subagent-title">{t("message.browserSteps", "浏览器操作")}</span>
         <span className="subagent-progress">{steps.length}</span>
-        {!open && streaming && last ? (
-          <span className="subagent-preview">{shortTool(last.tool)}</span>
+        {!open && last ? (
+          <span className="subagent-preview">
+            {shortTool(last.tool)}
+            {last.title ? ` · ${last.title}` : ""}
+          </span>
         ) : null}
       </summary>
       <div className="subagent-items">

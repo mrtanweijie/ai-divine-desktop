@@ -9,6 +9,7 @@ import type {
   MentionKind,
   Message,
   MessagePart,
+  BrowserStepItem,
   Project,
   Session,
   Settings,
@@ -717,6 +718,7 @@ export function messagesToChatMessages(
       preprocess: parsePreprocessPart(message.parts),
       tools,
       subagents: subagentsFromToolRuns(tools),
+      browser_steps: browserStepsFromToolRuns(tools),
       choice_state: message.choice_state,
       surfaces: surfacesFromParts(message.parts, message.id),
       surface_note: parseSurfaceNotePart(message.parts),
@@ -835,6 +837,26 @@ export function subagentsFromToolRuns(tools: ToolEvent[]): SubAgentItem[] {
       changed_files: item.changed_files,
       changed_count: item.changed_count,
     }));
+}
+
+/**
+ * Rebuild the browser step timeline from persisted web_task tool runs
+ * (design 031 §4). Multiple delegation segments (prepare / confirmed) each
+ * persist their own run — merge in order; step numbers are monotonic.
+ */
+export function browserStepsFromToolRuns(tools: ToolEvent[]): BrowserStepItem[] {
+  const runs = tools.filter((tool) => tool.tool === "web_task");
+  const steps: BrowserStepItem[] = [];
+  for (const run of runs) {
+    const result = run.result as { browser_steps?: BrowserStepItem[] } | undefined;
+    if (!Array.isArray(result?.browser_steps)) continue;
+    for (const item of result.browser_steps) {
+      if (item && typeof item.step === "number" && typeof item.tool === "string") {
+        steps.push(item);
+      }
+    }
+  }
+  return steps;
 }
 
 /* ------------------------------------------------------------------ */

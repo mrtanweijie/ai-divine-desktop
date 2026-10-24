@@ -1172,11 +1172,17 @@ async def _run_browser_task(
 
     writer = getattr(runtime, "stream_writer", None)
     session_id = ctx.session_id
+    # 每步心跳留档：结束时写进 web_task 的 tool run，前端刷新后可重建时间线
+    steps: list[dict[str, Any]] = []
 
     def emit(kind: str, payload: dict[str, Any]) -> None:
         if writer is None:
             return
         writer({"event": kind, "session_id": session_id, **payload})
+        if kind == "browser":
+            steps.append(
+                {key: payload.get(key) for key in ("step", "tool", "url", "title")}
+            )
 
     task = {
         "id": f"browser-{time.monotonic_ns()}",
@@ -1212,7 +1218,12 @@ async def _run_browser_task(
     message = (
         "浏览器任务完成" if result.get("status") == "done" else str(result.get("error") or "浏览器任务失败")
     )
-    payload = {"success": result.get("status") == "done", "message": message, "result": result}
+    payload = {
+        "success": result.get("status") == "done",
+        "message": message,
+        "result": result,
+        "browser_steps": steps,
+    }
     try:
         db.update_tool_run(run["id"], "done" if payload["success"] else "error", payload)
     except Exception:  # noqa: BLE001 — persistence must never fail a turn
