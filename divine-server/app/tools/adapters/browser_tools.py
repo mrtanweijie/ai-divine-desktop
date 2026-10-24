@@ -238,6 +238,33 @@ class BrowserSolveClickCaptchaAdapter(_BrowserAdapter):
 
 
 @register_tool(
+    "browser_capture",
+    "元素截图并持久化到工作区（返回绝对路径）——主 agent 在正文嵌 ![图片](路径)"
+    "即可渲染进对话流。典型用途：扫码登录的二维码展示（用户手机扫对话里的码，"
+    "无头模式无需开窗口）；展示后配合 browser_wait 等登录成功标记",
+    {
+        "type": "object",
+        "properties": {
+            "ref": {"type": "string", "description": "快照元素 ref（如二维码 img/canvas）"},
+            "selector": {"type": "string", "description": "或 CSS 选择器定位元素"},
+            "name": {"type": "string", "description": "文件名前缀（如 qr），默认 capture"},
+        },
+    },
+)
+class BrowserCaptureAdapter(_BrowserAdapter):
+    timeout = 30
+
+    async def _operate(self, session, workspace, arguments):
+        return await engine.op_capture(
+            session,
+            workspace,
+            arguments.get("ref"),
+            arguments.get("selector"),
+            str(arguments.get("name") or "capture"),
+        )
+
+
+@register_tool(
     "browser_geometry",
     "读取元素的几何信息（x/y/width/height + devicePixelRatio），支持 CSS 选择器或快照 ref。"
     "用于布局判断、验证码浮层定位等——替代 JS evaluate 取 rect",

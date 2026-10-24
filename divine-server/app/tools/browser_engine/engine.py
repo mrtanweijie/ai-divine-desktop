@@ -545,6 +545,7 @@ async def op_read_captcha(
         code = await _vision_caption(
             path,
             prompt="识别图片中的验证码，只输出验证码字符本身（字母/数字），不要任何其他内容。",
+            model_id=getattr(session, "model_id", None),
         )
     finally:
         try:
@@ -566,6 +567,56 @@ async def op_read_captcha(
     if not cleaned:
         return _ok({"code": None, "message": "验证码识别结果为空，请降级人工认读"})
     return _ok({"code": cleaned, "message": "验证码识别成功"})
+
+
+async def op_capture(
+    session: BrowserSession,
+    workspace: Path,
+    ref: str | None = None,
+    selector: str | None = None,
+    name: str = "capture",
+) -> dict[str, Any]:
+    """元素截图并**持久化**到工作区 browser/（032 扫码登录支持）。
+
+    与 browser_read_page 的区别：read_page 截图是视觉描述的一次性输入（用完即删）；
+    capture 保留文件并返回绝对路径——主 agent 在正文里嵌 `![二维码](路径)`
+    即可把二维码渲染进对话流，用户手机扫码，无头模式全程无需开窗口。
+    """
+    page = await session.ensure()
+    if ref:
+        meta = _ref_meta(session, ref)
+        if meta is None:
+            return _error(
+                f"编号 {ref} 不存在或已过期，请重新 browser_snapshot", rejected=True
+            )
+        locator = page.locator(meta["selector"])
+    elif (selector or "").strip():
+        locator = page.locator(selector.strip()).first
+    else:
+        return _error("需要 ref 或 selector 之一", rejected=True)
+    try:
+        if await locator.count() == 0:
+            return _error("目标元素不在页面上", rejected=True)
+        from ...config import output_dir_for_workspace
+
+        out_dir = output_dir_for_workspace(workspace) / "browser"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        safe_name = re.sub(r"[^\w\-]", "", str(name))[:20] or "capture"
+        path = out_dir / f"{safe_name}-{time.strftime('%H%M%S')}-{random.randint(100, 999)}.png"  # noqa: S311
+        await locator.screenshot(path=str(path))
+    except Exception as exc:  # noqa: BLE001
+        return _error(f"截图失败: {type(exc).__name__}: {str(exc)[:200]}")
+    return _ok(
+        {
+            "message": "截图已保存（持久化，可嵌入对话）",
+            "filepath": str(path),
+            "hint": (
+                "在回复正文嵌 ![二维码](绝对路径) 即可展示给用户扫码；"
+                "二维码通常 1-2 分钟过期，展示后立即 browser_wait 登录成功标记"
+                "（timeout 120-180s），过期则刷新二维码重截（≤2 次）"
+            ),
+        }
+    )
 
 
 async def op_geometry(
@@ -949,7 +1000,7 @@ async def op_read_page(session: BrowserSession, workspace: Path) -> dict[str, An
         return _error(f"截图失败: {type(exc).__name__}: {str(exc)[:200]}")
 
     try:
-        caption = await _vision_caption(path)
+        caption = await _vision_caption(path, model_id=getattr(session, "model_id", None))
     finally:
         # 用完即删：截图只是视觉描述的输入，不作为工作区产物保留
         try:
@@ -975,63 +1026,101 @@ async def op_read_page(session: BrowserSession, workspace: Path) -> dict[str, An
     )
 
 
-async def _vision_caption(image_path: Path, prompt: str | None = None) -> str | None:
-    """视觉描述：优先会话多模态模型，其次 GLM 视觉（GLM-4V 免费）。
+async def _vision_caption(
+    image_path: Path, prompt: str | None = None, model_id: str | None = None
+) -> str | None:
+    """视觉识别级联（032 §3）：GLM（免费）→ 当前会话模型 → 其他已配置多模态。
 
-    供 `browser_read_page` 的 caption 路径与 `browser_read_captcha` 的验证码
-    识别使用（032 §3 L2）；未配置或调用失败返回 None，调用方降级。
+    任一环节失败（未配置/401/限流）自动降级到下一个，全部失败才返回 None。
+    此前单点失败即放弃：mimo key 失效就把 GLM 一起带崩（实测）。
     """
-    try:
-        import base64
+    import base64
 
-        import httpx
+    import httpx
 
-        from ...config import settings_store
-        from ..scripts.read_image import _resolve_glm, _resolve_vision_provider
+    from ...config import settings_store
+    from ..scripts.read_image import (
+        _is_multimodal_model,
+        _resolve_by_model_id,
+        _resolve_glm,
+        _resolve_multimodal,
+    )
 
-        settings = settings_store.load()
-        resolved = _resolve_vision_provider(settings, None)
-        if resolved is not None:
-            api_key, base_url, model, _is_session = resolved
-        else:
-            glm = _resolve_glm(settings)
-            if glm is None:
-                return None
-            api_key, base_url, model = glm
-        if not (api_key and base_url):
-            return None
+    settings = settings_store.load()
 
-        b64 = base64.b64encode(Path(image_path).read_bytes()).decode()
-        response = await httpx.AsyncClient(timeout=30.0).post(
-            base_url.rstrip("/") + "/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={
-                "model": model,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
-                            },
-                            {
-                                "type": "text",
-                                "text": prompt
-                                or (
-                                    "用简洁中文描述这个网页截图：页面主题、主要区块、"
-                                    "可操作元素（按钮/输入框/链接）。120 字以内。"
-                                ),
-                            },
-                        ],
-                    }
-                ],
-                "max_tokens": 300,
-            },
-        )
-        response.raise_for_status()
-        caption = str(response.json()["choices"][0]["message"]["content"] or "").strip()
-        return caption or None
-    except Exception as exc:  # noqa: BLE001 — caption 失败必须降级而非报错
-        logger.warning("vision caption failed: %s: %s", type(exc).__name__, str(exc)[:120])
-        return None
+    # 级联候选：(api_key, base_url, model) 有序去重
+    candidates: list[tuple[str, str, str]] = []
+
+    glm = _resolve_glm(settings)
+    if glm is not None:
+        candidates.append(glm)
+
+    if model_id:
+        entry = _resolve_by_model_id(settings, model_id)
+        if (
+            entry is not None
+            and entry.get("api_key")
+            and _is_multimodal_model(str(entry.get("model") or ""))
+        ):
+            candidates.append(
+                (
+                    str(entry["api_key"]),
+                    str(entry.get("base_url") or ""),
+                    str(entry.get("model") or ""),
+                )
+            )
+
+    extra = _resolve_multimodal(settings)
+    if extra is not None and extra[0]:
+        candidates.append(extra)
+
+    # 去重（同 key+model 只试一次）；空 base_url 补 GLM 官方端点兜底
+    seen: set[tuple[str, str]] = set()
+    ordered: list[tuple[str, str, str]] = []
+    for api_key, base_url, model in candidates:
+        if not api_key or (api_key, model) in seen:
+            continue
+        seen.add((api_key, model))
+        ordered.append((api_key, base_url or "https://open.bigmodel.cn/api/paas/v4", model))
+
+    b64 = base64.b64encode(Path(image_path).read_bytes()).decode()
+    final_prompt = prompt or (
+        "用简洁中文描述这个网页截图：页面主题、主要区块、"
+        "可操作元素（按钮/输入框/链接）。120 字以内。"
+    )
+    for api_key, base_url, model in ordered:
+        try:
+            response = await httpx.AsyncClient(timeout=30.0).post(
+                base_url.rstrip("/") + "/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
+                                },
+                                {"type": "text", "text": final_prompt},
+                            ],
+                        }
+                    ],
+                    "max_tokens": 300,
+                },
+            )
+            response.raise_for_status()
+            caption = str(
+                response.json()["choices"][0]["message"]["content"] or ""
+            ).strip()
+            if caption:
+                return caption
+        except Exception as exc:  # noqa: BLE001 — 级联：单源失败换下一个
+            logger.warning(
+                "vision caption via %s failed: %s: %s",
+                model,
+                type(exc).__name__,
+                str(exc)[:120],
+            )
+    return None

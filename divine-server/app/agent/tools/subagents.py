@@ -114,6 +114,7 @@ _SUBAGENT_BROWSER_TOOLS = frozenset(
         "browser_solve_slider",
         "browser_solve_click_captcha",
         "browser_geometry",
+        "browser_capture",
         "browser_track_order",
         "browser_read_page",
     }
@@ -828,6 +829,7 @@ async def _run_subagent(
         session.confirmed = bool(task.get("confirmed"))
         session.steps_this_task = 0
         session.desired_headless = task.get("headless")
+        session.model_id = ctx.model_id  # 视觉级联：GLM 失败后按会话模型兜底
     try:
         llm = _build_llm(think=ctx.think, effort=ctx.effort, model_id=ctx.model_id)
         tools = _build_subagent_tools(

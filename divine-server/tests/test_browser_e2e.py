@@ -271,7 +271,7 @@ def test_browser_engine_end_to_end(chrome_cdp, shopping_domain, tmp_path):
         captcha_ref = _ref_by_name(session, "7X2K")
         assert captcha_ref, "验证码元素未进快照"
 
-        async def fake_caption(image_path, prompt=None):
+        async def fake_caption(image_path, prompt=None, model_id=None):
             return "7X2K"
 
         orig_caption = engine._vision_caption
@@ -312,7 +312,7 @@ def test_browser_engine_end_to_end(chrome_cdp, shopping_domain, tmp_path):
         image_ref = _ref_by_name(session, "点选验证码")
         assert image_ref, "验证码大图未进快照"
 
-        async def fake_grounding(image_path, prompt=None):
+        async def fake_grounding(image_path, prompt=None, model_id=None):
             return (
                 '[{"label": "河", "x": 165, "y": 95}, '
                 '{"label": "山", "x": 55, "y": 45}, {"label": "月", "x": 255, "y": 65}]'
@@ -350,6 +350,13 @@ def test_browser_engine_end_to_end(chrome_cdp, shopping_domain, tmp_path):
         finally:
             session.confirmed = False
             engine._vision_caption = orig_caption
+
+        # 15c. browser_capture：元素截图持久化（扫码登录链路的前半段）
+        cap = await engine.op_capture(session, tmp_path, selector="#clickcap", name="qr")
+        assert cap["success"], cap
+        from pathlib import Path as _P
+
+        assert _P(cap["filepath"]).exists(), "截图未持久化"
 
         # 16. ref 过期检测：编造 ref 返回过期错误而非异常
         stale = await engine.op_click(session, tmp_path, "e999999")

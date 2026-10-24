@@ -94,6 +94,8 @@ def _kill_stale_instance(profile_dir: Path) -> None:
     按专用 profile 路径精确匹配命令行，只影响我们启动的实例。
     pkill 后必须**等旧实例完全退出**再启动新实例——SingletonLock 未释放时，
     新 Chrome 会卡在锁竞争里、DevTools 永远不初始化（表现为探测超时）。
+    SIGKILL 后仍兜底删除 profile 下的 Singleton* 锁文件（僵尸锁会永久卡住
+    后续所有启动——应用侧连续"启动超时"的实测根因）。
     """
     try:
         subprocess.run(  # noqa: S603 — pkill 固定参数，路径来自配置
@@ -113,17 +115,25 @@ def _kill_stale_instance(profile_dir: Path) -> None:
                 stderr=subprocess.DEVNULL,
             )
             if probe.returncode != 0:  # 无匹配 = 已全部退出
-                return
+                break
             time.sleep(0.3)
-        # 超时仍存活：SIGKILL 兜底
-        subprocess.run(  # noqa: S603
-            ["pkill", "-9", "-f", f"--user-data-dir={profile_dir}"],
-            check=False,
-            timeout=5,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        time.sleep(0.5)
+        else:
+            # 超时仍存活：SIGKILL 兜底
+            subprocess.run(  # noqa: S603
+                ["pkill", "-9", "-f", f"--user-data-dir={profile_dir}"],
+                check=False,
+                timeout=5,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            time.sleep(0.5)
+        # 僵尸 Singleton 锁兜底清理：进程已死但锁文件残留时，
+        # 新实例会静默卡在锁上（DevTools 永不监听）
+        for lock_name in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
+            try:
+                (profile_dir / lock_name).unlink(missing_ok=True)
+            except OSError:  # noqa: BLE001 — 锁清理失败不阻断
+                pass
     except Exception as exc:  # noqa: BLE001 — 清理失败不阻断启动
         logger.warning("清理旧浏览器实例失败: %s", exc)
 
@@ -255,7 +265,9 @@ def launch_debug_chrome(force: bool = False, headless: bool | None = None) -> di
         start_new_session=True,
     )
     url = f"http://127.0.0.1:{port}"
-    deadline = time.monotonic() + _CONNECT_TIMEOUT
+    # 启动探测窗口放宽到 25s：模式切换等场景下 Chrome 冷启动（清锁/杀旧实例
+    # 之后）10s 不够，误判超时是应用侧"反复启动超时"的实测诱因之一
+    deadline = time.monotonic() + 25.0
     probed = False
     while time.monotonic() < deadline:
         if _probe_endpoint(url):
@@ -300,6 +312,8 @@ class BrowserSession:
         self._watch_task: Any = None
         # 委派段级模式覆盖（032 §3 L4 降级）：True/False 强制，None 跟随 settings
         self.desired_headless: bool | None = None
+        # 会话当前模型 id：视觉级联（032 §3）在 GLM 失败后按序尝试它
+        self.model_id: str | None = None
         # 最近一次成功导航的 URL：模式切换/自愈重启后断点重导航用（032 §3 D）
         self.last_navigated_url: str | None = None
 
@@ -347,14 +361,20 @@ class BrowserSession:
                     endpoint = info["url"]
                     relaunched = True
                 # 模式失配自动切换（032 §2/§3 L4）：委派段覆盖优先，
-                # 其次 settings browser_mode；失配即按目标模式重启（登录态保留）
+                # 其次 settings browser_mode；失配即按目标模式重启（登录态保留）。
+                # 只在首次尝试切换——切换启动失败时重试直接用现有实例，
+                # 避免 headless 乒乓（登录任务 false / 默认 true 交替）反复重启卡死
                 running_mode = _running_headless()
                 desired_mode = (
                     self.desired_headless
                     if self.desired_headless is not None
                     else _browser_mode_headless()
                 )
-                if running_mode is not None and running_mode != desired_mode:
+                if (
+                    attempt == 0
+                    and running_mode is not None
+                    and running_mode != desired_mode
+                ):
                     await self._close_connection()
                     await asyncio.to_thread(launch_debug_chrome, True, desired_mode)
                     endpoint = discover_cdp_endpoint()

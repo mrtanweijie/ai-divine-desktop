@@ -44,7 +44,7 @@ def test_browser_tools_registered_in_registry():
     from app.tools.registry import registry
 
     assert _SUBAGENT_BROWSER_TOOLS <= registry.names()
-    assert len(_SUBAGENT_BROWSER_TOOLS) == 15
+    assert len(_SUBAGENT_BROWSER_TOOLS) == 16
 
 
 def test_browser_tools_forbidden_for_normal_subagents():

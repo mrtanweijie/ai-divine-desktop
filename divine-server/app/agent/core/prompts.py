@@ -454,9 +454,10 @@ def _build_dynamic_prompt(ctx: AgentRunContext) -> Any:
                 last_ai_text = _content_text(message.content)[:500]
                 break
         intents, _ = classify_intents(last_user_text, last_ai_text)
-        if not intents:
-            # 短指令（“换个颜色”“继续”）回补最近工具调用的意图
-            intents = intents_from_tool_history(ctx.session_id, limit=5)
+        # 并集而非”为空才回补”：消息命中的意图可能误导（”自动截图识别验证码”
+        # 只命中 screenshot、不含 browser）——最近调用过 web_task 的会话里
+        # 浏览器任务显然在进行中，工具历史是更强的进行时信号
+        intents |= intents_from_tool_history(ctx.session_id, limit=15)
         # 首轮判定：会话里还没有历史用户消息（不含当前这条）
         human_count = sum(
             1

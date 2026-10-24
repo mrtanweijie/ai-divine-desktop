@@ -291,6 +291,17 @@ _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
         "再来一杯",
         "再来一份",
         "老样子",
+        # 登录/自动化动词类：URL+账号的自动登录任务此前不命中任何关键词，
+        # web_task 不注入工具表 → agent 报「浏览器控制工具未挂载」（实测）
+        "自动登录",
+        "自动填",
+        "退出登录",
+        "登出",
+        "注销",
+        "登录一下",
+        "网页登录",
+        "登录页",
+        "后台页面",
     ),
     # 记忆
     "memory": (
@@ -461,6 +472,11 @@ def classify_intents(
     intent_text = strip_abs_paths(text)
     combined = intent_text.lower()
     intents: set[str] = set()
+
+    # URL 信号（031）：用户消息直接给出 http(s) 链接 → 几乎必然是网页任务，
+    # 无条件补 browser 意图（关键词召回不了的自动登录/读后台等场景靠它兜住）
+    if re.search(r"https?://\S+", intent_text):
+        intents.add("browser")
 
     # Step 1: 关键词匹配 —— 当前消息全部意图都算
     for intent, keywords in _INTENT_KEYWORDS.items():

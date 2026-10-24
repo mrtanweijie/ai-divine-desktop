@@ -809,7 +809,15 @@ _BROWSER_TASK_RULES = """用户要求操作真实浏览器里的网页（给 URL
   你拿到把手后交给 web_task 委派（fill 的 text 传 secret:xxx 本身），
   绝不要向用户索要明文密码；
   验证码图片可由子 Agent 用 browser_read_captcha 自动识别（失败转人工输入）；
-  自动登录两次失败或遇滑块/扫码 → 降级有头：web_task(headless=false) 委派并提示用户在弹出的浮窗里手动完成校验，完成后继续原任务断点；
+  自动登录两次失败或遇滑块 → 降级有头：web_task(headless=false) 委派并提示用户在弹出的浮窗里手动完成校验，完成后继续原任务断点；
+- **浏览器操作只经 web_task**：web_task 连续失败时向用户报告并建议部署修复，
+  **禁止**用 terminal 启动 Chrome / nohup 拉调试端口 / node·python 直连 CDP /
+  AppleScript 控浏览器——这些路径绕过全部风险闸门与专用 profile
+  （临时 profile 里扫码登录态还会随目录删除丢失）；
+  **扫码登录**（页面有二维码且用户手机可扫）：不降级有头——子 Agent 用
+  browser_capture 截二维码元素拿路径 → 你在回复正文嵌 ![二维码](绝对路径)
+  展示给用户 → 提示手机扫码 → 委派 browser_wait 等登录成功标记
+  （timeout 120-180s），过期则刷新重截（≤2 次）；全程无头无窗口；
 - 「老规矩 / 再来一杯 / 老样子」类复购：先用 recall_memories 查 `shopping_pref` 偏好
   （店铺/规格/常用地址/最近价格），有偏好直接按偏好委派（仍过确认卡），无偏好再正常搜索；
   完成后用 remember 把实际店铺/规格/价格写回 `shopping_pref.*`；

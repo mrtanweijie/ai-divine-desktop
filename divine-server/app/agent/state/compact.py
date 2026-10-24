@@ -133,8 +133,9 @@ def _system_prompt_preview(
             else ""
         )
         intents, _ = classify_intents(last_user_text)
-        if not intents and session_id:
-            intents = intents_from_tool_history(session_id, limit=5)
+        # 并集（与 prompts.py 同步）：消息意图可能误导，工具历史是进行时信号
+        if session_id:
+            intents |= intents_from_tool_history(session_id, limit=15)
         (
             stable_sections,
             conditional_sections,
