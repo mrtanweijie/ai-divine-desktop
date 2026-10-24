@@ -95,28 +95,48 @@ async def op_snapshot(
 
 
 async def op_click(
-    session: BrowserSession, workspace: Path, ref: str, intent: str | None = None
+    session: BrowserSession,
+    workspace: Path,
+    ref: str | None = None,
+    text: str | None = None,
+    intent: str | None = None,
 ) -> dict[str, Any]:
-    meta = _ref_meta(session, ref)
-    if meta is None:
-        return _error(
-            f"编号 {ref} 不存在或已过期，请重新 browser_snapshot 获取最新页面",
-            rejected=True,
-        )
-    level, hit = risk.classify_action(meta.get("name") or "", risk.normalize_intent(intent))
+    """点击元素：ref 优先，text 兜底（移动端 H5 的纯文本卡片无 role/ref 可寻）。
+
+    text 按可见文本（支持部分匹配）定位元素后点击——事件会冒泡到框架的
+    委托根节点，因此对 React/Vue 委托绑定的卡片同样生效。风险判定不变：
+    可见文本命中高风险词典照样拦截。
+    """
+    element_name = ""
+    meta: dict[str, str] | None = None
+    if ref:
+        meta = _ref_meta(session, ref)
+        if meta is None:
+            return _error(
+                f"编号 {ref} 不存在或已过期，请重新 browser_snapshot 获取最新页面"
+                "；若是快照里的纯文本节点（无 ref），可改用 text 参数按可见文本点击",
+                rejected=True,
+            )
+        element_name = meta.get("name") or ""
+    elif not (text or "").strip():
+        return _error("需要 ref 或 text 之一（ref 优先；无 role 的纯文本节点用 text）", rejected=True)
+    else:
+        element_name = str(text).strip()
+
+    level, hit = risk.classify_action(element_name, risk.normalize_intent(intent))
     if level == "irreversible" and not session.confirmed:
         return risk.refusal_payload(
-            f"「{meta.get('name') or meta.get('role')}」判定为不可逆变更"
+            f"「{element_name or '目标元素'}」判定为不可逆变更"
             + (f"（命中高风险词条「{hit}」）" if hit else "")
             + "。不可逆动作必须隔离在独立委派段：先以 confirmed=false 的委派完成"
             "信息抽取，由主 agent 渲染操作确认卡并获用户确认后，再以 "
             "web_task(confirmed=true) 委派执行本操作",
             risk="irreversible",
-            target=meta.get("name") or "",
+            target=element_name,
         )
     page = await session.ensure()
     # 提交幂等锁（031 §13.5）：同按钮+同 URL 冷却期内拒绝重复提交，失败只查不重提
-    idem_key = f"{page.url}|{meta.get('name') or ''}"
+    idem_key = f"{page.url}|{element_name}"
     if (
         level == "irreversible"
         and session.last_submission is not None
@@ -125,10 +145,10 @@ async def op_click(
     ):
         remaining = int(_SUBMIT_COOLDOWN_SECONDS - (time.time() - session.last_submission[1]))
         return risk.refusal_payload(
-            f"「{meta.get('name')}」在 {remaining}s 内已提交过（幂等锁），不要重复提交——"
+            f"「{element_name}」在 {remaining}s 内已提交过（幂等锁），不要重复提交——"
             "请用 browser_wait / browser_extract 查结果页确认是否已生效",
             risk="idempotent",
-            target=meta.get("name") or "",
+            target=element_name,
         )
     # 用户「每次确认」名单：该域名的任何变更动作都必须在 confirmed 委派段
     if not session.confirmed and policy.in_confirm_domains(page.url):
@@ -136,21 +156,31 @@ async def op_click(
             "该站点在「每次确认」名单（browser_confirm_domains 设置）：变更动作必须"
             "由用户在确认卡确认后以 web_task(confirmed=true) 委派执行",
             risk="confirm-domain",
-            target=meta.get("name") or "",
+            target=element_name,
         )
-    locator = page.locator(meta["selector"])
+    if meta is not None:
+        locator = page.locator(meta["selector"])
+    else:
+        locator = page.get_by_text(element_name, exact=False).first
     try:
         if await locator.count() == 0:
-            return _error(
-                f"编号 {ref} 对应元素已不在页面，请重新 browser_snapshot",
-                rejected=True,
+            hint = (
+                "请重新 browser_snapshot 获取最新页面"
+                if meta is not None
+                else "确认文本与快照里的可见文本一致（可只给部分文本）"
             )
+            return _error(f"目标元素不在页面上：{hint}", rejected=True)
         await _pace()
+        pages_before = session.page_ids()
         await locator.click(timeout=_ACTION_TIMEOUT_MS)
+        # target=_blank 新标签页自动接管（H5 点单/外链普遍形态），
+        # 否则引擎会绑在旧 tab 上、快照不变，模型陷入无限重试
+        if await session.adopt_new_page(pages_before):
+            page = await session.ensure()
+        if level == "irreversible":
+            session.last_submission = (idem_key, time.time())
     except Exception as exc:  # noqa: BLE001
         return _error(f"点击失败: {type(exc).__name__}: {str(exc)[:200]}")
-    if level == "irreversible":
-        session.last_submission = (idem_key, time.time())
     await _settle(page)
     return await _snapshot_payload(session, page)
 
@@ -352,10 +382,13 @@ async def op_press_key(
         except Exception as exc:  # noqa: BLE001
             return _error(f"聚焦失败: {type(exc).__name__}: {str(exc)[:200]}")
     await _pace()
+    pages_before = session.page_ids()
     try:
         await page.keyboard.press(key_expr)
     except Exception as exc:  # noqa: BLE001
         return _error(f"按键失败: {type(exc).__name__}: {str(exc)[:200]}")
+    if await session.adopt_new_page(pages_before):
+        page = await session.ensure()
     await _settle(page)
     return await _snapshot_payload(session, page)
 
@@ -363,14 +396,14 @@ async def op_press_key(
 async def op_read_page(session: BrowserSession, workspace: Path) -> dict[str, Any]:
     """元素截图 → 视觉模型 caption（031 §4 caption 路径）。
 
-    MVP：截图落盘（JPEG 1280×800 viewport，禁全页长图）并回传路径；
-    视觉描述模型未配置时降级返回页面可见文本摘要，提示快照优先。
+    截图是 caption 的**一次性输入**：存到工作区 `browser/` 子目录，caption
+    生成（或降级为可见文本）后立即删除，不在工作区残留文件。
     """
     page = await session.ensure()
     try:
         from ...config import output_dir_for_workspace
 
-        out_dir = output_dir_for_workspace(workspace)
+        out_dir = output_dir_for_workspace(workspace) / "browser"
         out_dir.mkdir(parents=True, exist_ok=True)
         path = out_dir / f"browser-page-{time.strftime('%H%M%S')}-{random.randint(100, 999)}.jpg"  # noqa: S311
         await page.screenshot(
@@ -379,9 +412,17 @@ async def op_read_page(session: BrowserSession, workspace: Path) -> dict[str, An
     except Exception as exc:  # noqa: BLE001
         return _error(f"截图失败: {type(exc).__name__}: {str(exc)[:200]}")
 
-    caption = await _vision_caption(path)
+    try:
+        caption = await _vision_caption(path)
+    finally:
+        # 用完即删：截图只是视觉描述的输入，不作为工作区产物保留
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:  # noqa: BLE001 — 删除失败不阻塞，文件在 browser/ 里可手动清
+            logger.warning("临时截图删除失败: %s", path)
+
     if caption:
-        return _ok({"message": "页面截图（视觉描述）", "caption": caption, "filepath": str(path)})
+        return _ok({"message": "页面截图（视觉描述）", "caption": caption})
 
     # 降级：可见文本摘要（快照已含结构，文本只做视觉盲区兜底）
     try:
@@ -392,8 +433,7 @@ async def op_read_page(session: BrowserSession, workspace: Path) -> dict[str, An
         visible = ""
     return _ok(
         {
-            "message": "已保存页面截图；视觉描述模型未配置，返回可见文本摘要",
-            "filepath": str(path),
+            "message": "已提取页面可见文本（截图为一次性输入，已删除）",
             "visible_text": visible,
         }
     )

@@ -68,9 +68,11 @@ def _read_endpoint_file(path: Path) -> str | None:
         return None
 
 
-def _write_endpoint_file(url: str) -> None:
+def _write_endpoint_file(url: str, pid: int | None = None) -> None:
     """端点写入规范位置 + 当前 data_root 副本（尽力而为，失败不阻断）。"""
-    payload = json.dumps({"url": url, "ts": time.time()}, ensure_ascii=False)
+    payload = json.dumps(
+        {"url": url, "ts": time.time(), "pid": pid}, ensure_ascii=False
+    )
     canonical = _canonical_endpoint_file()
     try:
         canonical.parent.mkdir(parents=True, exist_ok=True)
@@ -83,6 +85,24 @@ def _write_endpoint_file(url: str) -> None:
         local.write_text(payload, encoding="utf-8")
     except OSError:  # noqa: BLE001 — 副本失败可容忍
         pass
+
+
+def _kill_stale_instance(profile_dir: Path) -> None:
+    """强制重启前清掉旧的专用浏览器实例（可能已半死：端口通但协议无响应）。
+
+    按专用 profile 路径精确匹配命令行，只影响我们启动的实例。
+    """
+    try:
+        subprocess.run(  # noqa: S603 — pkill 固定参数，路径来自配置
+            ["pkill", "-f", f"--user-data-dir={profile_dir}"],
+            check=False,
+            timeout=5,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        time.sleep(0.8)
+    except Exception as exc:  # noqa: BLE001 — 清理失败不阻断启动
+        logger.warning("清理旧浏览器实例失败: %s", exc)
 
 
 def _probe_endpoint(url: str) -> bool:
@@ -148,6 +168,9 @@ def launch_debug_chrome(force: bool = False) -> dict[str, Any]:
     browser_dir = data_root() / "browser"
     profile_dir = browser_dir / "profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
+    if force:
+        # 同 profile 的旧实例（可能已半死）不清掉，新实例会被它吞掉而拿不到调试端口
+        _kill_stale_instance(profile_dir)
 
     port = random.randint(20000, 60000)
     process = subprocess.Popen(  # noqa: S603 — 固定二进制路径，参数为常量
@@ -169,7 +192,7 @@ def launch_debug_chrome(force: bool = False) -> dict[str, Any]:
     deadline = time.monotonic() + _CONNECT_TIMEOUT
     while time.monotonic() < deadline:
         if _probe_endpoint(url):
-            _write_endpoint_file(url)
+            _write_endpoint_file(url, process.pid)
             return {
                 "url": url,
                 "pid": process.pid,
@@ -214,7 +237,11 @@ class BrowserSession:
             self._playwright = None
 
     async def ensure(self) -> Any:
-        """返回专属 tab 的 Page；端点丢失或连接失效时自愈（引导启动）后重连。"""
+        """返回专属 tab 的 Page；两级自愈：端点丢失→引导启动，连接/建页失败→强制重启。
+
+        第 2 级覆盖"端点半死"场景：探测恰好通过、但 CDP 协议交互失败（典型表现
+        是 Browser.setDownloadBehavior 协议错误）——此时强制重启专用浏览器再试一次。
+        """
         await manager.drain_pending()
         from playwright.async_api import async_playwright
 
@@ -225,40 +252,80 @@ class BrowserSession:
             except Exception:  # noqa: BLE001
                 pass
             self._page = None
-        endpoint = discover_cdp_endpoint()
-        if endpoint is None:
-            # 自愈：引导启动专用浏览器（专用 profile + 随机端口），端点自动写盘。
-            # 桌面端重启不会恢复独立运行的 Chrome——通道自愈只能靠这里。
-            info = await asyncio.to_thread(launch_debug_chrome)
-            endpoint = info["url"]
-        if self._browser is None:
-            self._playwright = await async_playwright().start()
-            self._browser = await self._playwright.chromium.connect_over_cdp(
-                endpoint, timeout=_CONNECT_TIMEOUT * 1000
-            )
-        if not self._browser.contexts:
-            # Playwright 经 CDP 不支持新建 context（报错表现为
-            # Browser.setDownloadBehavior: Browser context management is not
-            # supported）——context 为空说明浏览器处于异常状态，强制重启后重连一次
-            await self._close_connection()
-            await asyncio.to_thread(launch_debug_chrome, True)
-            endpoint = discover_cdp_endpoint()
-            if endpoint is None:
-                raise RuntimeError(
-                    "专用浏览器重启后仍未发现调试端口，请手动以调试模式启动 Chrome"
+
+        last_error: Exception | None = None
+        for attempt in (0, 1):
+            try:
+                endpoint = discover_cdp_endpoint()
+                if endpoint is None:
+                    # 自愈：引导启动专用浏览器（专用 profile + 随机端口），端点自动写盘。
+                    # 桌面端重启不会恢复独立运行的 Chrome——通道自愈只能靠这里。
+                    info = await asyncio.to_thread(launch_debug_chrome)
+                    endpoint = info["url"]
+                self._playwright = await async_playwright().start()
+                self._browser = await self._playwright.chromium.connect_over_cdp(
+                    endpoint, timeout=_CONNECT_TIMEOUT * 1000
                 )
-            self._playwright = await async_playwright().start()
-            self._browser = await self._playwright.chromium.connect_over_cdp(
-                endpoint, timeout=_CONNECT_TIMEOUT * 1000
-            )
-            if not self._browser.contexts:
-                raise RuntimeError(
-                    "专用浏览器连接异常（无可用上下文），请关闭所有该 profile 的 "
-                    "Chrome 窗口后重试"
+                if not self._browser.contexts:
+                    raise RuntimeError("浏览器无可上下文（实例状态异常）")
+                self._page = await self._browser.contexts[0].new_page()
+                self._page.set_default_timeout(_DEFAULT_TIMEOUT_MS)
+                return self._page
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 — 任何连接/建页失败都走强制重启自愈
+                last_error = exc
+                logger.warning(
+                    "browser connect/page failed (attempt %d/2): %s: %s",
+                    attempt + 1,
+                    type(exc).__name__,
+                    str(exc)[:160],
                 )
-        self._page = await self._browser.contexts[0].new_page()
+                await self._close_connection()
+                if attempt == 0:
+                    await asyncio.to_thread(launch_debug_chrome, True)
+        raise RuntimeError(
+            "浏览器连接失败（已强制重启专用浏览器仍失败，请关闭该 profile 的所有 "
+            f"Chrome 窗口后重试）: {type(last_error).__name__}: {str(last_error)[:200]}"
+        ) from last_error
+
+    def page_ids(self) -> set[int]:
+        """当前 context 里所有标签页的 id 集合（供动作前后对比发现新 tab）。"""
+        if self._browser is not None and self._browser.contexts:
+            return {id(p) for p in self._browser.contexts[0].pages}
+        return set()
+
+    async def adopt_new_page(self, pages_before: set[int]) -> bool:
+        """接管动作新打开的标签页（target=_blank，H5 点单/外链的普遍形态）。
+
+        点击返回时新 tab 可能尚未登记（Chromium 异步开页），因此轮询等待至多
+        3s。接管后切换为会话当前页——否则引擎会一直绑在旧 tab 上，快照不变，
+        模型陷入无限重试。
+        """
+        if not (self._browser is not None and self._browser.contexts):
+            return False
+        deadline = time.monotonic() + 3.0
+        new_page: Any = None
+        while time.monotonic() < deadline:
+            candidates = [
+                p
+                for p in self._browser.contexts[0].pages
+                if id(p) not in pages_before and not p.is_closed()
+            ]
+            if candidates:
+                new_page = candidates[-1]
+                break
+            await asyncio.sleep(0.15)
+        if new_page is None:
+            return False
+        try:
+            await new_page.wait_for_load_state("domcontentloaded", timeout=15_000)
+        except Exception:  # noqa: BLE001 — 加载慢也先接管，后续 wait 兜底
+            pass
+        self._page = new_page
         self._page.set_default_timeout(_DEFAULT_TIMEOUT_MS)
-        return self._page
+        self.refs.clear()  # 新页面，旧 ref 全部作废
+        return True
 
     @property
     def connected(self) -> bool:

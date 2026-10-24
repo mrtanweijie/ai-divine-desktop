@@ -122,6 +122,7 @@ _SNAPSHOT_JS = r"""
       || el.getAttribute("tabindex") !== null
       || (style && style.cursor === "pointer");
 
+    let tagged = false;
     if (role || clickable) {
       const name = nameOf(el);
       counter += 1;
@@ -138,6 +139,7 @@ _SNAPSHOT_JS = r"""
         item.extra = (item.extra ? item.extra + " " : "") + "[contenteditable]";
       }
       items.push(item);
+      tagged = true;
       if (tag === "SELECT") {
         const options = Array.from(el.options || []).slice(0, 30);
         for (const opt of options) {
@@ -153,9 +155,17 @@ _SNAPSHOT_JS = r"""
     } else if (HEADINGS.has(tag)) {
       const name = firstLine(el.innerText).slice(0, 120);
       if (name) items.push({ t: "hd", name, tag: tag.toLowerCase(), depth });
-    } else if (el.children.length === 0) {
-      const text = firstLine(el.innerText).slice(0, 120);
-      if (text) items.push({ t: "txt", name: text, depth });
+    }
+
+    // 非交互容器的直接文本节点：混排内容（文本+控件，如商品行）逐段捕获——
+    // 美团式卡片"农家小炒肉 ¥17 [加入购物车]"的文本只有这样才能进快照
+    if (!tagged) {
+      for (const node of Array.from(el.childNodes || [])) {
+        if (node.nodeType === 3) {
+          const text = String(node.textContent || "").replace(/\s+/g, " ").trim().slice(0, 120);
+          if (text) items.push({ t: "txt", name: text, depth: depth + 1 });
+        }
+      }
     }
 
     for (const child of Array.from(el.children || [])) {

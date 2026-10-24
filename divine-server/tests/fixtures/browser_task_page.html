@@ -17,10 +17,19 @@
     <button id="fav" onclick="document.getElementById('fav').innerText='已收藏'">收藏商品</button>
     <button id="submit" onclick="alert('已下单')">提交订单</button>
     <a href="#detail">查看商品详情</a>
+    <a href="store_menu.html" target="_blank">进店点餐</a>
     <p class="total">应付 ¥258.00</p>
     <div id="circle-picker" style="cursor: pointer; padding: 8px; background: #f5f5f5; display: inline-block">
       请选择圈子
     </div>
     <div id="editor" contenteditable="true" style="min-height: 40px; border: 1px solid #ccc; margin-top: 8px"></div>
+      <div class="store-card" style="padding: 8px; background: #fffbe6">老乡鸡(上海正大乐城店) ¥17起</div>
+    <script>
+      // 模拟美团 H5：纯文本门店卡片 + 根节点事件委托（无 onclick/cursor/role）
+      document.addEventListener("click", function (e) {
+        var card = e.target.closest && e.target.closest(".store-card");
+        if (card) window.open("store_menu.html", "_blank");
+      });
+    </script>
   </body>
 </html>

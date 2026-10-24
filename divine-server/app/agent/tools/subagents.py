@@ -141,6 +141,11 @@ BROWSER_SUBAGENT_PROMPT = """你是 Divine 的浏览器子 Agent，通过 DOM �
 - click/fill/select/scroll/press_key 的返回值已附带新快照，不要重复调 browser_snapshot；
 - contenteditable 富文本编辑器会以 textbox 出现在快照里，可直接 fill；
   无 role 的惰性控件（下拉/菜单）若带 cursor:pointer 也会以 clickable 出现——先点开再重新 snapshot；
+- 点击/回车打开的新标签页会被引擎自动接管为当前页（快照自动切到新页）；
+  店铺/菜单类 H5 页面懒加载明显：进页后先 browser_wait 菜单元素出现，再 extract；
+- 移动端 H5（美团/饿了么点单页等）大量元素是纯文本节点、快照里没有 ref：
+  门店卡片、商品行等用 browser_click 的 text 参数按可见文本点击（可只给部分文本）；
+  这类站点无桌面 cursor 样式，「看起来不可点」不代表点不了；
 - 需要回车/Tab/方向键/Escape 时用 browser_press_key；回车可能触发表单提交，
   提交类按键只应在 confirmed=true 委派段使用；
 - 大页面（首页/搜索结果）用 browser_snapshot(ref) 子树或 browser_extract 抽取，不要反复全页快照；
@@ -1221,9 +1226,9 @@ async def _run_browser_task(
                 "error": result.get("error") or "浏览器任务失败",
             },
         )
-    message = (
-        "浏览器任务完成" if result.get("status") == "done" else str(result.get("error") or "浏览器任务失败")
-    )
+    # 成功消息置空：前端卡片不需要"浏览器任务完成"冗余提示（信息在时间线
+    # 与正文里），结果行也据此整行隐藏；失败保留错误文本供排障
+    message = "" if result.get("status") == "done" else str(result.get("error") or "浏览器任务失败")
     payload = {
         "success": result.get("status") == "done",
         "message": message,

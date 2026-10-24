@@ -203,7 +203,31 @@ def test_browser_engine_end_to_end(chrome_cdp, shopping_domain, tmp_path):
         pressed = await engine.op_press_key(session, tmp_path, "Enter", ref=editor_ref)
         assert pressed["success"], pressed
 
-        # 8. ref 过期检测：编造 ref 返回过期错误而非异常
+        # read_page：截图是 caption 的一次性输入——返回结果且不残留文件
+        read = await engine.op_read_page(session, tmp_path)
+        assert read["success"], read
+        leftovers = list((tmp_path / "browser").glob("browser-page-*.jpg")) if (tmp_path / "browser").exists() else []
+        assert leftovers == [], f"临时截图未删除: {leftovers}"
+
+        # 8. 新标签页自动接管（target=_blank，H5 点单进店形态）：
+        #    点击后引擎切到新页，快照不再是旧页面
+        enter_ref = _ref_by_name(session, "进店点餐")
+        assert enter_ref, "进店链接未进快照"
+        entered = await engine.op_click(session, tmp_path, enter_ref)
+        assert entered["success"], entered
+        assert "store_menu.html" in (entered.get("url") or ""), entered.get("url")
+        assert "老乡鸡" in entered["snapshot"]
+
+        # 9. 美团式纯文本门店卡片（无 role/无 cursor/根节点委托、window.open 新 tab）：
+        #    快照里只有 text 行拿不到 ref → 用 text 参数按可见文本点击
+        card_snapshot = await engine.op_navigate(session, tmp_path, page_url)
+        assert card_snapshot["success"]
+        text_click = await engine.op_click(session, tmp_path, text="老乡鸡")
+        assert text_click["success"], text_click
+        assert "store_menu.html" in (text_click.get("url") or ""), text_click.get("url")
+        assert "农家小炒肉" in text_click["snapshot"]
+
+        # 10. ref 过期检测：编造 ref 返回过期错误而非异常
         stale = await engine.op_click(session, tmp_path, "e999999")
         assert stale["success"] is False
         assert "过期" in stale["message"] or "不存在" in stale["message"]

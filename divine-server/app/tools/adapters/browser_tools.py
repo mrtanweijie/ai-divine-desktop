@@ -110,14 +110,19 @@ class BrowserSnapshotAdapter(_BrowserAdapter):
 
 @register_tool(
     "browser_click",
-    "按快照 ref 点击元素，返回新快照；不可逆动作（提交/支付/删除等）仅在 confirmed=true 委派段放行",
+    "点击元素并返回新快照。优先按快照 ref；无 role 的纯文本节点（H5 门店卡片等拿不到 ref）"
+    "用 text 按可见文本点击（支持部分匹配）。不可逆动作（提交/支付/删除等）仅在 "
+    "confirmed=true 委派段放行",
     {
         "type": "object",
         "properties": {
-            "ref": {"type": "string", "description": "快照里的元素 ref，例如 e12"},
+            "ref": {"type": "string", "description": "快照里的元素 ref，例如 e12（与 text 二选一）"},
+            "text": {
+                "type": "string",
+                "description": "元素可见文本（可只给部分），用于快照里无 ref 的纯文本节点（与 ref 二选一）",
+            },
             "intent": _INTENT_PARAM,
         },
-        "required": ["ref"],
     },
 )
 class BrowserClickAdapter(_BrowserAdapter):
@@ -125,7 +130,11 @@ class BrowserClickAdapter(_BrowserAdapter):
 
     async def _operate(self, session, workspace, arguments):
         return await engine.op_click(
-            session, workspace, str(arguments.get("ref") or ""), arguments.get("intent")
+            session,
+            workspace,
+            arguments.get("ref"),
+            arguments.get("text"),
+            arguments.get("intent"),
         )
 
 
@@ -275,8 +284,8 @@ class BrowserPressKeyAdapter(_BrowserAdapter):
 
 @register_tool(
     "browser_read_page",
-    "元素截图保存到工作区（JPEG 1280×800）并返回路径；配置视觉描述模型时返回 caption，"
-    "否则降级返回可见文本摘要。快照里读得到的内容不要用本工具",
+    "元素截图（存入工作区 browser/ 子目录，仅作视觉描述的一次性输入，用完即删）→ "
+    "返回 caption 或降级可见文本摘要。快照里读得到的内容不要用本工具",
     {"type": "object", "properties": {}},
 )
 class BrowserReadPageAdapter(_BrowserAdapter):
