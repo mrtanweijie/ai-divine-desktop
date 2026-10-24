@@ -1,5 +1,5 @@
 // Pure helpers shared between ChatPage and the chat streaming hook.
-import type { ChatMessage, SubAgentItem, ToolEvent } from "@/types";
+import type { BrowserStepItem, ChatMessage, SubAgentItem, ToolEvent } from "@/types";
 import { toWorkspaceRelative } from "@/services/workspace";
 import { normalizeSkillName } from "@/services/skillNames";
 
@@ -140,6 +140,20 @@ export function upsertTool(tools: ToolEvent[], next: ToolEvent): ToolEvent[] {
 
 export function upsertSubAgent(items: SubAgentItem[], next: SubAgentItem): SubAgentItem[] {
   const index = items.findIndex((item) => item.id === next.id);
+  if (index === -1) {
+    return [...items, next];
+  }
+  const updated = [...items];
+  updated[index] = { ...updated[index], ...next };
+  return updated;
+}
+
+/** browser 步骤心跳：按 step 号去重（同 step 更新），保持时间线有序 */
+export function upsertBrowserStep(
+  items: BrowserStepItem[],
+  next: BrowserStepItem,
+): BrowserStepItem[] {
+  const index = items.findIndex((item) => item.step === next.step);
   if (index === -1) {
     return [...items, next];
   }

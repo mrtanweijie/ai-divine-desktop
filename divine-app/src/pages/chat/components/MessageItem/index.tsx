@@ -25,6 +25,7 @@ import { parseSupplement } from "@/pages/chat/chatUtils";
 import { ToolStatusCard } from "./ToolStatusCard";
 import { UserMentionText } from "./UserMentionText";
 import { SubAgentPanel } from "./SubAgentPanel";
+import { BrowserStepsCard } from "./BrowserStepsCard";
 import { TracePanel } from "./TracePanel";
 import { groupToolCards } from "./MessageHelpers";
 
@@ -221,6 +222,9 @@ export const MessageItem = memo(function MessageItem({
           {message.todos && message.todos.length > 0 && <PlanCard todos={message.todos} />}
           {message.subagents && message.subagents.length > 0 && (
             <SubAgentPanel subagents={message.subagents} streaming={streaming} />
+          )}
+          {message.browser_steps && message.browser_steps.length > 0 && (
+            <BrowserStepsCard steps={message.browser_steps} streaming={streaming} />
           )}
           {groupedTools.map((tool, index) => (
             <ToolStatusCard

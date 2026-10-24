@@ -233,6 +233,14 @@ export interface SubAgentItem {
   changed_count?: number;
 }
 
+/** browser 子 Agent 的单步操作心跳（design 031 §4 SSE 契约扩展） */
+export interface BrowserStepItem {
+  step: number;
+  tool: string;
+  url?: string;
+  title?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -243,6 +251,8 @@ export interface ChatMessage {
   todos?: TodoItem[];
   /** 并行子 Agent 执行状态（可折叠进度面板） */
   subagents?: SubAgentItem[];
+  /** browser 子 Agent 的操作步骤时间线（SSE browser 心跳，031 §4） */
+  browser_steps?: BrowserStepItem[];
   tools: ToolEvent[];
   files?: ChatFile[];
   /** 本地预整理：长文本被整理成结构化版本，原文可展开查看 */

@@ -14,6 +14,7 @@ import { BasicSection } from "./BasicSection";
 import { McpSection } from "./McpSection";
 import { ModelSection } from "./ModelSection";
 import { LocalLLMSection } from "./LocalLLMSection";
+import { BrowserSection } from "./BrowserSection";
 import { MemorySection } from "./MemorySection";
 import "./index.less";
 
@@ -308,23 +309,26 @@ export function SettingsModal({
         </div>
         <div className="settings-main">
           {section === "basic" ? (
-            <BasicSection
-              themePreference={themePreference}
-              onThemeChange={(value: ThemePreference) => setThemePreferenceState(value)}
-              locale={locale}
-              onLocaleChange={(value) => {
-                setLocaleState(value);
-                setLocale(value);
-              }}
-              username={username}
-              onUsernameChange={setUsername}
-              contextLimit={contextLimit}
-              onContextLimitChange={setContextLimit}
-              effort={effort}
-              onEffortChange={setEffort}
-              globalShortcutEnabled={globalShortcutEnabled}
-              onGlobalShortcutChange={handleGlobalShortcutChange}
-            />
+            <>
+              <BasicSection
+                themePreference={themePreference}
+                onThemeChange={(value: ThemePreference) => setThemePreferenceState(value)}
+                locale={locale}
+                onLocaleChange={(value) => {
+                  setLocaleState(value);
+                  setLocale(value);
+                }}
+                username={username}
+                onUsernameChange={setUsername}
+                contextLimit={contextLimit}
+                onContextLimitChange={setContextLimit}
+                effort={effort}
+                onEffortChange={setEffort}
+                globalShortcutEnabled={globalShortcutEnabled}
+                onGlobalShortcutChange={handleGlobalShortcutChange}
+              />
+              <BrowserSection />
+            </>
           ) : section === "model" ? (
             <ModelSection
               models={models}

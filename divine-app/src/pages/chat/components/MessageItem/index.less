@@ -1602,6 +1602,40 @@
   animation: plan-spin 0.8s linear infinite;
 }
 
+/* ---------- browser 步骤时间线（design 031 §4，复用 subagent 骨架） ---------- */
+.browser-steps-block {
+  border-color: var(--color-accent-soft);
+}
+.browser-steps-block > .subagent-summary svg:last-child {
+  color: var(--color-accent);
+}
+.browser-step-item {
+  gap: 8px;
+}
+.browser-step-no {
+  flex: none;
+  min-width: 18px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.browser-step-tool {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.browser-step-title {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---------- ask_user（agent 主动提问）内联回答表单 ---------- */
 .ask-user-confirm {
   display: flex;

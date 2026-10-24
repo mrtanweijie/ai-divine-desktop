@@ -189,7 +189,8 @@
     "tokenUsageEstimated": "输入 {{input}} · 输出 {{output}} · 总计 {{total}} tokens（估算）",
     "working": "Working...",
     "preprocessWorking": "正在本地整理长文本（启动模型/分块整理），请稍候…",
-    "durationTitle": "本条回复耗时（含工具执行）"
+    "durationTitle": "本条回复耗时（含工具执行）",
+    "browserSteps": "浏览器操作"
   },
   "project": {
     "addFolder": "添加可读取和编辑的文件夹",
@@ -387,7 +388,17 @@
       "pendingSub": "与已有记忆矛盾的新记忆会挂起在这里，确认后生效",
       "activeSub": "AI 正在使用的长期记忆，可随时删除或纠正"
     },
-    "openConfigDir": "打开提供商配置文件目录"
+    "openConfigDir": "打开提供商配置文件目录",
+    "browserChannel": "调试通道",
+    "browserDesc": "通用 Web 任务引擎通过专用浏览器 Profile 执行网页任务：一次性登录、持久复用，与日常浏览器完全隔离。",
+    "browserLaunching": "启动中…",
+    "browserRelaunch": "重新引导启动",
+    "browserSectionTitle": "浏览器自动化",
+    "browserSetup": "一键启动专用浏览器",
+    "browserSetupDone": "专用浏览器已启动并就绪",
+    "browserSetupFailed": "浏览器启动失败",
+    "browserStatusRunning": "已就绪",
+    "browserStatusStopped": "未就绪"
   },
   "skills": {
     "bodyTitle": "SKILL.md 正文",

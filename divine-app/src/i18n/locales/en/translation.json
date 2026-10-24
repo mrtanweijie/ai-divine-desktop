@@ -193,7 +193,8 @@
     "tokenUsageEstimated": "Input {{input}} · Output {{output}} · Total {{total}} tokens (estimated)",
     "working": "Working...",
     "preprocessWorking": "Organizing the long text locally (starting model / chunking)…",
-    "durationTitle": "Response time (incl. tool runs)"
+    "durationTitle": "Response time (incl. tool runs)",
+    "browserSteps": "Browser actions"
   },
   "project": {
     "addFolder": "Add a readable and editable folder",
@@ -394,7 +395,17 @@
       "pendingSub": "New memories that clash with existing ones are held here until confirmed",
       "activeSub": "Long-term memories the AI uses; delete or correct anytime"
     },
-    "openConfigDir": "Open provider config folder"
+    "openConfigDir": "Open provider config folder",
+    "browserChannel": "Debug channel",
+    "browserDesc": "The general web task engine runs web tasks through a dedicated browser profile: log in once, reused persistently, fully isolated from your daily browser.",
+    "browserLaunching": "Launching…",
+    "browserRelaunch": "Relaunch",
+    "browserSectionTitle": "Browser Automation",
+    "browserSetup": "Launch dedicated browser",
+    "browserSetupDone": "Dedicated browser launched and ready",
+    "browserSetupFailed": "Failed to launch browser",
+    "browserStatusRunning": "Ready",
+    "browserStatusStopped": "Not ready"
   },
   "skills": {
     "bodyTitle": "SKILL.md content",

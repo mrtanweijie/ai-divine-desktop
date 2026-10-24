@@ -28,6 +28,7 @@ import {
   mergeLocalTools,
   settleInFlightTools,
   SUPPLEMENT_PREFIX,
+  upsertBrowserStep,
   upsertSubAgent,
   upsertTool,
 } from "@/pages/chat/chatUtils";
@@ -346,6 +347,25 @@ export function useChatStream(options: UseChatStreamOptions) {
             ),
           );
         },
+        browser: (data: unknown) => {
+          // browser 子 Agent 步骤心跳（design 031 §4）：追加到时间线
+          const raw = data as { step: number; tool: string; url?: string; title?: string };
+          setSessionMessages(sessionId, (prev) =>
+            prev.map((message) =>
+              message.id === assistantId
+                ? {
+                    ...message,
+                    browser_steps: upsertBrowserStep(message.browser_steps ?? [], {
+                      step: raw.step,
+                      tool: raw.tool,
+                      url: raw.url,
+                      title: raw.title,
+                    }),
+                  }
+                : message,
+            ),
+          );
+        },
         scheduled_tasks_changed: () => {
           emitTasksChanged();
         },
@@ -433,6 +453,7 @@ export function useChatStream(options: UseChatStreamOptions) {
         handlers.todo_update = () => undefined;
         handlers.tool = () => undefined;
         handlers.subagent = () => undefined;
+        handlers.browser = () => undefined;
       }
 
       return { buffer, handlers };

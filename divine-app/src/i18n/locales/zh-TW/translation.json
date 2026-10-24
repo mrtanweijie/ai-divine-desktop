@@ -192,7 +192,8 @@
     "working": "Working...",
     "preprocessWorking": "正在本地整理長文本（啟動模型/分塊整理），請稍候…",
     "subagentChangedFiles_other": "改动 {{count}} 个文件",
-    "durationTitle": "本條回覆耗時（含工具執行）"
+    "durationTitle": "本條回覆耗時（含工具執行）",
+    "browserSteps": "瀏覽器操作"
   },
   "project": {
     "addFolder": "新增可讀取和編輯的資料夾",
@@ -393,7 +394,17 @@
       "pendingSub": "與已有記憶矛盾的新記憶會擱置在這裡，確認後生效",
       "activeSub": "AI 正在使用的長期記憶，可隨時刪除或糾正"
     },
-    "openConfigDir": "開啟提供商設定檔目錄"
+    "openConfigDir": "開啟提供商設定檔目錄",
+    "browserChannel": "調試通道",
+    "browserDesc": "通用 Web 任務引擎透過專用瀏覽器 Profile 執行網頁任務：一次性登入、持久復用，與日常瀏覽器完全隔離。",
+    "browserLaunching": "啟動中…",
+    "browserRelaunch": "重新引導啟動",
+    "browserSectionTitle": "瀏覽器自動化",
+    "browserSetup": "一鍵啟動專用瀏覽器",
+    "browserSetupDone": "專用瀏覽器已啟動並就緒",
+    "browserSetupFailed": "瀏覽器啟動失敗",
+    "browserStatusRunning": "已就緒",
+    "browserStatusStopped": "未就緒"
   },
   "skills": {
     "bodyTitle": "SKILL.md 內文",
