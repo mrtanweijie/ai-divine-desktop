@@ -31,6 +31,7 @@ Default ports:
 ### Interaction & Execution
 
 - Proactive questions: when a request is ambiguous or a decision is needed, `ask_user` asks with candidate options and waits for the answer
+- Quick local actions (macOS): say 截屏/截图 (screenshot) and it executes locally without a cloud call — `screencapture` silently captures the full screen into the session workspace `screenshots/` (timestamped names), ready for workspace browsing or `@`-mention into GLM vision recognition; "打开截图文件夹" opens that folder directly; sibling local actions include opening apps, locking the screen, and searching files
 - Plans & approvals: complex tasks start with a to-do plan; high-risk operations (terminal commands, git commits, file edits, etc.) require user confirmation, with the wait bounded by `approval_timeout`
 - Steering during execution, and turns that can be cancelled at any time
 - Background tasks & subagents: dev servers / long-running tasks run in the background with status checks; large tasks are split across parallel subagents
@@ -522,3 +523,19 @@ All captured from a real local run (dark theme by default; the Settings page is 
 **Diagram generation** — a single "turn this into an architecture diagram" request renders the Monorepo project structure and the Turbo build pipeline as two Mermaid diagrams.
 
 ![Diagram generation](screenshots/7.png)
+
+**A2UI interactive panel** — the cost dashboard renders as an interactive panel; tweak "headcount ratio / team size / business growth" and hit "recalculate", the operation returns with panel state and all linked panels recompute.
+
+![A2UI interactive panel](screenshots/8.png)
+
+**Document generation & workspace preview** — a one-sentence request produces an in-depth PPT report (payment institutions H1 comparison), previewed page by page in the file panel.
+
+![Document generation & workspace preview](screenshots/9.png)
+
+**Scheduled task + file preview split view** — a scheduled "AI news digest" task finishes and its run summary flows back as a card, with the generated PPT report previewed side by side.
+
+![Scheduled task + file preview](screenshots/10.png)
+
+**General web task engine in action** — the browser subagent opens Juejin "Boiling Points" in the dedicated browser, scrapes the top 5 posts and drafts replies (confirmed in a table before sending), with chat and browser visible side by side; publishing always goes through a user confirmation card first.
+
+![General web task engine](screenshots/11.jpg)
