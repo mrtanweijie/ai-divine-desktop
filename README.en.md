@@ -499,54 +499,54 @@ The repository ships two workflows, both triggerable by pushing a `v*` tag or ma
 
 All captured from a real local run (dark theme by default; the Settings page is shown in light theme).
 
-**Self-introduction** — ask "introduce yourself" right after launch and the agent lays out its own scope under "What I do / How I like to work / On your workspace".
+**Self-introduction** — Tools: none (pure chat)
 
 ![Self-introduction](screenshots/0.png)
 
-**Chat home** — session and project sidebar on the left, capability cards in the middle, and a composer at the bottom with model, reasoning effort and approval policy.
+**Chat home** — Tools: none (UI showcase)
 
 ![Chat home](screenshots/1.png)
 
-**Tool chain and artifact preview in a conversation** — web fetch plus inline ECharts rendering, with the generated HTML dashboard previewed in the right-hand panel (candlesticks follow the A-share convention: red for up, green for down).
+**Tool chain and artifact preview in a conversation** — Tools: `web_fetch`, `generate_chart`, `html_generate`
 
 ![Tool chain and artifact preview](screenshots/2.png)
 
-**Skill hub** — install, search and preview SKILL.md skills, grouped by origin (User / Project) and type (Knowledge / Executable).
+**Skill hub** — Tools: `install_skill`, `preview_skill_repo`, `migrate_skill`
 
 ![Skill hub](screenshots/3.png)
 
-**Scheduled tasks** — reminders and agent runs, each switchable at any time, with next-run times and one-click built-in templates.
+**Scheduled tasks** — Tools: `schedule_task`
 
 ![Scheduled tasks](screenshots/4.png)
 
-**Project architecture walkthrough and workspace browsing** — a Mermaid architecture diagram rendered natively in the reply, with the file tree and a read-only code viewer open alongside (here `document_reader.py`).
+**Project architecture walkthrough and workspace browsing** — Tools: `directory_tree`, `read_file` (Mermaid rendered in prose)
 
 ![Project architecture walkthrough and workspace browsing](screenshots/5.PNG)
 
-**Settings: intent recognition and local models** — keyword / local model / hybrid intent modes, plus local model download, run state and quantization footprint.
+**Settings: intent recognition and local models** — Tools: none (settings page)
 
 ![Settings: intent recognition and local models](screenshots/6.png)
 
-**Diagram generation** — a single "turn this into an architecture diagram" request renders the Monorepo project structure and the Turbo build pipeline as two Mermaid diagrams.
+**Diagram generation** — Tools: `read_file`, `glob_files` (Mermaid rendered in prose)
 
 ![Diagram generation](screenshots/7.png)
 
-**A2UI interactive panel** — the cost dashboard renders as an interactive panel; tweak "headcount ratio / team size / business growth" and hit "recalculate", the operation returns with panel state and all linked panels recompute.
+**A2UI interactive panel** — Tool: `render_ui`
 
 ![A2UI interactive panel](screenshots/8.png)
 
-**Document generation & workspace preview** — a one-sentence request produces an in-depth PPT report (payment institutions H1 comparison), previewed page by page in the file panel.
+**Document generation & workspace preview** — Tool: `presentation`
 
 ![Document generation & workspace preview](screenshots/9.png)
 
-**Scheduled task + file preview split view** — a scheduled "AI news digest" task finishes and its run summary flows back as a card, with the generated PPT report previewed side by side.
+**Scheduled task + file preview split view** — Tools: `schedule_task`
 
 ![Scheduled task + file preview](screenshots/10.png)
 
-**General web task engine in action** — the browser subagent opens Juejin "Boiling Points" in the dedicated browser, scrapes the top 5 posts and drafts replies (confirmed in a table before sending), with chat and browser visible side by side; publishing always goes through a user confirmation card first.
+**General web task engine in action** — Tool: `web_task`
 
 ![General web task engine](screenshots/11.jpg)
 
-**Auto-shopping in action** — the browser subagent searches 老乡鸡 on the Meituan H5 ordering site, compares 12 stores (rating / monthly sales / delivery fee / ETA) with a recommendation, and asks the user to pick a store via an options card.
+**Auto-shopping in action** — Tool: `web_task` (shopping policy pack)
 
 ![Auto-shopping](screenshots/12.png)
