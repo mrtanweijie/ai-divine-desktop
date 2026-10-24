@@ -84,7 +84,9 @@
     "thinkEffortTooltip": "Select Off to disable deep thinking",
     "noApiKeyBanner": "No API key configured — demo mode. Install a free local model for offline use, or configure an API key.",
     "installLocalModel": "Install Local Model",
-    "choiceDeclineDesc": "Pick up again whenever you need"
+    "choiceDeclineDesc": "Pick up again whenever you need",
+    "orderWatchSuccess": "Order status updated",
+    "orderWatchTimeout": "Order tracking timed out"
   },
   "common": {
     "accept": "Accept",
@@ -405,7 +407,13 @@
     "browserSetupDone": "Dedicated browser launched and ready",
     "browserSetupFailed": "Failed to launch browser",
     "browserStatusRunning": "Ready",
-    "browserStatusStopped": "Not ready"
+    "browserStatusStopped": "Not ready",
+    "browserMode": "Execution mode",
+    "browserModeHeadless": "Headless (no window)",
+    "browserModeHeaded": "Headed (visible window)",
+    "browserModeHint": "In headless mode, manual steps like login/payment still require switching back to headed (switch applies automatically; logins persist).",
+    "sectionBrowser": "Browser",
+    "browserChannelTitle": "Channel & execution mode"
   },
   "skills": {
     "bodyTitle": "SKILL.md content",

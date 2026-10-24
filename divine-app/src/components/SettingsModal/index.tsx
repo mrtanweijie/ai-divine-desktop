@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AudioWaveform, Blocks, Brain, Cpu, Info, Save, Settings2 } from "lucide-react";
+import { AudioWaveform, Blocks, Brain, Cpu, Globe, Info, Save, Settings2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
 import type { ModelConfig, Settings, SettingsSaveBody } from "@/types";
@@ -51,7 +51,7 @@ interface SettingsModalProps {
   onSilentSave?: (body: SettingsSaveBody) => Promise<void> | void;
   onConfirm?: (title: string, description: string, action: () => void) => void;
   /** 打开时定位到的 tab（默认"通用"） */
-  initialSection?: "basic" | "model" | "mcp" | "local" | "memory" | "about";
+  initialSection?: "basic" | "model" | "mcp" | "local" | "memory" | "browser" | "about";
 }
 
 export function SettingsModal({
@@ -76,9 +76,9 @@ export function SettingsModal({
   const [showGlmKey, setShowGlmKey] = useState(false);
   const [version, setVersion] = useState(`v${tauriConfig.version}`);
   const [themePreference, setThemePreferenceState] = useThemePreference();
-  const [section, setSection] = useState<"basic" | "model" | "mcp" | "local" | "memory" | "about">(
-    initialSection,
-  );
+  const [section, setSection] = useState<
+    "basic" | "model" | "mcp" | "local" | "memory" | "browser" | "about"
+  >(initialSection);
   const [localLLMEnabled, setLocalLLMEnabled] = useState(settings.local_llm_enabled ?? false);
   const [localLLMMode, setLocalLLMMode] = useState<"keyword" | "local" | "hybrid">(
     settings.local_llm_mode ?? "keyword",
@@ -195,7 +195,11 @@ export function SettingsModal({
       width={860}
       footer={
         // 意图 tab 的操作（模式切换/模型启停）即时生效，无需底部保存按钮
-        section !== "about" && section !== "local" && section !== "mcp" && section !== "memory" ? (
+        section !== "about" &&
+        section !== "local" &&
+        section !== "mcp" &&
+        section !== "memory" &&
+        section !== "browser" ? (
           <>
             <Button variant="secondary" onClick={onClose}>
               {t("common.cancel", "取消")}
@@ -292,6 +296,22 @@ export function SettingsModal({
           </div>
           <div
             role="tab"
+            aria-selected={section === "browser"}
+            tabIndex={0}
+            className={`settings-nav-item${section === "browser" ? " active" : ""}`}
+            onClick={() => setSection("browser")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSection("browser");
+              }
+            }}
+          >
+            <Globe size={15} />
+            <span>{t("settings.sectionBrowser", "浏览器")}</span>
+          </div>
+          <div
+            role="tab"
             aria-selected={section === "about"}
             tabIndex={0}
             className={`settings-nav-item${section === "about" ? " active" : ""}`}
@@ -309,26 +329,25 @@ export function SettingsModal({
         </div>
         <div className="settings-main">
           {section === "basic" ? (
-            <>
-              <BasicSection
-                themePreference={themePreference}
-                onThemeChange={(value: ThemePreference) => setThemePreferenceState(value)}
-                locale={locale}
-                onLocaleChange={(value) => {
-                  setLocaleState(value);
-                  setLocale(value);
-                }}
-                username={username}
-                onUsernameChange={setUsername}
-                contextLimit={contextLimit}
-                onContextLimitChange={setContextLimit}
-                effort={effort}
-                onEffortChange={setEffort}
-                globalShortcutEnabled={globalShortcutEnabled}
-                onGlobalShortcutChange={handleGlobalShortcutChange}
-              />
-              <BrowserSection />
-            </>
+            <BasicSection
+              themePreference={themePreference}
+              onThemeChange={(value: ThemePreference) => setThemePreferenceState(value)}
+              locale={locale}
+              onLocaleChange={(value) => {
+                setLocaleState(value);
+                setLocale(value);
+              }}
+              username={username}
+              onUsernameChange={setUsername}
+              contextLimit={contextLimit}
+              onContextLimitChange={setContextLimit}
+              effort={effort}
+              onEffortChange={setEffort}
+              globalShortcutEnabled={globalShortcutEnabled}
+              onGlobalShortcutChange={handleGlobalShortcutChange}
+            />
+          ) : section === "browser" ? (
+            <BrowserSection />
           ) : section === "model" ? (
             <ModelSection
               models={models}

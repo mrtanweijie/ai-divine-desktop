@@ -84,7 +84,9 @@
     "thinkEffortTooltip": "选择关闭则不进行深度思考",
     "noApiKeyBanner": "未配置 API Key，当前为演示模式。可安装免费本地模型离线使用，或配置 API Key。",
     "installLocalModel": "去安装本地模型",
-    "choiceDeclineDesc": "后续有需求再继续任务"
+    "choiceDeclineDesc": "后续有需求再继续任务",
+    "orderWatchSuccess": "订单状态更新",
+    "orderWatchTimeout": "订单追踪超时"
   },
   "common": {
     "accept": "接受",
@@ -398,7 +400,13 @@
     "browserSetupDone": "专用浏览器已启动并就绪",
     "browserSetupFailed": "浏览器启动失败",
     "browserStatusRunning": "已就绪",
-    "browserStatusStopped": "未就绪"
+    "browserStatusStopped": "未就绪",
+    "browserMode": "执行模式",
+    "browserModeHeadless": "无头（不打扰）",
+    "browserModeHeaded": "有头（可见窗口）",
+    "browserModeHint": "无头模式下登录/支付等人工步骤仍需切回有头完成（切换自动生效，登录态保留）。",
+    "sectionBrowser": "浏览器",
+    "browserChannelTitle": "调试通道与执行模式"
   },
   "skills": {
     "bodyTitle": "SKILL.md 正文",

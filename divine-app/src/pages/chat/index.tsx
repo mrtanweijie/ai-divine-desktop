@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
+import { toast } from "@/components/ui/Toast";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -623,6 +624,20 @@ export default function ChatPage() {
       void notifyTaskFinished(taskId, title, data.ok !== false).catch(() => undefined);
     });
   }, []);
+
+  // 订单状态追踪结果（browser_order，design 031 §14.2）：命中/超时 toast 提示。
+  useEffect(() => {
+    return subscribeAppEvent("browser_order", (data) => {
+      const status = typeof data.status === "string" ? data.status : "";
+      const detail = typeof data.detail === "string" ? data.detail : "";
+      const suffix = detail ? `：${detail}` : "";
+      if (status === "success") {
+        toast.success(t("chat.orderWatchSuccess", "订单状态更新") + suffix);
+      } else if (status === "timeout") {
+        toast.error(t("chat.orderWatchTimeout", "订单追踪超时") + suffix);
+      }
+    });
+  }, [t]);
 
   const handleModelChange = useCallback(
     (modelId: string) => {

@@ -1,8 +1,10 @@
-// Browser automation settings section (design 031): channel status + one-click guided launch.
-import { useCallback, useEffect, useState } from "react";
+// Browser automation settings section (design 031): channel status, guided launch,
+// domain policies and shopping guards.
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Globe } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Tag } from "@/components/ui/Tag";
 import { toast } from "@/components/ui/Toast";
 import { request } from "@/services/request";
@@ -15,14 +17,36 @@ interface BrowserStatus {
   profile_dir: string;
 }
 
+interface PolicyState {
+  browser_mode: "headless" | "headed";
+  browser_blocked_domains: string;
+  browser_confirm_domains: string;
+  shopping_per_order_cap: string;
+  shopping_monthly_cap: string;
+  shopping_default_address: string;
+}
+
+const EMPTY_POLICY: PolicyState = {
+  browser_mode: "headed",
+  browser_blocked_domains: "",
+  browser_confirm_domains: "",
+  shopping_per_order_cap: "200",
+  shopping_monthly_cap: "",
+  shopping_default_address: "",
+};
+
 /**
- * 浏览器自动化区块：显示调试通道状态，一键引导启动专用 profile 浏览器。
- * 即时生效，不参与设置弹窗底部的保存流（与意图 tab 同模式）。
+ * 浏览器自动化区块：调试通道状态 + 一键引导启动 + 域名策略/购物护栏编辑。
+ * 策略即时保存（独立保存按钮），不参与设置弹窗底部的保存流。
  */
 export function BrowserSection() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<BrowserStatus | null>(null);
   const [launching, setLaunching] = useState(false);
+  const [policyOpen, setPolicyOpen] = useState(false);
+  const policyRef = useRef<HTMLDetailsElement>(null);
+  const [policy, setPolicy] = useState<PolicyState>(EMPTY_POLICY);
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -30,6 +54,19 @@ export function BrowserSection() {
     } catch {
       // 后端未升级等场景静默降级：显示未就绪即可
       setStatus({ running: false, endpoint: null, profile_dir: "" });
+    }
+    try {
+      const settings = await request<Record<string, unknown>>("/settings");
+      setPolicy({
+        browser_mode: settings.browser_mode === "headless" ? "headless" : "headed",
+        browser_blocked_domains: String(settings.browser_blocked_domains ?? ""),
+        browser_confirm_domains: String(settings.browser_confirm_domains ?? ""),
+        shopping_per_order_cap: String(settings.shopping_per_order_cap ?? "200"),
+        shopping_monthly_cap: String(settings.shopping_monthly_cap ?? ""),
+        shopping_default_address: String(settings.shopping_default_address ?? ""),
+      });
+    } catch {
+      // 策略读取失败保持默认值
     }
   }, []);
 
@@ -64,11 +101,40 @@ export function BrowserSection() {
     }
   }, [t]);
 
+  const savePolicy = useCallback(async () => {
+    setSaving(true);
+    try {
+      const cap = Number(policy.shopping_per_order_cap);
+      const monthly = Number(policy.shopping_monthly_cap);
+      await request("/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          browser_mode: policy.browser_mode,
+          browser_blocked_domains: policy.browser_blocked_domains.trim(),
+          browser_confirm_domains: policy.browser_confirm_domains.trim(),
+          shopping_per_order_cap: Number.isFinite(cap) && cap > 0 ? cap : 200,
+          shopping_monthly_cap: Number.isFinite(monthly) && monthly > 0 ? monthly : null,
+          shopping_default_address: policy.shopping_default_address.trim(),
+        }),
+      });
+      toast.success(t("settings.browserPolicySaved", "策略已保存"));
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      toast.error(
+        t("settings.browserPolicySaveFailed", "策略保存失败") + (detail ? `: ${detail}` : ""),
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [policy, t]);
+
+  const setField = (key: keyof PolicyState) => (value: string) =>
+    setPolicy((prev) => ({ ...prev, [key]: value }));
+
   return (
     <div className="settings-section settings-browser">
       <h3>
-        <Globe size={15} />
-        <span>{t("settings.browserSectionTitle", "浏览器自动化")}</span>
+        <span>{t("settings.browserChannelTitle", "调试通道与执行模式")}</span>
       </h3>
       <p className="browser-desc">
         {t(
@@ -85,6 +151,29 @@ export function BrowserSection() {
         )}
       </div>
       {status?.endpoint && <p className="browser-desc browser-endpoint">{status.endpoint}</p>}
+      <label className="browser-field">
+        <span>{t("settings.browserMode", "执行模式")}</span>
+        <div className="browser-field-row">
+          <Button
+            variant={policy.browser_mode === "headless" ? "primary" : "secondary"}
+            onClick={() => setField("browser_mode")("headless")}
+          >
+            {t("settings.browserModeHeadless", "无头（不打扰）")}
+          </Button>
+          <Button
+            variant={policy.browser_mode === "headed" ? "primary" : "secondary"}
+            onClick={() => setField("browser_mode")("headed")}
+          >
+            {t("settings.browserModeHeaded", "有头（可见窗口）")}
+          </Button>
+        </div>
+        <span className="browser-desc">
+          {t(
+            "settings.browserModeHint",
+            "无头模式下登录/支付等人工步骤仍需切回有头完成（切换自动生效，登录态保留）。",
+          )}
+        </span>
+      </label>
       <div>
         <Button variant="secondary" onClick={() => void setup()} disabled={launching}>
           {launching
@@ -94,6 +183,82 @@ export function BrowserSection() {
               : t("settings.browserSetup", "一键启动专用浏览器")}
         </Button>
       </div>
+
+      <details
+        className="browser-policy-card"
+        open={policyOpen}
+        ref={policyRef}
+        data-open={policyOpen ? "true" : undefined}
+      >
+        <summary
+          className="browser-policy-summary"
+          onClick={(event) => {
+            event.preventDefault();
+            setPolicyOpen((value) => !value);
+          }}
+        >
+          <span className="browser-policy-title">
+            {t("settings.browserPolicyTitle", "域名策略与购物护栏")}
+          </span>
+          {policy.browser_confirm_domains.trim() && (
+            <Tag tone="success">{t("settings.browserPolicyActive", "已配置")}</Tag>
+          )}
+          <ChevronDown size={13} className={policyOpen ? "expanded" : ""} />
+        </summary>
+        <div className="browser-policy-body">
+          <label className="browser-field">
+            <span>{t("settings.browserBlockedDomains", "禁止导航的域名（逗号分隔）")}</span>
+            <Input
+              value={policy.browser_blocked_domains}
+              onChange={(e) => setField("browser_blocked_domains")(e.target.value)}
+              placeholder="evil.com, phishing.example"
+            />
+          </label>
+          <label className="browser-field">
+            <span>
+              {t("settings.browserConfirmDomains", "变更动作需每次确认的域名（逗号分隔）")}
+            </span>
+            <Input
+              value={policy.browser_confirm_domains}
+              onChange={(e) => setField("browser_confirm_domains")(e.target.value)}
+              placeholder="admin.example.com"
+            />
+          </label>
+          <div className="browser-field-row">
+            <label className="browser-field">
+              <span>{t("settings.shoppingPerOrderCap", "单笔金额上限（¥）")}</span>
+              <Input
+                type="number"
+                value={policy.shopping_per_order_cap}
+                onChange={(e) => setField("shopping_per_order_cap")(e.target.value)}
+              />
+            </label>
+            <label className="browser-field">
+              <span>{t("settings.shoppingMonthlyCap", "月度上限（¥，空=不限）")}</span>
+              <Input
+                type="number"
+                value={policy.shopping_monthly_cap}
+                onChange={(e) => setField("shopping_monthly_cap")(e.target.value)}
+              />
+            </label>
+          </div>
+          <label className="browser-field">
+            <span>{t("settings.shoppingDefaultAddress", "默认收货地址")}</span>
+            <Input
+              value={policy.shopping_default_address}
+              onChange={(e) => setField("shopping_default_address")(e.target.value)}
+              placeholder={t("settings.shoppingDefaultAddressHint", "结算地址不一致时在确认卡警示")}
+            />
+          </label>
+          <div className="browser-policy-actions">
+            <Button variant="primary" onClick={() => void savePolicy()} disabled={saving}>
+              {saving
+                ? t("settings.browserPolicySaving", "保存中…")
+                : t("settings.browserPolicySave", "保存策略")}
+            </Button>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
