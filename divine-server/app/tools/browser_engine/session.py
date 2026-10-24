@@ -68,10 +68,11 @@ def _read_endpoint_file(path: Path) -> str | None:
         return None
 
 
-def _write_endpoint_file(url: str, pid: int | None = None) -> None:
+def _write_endpoint_file(url: str, pid: int | None = None, headless: bool = False) -> None:
     """端点写入规范位置 + 当前 data_root 副本（尽力而为，失败不阻断）。"""
     payload = json.dumps(
-        {"url": url, "ts": time.time(), "pid": pid}, ensure_ascii=False
+        {"url": url, "ts": time.time(), "pid": pid, "headless": headless},
+        ensure_ascii=False,
     )
     canonical = _canonical_endpoint_file()
     try:
@@ -91,6 +92,8 @@ def _kill_stale_instance(profile_dir: Path) -> None:
     """强制重启前清掉旧的专用浏览器实例（可能已半死：端口通但协议无响应）。
 
     按专用 profile 路径精确匹配命令行，只影响我们启动的实例。
+    pkill 后必须**等旧实例完全退出**再启动新实例——SingletonLock 未释放时，
+    新 Chrome 会卡在锁竞争里、DevTools 永远不初始化（表现为探测超时）。
     """
     try:
         subprocess.run(  # noqa: S603 — pkill 固定参数，路径来自配置
@@ -100,7 +103,27 @@ def _kill_stale_instance(profile_dir: Path) -> None:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        time.sleep(0.8)
+        deadline = time.monotonic() + 8
+        while time.monotonic() < deadline:
+            probe = subprocess.run(  # noqa: S603
+                ["pgrep", "-f", f"--user-data-dir={profile_dir}"],
+                check=False,
+                timeout=5,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if probe.returncode != 0:  # 无匹配 = 已全部退出
+                return
+            time.sleep(0.3)
+        # 超时仍存活：SIGKILL 兜底
+        subprocess.run(  # noqa: S603
+            ["pkill", "-9", "-f", f"--user-data-dir={profile_dir}"],
+            check=False,
+            timeout=5,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        time.sleep(0.5)
     except Exception as exc:  # noqa: BLE001 — 清理失败不阻断启动
         logger.warning("清理旧浏览器实例失败: %s", exc)
 
@@ -109,7 +132,8 @@ def _probe_endpoint(url: str) -> bool:
     try:
         response = httpx.get(f"{url.rstrip('/')}/json/version", timeout=_PROBE_TIMEOUT)
         return response.status_code == 200
-    except Exception:  # noqa: BLE001 — 探测失败即不可用
+    except Exception as exc:  # noqa: BLE001 — 探测失败即不可用
+        logger.debug("probe %s failed: %s: %s", url, type(exc).__name__, str(exc)[:120])
         return False
 
 
@@ -148,16 +172,54 @@ def discover_cdp_endpoint() -> str | None:
     return None
 
 
-def launch_debug_chrome(force: bool = False) -> dict[str, Any]:
+def _browser_mode_headless() -> bool:
+    """执行模式（032 §2）：settings `browser_mode` = headless / headed（默认有头）。
+
+    阶段 B/C（登录卡片/验证码闭环）落地后默认切 headless——当前有头保留
+    是因为登录与支付还需要可见窗口。
+    """
+    from ...config import settings_store
+
+    try:
+        return (
+            str(settings_store.load().get("browser_mode") or "headed").strip().lower()
+            == "headless"
+        )
+    except Exception:  # noqa: BLE001 — 读不到设置按有头
+        return False
+
+
+def _running_headless() -> bool | None:
+    """从端点文件读运行中实例的模式；旧文件无标记返回 None。"""
+    for path in (_canonical_endpoint_file(), _endpoint_file()):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            flag = payload.get("headless")
+            if flag is not None:
+                return bool(flag)
+        except Exception:  # noqa: BLE001
+            continue
+    return None
+
+
+def launch_debug_chrome(force: bool = False, headless: bool | None = None) -> dict[str, Any]:
     """引导启动：专用 profile + 随机端口拉起 Chrome 调试模式，写入端点文件。
 
-    已有可用端点时直接返回（force=True 跳过检查强制新启，用于连接异常的自愈）。
-    返回 {url, pid, profile_dir, launched}；失败抛 RuntimeError。
+    已有可用端点时直接返回（force=True 跳过检查强制新启，用于连接异常的自愈
+    或模式切换）。headless=None 时按 settings `browser_mode` 决定。
+    返回 {url, pid, profile_dir, launched, headless}；失败抛 RuntimeError。
     """
+    if headless is None:
+        headless = _browser_mode_headless()
     if not force:
         existing = discover_cdp_endpoint()
         if existing:
-            return {"url": existing, "pid": None, "launched": False}
+            return {
+                "url": existing,
+                "pid": None,
+                "launched": False,
+                "headless": _running_headless() if _running_headless() is not None else headless,
+            }
 
     binary = next((Path(p) for p in _CHROME_CANDIDATES if Path(p).exists()), None)
     if binary is None:
@@ -173,15 +235,19 @@ def launch_debug_chrome(force: bool = False) -> dict[str, Any]:
         _kill_stale_instance(profile_dir)
 
     port = random.randint(20000, 60000)
+    args = [
+        str(binary),
+        f"--remote-debugging-port={port}",
+        f"--user-data-dir={profile_dir}",
+        "--no-first-run",
+        "--no-default-browser-check",
+    ]
+    if headless:
+        # 新无头模式：与有头同一渲染引擎；固定窗口尺寸对齐截图 viewport 约定
+        args += ["--headless=new", "--window-size=1280,800"]
+    args.append("about:blank")
     process = subprocess.Popen(  # noqa: S603 — 固定二进制路径，参数为常量
-        [
-            str(binary),
-            f"--remote-debugging-port={port}",
-            f"--user-data-dir={profile_dir}",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "about:blank",
-        ],
+        args,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         # 脱离父进程组：引导启动方（CLI/一次性脚本）退出时不能连带杀掉浏览器，
@@ -190,17 +256,27 @@ def launch_debug_chrome(force: bool = False) -> dict[str, Any]:
     )
     url = f"http://127.0.0.1:{port}"
     deadline = time.monotonic() + _CONNECT_TIMEOUT
+    probed = False
     while time.monotonic() < deadline:
         if _probe_endpoint(url):
-            _write_endpoint_file(url, process.pid)
-            return {
-                "url": url,
-                "pid": process.pid,
-                "profile_dir": str(profile_dir),
-                "launched": True,
-            }
+            probed = True
+            break
         time.sleep(0.4)
-    raise RuntimeError(f"Chrome 调试端口 {port} 启动超时")
+    if not probed:
+        # 超时必须带走刚拉起的进程，否则僵尸 Chrome 逐次累积
+        try:
+            process.terminate()
+        except OSError:  # noqa: BLE001
+            pass
+        raise RuntimeError(f"Chrome 调试端口 {port} 启动超时")
+    _write_endpoint_file(url, process.pid, headless)
+    return {
+        "url": url,
+        "pid": process.pid,
+        "profile_dir": str(profile_dir),
+        "launched": True,
+        "headless": headless,
+    }
 
 
 class BrowserSession:
@@ -220,6 +296,12 @@ class BrowserSession:
         self.steps_this_task = 0
         # 提交幂等锁：最近一次不可逆提交 (url|按钮名, ts)（031 §13.5）
         self.last_submission: tuple[str, float] | None = None
+        # 订单状态后台轮询任务（031 §14.2 第 9 步）
+        self._watch_task: Any = None
+        # 委派段级模式覆盖（032 §3 L4 降级）：True/False 强制，None 跟随 settings
+        self.desired_headless: bool | None = None
+        # 最近一次成功导航的 URL：模式切换/自愈重启后断点重导航用（032 §3 D）
+        self.last_navigated_url: str | None = None
 
     # -- 连接 -------------------------------------------------------------
     async def _close_connection(self) -> None:
@@ -254,6 +336,7 @@ class BrowserSession:
             self._page = None
 
         last_error: Exception | None = None
+        relaunched = False
         for attempt in (0, 1):
             try:
                 endpoint = discover_cdp_endpoint()
@@ -262,6 +345,22 @@ class BrowserSession:
                     # 桌面端重启不会恢复独立运行的 Chrome——通道自愈只能靠这里。
                     info = await asyncio.to_thread(launch_debug_chrome)
                     endpoint = info["url"]
+                    relaunched = True
+                # 模式失配自动切换（032 §2/§3 L4）：委派段覆盖优先，
+                # 其次 settings browser_mode；失配即按目标模式重启（登录态保留）
+                running_mode = _running_headless()
+                desired_mode = (
+                    self.desired_headless
+                    if self.desired_headless is not None
+                    else _browser_mode_headless()
+                )
+                if running_mode is not None and running_mode != desired_mode:
+                    await self._close_connection()
+                    await asyncio.to_thread(launch_debug_chrome, True, desired_mode)
+                    endpoint = discover_cdp_endpoint()
+                    if endpoint is None:
+                        raise RuntimeError("浏览器按新模式重启后未发现调试端口")
+                    relaunched = True
                 self._playwright = await async_playwright().start()
                 self._browser = await self._playwright.chromium.connect_over_cdp(
                     endpoint, timeout=_CONNECT_TIMEOUT * 1000
@@ -270,6 +369,16 @@ class BrowserSession:
                     raise RuntimeError("浏览器无可上下文（实例状态异常）")
                 self._page = await self._browser.contexts[0].new_page()
                 self._page.set_default_timeout(_DEFAULT_TIMEOUT_MS)
+                if relaunched and self.last_navigated_url:
+                    # 断点重导航（032 §3 D）：重启后回到任务页面，不停在空白页
+                    try:
+                        await self._page.goto(
+                            self.last_navigated_url,
+                            wait_until="domcontentloaded",
+                            timeout=20_000,
+                        )
+                    except Exception:  # noqa: BLE001 — 重导航失败不阻断，由后续操作兜底
+                        logger.warning("断点重导航失败: %s", self.last_navigated_url)
                 return self._page
             except asyncio.CancelledError:
                 raise
@@ -327,6 +436,74 @@ class BrowserSession:
         self.refs.clear()  # 新页面，旧 ref 全部作废
         return True
 
+    async def start_order_watch(
+        self,
+        marker: str,
+        session_id: str,
+        interval_s: int = 60,
+        timeout_s: int = 900,
+    ) -> bool:
+        """启动订单状态后台轮询（031 §14.2 第 9 步）。
+
+        每次轮询 reload 当前页并检查标记文本（如「支付成功」「订单已提交」），
+        命中/超时经常驻事件流广播 ``browser_order`` 事件——任务回合结束后
+        轮询仍在服务事件循环里继续，不占子 agent 生命周期。
+        同一会话同时只允许一个 watcher。
+        """
+        if self._watch_task is not None and not self._watch_task.done():
+            return False
+        self._watch_task = asyncio.create_task(
+            self._order_watch(marker, session_id, interval_s, timeout_s)
+        )
+        return True
+
+    async def _order_watch(
+        self, marker: str, session_id: str, interval_s: int, timeout_s: int
+    ) -> None:
+        from ...events import broadcast
+
+        deadline = time.monotonic() + timeout_s
+        try:
+            page = await self.ensure()
+            while time.monotonic() < deadline:
+                try:
+                    await page.reload(wait_until="domcontentloaded", timeout=20_000)
+                    text = await page.evaluate(
+                        "() => (document.body ? document.body.innerText : '')"
+                    )
+                    if marker in str(text):
+                        broadcast(
+                            "browser_order",
+                            {
+                                "session_id": session_id,
+                                "status": "success",
+                                "detail": f"页面出现标记「{marker}」",
+                                "url": self._page.url if self._page else "",
+                            },
+                        )
+                        return
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 — 单次轮询失败继续下一轮
+                    logger.warning(
+                        "order watch poll failed: %s: %s", type(exc).__name__, str(exc)[:120]
+                    )
+                await asyncio.sleep(interval_s)
+            broadcast(
+                "browser_order",
+                {
+                    "session_id": session_id,
+                    "status": "timeout",
+                    "detail": f"{timeout_s}s 内未出现标记「{marker}」，请手动查看订单状态",
+                },
+            )
+        except asyncio.CancelledError:
+            broadcast(
+                "browser_order",
+                {"session_id": session_id, "status": "cancelled", "detail": "追踪已取消"},
+            )
+            raise
+
     @property
     def connected(self) -> bool:
         return self._page is not None and not self._page.is_closed()
@@ -345,6 +522,9 @@ class BrowserSession:
             return {"url": "", "title": ""}
 
     async def close(self) -> None:
+        if self._watch_task is not None and not self._watch_task.done():
+            self._watch_task.cancel()
+        self._watch_task = None
         if self._page is not None:
             try:
                 await self._page.close()

@@ -105,6 +105,22 @@ def _public(settings: dict) -> dict:
         "local_llm_preprocess_code_skip": bool(
             settings.get("local_llm_preprocess_code_skip", True)
         ),
+        # 浏览器自动化与购物策略（031/032）
+        "browser_mode": str(settings.get("browser_mode") or "headed"),
+        "browser_cdp_port": settings.get("browser_cdp_port") or None,
+        "browser_blocked_domains": str(
+            settings.get("browser_blocked_domains") or ""
+        ),
+        "browser_confirm_domains": str(
+            settings.get("browser_confirm_domains") or ""
+        ),
+        "shopping_per_order_cap": float(
+            settings.get("shopping_per_order_cap") or 200
+        ),
+        "shopping_monthly_cap": settings.get("shopping_monthly_cap"),
+        "shopping_default_address": str(
+            settings.get("shopping_default_address") or ""
+        ),
         "tools": registry.list(),
         "models": [
             {

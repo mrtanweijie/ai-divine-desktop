@@ -57,8 +57,9 @@ IRREVERSIBLE_TERMS: tuple[str, ...] = (
     "log out",
 )
 
-# 凭据类输入禁令（031 §6.4：禁止输入任何凭据/验证码/API key）。
-# 命中字段名/元素名 → fill 一律拒绝，无任何放行路径。
+# 凭据类输入禁令（032 §5 定向豁免后分两级）：
+# - 密码类：无条件拒绝（任何模式、任何委派段）——用短信登录形态规避密码
+# - 验证码类：仅 confirmed=true 委派段放行（用户经登录卡片主动提供的短信码）
 CREDENTIAL_TERMS: tuple[str, ...] = (
     "密码",
     "验证码",
@@ -77,6 +78,29 @@ CREDENTIAL_TERMS: tuple[str, ...] = (
     "api key",
     "api token",
     "secret",
+)
+
+PASSWORD_TERMS: tuple[str, ...] = (
+    "密码",
+    "口令",
+    "pin码",
+    "cvv",
+    "安全码",
+    "card code",
+    "password",
+    "passwd",
+    "pwd",
+    "passcode",
+    "api key",
+    "api token",
+    "secret",
+)
+
+CODE_TERMS: tuple[str, ...] = (
+    "验证码",
+    "otp",
+    "captcha",
+    "verification code",
 )
 
 VALID_INTENTS = ("read", "reversible", "irreversible")
@@ -119,6 +143,16 @@ def classify_action(name: str, intent: str | None) -> tuple[str, str | None]:
 def credential_hit(field_name: str) -> str | None:
     """fill 目标字段命中凭据词典时返回词条（拒绝输入）。"""
     return _name_matches(field_name, CREDENTIAL_TERMS)
+
+
+def password_hit(field_name: str) -> bool:
+    """密码类字段：无条件拒绝，无任何放行路径（032 §5）。"""
+    return _name_matches(field_name, PASSWORD_TERMS) is not None
+
+
+def code_hit(field_name: str) -> bool:
+    """验证码类字段：confirmed=true 委派段可填（用户经登录卡片提供）。"""
+    return _name_matches(field_name, CODE_TERMS) is not None
 
 
 def refusal_payload(message: str, **extra: Any) -> dict[str, Any]:

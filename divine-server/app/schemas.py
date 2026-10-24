@@ -227,6 +227,14 @@ class SettingsUpdate(BaseModel):
     local_llm_threshold: float | None = Field(default=None, ge=0, le=1)
     # 桌面全局快捷键（唤起/隐藏主窗口）开关
     global_shortcut_enabled: bool | None = None
+    # 浏览器自动化与购物策略（031/032）
+    browser_mode: Literal["headless", "headed"] | None = None
+    browser_cdp_port: int | None = Field(default=None, ge=1, le=65535)
+    browser_blocked_domains: str | None = None
+    browser_confirm_domains: str | None = None
+    shopping_per_order_cap: float | None = Field(default=None, ge=0)
+    shopping_monthly_cap: float | None = Field(default=None, ge=0)
+    shopping_default_address: str | None = None
 
 
 class ScheduledTaskCreate(BaseModel):

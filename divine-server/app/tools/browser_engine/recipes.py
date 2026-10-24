@@ -34,22 +34,31 @@ def recipes_dir() -> Path:
     return data_root() / "browser" / "recipes"
 
 
+def _builtin_dir() -> Path:
+    """随包发布的官方配方（031 §7：高频站点官方维护）。"""
+    return Path(__file__).resolve().parent / "recipes_builtin"
+
+
 def load_recipes() -> list[dict[str, Any]]:
-    """读取全部配方文件；坏文件跳过并告警。"""
-    recipes: list[dict[str, Any]] = []
-    directory = recipes_dir()
-    if not directory.is_dir():
-        return recipes
-    for path in sorted(directory.glob("*.json")):
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(payload, dict) or not payload.get("url_patterns"):
-                continue
-            payload["_file"] = path.name
-            recipes.append(payload)
-        except Exception as exc:  # noqa: BLE001 — 单个坏文件不拖垮整体
-            logger.warning("配方文件解析失败 %s: %s", path.name, exc)
-    return recipes
+    """读取配方：内置目录 + 用户目录（`<data_root>/browser/recipes/`）。
+
+    同名配方以用户目录为准（可覆盖内置版）；坏文件跳过并告警。
+    """
+    recipes: dict[str, dict[str, Any]] = {}
+    for directory, source in ((_builtin_dir(), "builtin"), (recipes_dir(), "user")):
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.glob("*.json")):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                if not isinstance(payload, dict) or not payload.get("url_patterns"):
+                    continue
+                payload["_file"] = path.name
+                payload["_source"] = source
+                recipes[str(payload.get("name") or path.stem)] = payload
+            except Exception as exc:  # noqa: BLE001 — 单个坏文件不拖垮整体
+                logger.warning("配方文件解析失败 %s: %s", path.name, exc)
+    return list(recipes.values())
 
 
 def match_recipes(url: str) -> list[dict[str, Any]]:

@@ -110,16 +110,21 @@ class BrowserSnapshotAdapter(_BrowserAdapter):
 
 @register_tool(
     "browser_click",
-    "点击元素并返回新快照。优先按快照 ref；无 role 的纯文本节点（H5 门店卡片等拿不到 ref）"
-    "用 text 按可见文本点击（支持部分匹配）。不可逆动作（提交/支付/删除等）仅在 "
-    "confirmed=true 委派段放行",
+    "点击元素并返回新快照。三种定位（按优先级）：ref（快照元素）→ text（可见文本，"
+    "用于无 role 的纯文本卡片）→ selectors（CSS 定位，用于图片绘制的无障碍盲区按钮，"
+    "如美团「+」加购图标）。不可逆动作（提交/支付/删除等）仅在 confirmed=true 委派段放行",
     {
         "type": "object",
         "properties": {
-            "ref": {"type": "string", "description": "快照里的元素 ref，例如 e12（与 text 二选一）"},
+            "ref": {"type": "string", "description": "快照里的元素 ref，例如 e12"},
             "text": {
                 "type": "string",
-                "description": "元素可见文本（可只给部分），用于快照里无 ref 的纯文本节点（与 ref 二选一）",
+                "description": "元素可见文本（可只给部分），用于快照里无 ref 的纯文本节点",
+            },
+            "selectors": {
+                "type": "object",
+                "additionalProperties": {"type": "string"},
+                "description": 'CSS 定位兜底，如 {".cart-add": ".cart-add"}；取第一个 key 的选择器',
             },
             "intent": _INTENT_PARAM,
         },
@@ -129,12 +134,66 @@ class BrowserClickAdapter(_BrowserAdapter):
     timeout = 30
 
     async def _operate(self, session, workspace, arguments):
+        selectors = arguments.get("selectors")
         return await engine.op_click(
             session,
             workspace,
             arguments.get("ref"),
             arguments.get("text"),
             arguments.get("intent"),
+            selectors if isinstance(selectors, dict) else None,
+        )
+
+
+@register_tool(
+    "browser_read_captcha",
+    "图形验证码识别：按 ref 截取验证码元素 → 视觉模型识别 → 返回验证码字符"
+    "（用 browser_fill 填入验证码输入框）。识别失败返回 code=null，降级为登录卡片人工认读，"
+    "不要反复重试。仅 confirmed=true 委派段可填入验证码",
+    {
+        "type": "object",
+        "properties": {
+            "ref": {"type": "string", "description": "验证码图片元素的 ref"},
+        },
+        "required": ["ref"],
+    },
+)
+class BrowserReadCaptchaAdapter(_BrowserAdapter):
+    timeout = 60
+
+    async def _operate(self, session, workspace, arguments):
+        return await engine.op_read_captcha(
+            session, workspace, str(arguments.get("ref") or "")
+        )
+
+
+@register_tool(
+    "browser_track_order",
+    "提交订单后启动订单状态后台轮询：定期重新加载当前页检查标记文本（如「支付成功」），"
+    "命中/超时经事件流通知用户。轮询不占用委派段生命周期——启动后即可结束汇报",
+    {
+        "type": "object",
+        "properties": {
+            "marker": {
+                "type": "string",
+                "description": "订单成功状态的标记文本，如「支付成功」「订单已提交」",
+            },
+            "timeout_minutes": {"type": "integer", "description": "最长追踪分钟数，默认 15，上限 60"},
+            "interval_seconds": {"type": "integer", "description": "轮询间隔秒数，默认 60，范围 10-300"},
+        },
+        "required": ["marker"],
+    },
+)
+class BrowserTrackOrderAdapter(_BrowserAdapter):
+    timeout = 30
+
+    async def _operate(self, session, workspace, arguments):
+        return await engine.op_track_order(
+            session,
+            workspace,
+            arguments.get("marker"),
+            arguments.get("timeout_minutes"),
+            arguments.get("interval_seconds"),
         )
 
 

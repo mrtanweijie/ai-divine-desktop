@@ -146,6 +146,13 @@ class RunSubagentsAdapter(ToolAdapter):
                 ),
                 "default": False,
             },
+            "headless": {
+                "type": "boolean",
+                "description": (
+                    "覆盖本委派段执行模式：false=有头浮窗（登录/滑块等需要用户"
+                    "手动操作的降级场景），true=无头，缺省跟随设置"
+                ),
+            },
         },
         "required": ["subagent_type", "prompt"],
     },

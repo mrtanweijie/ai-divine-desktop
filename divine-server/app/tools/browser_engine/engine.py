@@ -65,6 +65,37 @@ async def _snapshot_payload(session: BrowserSession, page: Any, ref: str | None 
     return result
 
 
+_LOGIN_BARRIER_JS = r"""
+() => {
+  const tel = document.querySelector(
+    'input[type=tel], input[name*=phone i], input[placeholder*=手机], input[name*=mobile i]'
+  );
+  const pwd = document.querySelector('input[type=password]');
+  const code = document.querySelector(
+    'input[autocomplete=one-time-code], input[name*=code i], input[name*=captcha i], input[placeholder*=验证码]'
+  );
+  const getCodeBtn = [...document.querySelectorAll("button, a, span, div")].find(
+    (el) => /获取验证码|发送验证码|获取短信/.test(el.innerText || "") && el.offsetWidth > 0
+  );
+  if (!pwd && !(tel && (code || getCodeBtn))) return null;
+  return {
+    has_password: !!pwd,
+    has_phone: !!tel,
+    has_code: !!code,
+    has_get_code_btn: !!getCodeBtn,
+  };
+}
+"""
+
+
+async def _login_barrier(page: Any) -> dict[str, Any] | None:
+    """登录屏障检测（032 §3 L1）：登录表单启发式，命中则返回结构化信息。"""
+    try:
+        return await page.evaluate(_LOGIN_BARRIER_JS)
+    except Exception:  # noqa: BLE001 — 检测失败不影响导航本身
+        return None
+
+
 async def op_navigate(
     session: BrowserSession, workspace: Path, url: str
 ) -> dict[str, Any]:
@@ -84,7 +115,17 @@ async def op_navigate(
         return _error(f"导航失败: {type(exc).__name__}: {str(exc)[:200]}")
     await _settle(page)
     session.refs.clear()  # 新页面，旧 ref 全部作废
-    return await _snapshot_payload(session, page)
+    session.last_navigated_url = url  # 断点：模式切换/自愈重启后自动重导航
+    # 登录屏障检测（032 §3 L1）：命中则让模型干净地结束委派段去走登录卡片
+    barrier = await _login_barrier(page)
+    result = await _snapshot_payload(session, page)
+    if barrier and result.get("success"):
+        result["login_barrier"] = barrier
+        result["message"] = (
+            "检测到登录表单：请结束本委派段，把 login_barrier 结构回传主 agent"
+            "渲染登录卡片（收集手机号/验证码后以 confirmed=true 委派填入）"
+        )
+    return result
 
 
 async def op_snapshot(
@@ -100,12 +141,16 @@ async def op_click(
     ref: str | None = None,
     text: str | None = None,
     intent: str | None = None,
+    selectors: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """点击元素：ref 优先，text 兜底（移动端 H5 的纯文本卡片无 role/ref 可寻）。
+    """点击元素：ref 优先，text 兜底（移动端 H5 的纯文本卡片无 role/ref 可寻），
+    selectors 再兜底（图片绘制的无障碍盲区按钮，如美团的「+」加购图标——
+    用配方/extract 给出的 CSS 定位）。
 
     text 按可见文本（支持部分匹配）定位元素后点击——事件会冒泡到框架的
     委托根节点，因此对 React/Vue 委托绑定的卡片同样生效。风险判定不变：
-    可见文本命中高风险词典照样拦截。
+    可见文本命中高风险词典照样拦截；selector 点击无语义名称，依赖 intent
+    标注 + 幂等锁 + confirmed 委派段。
     """
     element_name = ""
     meta: dict[str, str] | None = None
@@ -118,10 +163,17 @@ async def op_click(
                 rejected=True,
             )
         element_name = meta.get("name") or ""
-    elif not (text or "").strip():
-        return _error("需要 ref 或 text 之一（ref 优先；无 role 的纯文本节点用 text）", rejected=True)
-    else:
+    elif (text or "").strip():
         element_name = str(text).strip()
+    elif selectors:
+        first_css = next(iter(selectors.values()), "")
+        element_name = f"css:{first_css}"
+    else:
+        return _error(
+            "需要 ref / text / selectors 之一（ref 优先；无 role 纯文本用 text；"
+            "无障碍盲区的图片按钮用 selectors）",
+            rejected=True,
+        )
 
     level, hit = risk.classify_action(element_name, risk.normalize_intent(intent))
     if level == "irreversible" and not session.confirmed:
@@ -160,6 +212,9 @@ async def op_click(
         )
     if meta is not None:
         locator = page.locator(meta["selector"])
+    elif selectors:
+        css = next(iter(selectors.values()), "")
+        locator = page.locator(css).first
     else:
         locator = page.get_by_text(element_name, exact=False).first
     try:
@@ -194,13 +249,22 @@ async def op_fill(
             f"编号 {ref} 不存在或已过期，请重新 browser_snapshot 获取最新页面",
             rejected=True,
         )
-    cred = risk.credential_hit(meta.get("name") or "")
-    if cred:
+    field = meta.get("name") or ""
+    if risk.password_hit(field):
         return risk.refusal_payload(
-            f"目标字段「{meta.get('name')}」命中凭据词典（{cred}）："
-            "禁止输入任何密码/验证码/API key 类信息，此操作无条件拒绝",
+            f"目标字段「{field}」为密码类字段：无条件拒绝输入（032 §5），"
+            "请改用短信验证码登录形态",
             risk="credential",
-            target=meta.get("name") or "",
+            target=field,
+        )
+    code_term = risk.code_hit(field)
+    if code_term and not session.confirmed:
+        return risk.refusal_payload(
+            f"目标字段「{field}」为验证码类字段：仅允许在用户经登录卡片提供"
+            "验证码后的 confirmed=true 委派段中填入（032 §5 定向豁免）。"
+            "当前为 confirmed=false 委派段，请结束本段并把登录表单结构回传主 agent",
+            risk="credential",
+            target=field,
         )
     page = await session.ensure()
     # 用户「每次确认」名单：该域名的任何变更动作都必须在 confirmed 委派段
@@ -393,6 +457,97 @@ async def op_press_key(
     return await _snapshot_payload(session, page)
 
 
+async def op_track_order(
+    session: BrowserSession,
+    workspace: Path,
+    marker: str,
+    timeout_minutes: int | None = None,
+    interval_seconds: int | None = None,
+) -> dict[str, Any]:
+    """启动订单状态后台轮询（031 §14.2 第 9 步）。
+
+    用于 confirmed 委派段提交订单后：每个 interval 重新加载当前页检查
+    marker 文本（如「支付成功」「订单已提交」），命中/超时经常驻事件流
+    广播 ``browser_order`` 事件——回合结束后轮询继续，不占委派段生命周期。
+    """
+    marker_text = str(marker or "").strip()
+    if not marker_text:
+        return _error("marker 不能为空：给出订单页成功状态的标记文本（如「支付成功」）", rejected=True)
+    timeout_s = max(60, min(int(timeout_minutes or 15), 60)) * 60
+    interval = max(10, min(int(interval_seconds or 60), 300))
+    started = await session.start_order_watch(
+        marker_text, session.key, interval_s=interval, timeout_s=timeout_s
+    )
+    if not started:
+        return _error("该会话已有进行中的订单追踪，请先等待其结束或取消", rejected=True)
+    return _ok(
+        {
+            "message": (
+                f"订单追踪已启动：每 {interval}s 检查一次「{marker_text}」，"
+                f"最长 {timeout_s // 60} 分钟；命中/超时经事件流通知。"
+                "现在可以结束本轮汇报，等待支付完成后的事件通知。"
+            ),
+            "marker": marker_text,
+            "timeout_s": timeout_s,
+        }
+    )
+
+
+async def op_read_captcha(
+    session: BrowserSession, workspace: Path, ref: str
+) -> dict[str, Any]:
+    """图形验证码识别（032 §3 L2）：验证码元素截图 → 视觉模型 → 返回字符。
+
+    识别结果交给模型在 confirmed 委派段内经 browser_fill 填入；
+    视觉模型未配置/识别失败时返回 code=None，模型降级为登录卡片人工认读。
+    """
+    meta = _ref_meta(session, ref)
+    if meta is None:
+        return _error(
+            f"编号 {ref} 不存在或已过期，请重新 browser_snapshot 获取最新页面",
+            rejected=True,
+        )
+    page = await session.ensure()
+    locator = page.locator(meta["selector"])
+    try:
+        if await locator.count() == 0:
+            return _error(f"编号 {ref} 对应元素已不在页面", rejected=True)
+        from ...config import output_dir_for_workspace
+
+        out_dir = output_dir_for_workspace(workspace) / "browser"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        path = out_dir / f"captcha-{time.strftime('%H%M%S')}-{random.randint(100, 999)}.jpg"  # noqa: S311
+        await locator.screenshot(path=str(path), type="jpeg", quality=90)
+    except Exception as exc:  # noqa: BLE001
+        return _error(f"验证码截图失败: {type(exc).__name__}: {str(exc)[:200]}")
+
+    try:
+        code = await _vision_caption(
+            path,
+            prompt="识别图片中的验证码，只输出验证码字符本身（字母/数字），不要任何其他内容。",
+        )
+    finally:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:  # noqa: BLE001
+            pass
+
+    if not code:
+        return _ok(
+            {
+                "code": None,
+                "message": (
+                    "验证码识别失败（视觉模型未配置或识别不出）："
+                    "请降级为登录卡片人工认读，不要重复尝试"
+                ),
+            }
+        )
+    cleaned = re.sub(r"[^A-Za-z0-9]", "", code)[:8]
+    if not cleaned:
+        return _ok({"code": None, "message": "验证码识别结果为空，请降级人工认读"})
+    return _ok({"code": cleaned, "message": "验证码识别成功"})
+
+
 async def op_read_page(session: BrowserSession, workspace: Path) -> dict[str, Any]:
     """元素截图 → 视觉模型 caption（031 §4 caption 路径）。
 
@@ -439,11 +594,11 @@ async def op_read_page(session: BrowserSession, workspace: Path) -> dict[str, An
     )
 
 
-async def _vision_caption(image_path: Path) -> str | None:
+async def _vision_caption(image_path: Path, prompt: str | None = None) -> str | None:
     """视觉描述：优先会话多模态模型，其次 GLM 视觉（GLM-4V 免费）。
 
-    供 `browser_read_page` 的 caption 路径使用（031 §4）；未配置或调用失败
-    返回 None，调用方降级为可见文本摘要。
+    供 `browser_read_page` 的 caption 路径与 `browser_read_captcha` 的验证码
+    识别使用（032 §3 L2）；未配置或调用失败返回 None，调用方降级。
     """
     try:
         import base64
@@ -481,7 +636,8 @@ async def _vision_caption(image_path: Path) -> str | None:
                             },
                             {
                                 "type": "text",
-                                "text": (
+                                "text": prompt
+                                or (
                                     "用简洁中文描述这个网页截图：页面主题、主要区块、"
                                     "可操作元素（按钮/输入框/链接）。120 字以内。"
                                 ),

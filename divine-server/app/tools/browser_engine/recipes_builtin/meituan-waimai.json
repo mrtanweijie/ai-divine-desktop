@@ -1,0 +1,10 @@
+{
+  "name": "meituan-waimai",
+  "version": 1,
+  "url_patterns": ["*h5.waimai.meituan.com*", "*i.waimai.meituan.com*"],
+  "flow_hints": "美团外卖 H5 点单（实测路径，2026-10）：\n- 只有点餐域名是 h5.waimai.meituan.com；waimai.meituan.com 是 App 下载官网，i.waimai.meituan.com 已 404，都不要去\n- 搜索页的门店卡片是纯文本节点（无 role/无 cursor）→ 用 browser_click 的 text 参数按店名点击，点击会打开新标签页，引擎会自动接管\n- 进入店铺页后菜单懒加载：先 browser_wait 菜单/商品文本出现，再 extract\n- 「+」加购图标是图片绘制、无障碍快照抓不到 → 用 browser_click 的 selectors 参数按 CSS 定位（常见 .cartbtn / [class*=addcart] / svg 入口，先用 browser_extract 按选择器探一下真实类名）\n- 定位城市影响门店列表：结果异常先确认页面顶部定位与用户预期一致\n- 提交订单前必须过确认卡；提交后用 browser_track_order 跟踪「订单已提交/支付成功」",
+  "quirks": [
+    "小额免密支付默认开启：提交订单即扣款，提交只允许在 confirmed=true 委派段",
+    "页面为移动端 H5，桌面 cursor 样式缺失，纯文本节点也可能是可点的"
+  ]
+}

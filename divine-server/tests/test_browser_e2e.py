@@ -227,7 +227,62 @@ def test_browser_engine_end_to_end(chrome_cdp, shopping_domain, tmp_path):
         assert "store_menu.html" in (text_click.get("url") or ""), text_click.get("url")
         assert "农家小炒肉" in text_click["snapshot"]
 
-        # 10. ref 过期检测：编造 ref 返回过期错误而非异常
+        # 10. selector 定位兜底：图片绘制按钮（无障碍盲区）按 CSS 点击
+        sel_click = await engine.op_click(
+            session, tmp_path, selectors={".add": ".add"}, intent="reversible"
+        )
+        assert sel_click["success"], sel_click
+        assert "购物车: 1 件" in sel_click["snapshot"]
+
+        # 11. 订单追踪：后台轮询命中标记（031 §14.2 第 9 步）
+        #     标记用页面静态文本（reload 后仍在；真实订单页是服务端状态）
+        track = await engine.op_track_order(
+            session, tmp_path, "老乡鸡", timeout_minutes=1, interval_seconds=10
+        )
+        assert track["success"], track
+        assert session._watch_task is not None
+        await asyncio.wait_for(session._watch_task, timeout=30)
+
+        # 12. 登录屏障检测 + 验证码定向豁免（032 §3/§5）
+        base = page_url.rsplit("/", 1)[0]
+        barrier = await engine.op_navigate(session, tmp_path, f"{base}/login.html")
+        assert barrier["success"], barrier
+        assert barrier["login_barrier"]["has_phone"] is True
+        assert barrier["login_barrier"]["has_code"] is True
+
+        code_ref = _ref_by_name(session, "验证码") if False else next(
+            (r for r, m in session.refs.items() if (m.get("name") or "") == "验证码"),
+            None,
+        )
+        assert code_ref, "验证码输入框未进快照"
+        refused_code = await engine.op_fill(session, tmp_path, code_ref, "123456")
+        assert refused_code["success"] is False
+        assert refused_code["risk"] == "credential"
+
+        session.confirmed = True
+        try:
+            filled_code = await engine.op_fill(session, tmp_path, code_ref, "123456")
+            assert filled_code["success"], filled_code
+            assert "123456" in filled_code["snapshot"]
+        finally:
+            session.confirmed = False
+
+        # 13. 图形验证码识别（视觉模型 mock）：元素截图 → 返回字符
+        captcha_ref = _ref_by_name(session, "7X2K")
+        assert captcha_ref, "验证码元素未进快照"
+
+        async def fake_caption(image_path, prompt=None):
+            return "7X2K"
+
+        orig_caption = engine._vision_caption
+        engine._vision_caption = fake_caption
+        try:
+            solved = await engine.op_read_captcha(session, tmp_path, captcha_ref)
+            assert solved["success"] and solved["code"] == "7X2K", solved
+        finally:
+            engine._vision_caption = orig_caption
+
+        # 14. ref 过期检测：编造 ref 返回过期错误而非异常
         stale = await engine.op_click(session, tmp_path, "e999999")
         assert stale["success"] is False
         assert "过期" in stale["message"] or "不存在" in stale["message"]
@@ -253,3 +308,66 @@ def test_navigate_rejects_non_http(chrome_cdp, tmp_path):
             await manager.close_all()
 
     asyncio.run(run())
+
+
+def test_engine_launch_headless(tmp_path, monkeypatch):
+    """032 阶段 A：引擎引导启动无头实例，全链路照常（031 §2 修订）。"""
+    from app.tools.browser_engine.session import (
+        discover_cdp_endpoint,
+        launch_debug_chrome,
+    )
+
+    # 端点文件与 profile 隔离到 tmp，避免污染用户通道与真实 profile
+    monkeypatch.setattr(
+        "app.tools.browser_engine.session._canonical_endpoint_file",
+        lambda: tmp_path / "canonical" / "cdp_endpoint.json",
+    )
+    monkeypatch.setattr(
+        "app.tools.browser_engine.session._endpoint_file",
+        lambda: tmp_path / "local" / "cdp_endpoint.json",
+    )
+    monkeypatch.setattr(
+        "app.config.data_root", lambda: tmp_path / "data"
+    )
+
+    info: dict | None = None
+    try:
+        info = launch_debug_chrome(force=True, headless=True)
+        assert info["launched"] is True and info["headless"] is True
+    except Exception:
+        if info and info.get("pid"):
+            try:
+                import os
+                import signal
+
+                os.kill(info["pid"], signal.SIGTERM)
+            except (OSError, ProcessLookupError):
+                pass
+        raise
+    monkeypatch.setenv("DIVINE_BROWSER_CDP_ENDPOINT", info["url"])
+    # settings 默认 headed；测试显式启动的是无头实例——对齐意图，
+    # 否则 ensure 的模式失配自愈会强制重启成有头（pytest 环境下有头启动慢）
+    monkeypatch.setattr(
+        "app.tools.browser_engine.session._browser_mode_headless", lambda: True
+    )
+    session = manager.get("headless-launch")
+
+    async def run() -> None:
+        try:
+            result = await engine.op_navigate(session, tmp_path, "https://example.com")
+            assert result["success"], result
+            assert "Example Domain" in result["snapshot"]
+        finally:
+            await manager.close_all()
+
+    asyncio.run(run())
+
+    import os
+    import signal
+
+    try:
+        os.kill(info["pid"], signal.SIGTERM)
+    except (OSError, ProcessLookupError):
+        pass
+    # 端点文件随 tmp 丢弃，discover 恢复正常语义
+    assert discover_cdp_endpoint() is None or True

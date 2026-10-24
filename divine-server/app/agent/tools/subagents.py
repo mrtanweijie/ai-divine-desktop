@@ -110,6 +110,8 @@ _SUBAGENT_BROWSER_TOOLS = frozenset(
         "browser_extract",
         "browser_wait",
         "browser_press_key",
+        "browser_read_captcha",
+        "browser_track_order",
         "browser_read_page",
     }
 )
@@ -146,6 +148,9 @@ BROWSER_SUBAGENT_PROMPT = """你是 Divine 的浏览器子 Agent，通过 DOM �
 - 移动端 H5（美团/饿了么点单页等）大量元素是纯文本节点、快照里没有 ref：
   门店卡片、商品行等用 browser_click 的 text 参数按可见文本点击（可只给部分文本）；
   这类站点无桌面 cursor 样式，「看起来不可点」不代表点不了；
+- navigate 返回 login_barrier 时说明撞到登录表单：立即结束委段回传该结构，
+  由主 agent 渲染登录卡片收集手机号/验证码，再以 confirmed=true 委派填入
+  （验证码图片用 browser_read_captcha 识别，失败降级人工，不要反复重试）；
 - 需要回车/Tab/方向键/Escape 时用 browser_press_key；回车可能触发表单提交，
   提交类按键只应在 confirmed=true 委派段使用；
 - 大页面（首页/搜索结果）用 browser_snapshot(ref) 子树或 browser_extract 抽取，不要反复全页快照；
@@ -811,6 +816,7 @@ async def _run_subagent(
         session = manager.get(ctx.session_id)
         session.confirmed = bool(task.get("confirmed"))
         session.steps_this_task = 0
+        session.desired_headless = task.get("headless")
     try:
         llm = _build_llm(think=ctx.think, effort=ctx.effort, model_id=ctx.model_id)
         tools = _build_subagent_tools(
@@ -952,7 +958,9 @@ async def _run_subagent(
         if browser_enabled:
             from ...tools.browser_engine.session import manager
 
-            manager.get(ctx.session_id).confirmed = False
+            _session = manager.get(ctx.session_id)
+            _session.confirmed = False
+            _session.desired_headless = None
 
 
 async def _run_subagents(
@@ -1202,6 +1210,9 @@ async def _run_browser_task(
         "browser": True,
         "confirmed": bool(arguments.get("confirmed")),
         "url": str(arguments.get("url") or "").strip(),
+        "headless": (
+            bool(arguments["headless"]) if arguments.get("headless") is not None else None
+        ),
     }
     emit("subagent", {"sub_id": task["id"], "name": task["name"], "status": "running"})
     run = db.add_tool_run(session_id, "web_task", "start", arguments)
