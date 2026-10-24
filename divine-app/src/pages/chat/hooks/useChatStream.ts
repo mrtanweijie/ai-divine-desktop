@@ -11,7 +11,7 @@ import {
   messagesToChatMessages,
   type SurfaceActionInput,
 } from "@/services/api";
-import { requestRaw } from "@/services/request";
+import { request, requestRaw } from "@/services/request";
 import { consumeSSE } from "@/services/sse";
 import { readThemePreference, resolveTheme } from "@/services/theme";
 import { createStreamBuffer } from "@/pages/chat/hooks/streamBuffer";
@@ -763,6 +763,24 @@ export function useChatStream(options: UseChatStreamOptions) {
           ),
         );
 
+      // 密钥把手（design 032 §5）：面板 context 里约定键 `__password_store`
+      // 的值是用户在登录卡输入的明文密码——发送前先直存后端一次性存储，
+      // 换成 secret:xxx 把手再回流。明文不出本机（不进对话上下文/模型）。
+      let actionContext = input.context;
+      const passwordValue = input.context?.["__password_store"];
+      if (typeof passwordValue === "string" && passwordValue) {
+        try {
+          const stored = await request<{ handle: string }>("/browser/secrets", {
+            method: "POST",
+            body: JSON.stringify({ value: passwordValue }),
+          });
+          actionContext = { ...input.context, __password_store: stored.handle };
+        } catch (error) {
+          console.error("[uiSurface] 密钥直存失败，回退为空", error);
+          actionContext = { ...input.context, __password_store: "" };
+        }
+      }
+
       let response: Response;
       try {
         response = await requestRaw("/chat/surface-action", {
@@ -776,7 +794,7 @@ export function useChatStream(options: UseChatStreamOptions) {
             action_id: input.actionId,
             name: input.name,
             label: input.label,
-            context: input.context,
+            context: actionContext,
             data_model: input.dataModel,
             approval_mode: approvalMode,
             think,

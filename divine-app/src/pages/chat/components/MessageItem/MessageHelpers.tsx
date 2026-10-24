@@ -77,6 +77,7 @@ export const GROUPABLE_TOOLS = new Set([
   "web_fetch",
   "web_fetch_batch",
   "web_task",
+  "read_image",
   "svg_to_png",
   "svg_to_png_batch",
   "mermaid_export",
@@ -173,6 +174,9 @@ function mergedCountMessage(tool: ToolEvent, count: number): string {
   }
   if (tool.tool === "calculator") {
     return i18next.t("tool.completedCalculations", "已完成 {{count}} 次计算", { count });
+  }
+  if (tool.tool === "read_image") {
+    return i18next.t("tool.readImages", "已识别 {{count}} 张图片", { count });
   }
   if (tool.tool === "edit_files") {
     return i18next.t("tool.modifiedFiles", "已修改 {{count}} 个文件", { count });

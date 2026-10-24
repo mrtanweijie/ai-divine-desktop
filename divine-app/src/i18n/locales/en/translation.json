@@ -808,7 +808,8 @@
     "askUserAnswerLabel": "Your answer",
     "gitConfirm": "Confirm Git write",
     "gitConfirmWait": "Waiting for Git write approval",
-    "completedWebTasks": "Completed {{count}} web task segments"
+    "completedWebTasks": "Completed {{count}} web task segments",
+    "readImages": "Recognized {{count}} images"
   },
   "updater": {
     "available": "New version v{{version}} available",
