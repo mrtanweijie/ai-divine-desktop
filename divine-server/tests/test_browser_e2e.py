@@ -153,6 +153,10 @@ def test_browser_engine_end_to_end(chrome_cdp, shopping_domain, tmp_path):
         try:
             clicked = await engine.op_click(session, tmp_path, submit_ref)
             assert clicked["success"], clicked
+            # 提交幂等锁：同按钮+同 URL 冷却期内拒绝重复提交（031 §13.5）
+            again = await engine.op_click(session, tmp_path, submit_ref)
+            assert again["success"] is False
+            assert again.get("risk") == "idempotent"
         finally:
             session.confirmed = False
 

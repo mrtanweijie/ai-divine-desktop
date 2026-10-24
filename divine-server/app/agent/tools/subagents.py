@@ -44,6 +44,7 @@ from langgraph.errors import GraphRecursionError
 from ... import db
 from ...localization import language_instruction
 from ...skills import skill_registry
+from ...tools.browser_engine.trim import BrowserSnapshotTrimMiddleware
 from ...tools.registry import registry
 from ..core import AgentRunContext, canonical_path
 from ..core import _build_llm
@@ -110,6 +111,27 @@ _SUBAGENT_BROWSER_TOOLS = frozenset(
         "browser_read_page",
     }
 )
+
+# browser 子 agent 单委派段步数上限（031 §9）：超限后工具拒发新指令，
+# 模型被迫汇报当前进度交还主 agent，避免无限循环烧 token
+SUBAGENT_BROWSER_STEP_CAP = 40
+
+
+def _step_cap_message(session: Any) -> str | None:
+    """步数达上限时返回拒发消息；否则 None。"""
+    if getattr(session, "steps_this_task", 0) < SUBAGENT_BROWSER_STEP_CAP:
+        return None
+    return json.dumps(
+        {
+            "success": False,
+            "rejected": True,
+            "message": (
+                f"本委派段步数已达上限（{SUBAGENT_BROWSER_STEP_CAP}），"
+                "不再执行新操作：请立即汇总当前进度与已获取的信息作为结果返回"
+            ),
+        },
+        ensure_ascii=False,
+    )
 
 BROWSER_SUBAGENT_PROMPT = """你是 Divine 的浏览器子 Agent，通过 DOM 级浏览器工具在用户真实浏览器的专属标签页里完成网页任务。
 操作纪律：
@@ -584,7 +606,12 @@ def _build_browser_tools(
             **kwargs: Any,
         ) -> Any:
             async with lock:
+                session = manager.get(ctx.session_id)
+                cap_message = _step_cap_message(session)
+                if cap_message is not None:
+                    return cap_message
                 result_text = await _run_browser_tool(ctx, _adapter, _name, kwargs)
+                session.steps_this_task += 1
             if emit is not None:
                 session = manager.get(ctx.session_id)
                 page_info = await session.page_meta()
@@ -774,7 +801,9 @@ async def _run_subagent(
         # 段结束即回收，防止过期确认泄漏到后续任务
         from ...tools.browser_engine.session import manager
 
-        manager.get(ctx.session_id).confirmed = bool(task.get("confirmed"))
+        session = manager.get(ctx.session_id)
+        session.confirmed = bool(task.get("confirmed"))
+        session.steps_this_task = 0
     try:
         llm = _build_llm(think=ctx.think, effort=ctx.effort, model_id=ctx.model_id)
         tools = _build_subagent_tools(
@@ -799,6 +828,12 @@ async def _run_subagent(
                 else "\n本委派段 confirmed=false：不可逆动作会被拒绝，"
                 "请只做导航/读取/抽取，把结构化字段返回给主 agent 渲染确认卡。"
             )
+            if task.get("url"):
+                from ...tools.browser_engine import recipes
+
+                block = recipes.recipe_block(str(task["url"]))
+                if block:
+                    confirmed_hint += f"\n\n{block}"
         write_hint = ""
         if write_claims:
             write_hint = (
@@ -831,7 +866,14 @@ async def _run_subagent(
                         f"工具执行异常: {type(exc).__name__}: {str(exc)[:300]}"
                     )
                 ),
-            ],
+            ]
+            + (
+                [
+                    BrowserSnapshotTrimMiddleware(_SUBAGENT_BROWSER_TOOLS),
+                ]
+                if browser_enabled
+                else []
+            ),
             checkpointer=InMemorySaver(),
             name=f"subagent-{task_id}",
         )
@@ -1142,6 +1184,7 @@ async def _run_browser_task(
         "prompt": prompt,
         "browser": True,
         "confirmed": bool(arguments.get("confirmed")),
+        "url": str(arguments.get("url") or "").strip(),
     }
     emit("subagent", {"sub_id": task["id"], "name": task["name"], "status": "running"})
     run = db.add_tool_run(session_id, "web_task", "start", arguments)

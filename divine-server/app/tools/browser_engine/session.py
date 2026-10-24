@@ -193,6 +193,10 @@ class BrowserSession:
         self.refs: dict[str, dict[str, str]] = {}
         self.ref_counter = 0
         self.step_counter = 0
+        # 当前委派段的工具步数（031 §9 步数 cap），委派段开始时归零
+        self.steps_this_task = 0
+        # 提交幂等锁：最近一次不可逆提交 (url|按钮名, ts)（031 §13.5）
+        self.last_submission: tuple[str, float] | None = None
 
     # -- 连接 -------------------------------------------------------------
     async def _close_connection(self) -> None:
@@ -211,6 +215,7 @@ class BrowserSession:
 
     async def ensure(self) -> Any:
         """返回专属 tab 的 Page；端点丢失或连接失效时自愈（引导启动）后重连。"""
+        await manager.drain_pending()
         from playwright.async_api import async_playwright
 
         if self._page is not None:
@@ -299,6 +304,8 @@ class SessionManager:
     def __init__(self) -> None:
         self._sessions: dict[str, BrowserSession] = {}
         self._lock = asyncio.Lock()
+        # 会话已删除、待回收的 browser 资源（API 同步路由里标记，事件循环里关闭）
+        self._pending_close: set[str] = set()
 
     def get(self, key: str) -> BrowserSession:
         """同 key 复用；取不到（或之前断开）就新建，失败不缓存。"""
@@ -306,6 +313,19 @@ class SessionManager:
 
     def drop(self, key: str) -> None:
         self._sessions.pop(key, None)
+
+    def request_close(self, key: str) -> None:
+        """标记待回收：同步上下文（如 API 路由）调用，实际关闭在事件循环里执行。"""
+        self._pending_close.add(key)
+
+    async def drain_pending(self) -> None:
+        """关闭所有标记回收的会话资源（须在与创建相同的事件循环里调用）。"""
+        if not self._pending_close:
+            return
+        keys = list(self._pending_close)
+        self._pending_close.clear()
+        for key in keys:
+            await self.close(key)
 
     async def close(self, key: str) -> None:
         async with self._lock:
@@ -317,6 +337,7 @@ class SessionManager:
         async with self._lock:
             sessions = list(self._sessions.values())
             self._sessions.clear()
+            self._pending_close.clear()
         for session in sessions:
             await session.close()
 

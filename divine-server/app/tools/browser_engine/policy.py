@@ -50,6 +50,30 @@ def shopping_domains() -> tuple[str, ...]:
     return parts or DEFAULT_SHOPPING_DOMAINS
 
 
+def _domain_list(key: str) -> tuple[str, ...]:
+    raw = str(_load_settings().get(key) or "").strip()
+    return tuple(p.strip().lower() for p in raw.split(",") if p.strip())
+
+
+def blocked_domain_hit(url: str) -> str | None:
+    """用户禁止名单（browser_blocked_domains）：命中返回域名子串。"""
+    lowered = (url or "").lower()
+    for domain in _domain_list("browser_blocked_domains"):
+        if domain and domain in lowered:
+            return domain
+    return None
+
+
+def in_confirm_domains(url: str) -> bool:
+    """用户每次确认名单（browser_confirm_domains）：变更动作须 confirmed 委派段。"""
+    lowered = (url or "").lower()
+    return any(domain and domain in lowered for domain in _domain_list("browser_confirm_domains"))
+
+
+def default_address() -> str:
+    return str(_load_settings().get("shopping_default_address") or "").strip()
+
+
 def per_order_cap() -> float:
     try:
         return float(_load_settings().get("shopping_per_order_cap") or DEFAULT_PER_ORDER_CAP)
@@ -96,6 +120,14 @@ def evaluate_shopping_policy(url: str, text: str) -> dict[str, Any] | None:
         if guard["verdict"] == "block":
             warnings.append(
                 f"结算金额 {amount} 超过单笔上限 {cap}：确认卡升级为二次确认，或拒绝提交"
+            )
+
+    # 地址校验（031 §14.3）：结算文本出现"收货地址"且与记忆默认地址明显不一致时警示
+    preferred = default_address()
+    if preferred and ("收货地址" in text or "选择地址" in text):
+        if preferred[:6] not in text:
+            warnings.append(
+                f"收货地址与默认地址（{preferred[:12]}…）不一致：确认卡必须展示完整地址并请用户核对"
             )
 
     return {

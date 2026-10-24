@@ -12,6 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import db, events
 from .api import (
+    browser,
     calendar_events,
     chat,
     files,
@@ -177,6 +178,7 @@ app.include_router(model_providers.router, prefix="/api")
 app.include_router(local_llm.router, prefix="/api")
 app.include_router(git.router, prefix="/api")
 app.include_router(mcp.router, prefix="/api")
+app.include_router(browser.router, prefix="/api")
 app.include_router(skills.router)
 app.include_router(terminal.router)
 app.include_router(workspace_files.router, prefix="/api")

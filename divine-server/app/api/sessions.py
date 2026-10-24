@@ -111,6 +111,14 @@ def delete_session(session_id: str):
     # 必须与会话一起显式清理，否则会残留成孤儿数据。
     db.clear_session_ui_surface_states(session_id)
     db.delete_session(session_id)
+    # 会话结束即回收浏览器专属 tab（031 §4 tab 管理）：
+    # 同步路由里只做标记，实际关闭在事件循环的 drain_pending 里执行
+    try:
+        from ..tools.browser_engine.session import manager
+
+        manager.request_close(session_id)
+    except Exception:  # noqa: BLE001 — 回收失败不影响会话删除
+        pass
     logger.info("session deleted id=%s", session_id)
 
 

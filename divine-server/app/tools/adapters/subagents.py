@@ -134,6 +134,10 @@ class RunSubagentsAdapter(ToolAdapter):
                     "子 Agent 看不到本对话历史"
                 ),
             },
+            "url": {
+                "type": "string",
+                "description": "目标页面 URL（用于匹配站点配方注入流程知识；prompt 里也应包含同一 URL）",
+            },
             "confirmed": {
                 "type": "boolean",
                 "description": (

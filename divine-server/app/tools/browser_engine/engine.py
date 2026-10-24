@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import random
 import re
 import time
@@ -26,6 +27,10 @@ _NAVIGATE_TIMEOUT_MS = 30_000
 _ACTION_TIMEOUT_MS = 10_000
 _SETTLE_SECONDS = 0.6
 _CLICK_PACING = (0.3, 0.8)
+# 提交幂等锁冷却（031 §13.5）：同一按钮+同一 URL 在此窗口内只放行一次
+_SUBMIT_COOLDOWN_SECONDS = 120
+
+logger = logging.getLogger("divine.browser.engine")
 
 _VALID_SCHEMES = ("http://", "https://")
 
@@ -66,6 +71,12 @@ async def op_navigate(
     url = str(url or "").strip()
     if not url.startswith(_VALID_SCHEMES):
         return _error("仅支持 http/https URL", rejected=True)
+    blocked = policy.blocked_domain_hit(url)
+    if blocked:
+        return risk.refusal_payload(
+            f"域名「{blocked}」在禁止名单（browser_blocked_domains 设置），已拒绝导航",
+            risk="blocked-domain",
+        )
     page = await session.ensure()
     try:
         await page.goto(url, wait_until="domcontentloaded", timeout=_NAVIGATE_TIMEOUT_MS)
@@ -104,6 +115,29 @@ async def op_click(
             target=meta.get("name") or "",
         )
     page = await session.ensure()
+    # 提交幂等锁（031 §13.5）：同按钮+同 URL 冷却期内拒绝重复提交，失败只查不重提
+    idem_key = f"{page.url}|{meta.get('name') or ''}"
+    if (
+        level == "irreversible"
+        and session.last_submission is not None
+        and session.last_submission[0] == idem_key
+        and time.time() - session.last_submission[1] < _SUBMIT_COOLDOWN_SECONDS
+    ):
+        remaining = int(_SUBMIT_COOLDOWN_SECONDS - (time.time() - session.last_submission[1]))
+        return risk.refusal_payload(
+            f"「{meta.get('name')}」在 {remaining}s 内已提交过（幂等锁），不要重复提交——"
+            "请用 browser_wait / browser_extract 查结果页确认是否已生效",
+            risk="idempotent",
+            target=meta.get("name") or "",
+        )
+    # 用户「每次确认」名单：该域名的任何变更动作都必须在 confirmed 委派段
+    if not session.confirmed and policy.in_confirm_domains(page.url):
+        return risk.refusal_payload(
+            "该站点在「每次确认」名单（browser_confirm_domains 设置）：变更动作必须"
+            "由用户在确认卡确认后以 web_task(confirmed=true) 委派执行",
+            risk="confirm-domain",
+            target=meta.get("name") or "",
+        )
     locator = page.locator(meta["selector"])
     try:
         if await locator.count() == 0:
@@ -115,6 +149,8 @@ async def op_click(
         await locator.click(timeout=_ACTION_TIMEOUT_MS)
     except Exception as exc:  # noqa: BLE001
         return _error(f"点击失败: {type(exc).__name__}: {str(exc)[:200]}")
+    if level == "irreversible":
+        session.last_submission = (idem_key, time.time())
     await _settle(page)
     return await _snapshot_payload(session, page)
 
@@ -137,6 +173,14 @@ async def op_fill(
             target=meta.get("name") or "",
         )
     page = await session.ensure()
+    # 用户「每次确认」名单：该域名的任何变更动作都必须在 confirmed 委派段
+    if not session.confirmed and policy.in_confirm_domains(page.url):
+        return risk.refusal_payload(
+            "该站点在「每次确认」名单（browser_confirm_domains 设置）：变更动作必须"
+            "由用户在确认卡确认后以 web_task(confirmed=true) 委派执行",
+            risk="confirm-domain",
+            target=meta.get("name") or "",
+        )
     locator = page.locator(meta["selector"])
     try:
         if await locator.count() == 0:
@@ -356,8 +400,61 @@ async def op_read_page(session: BrowserSession, workspace: Path) -> dict[str, An
 
 
 async def _vision_caption(image_path: Path) -> str | None:
-    """视觉描述扩展点：接入 caption 模型（GLM-4V 免费 → Qwen-VL → GPT-4o Mini）。
+    """视觉描述：优先会话多模态模型，其次 GLM 视觉（GLM-4V 免费）。
 
-    未配置时返回 None，调用方降级为可见文本摘要。
+    供 `browser_read_page` 的 caption 路径使用（031 §4）；未配置或调用失败
+    返回 None，调用方降级为可见文本摘要。
     """
-    return None
+    try:
+        import base64
+
+        import httpx
+
+        from ...config import settings_store
+        from ..scripts.read_image import _resolve_glm, _resolve_vision_provider
+
+        settings = settings_store.load()
+        resolved = _resolve_vision_provider(settings, None)
+        if resolved is not None:
+            api_key, base_url, model, _is_session = resolved
+        else:
+            glm = _resolve_glm(settings)
+            if glm is None:
+                return None
+            api_key, base_url, model = glm
+        if not (api_key and base_url):
+            return None
+
+        b64 = base64.b64encode(Path(image_path).read_bytes()).decode()
+        response = await httpx.AsyncClient(timeout=30.0).post(
+            base_url.rstrip("/") + "/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "model": model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
+                            },
+                            {
+                                "type": "text",
+                                "text": (
+                                    "用简洁中文描述这个网页截图：页面主题、主要区块、"
+                                    "可操作元素（按钮/输入框/链接）。120 字以内。"
+                                ),
+                            },
+                        ],
+                    }
+                ],
+                "max_tokens": 300,
+            },
+        )
+        response.raise_for_status()
+        caption = str(response.json()["choices"][0]["message"]["content"] or "").strip()
+        return caption or None
+    except Exception as exc:  # noqa: BLE001 — caption 失败必须降级而非报错
+        logger.warning("vision caption failed: %s: %s", type(exc).__name__, str(exc)[:120])
+        return None
