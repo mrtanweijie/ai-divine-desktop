@@ -96,8 +96,11 @@ function linkifyFilePaths(content: string): string {
   // 保护代码块（```...```）与行内代码（`...`）：其中的路径不 linkify。
   // 模型常把路径包成行内代码（`/Users/...`），若在里面再包 divine-path
   // 链接，链接 markdown 会落在 <code> 里被当纯文本显示、不可点击。
+  // 同样保护 markdown 图片/链接语法（![alt](path) / [text](url)）：
+  // 目标位置的绝对路径被改写成 divine-path 会破坏图片语法 →
+  // 扫码登录二维码"流式可见、流结束后消失"的实测根因。
   const protectedSpans: string[] = [];
-  const masked = content.replace(/```[\s\S]*?```|`[^`\n]*`/g, (span) => {
+  const masked = content.replace(/```[\s\S]*?```|`[^`\n]*`|!?\[[^\]\n]*\]\([^)\n]*\)/g, (span) => {
     protectedSpans.push(span);
     return `\uE000${protectedSpans.length - 1}\uE000`;
   });
