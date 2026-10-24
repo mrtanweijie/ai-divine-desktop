@@ -499,11 +499,7 @@ bash scripts/overwrite-release.sh 0.2.1
 
 以下均为本地实际运行截图（默认深色主题，设置页为浅色主题）。
 
-**自我介绍** — 调用工具：无（纯对话）
-
 ![自我介绍](screenshots/0.png)
-
-**对话首页** — 调用工具：无（界面展示）
 
 ![对话首页](screenshots/1.png)
 
@@ -522,8 +518,6 @@ bash scripts/overwrite-release.sh 0.2.1
 **项目架构解读与工作区浏览** — 调用工具：`directory_tree`、`read_file`（Mermaid 正文渲染）
 
 ![项目架构解读与工作区浏览](screenshots/5.PNG)
-
-**设置：意图识别与本地模型** — 调用工具：无（设置页展示）
 
 ![设置：意图识别与本地模型](screenshots/6.png)
 

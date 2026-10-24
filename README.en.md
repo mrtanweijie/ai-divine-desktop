@@ -499,11 +499,7 @@ The repository ships two workflows, both triggerable by pushing a `v*` tag or ma
 
 All captured from a real local run (dark theme by default; the Settings page is shown in light theme).
 
-**Self-introduction** — Tools: none (pure chat)
-
 ![Self-introduction](screenshots/0.png)
-
-**Chat home** — Tools: none (UI showcase)
 
 ![Chat home](screenshots/1.png)
 
@@ -522,8 +518,6 @@ All captured from a real local run (dark theme by default; the Settings page is 
 **Project architecture walkthrough and workspace browsing** — Tools: `directory_tree`, `read_file` (Mermaid rendered in prose)
 
 ![Project architecture walkthrough and workspace browsing](screenshots/5.PNG)
-
-**Settings: intent recognition and local models** — Tools: none (settings page)
 
 ![Settings: intent recognition and local models](screenshots/6.png)
 
