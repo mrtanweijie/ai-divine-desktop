@@ -44,7 +44,7 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 - aria 快照 + 单调 ref 定位，不裸用 CSS selector；contenteditable 富文本编辑器、框架委托的可点控件（cursor:pointer）、混排文本节点均可寻址；点击/回车打开的新标签页自动接管；无 role 的纯文本卡片（移动端 H5）用 text 按可见文本点击兜底
 - 风险四级闸门：只读/可逆动作自动执行；提交/删除/支付类不可逆动作强制「抽取 → 操作确认卡 → 用户确认 → confirmed 委派段」；密码/验证码/API key 输入无条件拒绝；高风险词典兜底 + 提交幂等锁 + 40 步上限 + 旧快照自动裁剪
 - 站点配方（recipe）：`data/browser/recipes/*.json` 按 URL 模式注入流程知识，失效自动退化为通用循环
-- 委派入口 `web_task`：15 个 browser 操作原语只在 browser 子 agent 内注册，不占主 agent 工具表与 prefix cache；每步 SSE 心跳驱动「浏览器操作」时间线（持久化入库，刷新可回看），多段委派合并为一张工具卡
+- 委派入口 `web_task`：19 个 browser 操作原语只在 browser 子 agent 内注册，不占主 agent 工具表与 prefix cache；每步 SSE 心跳驱动「浏览器操作」时间线（持久化入库，刷新可回看），多段委派合并为一张工具卡
 - 设计文档见 `docs/design/031-generic-web-task-20261024.md`（购物域策略包、域名策略设置项与分期计划同文档）
 
 ### 生成与编辑（docgen）
@@ -272,7 +272,7 @@ pnpm tauri:dev
 
 ## 工具系统
 
-当前注册 96 个工具（随 MCP/技能动态增减），按名称排序：
+当前注册 100 个工具（随 MCP/技能动态增减），按名称排序：
 
 | 工具                                  | 用途                                                                                                         |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -352,7 +352,7 @@ pnpm tauri:dev
 
 工具行为的两条默认：输出路径必须落在 workspace 内（越界拒绝）；高危操作（terminal、git 提交/还原、文件改动等）一律先征求用户确认。
 
-另有 `browser_navigate` / `browser_snapshot` / `browser_click` / `browser_fill` / `browser_select` / `browser_scroll` / `browser_extract` / `browser_wait` / `browser_press_key` / `browser_track_order` / `browser_read_captcha` / `browser_solve_slider` / `browser_solve_click_captcha` / `browser_geometry` / `browser_capture` / `browser_read_page` 15 个浏览器操作原语，只在 browser 子 agent 内注册——不进主 agent 工具表（保护 system prompt 与 prefix cache），主 agent 只通过 `web_task` 委派。
+另有 `browser_navigate` / `browser_snapshot` / `browser_click` / `browser_fill` / `browser_select` / `browser_scroll` / `browser_extract` / `browser_wait` / `browser_press_key` / `browser_track_order` / `browser_read_captcha` / `browser_solve_slider` / `browser_solve_click_captcha` / `browser_geometry` / `browser_capture` / `browser_sniff_start` / `browser_sniff_stop` / `browser_api_login` / `browser_api_call` / `browser_read_page` 19 个浏览器操作原语，只在 browser 子 agent 内注册——不进主 agent 工具表（保护 system prompt 与 prefix cache），主 agent 只通过 `web_task` 委派。
 
 `render_ui` 与 `render_graph` 都属于「默认不要调用」的工具：单纯展示结论用正文 Markdown，一张图用 `generate_chart`，一张表用 Markdown 表格，静态图先走 Mermaid；只有需要**组合呈现**、**在界面里操作**、或用户明确要求**可交互/可导出**时才调用，避免为了形式感付出 token 与渲染成本。
 
