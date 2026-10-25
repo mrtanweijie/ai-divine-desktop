@@ -32,7 +32,7 @@ from .core import (
     generate_session_title,
     normalize_ui_theme,
 )
-from .intent import classify_intents, is_question_like
+from .intent import classify_intents, intents_from_tool_history, is_question_like
 from .state import (
     _extract_final_content,
     _extract_token_usage,
@@ -465,6 +465,10 @@ async def run_agent(
         local_llm_mode=local_llm_mode,
         local_llm_threshold=local_llm_threshold,
     )
+    # 并集回补（与 prompts.py 同步）：ctx.intents 驱动**工具注入**，
+    # 消息/上下文意图可能误导（"记住密码"命中 memory 而不含 browser）——
+    # 最近调用过 web_task 的会话里浏览器任务在进行中，必须保住 web_task
+    intents |= intents_from_tool_history(session_id, limit=15)
     ctx.intents = intents
     ctx.local_intent_result = local_result
 

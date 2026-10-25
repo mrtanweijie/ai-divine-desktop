@@ -314,6 +314,10 @@ class BrowserSession:
         self.desired_headless: bool | None = None
         # 会话当前模型 id：视觉级联（032 §3）在 GLM 失败后按序尝试它
         self.model_id: str | None = None
+        # 登录接口嗅探（032 §6 API 模拟登录）：pattern 编译后的正则 + 捕获记录
+        self.sniff_pattern: Any = None
+        self.sniff_records: list[dict[str, Any]] = []
+        self.sniff_handler: Any = None
         # 最近一次成功导航的 URL：模式切换/自愈重启后断点重导航用（032 §3 D）
         self.last_navigated_url: str | None = None
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import json
 import http.server
 import random
 import socket
@@ -85,7 +86,41 @@ def chrome_cdp(monkeypatch):
     monkeypatch.setenv("DIVINE_BROWSER_CDP_ENDPOINT", url)
 
     server_dir = Path(__file__).parent / "fixtures"
-    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(server_dir))
+
+    class FixtureHandler(http.server.SimpleHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802 — SimpleHTTPRequestHandler 约定
+            if self.path == "/api/data":
+                if "session=tok123" not in (self.headers.get("Cookie") or ""):
+                    body = b'{"error": "unauthorized"}'
+                    self.send_response(401)
+                else:
+                    body = json.dumps({"balance": 3059.7, "items": 42}).encode()
+                    self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            super().do_GET()
+
+        def do_POST(self) -> None:  # noqa: N802 — SimpleHTTPRequestHandler 约定
+            if self.path == "/api/login":
+                length = int(self.headers.get("Content-Length") or 0)
+                self.rfile.read(length)
+                body = json.dumps({"ok": True, "token": "t123"}).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Set-Cookie", "session=tok123; Path=/")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            self.send_error(404)
+
+        def log_message(self, *args: object) -> None:
+            pass
+
+    handler = functools.partial(FixtureHandler, directory=str(server_dir))
     httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     port_http = httpd.server_address[1]
 
@@ -249,6 +284,9 @@ def test_browser_engine_end_to_end(chrome_cdp, shopping_domain, tmp_path):
         assert barrier["success"], barrier
         assert barrier["login_barrier"]["has_phone"] is True
         assert barrier["login_barrier"]["has_code"] is True
+        method_types = {m["type"] for m in barrier["login_barrier"]["login_methods"]}
+        assert {"qr", "sms", "password", "oauth"} <= method_types, method_types
+        assert "多种登录方式" in barrier.get("message", "")
 
         code_ref = _ref_by_name(session, "验证码") if False else next(
             (r for r, m in session.refs.items() if (m.get("name") or "") == "验证码"),
@@ -267,7 +305,8 @@ def test_browser_engine_end_to_end(chrome_cdp, shopping_domain, tmp_path):
         finally:
             session.confirmed = False
 
-        # 13. 图形验证码识别（视觉模型 mock）：元素截图 → 返回字符
+        # 13. 图形验证码识别（视觉模型 mock）：元素截图 → 返回字符；
+        #     失败路径：截图保留 + 返回可粘贴 markdown（人工认读降级）
         captcha_ref = _ref_by_name(session, "7X2K")
         assert captcha_ref, "验证码元素未进快照"
 
@@ -279,6 +318,17 @@ def test_browser_engine_end_to_end(chrome_cdp, shopping_domain, tmp_path):
         try:
             solved = await engine.op_read_captcha(session, tmp_path, captcha_ref)
             assert solved["success"] and solved["code"] == "7X2K", solved
+
+            async def fail_caption(image_path, prompt=None, model_id=None):
+                return None
+
+            engine._vision_caption = fail_caption
+            failed = await engine.op_read_captcha(session, tmp_path, captcha_ref)
+            assert failed["success"] and failed["code"] is None, failed
+            assert "![验证码]" in failed["markdown"], failed
+            from pathlib import Path as _P2
+
+            assert _P2(failed["filepath"]).exists(), "失败时截图未保留"
         finally:
             engine._vision_caption = orig_caption
 
@@ -357,6 +407,65 @@ def test_browser_engine_end_to_end(chrome_cdp, shopping_domain, tmp_path):
         from pathlib import Path as _P
 
         assert _P(cap["filepath"]).exists(), "截图未持久化"
+        assert "![二维码]" in cap["markdown"]
+
+        # 无 ref/selector → viewport 兜底截图
+        cap_vp = await engine.op_capture(session, tmp_path, name="viewport")
+        assert cap_vp["success"], cap_vp
+        assert _P(cap_vp["filepath"]).exists()
+
+        # 15d. API 模拟登录：嗅探 → 页面发登录请求 → 取模板 → 重放 + cookie 注入
+        sniff = await engine.op_sniff_start(session, tmp_path, "api/login")
+        assert sniff["success"], sniff
+        api_base = page_url.rsplit("/", 1)[0]
+        await session.ensure()
+        page_obj = session._page
+        await page_obj.evaluate(
+            "() => fetch('/api/login', {method: 'POST', "
+            "headers: {'Content-Type': 'application/json'}, "
+            "body: JSON.stringify({phone: '13900000000', code: '123456'})})"
+        )
+        stopped = await engine.op_sniff_stop(session, tmp_path)
+        assert stopped["success"] and stopped["count"] >= 1, stopped
+        rec = next(r for r in stopped["records"] if r["method"] == "POST")
+        assert "phone" in (rec["post_data"] or "")
+
+        unconfirmed = await engine.op_api_login(
+            session, tmp_path, f"{api_base}/api/login", body=rec["post_data"]
+        )
+        assert unconfirmed["success"] is False and unconfirmed["risk"] == "confirmed"
+
+        session.confirmed = True
+        try:
+            replay = await engine.op_api_login(
+                session, tmp_path, f"{api_base}/api/login", body=rec["post_data"]
+            )
+            assert replay["success"], replay
+            assert replay["status"] == 200 and replay["cookies_injected"] >= 1, replay
+            cookies = {c["name"] for c in await session._page.context.cookies()}
+            assert "session" in cookies, cookies
+        finally:
+            session.confirmed = False
+
+        # api_call：GET 数据接口带登录态 cookie（无需 confirmed）；POST 未确认拒绝
+        data_res = await engine.op_api_call(session, tmp_path, f"{api_base}/api/data")
+        assert data_res["success"] and data_res["status"] == 200, data_res
+        assert "3059.7" in data_res["body_preview"]
+
+        post_unconfirmed = await engine.op_api_call(
+            session, tmp_path, f"{api_base}/api/login", method="POST", body="{}"
+        )
+        assert post_unconfirmed["success"] is False and post_unconfirmed["risk"] == "confirmed"
+
+        # 跨域重放拒绝（防凭据外送）
+        session.confirmed = True
+        try:
+            cross = await engine.op_api_login(
+                session, tmp_path, "https://evil.example.com/api/login"
+            )
+            assert cross["success"] is False and cross.get("rejected") is True
+        finally:
+            session.confirmed = False
 
         # 16. ref 过期检测：编造 ref 返回过期错误而非异常
         stale = await engine.op_click(session, tmp_path, "e999999")

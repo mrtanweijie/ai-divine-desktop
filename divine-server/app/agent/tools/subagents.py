@@ -69,6 +69,10 @@ SUBAGENT_BROWSER_MAX_TOOL_TURNS = 48
 # 6 倍余量（144 步）给足"每回合多次工具调用"的空间，
 # 让 ModelCallLimitMiddleware 的 24 次上限成为真正的工作量闸门。
 SUBAGENT_RECURSION_LIMIT = SUBAGENT_MAX_TOOL_TURNS * 6
+# browser 段回合上限是 2 倍（48），递归上限必须同比例放大：浏览器子 agent
+# 一个回合常连调 2-3 个工具（snapshot+extract 等），48 回合 × 3 步会超过
+# 144 步的旧上限，表现为"子任务步骤过多"提前终止（实测）
+SUBAGENT_BROWSER_RECURSION_LIMIT = SUBAGENT_BROWSER_MAX_TOOL_TURNS * 6
 SUBAGENT_SUMMARY_CAP = 800
 SUBAGENT_OUTPUT_CAP = 12000
 # 超时按任务类型放宽：编码/终端类子任务（写文件、跑测试）远超 3 分钟；
@@ -115,6 +119,10 @@ _SUBAGENT_BROWSER_TOOLS = frozenset(
         "browser_solve_click_captcha",
         "browser_geometry",
         "browser_capture",
+        "browser_sniff_start",
+        "browser_sniff_stop",
+        "browser_api_login",
+        "browser_api_call",
         "browser_track_order",
         "browser_read_page",
     }
@@ -155,6 +163,10 @@ BROWSER_SUBAGENT_PROMPT = """你是 Divine 的浏览器子 Agent，通过 DOM �
 - navigate 返回 login_barrier 时说明撞到登录表单：立即结束委段回传该结构，
   由主 agent 渲染登录卡片收集手机号/验证码，再以 confirmed=true 委派填入
   （验证码图片用 browser_read_captcha 识别，失败降级人工，不要反复重试）；
+  站点 API 通道（登录/注册/数据获取通用）：browser_sniff_start(正则) 嗅探接口
+  → browser_sniff_stop 取模板 → 数据接口用 browser_api_call GET（自动带登录态
+  cookie，无需 confirmed）；登录/注册等 POST 用 browser_api_call(confirmed=true,
+  inject_cookies=true)（明文 body 才可重放，加密/签名放弃回退 UI）；
   滑块验证码：browser_solve_slider 实验性自动求解（仅 confirmed 段），
   失败最多重试 1 次后必须降级有头人工——行为风控下成功率不稳定；
   点选验证码（按顺序点击图中文字）：browser_solve_click_captcha 实验性自动求解
@@ -909,7 +921,11 @@ async def _run_subagent(
         )
         config = {
             "configurable": {"thread_id": f"{ctx.session_id}:sub:{task_id}"},
-            "recursion_limit": SUBAGENT_RECURSION_LIMIT,
+            "recursion_limit": (
+                SUBAGENT_BROWSER_RECURSION_LIMIT
+                if browser_enabled
+                else SUBAGENT_RECURSION_LIMIT
+            ),
         }
         task_timeout = subagent_timeout(task)
         result = await asyncio.wait_for(

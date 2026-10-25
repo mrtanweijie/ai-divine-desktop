@@ -239,9 +239,10 @@ class BrowserSolveClickCaptchaAdapter(_BrowserAdapter):
 
 @register_tool(
     "browser_capture",
-    "元素截图并持久化到工作区（返回绝对路径）——主 agent 在正文嵌 ![图片](路径)"
-    "即可渲染进对话流。典型用途：扫码登录的二维码展示（用户手机扫对话里的码，"
-    "无头模式无需开窗口）；展示后配合 browser_wait 等登录成功标记",
+    "元素截图并持久化到工作区（返回绝对路径，含现成 markdown 字段可粘贴到正文"
+    "渲染进对话流）。ref/selector 定位元素；都不传则截当前 viewport 兜底"
+    "（二维码等孤立元素优先用定位）。典型用途：扫码登录二维码展示，"
+    "配合 browser_wait 等登录成功标记",
     {
         "type": "object",
         "properties": {
@@ -261,6 +262,125 @@ class BrowserCaptureAdapter(_BrowserAdapter):
             arguments.get("ref"),
             arguments.get("selector"),
             str(arguments.get("name") or "capture"),
+        )
+
+
+@register_tool(
+    "browser_sniff_start",
+    "开始嗅探匹配正则的网络请求（API 模拟登录第 1 步）：随后在页面上执行操作"
+    "（如 UI 登录），引擎记录匹配的 XHR/fetch，完成后 browser_sniff_stop 取回"
+    "请求模板（method/url/status/post_data）",
+    {
+        "type": "object",
+        "properties": {
+            "pattern": {
+                "type": "string",
+                "description": "URL 匹配正则，如 login|signin|auth|captcha",
+            },
+        },
+        "required": ["pattern"],
+    },
+)
+class BrowserSniffStartAdapter(_BrowserAdapter):
+    timeout = 30
+
+    async def _operate(self, session, workspace, arguments):
+        return await engine.op_sniff_start(
+            session, workspace, str(arguments.get("pattern") or "")
+        )
+
+
+@register_tool(
+    "browser_sniff_stop",
+    "停止嗅探并返回捕获的请求模板。判断：POST + 明文手机号/密码/验证码字段 + 2xx "
+    "→ 可 API 重放；body 含加密密码/动态签名 → 放弃，回退 UI 登录",
+    {"type": "object", "properties": {}},
+)
+class BrowserSniffStopAdapter(_BrowserAdapter):
+    timeout = 30
+
+    async def _operate(self, session, workspace, arguments):
+        return await engine.op_sniff_stop(session, workspace)
+
+
+@register_tool(
+    "browser_api_login",
+    "API 模拟登录（仅 confirmed=true 委派段）：重放嗅探到的登录请求（httpx），"
+    "把响应 Set-Cookie 注入浏览器上下文——不开 UI、不碰验证码的会话恢复。"
+    "目标域必须与当前任务页面同域；body 由 ask_user 收到的凭据填入模板构造",
+    {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string", "description": "嗅探到的登录接口 URL"},
+            "method": {"type": "string", "description": "HTTP 方法，默认 POST"},
+            "body": {"type": "string", "description": "请求体（JSON 文本，凭据已填入）"},
+            "headers": {
+                "type": "object",
+                "additionalProperties": {"type": "string"},
+                "description": "可选：额外请求头",
+            },
+        },
+        "required": ["url"],
+    },
+)
+class BrowserApiLoginAdapter(_BrowserAdapter):
+    timeout = 60
+
+    async def _operate(self, session, workspace, arguments):
+        headers = arguments.get("headers")
+        return await engine.op_api_login(
+            session,
+            workspace,
+            str(arguments.get("url") or ""),
+            str(arguments.get("method") or "POST"),
+            arguments.get("body"),
+            headers if isinstance(headers, dict) else None,
+        )
+
+
+@register_tool(
+    "browser_api_call",
+    "站点 API 通用调用（登录/注册/数据接口统一通道，与 UI 平行）：GET 只读数据"
+    "自动附浏览器登录态 cookie、无需确认；非 GET 或带 body（登录/注册/变更）需 "
+    "confirmed=true，inject_cookies=true 把响应 cookie 注入浏览器。目标域必须与"
+    "当前任务页面同域。接口模板来自 browser_sniff_start/stop 嗅探",
+    {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string", "description": "同站 API 地址（嗅探所得）"},
+            "method": {"type": "string", "description": "HTTP 方法，默认 GET"},
+            "body": {"type": "string", "description": "请求体（JSON 文本）；带 body 需 confirmed"},
+            "headers": {
+                "type": "object",
+                "additionalProperties": {"type": "string"},
+                "description": "可选：额外请求头",
+            },
+            "send_cookies": {
+                "type": "boolean",
+                "description": "是否附浏览器当前 cookie（默认 true，登录态数据接口必需）",
+            },
+            "inject_cookies": {
+                "type": "boolean",
+                "description": "是否把响应 Set-Cookie 注入浏览器（登录场景，默认 false）",
+            },
+        },
+        "required": ["url"],
+    },
+)
+class BrowserApiCallAdapter(_BrowserAdapter):
+    timeout = 60
+
+    async def _operate(self, session, workspace, arguments):
+        headers = arguments.get("headers")
+        return await engine.op_api_call(
+            session,
+            workspace,
+            str(arguments.get("url") or ""),
+            str(arguments.get("method") or "GET"),
+            arguments.get("body"),
+            headers if isinstance(headers, dict) else None,
+            arguments.get("send_cookies", True) is not False,
+            bool(arguments.get("inject_cookies")),
         )
 
 

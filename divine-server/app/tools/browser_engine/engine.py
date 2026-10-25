@@ -77,12 +77,46 @@ _LOGIN_BARRIER_JS = r"""
   const getCodeBtn = [...document.querySelectorAll("button, a, span, div")].find(
     (el) => /获取验证码|发送验证码|获取短信/.test(el.innerText || "") && el.offsetWidth > 0
   );
-  if (!pwd && !(tel && (code || getCodeBtn))) return null;
+
+  // 登录方式枚举（032 §3 L1）：可见的页签/按钮文本 + 表单字段推断
+  const METHOD_PATTERNS = [
+    { type: "qr",      re: /扫码|二维码|QR/i },
+    { type: "sms",     re: /短信|验证码登录|手机号登录/ },
+    { type: "password", re: /密码登录|账号登录|账密/ },
+    { type: "oauth",   re: /微信|支付宝|QQ|Apple|苹果/i },
+  ];
+  const seen = new Set();
+  const methods = [];
+  const candidates = [...document.querySelectorAll("a, button, span, div, li, tab")];
+  for (const el of candidates) {
+    if (el.offsetWidth <= 0 || el.offsetHeight <= 0) continue;
+    const text = (el.innerText || "").trim();
+    if (!text || text.length > 12) continue;
+    for (const p of METHOD_PATTERNS) {
+      if (p.re.test(text) && !seen.has(p.type + ":" + text)) {
+        seen.add(p.type + ":" + text);
+        // 取最短匹配容器（页签文本），避免外层大 div 重复计入
+        if (!methods.some((m) => m.type === p.type)) {
+          methods.push({ type: p.type, label: text });
+        }
+      }
+    }
+  }
+  // 表单字段推断（当前面板实际渲染的方式）
+  if (pwd && !methods.some((m) => m.type === "password")) {
+    methods.push({ type: "password", label: "密码登录（当前面板）" });
+  }
+  if (tel && (code || getCodeBtn) && !methods.some((m) => m.type === "sms")) {
+    methods.push({ type: "sms", label: "短信验证码登录（当前面板）" });
+  }
+
+  if (!pwd && !(tel && (code || getCodeBtn)) && methods.length === 0) return null;
   return {
     has_password: !!pwd,
     has_phone: !!tel,
     has_code: !!code,
     has_get_code_btn: !!getCodeBtn,
+    login_methods: methods,
   };
 }
 """
@@ -121,10 +155,21 @@ async def op_navigate(
     result = await _snapshot_payload(session, page)
     if barrier and result.get("success"):
         result["login_barrier"] = barrier
-        result["message"] = (
-            "检测到登录表单：请结束本委派段，把 login_barrier 结构回传主 agent"
-            "渲染登录卡片（收集手机号/验证码后以 confirmed=true 委派填入）"
-        )
+        methods = barrier.get("login_methods") or []
+        if len(methods) > 1:
+            result["message"] = (
+                "检测到登录页，且存在多种登录方式："
+                + "、".join(f"{m.get('label')}（{m.get('type')}）" for m in methods)
+                + "。请结束本委派段，把 login_barrier 回传主 agent——"
+                "**由用户选择登录方式**（ask_user 选项卡），选定后再按对应流程委派："
+                "qr=截码展示等待扫码 / sms=登录卡片收手机号与验证码 / "
+                "password=密码方式选择卡 / oauth=通常需有头浮窗人工点击"
+            )
+        else:
+            result["message"] = (
+                "检测到登录表单：请结束本委派段，把 login_barrier 结构回传主 agent"
+                "渲染登录卡片（收集手机号/验证码后以 confirmed=true 委派填入）"
+            )
     return result
 
 
@@ -541,32 +586,39 @@ async def op_read_captcha(
     except Exception as exc:  # noqa: BLE001
         return _error(f"验证码截图失败: {type(exc).__name__}: {str(exc)[:200]}")
 
+    code = None
     try:
         code = await _vision_caption(
             path,
             prompt="识别图片中的验证码，只输出验证码字符本身（字母/数字），不要任何其他内容。",
             model_id=getattr(session, "model_id", None),
         )
-    finally:
+    except Exception:  # noqa: BLE001 — 识别异常与识别失败同等处理
+        code = None
+
+    cleaned = re.sub(r"[^A-Za-z0-9]", "", code or "")[:8]
+    if cleaned:
+        # 识别成功：截图是一次性输入，用完即删
         try:
             path.unlink(missing_ok=True)
         except OSError:  # noqa: BLE001
             pass
+        return _ok({"code": cleaned, "message": "验证码识别成功"})
 
-    if not code:
-        return _ok(
-            {
-                "code": None,
-                "message": (
-                    "验证码识别失败（视觉模型未配置或识别不出）："
-                    "请降级为登录卡片人工认读，不要重复尝试"
-                ),
-            }
-        )
-    cleaned = re.sub(r"[^A-Za-z0-9]", "", code)[:8]
-    if not cleaned:
-        return _ok({"code": None, "message": "验证码识别结果为空，请降级人工认读"})
-    return _ok({"code": cleaned, "message": "验证码识别成功"})
+    # 识别失败：截图**保留**并返回现成 markdown——主 agent 把图片嵌进回复
+    # （与二维码同机制），用 ask_user 收用户认读的验证码，再 confirmed 段填入
+    return _ok(
+        {
+            "code": None,
+            "filepath": str(path),
+            "markdown": f"![验证码]({path})",
+            "message": (
+                "验证码自动识别失败：把 result 里的 markdown 字段**逐字原样**嵌进"
+                "回复正文展示验证码图片，并用 ask_user 请用户输入图中字符；"
+                "收到后以 confirmed=true 委派填入。不要反复重试识别"
+            ),
+        }
+    )
 
 
 async def op_capture(
@@ -593,17 +645,20 @@ async def op_capture(
     elif (selector or "").strip():
         locator = page.locator(selector.strip()).first
     else:
-        return _error("需要 ref 或 selector 之一", rejected=True)
+        locator = None  # 兜底：整 viewport 截图（031 禁全页长图，viewport 可以）
     try:
-        if await locator.count() == 0:
-            return _error("目标元素不在页面上", rejected=True)
         from ...config import output_dir_for_workspace
 
         out_dir = output_dir_for_workspace(workspace) / "browser"
         out_dir.mkdir(parents=True, exist_ok=True)
         safe_name = re.sub(r"[^\w\-]", "", str(name))[:20] or "capture"
         path = out_dir / f"{safe_name}-{time.strftime('%H%M%S')}-{random.randint(100, 999)}.png"  # noqa: S311
-        await locator.screenshot(path=str(path))
+        if locator is not None:
+            if await locator.count() == 0:
+                return _error("目标元素不在页面上", rejected=True)
+            await locator.screenshot(path=str(path))
+        else:
+            await page.screenshot(path=str(path), full_page=False)
     except Exception as exc:  # noqa: BLE001
         return _error(f"截图失败: {type(exc).__name__}: {str(exc)[:200]}")
     return _ok(
@@ -613,10 +668,258 @@ async def op_capture(
             # 现成可粘贴的 markdown：主 agent 原样放进回复正文即显示图片
             "markdown": f"![二维码]({path})",
             "hint": (
-                "把 result 里的 markdown 字段原样放进你的回复正文，二维码就会"
-                "直接显示在对话里给用户扫码（不要只发文字说已获取）；"
-                "二维码通常 1-2 分钟过期，展示后立即 browser_wait 登录成功标记"
+                "把 result 里的 markdown 字段**逐字原样**放进你的回复正文（文件名里的"
+                "时间戳是防覆盖设计，**禁止改写/简化文件路径**——改了路径图片就 404 "
+                "不显示）；展示后立即 browser_wait 登录成功标记"
                 "（timeout 120-180s），过期则刷新二维码重截（≤2 次）"
+            ),
+        }
+    )
+
+
+_SNIFF_STATIC_RE = re.compile(
+    r"\.(js|css|png|jpe?g|gif|svg|woff2?|ttf|ico|mp4|webp)(\?|$)", re.IGNORECASE
+)
+
+
+async def op_sniff_start(
+    session: BrowserSession, workspace: Path, pattern: str
+) -> dict[str, Any]:
+    """开始嗅探匹配 pattern（正则）的网络请求（032 §6 API 模拟登录第 1 步）。
+
+    子 Agent 随后在页面上执行操作（UI 登录/提交），引擎记录匹配的 XHR/fetch；
+    browser_sniff_stop 取回捕获的请求模板（method/url/status/post_data）。
+    """
+    try:
+        session.sniff_pattern = re.compile(str(pattern or ""))
+    except re.error as exc:
+        return _error(f"pattern 不是合法正则: {exc}", rejected=True)
+    session.sniff_records = []
+    page = await session.ensure()
+
+    def on_response(response: Any) -> None:
+        try:
+            url = response.url
+            if session.sniff_pattern is None or not session.sniff_pattern.search(url):
+                return
+            if _SNIFF_STATIC_RE.search(url):
+                return
+            req = response.request
+            session.sniff_records.append(
+                {
+                    "url": url,
+                    "method": req.method,
+                    "status": response.status,
+                    "post_data": req.post_data,
+                    "resource_type": req.resource_type,
+                }
+            )
+            if len(session.sniff_records) > 50:
+                session.sniff_records = session.sniff_records[-50:]
+        except Exception:  # noqa: BLE001 — 单条记录失败不影响捕获
+            pass
+
+    page.on("response", on_response)
+    session.sniff_handler = on_response
+    return _ok(
+        {
+            "message": (
+                f"嗅探已开始（pattern={pattern}）：现在执行页面操作，"
+                "完成后 browser_sniff_stop 取回请求模板"
+            )
+        }
+    )
+
+
+async def op_sniff_stop(session: BrowserSession, workspace: Path) -> dict[str, Any]:
+    """停止嗅探并返回捕获的请求记录（模板）。"""
+    page = await session.ensure()
+    handler = getattr(session, "sniff_handler", None)
+    if handler is not None:
+        try:
+            page.remove_listener("response", handler)
+        except Exception:  # noqa: BLE001
+            pass
+        session.sniff_handler = None
+    records = session.sniff_records
+    session.sniff_records = []
+    session.sniff_pattern = None
+    return _ok(
+        {
+            "count": len(records),
+            "records": records,
+            "hint": (
+                "找出登录请求（POST + JSON/表单体 + 2xx）：若 body 是明文手机号/"
+                "密码/验证码字段（无加密摘要/签名），可由主 agent ask_user 收凭据后"
+                " browser_api_login(confirmed=true) 重放；body 含加密密码或动态"
+                "签名则放弃 API 路线，回退 UI 登录流程"
+            ),
+        }
+    )
+
+
+async def op_api_login(
+    session: BrowserSession,
+    workspace: Path,
+    url: str,
+    method: str = "POST",
+    body: str | None = None,
+    headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """API 模拟登录（032 §6，仅 confirmed=true 委派段）。
+
+    重放嗅探到的登录请求（httpx），把响应 Set-Cookie 注入浏览器上下文，
+    实现"不开 UI、不碰验证码"的会话恢复。安全约束：
+    - 目标 URL 域必须与当前任务页面同域（防凭据外送）；
+    - 携凭据的请求必须在 confirmed 委派段（与 UI 填入同级）。
+    """
+    if not session.confirmed:
+        return risk.refusal_payload(
+            "API 模拟登录（请求体含凭据）仅允许在 confirmed=true 委派段执行",
+            risk="confirmed",
+        )
+    from urllib.parse import urlparse
+
+    target = str(url or "").strip()
+    if not target.startswith(_VALID_SCHEMES):
+        return _error("仅支持 http/https URL", rejected=True)
+    page = await session.ensure()
+    page_host = urlparse(page.url or "").hostname or ""
+    target_host = urlparse(target).hostname or ""
+    if not page_host or not target_host or target_host != page_host:
+        return _error(
+            f"重放目标域（{target_host}）必须与当前任务页面域（{page_host}）一致——"
+            "防止凭据被发送到第三方接口",
+            rejected=True,
+        )
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=False) as client:
+            response = await client.request(
+                str(method or "POST").upper(),
+                target,
+                content=body,
+                headers={"Content-Type": "application/json", **(headers or {})},
+            )
+    except Exception as exc:  # noqa: BLE001
+        return _error(f"重放请求失败: {type(exc).__name__}: {str(exc)[:200]}")
+
+    cookies_to_inject = [
+        {"name": name, "value": value, "url": target}
+        for name, value in response.cookies.items()
+    ]
+    injected = 0
+    if cookies_to_inject:
+        try:
+            await page.context.add_cookies(cookies_to_inject)
+            injected = len(cookies_to_inject)
+        except Exception as exc:  # noqa: BLE001 — 注入失败仍返回响应，便于诊断
+            logger.warning("cookie 注入失败: %s", exc)
+    body_preview = response.text[:600]
+    ok = 200 <= response.status_code < 300
+    return _ok(
+        {
+            "status": response.status_code,
+            "cookies_injected": injected,
+            "body_preview": body_preview,
+            "message": (
+                f"重放成功（HTTP {response.status_code}，注入 {injected} 个 cookie）——"
+                "请 browser_snapshot 验证登录态；若 body 提示验证码/签名错误，"
+                "说明该站不适合 API 路线，回退 UI 登录"
+                if ok
+                else f"重放返回 HTTP {response.status_code}：查看 body_preview 判断原因，通常回退 UI 登录"
+            ),
+        }
+    )
+
+
+async def op_api_call(
+    session: BrowserSession,
+    workspace: Path,
+    url: str,
+    method: str = "GET",
+    body: str | None = None,
+    headers: dict[str, str] | None = None,
+    send_cookies: bool = True,
+    inject_cookies: bool = False,
+) -> dict[str, Any]:
+    """站点 API 通用调用（032 §6）：登录/注册/数据接口的统一通道。
+
+    与浏览器 UI 平行的能力面——嗅探到的任何同站接口都可重放：
+    - 数据获取：GET/HEAD（只读级）无需 confirmed，自动附浏览器登录态 cookie；
+    - 登录/注册/变更：非 GET 或带 body（变更级）需 confirmed=true；
+      inject_cookies=true 时把响应 Set-Cookie 注入浏览器（登录场景）。
+    安全：目标域必须与当前任务页面同域（防凭据/cookie 外送）。
+    """
+    from urllib.parse import urlparse
+
+    target = str(url or "").strip()
+    if not target.startswith(_VALID_SCHEMES):
+        return _error("仅支持 http/https URL", rejected=True)
+    page = await session.ensure()
+    page_host = urlparse(page.url or "").hostname or ""
+    target_host = urlparse(target).hostname or ""
+    if not page_host or not target_host or target_host != page_host:
+        return _error(
+            f"API 目标域（{target_host}）必须与当前任务页面域（{page_host}）一致——"
+            "防止凭据/cookie 被发送到第三方接口",
+            rejected=True,
+        )
+    method_upper = str(method or "GET").upper()
+    mutating = method_upper not in ("GET", "HEAD") or bool((body or "").strip())
+    if mutating and not session.confirmed:
+        return risk.refusal_payload(
+            f"{method_upper} 带 body 属变更级请求：仅允许在 confirmed=true 委派段执行"
+            "（登录/注册/提交类）；只读数据获取用 GET 且不带 body",
+            risk="confirmed",
+        )
+
+    import httpx
+
+    req_headers = {"Content-Type": "application/json", **(headers or {})}
+    if send_cookies:
+        try:
+            ctx_cookies = await page.context.cookies()
+            # 注意不过滤 expires：Playwright 会话 cookie 的 expires=-1，
+            # 按过期过滤会把登录态整个丢掉（实测 401）
+            jar = "; ".join(f"{c['name']}={c['value']}" for c in ctx_cookies)
+            if jar:
+                req_headers.setdefault("Cookie", jar)
+        except Exception as exc:  # noqa: BLE001 — cookie 读取失败按无登录态继续
+            logger.warning("cookie 透传读取失败: %s", exc)
+    try:
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=False) as client:
+            response = await client.request(
+                method_upper, target, content=body, headers=req_headers
+            )
+    except Exception as exc:  # noqa: BLE001
+        return _error(f"API 请求失败: {type(exc).__name__}: {str(exc)[:200]}")
+
+    injected = 0
+    if inject_cookies and response.cookies:
+        try:
+            await page.context.add_cookies(
+                [
+                    {"name": name, "value": value, "url": target}
+                    for name, value in response.cookies.items()
+                ]
+            )
+            injected = len(response.cookies)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("cookie 注入失败: %s", exc)
+    ok = 200 <= response.status_code < 300
+    return _ok(
+        {
+            "status": response.status_code,
+            "cookies_injected": injected,
+            "body_preview": response.text[:2000],
+            "message": (
+                f"API 调用成功（HTTP {response.status_code}"
+                + (f"，注入 {injected} 个 cookie" if injected else "")
+                + "）——body_preview 为响应内容，按需解析字段"
+                if ok
+                else f"API 返回 HTTP {response.status_code}：查看 body_preview 判断原因"
             ),
         }
     )
