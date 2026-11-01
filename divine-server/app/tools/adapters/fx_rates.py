@@ -25,15 +25,19 @@ from ..ui.catalog import MAX_SURFACE_CHARS
 from ..ui.validator import validate_ui_surface
 from ..ui.versions.v0_9_1 import to_messages
 
-DESCRIPTION = """查询实时汇率，并渲染可切换币种的折线面板（1 单位外币 = N 元人民币）。
+DESCRIPTION = """查询实时汇率；**默认还会渲染一块可切换币种的折线面板**（1 单位外币 = N 元人民币）。
 
-何时调用：需要把外币金额换算成人民币（机票/酒店/购物比价）、或用户问汇率/汇率走势时。
-面板里的折线是「区间首日 = 100」的相对变化，点图例可切换币种；绝对汇率与涨跌幅在表格里。
+两种用法，按需选：
+
+1. **用户要看汇率/走势**（问「汇率多少」「近半年美元走势」）→ 默认调用，出面板。
+2. **只是要折算外币**（机票/酒店/购物比价里遇到 USD 报价）→ 传 ``render=false``：
+   只刷新汇率缓存并返回数字，**不产面板**。这类流程用户要的是比价结果，
+   不要让他先看一整块汇率图。
 
 数据来源都是免 key 的公共接口：最新值 open.er-api.com，历史序列 api.frankfurter.dev（ECB）。
 不在 ECB 表里的币种（MOP/TWD 等）只有最新值，不进折线。
 
-调用后本工具会把汇率写入缓存，后续比价工具直接读它——所以**涉及外币时先调本工具**。
+调用后汇率会写入缓存，比价工具（如 flight_board）读同一份——**别用写死的常数换算**。
 
 面板顶部是查询条件：「区间」（7/15/30/180/365 天）与「币种」多选，旁边是「重新查询」按钮
 （动作 ``fx_refresh``）。用户点按钮会带着 ``days`` / ``symbols`` 回流，此时**按回传参数重新
@@ -51,6 +55,14 @@ def _schema() -> dict[str, Any]:
             },
             "days": {"type": "integer", "description": "区间天数：7/15/30/180/365，默认 30"},
             "refresh": {"type": "boolean", "description": "忽略 6 小时缓存，强制联网刷新"},
+            "render": {
+                "type": "boolean",
+                "description": (
+                    "默认 true=渲染汇率面板（用户要看汇率/走势时）。"
+                    "被别的流程顺带调用（如机票比价要折算外币）时传 false："
+                    "只刷新汇率缓存并返回数字，不产面板、不拉历史序列"
+                ),
+            },
             "title": {"type": "string", "description": "面板标题"},
             "surface_id": {"type": "string", "description": "面板 id，默认 fx-board"},
         },
@@ -294,18 +306,35 @@ class FxRatesAdapter(ToolAdapter):
             days = 30
         days = days if 2 <= days <= 366 else 30
 
+        # render=False：被别的流程顺带调用（机票比价要折算外币）时，
+        # 只把最新汇率写进缓存，**不产面板** —— 否则用户只是想搜个航班，
+        # 会先被塞一整块汇率走势图。
+        render_raw = arguments.get("render")
+        render = True if render_raw is None else bool(render_raw)
+
         # 联网是阻塞调用，放线程里跑，别把事件循环钉住 8-15 秒
         snapshot = await asyncio.to_thread(
             fx.snapshot, force=bool(arguments.get("refresh"))
         )
-        history = await asyncio.to_thread(fx.series, days=days, symbols=symbols)
-        dates = history.get("dates") or []
-        series = history.get("series") or {}
+
+        if render:
+            history = await asyncio.to_thread(fx.series, days=days, symbols=symbols)
+            dates = history.get("dates") or []
+            series = history.get("series") or {}
+        else:
+            # 静默模式不拉历史序列：既省一次联网，也不为「不画的图」付延迟
+            history = {}
+            dates, series = [], {}
 
         surface_id = str(arguments.get("surface_id") or "fx-board")
         title = str(arguments.get("title") or "汇率走势（1 外币 = N 元人民币）")
 
-        if series and dates:
+        if not render:
+            # 静默刷新：缓存已更新，返回数字即可，不产面板
+            normalized = {}
+            payload_messages = []
+            rendered = False
+        elif series and dates:
             surface = build_surface(
                 surface_id=surface_id,
                 title=title,
@@ -337,10 +366,16 @@ class FxRatesAdapter(ToolAdapter):
 
         rates = snapshot.get("rates") or {}
         picked = {code: rates.get(code) for code in symbols if rates.get(code)}
-        note = (
-            f"✓ 已查询汇率（来源 {snapshot.get('provider')} / {snapshot.get('source')}）。"
-            + ("面板已呈现，正文只给结论与关键数字，不要复述表格。" if rendered else "历史序列不可用，未出图；可直接用返回的 latest 汇率做换算。")
-        )
+        head = f"（来源 {snapshot.get('provider')} / {snapshot.get('source')}）"
+        if not render:
+            note = (
+                f"✓ 已刷新汇率缓存{head}。**未渲染面板**（静默模式）："
+                "不要把汇率单独讲成一段，直接用它完成手上的换算/比价即可。"
+            )
+        elif rendered:
+            note = f"✓ 已查询汇率{head}。面板已呈现，正文只给结论与关键数字，不要复述表格。"
+        else:
+            note = f"✓ 已查询汇率{head}。历史序列不可用，未出图；可直接用返回的 latest 汇率做换算。"
 
         data: dict[str, Any] = {
             "surfaceId": surface_id,

@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.tools.fx import rates as fx
@@ -256,3 +258,63 @@ def test_converter_target_falls_back_when_no_foreign_currency() -> None:
     converter = next(c for c in surface["components"] if c["component"] == "Converter")
     assert surface["data"]["rates"] == {"CNY": 1.0}
     assert converter["to"] == "CNY"
+
+
+def test_silent_mode_skips_panel_and_history(monkeypatch) -> None:
+    """`render=false`：只刷缓存，不产面板、也不拉历史序列（机票流程用）。"""
+    import asyncio
+    from pathlib import Path
+
+    import app.tools.adapters  # noqa: F401
+    from app.tools.adapters import fx_rates as mod
+    from app.tools.registry import registry
+
+    called: dict = {"series": 0}
+
+    def fake_series(**kwargs):
+        called["series"] += 1
+        return {"dates": ["2026-10-30"], "series": {"USD": [6.6]}, "skipped": []}
+
+    monkeypatch.setattr(mod.fx, "snapshot", lambda **kw: {
+        "rates": {"USD": 6.6}, "source": "live", "provider": "t", "updated_at": "now",
+    })
+    monkeypatch.setattr(mod.fx, "series", fake_series)
+
+    adapter = registry.get("fx_rates")
+    result = asyncio.run(
+        adapter.run(Path("."), {"symbols": ["USD"], "days": 30, "render": False})
+    )
+
+    assert result.success
+    assert called["series"] == 0, "静默模式不该为「不画的图」再联网取序列"
+    assert not result.data.get("a2uiMessages"), "静默模式绝不能产面板消息"
+    assert "uiSurface" not in result.data
+    assert "未渲染面板" in result.message
+    payload = json.loads(result.content)
+    assert payload["rendered"] is False
+    assert payload["latest"]["USD"] == 6.6
+
+
+def test_default_mode_still_renders_panel(monkeypatch) -> None:
+    """不传 render 时行为不变：照常出面板。"""
+    import asyncio
+    from pathlib import Path
+
+    import app.tools.adapters  # noqa: F401
+    from app.tools.adapters import fx_rates as mod
+    from app.tools.registry import registry
+
+    monkeypatch.setattr(mod.fx, "snapshot", lambda **kw: {
+        "rates": {"USD": 6.6}, "source": "live", "provider": "t", "updated_at": "now",
+    })
+    monkeypatch.setattr(
+        mod.fx,
+        "series",
+        lambda **kw: {"dates": ["2026-10-30"], "series": {"USD": [6.6]}, "skipped": []},
+    )
+
+    adapter = registry.get("fx_rates")
+    result = asyncio.run(adapter.run(Path("."), {"symbols": ["USD"], "days": 30}))
+
+    assert result.data.get("a2uiMessages"), "默认模式必须出面板"
+    assert "面板已呈现" in result.message
