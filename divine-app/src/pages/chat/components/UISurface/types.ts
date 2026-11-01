@@ -129,6 +129,20 @@ export interface UIComponentPropsMap {
   };
   Progress: { value: UIBindable<number>; label?: UIBindable<string>; tone?: UITone };
   Steps: { items: UIStepItem[]; caption?: UIBindable<string> };
+  /**
+   * 金额换算（纯前端实时计算）。
+   *
+   * 汇率表放在面板 `data` 里（`ratesPath` 指向它），口径统一为
+   * 「1 单位该币 = N 基准币」；交叉换算走基准币中转。
+   * 不用动作回流：换算是「边打字边看数」，一次往返要好几秒。
+   */
+  Converter: {
+    ratesPath: string;
+    amount?: number;
+    from?: string;
+    to?: string;
+    precision?: number;
+  };
   // C 组 · 输入
   TextField: {
     label: string;
@@ -197,6 +211,7 @@ export const COMPONENT_PROPS: Record<UIComponentName, readonly string[]> = {
   Table: ["columns", "rows", "maxHeight", "caption"],
   Progress: ["value", "label", "tone"],
   Steps: ["items", "caption"],
+  Converter: ["ratesPath", "amount", "from", "to", "precision"],
   TextField: ["label", "value", "placeholder", "required"],
   TextArea: ["label", "value", "rows"],
   NumberField: ["label", "value", "min", "max", "step", "unit"],

@@ -89,8 +89,65 @@ function sanitizeJsonQuotes(raw: string): string {
 }
 
 /**
+ * 修复 LLM 生成的 JSON 中**括号形态错误**（闭括号写错或缺失）。
+ *
+ * 实锤案例：`{"label":"生成汇率换算表","desc":"输出 Excel，覆盖常用金额档位与多币种")`
+ * —— 对象该用 `}` 收尾却写成了 `)`，`JSON.parse` 直接失败，于是 options 卡片
+ * 退化成一块普通代码块（语言标记 `options` 不在高亮表里 → 归一化成 plaintext，
+ * 显示成 "TEXT" + 裸 JSON），用户完全点不到选项。
+ *
+ * 这里按栈配平：闭括号与栈顶不符时替换成栈顶期望的符号，栈里剩余的期望符号
+ * 在末尾补齐，并丢掉尾逗号。**字符串内部一律原样保留**，不动内容。
+ * 仅在正常解析与引号修复都失败后作为兜底，正常 JSON 不会走这里。
+ */
+function repairJsonShape(raw: string): string {
+  const out: string[] = [];
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < raw.length; i += 1) {
+    const ch = raw[i];
+    if (inString) {
+      out.push(ch);
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      out.push(ch);
+      continue;
+    }
+    if (ch === "{" || ch === "[") {
+      stack.push(ch === "{" ? "}" : "]");
+      out.push(ch);
+      continue;
+    }
+    if (ch === "}" || ch === "]" || ch === ")") {
+      // 与栈顶不符（含把 } 写成 )）：按栈顶补；栈空说明这个闭括号是多余的
+      const expected = stack.pop();
+      if (expected) out.push(expected);
+      else out.push(ch);
+      continue;
+    }
+    if (ch === ",") {
+      let j = i + 1;
+      while (j < raw.length && WHITESPACE_RE.test(raw[j])) j += 1;
+      if (raw[j] === "}" || raw[j] === "]" || raw[j] === ")") continue; // 尾逗号
+      out.push(ch);
+      continue;
+    }
+    out.push(ch);
+  }
+  while (stack.length) out.push(stack.pop() as string);
+  return out.join("");
+}
+
+/**
  * 从 ```options 代码块中解析选项数据；解析失败返回 null。
- * 自动修复 LLM 生成的常见 JSON 格式问题（如字符串值内未转义的引号）。
+ * 自动修复 LLM 生成的常见 JSON 格式问题（未转义的内部引号、闭括号写错/缺失）。
  */
 export function parseOptionsBlock(code: string): ChoiceBlockData | null {
   const text = (code || "").trim();
@@ -98,17 +155,24 @@ export function parseOptionsBlock(code: string): ChoiceBlockData | null {
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) return null;
   const raw = text.slice(start, end + 1);
-  let data: Record<string, unknown> | null;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    // LLM 常在 desc/label 中生成未转义的中文引号，尝试逐字符修复
+  // 逐级放宽：原样 → 修引号 → 修括号 → 两者都修。顺序固定，
+  // 保证合法 JSON 永远走第一条，不被兜底逻辑改写。
+  const candidates = [
+    raw,
+    sanitizeJsonQuotes(raw),
+    repairJsonShape(raw),
+    repairJsonShape(sanitizeJsonQuotes(raw)),
+  ];
+  let data: Record<string, unknown> | null = null;
+  for (const candidate of candidates) {
     try {
-      data = JSON.parse(sanitizeJsonQuotes(raw));
+      data = JSON.parse(candidate);
+      break;
     } catch {
-      return null;
+      // 尝试下一种修复形态
     }
   }
+  if (!data) return null;
   if (!data || !Array.isArray(data.options) || data.options.length === 0) {
     return null;
   }
@@ -162,13 +226,15 @@ const OPTIONS_FENCE_RE = /```options\b([\s\S]*?)```/i;
 export function splitNoteOptions(text: string): {
   prose: string;
   data: ChoiceBlockData | null;
+  /** 是否命中 ```options 围栏。true 时调用方可把卡片挪到消息末尾渲染 */
+  fenced: boolean;
 } {
   const raw = (text || "").trim();
-  if (!raw) return { prose: "", data: null };
+  if (!raw) return { prose: "", data: null, fenced: false };
   const match = OPTIONS_FENCE_RE.exec(raw);
   if (match) {
     const prose = `${raw.slice(0, match.index)}${raw.slice(match.index + match[0].length)}`.trim();
-    return { prose, data: parseOptionsBlock(match[1]) };
+    return { prose, data: parseOptionsBlock(match[1]), fenced: true };
   }
   // 兜底：模型偶尔漏写围栏、直接把 JSON 当段落输出（MarkdownView 有同样的兜底）。
   if (raw.includes('"options"')) {
@@ -178,10 +244,10 @@ export function splitNoteOptions(text: string): {
       const end = raw.lastIndexOf("}");
       const prose =
         start >= 0 && end > start ? `${raw.slice(0, start)}${raw.slice(end + 1)}`.trim() : raw;
-      return { prose, data };
+      return { prose, data, fenced: false };
     }
   }
-  return { prose: raw, data: null };
+  return { prose: raw, data: null, fenced: false };
 }
 
 // 主题色副标题（前端兜底覆盖：卡片 desc 由 LLM 自由生成，

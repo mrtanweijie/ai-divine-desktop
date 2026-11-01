@@ -144,3 +144,185 @@
 
 - [031-generic-web-task-20261024.md](031-generic-web-task-20261024.md) — 引擎与配方机制
 - [032-headless-mode-and-login-card-20261024.md](032-headless-mode-and-login-card-20261024.md) — 无头执行
+
+---
+
+## 实施补充（2026-11-01）：面板与比价下沉为代码
+
+上一轮只落了一段提示词，用户实测「没有 UI、没有比价」——**根因不在模型，在门控**：
+`flights` 没进 `core.constants.A2UI_INTENTS`，而 `render_ui` 的可见性就是这份白名单
+（`tools.py::_CONTENT_TOOLS`），于是机票意图那一轮 `render_ui` 根本不进工具列表
+（`_content_tool_allowed('render_ui', {'flights'})` 实测 `False`），提示词里写「可用 render_ui」
+属于说了但拿不到。已把 `flights` 补进白名单，`_A2UI_SECTION` 随之自动挂到该意图。
+
+同时把「面板 + 比价」从提示词下沉为确定性代码：
+
+| 模块 | 职责 |
+|------|------|
+| `app/tools/flight/calendar_cn.py` | 2026 官方放假安排（含调休上班日）、休息日判定、`leave_plan()` 请假/连休、`nearest_holiday()`、±N 天窗口 |
+| `app/tools/flight/compare.py` | 币种换算、同 (目的地,去程,返程) 去重取最低、只看直飞过滤、预算标记、性价比（¥/小时） |
+| `app/tools/flight/planner.py` | ±3 天窗口筛选、同一趟往返优先（无往返票才同航司拼两段单程）、`score = 价格 + 请假天数 × 400` |
+| `app/tools/adapters/flight_board.py` | 服务端确定性构建 A2UI IR（条件可回填 + 候选表 + 请假列），动作 `flight_search` 回流后同 surfaceId 原地刷新 |
+
+三条设计取舍：
+
+1. **IR 由服务端构建，不经模型**：同一份报价永远渲染同一块面板，也不会漏画（对比 `render_ui` 靠模型手写 IR）；
+2. **请假天数算进去排序**：`LEAVE_DAY_COST_CNY = 400` 把「便宜 500 但多请 3 天假」判为不划算，用户可改这一个常量；
+3. **未收录年份不装作有数据**：2027 及以后 `coverage=False`，只按周末估算，面板与正文都要标注。
+
+顺带修掉一个既有打包缺口：`divine-server.spec` 的 `datas` 从未包含
+`app/tools/browser_engine/recipes_builtin`，onefile 里该目录不存在 → `load_recipes()` 静默返回空，
+内置配方（含本次的 flight-ctrip / flight-trip、以及之前的 meituan-waimai）在打包版里从未生效。
+
+---
+
+## 实施补充二（2026-11-01）：放假安排不能写死年份
+
+第一版把 2026 的官方安排直接写进常量表，等于 2027 一开年功能就废。改成三层数据：
+
+| 层 | 内容 | 可信度 |
+|----|------|--------|
+| `_OFFICIAL` | 国务院已发文的年份（当前 2026），逐日精确，含调休上班日 | 官方 |
+| `_LUNAR_ANCHORS` | 春节/清明/端午/中秋的公历锚点（2027、2028）——**天文事实，与政策无关** | 事实 |
+| `_infer_year` | 未公布年份按 2025 年起口径推断：春节 9 天（含除夕）、元旦/清明/端午/中秋 3 天、劳动 5 天、国庆 7 天；调休数 = 块内工作日 − 法定天数（上限 2），落在假期块前后最近的周末 | 推断 |
+
+**推断结果不冒充官方**：`leave_plan()` 透出 `coverage ∈ {official, estimated, weekend-only}`，
+面板在 estimated 时固定补一行「该年份放假安排尚未公布，以上按近年规律推断，以国务院通知为准」。
+
+两条踩过的坑，都写成了测试：
+
+1. **3 天小长假必须包含节日当天**：最初允许排到 `anchor + 1`，于是 2027 端午（6/9 周三）被排成
+   6/10–6/12，把端午本身漏在窗口外；
+2. **周三的节日不硬凑 3 天**：6/9 无论怎么排都要补 2 天班，于是回退成「只放法定当天」，
+   2027 端午/中秋都是 1 天——这比编一个要补两天班的假更接近真实。
+
+`calendar_cn.suggest_plans()` 负责「请 N 休 M」：在假期块前后各展开 0–7 天做笛卡尔积，
+过滤掉请假超额的，按「总天数降序、请假天数升序」取帕累托前沿前 3 条。2027 国庆实测：
+
+```
+请 3 天休 11 天  10/1–10/11
+请 2 天休 10 天  10/1–10/10   ← 10/8 工作日 + 10/9 推断补班
+请 1 天休 8 天   10/1–10/8
+```
+
+**已知边界**：农历锚点只写到 2028。2029 及以后 `_infer_year` 会跳过春节/清明/端午/中秋，
+只推断元旦/劳动/国庆（固定公历），仍然标 estimated——不猜不知道的事。
+
+### 解析顺序是硬约束（2026-11-01 晚补充）
+
+用户给的日期要能**第一句就回答「这是不是假期」**，而不是先跑一套推断。因此把数据解析
+钉成三级、且顺序不可调换：
+
+```
+外部官方文件  <data_root>/flight/holidays.json   ← 最高优先
+   ↓ 没有该年份
+内置官方表    _OFFICIAL（2026）
+   ↓ 没有该年份
+推断          _infer_year（标 estimated）
+```
+
+* `resolve_date(d)` 是单日入口，返回 `{kind, holiday, day_index, source, estimated, text}`，
+  例如 `10/3 周六：国庆节第 3 天`（官方） / `10/9 周六：调休上班（按往年规律推断，以国务院通知为准）`；
+  `flight_board` 会把这句话放在面板第一行，用户不用问就知道自己的日期是什么性质。
+* **官方一旦可用就绝不走推断**——外部文件命中某一年时，该年整年以文件为准（不合并内置表），
+  避免「官方 10/1–10/8」被内置的 10/1–10/7 混进来。
+* 国务院发文的当天，运维只需投放一个 JSON，**不用改代码、不用重建推断逻辑**：
+
+```json
+{ "2027": { "ranges": [{"name": "国庆节", "start": "2027-10-01",
+                       "end": "2027-10-07", "statutory": 3}],
+            "makeup": ["2027-09-26", "2027-10-09"] } }
+```
+
+对应测试：`test_resolve_date_official_year_has_no_estimate_suffix`、
+`test_external_official_file_beats_inference`、`test_external_file_can_override_builtin_official`。
+
+---
+
+## 实施补充三（2026-11-01 晚）：汇率也不该写死
+
+`compare.FX_TO_CNY` 原本是 14 个币种的常数表。实测同一天真实汇率：
+
+| 币种 | 写死值 | 实际（open.er-api） | 偏差 |
+|------|--------|--------------------|------|
+| USD | 7.15 | 6.67 | **+7.2%** |
+| EUR | 7.78 | 7.44 | +4.6% |
+| JPY | 0.048 | 0.0423 | **+13.5%** |
+
+外币报价的比价结论会被这个偏差直接带偏，因此拆出一个独立能力：
+
+| 模块 | 职责 |
+|------|------|
+| `app/tools/fx/rates.py` | 在线取汇率 + 6 小时缓存（内存 + 落盘 `data_root/fx/rates.json`）+ 三级降级（内存 → 未过期落盘 → 联网 → 过期落盘 → 内置兜底） |
+| `app/tools/adapters/fx_rates.py`（`fx_rates`） | 查询并渲染 A2UI 面板：ECharts 折线（点图例切换币种）+ 汇率/涨跌幅表 + 数据源说明 |
+
+三个关键取舍：
+
+1. **方向统一**：上游给的是「1 CNY = N 外币」，模块内统一存「1 外币 = N 元」，
+   `_invert()` 单点转换，避免下游反复取倒数写出 ±1 错误；
+2. **折线指数化**：JPY（0.042）与 GBP（9.1）差两个数量级，画绝对值会有一条贴在 x 轴上。
+   折线用「区间首日 = 100」的相对变化，绝对值和涨跌幅放表格；
+3. **比价路径绝不联网**：`rates_map()` 传 `network=False`，只读内存/落盘/兜底。
+   联网只发生在 `fx_rates` 工具里（且用 `asyncio.to_thread` 跑，不钉事件循环）。
+
+链路因此变成：**`fx_rates` 查一次并写缓存 → `flight_board` 比价时读同一份**。
+提示词里写死「有外币报价先调 fx_rates」，不再假设模型自己知道汇率。
+
+数据源分工：`open.er-api.com` 出最新值（160+ 币种，含 MOP/TWD/THB/KRW）；
+`api.frankfurter.dev`（ECB）出日线序列，但只覆盖 ECB 币种表——不在表内的币种
+只进表格、不进折线，面板会注明，不假装有历史。
+
+### 面板下发与落库（2026-11-01 晚补）
+
+面板能力有三段链路，原本三处都写死 `name == "render_ui"`，新增工具必然漏：
+
+| 链路 | 位置 | 现状 |
+|------|------|------|
+| 产消息 | `fx_rates` / `flight_board` 适配器 → `data.a2uiMessages` | 各自产出 |
+| 发事件 | `agent/tools/execution.py` | 按 `core.constants.A2UI_TOOL_NAMES` 分流 |
+| 落库回放 | `agent/state/persistence.py` | `render_ui` 重跑校验；`flight_board` 调 `surface_from_args()` 纯重建；`fx_rates` 不落库 |
+
+**`fx_rates` 不落库是已知限制**：折线依赖联网取到的日线序列，离线重建只能出空图，
+所以刷新页面后汇率面板会消失（实时渲染不受影响）。要补的话得把 IR 快照
+按 `call_id` 缓存在进程内，属于后续项。详见 `docs/fix/007-a2ui-panel-emit-gate-20261101.md`。
+
+### 汇率面板的交互（2026-11-01 晚补）
+
+面板顶部就是查询条件，不再是「一次查完看死图」：
+
+| 控件 | 组件 | 绑定 |
+|------|------|------|
+| 区间 7 / 15 / 30 / 180 / 365 天 | `ChoicePicker`（单选，chip） | `/query/days` |
+| 币种多选 | `ChoicePicker` + `multiple` | `/query/symbols`（逗号分隔字符串） |
+| 重新查询 | `Button` → 业务动作 `fx_refresh` | context 带上两个路径 |
+
+链路：点按钮 → `POST /chat/surface-action` → 正文里拼出 `days=180，symbols=USD,EUR` →
+模型**按回传参数重新调用 `fx_rates`**（`surface_id` 不变）→ 面板原地刷新。
+
+两个必须记住的实现约束：
+
+1. **`ChoicePicker.value` 是字符串**，多选取值是 `"USD,EUR"`。所以适配器对 `symbols`
+   同时接受数组与逗号串，`days` 同时接受 int 与 `"180"` —— 否则面板一回流就退化成默认 30 天。
+2. `_surface_action_question` 原文写死「调用 render_ui 时沿用 surfaceId」，会让模型拿
+   `render_ui` 去重画一块新面板；已改成「重新调用**产出该面板的那个工具**（render_ui /
+   fx_rates / flight_board 等）」。
+
+## 换算卡（Converter 组件，2026-11-01）
+
+折线图之后插了一块**金额换算**：输入金额 + 选源/目标币种，**实时**出结果。
+
+- **纯前端计算**，不走动作回流。换算是「边打字边看数」的场景，一次 surface-action
+  往返要好几秒，还会把面板顶出视口。
+- 汇率表放在面板 `data.rates`（`ratesPath: "/rates"` 指过去），口径与表格列一致
+  「1 单位该币 = N 元」，交叉换算走基准币中转 `amount / rates[from] * rates[to]`。
+- 表里只放**当前序列币种 + CNY**：snapshot 有 160+ 币种，全塞进选择器就没法用了。
+  不在序列里的币种（只有最新值、没历史）也不进表，避免选出换算不了的空项。
+- 组件属性全是标量（`ratesPath` / `amount` / `from` / `to` / `precision`），
+  不需要给 `_p` 新增对象类型，也不必扩 validator 的类型分支。
+- 关闭态（历史回放、非活跃面板）只渲染结果行，不出「能点但无效」的控件。
+
+组件本身是**通用**的（单位换算、货币换算都能用），已进 `catalog.py`（22 个组件）与
+`divine_catalog.json`，前端 `types.ts` / `parseUISurface.ts` / `registry.tsx` 三处同步。
+
+
+

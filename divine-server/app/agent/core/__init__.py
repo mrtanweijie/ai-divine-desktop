@@ -17,6 +17,7 @@ from __future__ import annotations
 from .constants import (
     SYSTEM_PROMPT,
     A2UI_INTENTS,
+    A2UI_TOOL_NAMES,
     AGENT_RECURSION_LIMIT,
     approval_timeout_seconds,
     MAX_TOOL_TURNS,
@@ -55,6 +56,7 @@ from .sse import (
 
 __all__ = [
     "A2UI_INTENTS",
+    "A2UI_TOOL_NAMES",
     "AgentRunContext",
     "LocalLLMManager",
     "MockChatModel",

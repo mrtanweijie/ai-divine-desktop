@@ -12,6 +12,7 @@ import {
   Calculator,
   CalendarClock,
   CalendarDays,
+  CircleDollarSign,
   CircleStop,
   Copy,
   Database,
@@ -117,6 +118,8 @@ export function toolIcon(tool: string) {
   // 交互面板：鼠标指针 = "这里能点"。注意必须排在下面的兜底之前，
   // 且不能落进 `includes("svg")` / `includes("image")` 等宽匹配分支。
   if (tool === "render_ui") return <SquareMousePointer size={16} />;
+  // 汇率：圆形美元符号，一眼看出是「钱/换算」。必须排在兜底之前。
+  if (tool === "fx_rates") return <CircleDollarSign size={16} />;
   if (tool.includes("mermaid") || tool.includes("diagram")) return <Workflow size={16} />;
   if (
     tool.includes("requirements") ||

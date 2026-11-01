@@ -62,6 +62,8 @@ from .read_file import ReadFileAdapter  # noqa: F401
 from .read_image import ReadImageAdapter  # noqa: F401
 from .render_graph import RenderGraphAdapter  # noqa: F401
 from .render_ui import RenderUiAdapter  # noqa: F401
+from .flight_board import FlightBoardAdapter  # noqa: F401
+from .fx_rates import FxRatesAdapter  # noqa: F401
 from .run_tests import RunTestsAdapter  # noqa: F401
 from .schedule_task import ScheduleTaskAdapter  # noqa: F401
 from .search_files import SearchFilesAdapter  # noqa: F401

@@ -9,6 +9,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 
 from ... import db
 from ..core import _content_text
+from ..core.constants import A2UI_TOOL_NAMES
 from ...llm.think_tags import strip_think_tags
 
 def _serialize_tool_calls(tool_calls: list[Any]) -> list[dict[str, Any]]:
@@ -48,17 +49,38 @@ def _collect_ui_surfaces(tool_calls: list[Any]) -> list[dict[str, Any]]:
     surfaces: list[dict[str, Any]] = []
     for call in tool_calls:
         name = call.get("name") if isinstance(call, dict) else getattr(call, "name", "")
-        if name != "render_ui":
+        if name not in A2UI_TOOL_NAMES:
             continue
         args = call.get("args") if isinstance(call, dict) else getattr(call, "args", {})
         if not isinstance(args, dict):
             continue
         try:
-            validation = validate_ui_surface(extract_surface(args))
+            if name == "render_ui":
+                # 模型给的参数就是完整 IR：重跑校验即可还原
+                validation = validate_ui_surface(extract_surface(args))
+                if validation.ok and validation.normalized:
+                    surfaces.append(validation.normalized)
+            elif name == "flight_board":
+                # 入参是「条件 + 报价行」，面板由纯函数重建（无 IO），可逐字段还原
+                from ...tools.adapters.flight_board import surface_from_args
+
+                rebuilt = surface_from_args(args)
+                if rebuilt:
+                    validation = validate_ui_surface(rebuilt)
+                    if validation.ok and validation.normalized:
+                        surfaces.append(validation.normalized)
+            # fx_rates 无法从入参离线重建（折线要联网取日线），改为取发事件时存下的
+            # IR 快照；sidecar 重启后快照丢失 → 该面板不进历史，但不会落空图。
+            elif name == "fx_rates":
+                from ..state import surface_cache
+
+                cached = surface_cache.get(str(call.get("id") or ""), name)
+                if cached:
+                    validation = validate_ui_surface(cached)
+                    if validation.ok and validation.normalized:
+                        surfaces.append(validation.normalized)
         except Exception:  # noqa: BLE001 - 落库不得因面板异常而失败
             continue
-        if validation.ok and validation.normalized:
-            surfaces.append(validation.normalized)
     return surfaces
 
 

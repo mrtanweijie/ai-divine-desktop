@@ -391,17 +391,39 @@ _COMPLEX_PLAN_KEYWORDS = (
     "目录结构",
 )
 
+def _user_texts(messages: list[Any]) -> list[str]:
+    """抽取用户消息文本，兼容三种形态：LangChain 对象 / dict / 鸭子类型。
+
+    之前只认 ``isinstance(message, HumanMessage)``：一旦 state 里的消息是 dict，
+    或者打包后出现两份 langchain_core 导致 isinstance 失配，这里就一条都取不到，
+    直接落到「无用户消息 → 询问是否出方案」，于是「人民币兑换美元汇率」这种
+    一句话请求也会弹 PLAN_CHOICE。
+    """
+    texts: list[str] = []
+    for message in messages or []:
+        if isinstance(message, dict):
+            role = str(message.get("role") or message.get("type") or "").lower()
+            if role in {"user", "human"}:
+                texts.append(_content_text(message.get("content")))
+            continue
+        # 鸭子类型兜底：BaseMessage 都带 .type，跨模块副本时 isinstance 不可靠
+        role = str(getattr(message, "type", "") or "").lower()
+        if isinstance(message, HumanMessage) or role in {"human", "user"}:
+            texts.append(_content_text(getattr(message, "content", "")))
+    return [text for text in texts if text.strip()]
+
+
 def _should_ask_plan(messages: list[Any]) -> bool:
-    user_messages = [
-        message
-        for message in messages
-        if isinstance(message, HumanMessage)
-    ]
-    if not user_messages:
-        return True
-    text = _content_text(user_messages[-1].content).strip()
-    if not text:
-        return True
+    """是否值得先问一句「要不要出方案」。
+
+    **判不出来就不问**：宁可少打扰，也不要让一句「查个汇率」先弹一个方案选择。
+    这条曾经的默认是 ``True``（无消息 / 无文本都视为"复杂"），实测导致简单请求
+    频繁被拦，故改为 fail-closed。
+    """
+    texts = _user_texts(messages or [])
+    if not texts:
+        return False
+    text = texts[-1].strip()
     lowered = text.lower()
     if any(keyword in lowered for keyword in _NO_PLAN_EXPLICIT_KEYWORDS):
         return False

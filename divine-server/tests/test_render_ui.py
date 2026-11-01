@@ -482,12 +482,14 @@ def test_file_list_rejects_unknown_field_and_missing_name() -> None:
 
 
 def test_rich_media_components_are_in_catalog() -> None:
-    """S5 的目录扩到 21 个组件，且富媒体组独立成组。"""
+    """目录 22 个组件（21 + 金额换算 Converter），富媒体组独立成组。"""
     doc = catalog_document()
-    assert len(doc["components"]) == 21
+    assert len(doc["components"]) == 22
     assert doc["groups"]["media"] == "富媒体"
     for name in ("Chart", "Graph", "FileList"):
         assert doc["components"][name]["group"] == "media"
+    # 换算卡是纯展示型交互组件：不算富媒体，不占 MAX_RICH_MEDIA 配额
+    assert doc["components"]["Converter"]["group"] == "display"
 
 
 # --------------------------------------------------------------------------

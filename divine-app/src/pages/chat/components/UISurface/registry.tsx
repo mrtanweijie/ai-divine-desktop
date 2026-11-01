@@ -335,6 +335,87 @@ function StepsComp({ component, ctx }: CompProps<"Steps">) {
   );
 }
 
+/**
+ * 金额换算：**纯前端实时计算**，不走动作回流。
+ *
+ * 汇率表在面板 `data` 里（`ratesPath` 指过去），口径「1 单位该币 = N 基准币」，
+ * 交叉换算走基准币中转：`amount / rates[from] * rates[to]`。
+ * 金额与币种是组件局部状态 —— 换算是「边打字边看数」的场景，
+ * 一次动作回流要好几秒，还会把面板顶出视口。
+ *
+ * 关闭态（历史回放 / 非活跃面板）只出结果、不出「能点但无效」的控件。
+ */
+function ConverterComp({ component, ctx }: CompProps<"Converter">) {
+  const table = ctx.resolve<Record<string, number>>({ path: component.ratesPath }) ?? {};
+  const codes = Object.keys(table).filter((code) => Number.isFinite(Number(table[code])));
+  const initialFrom =
+    component.from && codes.includes(component.from) ? component.from : (codes[0] ?? "");
+  const initialTo =
+    component.to && codes.includes(component.to)
+      ? component.to
+      : (codes.find((code) => code !== initialFrom) ?? initialFrom);
+  const [amount, setAmount] = useState(() => String(component.amount ?? 1000));
+  const [from, setFrom] = useState(initialFrom);
+  const [to, setTo] = useState(initialTo);
+
+  const precision = Math.min(Math.max(Number(component.precision ?? 2), 0), 6);
+  const base = Number(table[from]);
+  const target = Number(table[to]);
+  const typed = amount.trim();
+  const input = Number(typed);
+  const valid = typed !== "" && Number.isFinite(input) && base > 0 && target > 0;
+  const result = valid ? (input / base) * target : Number.NaN;
+  const unit = base > 0 && target > 0 ? target / base : Number.NaN;
+
+  const fmt = (value: number, digits: number) =>
+    Number.isFinite(value)
+      ? value.toLocaleString("zh-CN", {
+          minimumFractionDigits: digits,
+          maximumFractionDigits: digits,
+        })
+      : "—";
+
+  if (!codes.length) return null;
+
+  const summary = (
+    <div className="uis-converter-result">
+      {valid ? (
+        <span className="uis-converter-main">
+          {fmt(input, precision)} {from} ≈ <strong>{fmt(result, precision)}</strong> {to}
+        </span>
+      ) : (
+        <span className="uis-converter-main is-empty">输入金额查看换算结果</span>
+      )}
+      <span className="uis-converter-rate">
+        1 {from} = {fmt(unit, Math.max(precision, 4))} {to}
+      </span>
+    </div>
+  );
+
+  if (ctx.status !== "live") {
+    return <div className="uis-converter">{summary}</div>;
+  }
+
+  const options = codes.map((code) => ({ value: code, label: code }));
+  return (
+    <div className="uis-converter">
+      <div className="uis-converter-inputs">
+        <Input
+          type="number"
+          label="金额"
+          value={amount}
+          min={0}
+          onChange={(event) => setAmount(event.target.value)}
+          action={<span className="uis-unit">{from}</span>}
+        />
+        <Select value={from} options={options} label="从" onChange={setFrom} />
+        <Select value={to} options={options} label="到" onChange={setTo} />
+      </div>
+      {summary}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // C 组 · 输入
 // ---------------------------------------------------------------------------
@@ -671,6 +752,7 @@ export const COMPONENT_REGISTRY: {
   Table: TableComp,
   Progress: ProgressComp,
   Steps: StepsComp,
+  Converter: ConverterComp,
   TextField: TextFieldComp,
   TextArea: TextAreaComp,
   NumberField: NumberFieldComp,

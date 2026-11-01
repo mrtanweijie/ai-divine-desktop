@@ -18,6 +18,7 @@ import { toast } from "@/components/ui/Toast";
 import { Flex } from "@/components/ui/Flex";
 import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
+import { ChoiceBlock, splitNoteOptions } from "@/pages/chat/components/ChoiceBlock";
 import { UISurfaceBlock } from "@/pages/chat/components/UISurface/UISurfaceBlock";
 import type { ChatMessage, PreviewFile, TodoItem } from "@/types";
 import { copyText, formatDuration, formatSize, formatTime, formatTokens } from "@/utils";
@@ -71,6 +72,22 @@ export const MessageItem = memo(function MessageItem({
   const groupedTools = useMemo(() => groupToolCards(message.tools), [message.tools]);
   // 执行中插话（[用户补充] 前缀）：气泡内显示去前缀正文 + "补充"徽标
   const supplementText = parseSupplement(message.content);
+  // 正文末尾的 ```options 卡片：抽出来渲染到消息**最后**（面板之后）。
+  // 面板是「结论的延伸操作区」，选项卡是「下一步动作」——顺序固定为
+  // 正文 → 面板 → 选项卡。否则卡片会夹在正文与面板之间，看起来像
+  // 「面板还没加载完就先弹了一排按钮」。
+  // 流式期间围栏未闭合时 fenced=false，交回 MarkdownView 按原样处理
+  // （它对未闭合的 options 块返回 null，不会闪出源码）。
+  const choiceSplit = useMemo(() => {
+    if (isUser || !message.content) {
+      return { prose: message.content ?? "", data: null, fenced: false };
+    }
+    return splitNoteOptions(message.content);
+  }, [isUser, message.content]);
+  // 只有解析成功才把围栏从正文里摘走：万一 JSON 烂到修不回来，
+  // 保留原始代码块（可见、可复制）比静默吞掉强。
+  const visibleContent =
+    choiceSplit.fenced && choiceSplit.data ? choiceSplit.prose : message.content;
   return (
     <article className={`message-row ${isUser ? "user-message" : "assistant-message"}`}>
       <Flex align="center" justify={isUser ? "end" : "start"} gap={8} className="message-meta">
@@ -237,15 +254,17 @@ export const MessageItem = memo(function MessageItem({
             />
           ))}
           {!streaming && message.tools.length > 0 && <TracePanel tools={message.tools} />}
-          {message.content ? (
+          {visibleContent ? (
             <MarkdownView
-              content={message.content}
+              content={visibleContent}
               streaming={streaming}
               messageId={message.id}
               choiceState={message.choice_state}
             />
           ) : (
-            !message.error && (
+            !message.content &&
+            !message.error &&
+            !message.surface_updating && (
               <Flex
                 className="loading-cursor"
                 align="center"
@@ -263,7 +282,10 @@ export const MessageItem = memo(function MessageItem({
               </Flex>
             )
           )}
-          {streaming && message.content && (
+          {/* 面板动作回合（surface_updating）**不显示** "Working..."：
+              它挂在原消息尾部，来往一次就把下面的面板顶起/落下（用户报的跳动）。
+              进度感由面板自己的「更新中」态承担（UISurfaceBlock 头部）。 */}
+          {streaming && message.content && !message.surface_updating && (
             <span className="stream-orb">
               <LoadingOrb state="connecting" size={20} speed={2} />
               <span className="stream-text">{t("message.working", "Working...")}</span>
@@ -283,6 +305,15 @@ export const MessageItem = memo(function MessageItem({
               note={message.surface_note}
             />
           ))}
+          {/* 正文里的 ```options 卡片挪到面板之后：它是「下一步动作」，
+              永远排在结论与操作区之后（顺带修掉裸 JSON 显示不出来的问题）。 */}
+          {choiceSplit.fenced && choiceSplit.data && (
+            <ChoiceBlock
+              data={choiceSplit.data}
+              messageId={message.id}
+              persistedChoice={message.choice_state}
+            />
+          )}
           {message.error && (
             <div className="message-error">
               <AlertCircle size={15} />

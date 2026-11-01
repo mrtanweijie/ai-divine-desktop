@@ -285,6 +285,24 @@ COMPONENTS: dict[str, dict[str, Any]] = {
             "caption": _p("string", bindable=True),
         },
     },
+    "Converter": {
+        "group": "display",
+        "label": "金额换算",
+        "props": {
+            "ratesPath": _p(
+                "string",
+                required=True,
+                desc=(
+                    "data 里汇率表的路径（如 /rates）。表形态 {币种: 数值}，"
+                    "口径统一为「1 单位该币 = N 基准币」，交叉换算走基准币中转"
+                ),
+            ),
+            "amount": _p("number", desc="初始金额，默认 1000"),
+            "from": _p("string", desc="默认源币种，缺省取表里第一个"),
+            "to": _p("string", desc="默认目标币种，缺省取表里第二个"),
+            "precision": _p("integer", default=2, desc="结果小数位，默认 2"),
+        },
+    },
     # ---------------- C 组 · 输入 ----------------
     "TextField": {
         "group": "input",

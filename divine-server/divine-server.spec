@@ -18,6 +18,13 @@ a = Analysis(
         ("../docs/pdf-forms", "pdf-forms"),
         (str(project_root / "app" / "tools" / "scripts"), "app/tools/scripts"),
         (str(project_root / "app" / "docgen" / "pdf" / "pdf_themes"), "app/docgen/pdf/pdf_themes"),
+        # 内置站点配方（031 §7）：JSON 数据文件不会被 import 分析收集，必须显式打进
+        # datas，否则 onefile 里 `_builtin_dir()` 不存在 → load_recipes() 静默返回空，
+        # 表现为「配方写好了但打包版从不命中」（meituan-waimai / flight-ctrip 都踩过）。
+        (
+            str(project_root / "app" / "tools" / "browser_engine" / "recipes_builtin"),
+            "app/tools/browser_engine/recipes_builtin",
+        ),
         # llama-server 全套（二进制 + 全部动态库，含 openssl/libomp 等第三方
         # 依赖；打包为数据文件，运行时解压部署）。必须整体打包 llama/ 目录，
         # 否则部署后的 llama-server 会因缺 libssl/libcrypto/libomp 直接 dyld

@@ -34,8 +34,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--color-border);
+  /* 无分隔线：标题与内容靠父级 gap(10px) 拉开层级，不再画一条横线 */
 }
 
 .uis-header-title {
@@ -658,4 +657,60 @@
 
 .uis-filelist .file-list {
   margin: 0;
+}
+
+/* 金额换算：一行输入 + 一行结果。
+ * 不套卡片、不加边框 —— 面板内只有 `uis-surface` 一层卡片（§6.11 用户约定）。 */
+.uis-converter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.uis-converter-inputs {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 金额占主宽，两个币种选择固定窄列，窄面板下整体换行 */
+.uis-converter-inputs > *:first-child {
+  flex: 1 1 140px;
+  min-width: 120px;
+}
+
+.uis-converter-inputs > *:nth-child(2),
+.uis-converter-inputs > *:nth-child(3) {
+  flex: 0 0 96px;
+}
+
+.uis-converter-result {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.uis-converter-main {
+  color: var(--color-text);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+
+  strong {
+    font-weight: 600;
+  }
+
+  &.is-empty {
+    color: var(--color-text-muted);
+    font-weight: 400;
+  }
+}
+
+.uis-converter-rate {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }

@@ -66,6 +66,7 @@ const REQUIRED_PROPS: Record<UIComponentName, readonly string[]> = {
   Table: ["columns", "rows"],
   Progress: ["value"],
   Steps: ["items"],
+  Converter: ["ratesPath"],
   TextField: ["label", "value"],
   TextArea: ["label", "value"],
   NumberField: ["label", "value"],

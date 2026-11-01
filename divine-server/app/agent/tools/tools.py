@@ -21,7 +21,7 @@ from langgraph.prebuilt import ToolRuntime
 from ...config import settings_store
 from ...skills import skill_registry
 from ...tools.registry import registry
-from ..core import A2UI_INTENTS, MAX_TOOL_TURNS, _READ_ONLY_TOOLS
+from ..core import A2UI_INTENTS, MAX_TOOL_TURNS, _READ_ONLY_TOOLS, A2UI_TOOL_NAMES
 from ..core import AgentRunContext
 from .execution import _handle_adapter_call
 from ..middleware import (
@@ -83,6 +83,9 @@ _CONTENT_TOOLS: dict[str, str | tuple[str, ...]] = {
     "run_subagents": "subagent",
     # web_task（通用 Web 任务引擎，031）：browser 意图命中时注入，仅此一个入口
     "web_task": "browser",
+    # flight_board（033）：与 _FLIGHT_SECTION 的挂载同源——机票意图才注入。
+    # 无信号轮（用户只回一句「改成 10/3」）仍放行，面板才刷得出来。
+    "flight_board": "flights",
     # render_ui 的判据必须与提示词节 _A2UI_SECTION 的挂载完全一致
     # （core.constants.A2UI_INTENTS 是唯一真源，028 §10.1 ③）。
     # 注意：intents 为空时 _content_tool_allowed 全量放行，所以「无信号的
@@ -162,7 +165,8 @@ def _build_tools(ctx: AgentRunContext) -> list[StructuredTool]:
         if meta.get("category") == "browser":
             continue
         # A2UI 面板：总开关关闭时整块工具下线（不注入、不可见、不可调）。
-        if name == "render_ui" and not a2ui_enabled:
+        # 判据与 execution/persistence 共用 A2UI_TOOL_NAMES，避免新增面板工具漏关。
+        if name in A2UI_TOOL_NAMES and not a2ui_enabled:
             continue
         # 意图工具裁减：内容创作/技能类工具仅当对应意图命中时注入。
         if not _content_tool_allowed(name, intents):

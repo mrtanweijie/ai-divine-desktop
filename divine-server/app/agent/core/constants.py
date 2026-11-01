@@ -77,6 +77,11 @@ _READ_ONLY_TOOLS = {
     # render_ui 是纯展示工具：只做校验 + 出协议消息，无 IO、无副作用，
     # 因此归入只读集合（=> 免审批、免锁可并行、plan_first 期间可放行）。
     "render_ui",
+    "render_graph",
+    # 机票面板同理：入参是已抓好的报价行，工具只做换算/排序/出协议消息。
+    "flight_board",
+    # 汇率：读公开接口 + 出面板，不写工作区、不改会话状态。
+    "fx_rates",
     "describe_svg",
     "git_status",
     "git_diff",
@@ -95,8 +100,7 @@ _READ_ONLY_TOOLS = {
 #: 收录所有「用户要产出某个东西」的意图（面板是产物的呈现形态之一）；
 #: 本地动作类（open_app/screenshot 等）、图片生成、技能、终端、子 Agent、
 #: 记忆这些与「呈现/交互」无关的意图不收。
-A2UI_INTENTS: tuple[str, ...] = (
-    "pdf",
+A2UI_INTENTS: tuple[str, ...] = (    "pdf",
     "resume",
     "document",
     "chart",
@@ -105,7 +109,21 @@ A2UI_INTENTS: tuple[str, ...] = (
     "ux",
     "html",
     "project",
+    # 机票（033）：用户要反复改日期/目的地/预算再比价，面板既是输入表单也是结果筛选器。
+    # 漏收的后果不是「模型不肯用」，而是 render_ui 在该意图回合**根本不进工具列表**。
+    "flights",
 )
+
+#: 会产出 A2UI 面板的工具 —— **唯一判据**。
+#:
+#: 三处必须共用这一份，否则会出现「工具产出了面板消息但没人发」：
+#: * ``tools/execution.py``：按名字决定是否发 ``event: a2ui``；
+#: * ``tools/tools.py``：总开关关闭时按名字整块下线；
+#: * ``state/persistence.py``：回合收尾按名字重建面板落库。
+#:
+#: 历史教训：这三处原本都写死 ``name == "render_ui"``，新增 ``fx_rates`` /
+#: ``flight_board`` 后消息被静默丢弃，用户看到「工具执行完成」却没有图。
+A2UI_TOOL_NAMES: tuple[str, ...] = ("render_ui", "fx_rates", "flight_board")
 
 _NO_PLAN_TOOLS = {
     "ask_user",

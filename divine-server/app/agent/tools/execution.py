@@ -14,7 +14,8 @@ from ... import db
 from ...github_skills import preview_skill_repo
 from ...skills import discover_importable_skills, find_importable_skill
 from ...tools.terminal_policy import terminal_command_policy
-from ..core import _NO_PLAN_TOOLS, _READ_ONLY_TOOLS
+from ..core import _NO_PLAN_TOOLS, _READ_ONLY_TOOLS, A2UI_TOOL_NAMES
+from ..state import surface_cache
 from ..core import AgentRunContext, canonical_path
 from ..state import _frontend_tool_result
 from ..core.prompts import _should_ask_plan
@@ -1128,7 +1129,14 @@ async def _handle_adapter_call(
         # A2UI：面板消息必须**先于** tool 事件送出（前端先建面板、再收到工具卡
         # 结果），否则会出现「先看到工具卡、面板才补上」的闪动。
         # 帧内完整性：一次给出整块 surface，不跨帧拼接（044 §5.1）。
-        if name == "render_ui" and output.get("success"):
+        # 判据是 core.constants.A2UI_TOOL_NAMES —— 曾经写死 name == "render_ui"，
+        # 导致 fx_rates / flight_board 的面板消息被静默丢弃。
+        if name in A2UI_TOOL_NAMES and output.get("success"):
+            # 先把 IR 快照存进进程内缓存：像 fx_rates 这种无法从入参离线重建的面板，
+            # 回合收尾要靠它落库，否则 SSE 里有图、done 之后被服务端消息覆盖掉。
+            _data = output.get("data")
+            if isinstance(_data, dict):
+                surface_cache.remember(call_id, _data.get("uiSurface"), name)
             a2ui_payload = _take_a2ui_payload(
                 output, call_id, int(getattr(ctx, "turn_index", 0) or 0)
             )
