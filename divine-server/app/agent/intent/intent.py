@@ -25,6 +25,8 @@ from ..core.prompt_sections import (
     _DOCUMENT_RULES,
     _FILE_AND_WEB_RULES,
     _FILE_SEARCH_RULES,
+    _FLIGHT_DESTINATIONS,
+    _FLIGHT_SECTION,
     _GENERAL_RULES,
     _HTML_PAGE_RULES,
     _IMAGE_GENERATION_RULES,
@@ -72,6 +74,7 @@ CONDITIONAL_SECTIONS: dict[str, tuple[str, ...]] = {
     "terminal": (_TERMINAL_RULES,),
     "subagent": (_SUBAGENT_RULES,),
     "browser": (_BROWSER_TASK_RULES,),
+    "flights": (_FLIGHT_SECTION, _FLIGHT_DESTINATIONS),
     "project": (_PROJECT_WORKFLOW,),
     "memory": (_MEMORY_RULES,),
 }
@@ -101,6 +104,7 @@ _INTENT_ORDER: tuple[str, ...] = (
     "terminal",
     "subagent",
     "browser",
+    "flights",
     "project",
     "memory",
 )
@@ -264,6 +268,17 @@ _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
         "run_subagents",
         "同时调研",
         "多来源",
+    ),
+    # 低价机票（033）：比价/收集/盯票
+    "flights": (
+        "机票",
+        "航班",
+        "低价机票",
+        "特价机",
+        "廉价航空",
+        "飞各地",
+        "盯票",
+        "航班比价",
     ),
     # 通用 Web 任务（031）：用户给 URL + 要求操作网页；关键词保持具体，
     # 避免与 open_app 的"打开"、web_fetch 的"抓取"打架。

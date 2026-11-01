@@ -840,6 +840,46 @@ _BROWSER_TASK_RULES = """用户要求操作真实浏览器里的网页（给 URL
 - 登录/验证码类页面子 Agent 会停下并汇报，转告用户在浏览器里手动完成后继续；
 - 汇总时保留子 Agent 返回的关键结构化字段（URL/金额/状态等）。"""
 
+# FLIGHT_RULES — 低价机票猎人（033）：需求收集 → 航线枚举 → 串行委派搜价 → 汇总
+_FLIGHT_SECTION = """用户要找/比价/收集机票（如「五一上海飞各地低价机票」「帮我盯着北京飞成都便宜票」）时：
+- **先补全需求**（ask_user 选项卡，缺什么问什么）：出发城市、单程/往返、去程回程日期与灵活度
+  （灵活则 ±N 天展开，单程 ≤5 个日期、往返 ≤3×3）、目的地范围（任意低价/国内热门/自列清单）、
+  预算区间、直飞偏好；五一/国庆等假日默认往返+±2 天
+- **目的地枚举**：无明确目的地时按下方城市表取热门（用户限定国内/海岛等则过滤），
+  单轮 ≤15 条航线（浏览器独占，逐条串行委派 web_task，不要 run_subagents 并行——
+  会互相抢浏览器 tab）；SSE 实时汇报进度（已查 n/总数）
+- **搜价**：按航线构造 URL（配方 flight-ctrip/flight-trip 已内置模板与实测技巧），
+  委派 web_task(**headless=false**，机票站反爬拦无头) 抽取：最低价/航司/起降时间/直飞，含税为准
+- **汇总与呈现**：正文 Markdown 表（价格升序 Top15：目的地¥价 日期 航司 直飞 时长
+  [预订链接=搜索URL]），预算内标 ✅，明显低价标 🔥；全量结果用 spreadsheet/notes 存工作区
+  附件供追问筛选（"只看海岛/周四出发"等二次筛选直接查附件，**不重新抓取**）；
+  结果条目多且用户会反复筛时可用 render_ui 渲染可筛选面板（数据表+价格滑杆+直飞开关）
+- **多源去重**：同一航线查了携程+Trip.com 两个源的，按 (目的地,日期) 去重取最低价，
+  表中标注来源与币种（Trip.com 为美元，汇总表统一换算标注）
+- **往返与灵活日期**：往返用 two-way URL（配方有模板）；灵活日期**优先读页面自带的价格
+  日历**（一次导航拿 ±3 天价，不逐日导航），日历无数据再展开日期组合逐日查
+- **盯票订阅**（用户要求"盯着/低于X提醒"时）：
+  1. 用 schedule_task 建定时任务（默认每日 10:00），description 写明：航线、日期、
+     目标价阈值、以及执行指令"这是机票盯票任务：单航线查询后对比阈值，达标则在结果中
+     明确说明'已低于阈值'，未达标一句话汇报当前最低价即可"
+  2. 定时会话执行：按配方单航线查询 → 达标：正文突出提示（定时任务完成通知会推送用户）
+     → 未达标：简短汇报，不刷屏
+  3. 用 remember 存 flight_watch.{出发-到达} = {阈值,日期,任务id}；用户说"取消盯票"
+     时查记忆删除对应定时任务"""
+
+_FLIGHT_DESTINATIONS = """热门目的地表（中文名 三字码 英文slug）：
+北京 BJS beijing | 上海 SHA shanghai | 广州 CAN guangzhou | 深圳 SZX shenzhen |
+成都 CTU chengdu | 重庆 CKG chongqing | 杭州 HGH hangzhou | 西安 XIY xian |
+昆明 KMG kunming | 厦门 XMN xiamen | 青岛 TAO qingdao | 三亚 SYX sanya |
+海口 HAK haikou | 大连 DLC dalian | 长沙 CSX changsha | 武汉 WUH wuhan |
+南京 NKG nanjing | 成都天府 TFU chengdu | 郑州 CGO zhengzhou | 天津 TSN tianjin |
+贵阳 KWE guiyang | 桂林 KWL guilin | 丽江 LJG lijiang | 西宁 XNN xining |
+兰州 LHW lanzhou | 哈尔滨 HRB harbin | 沈阳 SHE shenyang | 福州 FOC fuzhou |
+温州 WNZ wenzhou | 宁波 NGB ningbo | 泉州 JJN quanzhou | 珠海 ZUH zhuhai |
+拉萨 LXA lhasa | 乌鲁木齐 URC urumqi | 呼和浩特 HET hohhot | 延安 ENY yanan |
+周边热门：东京 TYO tokyo | 大阪 OSA osaka | 首尔 SEL seoul | 曼谷 BKK bangkok |
+新加坡 SIN singapore | 吉隆坡 KUL kualalumpur | 中国香港 HKG hongkong | 中国澳门 MFM macau | 台北 TPE taipei"""
+
 # PROJECT_WORKFLOW — 项目开发工作流：探索/计划/编辑/验证/回滚/汇报与 git 纪律
 _PROJECT_WORKFLOW = """## 项目开发工作流
 用户要求修改、开发或排查项目代码时，按以下流程执行：

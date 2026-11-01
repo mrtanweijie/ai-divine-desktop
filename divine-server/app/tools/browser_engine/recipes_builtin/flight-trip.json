@@ -1,0 +1,10 @@
+{
+  "name": "flight-trip",
+  "version": 1,
+  "url_patterns": ["*trip.com/flights*", "*trip.com/chinaflights*", "*us.trip.com*"],
+  "flow_hints": "Trip.com 国际版机票（2026-10 实测，美元价）：\n- URL：https://us.trip.com/flights/{from英文}-to-{to英文}/tickets-{FROM三字码小写}-{TO三字码小写}?ddate=YYYY-MM-DD\n- 会 302 到 chinaflights/ShowFareFirst 页面，属正常\n- **必须 web_task(headless=false)**：无头被 whaleguard 拦截\n- 首屏无价格：等渲染约 3-5s 后二次 browser_snapshot，价格形如 $96\n- 适合国际/跨境航线比价；国内线优先用携程配方（人民币直出）",
+  "quirks": [
+    "价格默认 USD/人含税；汇总时统一标注币种",
+    "一次一条航线，多航线主 agent 串行委派"
+  ]
+}

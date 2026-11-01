@@ -2,7 +2,15 @@
 
 > 日期：2026-10-25
 > 依赖：031 通用 Web 任务引擎 / 032 无头模式；复用 web_task、run_subagents、recipes、ask_user、render_ui、schedule_task、memory
-> 状态：**设计文档** — 不含任何实施承诺
+> 状态：阶段 0（spike）与阶段 A 已实施（2026-10-25）——
+> 实测结论：Trip.com/携程机票站反爬只拦无头（whaleguard），**必须 headed**；
+> 渲染需 ~8s 后二次快照；携程列表页自带 ±3 天价格日历（灵活日期白捡）。
+> 已落地：flights 意图与 `_FLIGHT_SECTION` 条件节（含热门城市三字码表）、
+> flight-ctrip / flight-trip 内置配方（URL 模板 + 抽取技巧）。
+> 阶段 B/C/D 已实施（同日）：往返 two-way 与灵活日期（优先页面价格日历）、多源去重取最低、
+> 汇总附件 + render_ui 筛选面板、盯票订阅（schedule_task 定时查价 + 达标通知 + flight_watch 记忆）。
+> 阶段 C 结论：飞猪需淘宝登录不接入；去哪儿待稳定环境实测——当前以携程+Trip.com 双源 +
+> web_search 兜底为最终形态。
 
 ---
 

@@ -1,0 +1,13 @@
+{
+  "name": "flight-ctrip",
+  "version": 2,
+  "url_patterns": [
+    "*flights.ctrip.com*"
+  ],
+  "flow_hints": "携程国内机票列表页（2026-10 实测）：\n- 单程 URL：https://flights.ctrip.com/online/list/oneway-{from小写三字码}-{to小写三字码}?depdate=YYYY-MM-DD&cabin=y_s\n- 往返把 oneway 换 two-way，加 retdate=YYYY-MM-DD\n- **必须 web_task(headless=false)**：无头被 whaleguard 反爬拦截（页面只剩 'whaleguard block'）\n- **渲染要等足 ~8s**：browser_wait({\"text\": \"¥\"}) 或等待后二次 browser_snapshot；\n  航班卡价格形如「¥550起 经济舱1.8折」，用 browser_extract selectors={\"prices\": \"[class*=price]\"}\n- **页面自带 ±3 天价格日历**（更多日期条）：一次快照可拿 7 天低价——灵活日期场景直接用它比价，不必逐日导航\n- 取首屏前 10-15 个结果已足够低价汇总，不要无限滚动",
+  "quirks": [
+    "一次任务只查一条航线；多航线由主 agent 逐条串行委派（浏览器会话独占，并行会互抢 tab）",
+    "价格默认含税每人；日期条里「¥400低」表示该周最低价日",
+    "首屏可能弹登录浮层/广告——先按快照关掉再抽取"
+  ]
+}
