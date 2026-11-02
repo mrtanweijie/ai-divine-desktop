@@ -469,7 +469,7 @@ export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/divine.key"
 
 ```bash
 bash scripts/publish-macos.sh \
-  --version 0.2.1 \
+  --version 0.3.1 \
   --arch arm64 \
   --updater-key ~/.tauri/divine.key \
   --keychain-profile <profile> \
@@ -480,12 +480,12 @@ bash scripts/publish-macos.sh \
 
 `--arch` 指定目标架构（`arm64` / `x86_64`，默认取当前机器架构），`--keychain-profile` 使用已保存的 notarytool 凭据；`--repo` 默认从 git remote 推断，`--notes` 默认读取 `release-notes.md`。其他常用开关：`--bundles`（默认 `app,dmg`）、`--skip-sidecar`（复用已有 sidecar 产物）、`--adhoc`。
 
-更新说明默认读取仓库根目录 `release-notes.md` 中 `## v<version>` 区块（例如 `## v0.2.1`）；也可以用 `--notes` 或 `--notes-file` 覆盖。
+更新说明默认读取仓库根目录 `release-notes.md` 中 `## v<version>` 区块（例如 `## v0.3.1`）；也可以用 `--notes` 或 `--notes-file` 覆盖。
 
 需要覆盖已发布的同名版本时用：
 
 ```bash
-bash scripts/overwrite-release.sh 0.2.1
+bash scripts/overwrite-release.sh 0.3.1
 ```
 
 ### CI

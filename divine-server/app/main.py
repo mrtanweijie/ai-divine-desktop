@@ -98,7 +98,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="AI Divine",
-    version="0.2.1",
+    version="0.3.1",
     lifespan=lifespan,
 )
 

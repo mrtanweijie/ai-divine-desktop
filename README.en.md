@@ -469,7 +469,7 @@ Build locally and upload a Release:
 
 ```bash
 bash scripts/publish-macos.sh \
-  --version 0.2.1 \
+  --version 0.3.1 \
   --arch arm64 \
   --updater-key ~/.tauri/divine.key \
   --keychain-profile <profile> \
@@ -480,12 +480,12 @@ The script builds the signed bundle, generates the `.app.tar.gz` and `release-as
 
 `--arch` selects the target architecture (`arm64` / `x86_64`, defaulting to the current machine), and `--keychain-profile` uses a saved notarytool credential. `--repo` is inferred from the git remote and `--notes` reads `release-notes.md` by default. Other common flags: `--bundles` (default `app,dmg`), `--skip-sidecar` (reuse an existing sidecar artifact) and `--adhoc`.
 
-Release notes are read by default from the `## v<version>` block in the repository-root `release-notes.md` (for example `## v0.2.1`); override with `--notes` or `--notes-file`.
+Release notes are read by default from the `## v<version>` block in the repository-root `release-notes.md` (for example `## v0.3.1`); override with `--notes` or `--notes-file`.
 
 To overwrite an already-published version with the same number:
 
 ```bash
-bash scripts/overwrite-release.sh 0.2.1
+bash scripts/overwrite-release.sh 0.3.1
 ```
 
 ### CI
