@@ -36,11 +36,15 @@ export function UpdateBanner() {
   }
 
   if (updater.status === "downloaded") {
+    // 自动重启失败时（message 非空）不能说「正在重启」—— 包已经装好，
+    // 只是要用户手动退出重开，文案必须给对。
     return (
       <div className="update-banner" role="status">
         <RefreshCw className="update-banner-icon" size={15} />
         <span className="update-banner-text">
-          {t("updater.restarting", "更新完成，正在重启...")}
+          {updater.message
+            ? t("updater.manualRestart", "更新已安装，请手动退出并重新打开应用")
+            : t("updater.restarting", "更新完成，正在重启...")}
         </span>
       </div>
     );
@@ -49,7 +53,7 @@ export function UpdateBanner() {
   return (
     <div className="update-banner update-banner--available" role="status">
       <Download className="update-banner-icon" size={15} />
-      <span className="update-banner-text" title={updater.body || undefined}>
+      <span className="update-banner-text">
         {t("updater.available", "发现新版本 v{{version}}", {
           version: updater.version,
         })}

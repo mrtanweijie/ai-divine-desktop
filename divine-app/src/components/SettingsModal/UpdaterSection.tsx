@@ -7,6 +7,14 @@ import "./UpdaterSection.less";
 export function UpdaterSection() {
   const { t } = useTranslation();
   const updater = useUpdaterState();
+  // 失败发生在哪一段要说清楚：下载失败（网络）与安装失败（解压/替换 app）
+  // 的处置方式完全不同，原来一律报「检查更新失败」等于没说。
+  const stageLabel =
+    updater.errorStage === "install"
+      ? t("updater.installFailed", "更新安装失败")
+      : updater.errorStage === "download"
+        ? t("updater.downloadFailed", "更新下载失败")
+        : t("updater.checkFailed", "检查更新失败，请稍后重试");
 
   return (
     <div className="settings-updater">
@@ -60,14 +68,26 @@ export function UpdaterSection() {
             {updater.status === "downloaded" && (
               <>
                 <RefreshCw size={14} />
-                <span>{t("updater.restarting", "更新完成，正在重启...")}</span>
+                <span className="settings-updater-status-text">
+                  {updater.message
+                    ? t("updater.manualRestart", "更新已安装，请手动退出并重新打开应用")
+                    : t("updater.restarting", "更新完成，正在重启...")}
+                  {updater.message ? (
+                    <em className="settings-updater-reason">{updater.message}</em>
+                  ) : null}
+                </span>
               </>
             )}
             {updater.status === "uptodate" && <span>{t("updater.uptodate", "已是最新版本")}</span>}
             {updater.status === "error" && (
               <span className="settings-updater-error">
                 <AlertTriangle size={13} />
-                {t("updater.checkFailed", "检查更新失败，请稍后重试")}
+                <span className="settings-updater-status-text">
+                  {stageLabel}
+                  {updater.message ? (
+                    <em className="settings-updater-reason">{updater.message}</em>
+                  ) : null}
+                </span>
               </span>
             )}
             {updater.status === "disabled" && (
@@ -76,9 +96,6 @@ export function UpdaterSection() {
           </span>
         )}
       </div>
-      {updater.status === "available" && updater.body && (
-        <p className="settings-updater-notes">{updater.body}</p>
-      )}
     </div>
   );
 }

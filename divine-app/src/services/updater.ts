@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { isTauri } from "@/services/tauri";
@@ -13,12 +14,29 @@ export type UpdaterStatus =
   | "error"
   | "disabled";
 
+/**
+ * 失败发生在哪一段。UI 按它选文案 —— 原来 download/install 失败也报
+ * 「检查更新失败」，用户完全看不出是网络问题还是装不上。
+ */
+export type UpdaterErrorStage = "check" | "download" | "install";
+
+/** 下载+安装的总超时：GitHub 大包（~170MB）慢网络下可能几分钟，但绝不能无限等。 */
+const INSTALL_TIMEOUT_MS = 15 * 60 * 1000;
+
 export interface UpdaterState {
   status: UpdaterStatus;
   version: string;
+  /**
+   * 更新说明原文（来自 `latest.json` 的 `notes`）。
+   *
+   * **不在 UI 展示**：产品上只告知「发现新版本 vX.Y.Z」，不铺开更新内容。
+   * 字段保留是为了排查问题时能拿到原文，别再接到展示层。
+   */
   body: string;
   progress: number;
+  /** 失败原因（原文，含 Tauri 抛出的底层错误），error / downloaded 两种状态会展示。 */
   message: string;
+  errorStage: UpdaterErrorStage | null;
   update: Update | null;
   bannerDismissed: boolean;
   dismissedVersion: string;
@@ -30,6 +48,7 @@ const initialState: UpdaterState = {
   body: "",
   progress: 0,
   message: "",
+  errorStage: null,
   update: null,
   bannerDismissed: false,
   dismissedVersion: "",
@@ -85,14 +104,44 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
+/**
+ * 给可能永不 settle 的 Promise 加超时。
+ *
+ * Tauri 的 `downloadAndInstall` 在「下载完、替换 app」阶段卡住时既不 resolve
+ * 也不 reject —— 一旦卡住 `busy` 永不释放，「重试」按钮点了没任何反应。
+ * 超时至少能把状态放出来，让用户重试或手动装 DMG。
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(
+      () => reject(new Error(`更新超时：${Math.round(ms / 60_000)} 分钟未完成`)),
+      ms,
+    );
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export async function checkForUpdates(): Promise<void> {
   if (!isTauri()) {
     setState({ ...initialState, status: "disabled" });
     return;
   }
-  if (busy) return;
+  if (busy) {
+    // 上一次卡在 error（下载/安装超时）时放行重试，否则按钮点了没反应
+    if (state.status !== "error") return;
+    busy = false;
+  }
   busy = true;
-  setState({ ...state, status: "checking", progress: 0, message: "" });
+  setState({ ...state, status: "checking", progress: 0, message: "", errorStage: null });
   try {
     const found = await check({ timeout: 30_000 });
     currentUpdate = found;
@@ -104,6 +153,7 @@ export async function checkForUpdates(): Promise<void> {
         body: found.body ?? "",
         progress: 0,
         message: "",
+        errorStage: null,
         update: found,
         bannerDismissed: sameDismissed,
         dismissedVersion: found.version,
@@ -115,6 +165,7 @@ export async function checkForUpdates(): Promise<void> {
         body: "",
         progress: 0,
         message: "",
+        errorStage: null,
         update: null,
         bannerDismissed: false,
         dismissedVersion: "",
@@ -128,12 +179,29 @@ export async function checkForUpdates(): Promise<void> {
       body: "",
       progress: 0,
       message: errorMessage(error),
+      errorStage: "check",
       update: null,
       bannerDismissed: false,
       dismissedVersion: "",
     });
   } finally {
     busy = false;
+  }
+}
+
+/**
+ * 停/起本地后端（sidecar）。
+ *
+ * 安装更新会把整个 `Divine.app` 换掉，而 sidecar 是 bundle 里的可执行文件
+ * （`Contents/MacOS/divine-server`，160MB）。它继续运行会让替换阶段拿到
+ * EBUSY/EPERM —— 安装失败时用户只看到一句「检查更新失败」，完全无从判断。
+ * 命令不存在（更老的壳）时静默跳过，不能因为停不了后端就不给更新。
+ */
+async function controlSidecar(action: "stop_sidecar" | "start_sidecar"): Promise<void> {
+  try {
+    await invoke(action);
+  } catch {
+    // 老版本没有该命令 / 后端本来就没起 —— 都不阻断更新
   }
 }
 
@@ -146,6 +214,7 @@ export async function downloadAndInstallUpdate(): Promise<void> {
     version: target.version,
     progress: 0,
     message: "",
+    errorStage: null,
     update: target,
   });
 
@@ -164,15 +233,36 @@ export async function downloadAndInstallUpdate(): Promise<void> {
   };
 
   try {
-    await target.downloadAndInstall(onEvent);
-    setState({ ...state, status: "downloaded", progress: 100 });
-    await relaunch();
+    // 替换 bundle 之前先放掉后端进程，避免安装阶段被占用文件挡住
+    await controlSidecar("stop_sidecar");
+    await withTimeout(target.downloadAndInstall(onEvent), INSTALL_TIMEOUT_MS);
+    setState({ ...state, status: "downloaded", progress: 100, message: "", errorStage: null });
+    try {
+      await relaunch();
+    } catch (error) {
+      // 包已经装好了，只是没能自动重启 —— 这不是「更新失败」，
+      // 让用户手动退出重开即可（否则会误报失败，还会让人以为是安装坏了）。
+      // 重启失败时把后端拉回来，别留一个没有后端的窗口。
+      await controlSidecar("start_sidecar");
+      setState({
+        ...state,
+        status: "downloaded",
+        progress: 100,
+        message: errorMessage(error),
+      });
+    }
   } catch (error) {
+    // 安装没成功 → 恢复后端，用户还能继续用当前版本
+    await controlSidecar("start_sidecar");
+    // 已经收满字节才失败 → 问题在解压/替换 app（安装阶段）；否则是下载本身失败
+    const installed =
+      (contentLength > 0 && downloadedBytes >= contentLength) || state.progress >= 100;
     setState({
       status: "error",
       version: target.version,
       progress: 0,
       message: errorMessage(error),
+      errorStage: installed ? "install" : "download",
       update: target,
     });
   } finally {

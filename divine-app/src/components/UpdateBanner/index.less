@@ -1,7 +1,10 @@
 .update-banner {
   position: fixed;
   right: 18px;
-  bottom: 18px;
+  /* 贴顶（聊天头部 52px 之下）而不是贴底：原先 bottom:18px 正好压住输入区
+     右下角的发送按钮。放下方还有个隐患——输入框多行变高时 composer 会长高，
+     不管留多少 bottom 都可能再次被压到；贴顶则完全不受输入区高度影响。 */
+  top: 64px;
   z-index: 1200;
   display: flex;
   align-items: center;
