@@ -1,95 +1,135 @@
-/* 生成任务面板（035 §9）：与 pages/tasks 同一版式语言 */
-.media-tasks-page {
+/* 生成任务页（035 §9）：交互与样式对齐技能页（pages/skills），
+   类名 media- 前缀独立成套——不跨页复用 skills 类名（全局类名互染，028 教训）。 */
+.media-page {
   display: flex;
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
-  height: 100%;
-  min-width: 0;
-  overflow: hidden;
+  background: var(--color-bg);
 }
 
-.media-tasks-header {
+/* 与 TitleBar（52px）同行：统计行垂直居中、左右 18px 对齐 chat-header 的内边距 */
+.media-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 20px 10px;
+  flex-wrap: wrap;
+  height: 52px;
+  flex-shrink: 0;
+  padding: 0 18px;
 }
 
-.media-tasks-title {
+.media-summary {
   display: flex;
   align-items: center;
-  gap: 8px;
-
-  h1 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--color-text);
-  }
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: 12px;
 }
 
-.media-tasks-hint {
-  width: 300px;
+.media-summary-sep {
+  color: var(--color-text-muted);
 }
 
-.media-tasks-body {
+.media-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.media-filter-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.media-filter-item.active {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.media-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 20px 24px;
+  padding: 12px 18px 24px;
 }
 
-.media-section-title {
-  margin: 18px 0 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.media-empty {
-  margin: 4px 0;
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.media-task-row {
-  margin-bottom: 8px;
-  border: 0.5px solid var(--color-border);
+.media-task-card {
+  display: flex;
+  min-height: 150px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.media-task-card:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-hover-soft);
+}
+
+/* 播放中的卡片占满整行：16:9 视频需要宽度 */
+.media-task-card.is-playing {
+  grid-column: 1 / -1;
+}
+
+.media-task-card.is-failed {
   background: var(--color-surface-2);
 }
 
-.media-task-main {
+.media-task-head {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
 }
 
-.media-task-thumb {
-  flex: none;
-  width: 72px;
-  height: 46px;
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
+.media-task-icon {
   display: flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-
-  .video-player video {
-    max-height: 46px;
-  }
-}
-
-.media-task-play {
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
   color: var(--color-text-secondary);
 }
 
-.media-task-state-failed {
-  font-size: 10px;
+.media-task-icon.is-running {
+  color: var(--color-accent);
+}
+
+.media-task-icon.is-failed {
   color: var(--color-text-muted);
+  background: var(--color-surface-2);
 }
 
 .media-task-orb {
@@ -110,38 +150,99 @@
   }
 }
 
-.media-task-info {
+.media-task-title-block {
   flex: 1;
   min-width: 0;
 }
 
-.media-task-prompt {
-  font-size: 12.5px;
+.media-task-title {
+  overflow: hidden;
   color: var(--color-text);
-  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.media-task-status {
-  margin-top: 3px;
-  font-size: 11px;
-  color: var(--color-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.media-task-actions {
-  flex: none;
+.media-task-badges {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.media-task-badge {
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.media-task-badge.muted {
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+
+.media-task-badge.is-done {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  color: var(--color-success);
+}
+
+.media-task-badge.is-failed {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+
+.media-task-player {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface-2);
+}
+
+.media-task-player .video-player video {
+  max-height: 360px;
+}
+
+.media-task-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.media-task-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-top: auto;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.media-task-footer-side {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.media-task-footer-action {
+  color: var(--color-accent);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
 }
 
 .media-dismissed-toggle {
-  align-self: flex-start;
-  margin: 2px 0 8px;
+  display: inline-block;
+  margin: 10px 0;
   padding: 3px 8px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -149,10 +250,29 @@
   color: var(--color-text-secondary);
   font-size: 11px;
   cursor: pointer;
-  display: inline-block;
 }
 
 .media-dismissed-toggle:hover {
   border-color: var(--color-border-strong);
   color: var(--color-accent);
+}
+
+.media-empty {
+  padding: 48px 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 窄窗口降列 */
+@media (max-width: 1100px) {
+  .media-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .media-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

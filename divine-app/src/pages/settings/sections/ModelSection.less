@@ -43,3 +43,14 @@
   gap: 10px;
   padding: 0 10px 10px;
 }
+
+/* 列表撑满剩余空间（037 设置面板）：固定 350px 改为 flex 接管滚动 */
+.chat-model-section {
+  height: 100%;
+}
+
+.chat-model-section .settings-model-list {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}

@@ -27,7 +27,7 @@ interface SessionListProps {
   onOpenMedia: () => void;
   mediaRunningCount: number;
   onRefreshProjects: () => void;
-  activeView: "chat" | "tasks" | "skills" | "media";
+  activeView: "chat" | "tasks" | "skills" | "media" | "settings";
 }
 
 export function SessionList({

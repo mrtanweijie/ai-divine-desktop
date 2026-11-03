@@ -1,19 +1,12 @@
 import { Download, Loader2, RefreshCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
-import {
-  dismissUpdateBanner,
-  downloadAndInstallUpdate,
-  useSettingsOpen,
-  useUpdaterState,
-} from "@/services/updater";
+import { dismissUpdateBanner, downloadAndInstallUpdate, useUpdaterState } from "@/services/updater";
 import "./index.less";
 
 export function UpdateBanner() {
   const { t } = useTranslation();
   const updater = useUpdaterState();
-  const settingsOpen = useSettingsOpen();
-  if (settingsOpen) return null;
 
   const visible =
     (updater.status === "available" && !updater.bannerDismissed) ||

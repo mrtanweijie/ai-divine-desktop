@@ -28,7 +28,7 @@ import { MessageList } from "@/pages/chat/components/MessageList";
 import { NewChatGuide } from "@/pages/chat/components/NewChatGuide";
 import { FilePreviewPanel } from "@/pages/chat/components/FilePreviewPanel";
 import { SessionList } from "@/pages/chat/components/SessionList";
-import { SettingsModal } from "@/components/SettingsModal";
+import { SettingsPage, type SettingsSection } from "@/pages/settings";
 import { isMacosDesktop } from "@/services/tauri";
 import { subscribeAppEvent } from "@/services/events";
 import { notifyTaskFinished } from "@/services/scheduledTasks";
@@ -117,26 +117,18 @@ export default function ChatPage() {
     const models = settings?.models ?? [];
     return models.length === 0 || models.every((m) => !m.has_api_key);
   }, [settings?.models]);
-  const {
-    sidebarOpen,
-    setSidebarOpen,
-    settingsOpen,
-    setSettingsOpen,
-    confirmState,
-    setConfirmState,
-  } = useInputState();
+  const { sidebarOpen, setSidebarOpen, confirmState, setConfirmState } = useInputState();
   const fullscreen = useFullscreen();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   // 设置弹窗初始 tab（横幅"去安装本地模型"跳转到意图页）
-  const [settingsInitialSection, setSettingsInitialSection] = useState<
-    "basic" | "model" | "local" | "about"
-  >("basic");
+  const [settingsSection, setSettingsInitialSection] = useState<SettingsSection>("basic");
   // 未配置 API Key 横幅（本次会话可关闭）
   const [apiKeyBannerDismissed, setApiKeyBannerDismissed] = useState(false);
   const view = searchParams.get("view");
   const tasksOpen = view === "tasks";
   const skillsOpen = view === "skills";
+  const settingsOpen = view === "settings";
   const mediaOpen = view === "media";
   // 侧栏「生成任务」徽标（035 §9.1）：订阅同一份 store
   const { runningCount: mediaRunningCount } = useMediaTasks();
@@ -185,11 +177,11 @@ export default function ChatPage() {
   }, [workspacePanelOpen]);
 
   const openView = useCallback(
-    (nextView: "tasks" | "skills" | "media") => {
+    (nextView: "tasks" | "skills" | "media" | "settings" | "chat", section?: SettingsSection) => {
       setWorkspacePanelOpen(false);
       setWorkspaceExpanded(false);
       setWorkspaceExpandedLayout(false);
-      setSearchParams({ view: nextView });
+      setSearchParams(section ? { view: nextView, section } : { view: nextView });
     },
     [setSearchParams, setWorkspacePanelOpen, setWorkspaceExpanded, setWorkspaceExpandedLayout],
   );
@@ -582,10 +574,9 @@ export default function ChatPage() {
       const activeId = list.find((entry) => entry.active)?.id ?? null;
       const remembered = selectedId ? getSessionModelId(selectedId) : null;
       setComposerModelId(expandModelId(resolveModelTargetId(list, remembered, activeId), list));
-      setSettingsOpen(false);
       await refreshWorkspace();
     },
-    [refreshWorkspace, selectedId, setSettings, setSettingsOpen],
+    [refreshWorkspace, selectedId, setSettings],
   );
 
   // 静默保存（不关闭弹窗）：用于设为默认等即时生效的操作
@@ -806,9 +797,12 @@ export default function ChatPage() {
         fullscreen ? " fullscreen" : ""
       }${trafficSafe ? " traffic-safe" : ""}`}
     >
-      <Flex direction="column" className={`left-panel${!sidebarOpen ? " collapsed" : ""}`}>
+      <Flex
+        direction="column"
+        className={`left-panel${!sidebarOpen || settingsOpen ? " collapsed" : ""}`}
+      >
         <TitleBar
-          collapsed={!sidebarOpen}
+          collapsed={!sidebarOpen || settingsOpen}
           onToggleCollapse={() => setSidebarOpen((value) => !value)}
           onOpenSearch={() => setSearchOpen(true)}
           fullscreen={fullscreen}
@@ -832,7 +826,7 @@ export default function ChatPage() {
           onDeleteProject={handleDeleteProject}
           onRename={handleRename}
           onDelete={handleDelete}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => openView("settings")}
           onOpenTasks={() => openView("tasks")}
           onOpenSkills={() => openView("skills")}
           onOpenMedia={() => openView("media")}
@@ -851,14 +845,7 @@ export default function ChatPage() {
                 "未配置 API Key，当前为演示模式。可安装免费本地模型离线使用，或配置 API Key。",
               )}
             </span>
-            <Button
-              size="small"
-              variant="primary"
-              onClick={() => {
-                setSettingsInitialSection("local");
-                setSettingsOpen(true);
-              }}
-            >
+            <Button size="small" variant="primary" onClick={() => openView("settings", "local")}>
               {t("chat.installLocalModel", "去安装本地模型")}
             </Button>
             <Button
@@ -878,7 +865,26 @@ export default function ChatPage() {
         ) : skillsOpen ? (
           <SkillsPage onOpenSidebar={() => setSidebarOpen(true)} />
         ) : mediaOpen ? (
-          <MediaTasksPage onOpenSidebar={() => setSidebarOpen(true)} />
+          <MediaTasksPage />
+        ) : settingsOpen && settings ? (
+          <SettingsPage
+            settings={settings}
+            section={settingsSection}
+            onSectionChange={(next) => {
+              setSettingsInitialSection(next);
+              setSearchParams({ view: "settings", section: next });
+            }}
+            onBack={() => {
+              // 离开设置时刷新：本地模型启动/停止后，切换器随之出现/消失
+              void getSettings().then((current) => setSettings(current));
+              openView("chat");
+            }}
+            onSave={(body) => void handleSettingsSave(body)}
+            onSilentSave={(body) => void handleSilentSave(body)}
+            onConfirm={(title, description, action) =>
+              setConfirmState({ title, description, action })
+            }
+          />
         ) : (
           <ChatStreamContext.Provider value={chatStreamValue}>
             <ChatHeader
@@ -992,22 +998,6 @@ export default function ChatPage() {
         }}
         onSave={handleSaveProject}
       />
-      {settingsOpen && settings && (
-        <SettingsModal
-          settings={settings}
-          initialSection={settingsInitialSection}
-          onClose={() => {
-            setSettingsOpen(false);
-            // 刷新模型列表：本地模型启动/停止后，切换器随之出现/消失
-            void getSettings().then((current) => setSettings(current));
-          }}
-          onSave={(body) => void handleSettingsSave(body)}
-          onSilentSave={(body) => void handleSilentSave(body)}
-          onConfirm={(title, description, action) =>
-            setConfirmState({ title, description, action })
-          }
-        />
-      )}
       {confirmState && (
         <ConfirmDialog
           title={confirmState.title}

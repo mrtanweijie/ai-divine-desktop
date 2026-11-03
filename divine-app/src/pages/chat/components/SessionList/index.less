@@ -20,6 +20,7 @@
     width 180ms ease,
     opacity 160ms ease;
 }
+
 .left-panel.collapsed {
   width: 0;
   opacity: 0;
@@ -68,7 +69,8 @@
   color: var(--color-accent);
 }
 .tasks-nav-link,
-.skills-nav-link {
+.skills-nav-link,
+.media-nav-link {
   display: flex;
   height: 34px;
   align-items: center;
@@ -83,13 +85,15 @@
   cursor: pointer;
 }
 .tasks-nav-link:hover,
-.skills-nav-link:hover {
+.skills-nav-link:hover,
+.media-nav-link:hover {
   border-radius: var(--radius-lg);
   background: var(--color-accent-soft);
   color: var(--color-accent);
 }
 .tasks-nav-link.active,
-.skills-nav-link.active {
+.skills-nav-link.active,
+.media-nav-link.active {
   border-radius: var(--radius-lg);
   background: var(--color-accent-soft);
   color: var(--color-text);

@@ -57,10 +57,8 @@ const initialState: UpdaterState = {
 let state = initialState;
 let currentUpdate: Update | null = null;
 const listeners = new Set<() => void>();
-const settingsListeners = new Set<() => void>();
 let autoStarted = false;
 let busy = false;
-let settingsOpen = false;
 
 function setState(patch: Partial<UpdaterState>) {
   state = { ...state, ...patch };
@@ -78,25 +76,6 @@ export function getUpdaterState(): UpdaterState {
 
 export function useUpdaterState(): UpdaterState {
   return useSyncExternalStore(subscribeUpdater, getUpdaterState);
-}
-
-function subscribeSettingsOpen(callback: () => void): () => void {
-  settingsListeners.add(callback);
-  return () => settingsListeners.delete(callback);
-}
-
-function getSettingsOpen(): boolean {
-  return settingsOpen;
-}
-
-export function useSettingsOpen(): boolean {
-  return useSyncExternalStore(subscribeSettingsOpen, getSettingsOpen);
-}
-
-export function setSettingsOpen(open: boolean): void {
-  if (settingsOpen === open) return;
-  settingsOpen = open;
-  settingsListeners.forEach((callback) => callback());
 }
 
 function errorMessage(error: unknown): string {

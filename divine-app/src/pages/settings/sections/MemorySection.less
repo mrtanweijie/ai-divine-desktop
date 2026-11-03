@@ -49,7 +49,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 14px;
   border: none;
   background: transparent;
   color: inherit;
@@ -253,4 +253,24 @@
   .ui-select-trigger {
     min-height: 28px;
   }
+}
+
+/* 展开的 panel 撑满剩余空间（037 设置面板） */
+.settings-memory {
+  height: 100%;
+}
+
+.settings-memory .settings-memory-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-memory .settings-memory-panel.is-open {
+  flex: 1;
+  min-height: 0;
+}
+
+.settings-memory .settings-memory-panel.is-open .settings-memory-panel-body {
+  flex: 1;
+  max-height: none;
 }

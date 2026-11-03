@@ -14,7 +14,7 @@ interface CollapsibleSectionProps {
  * 可折叠区块：点标题行展开/收起。
  *
  * 交互与样式对齐设置弹窗「模型配置 → 自定义设置」
- * （`components/SettingsModal/ModelSection.tsx`）：
+ * （`pages/settings/sections/ModelSection.tsx`）：
  * - 用 `div + role="button"`，**不用原生 button**（项目约定，避免默认样式干扰）；
  * - ChevronDown 展开时旋转 180°；
  * - 收起时标题行高度与输入框对齐。

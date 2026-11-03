@@ -264,3 +264,20 @@
   padding-top: 8px;
   margin-top: 0;
 }
+
+/* 推荐模型列表撑满剩余空间：section 拉满高度，列表接管滚动（037 设置面板） */
+.local-llm-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.local-llm-section .local-model-field {
+  flex: 1;
+  min-height: 0;
+}
+
+.local-llm-section .local-model-field .model-list {
+  flex: 1;
+  max-height: none;
+}

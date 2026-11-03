@@ -376,7 +376,7 @@ export function LocalLLMSection({
   };
 
   return (
-    <div className="settings-section">
+    <div className="settings-section local-llm-section">
       <div className="local-llm-head">
         <h3 className="local-llm-title">
           {t("settings.localLLM", "意图识别模式")}
@@ -420,7 +420,16 @@ export function LocalLLMSection({
         <div className="mode-cards">
           <div
             className={`mode-card ${localLLMMode === "keyword" ? "active" : ""}`}
+            role="button"
+            tabIndex={0}
+            aria-pressed={localLLMMode === "keyword"}
             onClick={() => !loading && handleModeChange("keyword")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                if (!loading) handleModeChange("keyword");
+              }
+            }}
           >
             <div className="mode-card-icon">
               <Zap size={24} />
@@ -432,7 +441,16 @@ export function LocalLLMSection({
           </div>
           <div
             className={`mode-card ${localLLMMode === "local" ? "active" : ""}`}
+            role="button"
+            tabIndex={0}
+            aria-pressed={localLLMMode === "local"}
             onClick={() => !loading && handleModeChange("local")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                if (!loading) handleModeChange("local");
+              }
+            }}
           >
             <div className="mode-card-icon">
               <InfinityIcon size={24} />
@@ -444,7 +462,16 @@ export function LocalLLMSection({
           </div>
           <div
             className={`mode-card ${localLLMMode === "hybrid" ? "active" : ""}`}
+            role="button"
+            tabIndex={0}
+            aria-pressed={localLLMMode === "hybrid"}
             onClick={() => !loading && handleModeChange("hybrid")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                if (!loading) handleModeChange("hybrid");
+              }
+            }}
           >
             <div className="mode-card-icon">
               <AudioWaveform size={24} />
@@ -458,7 +485,7 @@ export function LocalLLMSection({
       </div>
 
       {/* 推荐模型 */}
-      <div className="settings-field">
+      <div className="settings-field local-model-field">
         <label>{t("settings.recommendedModels", "推荐模型")}</label>
         <div className="model-list">
           {recommended.map((model) => renderModelCard(model))}

@@ -48,6 +48,7 @@
 | 045 | [design-hidden-city-fares](design/034-hidden-city-fares-20261103.md) | 2026-11-03 | **P1 + P2 + P3 已实施**（弃程票单列一栏 / 多程 open-jaw / 主动找弃程清单工具） |
 | 047 | [design-video-model-generation](design/035-video-model-generation-20261103.md) | 2026-11-03 | **P1 全部已实施**（MiniMax + 智谱 / 首尾帧 / 异步 worker / 任务面板 / Range 播放 / 预估费用 / 设置「生成模型」分区） |
 | 048 | [design-image-param-panel](design/036-image-param-panel-20261103.md) | 2026-11-03 | **P1 全部已实施**（image_brief 参数面板 / FilePicker 组件 / 一行 4 张卡片结果 / media_models kind=image / 设置「生成模型」分区） |
+| 049 | [design-settings-panel](design/037-settings-panel-20261103.md) | 2026-11-03 | **P1 已实施**（设置弹窗 → 全页面板 / 分组导航 / section 深链 / basic 拆外观+快捷键 / 删除 SettingsModal；P2 行级即时保存另行排期） |
 
 ### 修复（fix）
 

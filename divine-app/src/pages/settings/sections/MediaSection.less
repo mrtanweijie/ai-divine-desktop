@@ -38,9 +38,23 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 12px;
+    padding: 14px;
     cursor: pointer;
     min-height: 20px;
+
+    /* 展开箭头与「+ 添加」按钮右缘对齐：
+       按钮右缘=卡片右缘，箭头默认缩进 summary 的 14px padding，负 margin 抵消。
+       纯指示箭头：不带 settings-model-chevron 的 24px 点击热区（那是独立按钮用的） */
+    .media-model-chevron {
+      margin-left: auto;
+      margin-right: -6px; /* 全贴边太挤，留 8px 呼吸位 */
+      color: var(--color-text-muted);
+      transition: transform 150ms ease;
+
+      &.open {
+        transform: rotate(180deg);
+      }
+    }
   }
 
   .media-model-name {
@@ -53,7 +67,6 @@
     flex-direction: column;
     gap: 10px;
     padding: 4px 12px 12px;
-    border-top: 1px solid var(--color-border);
   }
 
   .media-field-row {
@@ -73,4 +86,11 @@
     align-items: center;
     gap: 6px;
   }
+}
+
+/* 浅色主题去掉生成模型卡片背景（与 settings-model-card 同口径），避免灰块感。
+ * 注意：Less 嵌套内写 :root[...] 开头的选择器会被前置父链污染
+ * （编译成 .media-section :root[...]），必须写在文件顶层。 */
+:root[data-theme="light"] .media-section .media-model-card {
+  background: transparent;
 }

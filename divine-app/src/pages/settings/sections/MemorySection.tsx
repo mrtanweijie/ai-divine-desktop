@@ -122,7 +122,7 @@ export function MemorySection({ onConfirm }: MemorySectionProps) {
     onToggle: () => void;
     body: React.ReactNode;
   }) => (
-    <div className="settings-memory-panel">
+    <div className={`settings-memory-panel${options.open ? " is-open" : ""}`}>
       <button
         type="button"
         className="settings-memory-toggle"

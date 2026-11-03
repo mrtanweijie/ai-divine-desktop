@@ -193,7 +193,7 @@ export function ModelSection({
   };
 
   return (
-    <div className="settings-form">
+    <div className="settings-form chat-model-section">
       <div className="settings-models-hint-row">
         <p className="settings-field-hint-inline settings-models-hint">
           {t(

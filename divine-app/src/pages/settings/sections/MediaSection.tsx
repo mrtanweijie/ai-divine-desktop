@@ -1,6 +1,6 @@
 // 「生成模型」设置分区（036 §9 / 035 §10）：图像与视频两组，与聊天模型完全分离。
 // 供应商下拉选中后自动回填 base_url 与模型候选；key 空值 = 保留已存（后端合并语义）。
-import { Film, Plus, Star, Trash2 } from "lucide-react";
+import { ChevronDown, Film, Plus, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
@@ -26,7 +26,7 @@ export interface MediaModelDraft {
 interface MediaSectionProps {
   models: MediaModelConfig[];
   onChange: (models: MediaModelDraft[]) => void;
-  /** 保存由外层 SettingsModal 统一处理（媒体分区即时保存，见 index.tsx） */
+  /** 保存由外层设置面板统一处理（媒体分区即时保存，见 pages/settings/index.tsx） */
 }
 
 const PROVIDER_PRESETS: Record<string, { base_url: string; models: string[]; label: string }> = {
@@ -175,6 +175,10 @@ export function MediaSection({ models, onChange }: MediaSectionProps) {
                     {entry.has_api_key && (
                       <Tag tone="success">{t("settings.mediaKeySet", "已配 Key")}</Tag>
                     )}
+                    <ChevronDown
+                      size={13}
+                      className={`media-model-chevron${expanded ? " open" : ""}`}
+                    />
                   </div>
                   {expanded && (
                     <div className="media-model-fields">
