@@ -56,6 +56,7 @@
 | 038 | [fix-mention-skill-false-positive](fix/003-mention-skill-false-positive-20260914.md) | 2026-09-14 | 已实施（技能集合校验 / 胶囊去前缀 / 浮层单标题 / 文件图标按后缀） |
 | 039 | [fix-session-page-collapse](fix/004-session-page-collapse-20260914.md) | 2026-09-14 | 已实施（待重建 sidecar 后在 app 内确认） |
 | 040 | [fix-tool-card-stuck-loading](fix/005-tool-card-stuck-loading-20260915.md) | 2026-09-15 | **已实施（工具卡状态收敛 + abort 结算；16 项断言通过）** |
+| 046 | [fix-html-generate-single-pass](fix/006-html-generate-single-pass-20261103.md) | 2026-11-03 | 已实施（字号/间距落盘前自动收敛；软建议不再要求重生成） |
 
 ### 复盘（review）
 

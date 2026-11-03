@@ -9,13 +9,16 @@
 
 import re
 
-from app.agent.core.prompt_sections import _UX_HTML_RULES
+from app.agent.core.prompt_sections import _HTML_PAGE_RULES, _UX_HTML_RULES
 from app.tools.scripts.ux_html import (
     ALLOWED_STYLES,
     _DARK_TOKENS,
     _TOKENS,
+    TYPE_LADDER,
+    hard_failures,
     inject_scaffold,
     lint_html,
+    normalize_visual_scale,
 )
 
 _HEAD_DOC = (
@@ -382,3 +385,113 @@ def test_prompt_documents_industry_profiles():
         "未明确命中",
     ):
         assert kw in _UX_HTML_RULES, f"行业感知缺 {kw}"
+
+
+# ---------------------------------------------------------------------------
+# normalize_visual_scale：落盘前把字号/间距收敛掉，省掉「生成→报警→重生成」一轮
+# ---------------------------------------------------------------------------
+
+
+def _many_sizes_doc() -> str:
+    """复刻用户撞到的那种页面：9 种字号 + 一堆手调间距。"""
+    return (
+        "<!DOCTYPE html><html><head><title>流水分析</title><style>"
+        ".t1{font-size:11.5px;padding:5px}"
+        ".t2{font-size:12px;margin:6px 0}"
+        ".t3{font-size:12.5px;gap:9px}"
+        ".t4{font-size:13px;padding:10px 11px}"
+        ".t5{font-size:13.5px;margin:14px}"
+        ".t6{font-size:14px;padding:16px}"
+        ".t7{font-size:19px;margin-top:24px}"
+        ".t8{font-size:23px;color:#123456}"
+        ".t9{font-size:30px;border:1px solid #abcdef}"
+        "</style></head><body><div class='t1 t2'>x</div></body></html>"
+    )
+
+
+def test_normalize_collapses_font_sizes_to_six_steps():
+    out, notes = normalize_visual_scale(_many_sizes_doc())
+
+    sizes = {float(v) for v in re.findall(r"font-size\s*:\s*(\d+(?:\.\d+)?)px", out)}
+    assert len(sizes) <= 6, f"字号仍有 {sorted(sizes)}"
+    # 收敛到系统提示那套阶梯：不能出现 0.5px 微差，最大标题按 32 档
+    assert sizes <= {float(step) for step in TYPE_LADDER}, f"出现阶梯外字号: {sorted(sizes)}"
+    assert 12.0 in sizes and 32.0 in sizes, "最小/最大档必须保住，否则层级塌掉"
+    assert any("字号" in note for note in notes)
+
+
+def test_type_ladder_matches_system_prompt():
+    """防漂移：收敛用的阶梯必须与系统提示里那 6 档一致（UX 与 HTML 两节都写了）。"""
+    for section in (_UX_HTML_RULES, _HTML_PAGE_RULES):
+        ladder_line = next(
+            line for line in section.splitlines() if line.startswith("H1 ")
+        )
+        for step in TYPE_LADDER:
+            assert f"{step}" in ladder_line, (
+                f"阶梯 {step} 不在提示词里：{ladder_line}"
+            )
+
+
+def test_normalize_snaps_spacing_to_four_grid():
+    out, notes = normalize_visual_scale(_many_sizes_doc())
+
+    spacing = [
+        int(match.group(1))
+        for declaration in re.findall(
+            r"(?:padding|margin|gap)(?:-(?:top|bottom|left|right))?\s*:\s*([^;}]+)", out
+        )
+        for match in re.finditer(r"(\d+)px", declaration)
+    ]
+    assert spacing, "样例里应该有间距声明"
+    assert all(value % 4 == 0 for value in spacing), f"仍有手调间距: {sorted(set(spacing))}"
+    assert any("间距" in note for note in notes)
+
+
+def test_normalize_keeps_compliant_page_untouched():
+    doc = (
+        "<!DOCTYPE html><html><head><style>"
+        ".a{font-size:14px;padding:16px;margin:0 0 24px;gap:8px}"
+        ".b{font-size:20px;padding:32px}"
+        "</style></head><body><div class='a'>x</div></body></html>"
+    )
+    out, notes = normalize_visual_scale(doc)
+    assert out == doc
+    assert notes == []
+
+
+def test_normalize_does_not_touch_colors():
+    """改色会改设计意图（品牌色/语义色），只由 lint 以建议形式提示，不自动替换。"""
+    out, _ = normalize_visual_scale(_many_sizes_doc())
+    assert "#123456" in out and "#abcdef" in out
+
+
+def test_normalize_keeps_large_spacing_on_grid():
+    doc = (
+        "<!DOCTYPE html><html><head><style>"
+        ".hero{padding:100px 5px;font-size:14px}"
+        "</style></head><body></body></html>"
+    )
+    out, _ = normalize_visual_scale(doc)
+    assert "padding:100px 4px" in out, "100 是 4 的倍数应原样保留，5 应落档到 4"
+
+
+def test_normalized_page_clears_font_and_spacing_warnings():
+    """关键回归：收敛后再 lint，不该再出现「字号 N 档 / 间距手调」这两条。"""
+    before = lint_html(_many_sizes_doc())
+    assert any("字号出现" in item for item in before)
+    assert any("间距出现" in item for item in before)
+
+    normalized, _ = normalize_visual_scale(_many_sizes_doc())
+    after = lint_html(normalized)
+    assert not any("字号出现" in item for item in after), after
+    assert not any("间距出现" in item for item in after), after
+
+
+def test_hard_failures_only_block_on_real_breakage():
+    """软提示（字体/色值）不该逼模型重写整页，只有硬伤才值得再来一轮。"""
+    soft = "<html><head><style>.a{font-size:12px;color:#111}</style>" \
+           '<link href="https://fonts.googleapis.com/css" rel="stylesheet"></head><body></body></html>'
+    assert hard_failures(soft) == []
+
+    broken = "<html><body><script>localStorage.setItem('a',1)</script></body></html>"
+    assert hard_failures(broken), "localStorage 必须判为硬伤（预览 iframe 会抛异常）"

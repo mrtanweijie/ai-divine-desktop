@@ -28,15 +28,19 @@ try:  # pragma: no cover - 取决于执行方式
     from app.tools.scripts.ux_html import (  # type: ignore
         ALLOWED_STYLES,
         derive_title,
+        hard_failures,
         inject_scaffold,
         lint_html,
+        normalize_visual_scale,
     )
 except ImportError:  # pragma: no cover
     from ux_html import (  # type: ignore  # noqa: E402
         ALLOWED_STYLES,
         derive_title,
+        hard_failures,
         inject_scaffold,
         lint_html,
+        normalize_visual_scale,
     )
 
 from app.tools.scripts.file_utils import unique_output_path  # noqa: E402
@@ -172,9 +176,15 @@ def main() -> None:
         )
         return
 
-    # lint 跑在**原始** content 上：注入基座的色值会污染 hex 计数。
-    final_content, scaffolded = inject_scaffold(content, style)
-    warnings = lint_html(content, scaffolded=scaffolded)
+    # 排版先做确定性收敛（字号档数/间距档位）：这些是纯数值问题，
+    # 自动收敛比「生成 → 报警 → 让模型重写一遍」省一次完整往返。
+    normalized, scale_notes = normalize_visual_scale(content)
+    # lint 跑在**收敛后**的模型内容上：注入基座的色值会污染 hex 计数。
+    final_content, scaffolded = inject_scaffold(normalized, style)
+    warnings = lint_html(normalized, scaffolded=scaffolded)
+    # 硬伤（预览会崩/占位残留）才值得让模型重写；其余是可选的排版建议。
+    blocking = [item for item in warnings if item in hard_failures(normalized)]
+    advisory = [item for item in warnings if item not in blocking]
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = unique_output_path(output_dir, title, "页面", ".html")
@@ -185,10 +195,17 @@ def main() -> None:
         message += f"（style 取值 {requested_style} 无效，已回落 {DEFAULT_STYLE}）"
     elif scaffolded:
         message += f"（已注入 {style} 风格 token 基座，你自定义的 :root 与样式会覆盖基座）"
-    if warnings:
-        # 文件已落盘（不阻断流程），把问题回传给模型，促其自纠后重新生成。
-        message += "；静态校验发现以下问题，请修正后重新调用 html_generate 覆盖保存：\n- " + "\n- ".join(
-            warnings
+    if scale_notes:
+        message += "（已自动收敛排版：" + "、".join(scale_notes) + "）"
+    if blocking:
+        message += (
+            "；以下问题会导致预览异常或成品不合格，请修正后重新调用 html_generate 覆盖保存：\n- "
+            + "\n- ".join(blocking)
+        )
+    if advisory:
+        # 不要再让模型为这些建议重写整页：文件已保存，重写只会多一轮且不保证更好。
+        message += (
+            "；另有可选优化建议（文件已保存，无需重新生成）：\n- " + "\n- ".join(advisory)
         )
 
     print(
@@ -198,7 +215,7 @@ def main() -> None:
                 "message": message,
                 "file_name": output_path.name,
                 "filepath": str(output_path),
-                "warnings": warnings,
+                "warnings": advisory,
                 "data": {
                     "title": title,
                     "style": style,
@@ -206,6 +223,8 @@ def main() -> None:
                         requested_style and requested_style not in ALLOWED_STYLES
                     ),
                     "scaffold_injected": scaffolded,
+                    "blocking_issues": blocking,
+                    "scale_notes": scale_notes,
                     "size": output_path.stat().st_size,
                     "generated_at": time.strftime("%Y-%m-%d %H:%M"),
                 },

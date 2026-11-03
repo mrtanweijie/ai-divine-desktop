@@ -191,6 +191,104 @@ _GOOGLE_FONTS_RE = re.compile(r"fonts\.googleapis\.com|fonts\.gstatic\.com", re.
 _UNSTABLE_CDN_RE = re.compile(r"jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com", re.I)
 _MAX_WARNINGS = 6
 
+#: 间距档位（lint 提示里列的那一组）。小值就近取档，大值按 4 的倍数取整。
+_SPACING_LADDER = (4, 8, 12, 16, 24, 32, 48, 64)
+
+#: 排版阶梯，**必须与系统提示【2】的 6 档一致**（tests/test_ux_html.py 有防漂移断言）。
+#: 生成时模型应当自己就按这套写；这里只做兜底收敛——超档时按最近档吸附，
+#: 而不是自创一组簇心（那样收敛完就和设计规范对不上了）。
+TYPE_LADDER = (12, 14, 15, 18, 24, 32)
+
+#: 移动端阶梯（提示里写的是 28/20/17/15/13/11）。
+MOBILE_TYPE_LADDER = (11, 13, 15, 17, 20, 28)
+
+
+def _snap_spacing(value: int) -> int:
+    """把像素间距收敛到规范档位；白名单（0/1/2/3，边框细线用）与 4 的倍数原样保留。"""
+    if value in _SPACING_ALLOWLIST or value % 4 == 0:
+        return value
+    if value <= _SPACING_LADDER[-1]:
+        # 平手向大取：宁可松一点，也不要把区块挤在一起
+        return min(_SPACING_LADDER, key=lambda step: (abs(step - value), -step))
+    return int(round(value / 4.0)) * 4
+
+
+def _fmt_size(value: float) -> str:
+    return f"{int(value)}" if float(value).is_integer() else f"{value:g}"
+
+
+def _snap_type_size(value: float, ladder: tuple[int, ...]) -> float:
+    """把字号吸附到最近的阶梯档；等距时取小档（正文宁可别被放大）。"""
+    return float(min(ladder, key=lambda step: (abs(step - value), step)))
+
+
+def normalize_visual_scale(
+    content: str, *, size_limit: int = 6, mobile: bool = False
+) -> tuple[str, list[str]]:
+    """把排版自动收敛到规范档位，返回 ``(新内容, 变更说明)``。
+
+    为什么在落盘前做：原来「先写文件、再把 lint 问题回传、让模型重新生成一遍」——
+    一次生成变两次调用（250ms + 225ms 只是工具耗时，模型还得重写整段 HTML）。
+    字号档数与间距档位都是**纯数值**问题，确定性收敛比让模型重写更省更稳。
+
+    收敛目标就是系统提示里那套阶梯（``TYPE_LADDER``），不是自己发明一组数值。
+
+    只动两类值：``font-size`` 与 ``padding/margin/gap`` 的 px。**不碰色值**——
+    改色会改设计意图（品牌色/语义色），色值问题继续由 lint 以建议形式提示。
+    """
+    notes: list[str] = []
+
+    # —— 字号：超档时按规范阶梯吸附 ——
+    sizes = [float(m.group(1)) for m in _FONT_SIZE_RE.finditer(content)]
+    distinct = sorted(set(sizes))
+    if len(distinct) > size_limit:
+        ladder = MOBILE_TYPE_LADDER if mobile else TYPE_LADDER
+        mapping = {value: _snap_type_size(value, ladder) for value in distinct}
+
+        def _replace_size(match: re.Match[str]) -> str:
+            raw = float(match.group(1))
+            target = mapping[raw]
+            if target == raw:
+                return match.group(0)
+            return match.group(0).replace(match.group(1), _fmt_size(target), 1)
+
+        content = _FONT_SIZE_RE.sub(_replace_size, content)
+        notes.append(
+            f"字号 {len(distinct)} 档 → 按 {'/'.join(str(step) for step in ladder)} 阶梯收敛"
+        )
+
+    # —— 间距：非 4 倍数的手调值就近落档 ——
+    snapped: set[int] = set()
+
+    def _replace_spacing(match: re.Match[str]) -> str:
+        declaration = match.group(1)
+        tokens: list[str] = []
+        for token in declaration.split():
+            raw = re.fullmatch(r"(\d+)px", token)
+            if not raw:
+                tokens.append(token)
+                continue
+            value = int(raw.group(1))
+            target = _snap_spacing(value)
+            if target != value:
+                snapped.add(value)
+                tokens.append(f"{target}px")
+            else:
+                tokens.append(token)
+        return match.group(0).replace(declaration, " ".join(tokens), 1)
+
+    content = _SPACING_RE.sub(_replace_spacing, content)
+    if snapped:
+        notes.append("间距手调值（" + "/".join(f"{v}px" for v in sorted(snapped)) + "）已对齐档位")
+
+    return content, notes
+
+
+def hard_failures(content: str) -> list[str]:
+    """只返回必须修的硬伤（预览会崩 / 占位残留）。软提示不该逼模型重写整页。"""
+    return [message for pattern, message in _HARD_FAILS if pattern.search(content)]
+
+
 
 def lint_html(content: str, scaffolded: bool = False, mobile: bool = False) -> list[str]:
     """静态校验生成的 HTML，返回可读的问题列表（按严重度排序，最多 6 条）。
@@ -340,10 +438,13 @@ def main() -> None:
             )
         )
         return
-    # lint 在**原始** content 上跑：注入基座的色值会污染 hex 计数。
-    # 基座先注入，落盘的是注入后的内容；模型漏写 :root 时由基座兜底。
-    final_content, scaffolded = inject_scaffold(content, style)
-    warnings = lint_html(content, scaffolded=scaffolded, mobile=mobile)
+    # 排版先做确定性收敛（字号档数/间距档位），再注入基座；lint 仍跑在模型内容上，
+    # 因为注入的基座色值会污染 hex 计数。
+    normalized, scale_notes = normalize_visual_scale(content, mobile=mobile)
+    final_content, scaffolded = inject_scaffold(normalized, style)
+    warnings = lint_html(normalized, scaffolded=scaffolded, mobile=mobile)
+    blocking = [item for item in warnings if item in hard_failures(normalized)]
+    advisory = [item for item in warnings if item not in blocking]
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = unique_output_path(output_dir, title, "UX交互原型", ".html")
@@ -352,10 +453,17 @@ def main() -> None:
     message = "UX 交互 HTML 页面已生成"
     if scaffolded:
         message += f"（已注入 {style} 风格 token 基座，你自定义的 :root 与样式会覆盖基座）"
-    if warnings:
-        # 文件已落盘（不阻断流程），但把问题回传给模型，促其自纠后重新生成。
-        message += "；静态校验发现以下问题，请修正后重新调用 ux_html 覆盖保存：\n- " + "\n- ".join(
-            warnings
+    if scale_notes:
+        message += "（已自动收敛排版：" + "、".join(scale_notes) + "）"
+    if blocking:
+        message += (
+            "；以下问题会导致预览异常或成品不合格，请修正后重新调用 ux_html 覆盖保存：\n- "
+            + "\n- ".join(blocking)
+        )
+    if advisory:
+        # 建议不再要求重写整页：文件已保存，重写只会多一轮且不保证更好。
+        message += (
+            "；另有可选优化建议（文件已保存，无需重新生成）：\n- " + "\n- ".join(advisory)
         )
 
     print(
@@ -365,12 +473,14 @@ def main() -> None:
                 "message": message,
                 "file_name": output_path.name,
                 "filepath": str(output_path),
-                "warnings": warnings,
+                "warnings": advisory,
                 "data": {
                     "title": title,
                     "style": style,
                     "canvas": canvas,
                     "scaffold_injected": scaffolded,
+                    "blocking_issues": blocking,
+                    "scale_notes": scale_notes,
                     "size": output_path.stat().st_size,
                     "generated_at": time.strftime("%Y-%m-%d %H:%M"),
                 },

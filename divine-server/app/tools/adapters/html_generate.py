@@ -14,6 +14,8 @@ from ..registry import register_tool
     "用户提供了自己的 HTML 模板或明确要求原样自定义输出时用 html_common。"
     "与 ux_html 的区别：ux_html 专用于 UX 交互原型/产品界面设计稿（需用户指定风格）；"
     "本工具覆盖其余所有「要产出一个 HTML 文件」的场景。视觉规范见系统提示。"
+    "字号/间距这类纯数值问题工具会在落盘前**自动收敛**到规范档位，返回里会写明收敛了什么；"
+    "只有 <预览会崩溃/占位残留> 这类硬伤才需要你改完重调一次——其余建议不要求重新生成。"
     "图表色阶规范：HTML 内若含 ECharts/Chart.js/D3 等图表，"
     "series 颜色必须与所选 style 的 token 基座（--primary / --surface / 灰阶）调性同档——"
     "饱和度 s≤50、明度 l≥55，与 Linear/Notion/Apple 这类低饱和克制风协调；"
