@@ -27,6 +27,7 @@ from .prompt_sections import (
     _SVG_RULES,
     _TERMINAL_RULES,
     _UX_HTML_RULES,
+    _VIDEO_RULES,
 )
 
 # 拼接顺序 = 旧版 SYSTEM_PROMPT 中规则块的原始顺序；新增/调整规则时在此增删节。
@@ -48,6 +49,7 @@ SYSTEM_PROMPT = "\n".join((
     _HTML_PAGE_RULES,
     _CHART_RULES,
     _FILE_AND_WEB_RULES,
+    _VIDEO_RULES,
     _TERMINAL_RULES,
     _SUBAGENT_RULES,
     _BROWSER_TASK_RULES,
@@ -123,7 +125,13 @@ A2UI_INTENTS: tuple[str, ...] = (    "pdf",
 #:
 #: 历史教训：这三处原本都写死 ``name == "render_ui"``，新增 ``fx_rates`` /
 #: ``flight_board`` 后消息被静默丢弃，用户看到「工具执行完成」却没有图。
-A2UI_TOOL_NAMES: tuple[str, ...] = ("render_ui", "fx_rates", "flight_board", "image_brief")
+A2UI_TOOL_NAMES: tuple[str, ...] = (
+    "render_ui",
+    "fx_rates",
+    "flight_board",
+    "image_brief",
+    "video_brief",
+)
 
 _NO_PLAN_TOOLS = {
     "ask_user",

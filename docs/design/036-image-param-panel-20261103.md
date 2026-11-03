@@ -1,11 +1,10 @@
 # 图像生成参数面板 · 设计（036）
 
-> 日期：2026-11-03 ｜ 类型：design ｜ 状态：**P1 已实施（设置 UI 除外）**
+> 日期：2026-11-03 ｜ 类型：design ｜ 状态：**P1 全部已实施**
 > 已实施：A2UI 契约扩展（`ChoicePicker.columns` / `options[].icon` / **新组件 `FilePicker`**）、
-> `media_models` 契约与掩码、`image_brief` 面板工具、多图并发下载、`image_defaults` 记忆、
+> `media_models` 契约与掩码、**设置「生成模型」分区（图像/视频两组）**、`image_brief` 面板工具、多图并发下载、`image_defaults` 记忆、
 > 结果一行 4 张卡片缩略。
-> 未实施：设置页「生成模型」分区（P1-e，配置暂可手编 `divine-model-provider.json`
-> 同目录的 settings.json）；GLM 自定义尺寸（P2）。
+> 未实施：GLM 自定义尺寸（P2）。
 > 复用：[035 视频生成](035-video-model-generation-20261103.md) 的 `FilePicker` / `ChoicePicker(columns, icon)` / `media_models` / A2UI 动作回流
 > 触发：用户提出「文生图/图生图 工具是否能继续优化，和视频一样选择比例/数量等内容」
 > 代码：`divine-server/app/tools/adapters/image_generate.py`、`scripts/image_generate.py`、`divine-app/src/pages/chat/components/MessageItem/ToolFileList.tsx`

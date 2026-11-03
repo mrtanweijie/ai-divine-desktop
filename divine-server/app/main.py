@@ -19,6 +19,7 @@ from .api import (
     git,
     local_llm,
     mcp,
+    media,
     memories,
     model_providers,
     pdf_themes,
@@ -63,6 +64,16 @@ async def lifespan(_: FastAPI):
         load_plugins_from(plugins_dir())
     except Exception:  # noqa: BLE001 — 插件加载失败不影响服务启动
         logger.exception("插件加载失败")
+    # 生成任务恢复（035 §6 护栏 3）：queued/running 重新挂轮询，僵尸行标失败
+    try:
+        from .media import service as media_service
+
+        await asyncio.to_thread(media_service.resume_expired_remote)
+        resumed = media_service.resume_pending()
+        if resumed:
+            logger.info("resumed %d media generation tasks", resumed)
+    except Exception:  # noqa: BLE001 — 恢复失败不影响启动
+        logger.exception("media task resume failed")
     await scheduler.start()
     logger.info("=== 侧边端就绪 ===")
     yield
@@ -178,6 +189,7 @@ app.include_router(model_providers.router, prefix="/api")
 app.include_router(local_llm.router, prefix="/api")
 app.include_router(git.router, prefix="/api")
 app.include_router(mcp.router, prefix="/api")
+app.include_router(media.router, prefix="/api")
 app.include_router(browser.router, prefix="/api")
 app.include_router(skills.router)
 app.include_router(terminal.router)

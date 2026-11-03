@@ -46,8 +46,8 @@
 | 043 | [design-task-webhook-interactive-digest](design/027-task-webhook-interactive-digest-20260919.md) | 2026-09-19 | 已实施（stage 1–5；digest/interactive 仅后端，无 UI 入口） |
 | 044 | [design-a2ui-integration](design/028-a2ui-integration-20261009.md) | 2026-10-09 | **S1–S5 已实施**（A2UI v0.9.1 接入；待人工验收） |
 | 045 | [design-hidden-city-fares](design/034-hidden-city-fares-20261103.md) | 2026-11-03 | **P1 + P2 + P3 已实施**（弃程票单列一栏 / 多程 open-jaw / 主动找弃程清单工具） |
-| 047 | [design-video-model-generation](design/035-video-model-generation-20261103.md) | 2026-11-03 | **P1 方案已确认（未实施）**（MiniMax + 智谱 / 首帧·首尾帧 / 参数卡片 / Range 流式播放） |
-| 048 | [design-image-param-panel](design/036-image-param-panel-20261103.md) | 2026-11-03 | **P1 已实施（未含设置 UI）**（image_brief 参数面板 / FilePicker 组件 / 一行 4 张卡片结果 / media_models kind=image） |
+| 047 | [design-video-model-generation](design/035-video-model-generation-20261103.md) | 2026-11-03 | **P1 全部已实施**（MiniMax + 智谱 / 首尾帧 / 异步 worker / 任务面板 / Range 播放 / 预估费用 / 设置「生成模型」分区） |
+| 048 | [design-image-param-panel](design/036-image-param-panel-20261103.md) | 2026-11-03 | **P1 全部已实施**（image_brief 参数面板 / FilePicker 组件 / 一行 4 张卡片结果 / media_models kind=image / 设置「生成模型」分区） |
 
 ### 修复（fix）
 

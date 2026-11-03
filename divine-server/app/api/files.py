@@ -74,6 +74,70 @@ def image_file(path: str):
     )
 
 
+#: 视频扩展名（035 §8：Range 流式播放走这里；**不要**加 attachment —— 播放与下载分流）
+_VIDEO_SUFFIXES = {".mp4", ".webm", ".mov", ".m4v"}
+
+
+@router.get("/media")
+def media_file(path: str):
+    """本地视频流式播放端点：`<video>` 直接以此作 src，支持拖进度条。
+
+    本机 starlette 1.6 的 ``FileResponse`` 原生处理 Range 请求（已核实源码），
+    所以不用自己写分片。**刻意不加** ``Content-Disposition``：那是下载语义
+    （走 ``/files/videos/<name>``），拿来当 `<video src>` 会被某些环境强制下载。
+    """
+    target = _resolve_media_path(path)
+    return FileResponse(
+        target,
+        media_type=_video_mime(target.suffix.lower()),
+        headers={"Cache-Control": "private, max-age=0"},
+    )
+
+
+def _resolve_media_path(raw: str) -> Path:
+    """与 _resolve_image_path 同一套白名单根 + 后缀限制，但放行视频格式。"""
+    path = Path(raw)
+    if not path.is_absolute():
+        roots: list[Path] = [
+            workspace_dir().resolve(),
+            output_dir().resolve(),
+        ]
+        projects = projects_root().resolve()
+        if projects.exists():
+            roots.extend(
+                project.resolve()
+                for project in projects.iterdir()
+                if project.is_dir()
+            )
+        for root in roots:
+            candidate = (root / path).resolve()
+            if candidate.is_file():
+                path = candidate
+                break
+    path = path.expanduser().resolve()
+    if path.suffix.lower() not in _VIDEO_SUFFIXES:
+        raise HTTPException(status_code=400, detail="不是支持的视频格式")
+    allowed = [
+        workspace_dir().resolve(),
+        output_dir().resolve(),
+        projects_root().resolve(),
+    ]
+    if not any(str(path).startswith(str(root)) for root in allowed):
+        raise HTTPException(status_code=400, detail="路径越界")
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="视频不存在")
+    return path
+
+
+def _video_mime(suffix: str) -> str:
+    return {
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+        ".mov": "video/quicktime",
+        ".m4v": "video/x-m4v",
+    }.get(suffix, "video/mp4")
+
+
 class PdfPreviewRequest(BaseModel):
     path: str
 
@@ -92,6 +156,7 @@ ALLOWED_CATEGORIES = {
     "diagrams",
     "html",
     "svg",
+    "videos",  # 035：视频下载出口（/files/videos/<name>，带 attachment）
 }
 
 

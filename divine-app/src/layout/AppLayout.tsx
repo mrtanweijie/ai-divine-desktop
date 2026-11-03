@@ -6,10 +6,12 @@ import { startTaskReminderPolling } from "@/services/scheduledTasks";
 import { getSettings } from "@/services/api";
 import { isTauri, setGlobalShortcutEnabled } from "@/services/tauri";
 import { useEffect } from "react";
+import { startMediaTaskNotifications } from "@/services/mediaTasks";
 
 export function AppLayout() {
   useEffect(() => {
     startUpdaterAutoCheck();
+    startMediaTaskNotifications();
     const stopPolling = startTaskReminderPolling();
     // 全局快捷键默认由 Rust 侧在启动时注册；用户若已关闭，这里同步注销
     if (isTauri()) {

@@ -415,6 +415,7 @@ def test_a2ui_tool_names_covers_all_panel_tools() -> None:
         "fx_rates",
         "flight_board",
         "image_brief",
+        "video_brief",
     }
 
 

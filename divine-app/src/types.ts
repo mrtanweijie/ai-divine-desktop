@@ -358,6 +358,32 @@ export type ToolMode = "auto" | "native" | "react";
 
 /** A configured model entry as returned by the server (api keys never leave
  * the server; only `has_api_key` is exposed). */
+/** 生成模型条目（image/video，036/035）：服务端返回形态，key 只给 has_api_key。 */
+export interface MediaModelConfig {
+  id: string;
+  kind: "image" | "video";
+  label: string;
+  provider: string;
+  base_url: string;
+  model: string;
+  options: Record<string, unknown>;
+  has_api_key: boolean;
+  active: boolean;
+}
+
+/** 生成模型条目的保存载荷：api_key 空串 = 保留已存密钥。 */
+export interface MediaModelPayload {
+  id: string;
+  kind: "image" | "video";
+  label: string;
+  provider: string;
+  base_url: string;
+  model: string;
+  options: Record<string, unknown>;
+  api_key: string;
+  active: boolean;
+}
+
 export interface ModelConfig {
   id: string;
   name: string;
@@ -389,10 +415,11 @@ export interface ModelConfigPayload {
   custom_models?: string;
 }
 
-export type SettingsSaveBody = Partial<Omit<Settings, "models">> & {
+export type SettingsSaveBody = Partial<Omit<Settings, "models" | "media_models">> & {
   api_key?: string;
   glm_api_key?: string;
   models?: ModelConfigPayload[];
+  media_models?: MediaModelPayload[];
 };
 
 /** MCP 外部服务器配置（env 密钥：后端只回空串占位，回传空串=保留已存值） */
@@ -433,6 +460,8 @@ export interface Settings {
   global_shortcut_enabled: boolean;
   tools: ToolDefinition[];
   models: ModelConfig[];
+  // 生成模型（image/video，036/035）：key 掩码，只有 has_api_key
+  media_models?: MediaModelConfig[];
   // MCP 外部服务器
   mcp_servers?: McpServerConfig[];
   // 本地模型配置

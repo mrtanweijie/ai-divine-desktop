@@ -42,6 +42,8 @@ from .html_resume import HtmlResumeAdapter  # noqa: F401
 from .image_generate import ImageGenerateAdapter  # noqa: F401
 from .image_brief import ImageBriefAdapter  # noqa: F401
 from .image_resize import ImageResizeAdapter  # noqa: F401
+from .video_generate import VideoGenerateAdapter  # noqa: F401
+from .video_brief import VideoBriefAdapter  # noqa: F401
 from .mermaid_export import MermaidExportAdapter  # noqa: F401
 from .memory import ForgetMemoryAdapter, RememberAdapter  # noqa: F401
 from .model_providers import ManageModelProvidersAdapter  # noqa: F401

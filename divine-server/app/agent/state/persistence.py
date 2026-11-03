@@ -78,6 +78,15 @@ def _collect_ui_surfaces(tool_calls: list[Any]) -> list[dict[str, Any]]:
                     validation = validate_ui_surface(rebuilt)
                     if validation.ok and validation.normalized:
                         surfaces.append(validation.normalized)
+            elif name == "video_brief":
+                # 视频参数面板（035 §7）：同 image_brief，纯函数重建
+                from ...tools.adapters.video_brief import surface_from_args
+
+                rebuilt = surface_from_args(args)
+                if rebuilt:
+                    validation = validate_ui_surface(rebuilt)
+                    if validation.ok and validation.normalized:
+                        surfaces.append(validation.normalized)
             # fx_rates 无法从入参离线重建（折线要联网取日线），改为取发事件时存下的
             # IR 快照；sidecar 重启后快照丢失 → 该面板不进历史，但不会落空图。
             elif name == "fx_rates":

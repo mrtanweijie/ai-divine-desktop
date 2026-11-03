@@ -7,7 +7,12 @@
 import { API_BASE } from "@/services/request";
 
 export type AppEventName =
-  "ready" | "sessions_changed" | "session_messages_changed" | "task_finished" | "browser_order";
+  | "ready"
+  | "sessions_changed"
+  | "session_messages_changed"
+  | "task_finished"
+  | "browser_order"
+  | "media_tasks_changed"; // 035：视频生成任务状态变化（面板/卡片/徽标共用）
 
 type AppEventListener = (data: Record<string, unknown>) => void;
 
@@ -17,6 +22,7 @@ const EVENT_NAMES: AppEventName[] = [
   "session_messages_changed",
   "task_finished",
   "browser_order",
+  "media_tasks_changed",
 ];
 
 const listeners = new Map<AppEventName, Set<AppEventListener>>();

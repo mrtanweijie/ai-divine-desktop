@@ -21,6 +21,7 @@ import { ToolCommands } from "./ToolCommands";
 import { ToolConfirmSection } from "./ToolConfirmSection";
 import { ImageResultGrid } from "./ImageResultGrid";
 import { ToolFileList, ToolResultFile } from "./ToolFileList";
+import { VideoTaskCard } from "./VideoTaskCard";
 import { toolIcon } from "./ToolStatusIcon";
 import { DiffView } from "./DiffView";
 
@@ -65,6 +66,9 @@ export const ToolStatusCard = memo(function ToolStatusCard({
   // 图像生成（036）：成功后用一行 4 张的卡片缩略图替代文件行
   const isImageResult =
     tool.tool === "image_generate" && tool.status === "done" && (tool.files?.length ?? 0) > 0;
+  // 视频生成（035）：提交后由 media_tasks 驱动状态，完成后就地变播放器
+  const isVideoTask =
+    tool.tool === "video_generate" && tool.status === "done" && Boolean(tool.result?.data?.task_id);
   const toggleFiles = useCallback(() => setFilesOpen((value) => !value), []);
   const statusMessage =
     tool.status === "running" && tool.currentUrl
@@ -264,6 +268,10 @@ export const ToolStatusCard = memo(function ToolStatusCard({
             onToggleFiles={toggleFiles}
           />
         )
+      )}
+      {isVideoTask && (
+        /* 视频生成（035 §9.5）：状态由 media_tasks 驱动，完成后就地变播放器 */
+        <VideoTaskCard taskId={String(tool.result?.data?.task_id ?? "")} />
       )}
       {tool.tool === "edit_files" &&
         tool.status === "done" &&

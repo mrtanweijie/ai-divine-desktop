@@ -60,6 +60,57 @@ IMAGE_PROVIDERS: dict[str, dict[str, Any]] = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# 视频能力矩阵（035 §5）：面板渲染与 video_generate 的静默裁剪共用同一份
+# ---------------------------------------------------------------------------
+
+#: MiniMax H3 系：4–15s；分辨率 768P / 2K（Max 系另说，先按 H3 口径）
+MINIMAX_VIDEO_DURATIONS: tuple[int, ...] = tuple(range(4, 16))
+MINIMAX_VIDEO_RESOLUTIONS: tuple[str, ...] = ("768P", "1080P", "2K")
+
+#: 智谱 CogVideoX：5s / 10s；只接首帧
+ZHIPU_VIDEO_DURATIONS: tuple[int, ...] = (5, 10)
+ZHIPU_VIDEO_RESOLUTIONS: tuple[str, ...] = ("480P", "720P", "1080P")
+
+VIDEO_PROVIDERS: dict[str, dict[str, Any]] = {
+    "minimax": {
+        "label": "MiniMax 海螺",
+        "durations": MINIMAX_VIDEO_DURATIONS,
+        "resolutions": MINIMAX_VIDEO_RESOLUTIONS,
+        "ratios": MINIMAX_RATIOS,
+        "supports_last_frame": True,
+    },
+    "zhipu": {
+        "label": "智谱 CogVideoX",
+        "durations": ZHIPU_VIDEO_DURATIONS,
+        "resolutions": ZHIPU_VIDEO_RESOLUTIONS,
+        "ratios": GLM_RATIOS,
+        "supports_last_frame": False,
+    },
+}
+
+
+def video_capabilities(provider: str) -> dict[str, Any]:
+    """视频 provider 的合法参数集（035 §7.2：面板只渲染支持的项）。"""
+    base = VIDEO_PROVIDERS.get(provider) or VIDEO_PROVIDERS["minimax"]
+    return dict(base)
+
+
+def active_video_provider(settings: dict[str, Any] | None = None) -> str:
+    """生效视频模型的 provider（与 active_image_provider 同口径）。"""
+    settings = settings if settings is not None else settings_store.load()
+    entries = [
+        entry
+        for entry in normalize_media_models(settings.get("media_models"))
+        if entry["kind"] == "video"
+    ]
+    if entries:
+        active = next((entry for entry in entries if entry["active"]), entries[0])
+        provider = str(active.get("provider") or "").lower()
+        if provider in VIDEO_PROVIDERS:
+            return provider
+    return "minimax"
+
 
 def active_image_provider(settings: dict[str, Any] | None = None) -> str:
     """判断当前生效的图像生成 provider。

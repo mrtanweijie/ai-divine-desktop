@@ -66,6 +66,8 @@ _CONTENT_TOOLS: dict[str, str | tuple[str, ...]] = {
     "image_generate": "image",
     "image_brief": "image",
     "image_resize": "image",
+    "video_generate": "video",
+    "video_brief": "video",
     # draw_svg 放宽到 svg + mermaid：架构图首轮走 mermaid 正文输出（不调工具），
     # 追问轮"要 SVG 版"意图仍判 mermaid 时，draw_svg 必须可用，否则模型拿不到工具。
     "draw_svg": ("svg", "mermaid"),

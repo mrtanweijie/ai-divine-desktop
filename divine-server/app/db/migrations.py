@@ -199,6 +199,26 @@ CREATE TABLE IF NOT EXISTS token_usage (
 );
 CREATE INDEX IF NOT EXISTS idx_token_usage_session ON token_usage(session_id);
 CREATE INDEX IF NOT EXISTS idx_token_usage_message ON token_usage(message_id);
+
+CREATE TABLE IF NOT EXISTS media_tasks (
+    id TEXT PRIMARY KEY,
+    session_id TEXT,
+    call_id TEXT,
+    kind TEXT NOT NULL DEFAULT 'video',
+    provider TEXT NOT NULL,
+    model TEXT,
+    prompt TEXT,
+    params_json TEXT NOT NULL DEFAULT '{}',
+    remote_task_id TEXT,
+    status TEXT NOT NULL DEFAULT 'queued',
+    file_path TEXT,
+    extras_json TEXT NOT NULL DEFAULT '{}',
+    error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_media_tasks_status ON media_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_media_tasks_session ON media_tasks(session_id);
 """
 
 # FTS5 全文搜索：独立执行，不放在 SCHEMA 中（避免重复执行报错）

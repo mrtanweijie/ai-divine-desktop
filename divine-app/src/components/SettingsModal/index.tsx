@@ -1,8 +1,19 @@
 import { useEffect, useState } from "react";
-import { AudioWaveform, Blocks, Brain, Cpu, Globe, Info, Save, Settings2 } from "lucide-react";
+import {
+  AudioWaveform,
+  Blocks,
+  Brain,
+  Cpu,
+  Film,
+  Globe,
+  Info,
+  Save,
+  Settings2,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
 import type { ModelConfig, Settings, SettingsSaveBody } from "@/types";
+import { MediaSection, toMediaDraft, toMediaPayload, type MediaModelDraft } from "./MediaSection";
 import { readLocalePreference, setLocale, type AppLocale } from "@/i18n";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -77,8 +88,11 @@ export function SettingsModal({
   const [version, setVersion] = useState(`v${tauriConfig.version}`);
   const [themePreference, setThemePreferenceState] = useThemePreference();
   const [section, setSection] = useState<
-    "basic" | "model" | "mcp" | "local" | "memory" | "browser" | "about"
+    "basic" | "model" | "media" | "mcp" | "local" | "memory" | "browser" | "about"
   >(initialSection);
+  const [mediaModels, setMediaModels] = useState<MediaModelDraft[]>(() =>
+    (settings.media_models ?? []).map(toMediaDraft),
+  );
   const [localLLMEnabled, setLocalLLMEnabled] = useState(settings.local_llm_enabled ?? false);
   const [localLLMMode, setLocalLLMMode] = useState<"keyword" | "local" | "hybrid">(
     settings.local_llm_mode ?? "keyword",
@@ -103,6 +117,7 @@ export function SettingsModal({
     setLocalLLMEnabled(settings.local_llm_enabled ?? false);
     setLocalLLMMode(settings.local_llm_mode ?? "keyword");
     setGlobalShortcutEnabledState(settings.global_shortcut_enabled !== false);
+    setMediaModels((settings.media_models ?? []).map(toMediaDraft));
   }, [settings]);
 
   useEffect(() => {
@@ -146,6 +161,10 @@ export function SettingsModal({
       const trimmedGlmKey = glmApiKey.trim();
       if (trimmedGlmKey) body.glm_api_key = trimmedGlmKey;
       void onSave(body);
+    }
+    if (section === "media") {
+      // 生成模型（036/035）：与模型页同语义——空 key 保留已存值
+      void onSave({ media_models: toMediaPayload(mediaModels) });
     }
     if (section === "local") {
       void onSave({
@@ -245,6 +264,22 @@ export function SettingsModal({
           >
             <Cpu size={15} />
             <span>{t("settings.sectionModel", "模型")}</span>
+          </div>
+          <div
+            role="tab"
+            aria-selected={section === "media"}
+            tabIndex={0}
+            className={`settings-nav-item${section === "media" ? " active" : ""}`}
+            onClick={() => setSection("media")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSection("media");
+              }
+            }}
+          >
+            <Film size={15} />
+            <span>{t("settings.sectionMedia", "生成模型")}</span>
           </div>
           <div
             role="tab"
@@ -348,6 +383,8 @@ export function SettingsModal({
             />
           ) : section === "browser" ? (
             <BrowserSection />
+          ) : section === "media" ? (
+            <MediaSection models={mediaModels} onChange={setMediaModels} />
           ) : section === "model" ? (
             <ModelSection
               models={models}

@@ -44,6 +44,7 @@ from ..core.prompt_sections import (
     _SVG_RULES,
     _TERMINAL_RULES,
     _UX_HTML_RULES,
+    _VIDEO_RULES,
 )
 
 # ---------------------------------------------------------------------------
@@ -65,6 +66,7 @@ CONDITIONAL_SECTIONS: dict[str, tuple[str, ...]] = {
     "resume": (_RESUME_RULES,),
     "document": (_DOCUMENT_RULES,),
     "image": (_IMAGE_GENERATION_RULES,),
+    "video": (_VIDEO_RULES,),
     "svg": (_SVG_RULES,),
     "chart": (_CHART_RULES,),
     "mermaid": (_MERMAID_RULES,),
@@ -93,6 +95,7 @@ for _a2ui_intent in A2UI_INTENTS:
 _INTENT_ORDER: tuple[str, ...] = (
     "skill",
     "image",
+    "video",
     "pdf",
     "document",
     "resume",
@@ -205,6 +208,23 @@ _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
         "画一张",
         "画一幅",
         "海报",
+    ),
+    # 视频生成（035）
+    "video": (
+        "生成视频",
+        "做视频",
+        "视频生成",
+        "文生视频",
+        "图生视频",
+        "首尾帧",
+        "短视频",
+        "宣传片",
+        "资讯视频",
+        "的视频",
+        "一段视频",
+        "一条视频",
+        "video_generate",
+        "video_brief",
     ),
     # SVG 矢量图
     "svg": ("svg", "矢量图", "draw_svg", "edit_svg", "矢量"),

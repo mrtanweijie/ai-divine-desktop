@@ -7,6 +7,8 @@ import { toast } from "@/components/ui/Toast";
 import { copyText } from "@/utils";
 import { fetchPdfPreview, fetchPptxPreview, fetchDocumentPreview } from "@/services/api";
 import { getBinaryPreview } from "@/services/tauri";
+import { mediaStreamUrl } from "@/services/mediaTasks";
+import { VideoPlayer } from "@/components/VideoPlayer";
 import { MarkdownView } from "@/pages/chat/components/MarkdownView";
 import { PreviewHeaderActions } from "./PreviewHeaderSlot";
 
@@ -20,6 +22,10 @@ const PREVIEWABLE_EXTENSIONS = new Set([
   "bmp",
   "avif",
   "pdf",
+  "mp4", // 视频（035 §8.2）：走 /files/media Range 流式，不读 base64
+  "webm",
+  "mov",
+  "m4v",
   "doc",
   "docx",
   "docm",
@@ -70,6 +76,9 @@ const DOCUMENT_EXTENSIONS = new Set([
 /** 现代幻灯片格式：后端能渲染成页面图片（与 PDF 同一套预览方案）。
  *  旧版 .ppt / .pptm python-pptx 读不了，仍走 document-preview 文本。 */
 const SLIDE_EXTENSIONS = new Set(["pptx", "ppsx"]);
+
+/** 视频（035）：预览面板里的播放走 Range 流式，不读 base64 */
+const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "m4v"]);
 
 function getExt(name: string): string {
   const dot = name.lastIndexOf(".");
@@ -151,6 +160,9 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
   const isPdf = ext === "pdf";
   const isSlides = SLIDE_EXTENSIONS.has(ext);
   const isDocument = DOCUMENT_EXTENSIONS.has(ext);
+  // 视频（035 §8.2）：走 /files/media Range 流式端点，**先于** base64 分支 ——
+  // getBinaryPreview 的 25MB 上限与整文件 base64 都不适合视频
+  const isVideo = VIDEO_EXTENSIONS.has(ext);
 
   useEffect(() => {
     let disposed = false;
@@ -160,6 +172,7 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
     setSlidePages(null);
     setDocContent(null);
     setError("");
+    if (isVideo) return; // 视频 src 由 <video> 直接加载，无预取
     const load = isPdf
       ? fetchPdfPreview(path).then((result) => {
           if (!disposed) setPdfPages(result.pages);
@@ -190,7 +203,7 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
     return () => {
       disposed = true;
     };
-  }, [path, isPdf, isSlides, isDocument]);
+  }, [path, isPdf, isSlides, isDocument, isVideo]);
 
   if (error) {
     return (
@@ -201,7 +214,15 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
     );
   }
   if (
-    isPdf ? !pdfPages : isSlides ? !slidePages && !docContent : isDocument ? !docContent : !dataUrl
+    isVideo
+      ? false // 视频无预取：<video> 自己处理加载态
+      : isPdf
+        ? !pdfPages
+        : isSlides
+          ? !slidePages && !docContent
+          : isDocument
+            ? !docContent
+            : !dataUrl
   ) {
     return (
       <div className="diff-view-state">
@@ -230,6 +251,10 @@ export function BinaryPreview({ path, fileName }: { path: string; fileName?: str
   }
   if (docContent !== null) {
     return <DocumentPreview content={docContent} />;
+  }
+  if (isVideo) {
+    // 035 §8.2：Range 流式播放（拖进度条），与下载端点分流
+    return <VideoPlayer src={mediaStreamUrl(path)} />;
   }
   return (
     <div className="binary-preview">

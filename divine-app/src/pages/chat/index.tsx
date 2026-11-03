@@ -19,6 +19,8 @@ import {
 } from "@/services/api";
 import { ScheduledTasksPage } from "@/pages/tasks";
 import { SkillsPage } from "@/pages/skills";
+import { MediaTasksPage } from "@/pages/media";
+import { useMediaTasks } from "@/hooks/useMediaTasks";
 import { ChatHeader } from "@/pages/chat/components/ChatHeader";
 import { ChatInput } from "@/pages/chat/components/ChatInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -135,6 +137,9 @@ export default function ChatPage() {
   const view = searchParams.get("view");
   const tasksOpen = view === "tasks";
   const skillsOpen = view === "skills";
+  const mediaOpen = view === "media";
+  // 侧栏「生成任务」徽标（035 §9.1）：订阅同一份 store
+  const { runningCount: mediaRunningCount } = useMediaTasks();
   const currentSession = useMemo(
     () => sessions.find((session) => session.id === selectedId) ?? null,
     [selectedId, sessions],
@@ -180,7 +185,7 @@ export default function ChatPage() {
   }, [workspacePanelOpen]);
 
   const openView = useCallback(
-    (nextView: "tasks" | "skills") => {
+    (nextView: "tasks" | "skills" | "media") => {
       setWorkspacePanelOpen(false);
       setWorkspaceExpanded(false);
       setWorkspaceExpandedLayout(false);
@@ -830,8 +835,10 @@ export default function ChatPage() {
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenTasks={() => openView("tasks")}
           onOpenSkills={() => openView("skills")}
+          onOpenMedia={() => openView("media")}
+          mediaRunningCount={mediaRunningCount}
           onRefreshProjects={refreshProjects}
-          activeView={tasksOpen ? "tasks" : skillsOpen ? "skills" : "chat"}
+          activeView={tasksOpen ? "tasks" : skillsOpen ? "skills" : mediaOpen ? "media" : "chat"}
         />
       </Flex>
       <Flex direction="column" className="main-area">
@@ -870,6 +877,8 @@ export default function ChatPage() {
           <ScheduledTasksPage onOpenSidebar={() => setSidebarOpen(true)} />
         ) : skillsOpen ? (
           <SkillsPage onOpenSidebar={() => setSidebarOpen(true)} />
+        ) : mediaOpen ? (
+          <MediaTasksPage onOpenSidebar={() => setSidebarOpen(true)} />
         ) : (
           <ChatStreamContext.Provider value={chatStreamValue}>
             <ChatHeader

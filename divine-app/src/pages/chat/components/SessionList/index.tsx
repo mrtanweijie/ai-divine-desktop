@@ -1,4 +1,4 @@
-import { Clock, MessageSquareQuote, Settings, Sparkles } from "lucide-react";
+import { Clock, Clapperboard, MessageSquareQuote, Settings, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Flex } from "@/components/ui/Flex";
 import type { Project, Session } from "@/types";
@@ -24,8 +24,10 @@ interface SessionListProps {
   onOpenSettings: () => void;
   onOpenTasks: () => void;
   onOpenSkills: () => void;
+  onOpenMedia: () => void;
+  mediaRunningCount: number;
   onRefreshProjects: () => void;
-  activeView: "chat" | "tasks" | "skills";
+  activeView: "chat" | "tasks" | "skills" | "media";
 }
 
 export function SessionList({
@@ -47,6 +49,8 @@ export function SessionList({
   onOpenSettings,
   onOpenTasks,
   onOpenSkills,
+  onOpenMedia,
+  mediaRunningCount,
   onRefreshProjects,
   activeView,
 }: SessionListProps) {
@@ -107,6 +111,25 @@ export function SessionList({
         >
           <Sparkles size={15} />
           <span>{t("session.skills", "技能")}</span>
+        </div>
+
+        {/* 生成任务（035 §9.1）：进行中数量徽标，0 时不显示 */}
+        <div
+          className={`tasks-link media-nav-link${activeView === "media" ? " active" : ""}`}
+          role="button"
+          tabIndex={0}
+          onClick={onOpenMedia}
+          title={t("session.media", "生成任务")}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              onOpenMedia();
+              event.currentTarget.blur();
+            }
+          }}
+        >
+          <Clapperboard size={15} />
+          <span>{t("session.media", "生成任务")}</span>
+          {mediaRunningCount > 0 && <span className="media-badge">{mediaRunningCount}</span>}
         </div>
 
         <ProjectList

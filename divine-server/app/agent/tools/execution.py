@@ -1029,9 +1029,12 @@ async def _handle_adapter_call(
             "bg_output",
             "bg_kill",
             "undo_last_turn",
+            "video_generate",  # 035：任务落 media_tasks 需要会话/call 归属
             *_OFFICE_EDIT_TOOLS,
         }:
             arguments.setdefault("session_id", ctx.session_id)
+        if name == "video_generate":
+            arguments.setdefault("call_id", call_id)
 
         # 图片识别：注入当前会话实际使用的模型，让 read_image 优先用它
         # （而不是 settings 里的 active 默认模型）。
