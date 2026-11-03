@@ -216,6 +216,8 @@ class SettingsUpdate(BaseModel):
     reasoning_effort: ReasoningEffort | None = None
     context_limit: int | None = Field(default=None, ge=1, le=200)
     models: list[ModelConfigUpdate] | None = None
+    # 生成模型（image/video，036）：字段校验在 merge_media_models 里做（宽松归一）
+    media_models: list[dict[str, Any]] | None = None
     # MCP 外部服务器（stdio/http）；env 值回传空字符串时保留已存密钥
     mcp_servers: list[dict[str, Any]] | None = None
     # 本地模型配置

@@ -410,7 +410,12 @@ def test_a2ui_tool_names_covers_all_panel_tools() -> None:
     """execution / tools / persistence 三处共用这份名单，漏一个就「有面板没事件」。"""
     from app.agent.core import A2UI_TOOL_NAMES
 
-    assert set(A2UI_TOOL_NAMES) == {"render_ui", "fx_rates", "flight_board"}
+    assert set(A2UI_TOOL_NAMES) == {
+        "render_ui",
+        "fx_rates",
+        "flight_board",
+        "image_brief",
+    }
 
 
 def test_persistence_rebuilds_flight_board_from_args() -> None:

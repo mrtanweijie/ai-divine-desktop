@@ -82,6 +82,8 @@ export interface UISelectOption {
 
 export interface UIChoiceOption extends UISelectOption {
   desc?: string;
+  /** 封闭枚举（ratio-1-1 等，见后端 catalog.OPTION_ICONS）：前端用 CSS 画矩形示意 */
+  icon?: string;
 }
 
 export interface UIStepItem {
@@ -164,9 +166,18 @@ export interface UIComponentPropsMap {
     value: UIBindable<string>;
     options: UIChoiceOption[];
     multiple?: boolean;
+    /** >0 固定列数（如比例选择 3 列）；0/缺省 = 自动换行 */
+    columns?: number;
   };
   Checkbox: { label: string; checked: UIBindable<boolean> };
   Switch: { label: string; checked: UIBindable<boolean> };
+  /** 值即绝对路径（系统文件对话框选出）；空串=未选择（036） */
+  FilePicker: {
+    label: string;
+    value: UIBindable<string>;
+    accept?: "image" | "any";
+    placeholder?: string;
+  };
   // D 组 · 动作
   Button: {
     text: UIBindable<string>;
@@ -216,9 +227,10 @@ export const COMPONENT_PROPS: Record<UIComponentName, readonly string[]> = {
   TextArea: ["label", "value", "rows"],
   NumberField: ["label", "value", "min", "max", "step", "unit"],
   Select: ["label", "value", "options"],
-  ChoicePicker: ["value", "options", "multiple"],
+  ChoicePicker: ["value", "options", "multiple", "columns"],
   Checkbox: ["label", "checked"],
   Switch: ["label", "checked"],
+  FilePicker: ["label", "value", "accept", "placeholder"],
   Button: ["text", "variant", "disabled", "action"],
   Chart: ["option", "height", "caption"],
   Graph: ["ir", "height", "caption"],
@@ -235,7 +247,16 @@ export const COMPONENT_NAMES_SET: ReadonlySet<string> = new Set<string>(COMPONEN
 export const COMPONENT_GROUPS: Record<string, readonly UIComponentName[]> = {
   layout: ["Column", "Row", "Card", "Divider"],
   display: ["Text", "Badge", "Image", "Table", "Progress", "Steps"],
-  input: ["TextField", "TextArea", "NumberField", "Select", "ChoicePicker", "Checkbox", "Switch"],
+  input: [
+    "TextField",
+    "TextArea",
+    "NumberField",
+    "Select",
+    "ChoicePicker",
+    "Checkbox",
+    "Switch",
+    "FilePicker",
+  ],
   action: ["Button"],
   media: ["Chart", "Graph", "FileList"],
 };

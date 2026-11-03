@@ -533,7 +533,7 @@
           "type": "options",
           "required": true,
           "bindable": false,
-          "description": "[{value, label, desc?}]"
+          "description": "[{value, label, desc?, icon?}]；icon 为封闭枚举（ratio-1-1 等），前端用 CSS 画示意图形，不接受图标名"
         },
         "multiple": {
           "type": "boolean",
@@ -541,6 +541,13 @@
           "bindable": false,
           "description": "",
           "default": false
+        },
+        "columns": {
+          "type": "integer",
+          "required": false,
+          "bindable": false,
+          "description": ">0 时固定列数（如 3 列比例选择）；0 = 自动换行",
+          "default": 0
         }
       }
     },
@@ -577,6 +584,41 @@
           "required": true,
           "bindable": true,
           "description": ""
+        }
+      }
+    },
+    "FilePicker": {
+      "group": "input",
+      "label": "文件选择",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "bindable": false,
+          "description": ""
+        },
+        "value": {
+          "type": "string",
+          "required": true,
+          "bindable": true,
+          "description": "已选文件的绝对路径（系统文件对话框选出）；空串=未选择"
+        },
+        "accept": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "对话框过滤类型；真正的类型校验在后端做",
+          "enum": [
+            "image",
+            "any"
+          ],
+          "default": "image"
+        },
+        "placeholder": {
+          "type": "string",
+          "required": false,
+          "bindable": false,
+          "description": "未选择时的提示文案"
         }
       }
     },

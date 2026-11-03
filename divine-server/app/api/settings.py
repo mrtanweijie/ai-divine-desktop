@@ -10,7 +10,9 @@ from ..config import (
     DEFAULT_LOCAL_LLM_PORT,
     DEFAULT_LOCAL_LLM_THRESHOLD,
     apply_legacy_to_active,
+    merge_media_models,
     merge_model_updates,
+    normalize_media_models,
     settings_store,
     workspace_dir,
 )
@@ -122,6 +124,21 @@ def _public(settings: dict) -> dict:
             settings.get("shopping_default_address") or ""
         ),
         "tools": registry.list(),
+        # 生成模型（image/video）：key 一律掩码，前端只拿 has_api_key（036）
+        "media_models": [
+            {
+                "id": entry.get("id"),
+                "kind": entry.get("kind"),
+                "label": entry.get("label", ""),
+                "provider": entry.get("provider", ""),
+                "base_url": entry.get("base_url", ""),
+                "model": entry.get("model", ""),
+                "options": entry.get("options") or {},
+                "has_api_key": bool(entry.get("api_key")),
+                "active": bool(entry.get("active", False)),
+            }
+            for entry in normalize_media_models(settings.get("media_models"))
+        ],
         "models": [
             {
                 "id": entry.get("id"),
@@ -196,6 +213,11 @@ def update_settings(body: SettingsUpdate):
         submitted = _strip_local_model_entries(updates.pop("models"))
         current["models"] = merge_model_updates(
             _strip_local_model_entries(current.get("models")), submitted
+        )
+    if updates.get("media_models") is not None:
+        # 生成模型（image/video，036）：同一套「空 key 保留旧值」语义
+        current["media_models"] = merge_media_models(
+            current.get("media_models"), updates.pop("media_models")
         )
     else:
         # Legacy single-model save: apply to the active entry as well, so old

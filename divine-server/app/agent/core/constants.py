@@ -123,7 +123,7 @@ A2UI_INTENTS: tuple[str, ...] = (    "pdf",
 #:
 #: 历史教训：这三处原本都写死 ``name == "render_ui"``，新增 ``fx_rates`` /
 #: ``flight_board`` 后消息被静默丢弃，用户看到「工具执行完成」却没有图。
-A2UI_TOOL_NAMES: tuple[str, ...] = ("render_ui", "fx_rates", "flight_board")
+A2UI_TOOL_NAMES: tuple[str, ...] = ("render_ui", "fx_rates", "flight_board", "image_brief")
 
 _NO_PLAN_TOOLS = {
     "ask_user",

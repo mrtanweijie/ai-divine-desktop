@@ -41,6 +41,7 @@ from .catalog import (
     MAX_GRAPH,
     MAX_RICH_MEDIA,
     MAX_TABLE_ROWS,
+    OPTION_ICONS,
     RICH_MEDIA_COMPONENTS,
     STEP_STATUSES,
     SURFACE_TOP_KEYS,
@@ -66,6 +67,9 @@ _DATA_URI_PREFIXES = (
     "data:image/webp",
     "data:image/gif",
 )
+
+#: ChoicePicker.columns 的合法范围：0 = 自动换行；面板最多 6 列（再多卡片小到看不清）。
+MAX_CHOICE_COLUMNS = 6
 
 _TYPE_LABELS: dict[str, str] = {
     "string": "字符串",
@@ -390,6 +394,14 @@ class _SurfaceValidator:
             return
         if enum and value not in tuple(enum):
             self.error(f"{path} = {value!r}", "不是允许的取值", self._enum_hint(enum))
+            return
+        # ChoicePicker.columns：0=自动换行；>0 时固定列数（上限见 MAX_CHOICE_COLUMNS）
+        if name == "columns" and type_ == "integer":
+            if not 0 <= value <= MAX_CHOICE_COLUMNS:
+                self.error(
+                    f"{path} = {value!r}",
+                    f"columns 应在 0–{MAX_CHOICE_COLUMNS} 之间（0 = 自动换行）",
+                )
 
     def _check_binding_path(self, path: str, pointer: str) -> None:
         if not pointer.startswith("/"):
@@ -451,7 +463,7 @@ class _SurfaceValidator:
             if not isinstance(item, dict):
                 self.error(item_path, "每一项必须是对象 {value, label}")
                 continue
-            unknown = [k for k in item if k not in ("value", "label", "desc")]
+            unknown = [k for k in item if k not in ("value", "label", "desc", "icon")]
             if unknown:
                 self.error(item_path, "包含不认识的字段：" + ", ".join(sorted(unknown)))
             if "value" not in item:
@@ -462,6 +474,13 @@ class _SurfaceValidator:
                 self.error(f"{item_path}.value", "value 应为字符串或数字")
             if not isinstance(item.get("label"), str):
                 self.error(f"{item_path}.label", "缺少 label（给用户看的短名）")
+            icon = item.get("icon")
+            if icon is not None and icon not in OPTION_ICONS:
+                self.error(
+                    f"{item_path}.icon",
+                    f"icon 只能是封闭枚举之一：{' / '.join(sorted(OPTION_ICONS))}",
+                    "icon 由前端用 CSS 画示意图形，不接受图标名或图片地址",
+                )
 
     def _check_columns(self, path: str, value: Any) -> None:
         if not isinstance(value, list) or not value:

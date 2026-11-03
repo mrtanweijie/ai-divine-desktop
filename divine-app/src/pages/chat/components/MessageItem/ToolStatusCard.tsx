@@ -19,6 +19,7 @@ import {
 } from "./MessageHelpers";
 import { ToolCommands } from "./ToolCommands";
 import { ToolConfirmSection } from "./ToolConfirmSection";
+import { ImageResultGrid } from "./ImageResultGrid";
 import { ToolFileList, ToolResultFile } from "./ToolFileList";
 import { toolIcon } from "./ToolStatusIcon";
 import { DiffView } from "./DiffView";
@@ -61,6 +62,9 @@ export const ToolStatusCard = memo(function ToolStatusCard({
     tool.tool === "edit_files" ||
     (tool.tool === "generate_chart" && (tool.files?.length ?? 0) > 1);
   const hasFiles = collapsibleFiles && (tool.files?.length ?? 0) > 0;
+  // 图像生成（036）：成功后用一行 4 张的卡片缩略图替代文件行
+  const isImageResult =
+    tool.tool === "image_generate" && tool.status === "done" && (tool.files?.length ?? 0) > 0;
   const toggleFiles = useCallback(() => setFilesOpen((value) => !value), []);
   const statusMessage =
     tool.status === "running" && tool.currentUrl
@@ -245,14 +249,21 @@ export const ToolStatusCard = memo(function ToolStatusCard({
           ))}
         </div>
       )}
-      {tool.files && tool.files.length > 0 && (!collapsibleFiles || filesOpen) && (
-        <ToolFileList
-          tool={tool}
-          workspacePath={workspacePath}
-          onPreviewFile={onPreviewFile}
-          filesOpen={filesOpen}
-          onToggleFiles={toggleFiles}
-        />
+      {isImageResult ? (
+        /* 图像生成（036）：一行 4 张卡片缩略图，替代文件行 */
+        <ImageResultGrid tool={tool} workspacePath={workspacePath} onPreviewFile={onPreviewFile} />
+      ) : (
+        tool.files &&
+        tool.files.length > 0 &&
+        (!collapsibleFiles || filesOpen) && (
+          <ToolFileList
+            tool={tool}
+            workspacePath={workspacePath}
+            onPreviewFile={onPreviewFile}
+            filesOpen={filesOpen}
+            onToggleFiles={toggleFiles}
+          />
+        )
       )}
       {tool.tool === "edit_files" &&
         tool.status === "done" &&

@@ -210,6 +210,99 @@ def merge_model_updates(
     return normalize_models(merged, {})
 
 
+#: 生成模型（image / video）的合法 kind —— image_generate 与后续 video 共用
+MEDIA_KINDS: tuple[str, ...] = ("image", "video")
+
+
+def normalize_media_models(stored: Any) -> list[dict[str, Any]]:
+    """宽松归一 ``media_models`` 列表：字段类型收敛、active 每 kind 至多一个。"""
+    entries: list[dict[str, Any]] = []
+    for raw in stored if isinstance(stored, list) else []:
+        if not isinstance(raw, dict):
+            continue
+        kind = str(raw.get("kind") or "").strip().lower()
+        if kind not in MEDIA_KINDS:
+            continue
+        entries.append(
+            {
+                "id": str(raw.get("id") or "").strip() or f"media-{len(entries) + 1}",
+                "kind": kind,
+                "label": str(raw.get("label") or "").strip(),
+                "provider": str(raw.get("provider") or "").strip().lower(),
+                "base_url": str(raw.get("base_url") or "").strip(),
+                "api_key": str(raw.get("api_key") or "").strip(),
+                "model": str(raw.get("model") or "").strip(),
+                "options": raw.get("options")
+                if isinstance(raw.get("options"), dict)
+                else {},
+                "active": bool(raw.get("active", False)),
+            }
+        )
+    # 每个 kind 只保留一个 active：后提交者获胜
+    seen_active: set[str] = set()
+    for entry in reversed(entries):
+        if entry["active"]:
+            if entry["kind"] in seen_active:
+                entry["active"] = False
+            else:
+                seen_active.add(entry["kind"])
+    return entries
+
+
+def merge_media_models(
+    stored: Any, submitted: Any
+) -> list[dict[str, Any]]:
+    """合并设置 UI 提交的生成模型列表；空 api_key 保留旧值（与 models 同语义）。"""
+    stored_by_id: dict[str, dict[str, Any]] = {
+        str(entry["id"]): entry
+        for entry in normalize_media_models(stored)
+        if entry.get("id")
+    }
+    merged: list[dict[str, Any]] = []
+    for index, item in enumerate(submitted if isinstance(submitted, list) else []):
+        if not isinstance(item, dict):
+            continue
+        entry_id = str(item.get("id") or "").strip() or f"media-{index + 1}"
+        prev = stored_by_id.get(entry_id) or {}
+        api_key = item.get("api_key")
+        if api_key in (None, ""):
+            api_key = prev.get("api_key", "")
+        kind = str(item.get("kind") or prev.get("kind") or "image").strip().lower()
+        if kind not in MEDIA_KINDS:
+            kind = "image"
+        options = item.get("options")
+        if not isinstance(options, dict):
+            options = prev.get("options") or {}
+        merged.append(
+            {
+                "id": entry_id,
+                "kind": kind,
+                "label": str(item.get("label") or prev.get("label") or "").strip(),
+                "provider": str(
+                    item.get("provider") or prev.get("provider") or ""
+                )
+                .strip()
+                .lower(),
+                "base_url": str(item.get("base_url") or prev.get("base_url") or "").strip(),
+                "api_key": str(api_key or ""),
+                "model": str(item.get("model") or prev.get("model") or "").strip(),
+                "options": options,
+                "active": bool(item.get("active", False)),
+            }
+        )
+    return normalize_media_models(merged)
+
+
+def active_media_model(settings: dict[str, Any], kind: str) -> dict[str, Any] | None:
+    """取某类生成模型的生效条目：active 优先，否则该 kind 的第一个。"""
+    entries = [
+        entry
+        for entry in normalize_media_models(settings.get("media_models"))
+        if entry["kind"] == kind
+    ]
+    return next((entry for entry in entries if entry["active"]), entries[0] if entries else None)
+
+
 def apply_legacy_to_active(
     settings: dict[str, Any], updates: dict[str, Any]
 ) -> dict[str, Any]:

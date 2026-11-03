@@ -482,12 +482,14 @@ def test_file_list_rejects_unknown_field_and_missing_name() -> None:
 
 
 def test_rich_media_components_are_in_catalog() -> None:
-    """目录 22 个组件（21 + 金额换算 Converter），富媒体组独立成组。"""
+    """目录 23 个组件（22 + 图像/视频参数面板要用的 FilePicker，036）。"""
     doc = catalog_document()
-    assert len(doc["components"]) == 22
+    assert len(doc["components"]) == 23
     assert doc["groups"]["media"] == "富媒体"
     for name in ("Chart", "Graph", "FileList"):
         assert doc["components"][name]["group"] == "media"
+    # FilePicker 是输入组件（值即路径），不属于富媒体、不占配额
+    assert doc["components"]["FilePicker"]["group"] == "input"
     # 换算卡是纯展示型交互组件：不算富媒体，不占 MAX_RICH_MEDIA 配额
     assert doc["components"]["Converter"]["group"] == "display"
 

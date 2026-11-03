@@ -21,6 +21,8 @@ import {
   type ComponentType,
   type ReactNode,
 } from "react";
+import { useTranslation } from "react-i18next";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Flex } from "@/components/ui/Flex";
@@ -29,6 +31,8 @@ import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
 import { Tag, type TagTone } from "@/components/ui/Tag";
 import { TextArea } from "@/components/ui/TextArea";
+import { toast } from "@/components/ui/Toast";
+import { getBinaryPreview, isTauri } from "@/services/tauri";
 import { ChartBlock } from "@/pages/chat/components/ChartBlock";
 import { chartHeight } from "@/pages/chat/components/ChartBlock/chartOptions";
 import { GraphBlock, CANVAS_MIN_HEIGHT } from "@/pages/chat/components/GraphBlock";
@@ -526,6 +530,8 @@ function ChoicePickerComp({ component, ctx }: CompProps<"ChoicePicker">) {
     (option) => option && typeof option.value === "string",
   );
   const disabled = ctx.status !== "live";
+  // columns > 0 时固定列数（比例选择等 3 列网格）；0/缺省保持 flex-wrap
+  const columns = Math.max(0, Math.floor(component.columns ?? 0));
 
   const toggle = (optionValue: string) => {
     if (disabled || !path) return;
@@ -540,7 +546,13 @@ function ChoicePickerComp({ component, ctx }: CompProps<"ChoicePicker">) {
   };
 
   return (
-    <div className="uis-choice" role={multiple ? "group" : "radiogroup"}>
+    <div
+      className={`uis-choice${columns > 0 ? " is-grid" : ""}`}
+      style={
+        columns > 0 ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined
+      }
+      role={multiple ? "group" : "radiogroup"}
+    >
       {options.map((option) => {
         const active = selected.includes(option.value);
         return (
@@ -561,6 +573,10 @@ function ChoicePickerComp({ component, ctx }: CompProps<"ChoicePicker">) {
               }
             }}
           >
+            {/* icon 是封闭枚举（后端 L2 已拦），这里再兜一层正则，非 ratio-* 不渲染 */}
+            {option.icon && /^ratio-(auto|[0-9]+-[0-9]+)$/.test(option.icon) ? (
+              <span className={`uis-choice-icon uis-choice-icon--${option.icon}`} />
+            ) : null}
             <span className="uis-choice-label">{option.label}</span>
             {option.desc ? <span className="uis-choice-desc">{option.desc}</span> : null}
           </div>
@@ -600,6 +616,116 @@ function SwitchComp({ component, ctx }: CompProps<"Switch">) {
         if (path) ctx.setValue(path, next);
       }}
     />
+  );
+}
+
+/**
+ * 文件选择（036）：值即绝对路径（系统对话框选出），空串 = 未选择。
+ *
+ * 三个刻意的设计点：
+ * 1. 走 `@tauri-apps/plugin-dialog`（ChatInput 附件同款），不造 `<input type=file>`；
+ * 2. 缩略图用 `getBinaryPreview` 在**组件内部**渲染——`Image` 组件的 url
+ *    规则会拒绝绝对路径 / data:，走它会被 L2 校验拦下；
+ * 3. accept 只影响对话框过滤；真正的类型校验在后端（is_image_path）。
+ */
+const IMAGE_DIALOG_FILTERS = [
+  { name: "图片", extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp", "avif"] },
+];
+
+function FilePickerComp({ component, ctx }: CompProps<"FilePicker">) {
+  const { t } = useTranslation();
+  const [value, setValue] = useBoundValue(ctx, component.value, "");
+  const [thumb, setThumb] = useState<string | null>(null);
+  const [readError, setReadError] = useState("");
+  const [picking, setPicking] = useState(false);
+  const disabled = ctx.status !== "live";
+  const fileName = value ? (value.split("/").pop() ?? value) : "";
+
+  useEffect(() => {
+    let disposed = false;
+    // 取消护栏：值变化/清空时同步清掉旧缩略图，避免闪现上一张
+    //（与 BinaryPreview 同款模式：切换文件的清场必须同步发生，不能等微任务）
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setThumb(null);
+    setReadError("");
+    if (!value || !isTauri()) return;
+    getBinaryPreview(value)
+      .then((result) => {
+        if (!disposed) setThumb(result.dataUrl);
+      })
+      .catch((err: unknown) => {
+        if (!disposed) setReadError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [value]);
+
+  const pick = async () => {
+    if (picking) return;
+    setPicking(true);
+    try {
+      const picked = await open({
+        multiple: false,
+        directory: false,
+        filters: component.accept === "any" ? undefined : IMAGE_DIALOG_FILTERS,
+      });
+      if (typeof picked === "string" && picked) setValue(picked);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPicking(false);
+    }
+  };
+
+  return (
+    <div className="uis-filepicker">
+      <span className="uis-field-label">{component.label}</span>
+      {value ? (
+        <div className="uis-filepicker-card">
+          {thumb ? (
+            <img className="uis-filepicker-thumb" src={thumb} alt={fileName} />
+          ) : readError ? (
+            <span className="uis-filepicker-missing">{readError}</span>
+          ) : (
+            <span className="uis-filepicker-thumb uis-filepicker-thumb--loading" />
+          )}
+          <div className="uis-filepicker-meta">
+            <span className="uis-filepicker-name" title={value}>
+              {fileName}
+            </span>
+            <div className="uis-filepicker-actions">
+              <Button
+                variant="ghost"
+                size="small"
+                disabled={disabled || picking}
+                onClick={() => void pick()}
+              >
+                {t("uis.filePicker.replace", "更换")}
+              </Button>
+              <Button variant="ghost" size="small" disabled={disabled} onClick={() => setValue("")}>
+                {t("uis.filePicker.remove", "移除")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="uis-filepicker-empty">
+          <Button
+            variant="ghost"
+            size="small"
+            disabled={disabled || picking}
+            onClick={() => void pick()}
+          >
+            {t("uis.filePicker.pick", "选择图片")}
+          </Button>
+          <span className="uis-filepicker-hint">
+            {component.placeholder ??
+              (isTauri() ? undefined : t("uis.filePicker.desktopOnly", "仅桌面端支持本地文件选择"))}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -760,6 +886,7 @@ export const COMPONENT_REGISTRY: {
   ChoicePicker: ChoicePickerComp,
   Checkbox: CheckboxComp,
   Switch: SwitchComp,
+  FilePicker: FilePickerComp,
   Button: ButtonComp,
   Chart: ChartComp,
   Graph: GraphComp,

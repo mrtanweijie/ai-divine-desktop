@@ -46,6 +46,20 @@ BUTTON_VARIANTS: tuple[str, ...] = ("primary", "ghost", "danger")
 ORIENTATIONS: tuple[str, ...] = ("horizontal", "vertical")
 STEP_STATUSES: tuple[str, ...] = ("pending", "active", "done", "error")
 
+#: options[].icon 的封闭枚举（036 §7.5）：全部是「宽高比示意」，前端用 CSS 画矩形。
+#: 不接受图标名 / 图片地址——否则面板就成了任意图形的注入点。
+OPTION_ICONS: tuple[str, ...] = (
+    "ratio-auto",
+    "ratio-1-1",
+    "ratio-4-3",
+    "ratio-3-4",
+    "ratio-3-2",
+    "ratio-2-3",
+    "ratio-16-9",
+    "ratio-9-16",
+    "ratio-21-9",
+)
+
 GROUP_LABELS: dict[str, str] = {
     "layout": "布局",
     "display": "展示",
@@ -349,8 +363,18 @@ COMPONENTS: dict[str, dict[str, Any]] = {
         "label": "选项卡片",
         "props": {
             "value": _p("string", required=True, bindable=True, desc="多选时用逗号分隔"),
-            "options": _p("options", required=True, desc="[{value, label, desc?}]"),
+            "options": _p(
+                "options",
+                required=True,
+                desc="[{value, label, desc?, icon?}]；icon 为封闭枚举（ratio-1-1 等），"
+                "前端用 CSS 画示意图形，不接受图标名",
+            ),
             "multiple": _p("boolean", default=False),
+            "columns": _p(
+                "integer",
+                default=0,
+                desc=">0 时固定列数（如 3 列比例选择）；0 = 自动换行",
+            ),
         },
     },
     "Checkbox": {
@@ -367,6 +391,26 @@ COMPONENTS: dict[str, dict[str, Any]] = {
         "props": {
             "label": _p("string", required=True),
             "checked": _p("boolean", required=True, bindable=True),
+        },
+    },
+    "FilePicker": {
+        "group": "input",
+        "label": "文件选择",
+        "props": {
+            "label": _p("string", required=True),
+            "value": _p(
+                "string",
+                required=True,
+                bindable=True,
+                desc="已选文件的绝对路径（系统文件对话框选出）；空串=未选择",
+            ),
+            "accept": _p(
+                "string",
+                enum=["image", "any"],
+                default="image",
+                desc="对话框过滤类型；真正的类型校验在后端做",
+            ),
+            "placeholder": _p("string", desc="未选择时的提示文案"),
         },
     },
     # ---------------- D 组 · 动作 ----------------

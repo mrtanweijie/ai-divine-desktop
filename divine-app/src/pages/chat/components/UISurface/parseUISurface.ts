@@ -74,6 +74,7 @@ const REQUIRED_PROPS: Record<UIComponentName, readonly string[]> = {
   ChoicePicker: ["value", "options"],
   Checkbox: ["label", "checked"],
   Switch: ["label", "checked"],
+  FilePicker: ["label", "value"],
   Button: ["text", "action"],
   Chart: ["option"],
   Graph: ["ir"],

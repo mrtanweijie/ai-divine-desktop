@@ -9,6 +9,7 @@ import base64
 import json
 import sys
 import time
+from concurrent import futures
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
@@ -39,14 +40,60 @@ GLM_VALID_SIZES = {
 }
 
 
+#: 各 provider 的官方默认端点（media_models 条目未填 base_url 时的兜底，
+#: 与 _minimax_config / _glm_config 原有默认保持一致）
+MEDIA_DEFAULT_BASE_URL = {
+    "minimax": "https://api.minimaxi.com/v1",
+    "glm": "https://open.bigmodel.cn/api/paas/v4",
+}
+
+
+def _media_model_config(settings: dict, provider_hint: str) -> tuple[str, str] | None:
+    """从 ``settings.media_models`` 取 kind=image 的凭据 (api_key, base_url)（036）。
+
+    选择顺序：provider 匹配且 active > provider 匹配 > active 条目。
+    读不到（未配置 / 旧版本）返回 None，由调用方回落 settings.models 旧路径，
+    避免升级后图像生成突然报"缺 key"。
+    """
+    from app.config import normalize_media_models
+
+    entries = [
+        entry
+        for entry in normalize_media_models(settings.get("media_models"))
+        if entry["kind"] == "image"
+    ]
+    matching = [
+        entry
+        for entry in entries
+        if not provider_hint
+        or not entry["provider"]
+        or entry["provider"] == provider_hint
+    ]
+    if not matching:
+        return None
+    entry = next((item for item in matching if item["active"]), matching[0])
+    key = str(entry.get("api_key") or "").strip()
+    if not key:
+        return None
+    base = (
+        str(entry.get("base_url") or "").strip()
+        or MEDIA_DEFAULT_BASE_URL.get(str(entry.get("provider") or "").lower(), "")
+    )
+    return key, base
+
+
 def _minimax_config(settings: dict) -> tuple[str, str]:
     """MiniMax 提供方条目的 (api_key, base_url)。
 
-    优先级：settings 里的 MiniMax 模型条目 > 环境变量
-    MINIMAX_API_KEY / MINIMAX_BASE_URL > 官方默认端点。
+    优先级：settings.media_models(kind=image) > settings 里的 MiniMax 模型条目 >
+    环境变量 MINIMAX_API_KEY / MINIMAX_BASE_URL > 官方默认端点。
     base_url 跟随条目配置（中国站 api.minimaxi.com / 国际站 api.minimax.io）。
     """
     import os
+
+    media = _media_model_config(settings, "minimax")
+    if media:
+        return media
 
     env_key = os.getenv("MINIMAX_API_KEY", "").strip()
     env_base = os.getenv("MINIMAX_BASE_URL", "").strip()
@@ -79,10 +126,14 @@ def _minimax_config(settings: dict) -> tuple[str, str]:
 def _glm_config(settings: dict) -> tuple[str, str]:
     """GLM 提供方的 (api_key, base_url)。
 
-    优先级：settings.glm_api_key > 环境变量 GLM_API_KEY。
-    base_url 来自 settings.glm_base_url 或环境变量 GLM_BASE_URL。
+    优先级：settings.media_models(kind=image, provider=glm) > settings.glm_api_key >
+    环境变量 GLM_API_KEY。base_url 来自条目 / settings.glm_base_url / 环境变量。
     """
     import os
+
+    media = _media_model_config(settings, "glm")
+    if media:
+        return media
 
     env_key = os.getenv("GLM_API_KEY", "").strip()
     env_base = os.getenv("GLM_BASE_URL", "").strip()
@@ -548,15 +599,21 @@ def main() -> None:
         raw_name = str(params.get("filename") or "").strip()
         image_dir = output_root / "images"
         image_dir.mkdir(parents=True, exist_ok=True)
-        written = []
         total = max(len(images_b64), len(images_urls))
-        for index in range(total):
+
+        def _image_bytes(index: int) -> bytes:
+            # base64 在响应里已就绪；URL 才需要网络下载（036：多张并发）
             if index < len(images_b64):
-                data = base64.b64decode(images_b64[index])
-            else:
-                download = httpx.get(images_urls[index], timeout=120)
-                download.raise_for_status()
-                data = download.content
+                return base64.b64decode(images_b64[index])
+            download = httpx.get(images_urls[index], timeout=120)
+            download.raise_for_status()
+            return download.content
+
+        with futures.ThreadPoolExecutor(max_workers=min(total, 4)) as pool:
+            data_list = list(pool.map(_image_bytes, range(total)))
+
+        written = []
+        for index, data in enumerate(data_list):
             if raw_name:
                 # 始终附加实际格式的扩展名，避免无后缀文件被
                 # 预览/read_image 当成未知类型
@@ -601,6 +658,13 @@ def main() -> None:
     message = f"已生成 {len(written)} 张图片"
     if notes:
         message += "（" + "；".join(notes) + "）"
+    # 记住本次参数：下次弹参数面板时作为默认值（036 §6），第二次基本点一下就走
+    try:
+        current = settings_store.load()
+        current["image_defaults"] = {"n": count, "aspect_ratio": aspect_ratio}
+        settings_store.save(current)
+    except Exception:  # noqa: BLE001 - 记不住默认值不该让生成失败
+        pass
     first = written[0]
     print(
         json.dumps(
