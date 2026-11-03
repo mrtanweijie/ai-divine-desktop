@@ -105,6 +105,19 @@ function errorMessage(error: unknown): string {
 }
 
 /**
+ * 记录失败详情，返回同一份文本存进 state。
+ *
+ * 界面上只展示「检查更新失败，请稍后重试」这类人话（见 UpdaterSection 的错误态）：
+ * reqwest 的 `error sending request for url (...)` 对用户毫无意义，还容易让人
+ * 以为是自己网络坏了。原文仍写进控制台，排障时能拿到 URL 与错误码。
+ */
+function reportFailure(stage: string, error: unknown): string {
+  const detail = errorMessage(error);
+  console.warn(`[updater] ${stage}失败：`, detail, error);
+  return detail;
+}
+
+/**
  * 给可能永不 settle 的 Promise 加超时。
  *
  * Tauri 的 `downloadAndInstall` 在「下载完、替换 app」阶段卡住时既不 resolve
@@ -178,7 +191,7 @@ export async function checkForUpdates(): Promise<void> {
       version: "",
       body: "",
       progress: 0,
-      message: errorMessage(error),
+      message: reportFailure("检查更新", error),
       errorStage: "check",
       update: null,
       bannerDismissed: false,
@@ -248,7 +261,7 @@ export async function downloadAndInstallUpdate(): Promise<void> {
         ...state,
         status: "downloaded",
         progress: 100,
-        message: errorMessage(error),
+        message: reportFailure("自动重启", error),
       });
     }
   } catch (error) {
@@ -261,7 +274,7 @@ export async function downloadAndInstallUpdate(): Promise<void> {
       status: "error",
       version: target.version,
       progress: 0,
-      message: errorMessage(error),
+      message: reportFailure(installed ? "更新安装" : "更新下载", error),
       errorStage: installed ? "install" : "download",
       update: target,
     });

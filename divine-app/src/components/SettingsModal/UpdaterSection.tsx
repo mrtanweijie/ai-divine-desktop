@@ -68,13 +68,10 @@ export function UpdaterSection() {
             {updater.status === "downloaded" && (
               <>
                 <RefreshCw size={14} />
-                <span className="settings-updater-status-text">
+                <span>
                   {updater.message
                     ? t("updater.manualRestart", "更新已安装，请手动退出并重新打开应用")
                     : t("updater.restarting", "更新完成，正在重启...")}
-                  {updater.message ? (
-                    <em className="settings-updater-reason">{updater.message}</em>
-                  ) : null}
                 </span>
               </>
             )}
@@ -82,12 +79,8 @@ export function UpdaterSection() {
             {updater.status === "error" && (
               <span className="settings-updater-error">
                 <AlertTriangle size={13} />
-                <span className="settings-updater-status-text">
-                  {stageLabel}
-                  {updater.message ? (
-                    <em className="settings-updater-reason">{updater.message}</em>
-                  ) : null}
-                </span>
+                {/* 只给一句人话。底层错误（reqwest 的 url/状态码）写进控制台供排查，不糊到脸上 */}
+                <span>{stageLabel}</span>
               </span>
             )}
             {updater.status === "disabled" && (
