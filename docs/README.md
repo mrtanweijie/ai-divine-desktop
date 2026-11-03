@@ -45,6 +45,7 @@
 | 042 | [design-agent-auto-debug](design/026-agent-auto-debug-20260917.md) | 2026-09-17 | **已实施（P1–P3）** |
 | 043 | [design-task-webhook-interactive-digest](design/027-task-webhook-interactive-digest-20260919.md) | 2026-09-19 | 已实施（stage 1–5；digest/interactive 仅后端，无 UI 入口） |
 | 044 | [design-a2ui-integration](design/028-a2ui-integration-20261009.md) | 2026-10-09 | **S1–S5 已实施**（A2UI v0.9.1 接入；待人工验收） |
+| 045 | [design-hidden-city-fares](design/034-hidden-city-fares-20261103.md) | 2026-11-03 | **P1 + P2 + P3 已实施**（弃程票单列一栏 / 多程 open-jaw / 主动找弃程清单工具） |
 
 ### 修复（fix）
 

@@ -103,13 +103,51 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _city_list(value: Any) -> list[str]:
+    """中转城市列表：容忍 ["成都"] / "成都" / "成都、重庆" / "成都/重庆" 这些写法。"""
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        items = [str(item) for item in value]
+    else:
+        items = re.split(r"[,、/|→>]+", str(value))
+    return [item.strip() for item in items if item and item.strip()]
+
+
+def _legs(value: Any) -> list[dict[str, str]]:
+    """多程航段：[{from, to, date}]。
+
+    只接受结构化的段列表——**不解析字符串**，避免把「上海→清迈 12-01」这类自由文本猜错。
+    OTA 的多程报价是按整程给总价，所以一行 = 一个完整行程，不是一段。
+    """
+    if not isinstance(value, (list, tuple)):
+        return []
+    legs: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        origin = _text(item.get("from") or item.get("origin"))
+        destination = _text(item.get("to") or item.get("destination"))
+        day = _text(item.get("date") or item.get("depart"))
+        if not origin or not destination:
+            continue
+        legs.append({"from": origin, "to": destination, "date": day})
+    return legs
+
+
 def normalize_offer(row: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
     """单行归一；返回 (offer, 丢弃原因)。"""
     if not isinstance(row, dict):
         return None, "行不是对象"
 
+    legs = _legs(row.get("legs") or row.get("segments"))
     destination = _text(row.get("to") or row.get("destination") or row.get("city"))
     depart = _text(row.get("depart") or row.get("depart_date") or row.get("date"))
+    # 多程行：目的地/日期由首末航段推出，模型不必重复填
+    if legs:
+        destination = destination or legs[-1]["to"]
+        depart = depart or legs[0]["date"]
+
     if not destination or not depart:
         return None, "缺少目的地或日期"
 
@@ -118,12 +156,18 @@ def normalize_offer(row: dict[str, Any]) -> tuple[dict[str, Any] | None, str | N
         return None, f"{destination} {depart} 没有可解析的价格"
 
     ret = _text(row.get("ret") or row.get("return_date") or row.get("back_date")) or None
+    if not ret and len(legs) >= 2 and legs[-1]["date"]:
+        # 多程总价：末段日期就是「回程/结束」日期，请假与排序都靠它
+        ret = legs[-1]["date"]
     duration = parse_duration_minutes(row.get("duration_min") or row.get("duration"))
     direct = parse_bool(row.get("direct") or row.get("nonstop"))
 
     return (
         {
             "to": destination,
+            # 行级出发城市：返程/异地出发的票起点不是 from_city（如回程「清迈→南京」）
+            "from": _text(row.get("from") or row.get("origin")) or (legs[0]["from"] if legs else ""),
+            "legs": legs,
             "depart": depart,
             "ret": ret,
             "price_cny": price_cny,
@@ -138,6 +182,9 @@ def normalize_offer(row: dict[str, Any]) -> tuple[dict[str, Any] | None, str | N
             "source": _text(row.get("source")) or "—",
             "url": _text(row.get("url")),
             "per_hour": round(price_cny / (duration / 60), 1) if duration else None,
+            # 航段信息：只有模型真在页面上看到才填得上，服务端不猜（见 hidden_city.py）
+            "via": _city_list(row.get("via") or row.get("stops") or row.get("transfer")),
+            "skip_at": _text(row.get("skip_at") or row.get("skip_tail_at")),
         },
         None,
     )
@@ -149,9 +196,13 @@ def dedupe(offers: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     「同一趟往返」的判定落在 (目的地, 去程, 返程) 上：同一天去同一天回，
     即使来自携程和 Trip.com 两个源，也应当是**一条**结果而不是两条。
     """
-    best: dict[tuple[str, str, str], dict[str, Any]] = {}
+    best: dict[tuple[str, ...], dict[str, Any]] = {}
     for offer in offers:
-        key = (offer["to"], offer["depart"], str(offer["ret"] or ""))
+        # 多程行程要把航段纳入去重键：同目的地/同日期但走法不同，是两条不同的产品
+        legs_key = "|".join(
+            f"{leg['from']}>{leg['to']}@{leg['date']}" for leg in offer.get("legs") or []
+        )
+        key = (offer["to"], offer["depart"], str(offer["ret"] or ""), legs_key)
         current = best.get(key)
         if current is None:
             offer = dict(offer, sources=[offer["source"]])

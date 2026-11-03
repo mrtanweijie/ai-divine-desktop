@@ -46,38 +46,55 @@ def _pair_one_way(
     for offer in offers:
         by_dest.setdefault(offer["to"], []).append(offer)
 
+    def _build(out: dict[str, Any], back: dict[str, Any], destination: str) -> dict[str, Any]:
+        return {
+            "to": destination,
+            "depart": out["depart"],
+            "ret": back["depart"],
+            "price_cny": round(out["price_cny"] + back["price_cny"], 2),
+            "price_raw": "",
+            "currency": out["currency"],
+            "airline": out["airline"],
+            "flight_no": "",
+            "direct": out["direct"] and back["direct"],
+            "dep_time": out["dep_time"],
+            "arr_time": back["arr_time"],
+            "duration_min": (out["duration_min"] or 0) + (back["duration_min"] or 0)
+            if (out["duration_min"] or back["duration_min"])
+            else None,
+            "source": " + ".join(sorted({out["source"], back["source"]})),
+            "url": out["url"] or back["url"],
+            "per_hour": None,
+            "paired": True,
+        }
+
+    def _pairable(out: dict[str, Any], back: dict[str, Any]) -> bool:
+        if out is back or out["airline"] != back["airline"]:
+            return False
+        out_day, back_day = _as_date(out["depart"]), _as_date(back["depart"])
+        if not out_day or not back_day or back_day <= out_day:
+            return False
+        return (back_day - out_day).days <= 21
+
     for destination, group in by_dest.items():
         for out in group:
             for back in group:
-                if out is back or out["airline"] != back["airline"]:
-                    continue
-                out_day, back_day = _as_date(out["depart"]), _as_date(back["depart"])
-                if not out_day or not back_day or back_day <= out_day:
-                    continue
-                if (back_day - out_day).days > 21:
-                    continue
-                paired.append(
-                    {
-                        "to": destination,
-                        "depart": out["depart"],
-                        "ret": back["depart"],
-                        "price_cny": round(out["price_cny"] + back["price_cny"], 2),
-                        "price_raw": "",
-                        "currency": out["currency"],
-                        "airline": out["airline"],
-                        "flight_no": "",
-                        "direct": out["direct"] and back["direct"],
-                        "dep_time": out["dep_time"],
-                        "arr_time": back["arr_time"],
-                        "duration_min": (out["duration_min"] or 0) + (back["duration_min"] or 0)
-                        if (out["duration_min"] or back["duration_min"])
-                        else None,
-                        "source": " + ".join(sorted({out["source"], back["source"]})),
-                        "url": out["url"] or back["url"],
-                        "per_hour": None,
-                        "paired": True,
-                    }
-                )
+                if _pairable(out, back):
+                    paired.append(_build(out, back, destination))
+
+    # 方向感知形态：回程行带 from（例：回程「清迈 → 上海」带 from=清迈，去程是「上海 → 清迈」）。
+    # 这类行 to 不等于行程目的地，按 to 分组永远配不上对面，主表会整段消失——
+    # 弃程票（回程弃尾段）恰好会引入这种行，所以这里补一条：去程终点 == 回程起点即可配。
+    for back in offers:
+        origin = back.get("from")
+        if not origin:
+            continue
+        for out in by_dest.get(origin, []):
+            # out.to == back.from（方向闭环）；排除同向票与真正的原地往返
+            if out.get("from") == back["to"]:
+                continue
+            if _pairable(out, back):
+                paired.append(_build(out, back, out["to"]))
     return paired
 
 
@@ -90,8 +107,13 @@ def recommend(
     budget: float | None = None,
     direct_only: bool = False,
     limit: int = 8,
+    trip_type: str | None = None,
 ) -> dict[str, Any]:
-    """返回可直接渲染的推荐结果（候选 + 最佳 + 假期上下文）。"""
+    """返回可直接渲染的推荐结果（候选 + 最佳 + 假期上下文）。
+
+    ``trip_type`` 只影响措辞与窗口语义（``one_way`` / ``round_trip`` / ``multi_city``）；
+    多程行的候选是**整程总价**，不需要拼票。
+    """
     ranked = rank(rows, budget=budget, direct_only=direct_only, limit=400)
     offers: list[dict[str, Any]] = list(ranked["offers"])
 
@@ -100,7 +122,12 @@ def recommend(
 
     round_trip = [offer for offer in offers if offer["ret"]]
     one_way = [offer for offer in offers if not offer["ret"]]
-    candidates = round_trip + _pair_one_way(one_way, window)
+    if ret_center is None:
+        # 单程查询：单程票本身就是结果。原先一律只拼往返，导致单程查询得到空面板
+        # （而弃程票只能是单程，主列表必须有东西可比）。
+        candidates = round_trip + one_way
+    else:
+        candidates = round_trip + _pair_one_way(one_way, window)
 
     if depart_center:
         candidates = [
@@ -140,7 +167,7 @@ def recommend(
         "leave_options": plans,
         "window": window,
         "dropped": ranked["dropped"],
-        "note": _build_note(best, context, window, len(candidates), plans),
+        "note": _build_note(best, context, window, len(candidates), plans, trip_type),
     }
 
 
@@ -150,13 +177,23 @@ def _build_note(
     window: int,
     total: int,
     plans: list[dict[str, Any]] | None = None,
+    trip_type: str | None = None,
 ) -> str:
     if best is None:
         return f"±{window} 天内没有可用报价，建议放宽日期或目的地。"
     leave = best.get("leave") or {}
     trip = f"{best['depart']} → {best['ret']}" if best.get("ret") else best["depart"]
+    # 措辞按行程形态走：单程说成往返会让用户以为买到了回程，多程说成往返会漏掉中间段
+    legs = best.get("legs") or []
+    if trip_type == "multi_city" or len(legs) >= 2:
+        kind = "多程"
+        # 多程的「首选」是整条路线，不是最后一段的终点
+        head = "→".join([legs[0]["from"], *[leg["to"] for leg in legs]]) if legs else best["to"]
+    else:
+        kind = "往返" if best.get("ret") else "单程"
+        head = best["to"]
     text = (
-        f"±{window} 天内共 {total} 个往返候选，首选 {best['to']} {trip}"
+        f"±{window} 天内共 {total} 个{kind}候选，首选 {head} {trip}"
         f"（{format_price(best)}"
         + (
             f"，往返 {format_duration(best.get('duration_min'))}"

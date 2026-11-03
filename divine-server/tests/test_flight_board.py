@@ -198,7 +198,6 @@ def test_external_file_can_override_builtin_official(tmp_path, monkeypatch) -> N
     assert calendar_cn.resolve_date("2026-10-01")["holiday"] is None
 
 
-
 def test_reversed_dates_are_normalized() -> None:
     plan = calendar_cn.leave_plan("2026-10-07", "2026-10-01")
     assert plan["depart"] == "2026-10-01"
@@ -476,3 +475,354 @@ def test_persistence_uses_cached_surface_for_fx_rates() -> None:
     # 没有快照（例如 sidecar 重启过）就不落库，也不该报错
     surface_cache.clear()
     assert _collect_ui_surfaces(calls) == []
+
+
+# --------------------------------------------------------------------------
+# 弃程票（甩尾）：票买到更远城市，在真实目的地中转时下机
+# --------------------------------------------------------------------------
+
+
+def _prepare(
+    rows: list[dict],
+    *,
+    target: str | None = "成都",
+    ret: str | None = None,
+    depart: str = "2026-11-20",
+) -> dict:
+    from app.tools.adapters.flight_board import prepare
+
+    conditions = {"from_city": "上海", "depart_date": depart}
+    if target:
+        conditions["target_city"] = target
+    if ret:
+        conditions["return_date"] = ret
+    return prepare({"conditions": conditions, "rows": rows})
+
+
+def _normal_row() -> dict:
+    return {
+        "to": "成都",
+        "depart": "2026-11-20",
+        "price": 1200,
+        "airline": "MU",
+        "direct": True,
+        "source": "携程",
+    }
+
+
+def _hidden_row(**extra) -> dict:
+    row = {
+        "to": "拉萨",
+        "depart": "2026-11-20",
+        "price": 700,
+        "airline": "CA",
+        "direct": False,
+        "via": ["成都"],
+        "source": "携程",
+    }
+    row.update(extra)
+    return row
+
+
+def test_hidden_city_row_leaves_main_table() -> None:
+    """弃程票不能和正常票混在一张表里——便宜会把它顶到第一位，用户容易误点。"""
+    prepared = _prepare([_normal_row(), _hidden_row()])
+    surface = prepared["surface"]
+
+    assert [row["to"] for row in surface["data"]["picks"]] == ["成都"]
+    assert len(surface["data"]["hidden"]) == 1
+    hidden = surface["data"]["hidden"][0]
+    assert hidden["skip_at"] == "成都"
+    assert hidden["route"] == "上海 → 成都"
+    assert hidden["tail"] == "成都 → 拉萨"
+    assert hidden["save"] == "省 ¥500"
+
+
+def test_hidden_city_round_trip_not_promoted() -> None:
+    """往返票弃尾段会让整张票作废，所以带 ret 的一律留在主列表。"""
+    prepared = _prepare([_hidden_row(ret="2026-11-25", skip_at="成都"), _normal_row()])
+    surface = prepared["surface"]
+
+    assert surface["data"]["hidden"] == []
+    assert any(row["to"] == "拉萨" for row in surface["data"]["picks"])
+
+
+def test_hidden_city_requires_target_or_skip_at() -> None:
+    """没有 target_city 也没显式 skip_at 时，只是普通中转票，不能自己猜下机点。"""
+    prepared = _prepare([_normal_row(), _hidden_row()], target=None)
+    assert prepared["hidden"] == []
+
+
+def test_hidden_city_auto_detect_from_target_city() -> None:
+    """模型给了 via 但没填 skip_at：靠 conditions.target_city 自动认出来。"""
+    prepared = _prepare([_normal_row(), _hidden_row()])
+    assert [item["skip_at"] for item in prepared["hidden"]] == ["成都"]
+
+
+def test_hidden_city_without_baseline_has_no_saving() -> None:
+    """主列表没有到该城市的正常报价时，不给「省多少」——编一个数字比留空更糟。"""
+    prepared = _prepare([_hidden_row()], target="成都")
+    hidden = prepared["hidden"][0]
+    assert hidden["save"] == "—"
+    assert hidden["save_cny"] is None
+
+
+def test_hidden_city_needs_tail_segment() -> None:
+    """skip_at 等于票面终点时没有尾段可甩，不算弃程。"""
+    row = _hidden_row(to="成都", via=["成都"], skip_at="成都")
+    prepared = _prepare([_normal_row(), row])
+    assert prepared["hidden"] == []
+
+
+def test_hidden_city_worst_case_keeps_three() -> None:
+    """候选最多 3 条：面板是给人看的，不是报表。"""
+    rows = [_normal_row()] + [
+        _hidden_row(to=f"远{city}", via=["成都"], price=600 + index)
+        for index, city in enumerate(["甲", "乙", "丙", "丁"])
+    ]
+    prepared = _prepare(rows)
+    assert len(prepared["hidden"]) == 3
+    # 省得多的在前（价格升序）
+    assert prepared["hidden"][0]["price_cny"] <= prepared["hidden"][-1]["price_cny"]
+
+
+def test_surface_hidden_section_is_valid_and_warns() -> None:
+    surface = _prepare([_normal_row(), _hidden_row()])["surface"]
+    texts = _texts(surface)
+    assert any("弃程票" in text for text in texts), texts
+    assert any("不能托运行李" in text for text in texts), "风险提示不能丢"
+
+    table = next(c for c in surface["components"] if c.get("id") == "hidden_table")
+    keys = {column["key"] for column in table["columns"]}
+    assert all(set(row) >= keys for row in surface["data"]["hidden"])
+    assert validate_ui_surface(surface).ok
+
+
+def test_surface_without_hidden_has_no_extra_section() -> None:
+    """没有候选时面板保持原样：不多一个空表、不多一段风险提示。"""
+    surface = _prepare([_normal_row()])["surface"]
+    ids = [c["id"] for c in surface["components"]]
+    assert "hidden_table" not in ids
+    assert not any("弃程" in text for text in _texts(surface))
+
+
+def test_summary_mentions_hidden_count() -> None:
+    surface = _prepare([_normal_row(), _hidden_row()])["surface"]
+    summary = next(c["text"] for c in surface["components"] if c.get("id") == "summary")
+    assert "1 个弃程票更便宜" in summary
+
+
+def test_one_way_search_shows_one_way_candidates() -> None:
+    """回归：单程查询原先只拼往返 → 一个候选都没有；而弃程票只能是单程。"""
+    rows = [
+        {"to": "成都", "depart": "2026-11-20", "price": 1200, "airline": "MU", "direct": True},
+        {"to": "重庆", "depart": "2026-11-20", "price": 900, "airline": "CA", "direct": True},
+    ]
+    prepared = _prepare(rows, target=None)
+    assert {row["to"] for row in prepared["surface"]["data"]["picks"]} == {"成都", "重庆"}
+    summary = next(
+        c["text"] for c in prepared["surface"]["components"] if c.get("id") == "summary"
+    )
+    assert "单程候选" in summary
+    assert "往返候选" not in summary
+
+
+def test_hidden_city_usable_when_round_trip_built_from_one_ways() -> None:
+    """「往返行程」≠「往返票」：去程用弃程单程 + 回程另买正常单程是可行组合。
+
+    被拒的只是**一张往返票**（顺序客票联，弃尾段会让回程一起作废）；
+    只要该行本身是单程，往返查询里照样会识别。
+    """
+    rows = [
+        _normal_row(),  # 去程：正常单程
+        _hidden_row(),  # 去程：弃程单程（上海 → 成都 → 拉萨，在成都下机）
+        {
+            "to": "成都",
+            "depart": "2026-11-25",
+            "price": 900,
+            "airline": "MU",
+            "direct": True,
+            "source": "携程",
+        },  # 回程：正常单程
+    ]
+    prepared = _prepare(rows, ret="2026-11-25")
+    assert [item["skip_at"] for item in prepared["hidden"]] == ["成都"]
+
+
+def test_hidden_risk_note_is_plain_text_and_precise() -> None:
+    """风险文案要写清「必须是单程」的**原因方向**，且面板 Text 是纯文本不能带 Markdown。"""
+    from app.tools.flight.hidden_city import HIDDEN_RISK_NOTE
+
+    assert "必须是单程" in HIDDEN_RISK_NOTE
+    assert "回程" in HIDDEN_RISK_NOTE
+    assert "**" not in HIDDEN_RISK_NOTE
+    assert "不能托运行李" in HIDDEN_RISK_NOTE
+
+
+def test_hidden_city_return_direction_uses_row_origin() -> None:
+    """回程方向：清迈→上海→南京，在上海下机——弃掉的正是最后一程，不影响前面航段。
+
+    这条最容易写错的地方是起点：回程票的出发城市是清迈，不是 conditions.from_city（上海）。
+    """
+    rows = [
+        # 去程正常：上海 → 清迈（往返查询里的去程单程）
+        {
+            "to": "清迈",
+            "depart": "2026-12-01",
+            "price": 1600,
+            "airline": "MU",
+            "direct": True,
+            "source": "携程",
+        },
+        # 回程基准：清迈 → 上海 正常单程
+        {
+            "to": "上海",
+            "from": "清迈",
+            "depart": "2026-12-08",
+            "price": 1400,
+            "airline": "MU",
+            "direct": True,
+            "source": "携程",
+        },
+        # 回程弃程：清迈 → 上海 → 南京，¥900
+        {
+            "from": "清迈",
+            "to": "南京",
+            "via": ["上海"],
+            "skip_at": "上海",
+            "depart": "2026-12-08",
+            "price": 900,
+            "airline": "MU",
+            "direct": False,
+            "source": "携程",
+        },
+    ]
+    prepared = _prepare(rows, target="清迈", ret="2026-12-08", depart="2026-12-01")
+    hidden = prepared["hidden"]
+    picks = prepared["surface"]["data"]["picks"]
+
+    # 主表不能因为「回程行 to≠目的地」而整段消失：方向感知配对要把它配成同一趟往返
+    assert [(row["to"], row["price"]) for row in picks] == [("清迈", "¥3000")]
+
+    assert len(hidden) == 1
+    # 起点必须是清迈——用 from_city（上海）会显示成「上海 → 上海」
+    assert hidden[0]["route"] == "清迈 → 上海"
+    assert hidden[0]["tail"] == "上海 → 南京"
+    assert hidden[0]["save"] == "省 ¥500"
+
+
+# --------------------------------------------------------------------------
+# 多程（open-jaw）：一行 = 一个完整行程，OTA 按整程给总价
+# --------------------------------------------------------------------------
+
+from app.tools.adapters.flight_board import prepare  # noqa: E402
+
+
+def _multi_rows() -> list[dict]:
+    return [
+        {
+            "legs": [
+                {"from": "上海", "to": "清迈", "date": "2026-12-01"},
+                {"from": "清迈", "to": "南京", "date": "2026-12-08"},
+            ],
+            "price": 2860,
+            "airline": "MU",
+            "direct": False,
+            "source": "携程",
+        },
+        {
+            "legs": [
+                {"from": "上海", "to": "清迈", "date": "2026-12-01"},
+                {"from": "清迈", "to": "上海", "date": "2026-12-08"},
+            ],
+            "price": 3200,
+            "airline": "MU",
+            "direct": False,
+            "source": "Trip.com",
+        },
+    ]
+
+
+def test_multi_city_switches_to_leg_columns() -> None:
+    """多程面板换成「航段 / 全程价」列，不再有去程/返程两列。"""
+    prepared = prepare(
+        {
+            "conditions": {
+                "from_city": "上海",
+                "trip_type": "multi_city",
+                "legs": [
+                    {"from": "上海", "to": "清迈", "date": "2026-12-01"},
+                    {"from": "清迈", "to": "南京", "date": "2026-12-08"},
+                ],
+            },
+            "rows": _multi_rows(),
+        }
+    )
+    surface = prepared["surface"]
+    table = next(c for c in surface["components"] if c.get("id") == "picks")
+    titles = [column["title"] for column in table["columns"]]
+    assert titles == ["航段", "全程价", "中转", "请假", "连休", "来源"]
+
+    picks = surface["data"]["picks"]
+    assert picks[0]["legs"] == "上海→清迈 2026-12-01 · 清迈→南京 2026-12-08"
+    # 按全程总价升序
+    assert [row["price"] for row in picks] == ["¥2860", "¥3200"]
+    assert validate_ui_surface(surface).ok
+
+
+def test_multi_city_is_inferred_from_rows_without_trip_type() -> None:
+    """模型没填 trip_type，但行里有 legs → 仍按多程渲染，不能落回去程/返程列。"""
+    prepared = prepare(
+        {"conditions": {"from_city": "上海", "depart_date": "2026-12-01"}, "rows": _multi_rows()}
+    )
+    surface = prepared["surface"]
+    table = next(c for c in surface["components"] if c.get("id") == "picks")
+    assert [column["title"] for column in table["columns"]][0] == "航段"
+    assert surface["data"]["conditions"]["trip_type"] == "multi_city"
+
+
+def test_multi_city_dedupe_keeps_different_routings() -> None:
+    """同起点同日期的两条多程（清迈→南京 / 清迈→上海）是不同产品，不能被去重合并。"""
+    prepared = prepare(
+        {"conditions": {"from_city": "上海", "depart_date": "2026-12-01"}, "rows": _multi_rows()}
+    )
+    assert len(prepared["surface"]["data"]["picks"]) == 2
+
+
+def test_multi_city_note_names_the_whole_route() -> None:
+    """摘要里的「首选」要写整条路线，不能只写最后一段的终点（南京）。"""
+    prepared = prepare(
+        {"conditions": {"from_city": "上海", "depart_date": "2026-12-01"}, "rows": _multi_rows()}
+    )
+    note = prepared["result"]["note"]
+    assert "多程候选" in note
+    assert "上海→清迈→南京" in note
+
+
+def test_multi_city_last_leg_tail_is_droppable() -> None:
+    """多程弃程：弃掉的正是整程最后一程（清迈→南京里的上海→南京），前面航段不受影响。"""
+    rows = [
+        {
+            "legs": [
+                {"from": "上海", "to": "清迈", "date": "2026-12-01"},
+                {"from": "清迈", "to": "南京", "date": "2026-12-08"},
+            ],
+            "via": ["上海"],
+            "skip_at": "上海",
+            "price": 1900,
+            "airline": "MU",
+            "source": "携程",
+        },
+        _multi_rows()[1],
+    ]
+    prepared = prepare(
+        {"conditions": {"from_city": "上海", "depart_date": "2026-12-01"}, "rows": rows}
+    )
+    hidden = prepared["hidden"]
+
+    assert len(hidden) == 1
+    # 实际乘坐要把前序航段带上，不能只剩最后一段
+    assert hidden[0]["route"] == "上海→清迈 · 清迈→上海"
+    assert hidden[0]["tail"] == "上海 → 南京"
+    # 多程总价没有可比的单段价 → 不硬算省额
+    assert hidden[0]["save"] == "—"
