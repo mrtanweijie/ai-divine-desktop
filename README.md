@@ -25,7 +25,7 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 
 - 会话能力：会话历史、标题自动生成、会话搜索（含拼音检索）、项目化组织（项目工作区/图标）、上下文用量查看与手动压缩、会话导出
 - 对话内引用：`@` 引用工作区文件、`/` 引用技能（候选浮层 + 气泡内胶囊渲染；技能名经会话技能集合校验，避免把 `见 /docs 目录` 这类路径误标成技能）
-- 多层长期记忆：L0 工作记忆（窗口内消息）→ L1 情景记忆（每次会话的结论与过程，可跨会话检索）→ L2 语义记忆（用户画像/偏好/稳定事实，按 `project_id` 做项目作用域隔离）→ L3 程序记忆（做事的方法与成功轨迹）。写入侧显式、隐式抽取与显式覆盖三通道；自动覆盖只防高重复（极性相同 + 高相似度），语义更新必须显式指定覆盖对象；极性冲突时新记忆落到 `pending` 由用户确认/拒绝，被覆盖的记忆软删除并留 `superseded_by` 痕迹。设置弹窗内有记忆管理页，`remember` / `recall_memories` / `forget_memory` 三个工具供模型主动读写
+- 多层长期记忆：L0 工作记忆（窗口内消息）→ L1 情景记忆（每次会话的结论与过程，可跨会话检索）→ L2 语义记忆（用户画像/偏好/稳定事实，按 `project_id` 做项目作用域隔离）→ L3 程序记忆（做事的方法与成功轨迹）。写入侧显式、隐式抽取与显式覆盖三通道；自动覆盖只防高重复（极性相同 + 高相似度），语义更新必须显式指定覆盖对象；极性冲突时新记忆落到 `pending` 由用户确认/拒绝，被覆盖的记忆软删除并留 `superseded_by` 痕迹。设置页的「记忆」分区可管理这些记忆（含待确认队列），`remember` / `recall_memories` / `forget_memory` 三个工具供模型主动读写
 - 历史回溯：提问窗口之外的问题自动检索早期对话并注入
 
 ### 交互与执行
@@ -55,6 +55,8 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 - PPT：15 种版式 × 19 套主题；按页渲染 PNG 预览（不需要装 LibreOffice）；支持对已有 PPT 改文字与标题
 - 可交互图形：GraphIR 契约 + 前端 X6 渲染，覆盖流程/决策流、任务 DAG、数据加工、状态机、组织架构、思维导图、拓扑、架构图、ER、泳道、时序、知识图谱、UML 类图、鱼骨图、时间线 15 个场景；支持节点详情、数据流动画与导出 PNG/SVG
 - 交互式面板（A2UI）：`render_ui` 把「文字 + 徽标 + 表格 + 进度 + 步骤条 + 输入控件」组合成一块面板，用户可在面板里改参数、点按钮，操作带着面板当前状态回到对话，形成「看 → 调 → 再看」闭环；总开关 `ui_a2ui_enabled`
+- 图片生成：`image_brief` 先弹参数面板（参考图 / 生成数量 / 画面比例 / 提示词优化），选项按当前生效模型的能力裁剪——不支持的项目直接不渲染；确认后 `image_generate` 出图（MiniMax image-01 / GLM-Image），结果以卡片墙呈现，点开看大图，并标注所用模型与原始尺寸
+- 视频生成：`video_brief` 先弹参数面板（素材来源 / 资讯 URL / 首尾帧 / 比例 / 分辨率 / 时长 / 字幕 / 口播），确认后 `video_generate` **提交即返回**，轮询与下载都在后台（并发上限 2，30 分钟未完成视为过期）；「生成任务」看板统一看进度，支持弹窗播放、查看失败原因、重试与删除（二次确认）。P1 只产出伴生的 `.srt` 字幕与旁白稿 `.txt`，不烧制进画面
 
 ### 数据与检索
 
@@ -73,6 +75,7 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 
 - 界面三语言：简体中文 / 繁体中文 / English（`divine-app/src/i18n`，配套 `pnpm i18n:*` 脚本）
 - 深色 / 浅色双主题；自研 React UI 组件，不引入 AntD
+- 设置是整页面板：左侧分组导航（基础设置 / 模型 / Agent 能力 / 关于），支持 `?view=settings&section=<分区>` 深链；常规分区为行卡片式布局，改完即时保存，不留底部保存按钮
 - 长列表虚拟滚动；流式渲染与会话重建做过重复扫描/重复解析消除
 - 快捷键：应用内统一 keymap（macOS ⌘ / 其他平台 Ctrl），系统级全局快捷键唤起/隐藏窗口
 - SQLite 本地存储，数据默认保存在本机，不依赖云端账号
@@ -89,28 +92,29 @@ Divine：本地优先、隐私可控的桌面 AI 助手。后端为 FastAPI side
 
 ## 目录结构
 
-| 目录                               | 说明                                                                                                    |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `divine-server`                    | FastAPI sidecar：API、Agent、SSE、SQLite、工具系统                                                      |
-| `divine-server/app/agent`          | Agent 编排（LangGraph）、prompt、工具执行、意图裁剪与 SSE 拆分、记忆抽取                                |
-| `divine-server/app/api`            | HTTP/SSE/WebSocket 路由（chat、sessions、settings、mcp、skills、local_llm 等）                          |
-| `divine-server/app/db`             | SQLite 连接、迁移与按领域拆分的仓储（含自研检索原语、长期记忆）                                         |
-| `divine-server/app/docgen`         | 文档生成（PDF / Word / PPT / Excel / 图表 / 简历等渲染器，含页式模板 `ppt/renderer`、`pdf/pdf_themes`） |
-| `divine-server/app/llm`            | LLM provider、DSML 流解析与 LangChain 适配                                                              |
-| `divine-server/app/mcp`            | MCP server 连接管理（stdio/SSE）                                                                        |
-| `divine-server/app/skills`         | SKILL.md 技能注册与执行                                                                                 |
-| `divine-server/app/tools/adapters` | 工具注册与参数定义                                                                                      |
-| `divine-server/app/tools/browser_engine` | 通用 Web 任务引擎（CDP 会话、aria 快照 + ref、风险分级、购物策略钩子）                             |
-| `divine-server/app/tools/scripts`  | 工具子进程脚本                                                                                          |
-| `divine-server/app/tools/graph`    | GraphIR 契约（封闭枚举 schema + validator + 签入的 `graph_ir.schema.json`）                             |
-| `divine-server/app/tools/ui`       | A2UI 面板：组件目录（签入 `divine_catalog.json`）、IR 校验、v0.9.1 信封                                 |
-| `divine-server/tests`              | pytest 测试（含契约漂移守卫）                                                                           |
-| `divine-server/evals`              | 独立评测 harness（fake_model + scenarios，agent 离线验证）                                              |
-| `divine-app`                       | Vite + React + TypeScript 前端，自研组件                                                                |
-| `divine-app/src-tauri`             | Tauri 2 + Rust 桌面壳                                                                                   |
-| `docs`                             | 项目方案文档（plan / design / fix / review / templates，见 `docs/README.md` 索引）                      |
-| `screenshots`                      | README 界面截图（见文末「界面截图」）                                                                   |
-| `scripts`                          | macOS 打包、签名、公证与发布脚本                                                                        |
+| 目录                                     | 说明                                                                                                    |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `divine-server`                          | FastAPI sidecar：API、Agent、SSE、SQLite、工具系统                                                      |
+| `divine-server/app/agent`                | Agent 编排（LangGraph）、prompt、工具执行、意图裁剪与 SSE 拆分、记忆抽取                                |
+| `divine-server/app/api`                  | HTTP/SSE/WebSocket 路由（chat、sessions、settings、mcp、skills、local_llm 等）                          |
+| `divine-server/app/db`                   | SQLite 连接、迁移与按领域拆分的仓储（含自研检索原语、长期记忆）                                         |
+| `divine-server/app/docgen`               | 文档生成（PDF / Word / PPT / Excel / 图表 / 简历等渲染器，含页式模板 `ppt/renderer`、`pdf/pdf_themes`） |
+| `divine-server/app/llm`                  | LLM provider、DSML 流解析与 LangChain 适配                                                              |
+| `divine-server/app/media`                | 生成模型（图像/视频）能力矩阵、provider 调用、后台任务轮询与产物落盘                                    |
+| `divine-server/app/mcp`                  | MCP server 连接管理（stdio/SSE）                                                                        |
+| `divine-server/app/skills`               | SKILL.md 技能注册与执行                                                                                 |
+| `divine-server/app/tools/adapters`       | 工具注册与参数定义                                                                                      |
+| `divine-server/app/tools/browser_engine` | 通用 Web 任务引擎（CDP 会话、aria 快照 + ref、风险分级、购物策略钩子）                                  |
+| `divine-server/app/tools/scripts`        | 工具子进程脚本                                                                                          |
+| `divine-server/app/tools/graph`          | GraphIR 契约（封闭枚举 schema + validator + 签入的 `graph_ir.schema.json`）                             |
+| `divine-server/app/tools/ui`             | A2UI 面板：组件目录（签入 `divine_catalog.json`）、IR 校验、v0.9.1 信封                                 |
+| `divine-server/tests`                    | pytest 测试（含契约漂移守卫）                                                                           |
+| `divine-server/evals`                    | 独立评测 harness（fake_model + scenarios，agent 离线验证）                                              |
+| `divine-app`                             | Vite + React + TypeScript 前端，自研组件                                                                |
+| `divine-app/src-tauri`                   | Tauri 2 + Rust 桌面壳                                                                                   |
+| `docs`                                   | 项目方案文档（plan / design / fix / review / templates，见 `docs/README.md` 索引）                      |
+| `screenshots`                            | README 界面截图（见文末「界面截图」）                                                                   |
+| `scripts`                                | macOS 打包、签名、公证与发布脚本                                                                        |
 
 ## 快速开始
 
@@ -243,6 +247,7 @@ pnpm tauri:dev
 | `local_llm_enabled` / `local_llm_mode` / `local_llm_port` / `local_llm_model` / `local_llm_threshold` | —            | 本地模型开关与参数                                                           |
 | `local_llm_preprocess_*`                                                                              | —            | 本地预整理（输入侧预处理）开关与阈值                                         |
 | `installed_models`                                                                                    | `[]`         | 本地模型清单                                                                 |
+| `media_models`                                                                                        | `[]`         | 生成模型清单（`kind` = `image` / `video`，每个 kind 至多一个 `active`）      |
 | `browser_cdp_port`                                                                                    | 空           | 手动指定浏览器调试端口（一般不用填：引擎自动发现/引导启动）                  |
 | `browser_blocked_domains`                                                                             | 空           | 禁止导航的域名（逗号分隔子串）                                               |
 | `browser_confirm_domains`                                                                             | 空           | 变更动作需每次确认的域名（逗号分隔子串）                                     |
@@ -272,87 +277,93 @@ pnpm tauri:dev
 
 ## 工具系统
 
-当前注册 100 个工具（随 MCP/技能动态增减），按名称排序：
+当前注册 107 个工具（随 MCP/技能动态增减），按名称排序：
 
-| 工具                                  | 用途                                                                                                         |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `apply_patch`                         | 应用 unified diff 补丁（多文件/新建），允许行号漂移与空白容错                                                |
-| `ask_user`                            | 需求模糊或需用户拍板时提问并等待回答（优先给候选选项）                                                       |
-| `bg_kill` / `bg_output` / `bg_status` | 后台任务：停止、读取最近输出、查看状态                                                                       |
-| `calculator`                          | 安全计算数学表达式                                                                                           |
-| `clipboard`                           | 读取、写入、清空系统剪贴板                                                                                   |
-| `create_plan`                         | 为复杂任务创建待办计划                                                                                       |
-| `describe_svg`                        | 读取现有 SVG，返回画布、元素、关键 id 与结构摘要                                                             |
-| `directory_tree`                      | 查看目录树结构（忽略 .gitignore/node_modules）                                                               |
-| `discover_importable_skills`          | 扫描本机其他 AI 工具已安装的技能，列出可迁移候选                                                             |
-| `document_outline`                    | 查看 Word/Excel/PPT 文档结构大纲（段落/表格/sheet/页），输出可编辑坐标                                       |
-| `draw_svg`                            | 从零生成 SVG 矢量图/图标/插画                                                                                |
-| `edit_docx`                           | 编辑已有 Word：替换文字（run 级保样式）、改表格单元格、追加章节、删段落                                      |
-| `edit_files`                          | 按 SEARCH/REPLACE 批量修改/创建文件（SEARCH 需精确匹配）                                                     |
-| `edit_lines`                          | 按行号范围精确编辑单个文件                                                                                   |
-| `edit_pptx`                           | 编辑已有 PPT 文本：替换文字（含组合形状/表格）、改指定页标题                                                 |
-| `edit_svg`                            | 基于现有 SVG 局部修改，只动用户提到的元素                                                                    |
-| `edit_xlsx`                           | 编辑已有 Excel：改单元格/样式、追加行、增删工作表、写公式、插入图表与图片                                    |
-| `fill_template`                       | 填充 Word/Excel 模板 `{{占位符}}`，Word 支持表格整行展开（合同/通知函等套模板场景）                          |
-| `forget_memory`                       | 删除一条长期记忆（用户纠正"记错了"时）                                                                       |
-| `format_code`                         | 代码格式化（ruff format / prettier 自动识别）                                                                |
-| `generate_chart`                      | 生成 ECharts 图表并在对话中内联展示                                                                          |
-| `git_commit` / `git_revert`           | 提交改动 / 还原未提交改动（均需确认）                                                                        |
-| `git_diff` / `git_log` / `git_status` | 查看未提交 diff / 提交历史 / 仓库状态                                                                        |
-| `glob_files`                          | 按 glob 模式匹配文件（`**` 递归），新→旧排序                                                                 |
-| `grep_files`                          | 按内容搜索文本文件（正则），返回行级命中                                                                     |
-| `html_common`                         | 原样保存用户提供的完整 HTML（不注入基座、不改内容）                                                          |
-| `html_generate`                       | 生成完整 HTML 页面（报告/看板/仪表盘/落地页等），注入设计 token 基座并做静态校验                             |
-| `html_resume`                         | 简历的可编辑 HTML 输出（19 套模板，浏览器内可直接改字、下载/打印导出 PDF）                                   |
-| `image_generate`                      | 文生图/图生图（MiniMax 与 GLM-Image 后端）                                                                   |
-| `image_resize`                        | 缩放本地图片                                                                                                 |
-| `install_skill`                       | 从 GitHub/Gitee 安装 SKILL.md 技能                                                                           |
-| `lint_check`                          | 静态检查（ruff/mypy/eslint/tsc 自动识别），返回结构化问题                                                    |
-| `list_definitions`                    | 代码文件结构大纲（类/函数 + 起始行号）                                                                       |
-| `manage_model_providers`              | 维护模型提供商目录（提供商与其可选模型列表、base_url）                                                       |
-| `mermaid_export`                      | 把 Mermaid 源码保存为 `.mmd` 文件                                                                            |
-| `migrate_skill` / `migrate_skills`    | 把本机发现的技能迁移到 AI Divine（单个/批量）                                                                |
-| `move_file`                           | workspace 内移动/重命名文件或目录                                                                            |
-| `notes`                               | 生成 Markdown 笔记                                                                                           |
-| `pdf_form_fields`                     | 读取 PDF 交互表单（AcroForm）字段清单：字段名/类型/可选状态/页码                                             |
-| `pdf_form_fill`                       | 按字段名填写 PDF 交互表单（复选框 true/false 语义、失败整体中止、支持备份撤销）                              |
-| `pdf_form_generate`                   | 生成带 AcroForm 真控件的**可填写**表单 PDF（文本框/复选框/单选/下拉，声明式字段清单）                        |
-| `pdf_generate`                        | 统一 PDF 生成入口（报告/商业/旅行/路线图/书/幻灯片配方，及学术报告/论文/数据分析/研究报告/金句手绘页式模板） |
-| `pdf_render`                          | 把 Markdown 渲染为排版 PDF（weasyprint，失败自动转 reportlab 富渲染）                                        |
-| `pdf_to_word`                         | 把 PDF 文本内容转换为可编辑 Word（标题/表格/列表保留；扫描件不支持）                                         |
-| `pdf_split_merge`                     | 拆分、合并 PDF                                                                                               |
-| `pptx_to_png`                         | 把 PPT 每页渲染成 PNG（不需要 LibreOffice），可指定缩放、单页或输出目录                                      |
-| `presentation`                        | 生成 PPT（15 种版式，简单图表内嵌为 PowerPoint 原生可编辑图表）                                              |
-| `preview_skill_repo`                  | 只读预览远程仓库中的 SKILL.md 后再决定安装                                                                   |
-| `rag_index`                           | 扫描工作区文本并建立本地索引                                                                                 |
-| `rag_search`                          | 在工作区本地索引中检索相关内容（自研倒排，非向量库）                                                         |
-| `read_file`                           | 读取文本/Office/PDF/表格等；支持行号分段                                                                     |
-| `read_image`                          | 用 GLM 视觉模型识别图片（本地路径或 URL）                                                                    |
-| `recall_memories`                     | 主动检索长期记忆（注入信息不够、或纠正记忆前查旧记忆 id）                                                    |
-| `remember`                            | 保存用户稳定的偏好/事实/事件到长期记忆（自动去重与过期）                                                     |
-| `render_graph`                        | 把已确认的「节点 + 边」拓扑重绘为可交互图形（15 个场景，可点详情/播放流向/导出）                             |
-| `render_ui`                           | 把一组组件渲染成可交互面板（数据表 + 输入控件 + 按钮），操作带面板状态回到对话                               |
-| `review_changes`                      | 对工作区未提交改动做自动 code review，输出问题清单                                                           |
-| `run_subagents`                       | 把大任务拆成独立子任务，并行委托子 Agent 并汇总                                                              |
-| `run_tests`                           | 运行自动化测试（pytest/jest/vitest 自动识别），返回失败列表                                                  |
-| `schedule_task`                       | 创建定时提醒/定时任务                                                                                        |
-| `search_files`                        | 按文件名/路径关键字搜索工作区文件                                                                            |
-| `spreadsheet`                         | 生成带专业样式的 Excel（主题/斑马纹/冻结表头/自动筛选）                                                      |
-| `sqlite_query`                        | 只读查询本地 SQLite（仅 SELECT/PRAGMA/WITH）                                                                 |
-| `svg_to_png` / `svg_to_png_batch`     | SVG 导出 PNG / 批量导出多尺寸（iOS/Android 图标）                                                            |
-| `terminal`                            | 执行终端命令，高危命令需确认；会话内工作目录延续                                                             |
-| `undo_last_turn`                      | 撤销 Agent 最近的文件改动（恢复快照）                                                                        |
-| `ux_html`                             | 保存 Agent 设计的完整 UX 交互 HTML，可文件面板预览                                                           |
-| `web_fetch` / `web_fetch_batch`       | 抓取网页/批量抓取，JS 动态页自动浏览器兜底，可监听数据接口取 JSON                                            |
-| `web_search`                          | 联网搜索，返回标题/链接/摘要                                                                                 |
+| 工具                                  | 用途                                                                                                                            |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `apply_patch`                         | 应用 unified diff 补丁（多文件/新建），允许行号漂移与空白容错                                                                   |
+| `ask_user`                            | 需求模糊或需用户拍板时提问并等待回答（优先给候选选项）                                                                          |
+| `bg_kill` / `bg_output` / `bg_status` | 后台任务：停止、读取最近输出、查看状态                                                                                          |
+| `calculator`                          | 安全计算数学表达式                                                                                                              |
+| `clipboard`                           | 读取、写入、清空系统剪贴板                                                                                                      |
+| `create_plan`                         | 为复杂任务创建待办计划                                                                                                          |
+| `describe_svg`                        | 读取现有 SVG，返回画布、元素、关键 id 与结构摘要                                                                                |
+| `directory_tree`                      | 查看目录树结构（忽略 .gitignore/node_modules）                                                                                  |
+| `discover_importable_skills`          | 扫描本机其他 AI 工具已安装的技能，列出可迁移候选                                                                                |
+| `document_outline`                    | 查看 Word/Excel/PPT 文档结构大纲（段落/表格/sheet/页），输出可编辑坐标                                                          |
+| `draw_svg`                            | 从零生成 SVG 矢量图/图标/插画                                                                                                   |
+| `edit_docx`                           | 编辑已有 Word：替换文字（run 级保样式）、改表格单元格、追加章节、删段落                                                         |
+| `edit_files`                          | 按 SEARCH/REPLACE 批量修改/创建文件（SEARCH 需精确匹配）                                                                        |
+| `edit_lines`                          | 按行号范围精确编辑单个文件                                                                                                      |
+| `edit_pptx`                           | 编辑已有 PPT 文本：替换文字（含组合形状/表格）、改指定页标题                                                                    |
+| `edit_svg`                            | 基于现有 SVG 局部修改，只动用户提到的元素                                                                                       |
+| `edit_xlsx`                           | 编辑已有 Excel：改单元格/样式、追加行、增删工作表、写公式、插入图表与图片                                                       |
+| `fill_template`                       | 填充 Word/Excel 模板 `{{占位符}}`，Word 支持表格整行展开（合同/通知函等套模板场景）                                             |
+| `flight_board`                        | 机票面板：模型抓价、服务端确定性出 IR（往返/单程候选、±N 天推荐、请假方案），同 `surfaceId` 原地刷新                            |
+| `flight_hidden_targets`               | 为「弃程票（甩尾）」生成候选航线清单（票面终点更远、可能经真实目的地中转）                                                      |
+| `forget_memory`                       | 删除一条长期记忆（用户纠正"记错了"时）                                                                                          |
+| `format_code`                         | 代码格式化（ruff format / prettier 自动识别）                                                                                   |
+| `fx_rates`                            | 查询汇率（最新值 + 日线序列），比价链路复用同一份缓存                                                                           |
+| `generate_chart`                      | 生成 ECharts 图表并在对话中内联展示                                                                                             |
+| `git_commit` / `git_revert`           | 提交改动 / 还原未提交改动（均需确认）                                                                                           |
+| `git_diff` / `git_log` / `git_status` | 查看未提交 diff / 提交历史 / 仓库状态                                                                                           |
+| `glob_files`                          | 按 glob 模式匹配文件（`**` 递归），新→旧排序                                                                                    |
+| `grep_files`                          | 按内容搜索文本文件（正则），返回行级命中                                                                                        |
+| `html_common`                         | 原样保存用户提供的完整 HTML（不注入基座、不改内容）                                                                             |
+| `html_generate`                       | 生成完整 HTML 页面（报告/看板/仪表盘/落地页等），注入设计 token 基座并做静态校验                                                |
+| `html_resume`                         | 简历的可编辑 HTML 输出（19 套模板，浏览器内可直接改字、下载/打印导出 PDF）                                                      |
+| `image_brief`                         | 图片参数面板（参考图 / 数量 / 比例 / 提示词优化），按当前模型能力裁剪选项，回流后按参数调用 `image_generate`                    |
+| `image_generate`                      | 文生图/图生图（MiniMax 与 GLM-Image 后端）                                                                                      |
+| `image_resize`                        | 缩放本地图片                                                                                                                    |
+| `install_skill`                       | 从 GitHub/Gitee 安装 SKILL.md 技能                                                                                              |
+| `lint_check`                          | 静态检查（ruff/mypy/eslint/tsc 自动识别），返回结构化问题                                                                       |
+| `list_definitions`                    | 代码文件结构大纲（类/函数 + 起始行号）                                                                                          |
+| `manage_model_providers`              | 维护模型提供商目录（提供商与其可选模型列表、base_url）                                                                          |
+| `mermaid_export`                      | 把 Mermaid 源码保存为 `.mmd` 文件                                                                                               |
+| `migrate_skill` / `migrate_skills`    | 把本机发现的技能迁移到 AI Divine（单个/批量）                                                                                   |
+| `move_file`                           | workspace 内移动/重命名文件或目录                                                                                               |
+| `notes`                               | 生成 Markdown 笔记                                                                                                              |
+| `pdf_form_fields`                     | 读取 PDF 交互表单（AcroForm）字段清单：字段名/类型/可选状态/页码                                                                |
+| `pdf_form_fill`                       | 按字段名填写 PDF 交互表单（复选框 true/false 语义、失败整体中止、支持备份撤销）                                                 |
+| `pdf_form_generate`                   | 生成带 AcroForm 真控件的**可填写**表单 PDF（文本框/复选框/单选/下拉，声明式字段清单）                                           |
+| `pdf_generate`                        | 统一 PDF 生成入口（报告/商业/旅行/路线图/书/幻灯片配方，及学术报告/论文/数据分析/研究报告/金句手绘页式模板）                    |
+| `pdf_render`                          | 把 Markdown 渲染为排版 PDF（weasyprint，失败自动转 reportlab 富渲染）                                                           |
+| `pdf_split_merge`                     | 拆分、合并 PDF                                                                                                                  |
+| `pdf_to_word`                         | 把 PDF 文本内容转换为可编辑 Word（标题/表格/列表保留；扫描件不支持）                                                            |
+| `pptx_to_png`                         | 把 PPT 每页渲染成 PNG（不需要 LibreOffice），可指定缩放、单页或输出目录                                                         |
+| `presentation`                        | 生成 PPT（15 种版式，简单图表内嵌为 PowerPoint 原生可编辑图表）                                                                 |
+| `preview_skill_repo`                  | 只读预览远程仓库中的 SKILL.md 后再决定安装                                                                                      |
+| `rag_index`                           | 扫描工作区文本并建立本地索引                                                                                                    |
+| `rag_search`                          | 在工作区本地索引中检索相关内容（自研倒排，非向量库）                                                                            |
+| `read_file`                           | 读取文本/Office/PDF/表格等；支持行号分段                                                                                        |
+| `read_image`                          | 用 GLM 视觉模型识别图片（本地路径或 URL）                                                                                       |
+| `recall_memories`                     | 主动检索长期记忆（注入信息不够、或纠正记忆前查旧记忆 id）                                                                       |
+| `remember`                            | 保存用户稳定的偏好/事实/事件到长期记忆（自动去重与过期）                                                                        |
+| `render_graph`                        | 把已确认的「节点 + 边」拓扑重绘为可交互图形（15 个场景，可点详情/播放流向/导出）                                                |
+| `render_ui`                           | 把一组组件渲染成可交互面板（数据表 + 输入控件 + 按钮），操作带面板状态回到对话                                                  |
+| `review_changes`                      | 对工作区未提交改动做自动 code review，输出问题清单                                                                              |
+| `run_subagents`                       | 把大任务拆成独立子任务，并行委托子 Agent 并汇总                                                                                 |
+| `run_tests`                           | 运行自动化测试（pytest/jest/vitest 自动识别），返回失败列表                                                                     |
+| `schedule_task`                       | 创建定时提醒/定时任务                                                                                                           |
+| `search_files`                        | 按文件名/路径关键字搜索工作区文件                                                                                               |
+| `spreadsheet`                         | 生成带专业样式的 Excel（主题/斑马纹/冻结表头/自动筛选）                                                                         |
+| `sqlite_query`                        | 只读查询本地 SQLite（仅 SELECT/PRAGMA/WITH）                                                                                    |
+| `svg_to_png` / `svg_to_png_batch`     | SVG 导出 PNG / 批量导出多尺寸（iOS/Android 图标）                                                                               |
+| `terminal`                            | 执行终端命令，高危命令需确认；会话内工作目录延续                                                                                |
+| `undo_last_turn`                      | 撤销 Agent 最近的文件改动（恢复快照）                                                                                           |
+| `ux_html`                             | 保存 Agent 设计的完整 UX 交互 HTML，可文件面板预览                                                                              |
+| `video_brief`                         | 视频参数面板（素材来源 / 资讯 URL / 首尾帧 / 比例 / 分辨率 / 时长 / 字幕 / 口播），回流后按参数调用 `video_generate`            |
+| `video_generate`                      | 视频生成（文生 / 首帧·首尾帧 / 资讯视频）：提交即返回 task_id，后台轮询与下载，完成情况看「生成任务」面板                       |
+| `web_fetch` / `web_fetch_batch`       | 抓取网页/批量抓取，JS 动态页自动浏览器兜底，可监听数据接口取 JSON                                                               |
+| `web_search`                          | 联网搜索，返回标题/链接/摘要                                                                                                    |
 | `web_task`                            | 通用 Web 任务引擎：把「URL + 要求」委托给 browser 子 Agent 在真实浏览器里执行（导航/快照/填表/点击/抽取），不可逆动作强制确认卡 |
-| `word_document`                       | 生成 Word 文档（标题/表格/图片/代码块等元素），支持以用户 docx 为样式基底                                    |
-| `write_calendar`                      | 写入日程/日历事件                                                                                            |
-| `write_file`                          | 创建/写入 workspace 内文本文件                                                                               |
+| `word_document`                       | 生成 Word 文档（标题/表格/图片/代码块等元素），支持以用户 docx 为样式基底                                                       |
+| `write_calendar`                      | 写入日程/日历事件                                                                                                               |
+| `write_file`                          | 创建/写入 workspace 内文本文件                                                                                                  |
 
 工具行为的两条默认：输出路径必须落在 workspace 内（越界拒绝）；高危操作（terminal、git 提交/还原、文件改动等）一律先征求用户确认。
 
-另有 `browser_navigate` / `browser_snapshot` / `browser_click` / `browser_fill` / `browser_select` / `browser_scroll` / `browser_extract` / `browser_wait` / `browser_press_key` / `browser_track_order` / `browser_read_captcha` / `browser_solve_slider` / `browser_solve_click_captcha` / `browser_geometry` / `browser_capture` / `browser_sniff_start` / `browser_sniff_stop` / `browser_api_login` / `browser_api_call` / `browser_read_page` 19 个浏览器操作原语，只在 browser 子 agent 内注册——不进主 agent 工具表（保护 system prompt 与 prefix cache），主 agent 只通过 `web_task` 委派。
+另有 `browser_navigate` / `browser_snapshot` / `browser_click` / `browser_fill` / `browser_select` / `browser_scroll` / `browser_extract` / `browser_wait` / `browser_press_key` / `browser_track_order` / `browser_read_captcha` / `browser_solve_slider` / `browser_solve_click_captcha` / `browser_geometry` / `browser_capture` / `browser_sniff_start` / `browser_sniff_stop` / `browser_api_login` / `browser_api_call` / `browser_read_page` 20 个浏览器操作原语，只在 browser 子 agent 内注册——不进主 agent 工具表（保护 system prompt 与 prefix cache），主 agent 只通过 `web_task` 委派。
 
 `render_ui` 与 `render_graph` 都属于「默认不要调用」的工具：单纯展示结论用正文 Markdown，一张图用 `generate_chart`，一张表用 Markdown 表格，静态图先走 Mermaid；只有需要**组合呈现**、**在界面里操作**、或用户明确要求**可交互/可导出**时才调用，避免为了形式感付出 token 与渲染成本。
 
@@ -368,6 +379,7 @@ pnpm tauri:dev
 | `POST /api/sessions/{id}/inject` | 执行中介入纠偏（steering）                                               |
 | `GET /api/health`                | 健康检查，返回 provider、model、工具数量                                 |
 | `/api/sessions`                  | 会话管理（搜索、导出、清空、上下文用量、压缩、选项状态、面板编辑态读写） |
+| `/api/media/tasks`               | 生成任务列表与操作（dismiss / reshow / retry / 删除 / 另存为）           |
 | `/api/projects`                  | 项目管理（排序、置顶）                                                   |
 | `/api/scheduled-tasks`           | 定时任务管理（含运行记录与确认）                                         |
 | `/api/calendar-events`           | 日程管理                                                                 |
@@ -396,6 +408,7 @@ pnpm tauri:dev
 - 设置：`divine-server/data/settings.json`
 - 日志：`divine-server/data/divine-server.log`
 - 工作区：`divine-server/workspace/{documents,spreadsheets,notes,pdf,presentations,diagrams,html,svg}`（子目录按需创建）
+- 生成产物：图片落 `<输出目录>/images/`、视频落 `<输出目录>/videos/`（视频伴生同名 `.srt` 字幕与 `.txt` 旁白稿）；输出目录可在设置里改，未改时默认工作区
 
 桌面安装版默认使用系统应用数据目录，不写入项目目录。数据库、设置和日志由 `DIVINE_DATA_DIR` 控制，工作区由 `DIVINE_WORKSPACE_DIR` 控制。
 
@@ -497,7 +510,7 @@ bash scripts/overwrite-release.sh 0.3.1
 
 ## 界面截图
 
-以下均为本地实际运行截图（默认深色主题，设置页为浅色主题）。
+以下均为本地实际运行截图（深色与浅色主题各取所需，设置相关为浅色）。
 
 ![自我介绍](screenshots/0.png)
 
@@ -544,3 +557,17 @@ bash scripts/overwrite-release.sh 0.3.1
 **点外卖实测：比价与门店选择卡** — 调用工具：`web_task`（购物域策略包）
 
 ![点外卖实测](screenshots/12.png)
+
+**图片生成：参数面板与结果卡片墙** — 调用工具：`image_brief`、`image_generate`
+
+![图片生成结果卡片墙](screenshots/13.png)
+
+![图片生成参数面板](screenshots/14.png)
+
+**视频生成参数面板** — 调用工具：`video_brief`（素材来源 / 首尾帧 / 比例 / 分辨率 / 时长 / 字幕）
+
+![视频生成参数面板](screenshots/15.png)
+
+**生成任务看板** — 调用工具：`video_generate`（后台任务进度、播放、失败原因与重试）
+
+![生成任务看板](screenshots/16.png)

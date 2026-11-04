@@ -155,3 +155,31 @@ export function applyEditsToDataModel(
   }
   return next;
 }
+
+/**
+ * 面板动作的「提交中」态（哪个按钮在转圈）。
+ *
+ * 为什么也要模块级：它原先只活在 `UISurfaceBlock` 的 useState 里，
+ * **切换会话会卸载组件 → 回来按钮 loading 消失**，只剩 footer 的
+ * "正在更新面板…"（2026-11-04 用户反馈）。与编辑态同一个 key，
+ * 内存态即可——提交被受理后 `onPendingChange(null)` 立刻清掉，
+ * 刷新时本来就该丢（那时后端已接管，前端等 done 重建）。
+ */
+const pendingStore = new Map<string, string>();
+
+export function readSurfacePending(
+  sessionId: string | null | undefined,
+  surfaceId: string,
+): string | null {
+  return pendingStore.get(keyOf(sessionId, surfaceId)) ?? null;
+}
+
+export function writeSurfacePending(
+  sessionId: string | null | undefined,
+  surfaceId: string,
+  componentId: string | null,
+): void {
+  const key = keyOf(sessionId, surfaceId);
+  if (componentId) pendingStore.set(key, componentId);
+  else pendingStore.delete(key);
+}

@@ -38,6 +38,11 @@ export function VideoTaskCard({ taskId }: { taskId: string }) {
       <div className="video-task-result">
         <VideoPlayer src={mediaStreamUrl(task.file_path)} />
         <div className="video-task-meta">
+          {task.provider ? (
+            <span className="video-task-model">
+              {[task.provider, task.model].filter(Boolean).join(" · ")}
+            </span>
+          ) : null}
           <span className="video-task-name" title={task.file_path}>
             {fileName}
           </span>

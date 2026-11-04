@@ -88,6 +88,12 @@ export const MessageItem = memo(function MessageItem({
   // 保留原始代码块（可见、可复制）比静默吞掉强。
   const visibleContent =
     choiceSplit.fenced && choiceSplit.data ? choiceSplit.prose : message.content;
+  // 参数面板（video-params / image-params）自带「开始生成/取消」动作行：
+  // 模型仍会在正文里复读一份 ```options 按钮块 → 出现两组按钮（2026-11-04 用户反馈）。
+  // 面板在场时正文那份一律抑制——动作入口以面板为准。
+  const hasBriefSurface = (message.surfaces ?? []).some((surface) =>
+    surface.surfaceId.endsWith("-params"),
+  );
   return (
     <article className={`message-row ${isUser ? "user-message" : "assistant-message"}`}>
       <Flex align="center" justify={isUser ? "end" : "start"} gap={8} className="message-meta">
@@ -307,7 +313,7 @@ export const MessageItem = memo(function MessageItem({
           ))}
           {/* 正文里的 ```options 卡片挪到面板之后：它是「下一步动作」，
               永远排在结论与操作区之后（顺带修掉裸 JSON 显示不出来的问题）。 */}
-          {choiceSplit.fenced && choiceSplit.data && (
+          {!hasBriefSurface && choiceSplit.fenced && choiceSplit.data && (
             <ChoiceBlock
               data={choiceSplit.data}
               messageId={message.id}

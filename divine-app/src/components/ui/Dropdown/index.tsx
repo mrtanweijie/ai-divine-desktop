@@ -25,7 +25,8 @@ interface DropdownProps {
   trigger: ReactNode;
   items: DropdownItem[];
   align?: "start" | "center" | "end";
-  direction?: "below" | "above";
+  /** auto：空间不足时自动翻转（默认 below） */
+  direction?: "below" | "above" | "auto";
   label?: string;
   openOn?: "click" | "hover" | "both";
 }
@@ -77,8 +78,15 @@ export function Dropdown({
       const base: CSSProperties = {
         position: "fixed",
       };
+      // auto：下方放不下（预估 280px）就向上弹，避免菜单出屏
+      const resolved =
+        direction === "auto"
+          ? rect.bottom + 280 > window.innerHeight
+            ? "above"
+            : "below"
+          : direction;
       const vertical =
-        direction === "above"
+        resolved === "above"
           ? { top: rect.top - 6, transform: "translateY(-100%)" }
           : { top: rect.bottom + 6 };
       if (align === "start") {
@@ -86,21 +94,21 @@ export function Dropdown({
           ...base,
           ...vertical,
           left: rect.left,
-          ...(direction === "above" ? { transform: "translate(0, -100%)" } : {}),
+          ...(resolved === "above" ? { transform: "translate(0, -100%)" } : {}),
         });
       } else if (align === "end") {
         setMenuStyle({
           ...base,
           ...vertical,
           left: rect.right,
-          transform: direction === "above" ? "translate(-100%, -100%)" : "translateX(-100%)",
+          transform: resolved === "above" ? "translate(-100%, -100%)" : "translateX(-100%)",
         });
       } else {
         setMenuStyle({
           ...base,
           ...vertical,
           left: rect.left + rect.width / 2,
-          transform: direction === "above" ? "translate(-50%, -100%)" : "translateX(-50%)",
+          transform: resolved === "above" ? "translate(-50%, -100%)" : "translateX(-50%)",
         });
       }
     }

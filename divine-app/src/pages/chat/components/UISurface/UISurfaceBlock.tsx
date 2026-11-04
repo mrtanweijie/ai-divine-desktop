@@ -20,7 +20,13 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import { ChoiceBlock, splitNoteOptions } from "@/pages/chat/components/ChoiceBlock";
 import { collectInputBindings, resolveBindable, setByPath } from "./dataModel";
 import { renderComponentNode } from "./registry";
-import { applyEditsToDataModel, clearSurfaceEdits, writeSurfaceEdit } from "./uiSurfaceStateStore";
+import {
+  applyEditsToDataModel,
+  clearSurfaceEdits,
+  readSurfacePending,
+  writeSurfaceEdit,
+  writeSurfacePending,
+} from "./uiSurfaceStateStore";
 import { useSurfaceAction } from "./useSurfaceAction";
 import type { SurfaceContext, UIBindable, UISurface } from "./types";
 import "./UISurface.less";
@@ -87,8 +93,12 @@ function SurfaceFooter({
         <footer className="uis-footer is-stale">
           <AlertCircle size={13} />
           <span>{t("uiSurface.noUpdate", "本轮未返回面板更新")}</span>
-          {prose ? <span className="uis-footer-detail">{prose}</span> : null}
         </footer>
+        {/*
+          模型这一轮的正文（解法说明/追问）是完整内容，不能塞进 footer
+          单行小字条（2026-11-04 用户反馈排版破碎），独立成正常文本块。
+        */}
+        {prose ? <div className="uis-note-prose">{prose}</div> : null}
         {choice}
       </>
     );
@@ -96,11 +106,7 @@ function SurfaceFooter({
   if (!prose && !choice) return null;
   return (
     <>
-      {prose ? (
-        <footer className="uis-footer">
-          <span className="uis-footer-detail">{prose}</span>
-        </footer>
-      ) : null}
+      {prose ? <div className="uis-note-prose">{prose}</div> : null}
       {choice}
     </>
   );
@@ -125,7 +131,17 @@ export function UISurfaceBlock({
   );
   // 与 state 同步维护的最新快照：动作提交时读它，避免闭包拿到旧 dataModel。
   const dataModelRef = useRef<Record<string, unknown>>(dataModel);
-  const [pendingComponentId, setPendingComponentId] = useState<string | null>(null);
+  // 初值叠加模块级的「提交中」态：切走再回来，按钮 loading 仍在（2026-11-04）
+  const [pendingComponentId, setPendingComponentId] = useState<string | null>(() =>
+    readSurfacePending(sessionId, surface.surfaceId),
+  );
+  const handlePendingChange = useCallback(
+    (componentId: string | null) => {
+      setPendingComponentId(componentId);
+      writeSurfacePending(sessionId, surface.surfaceId, componentId);
+    },
+    [sessionId, surface.surfaceId],
+  );
 
   const setValue = useCallback(
     (path: string, value: unknown) => {
@@ -152,7 +168,7 @@ export function UISurfaceBlock({
     messageId: surface.messageId,
     getDataModel,
     inputs: inputBindings,
-    onPendingChange: setPendingComponentId,
+    onPendingChange: handlePendingChange,
     // 回合一被受理就清编辑态（§8.3）：面板已被新一轮覆盖，旧编辑态不再有意义。
     // 不能等流结束——新面板挂载时会先把旧编辑态叠加一遍。
     onAccepted: () => clearSurfaceEdits(sessionId, surface.surfaceId),

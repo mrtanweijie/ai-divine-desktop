@@ -21,6 +21,14 @@ export interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   width?: number | string;
+  /**
+   * 遮罩是否用毛玻璃模糊，默认 true。
+   *
+   * 播放视频的弹窗必须传 false：WebKit 里带 `backdrop-filter` 的容器内的
+   * `<video>` 会黑屏且不加载元数据（Safari 长期存在的合成层问题，
+   * 2026-11-04 弹窗播放实锤）。
+   */
+  blurBackdrop?: boolean;
 }
 
 export function Modal({
@@ -33,6 +41,7 @@ export function Modal({
   children,
   footer,
   width = 480,
+  blurBackdrop = true,
 }: ModalProps) {
   const { t } = useTranslation();
 
@@ -49,7 +58,7 @@ export function Modal({
 
   return (
     <div
-      className="ui-modal-backdrop"
+      className={`ui-modal-backdrop${blurBackdrop ? "" : " is-plain"}`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}

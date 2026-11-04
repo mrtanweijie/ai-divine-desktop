@@ -367,6 +367,9 @@ def _call_glm_image(
         "message": f"已生成 1 张图片（GLM-Image，{size}）",
         "file_name": output.name,
         "filepath": str(output),
+        # 前端结果卡展示"用的哪个模型"（2026-11-04）
+        "provider": "glm",
+        "model": "glm-image",
     }
 
 
@@ -674,6 +677,9 @@ def main() -> None:
                 "file_name": first.name,
                 "filepath": str(first),
                 "files": [str(p) for p in written],
+                # 前端结果卡展示"用的哪个模型"（2026-11-04）
+                "provider": "minimax",
+                "model": str(params.get("model") or DEFAULT_MODEL),
             },
             ensure_ascii=False,
         )

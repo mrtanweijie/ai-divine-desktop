@@ -1,11 +1,26 @@
 // 生成任务页（035 §9，交互对齐技能页）：统计行 + 筛选 chips + 三列任务卡片。
 // 卡片：状态图标 + prompt + 参数 chips + 摘要 + 底部主操作；
 // 播放在卡片内展开（展开时占满整行）。
-import { AlertCircle, Clapperboard, FolderOpen, Play, RotateCcw, Save, Trash2 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  Clapperboard,
+  FolderOpen,
+  MoreHorizontal,
+  PanelLeftOpen,
+  Play,
+  RotateCcw,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { toast } from "@/components/ui/Toast";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { useMediaTasks } from "@/hooks/useMediaTasks";
@@ -69,13 +84,15 @@ function statusLabel(task: MediaTask, t: (key: string, fallback: string) => stri
 
 function MediaTaskCard({
   task,
-  playing,
-  onTogglePlay,
+  onPlay,
+  onShowReason,
+  onDelete,
   onAct,
 }: {
   task: MediaTask;
-  playing: boolean;
-  onTogglePlay: (id: string) => void;
+  onPlay: (task: MediaTask) => void;
+  onShowReason: (task: MediaTask) => void;
+  onDelete: (task: MediaTask) => void;
   onAct: (action: () => Promise<void>) => void;
 }) {
   const { t } = useTranslation();
@@ -84,173 +101,152 @@ function MediaTaskCard({
   const succeeded = task.status === "succeeded" && Boolean(task.file_path);
   const chips = paramChips(task);
   const fileName = task.file_path?.split("/").pop() ?? "";
+  const modelLabel = [task.provider, task.model].filter(Boolean).join(" · ");
+  const state = running ? "running" : failed ? "failed" : "done";
 
+  // 摘要只讲"现在有事没事"：跑着说等待、失败给原因、完成给文件名
   const summary = succeeded
-    ? `${new Date(task.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · ${fileName}`
-    : running
-      ? `${statusLabel(task, t)} · ${formatSince(task)}`
-      : (task.error ?? statusLabel(task, t));
+    ? fileName
+    : failed
+      ? (task.error ?? statusLabel(task, t))
+      : t("tool.mediaTaskWaiting", "云端生成中，完成后会自动出现在这里");
+
+  const dismiss = () =>
+    onAct(async () => {
+      await dismissMediaTask(task.id);
+      toast.success(t("tool.videoDismissedToast", "已不再等待；云端仍会跑完，稍后可以回来取"));
+    });
+
+  const retry = () =>
+    onAct(async () => {
+      const response = await fetch(`/api/media/tasks/${task.id}/retry`, { method: "POST" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.detail ?? "重试失败");
+      }
+      toast.success(t("tool.videoRetryStarted", "已重新提交"));
+    });
+
+  // 操作全部收进三点菜单（2026-11-04 用户指定：右下角三点 + hover 展示）
+  const items: DropdownItem[] = [];
+  if (running) {
+    items.push({
+      key: "dismiss",
+      label: t("tool.videoDismiss", "不再等待"),
+      icon: <Clapperboard size={14} />,
+      onClick: dismiss,
+    });
+  }
+  if (succeeded) {
+    items.push({
+      key: "play",
+      label: t("tool.videoTaskPlay", "播放"),
+      icon: <Play size={14} />,
+      onClick: () => onPlay(task),
+    });
+    if (isTauri()) {
+      items.push({
+        key: "reveal",
+        label: t("tool.openDirectory", "打开所在目录"),
+        icon: <FolderOpen size={14} />,
+        onClick: () => void openFileLocation(task.file_path as string),
+      });
+      items.push({
+        key: "save",
+        label: t("tool.videoSaveAs", "另存为"),
+        icon: <Save size={14} />,
+        onClick: () => onAct(() => saveTaskAs(task)),
+      });
+    }
+  }
+  if (failed) {
+    items.push({
+      key: "reason",
+      label: t("tool.videoTaskNoAction", "查看原因"),
+      icon: <AlertCircle size={14} />,
+      onClick: () => onShowReason(task),
+    });
+    items.push({
+      key: "retry",
+      label: t("tool.videoRetry", "重试"),
+      icon: <RotateCcw size={14} />,
+      onClick: retry,
+    });
+  }
+  if (!running) {
+    items.push({
+      key: "delete",
+      label: t("tool.videoDelete", "删除"),
+      icon: <Trash2 size={14} />,
+      danger: true,
+      onClick: () => onDelete(task),
+    });
+  }
 
   return (
-    <div className={`media-task-card${playing ? " is-playing" : ""}${failed ? " is-failed" : ""}`}>
-      <div className="media-task-head">
-        <div
-          className={`media-task-icon${running ? " is-running" : ""}${failed ? " is-failed" : ""}`}
-        >
-          {running ? (
-            <span className="media-task-orb" />
-          ) : failed ? (
-            <AlertCircle size={15} />
-          ) : (
-            <Play size={14} />
-          )}
-        </div>
-        <div className="media-task-title-block">
-          <div className="media-task-title" title={task.prompt}>
-            {task.prompt || t("tool.mediaUnnamedTask", "未命名任务")}
-          </div>
-          <div className="media-task-badges">
-            <span
-              className={`media-task-badge${failed ? " is-failed" : ""}${
-                task.status === "succeeded" ? " is-done" : ""
-              }`}
-            >
-              {statusLabel(task, t)}
-            </span>
-            {chips.map((chip) => (
-              <span key={chip} className="media-task-badge muted">
-                {chip}
-              </span>
-            ))}
-          </div>
-        </div>
+    <div className={`media-task-card is-${state}`}>
+      <div className="media-task-top">
+        <span className={`media-task-dot is-${state}`} aria-hidden />
+        <span className="media-task-title" title={task.prompt}>
+          {task.prompt || t("tool.mediaUnnamedTask", "未命名任务")}
+        </span>
+        <span className="media-task-time">
+          {running ? formatSince(task) : statusLabel(task, t)}
+        </span>
       </div>
 
-      {playing && succeeded && (
-        <div className="media-task-player">
-          <VideoPlayer src={mediaStreamUrl(task.file_path as string)} />
-        </div>
-      )}
+      <div className="media-task-meta">
+        {chips.map((chip, index) => (
+          <span key={chip}>
+            {index > 0 && <span className="media-task-meta-sep">·</span>}
+            {chip}
+          </span>
+        ))}
+        {modelLabel && (
+          <span>
+            {chips.length > 0 && <span className="media-task-meta-sep">·</span>}
+            {modelLabel}
+          </span>
+        )}
+      </div>
 
-      <div className="media-task-desc" title={succeeded ? (task.file_path ?? "") : undefined}>
+      <p
+        className={`media-task-desc${failed ? " is-failed" : ""}`}
+        title={failed ? summary : undefined}
+      >
         {summary}
-      </div>
+      </p>
 
-      <div className="media-task-footer">
-        <div className="media-task-footer-side">
-          {succeeded && isTauri() && (
-            <>
-              <Button
-                variant="icon"
-                size="small"
-                title={t("tool.openDirectory", "打开所在目录")}
-                aria-label={t("tool.openDirectory", "打开所在目录")}
-                onClick={() => void openFileLocation(task.file_path as string)}
-              >
-                <FolderOpen size={13} />
-              </Button>
-              <Button
-                variant="icon"
-                size="small"
-                title={t("tool.videoSaveAs", "另存为")}
-                aria-label={t("tool.videoSaveAs", "另存为")}
-                onClick={() => onAct(() => saveTaskAs(task))}
-              >
-                <Save size={13} />
-              </Button>
-            </>
-          )}
-          {failed && (
+      <div className="media-task-actions">
+        <Dropdown
+          align="end"
+          direction="auto"
+          openOn="both"
+          trigger={
             <Button
               variant="icon"
               size="small"
-              title={t("tool.videoRetry", "重试")}
-              aria-label={t("tool.videoRetry", "重试")}
-              onClick={() =>
-                onAct(async () => {
-                  const response = await fetch(`/api/media/tasks/${task.id}/retry`, {
-                    method: "POST",
-                  });
-                  if (!response.ok) {
-                    const data = await response.json().catch(() => null);
-                    throw new Error(data?.detail ?? "重试失败");
-                  }
-                  toast.success(t("tool.videoRetryStarted", "已重新提交"));
-                })
-              }
+              aria-label={t("tool.mediaMoreActions", "更多操作")}
+              title={t("tool.mediaMoreActions", "更多操作")}
             >
-              <RotateCcw size={13} />
+              <MoreHorizontal size={15} />
             </Button>
-          )}
-          {!running && (
-            <Button
-              variant="icon"
-              size="small"
-              title={t("tool.videoDelete", "删除")}
-              aria-label={t("tool.videoDelete", "删除")}
-              onClick={() =>
-                onAct(async () => {
-                  const response = await fetch(`/api/media/tasks/${task.id}`, {
-                    method: "DELETE",
-                  });
-                  if (!response.ok) {
-                    const data = await response.json().catch(() => null);
-                    throw new Error(data?.detail ?? "删除失败");
-                  }
-                })
-              }
-            >
-              <Trash2 size={13} />
-            </Button>
-          )}
-        </div>
-        <div
-          role="button"
-          tabIndex={0}
-          className="media-task-footer-action"
-          onClick={() => {
-            if (running) {
-              onAct(async () => {
-                await dismissMediaTask(task.id);
-                toast.success(
-                  t("tool.videoDismissedToast", "已不再等待；云端仍会跑完，稍后可以回来取"),
-                );
-              });
-              return;
-            }
-            if (succeeded) onTogglePlay(task.id);
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter" && event.key !== " ") return;
-            event.preventDefault();
-            if (running) {
-              onAct(async () => {
-                await dismissMediaTask(task.id);
-              });
-              return;
-            }
-            if (succeeded) onTogglePlay(task.id);
-          }}
-        >
-          {running
-            ? t("tool.videoDismiss", "不再等待")
-            : succeeded
-              ? playing
-                ? t("tool.videoCollapse", "收起")
-                : t("tool.videoTaskPlay", "播放 ▸")
-              : t("tool.videoTaskNoAction", "查看原因")}
-        </div>
+          }
+          items={items}
+        />
       </div>
     </div>
   );
 }
 
-export function MediaTasksPage() {
+export function MediaTasksPage({ onOpenSidebar }: { onOpenSidebar?: () => void }) {
   const { t } = useTranslation();
   const { tasks } = useMediaTasks();
   const [filter, setFilter] = useState<MediaFilter>("all");
   const [showDismissed, setShowDismissed] = useState(false);
-  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [playingTask, setPlayingTask] = useState<MediaTask | null>(null);
+  const [reasonTask, setReasonTask] = useState<MediaTask | null>(null);
+  const [deleteTask, setDeleteTask] = useState<MediaTask | null>(null);
 
   const running = useMemo(() => tasks.filter((task) => isRunning(task)), [tasks]);
   const done = useMemo(() => tasks.filter((task) => !isRunning(task)), [tasks]);
@@ -270,6 +266,15 @@ export function MediaTasksPage() {
     return [...list].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   }, [tasks, filter, running, done, showDismissed]);
 
+  useEffect(() => {
+    if (!playingTask) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPlayingTask(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [playingTask]);
+
   const onAct = useCallback(async (action: () => Promise<void>) => {
     try {
       await action();
@@ -278,21 +283,57 @@ export function MediaTasksPage() {
     }
   }, []);
 
-  const togglePlay = useCallback((id: string) => {
-    setPlayingId((current) => (current === id ? null : id));
+  const openPlayer = useCallback((task: MediaTask) => {
+    setPlayingTask(task);
   }, []);
+  const openReason = useCallback((task: MediaTask) => {
+    setReasonTask(task);
+  }, []);
+  const askDelete = useCallback((task: MediaTask) => {
+    setDeleteTask(task);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (!deleteTask) return;
+    const target = deleteTask;
+    setDeleteTask(null);
+    void onAct(async () => {
+      const response = await fetch(`/api/media/tasks/${target.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.detail ?? "删除失败");
+      }
+      if (playingTask?.id === target.id) setPlayingTask(null);
+      if (reasonTask?.id === target.id) setReasonTask(null);
+    });
+  }, [deleteTask, onAct, playingTask?.id, reasonTask?.id]);
 
   return (
     <div className="media-page">
       <div className="media-toolbar">
-        <div className="media-summary">
-          <span>{t("tool.mediaSummaryTotal", "共 {{count}} 个任务", { count: tasks.length })}</span>
-          <span className="media-summary-sep">·</span>
-          <span>
-            {t("tool.mediaSummaryRunning", "进行中 {{count}}", { count: running.length })}
-          </span>
-          <span className="media-summary-sep">·</span>
-          <span>{t("tool.mediaSummaryDone", "已完成 {{count}}", { count: done.length })}</span>
+        <div className="media-toolbar-left">
+          {onOpenSidebar && (
+            <Button
+              variant="icon"
+              className="media-sidebar-button"
+              onClick={onOpenSidebar}
+              aria-label={t("common.expandSessionList", "展开会话列表")}
+              title={t("session.list", "会话列表")}
+            >
+              <PanelLeftOpen size={15} />
+            </Button>
+          )}
+          <div className="media-summary">
+            <span>
+              {t("tool.mediaSummaryTotal", "共 {{count}} 个任务", { count: tasks.length })}
+            </span>
+            <span className="media-summary-sep">·</span>
+            <span>
+              {t("tool.mediaSummaryRunning", "进行中 {{count}}", { count: running.length })}
+            </span>
+            <span className="media-summary-sep">·</span>
+            <span>{t("tool.mediaSummaryDone", "已完成 {{count}}", { count: done.length })}</span>
+          </div>
         </div>
         <div
           className="media-filter"
@@ -339,8 +380,9 @@ export function MediaTasksPage() {
               <MediaTaskCard
                 key={task.id}
                 task={task}
-                playing={playingId === task.id}
-                onTogglePlay={togglePlay}
+                onPlay={openPlayer}
+                onShowReason={openReason}
+                onDelete={askDelete}
                 onAct={onAct}
               />
             ))}
@@ -367,6 +409,114 @@ export function MediaTasksPage() {
           </div>
         )}
       </div>
+
+      {/* 播放浮层（2026-11-04）：**portal 挂到 body**。
+        复用 ui/Modal 时视频在 WKWebView 里只有控件不出画面——Modal 渲染在页面组件树内，
+        祖先的层叠/布局会干扰 video 合成；挂 body 顶层后与卡片内联播放同一条件。 */}
+      {playingTask &&
+        createPortal(
+          <div
+            className="media-player-overlay"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setPlayingTask(null);
+            }}
+          >
+            <div className="media-player-dialog" role="dialog" aria-modal="true">
+              <div className="media-player-head">
+                <span className="media-player-title" title={playingTask.file_path ?? ""}>
+                  {playingTask.file_path?.split("/").pop() ?? t("tool.videoTaskPlay", "播放")}
+                </span>
+                <Button
+                  variant="icon"
+                  size="small"
+                  aria-label={t("common.close", "关闭")}
+                  onClick={() => setPlayingTask(null)}
+                >
+                  <X size={16} />
+                </Button>
+              </div>
+              <div className="media-player-body">
+                <VideoPlayer
+                  src={mediaStreamUrl(playingTask.file_path as string)}
+                  onError={(message) => console.error("[media] 视频加载失败", message)}
+                />
+              </div>
+              {isTauri() && (
+                <div className="media-player-foot">
+                  <Button
+                    variant="secondary"
+                    onClick={() => void openFileLocation(playingTask.file_path as string)}
+                  >
+                    <FolderOpen size={14} />
+                    {t("tool.openDirectory", "打开所在目录")}
+                  </Button>
+                  <Button variant="secondary" onClick={() => onAct(() => saveTaskAs(playingTask))}>
+                    <Save size={14} />
+                    {t("tool.videoSaveAs", "另存为")}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* 失败原因弹窗（2026-11-04）：完整错误在弹窗里读，卡片只留两行摘要 */}
+      <Modal
+        open={Boolean(reasonTask)}
+        title={t("tool.videoReasonTitle", "失败原因")}
+        width={560}
+        onClose={() => setReasonTask(null)}
+        footer={
+          reasonTask ? (
+            <div className="media-reason-actions">
+              <Button variant="secondary" onClick={() => setReasonTask(null)}>
+                {t("common.close", "关闭")}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  const target = reasonTask;
+                  setReasonTask(null);
+                  void onAct(async () => {
+                    const response = await fetch(`/api/media/tasks/${target.id}/retry`, {
+                      method: "POST",
+                    });
+                    if (!response.ok) {
+                      const data = await response.json().catch(() => null);
+                      throw new Error(data?.detail ?? "重试失败");
+                    }
+                    toast.success(t("tool.videoRetryStarted", "已重新提交"));
+                  });
+                }}
+              >
+                <RotateCcw size={14} />
+                {t("tool.videoRetry", "重试")}
+              </Button>
+            </div>
+          ) : null
+        }
+      >
+        <div className="media-reason">
+          <div className="media-reason-head">
+            <AlertCircle size={15} />
+            <span>{reasonTask?.prompt}</span>
+          </div>
+          <pre className="media-reason-body">{reasonTask?.error ?? ""}</pre>
+        </div>
+      </Modal>
+
+      {deleteTask && (
+        <ConfirmDialog
+          title={t("tool.videoDelete", "删除")}
+          description={t(
+            "tool.videoDeleteConfirm",
+            "删除后任务记录与本地文件都会移除，且不可恢复。确定删除这个任务吗？",
+          )}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTask(null)}
+        />
+      )}
     </div>
   );
 }

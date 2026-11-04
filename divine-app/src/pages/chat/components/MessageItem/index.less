@@ -799,7 +799,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px;
+  padding: 14px 12px;
   color: var(--color-text-secondary);
   font-size: 12px;
   cursor: pointer;
@@ -1161,99 +1161,117 @@
 /* 图像生成结果：一行 4 张卡片缩略图（036 §8）。
    固定 4 列而非 auto-fit / flex-wrap——4 张必须严格一行，
    flex 在窄容器里会变成 3+1，看起来像少了一张。 */
+/* 图片墙：底部不再留白（结果行已隐藏，余量会显得空洞，2026-11-04） */
 .image-result {
-  margin: 10px 12px 4px;
+  margin: 8px 12px 12px;
 }
 
 .image-result-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  /* 多图一行 3 张（2026-11-04 用户指定） */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
-/* 单张：大卡而不是 1/4 宽的小缩略图 */
+/* 单张也用三列网格的列宽（用户要求：始终与 3 张图时同宽），
+   图更大时点「查看大图」看——消息流里不占满整行。 */
 .image-result-grid.is-single {
-  grid-template-columns: minmax(0, 320px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+/* 卡片（2026-11-04 参考用户截图）：图片在上、信息区在下，整体一张圆角卡 */
 .image-result-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--color-border);
+  overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--color-surface-2);
-  overflow: hidden;
   cursor: pointer;
-  transition: border-color 0.15s ease;
+  transition: transform 0.15s ease;
 }
 
 .image-result-card:hover {
-  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
 }
 
-/* 缩略图区固定高度 + contain：16:9 的构图两侧不被切掉
-   （用户选比例就是为了看构图，cover 裁切等于把选择作废） */
 .image-result-thumb {
   position: relative;
-  height: 96px;
-  background: var(--color-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
 }
 
 .image-result-thumb img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.image-result-open {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.image-result-card:hover .image-result-open,
-.image-result-card:focus-visible .image-result-open {
-  opacity: 1;
-}
-
+/* 单图与多图同口径：统一 4:3 + cover（用户指定 object-fit: cover） */
+/* 信息区悬浮在图片底部，毛玻璃条（2026-11-04 用户指定）
+   —— 不占卡片高度，图片仍是完整 4:3，读图面积最大化 */
 .image-result-meta {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 8px;
-  border-top: 1px solid var(--color-border);
-  font-size: 11px;
-  color: var(--color-text-muted);
+  justify-content: space-between;
+  gap: 8px;
   min-width: 0;
+  padding: 7px 6px 7px 11px;
+  border-radius: var(--radius-md);
+  background: rgba(18, 18, 18, 0.42);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 
-.image-result-meta span {
+.image-result-meta-text {
+  display: flex;
   min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.image-result-name {
   overflow: hidden;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.image-result-toggle {
-  align-self: flex-start;
-  margin-top: 6px;
-  padding: 3px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-2);
-  color: var(--color-text-secondary);
+.image-result-sub {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.72);
   font-size: 11px;
-  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.image-result-toggle:hover {
-  border-color: var(--color-border-strong);
-  color: var(--color-accent);
+.image-result-meta .ui-button--icon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.image-result-meta .ui-button--icon:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* 结果卡上的"用的哪个模型"标签（2026-11-04） */
+.image-result-model {
+  display: flex;
+  margin-top: 6px;
+}
+
+.video-task-model {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
 }
 
 /* 窄容器降 2 列：4 列会小到看不清 */

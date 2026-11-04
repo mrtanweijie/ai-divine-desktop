@@ -25,7 +25,7 @@ Default ports:
 
 - Sessions: history, auto-generated titles, session search (including pinyin search), project organization (project workspaces/icons), context usage inspection with manual compaction, session export
 - In-chat references: `@` for workspace files, `/` for skills (candidate popover plus pill rendering inside bubbles; skill names are validated against the session's skill set, so paths such as `see /docs folder` are not mislabeled as skills)
-- Multi-layer long-term memory: L0 working memory (messages within the window) → L1 episodic memory (conclusions and process of each session, searchable across sessions) → L2 semantic memory (user profile / preferences / stable facts, scoped per project via `project_id`) → L3 procedural memory (how-to methods and successful trajectories). Three write paths — explicit, implicit extraction, and explicit override; automatic overwriting only guards against high duplication (same polarity + high similarity), while semantic updates must name the target being overwritten; on a polarity conflict the new memory lands in `pending` for the user to confirm or reject, and overwritten memories are soft-deleted with a `superseded_by` trace. The settings modal has a memory management page, and the `remember` / `recall_memories` / `forget_memory` tools let the model read and write proactively
+- Multi-layer long-term memory: L0 working memory (messages within the window) → L1 episodic memory (conclusions and process of each session, searchable across sessions) → L2 semantic memory (user profile / preferences / stable facts, scoped per project via `project_id`) → L3 procedural memory (how-to methods and successful trajectories). Three write paths — explicit, implicit extraction, and explicit override; automatic overwriting only guards against high duplication (same polarity + high similarity), while semantic updates must name the target being overwritten; on a polarity conflict the new memory lands in `pending` for the user to confirm or reject, and overwritten memories are soft-deleted with a `superseded_by` trace. The "Memory" section of the settings page manages these memories (including the pending queue), and the `remember` / `recall_memories` / `forget_memory` tools let the model read and write proactively
 - History backtracking: questions outside the current window automatically retrieve earlier conversations and inject them into context
 
 ### Interaction & Execution
@@ -55,6 +55,8 @@ Default ports:
 - PPT: 15 layouts × 19 themes; per-page PNG preview (no LibreOffice needed); supports editing the text and titles of existing decks
 - Interactive diagrams: GraphIR contract plus frontend X6 rendering, covering 15 scenarios — process/decision flow, task DAG, data pipeline, state machine, org chart, mind map, topology, architecture, ER, swimlane, sequence, knowledge graph, UML class diagram, fishbone, and timeline; supports node details, data-flow animation and PNG/SVG export
 - Interactive panels (A2UI): `render_ui` composes "text + badges + table + progress + stepper + input controls" into a single panel where the user can change parameters and click buttons, and the interaction carries the panel's current state back into the conversation — closing the "see → adjust → see again" loop. Master switch: `ui_a2ui_enabled`
+- Image generation: `image_brief` first shows a parameter panel (reference image / count / aspect ratio / prompt optimization) whose options are trimmed to what the active model supports — unsupported items are simply not rendered; after confirmation `image_generate` produces the images (MiniMax image-01 / GLM-Image). Results appear as a card grid with click-to-enlarge, labeled with the model used and the original dimensions
+- Video generation: `video_brief` first shows a parameter panel (material source / article URL / first-last frames / aspect ratio / resolution / duration / subtitles / voice-over script); after confirmation `video_generate` **returns immediately** while polling and downloading continue in the background (concurrency capped at 2; tasks older than 30 minutes are treated as expired). The "Generation tasks" board tracks progress in one place, with modal playback, failure reasons, retry, and delete (double confirmation). P1 only emits sidecar `.srt` subtitles and a `.txt` narration script — subtitles are not burned into the video
 
 ### Data & Retrieval
 
@@ -73,6 +75,7 @@ Default ports:
 
 - Three UI languages: Simplified Chinese / Traditional Chinese / English (`divine-app/src/i18n`, with matching `pnpm i18n:*` scripts)
 - Dark / light themes; a self-built React UI component library, no AntD
+- Settings is a full-page panel: grouped navigation on the left (Basics / Models / Agent capabilities / About), with deep links via `?view=settings&section=<section>`; the Basics section uses row cards that save immediately, with no save button at the bottom
 - Virtual scrolling for long lists; streaming rendering and session rebuild have redundant-scan / redundant-parse elimination
 - Shortcuts: a unified in-app keymap (⌘ on macOS / Ctrl elsewhere) plus a system-wide global shortcut to show or hide the window
 - Local SQLite storage; data stays on the machine by default and requires no cloud account
@@ -89,28 +92,29 @@ Default ports:
 
 ## Project Layout
 
-| Directory                          | Description                                                                                                                                               |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `divine-server`                    | FastAPI sidecar: API, agent, SSE, SQLite, tool system                                                                                                     |
-| `divine-server/app/agent`          | Agent orchestration (LangGraph), prompts, tool execution, intent pruning and SSE splitting, memory extraction                                             |
-| `divine-server/app/api`            | HTTP / SSE / WebSocket routes (chat, sessions, settings, mcp, skills, local_llm, etc.)                                                                    |
-| `divine-server/app/db`             | SQLite connection, migrations and domain-split repositories (including self-built retrieval primitives and long-term memory)                              |
-| `divine-server/app/docgen`         | Document generation (renderers for PDF / Word / PPT / Excel / charts / résumés, including the paginated templates in `ppt/renderer` and `pdf/pdf_themes`) |
-| `divine-server/app/llm`            | LLM providers, DSML stream parsing and the LangChain adapter                                                                                              |
-| `divine-server/app/mcp`            | MCP server connection management (stdio / SSE)                                                                                                            |
-| `divine-server/app/skills`         | SKILL.md skill registration and execution                                                                                                                 |
-| `divine-server/app/tools/adapters` | Tool registration and parameter definitions                                                                                                               |
-| `divine-server/app/tools/browser_engine` | General web task engine (CDP sessions, ARIA snapshot + refs, risk tiers, shopping policy hooks)                                                     |
-| `divine-server/app/tools/scripts`  | Tool subprocess scripts                                                                                                                                   |
-| `divine-server/app/tools/graph`    | GraphIR contract (closed-enum schema + validator + checked-in `graph_ir.schema.json`)                                                                     |
-| `divine-server/app/tools/ui`       | A2UI panels: component catalog (checked-in `divine_catalog.json`), IR validation, v0.9.1 envelope                                                         |
-| `divine-server/tests`              | pytest suite (including contract drift guards)                                                                                                            |
-| `divine-server/evals`              | Standalone evaluation harness (fake_model + scenarios, for offline agent verification)                                                                    |
-| `divine-app`                       | Vite + React + TypeScript frontend with self-built components                                                                                             |
-| `divine-app/src-tauri`             | Tauri 2 + Rust desktop shell                                                                                                                              |
-| `docs`                             | Project design documents (plan / design / fix / review / templates; see the index in `docs/README.md`)                                                    |
-| `screenshots`                      | UI screenshots used by this README (see "Screenshots" at the end)                                                                                         |
-| `scripts`                          | macOS packaging, signing, notarization and release scripts                                                                                                |
+| Directory                                | Description                                                                                                                                               |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `divine-server`                          | FastAPI sidecar: API, agent, SSE, SQLite, tool system                                                                                                     |
+| `divine-server/app/agent`                | Agent orchestration (LangGraph), prompts, tool execution, intent pruning and SSE splitting, memory extraction                                             |
+| `divine-server/app/api`                  | HTTP / SSE / WebSocket routes (chat, sessions, settings, mcp, skills, local_llm, etc.)                                                                    |
+| `divine-server/app/db`                   | SQLite connection, migrations and domain-split repositories (including self-built retrieval primitives and long-term memory)                              |
+| `divine-server/app/docgen`               | Document generation (renderers for PDF / Word / PPT / Excel / charts / résumés, including the paginated templates in `ppt/renderer` and `pdf/pdf_themes`) |
+| `divine-server/app/llm`                  | LLM providers, DSML stream parsing and the LangChain adapter                                                                                              |
+| `divine-server/app/media`                | Generation models (image/video): capability matrix, provider calls, background task polling and artifact storage                                          |
+| `divine-server/app/mcp`                  | MCP server connection management (stdio / SSE)                                                                                                            |
+| `divine-server/app/skills`               | SKILL.md skill registration and execution                                                                                                                 |
+| `divine-server/app/tools/adapters`       | Tool registration and parameter definitions                                                                                                               |
+| `divine-server/app/tools/browser_engine` | General web task engine (CDP sessions, ARIA snapshot + refs, risk tiers, shopping policy hooks)                                                           |
+| `divine-server/app/tools/scripts`        | Tool subprocess scripts                                                                                                                                   |
+| `divine-server/app/tools/graph`          | GraphIR contract (closed-enum schema + validator + checked-in `graph_ir.schema.json`)                                                                     |
+| `divine-server/app/tools/ui`             | A2UI panels: component catalog (checked-in `divine_catalog.json`), IR validation, v0.9.1 envelope                                                         |
+| `divine-server/tests`                    | pytest suite (including contract drift guards)                                                                                                            |
+| `divine-server/evals`                    | Standalone evaluation harness (fake_model + scenarios, for offline agent verification)                                                                    |
+| `divine-app`                             | Vite + React + TypeScript frontend with self-built components                                                                                             |
+| `divine-app/src-tauri`                   | Tauri 2 + Rust desktop shell                                                                                                                              |
+| `docs`                                   | Project design documents (plan / design / fix / review / templates; see the index in `docs/README.md`)                                                    |
+| `screenshots`                            | UI screenshots used by this README (see "Screenshots" at the end)                                                                                         |
+| `scripts`                                | macOS packaging, signing, notarization and release scripts                                                                                                |
 
 ## Getting Started
 
@@ -243,12 +247,13 @@ The config file is `divine-server/.env`; see [.env.example](divine-server/.env.e
 | `local_llm_enabled` / `local_llm_mode` / `local_llm_port` / `local_llm_model` / `local_llm_threshold` | —                       | Local model switch and parameters                                                                                                  |
 | `local_llm_preprocess_*`                                                                              | —                       | Local pre-processing (input-side) switch and thresholds                                                                            |
 | `installed_models`                                                                                    | `[]`                    | Installed local model list                                                                                                         |
-| `browser_cdp_port` | empty | Manual browser debug port (usually unnecessary: the engine discovers or launches it) |
-| `browser_blocked_domains` | empty | Domains forbidden for navigation (comma-separated substrings) |
-| `browser_confirm_domains` | empty | Domains where mutations require per-action confirmation (comma-separated) |
-| `shopping_per_order_cap` / `shopping_monthly_cap` | `200` / empty | Per-order / monthly shopping amount guards (checked on checkout pages) |
-| `shopping_policy_domains` | four major platforms | Domain list for the shopping policy pack |
-| `shopping_default_address` | empty | Default delivery address (warning on the confirmation card when checkout differs) |
+| `media_models`                                                                                        | `[]`                    | Generation model list (`kind` = `image` / `video`, at most one `active` per kind)                                                  |
+| `browser_cdp_port`                                                                                    | empty                   | Manual browser debug port (usually unnecessary: the engine discovers or launches it)                                               |
+| `browser_blocked_domains`                                                                             | empty                   | Domains forbidden for navigation (comma-separated substrings)                                                                      |
+| `browser_confirm_domains`                                                                             | empty                   | Domains where mutations require per-action confirmation (comma-separated)                                                          |
+| `shopping_per_order_cap` / `shopping_monthly_cap`                                                     | `200` / empty           | Per-order / monthly shopping amount guards (checked on checkout pages)                                                             |
+| `shopping_policy_domains`                                                                             | four major platforms    | Domain list for the shopping policy pack                                                                                           |
+| `shopping_default_address`                                                                            | empty                   | Default delivery address (warning on the confirmation card when checkout differs)                                                  |
 | `max_retries` / `timeout`                                                                             | edit manually if needed | Request retry count and timeout; can be set at the top level or inside a model entry                                               |
 
 When launching the sidecar, the desktop app injects `DIVINE_DATA_DIR` and `DIVINE_WORKSPACE_DIR`, pointing at the system application data directory — so a packaged build does not depend on the repository's `data/` or `workspace/`.
@@ -272,7 +277,7 @@ The frontend uses a mode-specific env file:
 
 ## Tool System
 
-100 tools are registered at present (growing and shrinking with MCP servers and skills), sorted by name:
+107 tools are registered at present (growing and shrinking with MCP servers and skills), sorted by name:
 
 | Tool                                  | Purpose                                                                                                                                                                                                      |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -294,8 +299,11 @@ The frontend uses a mode-specific env file:
 | `edit_svg`                            | Make local modifications to an existing SVG, touching only the elements the user mentioned                                                                                                                   |
 | `edit_xlsx`                           | Edit an existing Excel workbook: change cells and styles, append rows, add or remove worksheets, write formulas, insert charts and images                                                                    |
 | `fill_template`                       | Fill `{{placeholders}}` in Word/Excel templates; Word supports whole-table-row expansion (contracts, notices, and similar template scenarios)                                                                |
+| `flight_board`                        | Flight panel: the model collects quotes, the server builds the IR deterministically (round-trip / one-way candidates, ±N days, leave plans) and refreshes in place on the same `surfaceId`                   |
+| `flight_hidden_targets`               | Builds a candidate route list for hidden-city (throwaway-ticketing) searches — farther ticketed destinations that may connect via the real one                                                               |
 | `forget_memory`                       | Delete a long-term memory (when the user corrects a wrong one)                                                                                                                                               |
 | `format_code`                         | Format code (auto-detects `ruff format` / `prettier`)                                                                                                                                                        |
+| `fx_rates`                            | Currency rates (latest values plus daily series); the price-comparison path reuses the same cache                                                                                                            |
 | `generate_chart`                      | Generate an ECharts chart and render it inline in the conversation                                                                                                                                           |
 | `git_commit` / `git_revert`           | Commit changes / revert uncommitted changes (both require confirmation)                                                                                                                                      |
 | `git_diff` / `git_log` / `git_status` | Show the uncommitted diff / commit history / repository status                                                                                                                                               |
@@ -304,6 +312,7 @@ The frontend uses a mode-specific env file:
 | `html_common`                         | Save user-provided complete HTML as-is (no base injection, content untouched)                                                                                                                                |
 | `html_generate`                       | Generate a complete HTML page (report / dashboard / landing page and more), injecting a design-token base and running static validation                                                                      |
 | `html_resume`                         | Editable HTML résumé output (19 templates; edit text in the browser, then download or print to PDF)                                                                                                          |
+| `image_brief`                         | Image parameter panel (reference image / count / ratio / prompt optimization), options trimmed by model capability; feedback calls `image_generate` with those parameters                                    |
 | `image_generate`                      | Text-to-image / image-to-image (MiniMax and GLM-Image backends)                                                                                                                                              |
 | `image_resize`                        | Resize local images                                                                                                                                                                                          |
 | `install_skill`                       | Install a SKILL.md skill from GitHub or Gitee                                                                                                                                                                |
@@ -319,8 +328,8 @@ The frontend uses a mode-specific env file:
 | `pdf_form_generate`                   | Generate a **fillable** form PDF with real AcroForm widgets (text boxes / checkboxes / radio buttons / dropdowns, from a declarative field list)                                                             |
 | `pdf_generate`                        | Unified PDF generation entry point (report / business / travel / roadmap / book / slide-deck recipes, plus academic report / paper / data analysis / research report / hand-drawn quote paginated templates) |
 | `pdf_render`                          | Render Markdown into a typeset PDF (WeasyPrint, automatically falling back to the reportlab rich renderer on failure)                                                                                        |
-| `pdf_to_word`                         | Convert PDF text content into an editable Word document (headings / tables / lists preserved; scanned pages unsupported)                                                                                     |
 | `pdf_split_merge`                     | Split and merge PDFs                                                                                                                                                                                         |
+| `pdf_to_word`                         | Convert PDF text content into an editable Word document (headings / tables / lists preserved; scanned pages unsupported)                                                                                     |
 | `pptx_to_png`                         | Render each slide of a deck to PNG (no LibreOffice needed); scale, single page or output directory can be specified                                                                                          |
 | `presentation`                        | Generate a PPT deck (15 layouts; simple charts are embedded as native, editable PowerPoint charts)                                                                                                           |
 | `preview_skill_repo`                  | Read-only preview of the SKILL.md in a remote repository before deciding to install                                                                                                                          |
@@ -343,16 +352,18 @@ The frontend uses a mode-specific env file:
 | `terminal`                            | Run terminal commands; high-risk commands require confirmation; the working directory persists within a session                                                                                              |
 | `undo_last_turn`                      | Undo the agent's most recent file changes (restore the snapshot)                                                                                                                                             |
 | `ux_html`                             | Save a complete UX-interactive HTML page designed by the agent, previewable in the file panel                                                                                                                |
+| `video_brief`                         | Video parameter panel (material source / article URL / first-last frames / ratio / resolution / duration / subtitles / script); feedback calls `video_generate`                                              |
+| `video_generate`                      | Video generation (text-to-video / first-last-frame / article video): returns a task_id immediately, polls and downloads in the background, progress visible on the "Generation tasks" board                  |
 | `web_fetch` / `web_fetch_batch`       | Fetch a page / batch-fetch, with automatic browser fallback for JS-driven pages; can listen to data APIs and take JSON                                                                                       |
 | `web_search`                          | Web search returning titles / links / snippets                                                                                                                                                               |
-| `web_task`                            | General web task engine: delegate "URL + request" to the browser subagent running in a real browser (navigate / snapshot / fill / click / extract); irreversible actions require a confirmation card                          |
+| `web_task`                            | General web task engine: delegate "URL + request" to the browser subagent running in a real browser (navigate / snapshot / fill / click / extract); irreversible actions require a confirmation card         |
 | `word_document`                       | Generate a Word document (headings / tables / images / code blocks and more), optionally using the user's docx as the style base                                                                             |
 | `write_calendar`                      | Write a schedule or calendar event                                                                                                                                                                           |
 | `write_file`                          | Create or write a text file inside the workspace                                                                                                                                                             |
 
 Two tool defaults: output paths must stay inside the workspace (anything outside is rejected), and high-risk operations (terminal, git commit / revert, file edits, etc.) always ask the user first.
 
-Nineteen browser operation primitives — `browser_navigate` / `browser_snapshot` / `browser_click` / `browser_fill` / `browser_select` / `browser_scroll` / `browser_extract` / `browser_wait` / `browser_press_key` / `browser_read_captcha` / `browser_solve_slider` / `browser_solve_click_captcha` / `browser_geometry` / `browser_capture` / `browser_sniff_start` / `browser_sniff_stop` / `browser_api_login` / `browser_api_call` / `browser_track_order` / `browser_read_page` — register only inside the browser subagent, never in the main agent tool table (protecting the system prompt and prefix cache); the main agent delegates exclusively through `web_task`.
+Twenty browser operation primitives — `browser_navigate` / `browser_snapshot` / `browser_click` / `browser_fill` / `browser_select` / `browser_scroll` / `browser_extract` / `browser_wait` / `browser_press_key` / `browser_read_captcha` / `browser_solve_slider` / `browser_solve_click_captcha` / `browser_geometry` / `browser_capture` / `browser_sniff_start` / `browser_sniff_stop` / `browser_api_login` / `browser_api_call` / `browser_track_order` / `browser_read_page` — register only inside the browser subagent, never in the main agent tool table (protecting the system prompt and prefix cache); the main agent delegates exclusively through `web_task`.
 
 `render_ui` and `render_graph` are both "do not call by default" tools: for a plain conclusion use Markdown prose, for a single chart use `generate_chart`, for a single table use a Markdown table, and for static diagrams use Mermaid first. Call them only when you need **composed presentation**, **in-UI manipulation**, or the user explicitly asks for something **interactive / exportable** — avoiding the token and rendering cost of form for its own sake.
 
@@ -368,6 +379,7 @@ Nineteen browser operation primitives — `browser_navigate` / `browser_snapshot
 | `POST /api/sessions/{id}/inject` | Steering — interject mid-execution to correct course                                                             |
 | `GET /api/health`                | Health check, returning provider, model and tool count                                                           |
 | `/api/sessions`                  | Session management (search, export, clear, context usage, compaction, option state, panel edit-state read/write) |
+| `/api/media/tasks`               | Generation task list and actions (dismiss / reshow / retry / delete / save-as)                                   |
 | `/api/projects`                  | Project management (ordering, pinning)                                                                           |
 | `/api/scheduled-tasks`           | Scheduled task management (including run records and confirmation)                                               |
 | `/api/calendar-events`           | Calendar event management                                                                                        |
@@ -396,6 +408,7 @@ In development mode:
 - Settings: `divine-server/data/settings.json`
 - Logs: `divine-server/data/divine-server.log`
 - Workspace: `divine-server/workspace/{documents,spreadsheets,notes,pdf,presentations,diagrams,html,svg}` (subdirectories are created on demand)
+- Generated artifacts: images land in `<output dir>/images/`, videos in `<output dir>/videos/` (with same-name `.srt` subtitles and a `.txt` narration script); the output directory is configurable in settings and defaults to the workspace
 
 The packaged desktop build uses the system application data directory by default and never writes into the project directory. The database, settings and logs are controlled by `DIVINE_DATA_DIR`, and the workspace by `DIVINE_WORKSPACE_DIR`.
 
@@ -497,7 +510,7 @@ The repository ships two workflows, both triggerable by pushing a `v*` tag or ma
 
 ## Screenshots
 
-All captured from a real local run (dark theme by default; the Settings page is shown in light theme).
+All captured from real local runs (dark and light themes as appropriate; settings ones are light).
 
 ![Self-introduction](screenshots/0.png)
 
@@ -544,3 +557,17 @@ All captured from a real local run (dark theme by default; the Settings page is 
 **Auto-shopping in action** — Tool: `web_task` (shopping policy pack)
 
 ![Auto-shopping](screenshots/12.png)
+
+**Image generation: parameter panel and result grid** — tools: `image_brief`, `image_generate`
+
+![Image generation result grid](screenshots/13.png)
+
+![Image generation parameter panel](screenshots/14.png)
+
+**Video generation parameter panel** — tool: `video_brief` (source / first-last frames / ratio / resolution / duration / subtitles)
+
+![Video generation parameter panel](screenshots/15.png)
+
+**Generation tasks board** — tool: `video_generate` (background progress, playback, failure reason and retry)
+
+![Generation tasks board](screenshots/16.png)

@@ -24,7 +24,14 @@ export interface MediaModelDraft {
 }
 
 interface MediaSectionProps {
-  models: MediaModelConfig[];
+  /**
+   * 父层的草稿态（**含已输入的 api_key**）。
+   *
+   * 这里必须原样使用，不能再用 `toMediaDraft` 派生一遍：那个函数会把 api_key
+   * 置空（它的语义是「服务端条目 → 可编辑草稿」），每次输入触发重渲染就被抹掉，
+   * 表现为 **API Key 输入框打不进字**（2026-11-04 用户反馈）。
+   */
+  models: MediaModelDraft[];
   onChange: (models: MediaModelDraft[]) => void;
   /** 保存由外层设置面板统一处理（媒体分区即时保存，见 pages/settings/index.tsx） */
 }
@@ -65,7 +72,8 @@ function newMediaId(): string {
 export function MediaSection({ models, onChange }: MediaSectionProps) {
   const { t } = useTranslation();
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const drafts: MediaModelDraft[] = models.map(toMediaDraft);
+  // 父层 state 就是草稿本身，直接引用（详见 Props.models 注释）
+  const drafts = models;
 
   const update = (id: string, patch: Partial<MediaModelDraft>) => {
     onChange(drafts.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)));

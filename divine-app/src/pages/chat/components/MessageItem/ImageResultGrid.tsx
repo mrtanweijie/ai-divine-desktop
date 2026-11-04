@@ -2,10 +2,11 @@
 // 只在 tool.tool === "image_generate" 时启用——edit_files / generate_chart
 // 那类几十行的文件列表不能跟着变卡片墙。
 import { memo, useState } from "react";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Maximize2, MoreHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
-import { FileTypeIcon } from "@/components/FileTypeIcon";
+import { Tag } from "@/components/ui/Tag";
+import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { API_BASE } from "@/services/request";
 import { isTauri, openFileLocation } from "@/services/tauri";
 import { toWorkspaceRelative } from "@/services/workspace";
@@ -33,6 +34,23 @@ const ImageCard = memo(function ImageCard({
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const fileName = path.split("/").pop() ?? path;
   const rel = workspacePath ? toWorkspaceRelative(workspacePath, path) : null;
+  const cardActions: DropdownItem[] = [];
+  if (rel && onPreviewFile) {
+    cardActions.push({
+      key: "preview",
+      label: t("tool.imagePreview", "查看大图"),
+      icon: <Maximize2 size={14} />,
+      onClick: () => onPreviewFile({ repoPath: workspacePath ?? "", relPath: rel, fileName }),
+    });
+  }
+  if (isTauri()) {
+    cardActions.push({
+      key: "reveal",
+      label: t("tool.openDirectory", "打开所在目录"),
+      icon: <FolderOpen size={14} />,
+      onClick: () => void openFileLocation(path),
+    });
+  }
   return (
     <div
       className={`image-result-card${total === 1 ? " is-single" : ""}`}
@@ -76,28 +94,35 @@ const ImageCard = memo(function ImageCard({
             }
           }}
         />
-        {isTauri() && (
-          <Button
-            variant="icon"
-            size="small"
-            className="image-result-open"
-            title={t("tool.openDirectory", "打开所在目录")}
-            aria-label={t("tool.openDirectory", "打开所在目录")}
-            onClick={(event) => {
-              event.stopPropagation();
-              void openFileLocation(path);
-            }}
-          >
-            <FolderOpen size={13} />
-          </Button>
-        )}
       </div>
       <div className="image-result-meta">
-        <FileTypeIcon name={fileName} />
-        <span>
-          {total > 1 ? `${index + 1}/${total}` : fileName}
-          {dims ? ` · ${dims.w}×${dims.h}` : ""}
-        </span>
+        <div className="image-result-meta-text">
+          <span className="image-result-name" title={fileName}>
+            {fileName}
+          </span>
+          <span className="image-result-sub">
+            {total > 1 ? `${index + 1}/${total}` : null}
+            {total > 1 && dims ? " · " : null}
+            {dims ? `${dims.w}×${dims.h}` : null}
+          </span>
+        </div>
+        <Dropdown
+          align="end"
+          direction="auto"
+          openOn="both"
+          trigger={
+            <Button
+              variant="icon"
+              size="small"
+              aria-label={t("tool.mediaMoreActions", "更多操作")}
+              title={t("tool.mediaMoreActions", "更多操作")}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <MoreHorizontal size={15} />
+            </Button>
+          }
+          items={cardActions}
+        />
       </div>
     </div>
   );
@@ -112,9 +137,10 @@ export const ImageResultGrid = memo(function ImageResultGrid({
   workspacePath?: string | null;
   onPreviewFile?: (file: PreviewFile) => void;
 }) {
-  const { t } = useTranslation();
-  const [listOpen, setListOpen] = useState(false);
   const files = (tool.files ?? []).filter((file) => file.path);
+  // 用的哪个模型（后端结果 JSON 的 provider/model，2026-11-04）
+  const modelInfo = tool.result as { provider?: string; model?: string } | undefined;
+  const modelLabel = [modelInfo?.provider, modelInfo?.model].filter(Boolean).join(" · ");
 
   if (files.length === 0) return null;
 
@@ -132,34 +158,11 @@ export const ImageResultGrid = memo(function ImageResultGrid({
           />
         ))}
       </div>
-      {/* 文件列表折叠入口：要按文件名/路径找图的用户仍然拿得到 */}
-      <div
-        role="button"
-        tabIndex={0}
-        className="image-result-toggle"
-        onClick={() => setListOpen((value) => !value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            setListOpen((value) => !value);
-          }
-        }}
-      >
-        {listOpen ? t("tool.imageHideList", "收起文件列表") : t("tool.imageShowList", "文件列表")}
-      </div>
-      {listOpen && (
-        <div className="file-actions file-list">
-          {files.map((file) => (
-            <div key={file.path} className="file-list-item">
-              <span className="file-download">
-                <FileTypeIcon name={file.path || file.name} />
-                <span className="file-name">{file.name}</span>
-                <span className="file-path">{file.path}</span>
-              </span>
-            </div>
-          ))}
+      {modelLabel ? (
+        <div className="image-result-model">
+          <Tag tone="default">{modelLabel}</Tag>
         </div>
-      )}
+      ) : null}
     </div>
   );
 });

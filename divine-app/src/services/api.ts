@@ -21,6 +21,7 @@ import type {
   WorkspaceCategory,
 } from "@/types";
 import { parseUISurfaceIR } from "@/pages/chat/components/UISurface/parseUISurface";
+import { changedFilePathsFromResult } from "@/pages/chat/chatUtils";
 import type { UISurface, UISurfaceStatus } from "@/pages/chat/components/UISurface/types";
 import { isTauri, openUrl } from "@/services/tauri";
 import { API_BASE, apiBase, request } from "@/services/request";
@@ -520,11 +521,21 @@ function toToolEvent({ run, result, command }: PreparedRun): ToolEvent {
         messageParams?: Record<string, unknown>;
       }
     | undefined;
+  // 图像生成（036）：历史回放也要出卡片墙——产物路径只在结果 JSON 里
+  // （filepath / data.images），后端 tool 事件本身不带 files 字段。
+  const imageFiles =
+    run.tool_name === "image_generate" && run.status === "done"
+      ? changedFilePathsFromResult(result).map((path) => ({
+          name: path.split("/").pop() ?? path,
+          path,
+        }))
+      : [];
   return {
     tool: run.tool_name,
     call_id: run.id,
     status: run.status === "done" ? "done" : "error",
     message: shaped?.message ?? run.status,
+    files: imageFiles.length ? imageFiles : undefined,
     messageKey: shaped?.messageKey,
     messageParams: shaped?.messageParams,
     command,
@@ -749,7 +760,7 @@ export function messagesToChatMessages(
  * `liveSurfaces=false` 用于**翻更早的历史页**：那一页里的面板全都不是会话
  * 最新的，必须整体保持只读（否则老页尾部那块会被误标成可交互）。
  */
-function resolveSurfaces(chatMessages: ChatMessage[], liveSurfaces: boolean): ChatMessage[] {
+export function resolveSurfaces(chatMessages: ChatMessage[], liveSurfaces: boolean): ChatMessage[] {
   const merged = new Map<string, { firstIndex: number; lastIndex: number; surface: UISurface }>();
   chatMessages.forEach((message, index) => {
     for (const surface of message.surfaces ?? []) {

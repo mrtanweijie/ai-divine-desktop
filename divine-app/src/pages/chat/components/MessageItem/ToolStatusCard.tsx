@@ -299,7 +299,9 @@ export const ToolStatusCard = memo(function ToolStatusCard({
         tool.result &&
         tool.tool !== "web_task" && // 浏览器任务的结果行（"浏览器任务完成"）不展示
         tool.tool !== "web_fetch" &&
-        tool.tool !== "web_fetch_batch" && (
+        tool.tool !== "web_fetch_batch" &&
+        tool.tool !== "image_generate" && // 图片结果由卡片墙表达，"图片已生成"是冗余行（2026-11-04）
+        tool.tool !== "video_generate" && (
           <Flex align="center" gap={8} className="tool-result-actions">
             {chartIcon ?? icon}
             <span>

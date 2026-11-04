@@ -287,9 +287,20 @@ export function useChatStream(options: UseChatStreamOptions) {
           setSessionMessages(sessionId, (prev) => writeSurfaceFrame(prev, assistantId, surface));
         },
         tool: (data: unknown) => {
-          const event = data as unknown as ToolEvent;
+          let event = data as unknown as ToolEvent;
           const added: string[] = [];
           if (event.status === "done" && event.result) {
+            // 图像生成（036）：结果 JSON 里的产物路径补成 files，卡片墙才渲染得出来
+            const imagePaths = changedFilePathsFromResult(event.result);
+            if (event.tool === "image_generate" && imagePaths.length) {
+              event = {
+                ...event,
+                files: imagePaths.map((path) => ({
+                  name: path.split("/").pop() ?? path,
+                  path,
+                })),
+              };
+            }
             const projectPath = projects.find((item) => item.id === selectedProjectId)?.path;
             if (projectPath) {
               for (const filePath of changedFilePathsFromResult(event.result)) {

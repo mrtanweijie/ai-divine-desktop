@@ -680,7 +680,8 @@ function FilePickerComp({ component, ctx }: CompProps<"FilePicker">) {
 
   return (
     <div className="uis-filepicker">
-      <span className="uis-field-label">{component.label}</span>
+      {/* label 允许为空串：外层已有 Text 标题时（如 video_brief 首帧/尾帧），避免双份标题 */}
+      {component.label ? <span className="uis-field-label">{component.label}</span> : null}
       {value ? (
         <div className="uis-filepicker-card">
           {thumb ? (

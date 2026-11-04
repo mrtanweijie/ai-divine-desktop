@@ -26,6 +26,7 @@ import {
 } from "./sections/MediaSection";
 import { readLocalePreference, setLocale, type AppLocale } from "@/i18n";
 import { Button } from "@/components/ui/Button";
+import { toast } from "@/components/ui/Toast";
 import { getAppVersion, isTauri, setGlobalShortcutEnabled } from "@/services/tauri";
 import { useThemePreference, type ThemePreference } from "@/services/theme";
 import { AboutSection } from "./sections/AboutSection";
@@ -41,6 +42,25 @@ import "./index.less";
 
 export type SettingsSection =
   "basic" | "shortcuts" | "model" | "media" | "mcp" | "local" | "memory" | "browser" | "about";
+
+/**
+ * 把接口错误转成可读文案。
+ *
+ * `request()` 在非 2xx 时抛的是**响应体原文**（后端统一 `{"detail": ...}`），
+ * 直接丢进 toast 会显示一坨 JSON，所以这里解一层 detail（2026-11-04）。
+ */
+function readableError(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback;
+  const raw = error.message.trim();
+  if (!raw) return fallback;
+  try {
+    const parsed = JSON.parse(raw) as { detail?: unknown };
+    if (typeof parsed.detail === "string" && parsed.detail.trim()) return parsed.detail;
+  } catch {
+    // 不是 JSON（网络错误等）：用手头文本
+  }
+  return raw;
+}
 
 /** Build a UI-ready model list from server settings, tolerating servers that
  * don't return `models` yet (single legacy entry derived from top-level). */
@@ -100,6 +120,7 @@ export function SettingsPage({
   const [contextLimit, setContextLimit] = useState(settings.context_limit);
   const [showGlmKey, setShowGlmKey] = useState(false);
   const [version, setVersion] = useState(`v${tauriConfig.version}`);
+  const [saving, setSaving] = useState(false);
   const [themePreference, setThemePreferenceState] = useThemePreference();
   const [mediaModels, setMediaModels] = useState<MediaModelDraft[]>(() =>
     (settings.media_models ?? []).map(toMediaDraft),
@@ -150,9 +171,12 @@ export function SettingsPage({
 
   // 每个 tab 只保存自己的字段：通用 tab 不触碰模型配置，
   // 模型 tab 的密钥仅在用户输入新值时提交，避免把已保存的 Key 覆盖为空。
-  const saveCurrentSection = () => {
+  const saveCurrentSection = async () => {
+    if (saving) return;
+
+    let body: SettingsSaveBody | null = null;
     if (section === "model") {
-      const body: SettingsSaveBody = {
+      body = {
         models: models.map((entry) => ({
           id: entry.id,
           name: entry.name,
@@ -169,17 +193,27 @@ export function SettingsPage({
       };
       const trimmedGlmKey = glmApiKey.trim();
       if (trimmedGlmKey) body.glm_api_key = trimmedGlmKey;
-      void onSave(body);
-    }
-    if (section === "media") {
+    } else if (section === "media") {
       // 生成模型（036/035）：与模型页同语义——空 key 保留已存值
-      void onSave({ media_models: toMediaPayload(mediaModels) });
-    }
-    if (section === "local") {
-      void onSave({
+      body = { media_models: toMediaPayload(mediaModels) };
+    } else if (section === "local") {
+      body = {
         local_llm_enabled: localLLMEnabled,
         local_llm_mode: localLLMMode,
-      });
+      };
+    }
+    if (!body) return;
+
+    // 保存必须有反馈：此前是 fire-and-forget，失败被当成 unhandled rejection
+    // 静默吞掉，用户只看到「点了没反应」（2026-11-04）。这里补 loading + toast。
+    setSaving(true);
+    try {
+      await onSave(body);
+      toast.success(t("settings.savedToast", "已保存"));
+    } catch (error) {
+      toast.error(readableError(error, t("settings.saveFailed", "保存失败，请重试")));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -383,9 +417,9 @@ export function SettingsPage({
             <Button variant="secondary" onClick={onBack}>
               {t("common.cancel", "取消")}
             </Button>
-            <Button variant="primary" onClick={saveCurrentSection}>
-              <Save size={15} />
-              {t("common.save", "保存")}
+            <Button variant="primary" loading={saving} onClick={() => void saveCurrentSection()}>
+              {saving ? null : <Save size={15} />}
+              {saving ? t("common.saving", "保存中…") : t("common.save", "保存")}
             </Button>
           </footer>
         )}

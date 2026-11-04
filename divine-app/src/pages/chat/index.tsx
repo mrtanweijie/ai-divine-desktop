@@ -16,6 +16,7 @@ import {
   updateProject,
   updateSessionApprovalMode,
   updateSettings,
+  resolveSurfaces,
 } from "@/services/api";
 import { ScheduledTasksPage } from "@/pages/tasks";
 import { SkillsPage } from "@/pages/skills";
@@ -129,6 +130,16 @@ export default function ChatPage() {
   const tasksOpen = view === "tasks";
   const skillsOpen = view === "skills";
   const settingsOpen = view === "settings";
+  // 面板收口（页面级兜底）：流式/回流/加载任一来源产生的同 surfaceId 重复面板，
+  // 渲染层只保留最后写入的一块（035 双按钮问题的最终防线，2026-11-04）。
+  const displayMessages = useMemo(
+    () =>
+      resolveSurfaces(
+        messages.map((message) => ({ ...message })),
+        true,
+      ),
+    [messages],
+  );
   const mediaOpen = view === "media";
   // 侧栏「生成任务」徽标（035 §9.1）：订阅同一份 store
   const { runningCount: mediaRunningCount } = useMediaTasks();
@@ -865,7 +876,7 @@ export default function ChatPage() {
         ) : skillsOpen ? (
           <SkillsPage onOpenSidebar={() => setSidebarOpen(true)} />
         ) : mediaOpen ? (
-          <MediaTasksPage />
+          <MediaTasksPage onOpenSidebar={() => setSidebarOpen(true)} />
         ) : (
           <ChatStreamContext.Provider value={chatStreamValue}>
             <ChatHeader
@@ -889,7 +900,7 @@ export default function ChatPage() {
               />
             ) : (
               <MessageList
-                messages={messages}
+                messages={displayMessages}
                 streaming={streaming}
                 sessionId={selectedId}
                 username={settings?.username || t("common.user", "用户")}
@@ -993,7 +1004,7 @@ export default function ChatPage() {
               void getSettings().then((current) => setSettings(current));
               openView("chat");
             }}
-            onSave={(body) => void handleSettingsSave(body)}
+            onSave={handleSettingsSave}
             onSilentSave={(body) => void handleSilentSave(body)}
             onConfirm={(title, description, action) =>
               setConfirmState({ title, description, action })

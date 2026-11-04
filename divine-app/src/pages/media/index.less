@@ -20,12 +20,45 @@
   padding: 0 18px;
 }
 
+/* 对话列表折叠时窗口左缘是 macOS 红绿灯：工具栏左内距让出安全区
+   （全屏红绿灯隐藏，恢复常规内距；2026-11-04 用户反馈重叠） */
+.app-shell.sidebar-collapsed .media-toolbar {
+  padding-left: 88px;
+}
+
+.app-shell.fullscreen .media-toolbar {
+  padding-left: 18px;
+}
+
+.media-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.media-sidebar-button {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.media-sidebar-button:hover {
+  color: var(--color-text);
+}
+
+/* 侧栏已展开时隐藏展开入口：与技能页/定时页同一判据（app-shell 的 sidebar-visible），
+   按钮只在对话列表收起时才有意义（2026-11-04 用户反馈） */
+.app-shell.sidebar-visible .media-sidebar-button {
+  display: none;
+}
+
 .media-summary {
   display: flex;
   align-items: center;
   gap: 6px;
   color: var(--color-text-muted);
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .media-summary-sep {
@@ -71,73 +104,57 @@
   padding: 12px 18px 24px;
 }
 
+/* 卡片区（2026-11-04 重设计）：auto-fill 自然分列，卡片高度由最高的那张决定，
+   去掉固定 min-height 避免大块留白；视觉走"状态点 + 等宽计时"的极简语言。 */
 .media-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  align-items: stretch;
 }
 
 .media-task-card {
+  position: relative;
   display: flex;
-  min-height: 150px;
   flex-direction: column;
   gap: 8px;
-  padding: 14px;
+  padding: 14px 16px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
 .media-task-card:hover {
   border-color: var(--color-border-strong);
-  background: var(--color-hover-soft);
 }
 
-/* 播放中的卡片占满整行：16:9 视频需要宽度 */
-.media-task-card.is-playing {
-  grid-column: 1 / -1;
-}
-
-.media-task-card.is-failed {
-  background: var(--color-surface-2);
-}
-
-.media-task-head {
+.media-task-top {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.media-task-icon {
-  display: flex;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  background: var(--color-accent-soft);
-  color: var(--color-text-secondary);
+  gap: 8px;
+  min-width: 0;
 }
 
-.media-task-icon.is-running {
-  color: var(--color-accent);
-}
-
-.media-task-icon.is-failed {
-  color: var(--color-text-muted);
-  background: var(--color-surface-2);
-}
-
-.media-task-orb {
-  width: 9px;
-  height: 9px;
+.media-task-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
   border-radius: 50%;
+  background: var(--color-text-muted);
+}
+
+.media-task-dot.is-running {
   background: var(--color-accent);
   animation: media-orb-pulse 1.2s ease-in-out infinite;
+}
+
+.media-task-dot.is-done {
+  background: var(--color-success);
+}
+
+.media-task-dot.is-failed {
+  background: var(--color-danger);
 }
 
 @keyframes media-orb-pulse {
@@ -150,12 +167,9 @@
   }
 }
 
-.media-task-title-block {
+.media-task-title {
   flex: 1;
   min-width: 0;
-}
-
-.media-task-title {
   overflow: hidden;
   color: var(--color-text);
   font-size: 13px;
@@ -164,52 +178,35 @@
   white-space: nowrap;
 }
 
-.media-task-badges {
+/* 计时用等宽数字：跑秒时不左右抖动 */
+.media-task-time {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.media-task-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
-
-.media-task-badge {
-  padding: 1px 6px;
-  border-radius: var(--radius-full);
-  background: var(--color-accent-soft);
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  font-weight: 400;
-}
-
-.media-task-badge.muted {
-  background: var(--color-surface-2);
   color: var(--color-text-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
 }
 
-.media-task-badge.is-done {
-  background: color-mix(in srgb, var(--color-success) 12%, transparent);
-  color: var(--color-success);
-}
-
-.media-task-badge.is-failed {
-  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-  color: var(--color-danger);
-}
-
-.media-task-player {
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--color-surface-2);
-}
-
-.media-task-player .video-player video {
-  max-height: 360px;
+.media-task-meta-sep {
+  margin: 0 3px;
+  opacity: 0.6;
 }
 
 .media-task-desc {
   display: -webkit-box;
+  min-height: 18px;
+  margin: 0;
   overflow: hidden;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
   line-height: 1.5;
   -webkit-box-orient: vertical;
@@ -217,27 +214,110 @@
   overflow-wrap: anywhere;
 }
 
-.media-task-footer {
+.media-task-desc.is-failed {
+  color: color-mix(in srgb, var(--color-danger) 78%, var(--color-text));
+}
+
+/* 播放浮层（2026-11-04）：portal 到 body，不走 ui/Modal。
+   Modal 渲染在页面组件树内，其祖先层叠会让 WKWebView 里的 video 只出控件不出画面；
+   这里用独立的 fixed 浮层，且**不要 backdrop-filter**（同样会压掉视频渲染）。 */
+.media-player-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  /* 毛玻璃遮罩（2026-11-04 用户要求）：底色降一点透明度，模糊才看得出来。
+     早前怀疑 backdrop-filter 导致 video 黑屏是误判——真因是 VideoPlayer
+     cleanup 抹掉 src，已修；这里可以放心用。 */
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+.media-player-dialog {
+  display: flex;
+  max-width: min(960px, 92vw);
+  max-height: calc(100vh - 48px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.media-player-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 4px;
-  margin-top: auto;
-  color: var(--color-text-muted);
-  font-size: 12px;
+  gap: 12px;
+  padding: 12px 12px 10px 16px;
 }
 
-.media-task-footer-side {
+.media-player-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 视频区做成内嵌圆角块：不贴对话框边框（2026-11-04 用户要求加边距） */
+.media-player-body {
+  display: flex;
+  min-height: 0;
+  margin: 0 12px 12px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: #000;
+}
+
+.media-player-body .video-player {
+  flex: 1;
+  border-radius: 0;
+  background: #000;
+}
+
+.media-player-body .video-player video {
+  display: block;
+  width: 100%;
+  max-height: min(60vh, 600px);
+}
+
+.media-player-foot {
   display: flex;
   align-items: center;
-  gap: 2px;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
 }
 
-.media-task-footer-action {
-  color: var(--color-accent);
-  font-size: 12px;
-  cursor: pointer;
-  user-select: none;
+/* 操作行（2026-11-04）：全部操作收进右下角三点菜单，默认隐藏，
+   hover / 键盘聚焦才出现——看板保持干净，误触也不可能。 */
+.media-task-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: auto;
+  margin-right: -6px;
+  padding-top: 2px;
+  min-height: 24px;
+}
+
+/* 三点常显（用户要求）：颜色压到 muted，不抢卡片信息 */
+.media-task-actions .ui-button--icon {
+  color: var(--color-text-muted);
+}
+
+.media-task-actions .ui-button--icon:hover {
+  color: var(--color-text);
+  background: var(--color-accent-soft);
 }
 
 .media-dismissed-toggle {
@@ -264,15 +344,46 @@
   text-align: center;
 }
 
-/* 窄窗口降列 */
-@media (max-width: 1100px) {
-  .media-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+/* 失败原因弹窗（2026-11-04）：完整报错可读长文本，等宽字体不给配色噪音 */
+.media-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-@media (max-width: 720px) {
-  .media-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.media-reason-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.media-reason-head svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-danger);
+}
+
+.media-reason-body {
+  max-height: 46vh;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.media-reason-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }

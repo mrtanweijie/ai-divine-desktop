@@ -10,6 +10,7 @@ import {
   Box,
   Brain,
   Calculator,
+  Clapperboard,
   CalendarClock,
   CalendarDays,
   CircleDollarSign,
@@ -86,6 +87,8 @@ export function toolIcon(tool: string) {
   // remember（存记忆）用包裹图标；forget/recall 等其余记忆工具仍是 Brain
   if (tool === "remember") return <Package size={16} />;
   if (tool.includes("memory")) return <Brain size={16} />;
+  // 视频工具族（035）：参数面板与生成任务共用场记板图标；宽匹配覆盖未来 video_* 工具
+  if (tool.includes("video")) return <Clapperboard size={16} />;
   if (tool === "run_subagents") return <GitGraph size={16} />;
   if (tool === "git_status") return <GitBranch size={16} />;
   if (tool === "git_diff") return <GitCompareArrows size={16} />;

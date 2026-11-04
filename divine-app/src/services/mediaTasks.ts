@@ -84,10 +84,18 @@ function bindEvents(): void {
   });
 }
 
-/** 订阅任务列表变化；首次订阅时拉一次全量。 */
+/**
+ * 订阅任务列表变化；首次订阅时拉一次全量。
+ *
+ * **新订阅者必须先拿到现有快照**：`refreshMediaTasks()` 命中 cache 时直接返回、
+ * 不触发 notify（这是有意的去抖），于是后挂载的页面（点开「生成任务」）
+ * 既拿不到快照也等不到通知，列表一直是空的——只有整页刷新重建 store 才正常
+ * （2026-11-04 用户反馈实锤）。
+ */
 export function subscribeMediaTasks(listener: Listener): () => void {
   bindEvents();
   listeners.add(listener);
+  if (cache !== null) listener(cache);
   void refreshMediaTasks();
   return () => {
     listeners.delete(listener);

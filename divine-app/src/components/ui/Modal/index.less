@@ -11,6 +11,12 @@
   -webkit-backdrop-filter: blur(5px) saturate(140%);
 }
 
+/* 无模糊遮罩：视频弹窗用（backdrop-filter 会让 Safari 里的 video 黑屏） */
+.ui-modal-backdrop.is-plain {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .ui-modal {
   max-width: calc(100vw - 48px);
   max-height: calc(100vh - 48px);

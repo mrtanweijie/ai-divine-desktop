@@ -54,9 +54,14 @@ def prepare(arguments: dict[str, Any]) -> dict[str, Any]:
         {"id": "root", "component": "Column", "gap": "md", "children": children}
     ]
 
-    def _add(component: dict[str, Any]) -> None:
+    def _add(component: dict[str, Any], attach: bool = True) -> None:
+        """注册组件；attach=False 表示只被其它容器（如动作 Row）引用，不挂根 children。
+
+        挂根会让被引用的子组件**再渲染一遍**（用户看到两组「开始生成/取消」，2026-11-04）。
+        """
         components.append(component)
-        children.append(component["id"])
+        if attach:
+            children.append(component["id"])
 
     # —— 素材来源（§7.9：资讯视频。A2UI 无 tab/条件渲染 → 两字段常驻 + 校验兜底）——
     _add(
@@ -109,7 +114,7 @@ def prepare(arguments: dict[str, Any]) -> dict[str, Any]:
         {
             "id": "first_pick",
             "component": "FilePicker",
-            "label": "首帧图",
+            "label": "",
             "value": {"path": "/form/first_frame"},
             "accept": "image",
             "placeholder": "不选为纯文本生成",
@@ -128,7 +133,7 @@ def prepare(arguments: dict[str, Any]) -> dict[str, Any]:
             {
                 "id": "last_pick",
                 "component": "FilePicker",
-                "label": "尾帧图",
+                "label": "",
                 "value": {"path": "/form/last_frame"},
                 "accept": "image",
                 "placeholder": "两张都填 = 首尾帧",
@@ -270,7 +275,8 @@ def prepare(arguments: dict[str, Any]) -> dict[str, Any]:
             "variant": "primary",
             "text": "开始生成",
             "action": {"name": "video_create", "context": context},
-        }
+        },
+        attach=False,
     )
     _add(
         {
@@ -279,7 +285,8 @@ def prepare(arguments: dict[str, Any]) -> dict[str, Any]:
             "variant": "ghost",
             "text": "取消",
             "action": {"name": "cancel"},
-        }
+        },
+        attach=False,
     )
 
     surface_id = str(arguments.get("surface_id") or SURFACE_ID)
@@ -393,6 +400,7 @@ class VideoBriefAdapter(ToolAdapter):
             "✓ 已弹出视频参数面板（素材来源 / 首尾帧 / 比例 / 分辨率 / 时长）。"
             "收到 video_create 回流后按参数调用 video_generate：参数以面板值为准，"
             "不要二次确认；素材来源=网络抓取时，先 web_fetch 提炼正文再生成。"
+            "面板自带「开始生成/取消」按钮，正文中禁止再输出按钮或 ```options 动作块。"
         )
 
         return ToolResult(

@@ -56,9 +56,14 @@ def prepare(arguments: dict[str, Any]) -> dict[str, Any]:
         {"id": "root", "component": "Column", "gap": "md", "children": children}
     ]
 
-    def _add(component: dict[str, Any]) -> None:
+    def _add(component: dict[str, Any], attach: bool = True) -> None:
+        """注册组件；attach=False 表示只被其它容器（如动作 Row）引用，不挂根 children。
+
+        挂根会让被引用的子组件**再渲染一遍**（用户看到两组「开始生成/取消」，2026-11-04）。
+        """
         components.append(component)
-        children.append(component["id"])
+        if attach:
+            children.append(component["id"])
 
     # —— 参考图（仅支持的 provider 渲染；不渲染优于点了才发现不支持）——
     if caps["supports_reference"]:
@@ -74,7 +79,7 @@ def prepare(arguments: dict[str, Any]) -> dict[str, Any]:
             {
                 "id": "ref_pick",
                 "component": "FilePicker",
-                "label": "参考图",
+                "label": "",
                 "value": {"path": "/form/reference_image"},
                 "accept": "image",
                 "placeholder": "不选为文生图；选了按这张图生成",
@@ -171,7 +176,8 @@ def prepare(arguments: dict[str, Any]) -> dict[str, Any]:
             "variant": "primary",
             "text": "开始生成",
             "action": {"name": "image_create", "context": context},
-        }
+        },
+        attach=False,
     )
     _add(
         {
@@ -180,7 +186,8 @@ def prepare(arguments: dict[str, Any]) -> dict[str, Any]:
             "variant": "ghost",
             "text": "取消",
             "action": {"name": "cancel"},
-        }
+        },
+        attach=False,
     )
 
     surface_id = str(arguments.get("surface_id") or SURFACE_ID)
@@ -252,6 +259,7 @@ class ImageBriefAdapter(ToolAdapter):
             "✓ 已弹出图片参数面板（参考图 / 数量 / 比例）。"
             "用户点「开始生成」后，按回流参数调用 image_generate，"
             "参数以面板值为准，不要二次确认，也不要自行改写。"
+            "面板自带「开始生成/取消」按钮，正文中禁止再输出按钮或 ```options 动作块。"
         )
 
         return ToolResult(
