@@ -279,6 +279,7 @@
     "browserStatusStopped": "Not ready",
     "collapseModel": "Collapse",
     "contextLimit": "Context messages kept",
+    "contextLimitDesc": "History messages kept in context; more costs more tokens.",
     "cpu": "CPU",
     "custom": "Custom",
     "customInstall": "Custom Model",
@@ -314,7 +315,8 @@
     "installSuccess": "Model installed successfully",
     "installedBadge": "Installed",
     "intentMode": "Intent Recognition Mode",
-    "language": "Language",
+    "language": "Interface Language",
+    "languageDesc": "Choose the display language of the app UI.",
     "localLLM": "Intent Recognition Mode",
     "localLLMNotRunning": "Local model is not running; intent recognition falls back to keywords/cloud. Start the model to enable it.",
     "localLLMStartFailed": "Local model failed to start",
@@ -430,6 +432,7 @@
     "stop": "Stop",
     "theme": "Theme",
     "themeDark": "Dark",
+    "themeDesc": "Switch between dark and light appearance.",
     "themeLight": "Light",
     "themeSystem": "System",
     "thinkEffort": "Deep thinking",
@@ -442,6 +445,7 @@
     "toolModeReact": "ReAct text mode",
     "uninstall": "Uninstall",
     "username": "Username",
+    "usernameDesc": "How the AI addresses you in conversations.",
     "usernamePlaceholder": "User"
   },
   "skills": {

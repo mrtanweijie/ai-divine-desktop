@@ -278,6 +278,7 @@
     "browserStatusStopped": "未就緒",
     "collapseModel": "收起",
     "contextLimit": "上下文保留條數",
+    "contextLimitDesc": "對話中保留的歷史訊息條數，越大越耗上下文。",
     "cpu": "CPU",
     "custom": "",
     "customInstall": "自訂模型",
@@ -313,7 +314,8 @@
     "installSuccess": "模型安裝成功",
     "installedBadge": "已安裝",
     "intentMode": "意圖識別模式",
-    "language": "語言",
+    "language": "介面語言",
+    "languageDesc": "選擇應用 UI 的顯示語言。",
     "localLLM": "意圖識別模式",
     "localLLMNotRunning": "本機模型未運行，意圖識別將回退到關鍵詞/雲端，啟動模型後生效",
     "localLLMStartFailed": "本機模型啟動失敗",
@@ -429,6 +431,7 @@
     "stop": "停止",
     "theme": "主題",
     "themeDark": "深色",
+    "themeDesc": "切換應用的深色 / 淺色外觀。",
     "themeLight": "淺色",
     "themeSystem": "跟隨系統",
     "thinkEffort": "深度思考",
@@ -441,6 +444,7 @@
     "toolModeReact": "ReAct 文字模式",
     "uninstall": "解除安裝",
     "username": "使用者名稱",
+    "usernameDesc": "AI 在對話中如何稱呼你。",
     "usernamePlaceholder": "使用者"
   },
   "skills": {

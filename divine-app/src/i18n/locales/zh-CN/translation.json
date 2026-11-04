@@ -272,6 +272,7 @@
     "browserStatusStopped": "未就绪",
     "collapseModel": "收起",
     "contextLimit": "上下文保留条数",
+    "contextLimitDesc": "对话中保留的历史消息条数，越大越耗上下文。",
     "cpu": "CPU",
     "custom": "自定义",
     "customInstall": "自定义模型",
@@ -307,7 +308,8 @@
     "installSuccess": "模型安装成功",
     "installedBadge": "已安装",
     "intentMode": "意图识别模式",
-    "language": "语言",
+    "language": "界面语言",
+    "languageDesc": "选择应用 UI 的显示语言。",
     "localLLM": "意图识别模式",
     "localLLMNotRunning": "本地模型未运行，意图识别将回退到关键词/云端，启动模型后生效",
     "localLLMStartFailed": "本地模型启动失败",
@@ -431,6 +433,7 @@
     "stop": "停止",
     "theme": "主题",
     "themeDark": "深色",
+    "themeDesc": "切换应用的深色 / 浅色外观。",
     "themeLight": "浅色",
     "themeSystem": "跟随系统",
     "thinkEffort": "深度思考",
@@ -443,6 +446,7 @@
     "toolModeReact": "ReAct 文本模式",
     "uninstall": "卸载",
     "username": "用户名",
+    "usernameDesc": "AI 在对话中如何称呼你。",
     "usernamePlaceholder": "用户"
   },
   "skills": {

@@ -866,25 +866,6 @@ export default function ChatPage() {
           <SkillsPage onOpenSidebar={() => setSidebarOpen(true)} />
         ) : mediaOpen ? (
           <MediaTasksPage />
-        ) : settingsOpen && settings ? (
-          <SettingsPage
-            settings={settings}
-            section={settingsSection}
-            onSectionChange={(next) => {
-              setSettingsInitialSection(next);
-              setSearchParams({ view: "settings", section: next });
-            }}
-            onBack={() => {
-              // 离开设置时刷新：本地模型启动/停止后，切换器随之出现/消失
-              void getSettings().then((current) => setSettings(current));
-              openView("chat");
-            }}
-            onSave={(body) => void handleSettingsSave(body)}
-            onSilentSave={(body) => void handleSilentSave(body)}
-            onConfirm={(title, description, action) =>
-              setConfirmState({ title, description, action })
-            }
-          />
         ) : (
           <ChatStreamContext.Provider value={chatStreamValue}>
             <ChatHeader
@@ -998,6 +979,28 @@ export default function ChatPage() {
         }}
         onSave={handleSaveProject}
       />
+      {settingsOpen && settings && (
+        <div className="settings-overlay">
+          <SettingsPage
+            settings={settings}
+            section={settingsSection}
+            onSectionChange={(next) => {
+              setSettingsInitialSection(next);
+              setSearchParams({ view: "settings", section: next });
+            }}
+            onBack={() => {
+              // 离开设置时刷新：本地模型启动/停止后，切换器随之出现/消失
+              void getSettings().then((current) => setSettings(current));
+              openView("chat");
+            }}
+            onSave={(body) => void handleSettingsSave(body)}
+            onSilentSave={(body) => void handleSilentSave(body)}
+            onConfirm={(title, description, action) =>
+              setConfirmState({ title, description, action })
+            }
+          />
+        </div>
+      )}
       {confirmState && (
         <ConfirmDialog
           title={confirmState.title}

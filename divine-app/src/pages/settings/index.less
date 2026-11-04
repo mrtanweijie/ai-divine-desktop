@@ -1,10 +1,18 @@
 /* 设置面板页壳（037）：分组导航 + 内容区。
  * Section 共用的表单/卡片原语在 ./sections/shared.less（沿用 settings-* 类名）；
  * 页面壳用 sp- 前缀，避免与旧 modal 的全局类互染。 */
+.settings-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30; /* 与面板浮层同层级约定；盖住对话/工具区但不卸载它们 */
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
 .sp-page {
   position: relative;
   display: flex;
-  flex: 1;
+  height: 100%;
   min-height: 0;
   background: var(--color-bg);
 }

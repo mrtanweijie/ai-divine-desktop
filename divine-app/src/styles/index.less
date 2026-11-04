@@ -10,9 +10,10 @@
 
 :root,
 :root[data-theme="dark"] {
-  --color-bg: #0b0d0f;
-  --color-surface: #121517;
-  --color-surface-2: #171b1f;
+  /* 深色三阶：中性深灰 #181818 家族（用户指定 2026-11-04），保持 bg < surface < surface-2 层级 */
+  --color-bg: #181818;
+  --color-surface: #1f1f1f;
+  --color-surface-2: #262626;
   --color-border: rgba(255, 255, 255, 0.08);
   --color-border-strong: rgba(255, 255, 255, 0.16);
   --color-text: #f2f4f6;
@@ -20,7 +21,7 @@
   --color-text-muted: #6f7783;
   --color-accent: #ffffff;
   --color-accent-hover: #d1d5db;
-  --color-on-accent: #0b0d0f;
+  --color-on-accent: #181818;
   --color-accent-soft: rgba(255, 255, 255, 0.08);
   /* 执行轨迹耗时条三态：默认中性灰（黑白体系不引入强调色），
      慢/失败为低饱和语义色，避免纯黑白实条突兀 */
@@ -30,7 +31,7 @@
   --color-success: #34d399;
   --color-danger: #f47b6e;
   --color-warning: #fbbf24;
-  --color-code-bg: #0d1013;
+  --color-code-bg: #1c1c1c;
   --color-code-text: #d8dee6;
   --color-switch-off: rgba(255, 255, 255, 0.14);
   --color-switch-thumb: #ffffff;

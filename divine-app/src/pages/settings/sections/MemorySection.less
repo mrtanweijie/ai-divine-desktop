@@ -263,11 +263,14 @@
 .settings-memory .settings-memory-panel {
   display: flex;
   flex-direction: column;
+  /* 收起的标题行不可压缩，保证展开的 panel 拿到全部剩余空间 */
+  flex-shrink: 0;
 }
 
 .settings-memory .settings-memory-panel.is-open {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .settings-memory .settings-memory-panel.is-open .settings-memory-panel-body {
