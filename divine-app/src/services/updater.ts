@@ -38,8 +38,6 @@ export interface UpdaterState {
   message: string;
   errorStage: UpdaterErrorStage | null;
   update: Update | null;
-  bannerDismissed: boolean;
-  dismissedVersion: string;
 }
 
 const initialState: UpdaterState = {
@@ -50,8 +48,6 @@ const initialState: UpdaterState = {
   message: "",
   errorStage: null,
   update: null,
-  bannerDismissed: false,
-  dismissedVersion: "",
 };
 
 let state = initialState;
@@ -138,7 +134,6 @@ export async function checkForUpdates(): Promise<void> {
     const found = await check({ timeout: 30_000 });
     currentUpdate = found;
     if (found) {
-      const sameDismissed = state.bannerDismissed && state.dismissedVersion === found.version;
       setState({
         status: "available",
         version: found.version,
@@ -147,8 +142,6 @@ export async function checkForUpdates(): Promise<void> {
         message: "",
         errorStage: null,
         update: found,
-        bannerDismissed: sameDismissed,
-        dismissedVersion: found.version,
       });
     } else {
       setState({
@@ -159,8 +152,6 @@ export async function checkForUpdates(): Promise<void> {
         message: "",
         errorStage: null,
         update: null,
-        bannerDismissed: false,
-        dismissedVersion: "",
       });
     }
   } catch (error) {
@@ -173,8 +164,6 @@ export async function checkForUpdates(): Promise<void> {
       message: reportFailure("检查更新", error),
       errorStage: "check",
       update: null,
-      bannerDismissed: false,
-      dismissedVersion: "",
     });
   } finally {
     busy = false;
@@ -228,21 +217,9 @@ export async function downloadAndInstallUpdate(): Promise<void> {
     // 替换 bundle 之前先放掉后端进程，避免安装阶段被占用文件挡住
     await controlSidecar("stop_sidecar");
     await withTimeout(target.downloadAndInstall(onEvent), INSTALL_TIMEOUT_MS);
+    // 装好就停在这里，**不自动重启**：用户可能正在对话/生成任务，
+    // 由侧栏「设置」行右侧的重启图标（或设置页的「立即重启」）手动触发。
     setState({ ...state, status: "downloaded", progress: 100, message: "", errorStage: null });
-    try {
-      await relaunch();
-    } catch (error) {
-      // 包已经装好了，只是没能自动重启 —— 这不是「更新失败」，
-      // 让用户手动退出重开即可（否则会误报失败，还会让人以为是安装坏了）。
-      // 重启失败时把后端拉回来，别留一个没有后端的窗口。
-      await controlSidecar("start_sidecar");
-      setState({
-        ...state,
-        status: "downloaded",
-        progress: 100,
-        message: reportFailure("自动重启", error),
-      });
-    }
   } catch (error) {
     // 安装没成功 → 恢复后端，用户还能继续用当前版本
     await controlSidecar("start_sidecar");
@@ -262,12 +239,26 @@ export async function downloadAndInstallUpdate(): Promise<void> {
   }
 }
 
-export function dismissUpdateBanner(): void {
-  setState({
-    ...state,
-    bannerDismissed: true,
-    dismissedVersion: state.version,
-  });
+/**
+ * 重启用新版本（手动触发）。
+ *
+ * 下载完成后不再自动重启（2026-11-04）：安装包已就位时用户可能正在对话、
+ * 正在生成任务，突然重启会打断工作。失败时要区分「已安装但没起来」，
+ * 并把 sidecar 拉回来，别留一个没有后端的窗口。
+ */
+export async function restartToApplyUpdate(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    await relaunch();
+  } catch (error) {
+    await controlSidecar("start_sidecar");
+    setState({
+      ...state,
+      status: "downloaded",
+      progress: 100,
+      message: reportFailure("重启", error),
+    });
+  }
 }
 
 export function startUpdaterAutoCheck(): void {

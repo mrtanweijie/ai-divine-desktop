@@ -2,6 +2,7 @@ import { Clock, Clapperboard, MessageSquareQuote, Settings, Sparkles } from "luc
 import { useTranslation } from "react-i18next";
 import { Flex } from "@/components/ui/Flex";
 import type { Project, Session } from "@/types";
+import { UpdateIndicator } from "@/components/UpdateIndicator";
 import { ProjectList } from "./ProjectList";
 
 import "./index.less";
@@ -167,6 +168,8 @@ export function SessionList({
             <Settings size={15} />
             <span>{t("session.settings", "设置")}</span>
           </div>
+          {/* 更新状态（2026-11-04）：下载中只转圈、下载完成点重启，不再用浮层提示 */}
+          <UpdateIndicator />
         </div>
       </div>
     </aside>

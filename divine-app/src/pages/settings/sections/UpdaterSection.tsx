@@ -1,7 +1,12 @@
 import { AlertTriangle, Download, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
-import { checkForUpdates, downloadAndInstallUpdate, useUpdaterState } from "@/services/updater";
+import {
+  checkForUpdates,
+  downloadAndInstallUpdate,
+  restartToApplyUpdate,
+  useUpdaterState,
+} from "@/services/updater";
 import "./UpdaterSection.less";
 
 export function UpdaterSection() {
@@ -39,7 +44,12 @@ export function UpdaterSection() {
         )}
         {updater.status === "available" && (
           <Button variant="primary" size="small" onClick={() => void downloadAndInstallUpdate()}>
-            {t("updater.downloadAndRestart", "下载并重启")}
+            {t("updater.download", "下载更新")}
+          </Button>
+        )}
+        {updater.status === "downloaded" && (
+          <Button variant="primary" size="small" onClick={() => void restartToApplyUpdate()}>
+            {t("updater.restartNow", "立即重启")}
           </Button>
         )}
         {updater.status !== "idle" && updater.status !== "checking" && (
@@ -71,7 +81,7 @@ export function UpdaterSection() {
                 <span>
                   {updater.message
                     ? t("updater.manualRestart", "更新已安装，请手动退出并重新打开应用")
-                    : t("updater.restarting", "更新完成，正在重启...")}
+                    : t("updater.installed", "更新已安装，重启后生效")}
                 </span>
               </>
             )}

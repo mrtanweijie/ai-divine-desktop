@@ -1,6 +1,5 @@
 import { Outlet } from "react-router";
 import { Toaster } from "@/components/ui/Toast";
-import { UpdateBanner } from "@/components/UpdateBanner";
 import { startUpdaterAutoCheck } from "@/services/updater";
 import { startTaskReminderPolling } from "@/services/scheduledTasks";
 import { getSettings } from "@/services/api";
@@ -32,7 +31,6 @@ export function AppLayout() {
     <>
       <Outlet />
       <Toaster />
-      <UpdateBanner />
     </>
   );
 }
