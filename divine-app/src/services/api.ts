@@ -22,6 +22,7 @@ import type {
 } from "@/types";
 import { parseUISurfaceIR } from "@/pages/chat/components/UISurface/parseUISurface";
 import { changedFilePathsFromResult } from "@/pages/chat/chatUtils";
+import { isImageResultTool } from "@/pages/chat/toolNames";
 import type { UISurface, UISurfaceStatus } from "@/pages/chat/components/UISurface/types";
 import { isTauri, openUrl } from "@/services/tauri";
 import { API_BASE, apiBase, request } from "@/services/request";
@@ -524,7 +525,7 @@ function toToolEvent({ run, result, command }: PreparedRun): ToolEvent {
   // 图像生成（036）：历史回放也要出卡片墙——产物路径只在结果 JSON 里
   // （filepath / data.images），后端 tool 事件本身不带 files 字段。
   const imageFiles =
-    run.tool_name === "image_generate" && run.status === "done"
+    isImageResultTool(run.tool_name) && run.status === "done"
       ? changedFilePathsFromResult(result).map((path) => ({
           name: path.split("/").pop() ?? path,
           path,
@@ -654,9 +655,85 @@ export function messagesToChatMessages(
     }
     return lo;
   };
+  // 工具 run 只能挂到一条消息上：动作回合的消息 created_at 全是**落库时刻**
+  // （常常同一秒），与 run 的真实执行时间可能差几分钟，靠时间窗口会让同一批 run
+  // 在好几条空 assistant 上重复出现。用 consumed 做全局去重。
+  const consumedRuns = new Set<number>();
+  const collectTools = (startMs: number, endMs: number): ToolEvent[] => {
+    const hits: number[] = [];
+    for (let offset = lowerBound(startMs); offset < byStart.length; offset += 1) {
+      const item = runAt(offset);
+      if (item.startedMs > endMs) break;
+      if (!consumedRuns.has(item.index)) hits.push(item.index);
+    }
+    hits.sort((a, b) => a - b);
+    for (const runIndex of hits) consumedRuns.add(runIndex);
+    return hits.map((runIndex) => toToolEvent(prepared[runIndex]));
+  };
+
+  /**
+   * 面板动作回合（source=surface_action）：一次「开始生成」会落一群消息
+   * （tool_result + 空正文 assistant + 最终总结），created_at 全是落库时刻。
+   *
+   * 原先整段 `return` 跳过——面板不会重复，但**回合里产出的图片/文件也一起消失**
+   * （2026-11-06：两张海报刷新后看不到）。现在合并成一条：正文拼接、工具收齐；
+   * 只有「纯面板刷新」（无正文无工具）才不产生气泡。
+   */
+  let actionMessage: {
+    id: string;
+    created_at: string;
+    content: string;
+    think?: string;
+    tools: ToolEvent[];
+  } | null = null;
+
+  const flushAction = () => {
+    if (!actionMessage) return;
+    const { id, created_at, content, think, tools } = actionMessage;
+    actionMessage = null;
+    if (!content.trim() && tools.length === 0) return;
+    chatMessages.push({
+      id,
+      role: "assistant",
+      content,
+      created_at,
+      think,
+      files: [],
+      preprocess: undefined,
+      tools,
+      subagents: subagentsFromToolRuns(tools),
+      browser_steps: browserStepsFromToolRuns(tools),
+      choice_state: {},
+      surfaces: [],
+      surface_note: undefined,
+      source: SURFACE_ACTION_SOURCE,
+      token_usage: undefined,
+    });
+  };
+
   messages.forEach((message, index) => {
-    // 面板动作回合（见 SURFACE_ACTION_SOURCE 的说明）：整条跳过。
-    if (message.source === SURFACE_ACTION_SOURCE) return;
+    // —— 面板动作回合：合并成一条（见 flushAction 的说明）——
+    if (message.source === SURFACE_ACTION_SOURCE) {
+      if (message.role !== "assistant") return; // tool_result 只是内部往返
+      const thinkPart = message.parts.find((part) => part.type === "think");
+      const windowStart = currentUserIndex >= 0 ? messageMs[currentUserIndex] : 0;
+      const tools = collectTools(windowStart, messageMs[index]);
+      actionMessage ??= {
+        id: message.id,
+        created_at: message.created_at,
+        content: "",
+        tools: [],
+      };
+      // 以最后一条为准：面板最终态与总结正文都在最后
+      actionMessage.id = message.id;
+      actionMessage.created_at = message.created_at;
+      actionMessage.content += message.content;
+      if (thinkPart) actionMessage.think = thinkPart.content;
+      actionMessage.tools.push(...tools);
+      return;
+    }
+
+    flushAction();
     if (
       message.role === "tool" ||
       (message.role === "assistant" &&
@@ -676,17 +753,7 @@ export function messagesToChatMessages(
       // 导致同一次工具运行同时落进两条消息的窗口，工具卡片重复展示。
       const start = messageMs[currentUserIndex];
       const end = messageMs[index];
-      // byStart 按 startedMs 升序：二分到第一个 >= start 的位置后顺序扫到 > end，
-      // 命中集合与原先的 filter(started >= start && started <= end) 完全一致。
-      const hits: number[] = [];
-      for (let offset = lowerBound(start); offset < byStart.length; offset += 1) {
-        const item = runAt(offset);
-        if (item.startedMs > end) break;
-        hits.push(item.index);
-      }
-      // 还原 toolRuns 的原始顺序（原先 filter 保序，UI 工具卡顺序依赖它）
-      hits.sort((a, b) => a - b);
-      tools.push(...hits.map((runIndex) => toToolEvent(prepared[runIndex])));
+      tools.push(...collectTools(start, end));
     }
     chatMessages.push({
       id: message.id,
@@ -737,6 +804,7 @@ export function messagesToChatMessages(
       token_usage: message.token_usage,
     });
   });
+  flushAction();
   return resolveSurfaces(chatMessages, liveSurfaces);
 }
 

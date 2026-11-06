@@ -10,11 +10,12 @@ import {
   Box,
   Brain,
   Calculator,
-  Clapperboard,
   CalendarClock,
   CalendarDays,
   CircleDollarSign,
+  CircleLetterP,
   CircleStop,
+  Clapperboard,
   Copy,
   Database,
   FileBox,
@@ -40,6 +41,7 @@ import {
   Group,
   Image,
   ImageDown,
+  ImageUp,
   LibraryBig,
   ListOrdered,
   ListTree,
@@ -52,9 +54,9 @@ import {
   Regex,
   ScanSearch,
   ScrollText,
-  Stamp,
   SquareKanban,
   SquareMousePointer,
+  Stamp,
   StickyNote,
   Table2,
   TerminalSquare,
@@ -104,7 +106,13 @@ export function toolIcon(tool: string) {
   if (tool.includes("spreadsheet") || tool.includes("excel")) return <FileSpreadsheet size={16} />;
   if (tool.includes("notes")) return <StickyNote size={16} />;
   if (tool === "read_file") return <BookMarked size={16} />;
-  if (tool.includes("read_image") || tool.includes("image")) return <Image size={16} />;
+  // 商品海报（039）：出图与普通出图共用 Image 图标；参数面板用圆形字标 P
+  // （lucide `circle-letter-p`）
+  if (tool === "poster_generate") return <Image size={16} />;
+  if (tool === "poster_brief") return <CircleLetterP size={16} />;
+  // 识图（read_image）：图片 + 上箭头 =「把图读进来」，与出图（Image）区分
+  if (tool === "read_image") return <ImageUp size={16} />;
+  if (tool.includes("image")) return <Image size={16} />;
   if (tool.includes("calculator")) return <Calculator size={16} />;
   if (tool.includes("clipboard")) return <Copy size={16} />;
   if (tool.includes("sqlite") || tool.includes("database")) return <Database size={16} />;

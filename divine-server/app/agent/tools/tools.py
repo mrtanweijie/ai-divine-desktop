@@ -65,6 +65,8 @@ _CONTENT_TOOLS: dict[str, str | tuple[str, ...]] = {
     "spreadsheet": "document",
     "image_generate": "image",
     "image_brief": "image",
+    "poster_brief": "image",
+    "poster_generate": "image",
     "image_resize": "image",
     "video_generate": "video",
     "video_brief": "video",

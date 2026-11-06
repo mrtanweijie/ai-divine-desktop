@@ -124,6 +124,8 @@ export interface ToolEvent {
   turn_start?: number;
   /** 合并卡内失败次数（重试链聚合） */
   failed_count?: number;
+  /** 出图合并卡里**还没出结果**的运行数：卡片墙据此画骨架格（2026-11-06） */
+  pending_images?: number;
   /** tool_runs.id，done/error 时携带 */
   run_id?: string;
   /** 工具开始时间（ISO8601），done/error 时携带 */

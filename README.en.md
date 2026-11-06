@@ -57,6 +57,7 @@ Default ports:
 - Interactive panels (A2UI): `render_ui` composes "text + badges + table + progress + stepper + input controls" into a single panel where the user can change parameters and click buttons, and the interaction carries the panel's current state back into the conversation — closing the "see → adjust → see again" loop. Master switch: `ui_a2ui_enabled`
 - Image generation: `image_brief` first shows a parameter panel (reference image / count / aspect ratio / prompt optimization) whose options are trimmed to what the active model supports — unsupported items are simply not rendered; after confirmation `image_generate` produces the images (MiniMax image-01 / GLM-Image). Results appear as a card grid with click-to-enlarge, labeled with the model used and the original dimensions
 - Video generation: `video_brief` first shows a parameter panel (material source / article URL / first-last frames / aspect ratio / resolution / duration / subtitles / voice-over script); after confirmation `video_generate` **returns immediately** while polling and downloading continue in the background (concurrency capped at 2; tasks older than 30 minutes are treated as expired). The "Generation tasks" board tracks progress in one place, with modal playback, failure reasons, retry, and delete (double confirmation). P1 only emits sidecar `.srt` subtitles and a `.txt` narration script — subtitles are not burned into the video
+- Product posters: the `poster_brief` form (product image / name / selling points / style / ratio) feeds `poster_generate` — the product image drives a **text-free** base image, then the title and selling points are typeset server-side with a CJK system font, so no garbled characters; outputs 3:4 / 9:16 / 1:1
 
 ### Data & Retrieval
 
@@ -277,7 +278,7 @@ The frontend uses a mode-specific env file:
 
 ## Tool System
 
-107 tools are registered at present (growing and shrinking with MCP servers and skills), sorted by name:
+109 tools are registered at present (growing and shrinking with MCP servers and skills), sorted by name:
 
 | Tool                                  | Purpose                                                                                                                                                                                                      |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -330,6 +331,8 @@ The frontend uses a mode-specific env file:
 | `pdf_render`                          | Render Markdown into a typeset PDF (WeasyPrint, automatically falling back to the reportlab rich renderer on failure)                                                                                        |
 | `pdf_split_merge`                     | Split and merge PDFs                                                                                                                                                                                         |
 | `pdf_to_word`                         | Convert PDF text content into an editable Word document (headings / tables / lists preserved; scanned pages unsupported)                                                                                     |
+| `poster_brief`                        | Product poster form: product image (required) / name (required) / selling points / style / ratio; feedback calls `poster_generate`                                                                           |
+| `poster_generate`                     | Product poster: the product image drives a text-free base image, then the server typesets the title and selling points with a CJK font (no garbled characters)                                               |
 | `pptx_to_png`                         | Render each slide of a deck to PNG (no LibreOffice needed); scale, single page or output directory can be specified                                                                                          |
 | `presentation`                        | Generate a PPT deck (15 layouts; simple charts are embedded as native, editable PowerPoint charts)                                                                                                           |
 | `preview_skill_repo`                  | Read-only preview of the SKILL.md in a remote repository before deciding to install                                                                                                                          |

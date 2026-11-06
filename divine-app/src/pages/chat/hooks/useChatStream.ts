@@ -32,6 +32,7 @@ import {
   upsertSubAgent,
   upsertTool,
 } from "@/pages/chat/chatUtils";
+import { isImageResultTool } from "@/pages/chat/toolNames";
 import { parseA2UIFrame } from "@/pages/chat/components/UISurface/parseUISurface";
 import type { UISurface } from "@/pages/chat/components/UISurface/types";
 import { markSurfaceClosed, upsertSurface } from "@/pages/chat/state/surfaceStore";
@@ -292,7 +293,7 @@ export function useChatStream(options: UseChatStreamOptions) {
           if (event.status === "done" && event.result) {
             // 图像生成（036）：结果 JSON 里的产物路径补成 files，卡片墙才渲染得出来
             const imagePaths = changedFilePathsFromResult(event.result);
-            if (event.tool === "image_generate" && imagePaths.length) {
+            if (isImageResultTool(event.tool) && imagePaths.length) {
               event = {
                 ...event,
                 files: imagePaths.map((path) => ({

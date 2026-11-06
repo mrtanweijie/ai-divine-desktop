@@ -10,6 +10,11 @@ from langchain_core.messages import AIMessage, ToolMessage
 from ... import db
 from ..core import _content_text
 from ..core.constants import A2UI_TOOL_NAMES
+
+#: 面板 IR 可由「工具入参 + 当前配置」纯函数重建的工具（模块名与工具名一致）。
+_BRIEF_SURFACE_TOOLS: frozenset[str] = frozenset(
+    {"image_brief", "video_brief", "poster_brief"}
+)
 from ...llm.think_tags import strip_think_tags
 
 def _serialize_tool_calls(tool_calls: list[Any]) -> list[dict[str, Any]]:
@@ -69,20 +74,14 @@ def _collect_ui_surfaces(tool_calls: list[Any]) -> list[dict[str, Any]]:
                     validation = validate_ui_surface(rebuilt)
                     if validation.ok and validation.normalized:
                         surfaces.append(validation.normalized)
-            elif name == "image_brief":
-                # 参数面板（036）：入参几乎为空，面板由纯函数按当前配置重建
-                from ...tools.adapters.image_brief import surface_from_args
+            elif name in _BRIEF_SURFACE_TOOLS:
+                # 参数面板（036 图片 / 035 视频 / 海报）：入参几乎为空，
+                # 面板由各模块的纯函数按当前配置重建。
+                # 三个模块都导出同名 surface_from_args，按工具名 = 模块名取用，
+                # 新增同类面板只要把名字加进 _BRIEF_SURFACE_TOOLS。
+                from importlib import import_module
 
-                rebuilt = surface_from_args(args)
-                if rebuilt:
-                    validation = validate_ui_surface(rebuilt)
-                    if validation.ok and validation.normalized:
-                        surfaces.append(validation.normalized)
-            elif name == "video_brief":
-                # 视频参数面板（035 §7）：同 image_brief，纯函数重建
-                from ...tools.adapters.video_brief import surface_from_args
-
-                rebuilt = surface_from_args(args)
+                rebuilt = import_module(f"app.tools.adapters.{name}").surface_from_args(args)
                 if rebuilt:
                     validation = validate_ui_surface(rebuilt)
                     if validation.ok and validation.normalized:

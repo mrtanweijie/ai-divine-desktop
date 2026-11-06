@@ -416,6 +416,7 @@ def test_a2ui_tool_names_covers_all_panel_tools() -> None:
         "flight_board",
         "image_brief",
         "video_brief",
+        "poster_brief",
     }
 
 

@@ -57,6 +57,8 @@ from .pdf_form_generate import PdfFormGenerateAdapter  # noqa: F401
 from .pdf_split_merge import PdfSplitMergeAdapter  # noqa: F401
 from .pdf_render import PdfRenderAdapter  # noqa: F401
 from .pdf_to_word import PdfToWordAdapter  # noqa: F401
+from .poster_brief import PosterBriefAdapter  # noqa: F401
+from .poster_generate import PosterGenerateAdapter  # noqa: F401
 from .presentation import PresentationAdapter  # noqa: F401
 from .pptx_to_png import PptxToPngAdapter  # noqa: F401
 from .rag_index import RagIndexAdapter  # noqa: F401

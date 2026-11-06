@@ -131,6 +131,7 @@ A2UI_TOOL_NAMES: tuple[str, ...] = (
     "flight_board",
     "image_brief",
     "video_brief",
+    "poster_brief",
 )
 
 _NO_PLAN_TOOLS = {

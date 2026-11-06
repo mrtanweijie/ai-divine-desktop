@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import i18next from "@/i18n";
 import { type GraphIR, parseGraphIR } from "@/pages/chat/components/GraphBlock/GraphIR";
+import { imageFilesOf, isImageResultTool } from "@/pages/chat/toolNames";
 import { isTauri, openUrl } from "@/services/tauri";
 import type { ToolEvent, ToolFileLink } from "@/types";
 
@@ -224,6 +225,22 @@ function mergedCountMessage(tool: ToolEvent, count: number): string {
 export function groupToolCards(tools: ToolEvent[]): ToolEvent[] {
   const grouped: ToolEvent[] = [];
   for (const tool of tools) {
+    // 出图运行（image_generate / poster_generate）：整条链（含**还在跑**的那一轮）
+    // 全部合并进同一张卡片墙（2026-11-06）。此前一张卡只认一次调用的产物：
+    // 模型分两轮出两张海报 → 两个大白卡各装一张小图；第三轮开跑时又单独冒出一张
+    // 「正在调用」卡，图生成完才跳回上面合并（用户两次反馈）。
+    // 只合并**紧邻**的同名运行：中间夹了别的工具就按真实顺序各占一卡，避免图片
+    // 抢跑到无关工具的结论之前。
+    if (isImageResultTool(tool.tool)) {
+      const images = imageFilesOf(tool);
+      const previous = grouped[grouped.length - 1];
+      if (previous && previous.tool === tool.tool && isImageResultTool(previous.tool)) {
+        grouped[grouped.length - 1] = mergeImageRuns(previous, tool);
+        continue;
+      }
+      grouped.push({ ...tool, files: images, count: images.length });
+      continue;
+    }
     // 白名单工具 + generate_chart 的 SVG 导出运行走全局合并
     const groupable = GROUPABLE_TOOLS.has(tool.tool) || isSvgChartRun(tool);
     if (!groupable) {
@@ -307,6 +324,77 @@ function mergeRetryChain(existing: ToolEvent, tool: ToolEvent): ToolEvent {
           count: failed,
         })
       : tool.message,
+  };
+}
+
+/**
+ * 出图运行合并：整条出图链汇到一张卡片墙。
+ *
+ * 只合并**紧邻**的同名出图运行（见 groupToolCards），所以图片顺序 = 生成顺序，
+ * 位置仍是第一次出图的位置。三类成员各有归宿：
+ * - 已出图（done + 产物）：并进 `files`，卡片头统一「已生成 N 张图片」；
+ * - 还在跑（running / preparing）：不产文件，只占一格骨架（`pending_images`），
+ *   卡片保持运行态——否则会出现「上面 2 张图说已完成，下面又冒出一张正在调用」；
+ * - 失败（error）：不计图，只累加 `failed_count`（右侧 meta 的「失败 ×N」），
+ *   单图链保留「重试 N 次后成功」的措辞。
+ *
+ * `count` 在这里是「状态行是否走 message」的开关（ToolStatusCard 判 `>1`），
+ * 取「图 + 在跑的 + 失败」的总数，不对外展示。
+ */
+function mergeImageRuns(existing: ToolEvent, tool: ToolEvent): ToolEvent {
+  const pendingRun = tool.status === "running" || tool.status === "preparing";
+  const images = imageFilesOf(tool);
+  const files = [
+    ...new Map([...imageFilesOf(existing), ...images].map((file) => [file.path, file])).values(),
+  ];
+  const pending = (existing.pending_images ?? 0) + (pendingRun ? 1 : 0);
+  const failed =
+    (existing.failed_count ?? (existing.status === "error" ? 1 : 0)) +
+    (tool.status === "error" ? 1 : 0);
+  const durationMs =
+    existing.duration_ms != null || tool.duration_ms != null
+      ? (existing.duration_ms ?? 0) + (tool.duration_ms ?? 0)
+      : undefined;
+  // 有新一轮在跑就回到运行态；本轮没出图（纯失败）不改已有结论（图还在）；
+  // 本轮出图了但墙上还有并行的一轮在跑，就继续显示运行态等它跑完
+  const status = pendingRun
+    ? "running"
+    : images.length > 0
+      ? existing.status === "running" || existing.status === "preparing"
+        ? existing.status
+        : tool.status
+      : existing.status;
+  let message: string;
+  if (pendingRun) {
+    message =
+      files.length > 0
+        ? `${i18next.t("tool.imageGeneratedCount", "已生成 {{count}} 张图片", {
+            count: files.length,
+          })} · ${i18next.t("tool.generatingShort", "生成中")}`
+        : tool.message;
+  } else if (files.length > 1) {
+    message = i18next.t("tool.imageGeneratedCount", "已生成 {{count}} 张图片", {
+      count: files.length,
+    });
+  } else if (files.length === 1 && failed > 0) {
+    message = i18next.t("tool.retriedSuccess", "重试 {{count}} 次后成功", { count: failed });
+  } else if (files.length === 0) {
+    message = tool.message;
+  } else {
+    message = existing.message;
+  }
+  return {
+    ...existing,
+    ...tool,
+    status,
+    result: tool.result ?? existing.result,
+    files,
+    count: files.length + pending + failed,
+    failed_count: failed,
+    pending_images: pending || undefined,
+    turn_start: existing.turn_start ?? existing.turn,
+    duration_ms: durationMs,
+    message,
   };
 }
 

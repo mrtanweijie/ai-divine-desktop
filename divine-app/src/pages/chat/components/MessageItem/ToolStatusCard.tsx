@@ -20,6 +20,7 @@ import {
 import { ToolCommands } from "./ToolCommands";
 import { ToolConfirmSection } from "./ToolConfirmSection";
 import { ImageResultGrid } from "./ImageResultGrid";
+import { imageFilesOf, isImageResultTool } from "@/pages/chat/toolNames";
 import { ToolFileList, ToolResultFile } from "./ToolFileList";
 import { VideoTaskCard } from "./VideoTaskCard";
 import { toolIcon } from "./ToolStatusIcon";
@@ -63,9 +64,10 @@ export const ToolStatusCard = memo(function ToolStatusCard({
     tool.tool === "edit_files" ||
     (tool.tool === "generate_chart" && (tool.files?.length ?? 0) > 1);
   const hasFiles = collapsibleFiles && (tool.files?.length ?? 0) > 0;
-  // 图像生成（036）：成功后用一行 4 张的卡片缩略图替代文件行
-  const isImageResult =
-    tool.tool === "image_generate" && tool.status === "done" && (tool.files?.length ?? 0) > 0;
+  // 图像生成（036）：成功后用一行 4 张的卡片缩略图替代文件行。
+  // 不判 `status === "done"`：合并卡在后继那一轮还在跑时是 running 态，
+  // 此时仍要把已出的图 + 一格骨架铺出来（2026-11-06 用户反馈）。
+  const isImageResult = isImageResultTool(tool.tool) && imageFilesOf(tool).length > 0;
   // 视频生成（035）：提交后由 media_tasks 驱动状态，完成后就地变播放器
   const isVideoTask =
     tool.tool === "video_generate" && tool.status === "done" && Boolean(tool.result?.data?.task_id);
@@ -300,7 +302,7 @@ export const ToolStatusCard = memo(function ToolStatusCard({
         tool.tool !== "web_task" && // 浏览器任务的结果行（"浏览器任务完成"）不展示
         tool.tool !== "web_fetch" &&
         tool.tool !== "web_fetch_batch" &&
-        tool.tool !== "image_generate" && // 图片结果由卡片墙表达，"图片已生成"是冗余行（2026-11-04）
+        !isImageResultTool(tool.tool) && // 图片/海报结果由卡片墙表达，结果行是冗余（2026-11-04）
         tool.tool !== "video_generate" && (
           <Flex align="center" gap={8} className="tool-result-actions">
             {chartIcon ?? icon}

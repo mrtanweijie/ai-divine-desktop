@@ -5,7 +5,9 @@ import { memo, useState } from "react";
 import { FolderOpen, Maximize2, MoreHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
+import { LoadingOrb } from "@/components/ui/LoadingOrb";
 import { Tag } from "@/components/ui/Tag";
+import { imageFilesOf } from "@/pages/chat/toolNames";
 import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { API_BASE } from "@/services/request";
 import { isTauri, openFileLocation } from "@/services/tauri";
@@ -128,6 +130,20 @@ const ImageCard = memo(function ImageCard({
   );
 });
 
+/** 还在出图的那一格：与图片同宽同高，占位而不是另开一张卡（2026-11-06）。 */
+const PendingCard = memo(function PendingCard({ label }: { label: string }) {
+  return (
+    <div className="image-result-card is-pending" aria-busy="true">
+      <div className="image-result-thumb">
+        <div className="image-result-pending">
+          <LoadingOrb state="shaping" size={20} speed={2} />
+          <span>{label}</span>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export const ImageResultGrid = memo(function ImageResultGrid({
   tool,
   workspacePath,
@@ -137,16 +153,30 @@ export const ImageResultGrid = memo(function ImageResultGrid({
   workspacePath?: string | null;
   onPreviewFile?: (file: PreviewFile) => void;
 }) {
-  const files = (tool.files ?? []).filter((file) => file.path);
+  const { t } = useTranslation();
+  const files = imageFilesOf(tool);
+  // 合并卡里还有几轮没出结果（骨架格）。序号/总数只算真图（`1/2`），
+  // 正在生成的那格不参与计数，否则总数会随轮次来回跳。
+  const pending = tool.pending_images ?? 0;
   // 用的哪个模型（后端结果 JSON 的 provider/model，2026-11-04）
-  const modelInfo = tool.result as { provider?: string; model?: string } | undefined;
-  const modelLabel = [modelInfo?.provider, modelInfo?.model].filter(Boolean).join(" · ");
+  // 模型标识：脚本类工具（image_generate）把 provider/model 放在结果顶层；
+  // 原生 adapter（poster_generate）放在 data 里，两处都读（2026-11-05）
+  const modelInfo = tool.result as
+    { provider?: string; model?: string; data?: { provider?: string; model?: string } } | undefined;
+  const modelLabel = [
+    modelInfo?.provider ?? modelInfo?.data?.provider,
+    modelInfo?.model ?? modelInfo?.data?.model,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   if (files.length === 0) return null;
 
+  const label = t("tool.generatingShort", "生成中");
+
   return (
     <div className="image-result">
-      <div className={`image-result-grid${files.length === 1 ? " is-single" : ""}`}>
+      <div className={`image-result-grid${files.length + pending === 1 ? " is-single" : ""}`}>
         {files.map((file, index) => (
           <ImageCard
             key={file.path}
@@ -156,6 +186,9 @@ export const ImageResultGrid = memo(function ImageResultGrid({
             workspacePath={workspacePath}
             onPreviewFile={onPreviewFile}
           />
+        ))}
+        {Array.from({ length: pending }, (_, index) => (
+          <PendingCard key={`pending-${index}`} label={label} />
         ))}
       </div>
       {modelLabel ? (
