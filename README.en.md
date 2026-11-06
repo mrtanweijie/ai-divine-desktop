@@ -55,7 +55,7 @@ Default ports:
 - PPT: 15 layouts × 19 themes; per-page PNG preview (no LibreOffice needed); supports editing the text and titles of existing decks
 - Interactive diagrams: GraphIR contract plus frontend X6 rendering, covering 15 scenarios — process/decision flow, task DAG, data pipeline, state machine, org chart, mind map, topology, architecture, ER, swimlane, sequence, knowledge graph, UML class diagram, fishbone, and timeline; supports node details, data-flow animation and PNG/SVG export
 - Interactive panels (A2UI): `render_ui` composes "text + badges + table + progress + stepper + input controls" into a single panel where the user can change parameters and click buttons, and the interaction carries the panel's current state back into the conversation — closing the "see → adjust → see again" loop. Master switch: `ui_a2ui_enabled`
-- Image generation: `image_brief` first shows a parameter panel (reference image / count / aspect ratio / prompt optimization) whose options are trimmed to what the active model supports — unsupported items are simply not rendered; after confirmation `image_generate` produces the images (MiniMax image-01 / GLM-Image). Results appear as a card grid with click-to-enlarge, labeled with the model used and the original dimensions
+- Image generation: `image_brief` first shows a parameter panel (reference image / count / aspect ratio / prompt optimization) whose options are trimmed to what the active model supports — unsupported items are simply not rendered; after confirmation `image_generate` produces the images (MiniMax image-01 / GLM-Image). Results appear as a card grid with click-to-enlarge, labeled with the model used and the original dimensions; every round of a task (retries included) lands in the same grid, with the round still running shown as a placeholder that turns into the image in place
 - Video generation: `video_brief` first shows a parameter panel (material source / article URL / first-last frames / aspect ratio / resolution / duration / subtitles / voice-over script); after confirmation `video_generate` **returns immediately** while polling and downloading continue in the background (concurrency capped at 2; tasks older than 30 minutes are treated as expired). The "Generation tasks" board tracks progress in one place, with modal playback, failure reasons, retry, and delete (double confirmation). P1 only emits sidecar `.srt` subtitles and a `.txt` narration script — subtitles are not burned into the video
 - Product posters: the `poster_brief` form (product image / name / selling points / style / ratio) feeds `poster_generate` — the product image drives a **text-free** base image, then the title and selling points are typeset server-side with a CJK system font, so no garbled characters; outputs 3:4 / 9:16 / 1:1
 
@@ -563,14 +563,22 @@ All captured from real local runs (dark and light themes as appropriate; setting
 
 **Image generation: parameter panel and result grid** — tools: `image_brief`, `image_generate`
 
+![Image generation parameter panel](screenshots/21.png)
+
 ![Image generation result grid](screenshots/13.png)
 
-![Image generation parameter panel](screenshots/14.png)
+![Multiple rounds merged into one grid, with the running round shown as a placeholder](screenshots/20.png)
+
+**Video generation: from research to final cut** — tools: `web_search`, `video_brief`, `web_fetch`, `video_generate`
+
+![Video generation: from research to final cut](screenshots/17.png)
 
 **Video generation parameter panel** — tool: `video_brief` (source / first-last frames / ratio / resolution / duration / subtitles)
 
 ![Video generation parameter panel](screenshots/15.png)
 
+![Video parameter panel: ratio, duration and voice-over script](screenshots/18.png)
+
 **Generation tasks board** — tool: `video_generate` (background progress, playback, failure reason and retry)
 
-![Generation tasks board](screenshots/16.png)
+![Generation tasks board](screenshots/19.png)
